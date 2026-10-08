@@ -6,7 +6,7 @@ import { useSettings, useVouchers } from '../lib/data'
 import { tasksFor } from '../lib/ledger'
 import { be, todayISO, yearOf } from '../lib/money'
 import { initialYear, saveYear, YearContext } from '../lib/year'
-import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMore, IconReceipt, IconWallet } from './Icons'
+import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMore, IconReceipt, IconWallet, Logo } from './Icons'
 
 const FULL = [
   { to: '/', label: 'หน้าแรก', Icon: IconHome, end: true },
@@ -51,7 +51,7 @@ export default function AppShell() {
       <div className="app">
         <header className="topbar">
           {ROOTS.includes(pathname) ? (
-            <Link to="/" className="topbar__title">บัญชีคริสตจักร</Link>
+            <Link to="/" className="topbar__logo" aria-label="หน้าแรก บัญชีคริสตจักร"><Logo /></Link>
           ) : (
             <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="ย้อนกลับ"><IconBack /></button>
           )}

@@ -1,3 +1,4 @@
+import './lib/install' // เก็บคำขอติดตั้งแอปของ Chrome ตั้งแต่เปิดหน้า
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'

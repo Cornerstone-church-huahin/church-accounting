@@ -4,6 +4,7 @@ import { useAccounts, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds,
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
+import InstallApp from '../components/InstallApp'
 import { be } from '../lib/money'
 import { useYear } from '../lib/year'
 
@@ -15,6 +16,7 @@ export default function Settings() {
   return (
     <>
       <div className="page-head"><h1>ตั้งค่า</h1></div>
+      <section className="card" aria-labelledby="h-inst"><h2 id="h-inst">📲 ติดตั้งเป็นแอป</h2><InstallApp /></section>
       <Connect />
       {cfg && <Members />}
       {can(role, 'settings') && <General />}
