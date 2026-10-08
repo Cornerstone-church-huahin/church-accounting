@@ -60,7 +60,7 @@ export default function Receive({ year }: { year: number }) {
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
     <li key={x.id}>
       <button type="button" className="item" style={{ width: '100%', textAlign: 'left' }} disabled={!canWrite} onClick={() => setForm({ entry: x, preset })}>
-        <span className="grow"><b>{typeName(x.typeId)}</b><br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note ? ` · ${x.note}` : ''}</span></span>
+        <span className="grow"><b>{typeName(x.typeId)}</b><br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
       </button>
     </li>
@@ -225,10 +225,9 @@ function SlipFlow({ year, inc, onClose }: { year: number; inc: ReturnType<typeof
     try { r = await readSlip(file, setPct) } catch { setMsg('ระบบอ่านสลิปไม่สำเร็จ — กรอกข้อมูลเองได้ในขั้นต่อไป') }
     const memo = r?.memo ?? ''
     const hit = memo ? types.list.find((t) => t.active && memo.includes(t.name.split(' ')[0])) : undefined
-    const noteParts = [r?.time ? `${r.time} น.` : '', memo].filter(Boolean)
     const missing = r ? [!r.date && 'วันที่', !r.amount && 'ยอดเงิน'].filter(Boolean) : []
     if (r && missing.length) setMsg(`อ่าน${missing.join('และ')}ไม่ได้ — กรุณากรอกเอง`)
-    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, note: noteParts.join(' · ') })
+    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo })
     setStage('confirm')
   }
   if (stage === 'confirm' && init) return (

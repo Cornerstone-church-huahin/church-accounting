@@ -37,6 +37,8 @@ export interface IncomeEntry extends SharedItem {
   roundId?: string
   /** บันทึกจากช่องไหนในหน้าแรก: manual = บันทึกด้วยมือ · slip = สลิป */
   source?: 'manual' | 'slip'
+  /** เวลาที่โอนตามสลิป (HH:mm) */
+  time?: string
 }
 
 export type RoundStatus = 'counting' | 'verified'
