@@ -9,7 +9,8 @@ import Sheet from '../components/Sheet'
 import { getBinary, getSync, putBinary } from '../lib/sync'
 import { addDays, newId, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
-import { IncomeForm } from './Income'
+import { IncomeForm, type SlipInit } from './Income'
+import { readSlip } from '../lib/slipOcr'
 
 type Sub = 'manual' | 'slip' | 'sheet' | null
 
@@ -26,6 +27,7 @@ export default function Receive({ year }: { year: number }) {
   const rounds = useRounds(year)
   const types = useIncomeTypes()
   const files = useSheetFiles(year)
+  const [pick, setPick] = useState(false)
   const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => {
@@ -88,8 +90,8 @@ export default function Receive({ year }: { year: number }) {
       )}
       {sub === 'slip' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกสลิป">
-          <div className="row row--between"><h2>2 · บันทึกสลิป</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, preset: 'slip' })}>＋ แนบสลิป</button>}</div>
-          <p className="muted small">สลิปโอนเงิน — แนบไปเรื่อย ๆ ระหว่างสัปดาห์ ระบุวันที่ของแต่ละสลิป</p>
+          <div className="row row--between"><h2>2 · บันทึกสลิป</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setPick(true)}>＋ แนบสลิป</button>}</div>
+          <p className="muted small">แนบรูปสลิปโอนเงินไปเรื่อย ๆ ระหว่างสัปดาห์ — ระบบอ่านวันที่ ยอด และเลขอ้างอิงจากสลิปให้ ท่านตรวจแล้วกดยืนยัน</p>
           {slips.length + unknown.length === 0 ? <p className="muted small">ยังไม่มีสลิปในสัปดาห์นี้</p> : <ul className="list">{[...slips, ...unknown].map((x) => row(x, 'slip'))}</ul>}
         </section>
       )}
@@ -155,6 +157,7 @@ export default function Receive({ year }: { year: number }) {
       </section>
 
       {attach && <AttachSheet year={year} entry={attach === 'new' ? null : attach} defaultDate={yearOf(todayISO()) === year ? todayISO() : sunday} files={files} onClose={() => setAttach(null)} />}
+      {pick && <SlipFlow year={year} inc={inc} onClose={() => setPick(false)} />}
       {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>
   )
@@ -205,6 +208,52 @@ function AttachSheet({ year, entry, defaultDate, files, onClose }: { year: numbe
         <button type="button" className="btn btn--gold grow" disabled={busy} onClick={save}>{busy ? 'กำลังอัปโหลด…' : 'บันทึก'}</button>
         {entry && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบไฟล์นี้?') && files.remove(entry.id)) onClose() }}>ลบ</button>}
       </div>
+    </Sheet>
+  )
+}
+
+/** แนบสลิป: เลือกรูป → ระบบอ่านในเครื่อง → ใส่ค่าให้ในฟอร์ม → ตรวจและยืนยัน */
+function SlipFlow({ year, inc, onClose }: { year: number; inc: ReturnType<typeof useIncome>; onClose: () => void }) {
+  const types = useIncomeTypes()
+  const [stage, setStage] = useState<'pick' | 'read' | 'confirm'>('pick')
+  const [pct, setPct] = useState(0)
+  const [init, setInit] = useState<SlipInit | null>(null)
+  const [msg, setMsg] = useState('')
+  const choose = async (file: File) => {
+    setStage('read'); setPct(0); setMsg('')
+    let r: Awaited<ReturnType<typeof readSlip>> | null = null
+    try { r = await readSlip(file, setPct) } catch { setMsg('ระบบอ่านสลิปไม่สำเร็จ — กรอกข้อมูลเองได้ในขั้นต่อไป') }
+    const memo = r?.memo ?? ''
+    const hit = memo ? types.list.find((t) => t.active && memo.includes(t.name.split(' ')[0])) : undefined
+    const noteParts = [r?.time ? `${r.time} น.` : '', memo].filter(Boolean)
+    const missing = r ? [!r.date && 'วันที่', !r.amount && 'ยอดเงิน'].filter(Boolean) : []
+    if (r && missing.length) setMsg(`อ่าน${missing.join('และ')}ไม่ได้ — กรุณากรอกเอง`)
+    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, note: noteParts.join(' · ') })
+    setStage('confirm')
+  }
+  if (stage === 'confirm' && init) return (
+    <>
+      {msg && <p className="role-toast" role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 100 }}>{msg}</p>}
+      <IncomeForm year={year} entry={null} preset="slip" init={init} inc={inc} onClose={onClose} />
+    </>
+  )
+  return (
+    <Sheet title="แนบสลิป" onClose={onClose}>
+      {stage === 'pick' ? (
+        <>
+          <p className="muted small">เลือกรูปสลิปโอนเงิน ระบบจะอ่านวันที่ ยอดเงิน และเลขอ้างอิงให้เอง (อ่านในเครื่อง รูปไม่ถูกส่งไปที่อื่น)</p>
+          <label className="btn btn--gold" style={{ display: 'block', textAlign: 'center' }}>
+            📷 เลือกรูปสลิป
+            <input type="file" accept="image/*" aria-label="เลือกรูปสลิป" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void choose(f) }} />
+          </label>
+        </>
+      ) : (
+        <div role="status" aria-live="polite">
+          <p><b>กำลังอ่านสลิป…</b></p>
+          <progress value={pct} max={1} style={{ width: '100%' }} />
+          <p className="muted small">ครั้งแรกอาจนานขึ้นเล็กน้อยเพราะต้องโหลดตัวอ่านภาษาไทย</p>
+        </div>
+      )}
     </Sheet>
   )
 }

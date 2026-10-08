@@ -27,7 +27,13 @@ export default defineConfig({
         ],
       },
       // cache เฉพาะตัวแอป ห้าม cache ข้อมูลบัญชี/รูปใบเสร็จ (ต้องมาจาก repo ข้อมูลเท่านั้น)
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png}'], navigateFallback: 'index.html' },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png}'],
+        // ไฟล์อ่านสลิป (OCR) ใหญ่ ไม่ใส่ในชุดโหลดแรก — เก็บแคชเมื่อใช้ครั้งแรก
+        globIgnores: ['ocr/**'],
+        navigateFallback: 'index.html',
+        runtimeCaching: [{ urlPattern: ({ url }) => url.pathname.includes('/ocr/'), handler: 'CacheFirst', options: { cacheName: 'ocr-files', expiration: { maxEntries: 8 } } }],
+      },
     }),
   ],
   test: { include: ['src/**/*.test.ts'] },
