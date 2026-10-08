@@ -1,0 +1,48 @@
+/* Design tokens — ใช้โทนเดียวกับแอปคู่มือผู้ปกครอง: Navy · Gold · Parchment · หน่วย rem เพื่อขยายตัวอักษรได้ */
+:root {
+  --navy: #1a2b4c;
+  --gold: #d4af37;
+  --bg: #f9f8f5;
+  --surface: #ffffff;
+  --surface-2: #f1eee6;
+  --ink: #16213a;
+  --ink-soft: #414b62;
+  --line: #ddd7c8;
+  --accent-ink: #7a5f0e;
+  --bar-bg: var(--navy);
+  --bar-ink: #f9f8f5;
+  --focus: #2f6fd6;
+  --good: #1b6b3a;
+  --bad: #b3261e;
+  --warn-bg: #fff4d6;
+  --warn-ink: #4a3600;
+  --shadow: 0 1px 2px rgba(26, 43, 76, 0.08), 0 2px 8px rgba(26, 43, 76, 0.06);
+  /* สีกราฟ: ลำดับหมวดหมู่คงที่ (ฟ้า → ส้ม) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --ref: #8d93a3; /* ค่าอ้างอิง เช่น งบประมาณ — เทากลาง ไม่แย่งสีกับรายรับ/รายจ่าย */
+  --font-body: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', sans-serif;
+  --font-display: 'Pridi', 'Sarabun', 'Noto Serif Thai', serif;
+  --radius: 0.8rem;
+  --tap: 2.75rem;
+  --gutter: 16px;
+  --maxw: 46rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #111b30; --surface: #1a2743; --surface-2: #22314f; --ink: #f3efe4; --ink-soft: #c5c9d4; --line: #34446a;
+    --accent-ink: #e6c65c; --bar-bg: #0b1324; --shadow: none; --good: #62c585; --bad: #ff8a80;
+    --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #3987e5; --series-2: #d95926;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #111b30; --surface: #1a2743; --surface-2: #22314f; --ink: #f3efe4; --ink-soft: #c5c9d4; --line: #34446a;
+  --accent-ink: #e6c65c; --bar-bg: #0b1324; --shadow: none; --good: #62c585; --bad: #ff8a80;
+  --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #3987e5; --series-2: #d95926;
+}
+html { font-size: 16px; }
+html[data-scale='85'] { font-size: 13.5px; }
+html[data-scale='125'] { font-size: 19px; }
+html[data-scale='150'] { font-size: 22px; }
