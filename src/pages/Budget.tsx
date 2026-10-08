@@ -362,9 +362,9 @@ function NewBudget({ year, order, lines, income, fundTypeIds, onClose }: { year:
   return (
     <Sheet title="ตั้งงบใหม่" onClose={onClose}>
       <div className="field"><label htmlFor="nb-name">ชื่องบ</label><input id="nb-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ค่าสวัสดิการผู้รับใช้" autoFocus /></div>
-      <Sources totals={sumByType(income)} value={link} onChange={setLink} church={{ total: churchSum(income, fundTypeIds) }} />
       <div className="field"><label htmlFor="nb-got" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา (นอกเหนือจากแหล่งที่ติ๊ก)</label><MoneyInput id="nb-got" value={got} onChange={setGot} /></div>
-      <div className="field"><label htmlFor="nb-bud">② งบที่ตั้ง (แท่งกลาง) — ยังไม่ตั้งก็ปล่อยว่างได้ แท่งจะติดพื้น</label><MoneyInput id="nb-bud" value={budget} onChange={setBudget} /></div>
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} church={{ total: churchSum(income, fundTypeIds) }} />
+      <div className="field"><label htmlFor="nb-bud">② งบที่ตั้ง (แท่งเทา) — ยังไม่ตั้งก็ปล่อยว่างได้ แท่งจะติดพื้น</label><MoneyInput id="nb-bud" value={budget} onChange={setBudget} /></div>
       <div className="field"><label htmlFor="nb-sp" style={{ color: 'var(--series-2)' }}>③ จ่ายแล้ว (แท่งแดง) — ถ้ามีใช้ไปแล้ว</label><MoneyInput id="nb-sp" value={spent} onChange={setSpent} /></div>
       <BudgetCandles title={name.trim() || 'งบใหม่'} income={(got ?? 0) + linkedSum(income, link, fundTypeIds)} budget={budget ?? 0} spent={spent ?? 0} compact />
       {err && <p className="err" role="alert">{err}</p>}
@@ -397,14 +397,14 @@ function EditBudget({ row, focus, income, fundTypeIds, lines, adjs, onClose }: {
   return (
     <Sheet title={`แก้ไขงบ — ${row.line.name}`} onClose={onClose}>
       <div className="field"><label htmlFor="ed-name">ชื่องบ</label><input id="ed-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus={focus === 'name'} /></div>
-      <Sources totals={sumByType(income)} value={link} onChange={setLink} church={{ total: churchSum(income, fundTypeIds) }} />
       <div className="field">
         <label htmlFor="ed-in" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินยกมา/ที่มีอยู่แล้ว</label>
         <MoneyInput id="ed-in" value={openIn} onChange={setOpenIn} autoFocus={focus === 'in'} />
         <span className="foot-note">แท่งเขียวตอนนี้ {fmtBaht(liveIn)} = ยกมา {fmtBaht(openIn ?? 0)} + จากแหล่งที่ติ๊ก {fmtBaht(linkedSum(income, link, fundTypeIds))} + บันทึกตรง {fmtBaht(row.inParts.entries)} (รายการบันทึกตรงแก้ได้ในรายการใต้การ์ด)</span>
       </div>
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} church={{ total: churchSum(income, fundTypeIds) }} />
       <div className="field">
-        <label htmlFor="ed-bud">② งบที่ตั้ง (แท่งกลาง)</label>
+        <label htmlFor="ed-bud">② งบที่ตั้ง (แท่งเทา)</label>
         <MoneyInput id="ed-bud" value={budget} onChange={setBudget} autoFocus={focus === 'budget'} />
         <span className="foot-note">ใส่ 0 ถ้ายังไม่ตั้งงบ (แท่งจะติดพื้น) · ที่แก้จะบันทึกในประวัติการปรับงบ</span>
       </div>

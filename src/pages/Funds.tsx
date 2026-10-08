@@ -13,7 +13,7 @@ import { EntryList, EntrySheet, linkedSum, Sources, sumByType } from './Budget'
 const YEARS_BACK = 5 // รวมยอดย้อนหลัง 6 ปี (ปีที่เลือก + 5 ปีก่อนหน้า)
 
 /**
- * กองทุน: ตั้งเป้าหมาย (แท่งกลาง เช่น 6 ล้าน) · เงินถวายที่เข้ากองทุน (แท่งเขียว) · จ่ายออกจากกองทุน (แท่งแดง)
+ * กองทุน: ตั้งเป้าหมาย (แท่งเทา เช่น 6 ล้าน) · เงินถวายที่เข้ากองทุน (แท่งเขียว) · จ่ายออกจากกองทุน (แท่งแดง)
  * สะสมข้ามปี (ไม่แบ่งปีเหมือนงบ) · เพิ่ม/แก้/ลบได้ · เงินถวายเข้ากองทุนผ่านช่อง “ประเภทถวาย” ตอนบันทึกรายรับ
  */
 export default function FundsPage({ year }: { year: number }) {
@@ -135,10 +135,10 @@ function NewFund({ order, funds, types, income, onClose }: { order: number; fund
   return (
     <Sheet title="ตั้งกองทุนใหม่" onClose={onClose}>
       <div className="field"><label htmlFor="nf-name">ชื่อกองทุน</label><input id="nf-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น กองทุนซื้อที่ดิน / กองทุนสร้างอาคาร" autoFocus /></div>
+      <div className="field"><label htmlFor="nf-got" style={{ color: 'var(--series-1)' }}>① เก็บได้แล้ว (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา</label><MoneyInput id="nf-got" value={got} onChange={setGot} /></div>
       <label className="row"><input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} /> <span>สร้าง “ประเภทถวาย” ชื่อเดียวกับกองทุนนี้ให้ (ไว้เลือกตอนบันทึกรายรับ/ใบถวาย — เงินถวายประเภทนี้จะเข้ากองทุนนี้เอง)</span></label>
       <Sources totals={sumByType(income)} value={link} onChange={setLink} />
-      <div className="field"><label htmlFor="nf-target">② เป้าหมาย (แท่งกลาง) — เช่น 6,000,000 ยังไม่ตั้งก็ปล่อยว่างได้</label><MoneyInput id="nf-target" value={target} onChange={setTarget} /></div>
-      <div className="field"><label htmlFor="nf-got" style={{ color: 'var(--series-1)' }}>① เก็บได้แล้ว (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา</label><MoneyInput id="nf-got" value={got} onChange={setGot} /></div>
+      <div className="field"><label htmlFor="nf-target">② เป้าหมาย (แท่งเทา) — เช่น 6,000,000 ยังไม่ตั้งก็ปล่อยว่างได้</label><MoneyInput id="nf-target" value={target} onChange={setTarget} /></div>
       <div className="field"><label htmlFor="nf-sp" style={{ color: 'var(--series-2)' }}>③ จ่ายออกไปแล้ว (แท่งแดง) — ถ้ามี</label><MoneyInput id="nf-sp" value={spent} onChange={setSpent} /></div>
       <BudgetCandles fund title={name.trim() || 'กองทุนใหม่'} income={(got ?? 0) + linkedSum(income, link)} budget={target ?? 0} spent={spent ?? 0} compact />
       {err && <p className="err" role="alert">{err}</p>}
@@ -167,13 +167,13 @@ function EditFund({ row, focus, income, funds, types, onClose }: { row: ReturnTy
   return (
     <Sheet title={`แก้ไขกองทุน — ${row.line.name}`} onClose={onClose}>
       <div className="field"><label htmlFor="ef-name">ชื่อกองทุน</label><input id="ef-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus={focus === 'name'} /></div>
-      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
       <div className="field">
         <label htmlFor="ef-in" style={{ color: 'var(--series-1)' }}>① เก็บได้แล้ว (แท่งเขียว) — เงินยกมา/ที่มีอยู่แล้ว</label>
         <MoneyInput id="ef-in" value={openIn} onChange={setOpenIn} autoFocus={focus === 'in'} />
         <span className="foot-note">แท่งเขียวตอนนี้ {fmtBaht(liveIn)} = ยกมา {fmtBaht(openIn ?? 0)} + จากแหล่งที่ติ๊ก {fmtBaht(linkedSum(income, link))} + บันทึกตรง {fmtBaht(row.inParts.entries)}</span>
       </div>
-      <div className="field"><label htmlFor="ef-target">② เป้าหมาย (แท่งกลาง)</label><MoneyInput id="ef-target" value={target} onChange={setTarget} autoFocus={focus === 'budget'} /></div>
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
+      <div className="field"><label htmlFor="ef-target">② เป้าหมาย (แท่งเทา)</label><MoneyInput id="ef-target" value={target} onChange={setTarget} autoFocus={focus === 'budget'} /></div>
       <div className="field">
         <label htmlFor="ef-out" style={{ color: 'var(--series-2)' }}>③ จ่ายออกไปแล้วก่อนเริ่มใช้ระบบ (แท่งแดง)</label>
         <MoneyInput id="ef-out" value={openOut} onChange={setOpenOut} autoFocus={focus === 'out'} />

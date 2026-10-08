@@ -65,7 +65,7 @@ function Dashboard({ year }: { year: number }) {
         {budget > 0 ? (
           <>
             <div className={`progress ${spent > budget ? 'over' : ''}`} role="img" aria-label={`ใช้แล้ว ${Math.round((spent / budget) * 100)}%`}><i style={{ width: `${Math.min(100, (spent / budget) * 100)}%` }} /></div>
-            <p className="small">จ่ายแล้ว <b>{fmtBaht(spent, { dec: false })}</b> จากงบ <b>{fmtBaht(budget, { dec: false })}</b> ({Math.round((spent / budget) * 100)}%)</p>
+            <p className="small"><span style={{ color: 'var(--series-1)' }}>ได้รับ <b>{fmtBaht(rows.reduce((a, r) => a + r.income, 0), { dec: false })}</b></span> · งบ <b>{fmtBaht(budget, { dec: false })}</b> · <span style={{ color: 'var(--series-2)' }}>จ่ายแล้ว <b>{fmtBaht(spent, { dec: false })}</b></span> ({Math.round((spent / budget) * 100)}% ของงบ)</p>
           </>
         ) : <p className="muted small">ยังไม่ได้ตั้งงบประมาณปี {be(year)}</p>}
       </section>

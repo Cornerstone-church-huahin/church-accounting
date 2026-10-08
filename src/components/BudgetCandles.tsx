@@ -3,7 +3,7 @@ import { fmtBaht } from '../lib/money'
 
 /**
  * แท่งสามแท่งของแต่ละงบ: ซ้าย เขียว = รายรับที่ได้รับ · กลาง = งบที่ตั้ง · ขวา แดง = รายจ่ายที่จ่ายแล้ว
- * แท่งกลางแบ่งสองสี: ส่วนล่างสีเข้ม = ใช้ไปแล้ว · ส่วนบนสีอ่อน = ยังไม่ได้ใช้
+ * แท่งเทา (งบ) แบ่งสองสี: ส่วนล่างสีเข้ม = ใช้ไปแล้ว · ส่วนบนสีอ่อน = ยังไม่ได้ใช้
  * ความสูงเทียบกับค่าสูงสุดของสามแท่ง · ตัวเลขกำกับบนทุกแท่ง · แท่งแดงมีลายเฉียงกันสับสนกับเขียวสำหรับคนตาบอดสี
  */
 export default function BudgetCandles({ title, income, budget, spent, committed = 0, compact, fund, onEdit }: { title: string; income: number; budget: number; spent: number; committed?: number; compact?: boolean; fund?: boolean; onEdit?: (bar: 'in' | 'budget' | 'out') => void }) {
@@ -40,7 +40,7 @@ export default function BudgetCandles({ title, income, budget, spent, committed 
           )
         })}
         <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="10.5">
-          {onEdit ? '✎ แตะแท่งเพื่อแก้ตัวเลข · ' : ''}{fund ? (budget > 0 ? `เก็บได้ ${pct}% ของเป้าหมาย` : 'ยังไม่ได้ตั้งเป้าหมาย — แท่งกลางติดพื้น') : budget > 0 ? `ใช้ไปแล้ว ${pct}% ของงบ (ส่วนเข้มในแท่งกลาง)` : 'ยังไม่ได้ตั้งงบ — แท่งกลางติดพื้น'} · คงเหลือจริง {fmtBaht(income - spent, { dec: false })}{committed > 0 ? ` · ยื่นเบิกค้าง ${fmtBaht(committed, { dec: false })}` : ''}
+          {onEdit ? '✎ แตะแท่งเพื่อแก้ตัวเลข · ' : ''}{fund ? (budget > 0 ? `เก็บได้ ${pct}% ของเป้าหมาย` : 'ยังไม่ได้ตั้งเป้าหมาย — แท่งเทาติดพื้น') : budget > 0 ? `ใช้ไปแล้ว ${pct}% ของงบ (ส่วนเข้มในแท่งเทา)` : 'ยังไม่ได้ตั้งงบ — แท่งเทาติดพื้น'} · คงเหลือจริง {fmtBaht(income - spent, { dec: false })}{committed > 0 ? ` · ยื่นเบิกค้าง ${fmtBaht(committed, { dec: false })}` : ''}
         </text>
       </svg>
     </figure>
