@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import BarChart from '../components/BarChart'
 import { IconPrint } from '../components/Icons'
-import { useBudgetAdjs, useBudgetEntries, useBudgetLines, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { budgetRows, buckets, directOut, liveIncome, paidIn, paidItems, periodOf, shiftPeriod, stageOf, sumBy, type Period, type PeriodKind } from '../lib/ledger'
 import { be, fmtBaht, fmtDate, monthName, monthShort, todayISO, yearOf } from '../lib/money'
 import { mergeItems } from '../lib/sync'
@@ -40,6 +40,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
   const types = useIncomeTypes()
   const { income, vouchers, rounds } = usePeriodData(p)
   const by = yearOf(p.to)
+  const funds = useFunds()
   const lines = useBudgetLines(by)
   const adjs = useBudgetAdjs(by)
   const entries = useBudgetEntries(by)
@@ -56,7 +57,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
     const unsorted = m.get(UNSORTED) ?? 0
     return unsorted > 0 ? [...rows, { name: 'โอน (ยังไม่แยกประเภท)', value: unsorted }] : rows
   }, [inc, types.list])
-  const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
+  const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id) ?? funds.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
   const outByLine = useMemo(() => {
     const m = sumBy([...paidItems(vouchers, p).map((x) => ({ lineId: x.item.lineId, amount: x.item.amount })), ...direct.map((e) => ({ lineId: e.lineId, amount: e.amount }))], (x) => x.lineId, (x) => x.amount)
     return [...m.entries()].map(([id, value]) => ({ name: lineName(id), value })).sort((a, b) => b.value - a.value)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
-import { useAccounts, useBudgetAdjs, useBudgetEntries, useBudgetLines, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
+import { useAccounts, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
@@ -256,24 +256,26 @@ function DataClean() {
   const income = useIncome(year), rounds = useRounds(year), vouchers = useVouchers(year)
   const lines = useBudgetLines(year), adjs = useBudgetAdjs(year), entries = useBudgetEntries(year)
   const stmt = useStatementLines(year), batches = useStatementBatches(), types = useIncomeTypes(), accounts = useAccounts()
+  const funds = useFunds()
+  const [withFunds, setWithFunds] = useState(false)
   const [word, setWord] = useState('')
   const [files, setFiles] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const all = [income, rounds, vouchers, lines, adjs, entries, stmt, batches] as const
-  const pending = [...all.map((s) => s.deletedCount), types.deletedCount, accounts.deletedCount].reduce((a, b) => a + b, 0)
+  const pending = [...all.map((s) => s.deletedCount), funds.deletedCount, types.deletedCount, accounts.deletedCount].reduce((a, b) => a + b, 0)
   const total = all.reduce((a, s) => a + s.all.length, 0)
 
   const purge = async () => {
     if (!confirm(`ลบถาวร ${pending} รายการที่ลบแล้ว?\nเอาออกจากไฟล์จริง กู้คืนไม่ได้`)) return
     setBusy(true)
-    const rs = await Promise.all([...all.map((s) => s.purgeDeleted()), types.purgeDeleted(), accounts.purgeDeleted()])
+    const rs = await Promise.all([...all.map((s) => s.purgeDeleted()), funds.purgeDeleted(), types.purgeDeleted(), accounts.purgeDeleted()])
     setBusy(false)
     setMsg(rs.every(Boolean) ? { ok: true, text: `ลบถาวรแล้ว ${pending} รายการ ✓` } : { ok: false, text: 'ทำไม่สำเร็จบางส่วน ตรวจการเชื่อมต่อแล้วลองใหม่' })
   }
   const reset = async () => {
     setBusy(true); setMsg(null)
-    const rs = await Promise.all(all.map((s) => s.resetAll()))
+    const rs = await Promise.all([...all.map((s) => s.resetAll()), ...(withFunds ? [funds.resetAll()] : [])])
     let removed = 0
     const cfg = getSync()
     if (files && cfg) {
@@ -294,7 +296,8 @@ function DataClean() {
         <h3>1) ลบถาวรรายการที่ลบแล้ว ({pending})</h3>
         <button type="button" className="btn btn--ghost" disabled={busy || pending === 0} onClick={purge}>🗑️ ลบถาวรรายการที่ลบแล้วทั้งหมด</button>
         <h3>2) ล้างข้อมูลทดสอบ ปี {be(year)} ({total} รายการ)</h3>
-        <p className="small">ล้าง: รายรับ · ใบบันทึกการถวาย/รอบนับ · ใบเบิกจ่าย · งบประมาณและบันทึกในงบ · รายการสเตตเมนต์ · <b>ไม่แตะ:</b> ผู้ใช้และสิทธิ์ ประเภทถวาย บัญชีธนาคาร ค่าตั้งค่า</p>
+        <p className="small">ล้าง: รายรับ · ใบบันทึกการถวาย/รอบนับ · ใบเบิกจ่าย · งบประมาณและบันทึกในงบ/กองทุนของปีนี้ · รายการสเตตเมนต์ · (กองทุนล้างเมื่อติ๊กเลือก) · <b>ไม่แตะ:</b> ผู้ใช้และสิทธิ์ ประเภทถวาย บัญชีธนาคาร ค่าตั้งค่า</p>
+        <label className="row"><input type="checkbox" checked={withFunds} onChange={(e) => setWithFunds(e.target.checked)} /> ล้างกองทุนทั้งหมดด้วย ({funds.items.length} กองทุน — กองทุนสะสมข้ามปี ไม่ผูกกับปีใดปีหนึ่ง)</label>
         <label className="row"><input type="checkbox" checked={files} onChange={(e) => setFiles(e.target.checked)} /> ลบรูปใบเสร็จ/สลิป/ไฟล์สเตตเมนต์ของปีนี้ใน repo ด้วย</label>
         <div className="field"><label htmlFor="cl-word">พิมพ์ “ล้างข้อมูล” เพื่อยืนยัน</label><input id="cl-word" className="input" value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" /></div>
         <button type="button" className="btn btn--danger" disabled={busy || word.trim() !== 'ล้างข้อมูล'} onClick={reset}>{busy ? 'กำลังล้าง…' : `ล้างข้อมูลปี ${be(year)}`}</button>

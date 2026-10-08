@@ -4,7 +4,7 @@ import MoneyInput from '../components/MoneyInput'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can, isSolo, whoAmI } from '../lib/access'
-import { useBudgetAdjs, useBudgetLines, useSettings, useVouchers } from '../lib/data'
+import { useBudgetAdjs, useBudgetLines, useFunds, useSettings, useVouchers } from '../lib/data'
 import { budgetRows, itemsTotal, STAGE_LABEL, stageOf, tasksFor, voucherTitle, weekSummary, type Stage } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { addDays, be, fmtBaht, fmtDate, todayISO, yearOf } from '../lib/money'
@@ -103,6 +103,7 @@ export { METHOD_LABEL }
 function NewVoucher({ year, onClose, v }: { year: number; onClose: () => void; v: ReturnType<typeof useVouchers> }) {
   const lines = useBudgetLines(year)
   const adjs = useBudgetAdjs(year)
+  const funds = useFunds()
   const me = whoAmI()
   const [date, setDate] = useState(yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`)
   const [payee, setPayee] = useState('')
@@ -142,6 +143,7 @@ function NewVoucher({ year, onClose, v }: { year: number; onClose: () => void; v
           <div className="field"><label htmlFor={`v-l${n}`}>หมวดงบประมาณ</label>
             <select id={`v-l${n}`} className="input" value={it.lineId} onChange={(e) => set(n, { lineId: e.target.value })}>
               {rows.map((r) => <option key={r.line.id} value={r.line.id}>{r.line.name} ({r.line.base + r.adjust > 0 ? 'เหลืองบ' : 'เงินคงเหลือ'} {fmtBaht(r.remaining, { dec: false })})</option>)}
+              {funds.items.length > 0 && <optgroup label="กองทุน">{funds.items.map((f) => <option key={f.id} value={f.id}>{f.name} (กองทุน)</option>)}</optgroup>}
               <option value={NO_BUDGET}>นอกงบประมาณ</option>
             </select>
           </div>

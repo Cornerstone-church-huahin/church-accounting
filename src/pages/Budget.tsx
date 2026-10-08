@@ -3,12 +3,13 @@ import BudgetCandles from '../components/BudgetCandles'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import { can } from '../lib/access'
-import { useBudgetAdjs, useBudgetEntries, useBudgetLines, useIncome, useIncomeTypes, useVouchers } from '../lib/data'
-import { budgetRows } from '../lib/ledger'
+import { useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useVouchers } from '../lib/data'
+import { budgetRows, CHURCH_SOURCE } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import type { AdjKind, BudgetAdj, BudgetEntry, BudgetLine } from '../lib/types'
 import { useYear } from '../lib/year'
+import FundsPage from './Funds'
 
 /** รายการแนะนำ — ไม่เพิ่มให้เองเด็ดขาด ผู้ใช้ติ๊กเลือกเฉพาะที่ต้องการ */
 const SUGGESTED: { name: string; link?: string[]; reserve?: boolean }[] = [
@@ -22,7 +23,17 @@ type Sheets = 'adjust' | 'emergency' | 'transfer' | 'new' | 'suggest' | null
 
 export default function Budget() {
   const { year } = useYear()
-  return <Page key={year} year={year} />
+  const [mode, setMode] = useState<'budget' | 'fund'>(() => { try { return sessionStorage.getItem('acct.budgetMode') === 'fund' ? 'fund' : 'budget' } catch { return 'budget' } })
+  const pick = (m: 'budget' | 'fund') => { setMode(m); try { sessionStorage.setItem('acct.budgetMode', m) } catch { /* ignore */ } }
+  return (
+    <>
+      <div className="seg no-print" role="group" aria-label="งบประมาณหรือกองทุน">
+        <button type="button" className={mode === 'budget' ? 'on' : ''} aria-pressed={mode === 'budget'} onClick={() => pick('budget')}>งบประมาณ (รายปี)</button>
+        <button type="button" className={mode === 'fund' ? 'on' : ''} aria-pressed={mode === 'fund'} onClick={() => pick('fund')}>กองทุน (สะสม)</button>
+      </div>
+      {mode === 'budget' ? <Page key={year} year={year} /> : <FundsPage key={year} year={year} />}
+    </>
+  )
 }
 
 function Page({ year }: { year: number }) {
@@ -33,13 +44,15 @@ function Page({ year }: { year: number }) {
   const vs = useVouchers(year)
   const income = useIncome(year)
   const types = useIncomeTypes()
+  const funds = useFunds()
+  const fundTypeIds = funds.items.flatMap((f) => f.incomeTypeIds ?? [])
   const [sheet, setSheet] = useState<Sheets>(null)
   const [pickId, setPickId] = useState<string | undefined>()
   const [editNum, setEditNum] = useState<{ lineId: string; focus: 'name' | 'in' | 'budget' | 'out' } | null>(null)
   const [entry, setEntry] = useState<{ lineId: string; kind: 'in' | 'out'; edit?: BudgetEntry } | null>(null)
   const isAdmin = can(role, 'budget')
   const canEntry = can(role, 'income')
-  const rows = budgetRows(lines.items, adjs.items, vs.items, income.items, entries.items)
+  const rows = budgetRows(lines.items, adjs.items, vs.items, income.items, entries.items, fundTypeIds)
   const yearIncome = income.items.reduce((s, x) => s + x.amount, 0)
   const tot = rows.reduce((a, r) => ({ current: a.current + r.current, spent: a.spent + r.spent, committed: a.committed + r.committed, remaining: a.remaining + (r.current > 0 ? r.remaining : 0) }), { current: 0, spent: 0, committed: 0, remaining: 0 })
   const lineName = (id: string) => lines.all.find((l) => l.id === id)?.name ?? '?'
@@ -120,9 +133,9 @@ function Page({ year }: { year: number }) {
                 เงินคงเหลือจริง (ได้รับ − จ่าย) <b className={r.balance < 0 ? 'bad' : ''}>{fmtBaht(r.balance, { dec: false })}</b> · งบเดิม {fmtBaht(r.base, { dec: false })}{r.adjust !== 0 && ` · ปรับ ${fmtBaht(r.adjust, { dec: false, sign: true })}`} ·{' '}
                 {isAdmin ? (
                   <button type="button" className="mini no-print" style={{ textAlign: 'left' }} onClick={() => setEditNum({ lineId: r.line.id, focus: 'name' })}>
-                    แหล่งที่มาของเงิน: <b>{r.line.incomeTypeIds?.length ? r.line.incomeTypeIds.map((id) => types.byId(id)?.name ?? '?').join(', ') : 'ยังไม่ได้เลือก'}</b> ✎
+                    แหล่งที่มาของเงิน: <b>{r.line.incomeTypeIds?.length ? r.line.incomeTypeIds.map((id) => (id === CHURCH_SOURCE ? 'คริสตจักร' : types.byId(id)?.name ?? '?')).join(', ') : 'ยังไม่ได้เลือก'}</b> ✎
                   </button>
-                ) : (r.line.incomeTypeIds?.length ? `แหล่งที่มาของเงิน: ${r.line.incomeTypeIds.map((id) => types.byId(id)?.name ?? '?').join(', ')}` : 'ยังไม่ได้เลือกแหล่งที่มาของเงิน')}
+                ) : (r.line.incomeTypeIds?.length ? `แหล่งที่มาของเงิน: ${r.line.incomeTypeIds.map((id) => (id === CHURCH_SOURCE ? 'คริสตจักร' : types.byId(id)?.name ?? '?')).join(', ')}` : 'ยังไม่ได้เลือกแหล่งที่มาของเงิน')}
               </p>
               <EntryList rows={r} entries={entries.items.filter((e) => e.lineId === r.line.id)} canEdit={canEntry} onEdit={(e) => setEntry({ lineId: e.lineId, kind: e.kind, edit: e })} />
             </section>
@@ -145,16 +158,16 @@ function Page({ year }: { year: number }) {
         </>
       )}
       {sheet === 'suggest' && <SuggestSheet year={year} existing={lines.items.map((l) => l.name)} order={rows.length} lines={lines} onClose={() => setSheet(null)} />}
-      {sheet === 'new' && <NewBudget year={year} order={rows.length} lines={lines} income={income.items} onClose={() => setSheet(null)} />}
+      {sheet === 'new' && <NewBudget year={year} order={rows.length} lines={lines} income={income.items} fundTypeIds={fundTypeIds} onClose={() => setSheet(null)} />}
       {entry && <EntrySheet year={year} lineName={lineName(entry.lineId)} entry={entry} entries={entries} onClose={() => setEntry(null)} />}
-      {editNum && <EditBudget row={rows.find((r) => r.line.id === editNum.lineId)!} focus={editNum.focus} income={income.items} lines={lines} adjs={adjs} onClose={() => setEditNum(null)} />}
+      {editNum && <EditBudget row={rows.find((r) => r.line.id === editNum.lineId)!} focus={editNum.focus} income={income.items} fundTypeIds={fundTypeIds} lines={lines} adjs={adjs} onClose={() => setEditNum(null)} />}
       {(sheet === 'adjust' || sheet === 'emergency' || sheet === 'transfer') && <BudgetSheet kind={sheet} year={year} pickId={pickId} onClose={() => setSheet(null)} lines={lines} adjs={adjs} rows={rows} />}
     </>
   )
 }
 
 /** รายการที่บันทึกตรงในงบนี้ (เงินเข้า/ใช้จ่าย) แตะเพื่อแก้ไขหรือลบ */
-function EntryList({ rows, entries, canEdit, onEdit }: { rows: Rows[number]; entries: BudgetEntry[]; canEdit: boolean; onEdit: (e: BudgetEntry) => void }) {
+export function EntryList({ rows, entries, canEdit, onEdit }: { rows: Rows[number]; entries: BudgetEntry[]; canEdit: boolean; onEdit: (e: BudgetEntry) => void }) {
   const list = entries.filter((e) => !e.deleted).sort((a, b) => (a.date < b.date ? 1 : -1))
   if (list.length === 0) return null
   return (
@@ -176,7 +189,7 @@ function EntryList({ rows, entries, canEdit, onEdit }: { rows: Rows[number]; ent
 }
 
 /** บันทึก/แก้ไข/ลบ เงินเข้าหรือใช้จ่ายของงบ */
-function EntrySheet({ year, lineName, entry, entries, onClose }: { year: number; lineName: string; entry: { lineId: string; kind: 'in' | 'out'; edit?: BudgetEntry }; entries: ReturnType<typeof useBudgetEntries>; onClose: () => void }) {
+export function EntrySheet({ year, lineName, entry, entries, onClose }: { year: number; lineName: string; entry: { lineId: string; kind: 'in' | 'out'; edit?: BudgetEntry }; entries: ReturnType<typeof useBudgetEntries>; onClose: () => void }) {
   const [kind, setKind] = useState(entry.kind)
   const [amount, setAmount] = useState<number | null>(entry.edit?.amount ?? null)
   const [date, setDate] = useState(entry.edit?.date ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
@@ -284,7 +297,7 @@ function BudgetSheet({ kind, year, pickId, onClose, lines, adjs, rows }: { kind:
  * ติ๊กแหล่งที่มาของเงิน = ประเภทที่สมาชิกถวายเข้ามา (สิบลด/กองทุนที่ดิน/อาหาร ฯลฯ) แท่งเขียวจะนับยอดถวายประเภทนั้นให้เอง
  * แอดมินเพิ่ม/แก้ชื่อ/ลบรายชื่อได้ตรงนี้เลย (ประเภทชุดเดียวกับที่ใช้บันทึกรายรับและใบถวาย)
  */
-function Sources({ totals, value, onChange }: { totals: Map<string, number>; value: string[]; onChange: (v: string[]) => void }) {
+export function Sources({ totals, value, onChange, church }: { totals: Map<string, number>; value: string[]; onChange: (v: string[]) => void; church?: { total: number } }) {
   const types = useIncomeTypes()
   const role = useRole()
   const canManage = can(role, 'settings')
@@ -309,6 +322,9 @@ function Sources({ totals, value, onChange }: { totals: Map<string, number>; val
   return (
     <fieldset className="card card--flat" style={{ margin: 0 }}>
       <legend><b>แหล่งที่มาของเงินในงบนี้</b> <span className="small muted">(ที่สมาชิกถวายเข้ามา — ไม่บังคับ)</span></legend>
+      {church && (
+        <label className="row"><input type="checkbox" checked={value.includes(CHURCH_SOURCE)} onChange={(e) => onChange(e.target.checked ? [...value, CHURCH_SOURCE] : value.filter((x) => x !== CHURCH_SOURCE))} /> <span className="grow"><b>คริสตจักร</b> <span className="small muted">(รายรับทั่วไปที่ไม่ใช่เงินกองทุน)</span></span><span className="small muted">รับแล้ว {fmtBaht(church.total, { dec: false })}</span></label>
+      )}
       {types.list.map((t) => (
         <div key={t.id} className="row">
           <label className="row grow"><input type="checkbox" checked={value.includes(t.id)} onChange={(e) => onChange(e.target.checked ? [...value, t.id] : value.filter((x) => x !== t.id))} /> <span className="grow">{t.name}</span><span className="small muted">รับแล้ว {fmtBaht(totals.get(t.id) ?? 0, { dec: false })}</span></label>
@@ -326,11 +342,12 @@ function Sources({ totals, value, onChange }: { totals: Map<string, number>; val
     </fieldset>
   )
 }
-const sumByType = (income: { typeId: string; amount: number }[]) => income.reduce((m, x) => m.set(x.typeId, (m.get(x.typeId) ?? 0) + x.amount), new Map<string, number>())
-const linkedSum = (income: { typeId: string; amount: number }[], ids: string[]) => income.filter((x) => ids.includes(x.typeId)).reduce((s, x) => s + x.amount, 0)
+export const sumByType = (income: { typeId: string; amount: number }[]) => income.reduce((m, x) => m.set(x.typeId, (m.get(x.typeId) ?? 0) + x.amount), new Map<string, number>())
+export const linkedSum = (income: { typeId: string; amount: number }[], ids: string[], fundTypeIds: string[] = []) => income.filter((x) => ids.includes(x.typeId) || (ids.includes(CHURCH_SOURCE) && !fundTypeIds.includes(x.typeId))).reduce((s, x) => s + x.amount, 0)
+export const churchSum = (income: { typeId: string; amount: number }[], fundTypeIds: string[]) => income.filter((x) => !fundTypeIds.includes(x.typeId)).reduce((s, x) => s + x.amount, 0)
 
 /** ตั้งงบใหม่: ชื่อ · แหล่งที่มา · 3 ช่องตัวเลข · แท่งขึ้นตามที่พิมพ์ทันที */
-function NewBudget({ year, order, lines, income, onClose }: { year: number; order: number; lines: ReturnType<typeof useBudgetLines>; income: { typeId: string; amount: number }[]; onClose: () => void }) {
+function NewBudget({ year, order, lines, income, fundTypeIds, onClose }: { year: number; order: number; lines: ReturnType<typeof useBudgetLines>; income: { typeId: string; amount: number }[]; fundTypeIds: string[]; onClose: () => void }) {
   const [name, setName] = useState('')
   const [link, setLink] = useState<string[]>([])
   const [got, setGot] = useState<number | null>(null)
@@ -345,11 +362,11 @@ function NewBudget({ year, order, lines, income, onClose }: { year: number; orde
   return (
     <Sheet title="ตั้งงบใหม่" onClose={onClose}>
       <div className="field"><label htmlFor="nb-name">ชื่องบ</label><input id="nb-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ค่าสวัสดิการผู้รับใช้" autoFocus /></div>
-      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} church={{ total: churchSum(income, fundTypeIds) }} />
       <div className="field"><label htmlFor="nb-got" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา (นอกเหนือจากแหล่งที่ติ๊ก)</label><MoneyInput id="nb-got" value={got} onChange={setGot} /></div>
       <div className="field"><label htmlFor="nb-bud">② งบที่ตั้ง (แท่งกลาง) — ยังไม่ตั้งก็ปล่อยว่างได้ แท่งจะติดพื้น</label><MoneyInput id="nb-bud" value={budget} onChange={setBudget} /></div>
       <div className="field"><label htmlFor="nb-sp" style={{ color: 'var(--series-2)' }}>③ จ่ายแล้ว (แท่งแดง) — ถ้ามีใช้ไปแล้ว</label><MoneyInput id="nb-sp" value={spent} onChange={setSpent} /></div>
-      <BudgetCandles title={name.trim() || 'งบใหม่'} income={(got ?? 0) + linkedSum(income, link)} budget={budget ?? 0} spent={spent ?? 0} compact />
+      <BudgetCandles title={name.trim() || 'งบใหม่'} income={(got ?? 0) + linkedSum(income, link, fundTypeIds)} budget={budget ?? 0} spent={spent ?? 0} compact />
       {err && <p className="err" role="alert">{err}</p>}
       <button type="button" className="btn btn--gold" onClick={save}>บันทึกงบ</button>
       <p className="foot-note">แก้ชื่อ แหล่งที่มา หรือตัวเลขภายหลังได้ที่ปุ่ม “✎ แก้ไขงบ” ของงบนี้ · ใบเบิกที่เลือกงบนี้จะเพิ่มในแท่งแดงเองอัตโนมัติ</p>
@@ -358,7 +375,7 @@ function NewBudget({ year, order, lines, income, onClose }: { year: number; orde
 }
 
 /** แก้ไขงบ: ชื่อ · แหล่งที่มา · ตัวเลขทั้งสามแท่ง (ช่วงเริ่มต้น) — งบที่ตั้งที่แก้จะบันทึกลงประวัติให้เอง */
-function EditBudget({ row, focus, income, lines, adjs, onClose }: { row: Rows[number]; focus: 'name' | 'in' | 'budget' | 'out'; income: { typeId: string; amount: number }[]; lines: ReturnType<typeof useBudgetLines>; adjs: ReturnType<typeof useBudgetAdjs>; onClose: () => void }) {
+function EditBudget({ row, focus, income, fundTypeIds, lines, adjs, onClose }: { row: Rows[number]; focus: 'name' | 'in' | 'budget' | 'out'; income: { typeId: string; amount: number }[]; fundTypeIds: string[]; lines: ReturnType<typeof useBudgetLines>; adjs: ReturnType<typeof useBudgetAdjs>; onClose: () => void }) {
   const [name, setName] = useState(row.line.name)
   const [link, setLink] = useState<string[]>(row.line.incomeTypeIds ?? [])
   const [openIn, setOpenIn] = useState<number | null>(row.inParts.opening)
@@ -376,15 +393,15 @@ function EditBudget({ row, focus, income, lines, adjs, onClose }: { row: Rows[nu
     }
     onClose()
   }
-  const liveIn = (openIn ?? 0) + linkedSum(income, link) + row.inParts.entries
+  const liveIn = (openIn ?? 0) + linkedSum(income, link, fundTypeIds) + row.inParts.entries
   return (
     <Sheet title={`แก้ไขงบ — ${row.line.name}`} onClose={onClose}>
       <div className="field"><label htmlFor="ed-name">ชื่องบ</label><input id="ed-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus={focus === 'name'} /></div>
-      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} church={{ total: churchSum(income, fundTypeIds) }} />
       <div className="field">
         <label htmlFor="ed-in" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินยกมา/ที่มีอยู่แล้ว</label>
         <MoneyInput id="ed-in" value={openIn} onChange={setOpenIn} autoFocus={focus === 'in'} />
-        <span className="foot-note">แท่งเขียวตอนนี้ {fmtBaht(liveIn)} = ยกมา {fmtBaht(openIn ?? 0)} + จากแหล่งที่ติ๊ก {fmtBaht(linkedSum(income, link))} + บันทึกตรง {fmtBaht(row.inParts.entries)} (รายการบันทึกตรงแก้ได้ในรายการใต้การ์ด)</span>
+        <span className="foot-note">แท่งเขียวตอนนี้ {fmtBaht(liveIn)} = ยกมา {fmtBaht(openIn ?? 0)} + จากแหล่งที่ติ๊ก {fmtBaht(linkedSum(income, link, fundTypeIds))} + บันทึกตรง {fmtBaht(row.inParts.entries)} (รายการบันทึกตรงแก้ได้ในรายการใต้การ์ด)</span>
       </div>
       <div className="field">
         <label htmlFor="ed-bud">② งบที่ตั้ง (แท่งกลาง)</label>

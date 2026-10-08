@@ -53,7 +53,11 @@ export interface BudgetRow {
   /** ยังใช้ได้อีกเท่าไร: ถ้าตั้งงบแล้ว = งบ − จ่าย − ค้างเบิก · ถ้ายังไม่ตั้งงบ = เงินที่มี − จ่าย − ค้างเบิก */
   remaining: number
 }
-export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = [], entries: BudgetEntry[] = []): BudgetRow[] {
+/** แหล่งที่มาพิเศษของงบ: “คริสตจักร” = รายรับทุกประเภทที่ไม่ได้เป็นของกองทุนใด (รวมเงินโอนที่ยังไม่แยกประเภท) */
+export const CHURCH_SOURCE = '__church'
+
+export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = [], entries: BudgetEntry[] = [], fundTypeIds: string[] = []): BudgetRow[] {
+  const fundTypes = new Set(fundTypeIds)
   return [...lines].sort((a, b) => a.order - b.order).map((line) => {
     const adjust = adjs.filter((a) => a.lineId === line.id).reduce((s, a) => s + a.delta, 0)
     const mine = vouchers.filter((v) => !v.deleted).map((v) => ({ v, sum: itemsTotal(voucherItems(v).filter((i) => i.lineId === line.id)) })).filter((x) => x.sum > 0)
@@ -62,7 +66,8 @@ export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Vou
     const current = line.base + adjust
     const types = new Set(line.incomeTypeIds ?? [])
     const mineE = entries.filter((e) => !e.deleted && e.lineId === line.id)
-    const linked = income.filter((x) => !x.deleted && types.has(x.typeId)).reduce((s, x) => s + x.amount, 0)
+    const church = types.has(CHURCH_SOURCE)
+    const linked = income.filter((x) => !x.deleted && (types.has(x.typeId) || (church && !fundTypes.has(x.typeId)))).reduce((s, x) => s + x.amount, 0)
     const entriesIn = mineE.filter((e) => e.kind === 'in').reduce((s, e) => s + e.amount, 0)
     const entriesOut = mineE.filter((e) => e.kind === 'out').reduce((s, e) => s + e.amount, 0)
     const openIn = line.openingIn ?? 0, openOut = line.openingOut ?? 0

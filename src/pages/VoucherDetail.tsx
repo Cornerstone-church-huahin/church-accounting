@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can, isSolo, whoAmI } from '../lib/access'
-import { useBudgetLines, useSettings, useVouchers } from '../lib/data'
+import { useBudgetLines, useFunds, useSettings, useVouchers } from '../lib/data'
 import { compressImage } from '../lib/image'
 import { approveBlock, isFullyApproved, stageOf, STAGE_LABEL, stepsNeeded, voucherItems } from '../lib/ledger'
 import { useRole } from '../lib/members'
@@ -24,6 +24,7 @@ export default function VoucherDetail() {
 function Detail({ id, year }: { id: string; year: number }) {
   const role = useRole()
   const vs = useVouchers(year)
+  const funds = useFunds()
   const lines = useBudgetLines(year)
   const { settings } = useSettings()
   const me = whoAmI()
@@ -37,7 +38,7 @@ function Detail({ id, year }: { id: string; year: number }) {
   const block = approveBlock(v, actor, settings.twoStepOver, isSolo())
   const need = stepsNeeded(v.amount, settings.twoStepOver)
   const items = voucherItems(v)
-  const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
+  const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id) ?? funds.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
   const save = (patch: Partial<Voucher>) => vs.put([{ ...v, ...patch }])
 
   const approve = () => {
