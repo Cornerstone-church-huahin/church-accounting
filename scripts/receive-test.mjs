@@ -44,7 +44,7 @@ try {
   }
   await page.keyboard.press('Escape')
   await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
-  const rep = page.locator('section', { has: page.locator('#h-rep') })
+  const rep = page.locator('.a4page')
   const readTotal = async () => { await page.getByRole('tab', { name: /รวมรับ/ }).click(); return (await rep.innerText()).replace(/\n/g, ' ') }
   const txt = await readTotal()
   must(/ได้รับการถวายประจำสัปดาห์/.test(txt) && /สิบลด\s+1\s+10,000\.00\s+10,000\.00[\s\S]*รวมทั้งสิ้น\s+1\s+10,000\.00\s+0\s+0\.00\s+10,000\.00/.test(txt), 'summary page shows only the per-type table with totals :: ' + txt)
@@ -55,7 +55,7 @@ try {
   must(await page.getByText('1 รายการ · รวม 10,000.00').isVisible(), 'card header shows count and sum')
   await readTotal()
   await page.getByRole('button', { name: /^ทั้งปี/ }).click()
-  must(/ทั้งปี[\s\S]*10,000\.00/.test(await readTotal()), 'year scope includes the entry')
+  must(/ประจำปี[\s\S]*10,000\.00/.test(await readTotal()), 'year scope includes the entry')
   await page.getByRole('button', { name: 'สัปดาห์ที่เลือก' }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   // แก้ไข / ลบ รายการที่บันทึกแล้ว

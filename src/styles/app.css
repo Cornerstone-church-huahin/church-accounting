@@ -212,5 +212,16 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .subtabs--out { grid-template-columns: repeat(4, 1fr); }
 .subtabs--out button { border-color: var(--series-2); }
 .subtabs--out button.on { background: var(--series-2); color: #fff; }
-.ledger table { min-width: 600px; }
 .a4note { margin: 2px 0 0; font-size: 12.5px; }
+/* ใบรับ/ใบจ่าย แบบหน้าเดียว (A4 เต็มหน้า): หัวใหญ่ แถวสูง ช่องลงชื่อชิดล่าง */
+.a4page--doc { padding: 28px 30px 30px; font-size: 14px; }
+.a4page--doc .paper__head { margin: 0 0 14px; }
+.a4page--doc .paper__head h2 { font-size: 24px; margin: 2px 0; }
+.a4page--doc .paper__head p { font-size: 14px; margin: 2px 0; }
+.a4page--doc .tbl--paper { font-size: 14px; }
+.a4page--doc .tbl--paper th { font-size: 13px; padding: 4px 5px; }
+.a4page--doc .paper__blank td { height: 36px; padding: 0 6px; }
+.a4page--doc .tbl--paper tfoot td { padding: 6px; font-size: 14.5px; }
+.a4page--doc .ledger { overflow: visible !important; }
+.a4page--doc .sign { margin-top: auto; font-size: 13px; gap: 1.5rem; }
+.a4page--doc .sign > div { padding-top: 2rem; }

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import LedgerTable from '../components/LedgerTable'
+import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
@@ -50,7 +51,7 @@ export default function Pay({ year }: { year: number }) {
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const idx = sundays.indexOf(sunday)
-  const paperRef = useRef<HTMLElement>(null)
+  const paperRef = useRef<HTMLDivElement>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
 
   const all = useMemo(() => [...exp.items].sort(byDateDesc), [exp.items])
@@ -129,7 +130,7 @@ export default function Pay({ year }: { year: number }) {
       {sub === 'advance' && panel('advance')}
 
       {sub === 'total' && (
-        <section ref={paperRef} className="card paper" role="tabpanel" aria-label="รวมจ่าย">
+        <section className="card" role="tabpanel" aria-label="รวมจ่าย">
           <div className="no-print" style={{ display: 'grid', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <button type="button" className="mini" aria-label="สัปดาห์ก่อน" disabled={scope === 'year' || idx <= 0} onClick={() => setSunday(sundays[idx - 1])}>‹</button>
@@ -144,7 +145,7 @@ export default function Pay({ year }: { year: number }) {
               <button type="button" className="btn btn--gold" disabled={pdfBusy} onClick={async () => {
                 if (!paperRef.current) return
                 setPdfBusy(true)
-                try { await downloadPdf(paperRef.current, `expense-${scope === 'year' ? year + 543 : sunday}.pdf`, { fitOnePage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+                try { await downloadPdf(paperRef.current, `expense-${scope === 'year' ? year + 543 : sunday}.pdf`, { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
                 setPdfBusy(false)
               }}>{pdfBusy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
               <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
@@ -153,6 +154,8 @@ export default function Pay({ year }: { year: number }) {
               <p className="note">นับเป็นรายจ่ายแล้ว (ช่อง “ค้างจ่าย”) แต่เงินยังไม่ออก — ต้องเตรียมเบิก {fmtBaht(sum(pending('bill')) + sum(pending('advance')))}: วางบิลค้างจ่าย {pending('bill').length} รายการ ({fmtBaht(sum(pending('bill')))}) · สำรองจ่ายรอคืนเงิน {pending('advance').length} รายการ ({fmtBaht(sum(pending('advance')))}) — เมื่อกด “จ่ายแล้ว/คืนเงินแล้ว” จะย้ายเข้าเงินสด/โอน</p>
             )}
           </div>
+          <ScaledPage ref={paperRef} className="a4page a4page--doc">
+            <>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
             <h2 id="h-pay">รวมจ่ายประจำสัปดาห์</h2>
@@ -165,6 +168,9 @@ export default function Pay({ year }: { year: number }) {
             <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
             <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br /><span className="small">วันที่ ........../........../..........</span></div>
           </div>
+            </>
+          </ScaledPage>
+          <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ) หรือหมุนจอเป็นแนวนอน · พิมพ์/ดาวน์โหลดได้ขนาด A4 เต็มหน้า</p>
         </section>
       )}
 
