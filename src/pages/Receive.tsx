@@ -43,6 +43,7 @@ export default function Receive({ year }: { year: number }) {
 
   const paperRef = useRef<HTMLElement>(null)
   const blankRef = useRef<HTMLDivElement>(null)
+  const blank2Ref = useRef<HTMLDivElement>(null)
   const [blankBusy, setBlankBusy] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
   const [allWeeks, setAllWeeks] = useState(true)
@@ -174,6 +175,12 @@ export default function Receive({ year }: { year: number }) {
                 try { await downloadPdf(blankRef.current, 'offering-sheet-blank.pdf') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองใหม่อีกครั้ง') }
                 setBlankBusy(false)
               }}>{blankBusy ? '…' : '📄⬇️'}</button>
+              <button type="button" className="icon-btn" disabled={blankBusy} aria-label="ดาวน์โหลดใบบันทึกการถวายเปล่า 2 ใบต่อแผ่น A4 (ตัดครึ่ง)" title="ใบเปล่า 2 ใบต่อแผ่น A4 (ตัดครึ่ง)" onClick={async () => {
+                if (!blank2Ref.current) return
+                setBlankBusy(true)
+                try { await downloadPdf(blank2Ref.current, 'offering-sheet-blank-2up.pdf', { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองใหม่อีกครั้ง') }
+                setBlankBusy(false)
+              }}>{blankBusy ? '…' : '📄✂️'}</button>
               {canWrite && <button type="button" className="btn btn--gold" onClick={() => setAttach('new')}>＋ แนบไฟล์</button>}
             </span>
           </div>
@@ -253,7 +260,10 @@ export default function Receive({ year }: { year: number }) {
       )}
 
       {sub === 'sheet' && (
+        <>
         <BlankSheet ref={blankRef} church={settings.churchName.split(' ')[0]} names={[...types.list].filter((x) => x.active).sort((a, b) => a.order - b.order).slice(0, 5).map((x) => x.name)} />
+        <BlankSheet2Up ref={blank2Ref} church={settings.churchName.split(' ')[0]} names={[...types.list].filter((x) => x.active).sort((a, b) => a.order - b.order).slice(0, 5).map((x) => x.name)} />
+        </>
       )}
 
       {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
@@ -309,26 +319,46 @@ function SlipFlow({ year, inc, onClose, onSaved }: { year: number; inc: ReturnTy
   )
 }
 
-/** ใบบันทึกการถวายเปล่า (ไม่มีตัวเลข) สำหรับดาวน์โหลดเป็น PDF ไว้พิมพ์ใช้ — วาดนอกจอ */
-const BlankSheet = forwardRef<HTMLDivElement, { church: string; names: string[] }>(function BlankSheet({ church, names }, ref) {
+/** เนื้อฟอร์มใบบันทึกการถวายเปล่า (ไม่มีตัวเลข) — ใช้ทั้งแบบเต็มหน้าและแบบครึ่งแผ่น */
+function FormBody({ church, names, compact }: { church: string; names: string[]; compact?: boolean }) {
   const rows = Array.from({ length: 15 }, (_, i) => i)
   return (
-    <div ref={ref} className="paper paper--blank" aria-hidden="true" style={{ position: 'fixed', left: '-10000px', top: 0, width: 720, border: 0 }}>
+    <div className={compact ? 'form--compact' : undefined}>
       <header className="paper__head">
         <h2>ใบบันทึกการถวาย {church}</h2>
         <p>ประจำวันอาทิตย์ ที่.........เดือน.....................................พ.ศ.................</p>
       </header>
       <table className="tbl tbl--paper" style={{ tableLayout: 'fixed' }}>
-        <colgroup><col style={{ width: '6%' }} /><col style={{ width: '21%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: '16%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /></colgroup>
+        <colgroup><col style={{ width: '6%' }} /><col style={{ width: compact ? '24%' : '21%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: compact ? '14%' : '16%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} /><col style={{ width: compact ? '11%' : '12%' }} /></colgroup>
         <thead><tr><th>No.</th><th>ประเภท</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num vthick">จำนวนผู้โอน<wbr />ผ่านบ/ช</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th><th>หมายเหตุ</th></tr></thead>
         <tbody>
           {rows.map((i) => <tr key={i} className="paper__blank"><td>{i + 1}.</td><td>{names[i] ?? ''}</td><td /><td /><td className="vthick" /><td /><td /><td /></tr>)}
         </tbody>
       </table>
-      <p style={{ marginTop: '1rem' }}>รวมจากตู้ถวาย.........................&nbsp;&nbsp;รวมจากการโอน.........................&nbsp;&nbsp;รวมทั้งสิ้น.........................</p>
-      <div className="sign" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginTop: '2rem' }}>
+      <p style={{ marginTop: compact ? '0.35rem' : '1rem' }}>รวมจากตู้ถวาย.........................&nbsp;&nbsp;รวมจากการโอน.........................&nbsp;&nbsp;รวมทั้งสิ้น.........................</p>
+      <div className="sign" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginTop: compact ? '0.9rem' : '2rem' }}>
         <div>ลงชื่อผู้ตรวจนับ 1</div><div>ลงชื่อผู้ตรวจนับ 2</div>
       </div>
+    </div>
+  )
+}
+
+/** ใบเปล่า 1 ใบเต็มหน้า A4 — วาดนอกจอเพื่อสร้าง PDF */
+const BlankSheet = forwardRef<HTMLDivElement, { church: string; names: string[] }>(function BlankSheet({ church, names }, ref) {
+  return (
+    <div ref={ref} className="paper paper--blank" aria-hidden="true" style={{ position: 'fixed', left: '-10000px', top: 0, width: 720, border: 0 }}>
+      <FormBody church={church} names={names} />
+    </div>
+  )
+})
+
+/** ใบเปล่า 2 ใบต่อแผ่น A4 แนวตั้ง: ตัดครึ่งตามเส้นประได้ 2 ใบ (แต่ละใบ 15 รายการ) */
+const BlankSheet2Up = forwardRef<HTMLDivElement, { church: string; names: string[] }>(function BlankSheet2Up({ church, names }, ref) {
+  return (
+    <div ref={ref} className="paper paper--blank paper--a4" aria-hidden="true" style={{ position: 'fixed', left: '-10000px', top: 0, width: 794, height: 1123, border: 0, padding: 0 }}>
+      <div className="half"><FormBody church={church} names={names} compact /></div>
+      <div className="cutline">✂ - - - - - - - - - - - - - - - - - ตัดตามเส้นประ - - - - - - - - - - - - - - - - - ✂</div>
+      <div className="half"><FormBody church={church} names={names} compact /></div>
     </div>
   )
 })
