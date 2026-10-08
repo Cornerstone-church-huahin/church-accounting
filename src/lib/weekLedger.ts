@@ -50,7 +50,6 @@ export function computeLedger(a: {
     }
     return oat(lineId, lineName(lineId))
   }
-  for (const g of groups) oat(g.id, g.name) // แสดงหมวดหลักครบเสมอ (เหมือน 5 แถวแรกของรายรับ)
   for (const { item } of paidItems(a.vouchers, p)) { const r = rowFor(item.catId, item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
   // รายจ่ายบันทึกด้วยมือ/วางบิล/สำรองจ่าย: นับเมื่อจ่ายแล้ว ตามวันที่จ่าย
   for (const x of a.expenses ?? []) {
@@ -61,8 +60,10 @@ export function computeLedger(a: {
   }
   for (const e of directOut(a.entries, p)) { const t = rowFor(undefined, e.lineId).cash; t.n += 1; t.amt += e.amount }
   const outAll = [...o.values()]
+  const hasAmt = (r: LRow) => r.cash.amt > 0 || r.transfer.amt > 0
+  // รายจ่ายแสดงเฉพาะหมวดที่เกิดรายการจริง เรียงตามลำดับหมวดหลัก (ยังไม่ระบุหมวดไว้ท้าย)
   const outRows = groups.length > 0
-    ? [...groups.map((g) => o.get(g.id)!), ...(o.get(UNCAT) && (o.get(UNCAT)!.cash.amt || o.get(UNCAT)!.transfer.amt) ? [o.get(UNCAT)!] : [])]
+    ? [...groups.map((g) => o.get(g.id)).filter((r): r is LRow => !!r && hasAmt(r)), ...(o.get(UNCAT) && hasAmt(o.get(UNCAT)!) ? [o.get(UNCAT)!] : [])]
     : outAll.sort((x, y) => y.cash.amt + y.transfer.amt - x.cash.amt - x.transfer.amt)
 
   return { incRows, outRows, inSum: sumRows(incRows), outSum: sumRows(outRows) }

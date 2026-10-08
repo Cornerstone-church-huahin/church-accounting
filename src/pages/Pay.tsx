@@ -2,10 +2,12 @@ import { useMemo, useRef, useState } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import LedgerTable from '../components/LedgerTable'
 import Sheet from '../components/Sheet'
-import StoredImage from '../components/StoredImage'
+import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
+import { getGemini, readBill } from '../lib/gemini'
 import { compressImage } from '../lib/image'
+import { readSlip } from '../lib/slipOcr'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdf } from '../lib/pdf'
@@ -15,6 +17,8 @@ import { computeLedger } from '../lib/weekLedger'
 
 type Channel = ExpenseEntry['channel']
 type Sub = Channel | 'total' | null
+/** ค่าที่ระบบอ่านจากรูปมาใส่ในฟอร์มล่วงหน้า (ผู้ใช้ตรวจแล้วกดบันทึก) */
+interface ExpInit { file: File; date?: string; amount?: number; desc?: string; who?: string; catId?: string; method?: 'cash' | 'transfer'; ref?: string; due?: string; note?: string }
 
 const CH: Record<Channel, { n: number; title: string; dateLabel: string; whoLabel: string; add: string; hint: string; openLabel: string; doneLabel: string }> = {
   manual: { n: 1, title: 'บันทึกด้วยมือ', dateLabel: 'วันที่จ่าย', whoLabel: 'ผู้รับเงิน/ร้านค้า', add: '＋ บันทึก', hint: 'รายจ่ายที่จ่ายไปแล้ว บันทึกได้ทุกวัน ระบุวันที่ หมวดรายจ่าย และจ่ายด้วยเงินสดหรือโอน', openLabel: '', doneLabel: '' },
@@ -40,6 +44,7 @@ export default function Pay({ year }: { year: number }) {
   const canWrite = can(role, 'voucherPay')
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: ExpenseEntry | null; channel: Channel } | null>(null)
+  const [flow, setFlow] = useState<Channel | null>(null)
   const [payFor, setPayFor] = useState<ExpenseEntry | null>(null)
   const [scope, setScope] = useState<'week' | 'year'>('year')
   const sundays = useMemo(() => sundaysOf(year), [year])
@@ -96,7 +101,7 @@ export default function Pay({ year }: { year: number }) {
     const open = pending(c)
     return (
       <section className="card no-print" role="tabpanel" aria-label={CH[c].title}>
-        <div className="row row--between"><h2>{CH[c].n} · {CH[c].title}</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, channel: c })}>{CH[c].add}</button>}</div>
+        <div className="row row--between"><h2>{CH[c].n} · {CH[c].title}</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => (c === 'manual' ? setForm({ entry: null, channel: c }) : setFlow(c))}>{CH[c].add}</button>}</div>
         <p className="muted small">{CH[c].hint}</p>
         <div className="row row--between" style={{ margin: '0.4rem 0' }}>
           <b>{xs.length} รายการ · รวม {fmtBaht(sum(xs))}</b>
@@ -154,7 +159,7 @@ export default function Pay({ year }: { year: number }) {
             <p>{scope === 'year' ? `ประจำปี ${year + 543} (รวมทุกสัปดาห์)` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`}</p>
             {scope === 'week' && <p className="muted small">จ่ายระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
           </header>
-          <LedgerTable labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={L.outRows} total="รวมทั้งสิ้น" tone="out" />
+          <LedgerTable labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={L.outRows} total="รวมทั้งสิ้น" tone="out" minRows={0} />
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
             <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
@@ -163,6 +168,7 @@ export default function Pay({ year }: { year: number }) {
         </section>
       )}
 
+      {flow && <ExpenseFlow year={year} channel={flow} exp={exp} onClose={() => setFlow(null)} />}
       {form && <ExpenseForm year={year} entry={form.entry} channel={form.channel} exp={exp} onClose={() => setForm(null)} />}
       {payFor && <MarkPaid entry={payFor} exp={exp} onClose={() => setPayFor(null)} />}
     </>
@@ -170,21 +176,22 @@ export default function Pay({ year }: { year: number }) {
 }
 
 /** ฟอร์มรายจ่าย: ใช้ร่วมกัน 3 ช่องทาง (ต่างกันที่ป้ายชื่อ/ช่องวันครบกำหนด/สถานะ/รูปแนบ) */
-function ExpenseForm({ year, entry, channel, exp, onClose }: { year: number; entry: ExpenseEntry | null; channel: Channel; exp: ReturnType<typeof useExpenses>; onClose: () => void }) {
+function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: number; entry: ExpenseEntry | null; channel: Channel; exp: ReturnType<typeof useExpenses>; onClose: () => void; init?: ExpInit }) {
   const cats = useExpenseCats()
   const c = CH[channel]
   const today = yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`
-  const [date, setDate] = useState(entry?.date ?? today)
-  const [who, setWho] = useState(entry?.who ?? '')
-  const [catId, setCatId] = useState(entry?.catId ?? '')
-  const [desc, setDesc] = useState(entry?.desc ?? '')
-  const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
-  const [method, setMethod] = useState<'cash' | 'transfer'>(entry?.method ?? 'cash')
-  const [due, setDue] = useState(entry?.due ?? '')
+  const [date, setDate] = useState(entry?.date ?? init?.date ?? today)
+  const [who, setWho] = useState(entry?.who ?? init?.who ?? '')
+  const [catId, setCatId] = useState(entry?.catId ?? init?.catId ?? '')
+  const [desc, setDesc] = useState(entry?.desc ?? init?.desc ?? '')
+  const [amount, setAmount] = useState<number | null>(entry?.amount ?? init?.amount ?? null)
+  const [method, setMethod] = useState<'cash' | 'transfer'>(entry?.method ?? init?.method ?? 'cash')
+  const [due, setDue] = useState(entry?.due ?? init?.due ?? '')
   const [status, setStatus] = useState<'open' | 'paid'>(channel === 'manual' ? 'paid' : (entry?.status ?? 'open'))
   const [paidDate, setPaidDate] = useState(entry?.paidDate ?? today)
-  const [note, setNote] = useState(entry?.note ?? '')
-  const [file, setFile] = useState<File | null>(null)
+  const [note, setNote] = useState(entry?.note ?? init?.note ?? '')
+  const [ref, setRef] = useState(entry?.ref ?? init?.ref ?? '')
+  const [file, setFile] = useState<File | null>(init?.file ?? null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const save = async () => {
@@ -210,17 +217,18 @@ function ExpenseForm({ year, entry, channel, exp, onClose }: { year: number; ent
     const rec: ExpenseEntry = {
       id: entry?.id ?? newId('ex'), channel, date, amount, desc: name, status, method,
       ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
-      ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(f ? { file: f } : {}), updated: 0,
+      ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), updated: 0,
     }
     if (exp.put([rec])) onClose()
   }
   return (
-    <Sheet title={`${entry ? 'แก้ไข' : ''}${c.title}`} onClose={onClose}>
+    <Sheet title={init ? `ตรวจและยืนยัน${c.title}` : `${entry ? 'แก้ไข' : ''}${c.title}`} onClose={onClose}>
+      {init && <LocalImage file={init.file} alt="รูปที่แนบ" />}
       <div className="field"><label htmlFor="e-date">{c.dateLabel}</label><input id="e-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       <div className="field"><label htmlFor="e-cat">หมวดรายจ่าย (เลือกจากรายการ)</label>
         <select id="e-cat" className="input" value={catId} onChange={(e) => { setCatId(e.target.value); const x = cats.byId(e.target.value); if (x && !desc.trim()) setDesc(x.name) }}>
           <option value="">— ยังไม่ระบุหมวด —</option>
-          {cats.groups.filter((g) => g.active).map((g) => <optgroup key={g.id} label={`${g.code}. ${g.name}`}>{cats.itemsOf(g.id).filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.code} {x.name}</option>)}</optgroup>)}
+          {cats.groups.filter((g) => g.active).map((g) => <optgroup key={g.id} label={`${g.code}. ${g.name}`}><option value={g.id}>{g.code}. {g.name} (ทั้งหมวด)</option>{cats.itemsOf(g.id).filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.code} {x.name}</option>)}</optgroup>)}
         </select>
       </div>
       <div className="field"><label htmlFor="e-desc">รายการ</label><input id="e-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="เช่น ค่าไฟฟ้า ก.ย. 69" /></div>
@@ -251,8 +259,9 @@ function ExpenseForm({ year, entry, channel, exp, onClose }: { year: number; ent
         </>
       )}
       <div className="field"><label htmlFor="e-who">{c.whoLabel}</label><input id="e-who" className="input" value={who} onChange={(e) => setWho(e.target.value)} /></div>
-      {channel !== 'manual' && <div className="field"><label htmlFor="e-file">รูป{channel === 'bill' ? 'บิล' : 'ใบเสร็จ'} {entry?.file ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="e-file" className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>}
+      {channel !== 'manual' && !init && <div className="field"><label htmlFor="e-file">รูป{channel === 'bill' ? 'บิล' : 'ใบเสร็จ'} {entry?.file ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="e-file" className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>}
       {entry?.file && !file && <StoredImage path={entry.file.path} alt="รูปที่แนบไว้" />}
+      <div className="field"><label htmlFor="e-ref">เลขที่บิล/เลขอ้างอิง (ไม่บังคับ)</label><input id="e-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></div>
       <div className="field"><label htmlFor="e-note">หมายเหตุ (ไม่บังคับ)</label><input id="e-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
       {err && <p className="err" role="alert">{err}</p>}
       <div className="row"><button type="button" className="btn btn--gold grow" disabled={busy} onClick={save}>{busy ? 'กำลังอัปโหลด…' : 'บันทึก'}</button></div>
@@ -275,6 +284,59 @@ function MarkPaid({ entry, exp, onClose }: { entry: ExpenseEntry; exp: ReturnTyp
       </div>
       {method === 'transfer' && <div className="field"><label htmlFor="mp-ref">เลขอ้างอิงการโอน (ไม่บังคับ)</label><input id="mp-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></div>}
       <button type="button" className="btn btn--gold" onClick={() => { if (exp.put([{ ...entry, status: 'paid', paidDate, method, ...(ref.trim() ? { ref: ref.trim() } : {}), updated: 0 }])) onClose() }}>ยืนยัน</button>
+    </Sheet>
+  )
+}
+
+/** วางบิล / สำรองจ่าย: เลือกรูป → ระบบอ่าน (Gemini ถ้ามีรหัส · ไม่มีใช้อ่านสลิปในเครื่อง) → ใส่ในฟอร์มให้ตรวจและยืนยัน */
+function ExpenseFlow({ year, channel, exp, onClose }: { year: number; channel: Channel; exp: ReturnType<typeof useExpenses>; onClose: () => void }) {
+  const cats = useExpenseCats()
+  const c = CH[channel]
+  const [stage, setStage] = useState<'pick' | 'read' | 'form'>('pick')
+  const [init, setInit] = useState<ExpInit | null>(null)
+  const [msg, setMsg] = useState('')
+  const hasKey = !!getGemini().key
+  const choose = async (file: File) => {
+    setStage('read'); setMsg('')
+    const out: ExpInit = { file }
+    try {
+      if (hasKey) {
+        const r = await readBill(file, cats.list.filter((x) => x.kind === 'item' && x.active).map((x) => ({ code: x.code, name: x.name })))
+        const cat = r.category ? cats.list.find((x) => x.kind === 'item' && x.code === r.category) : undefined
+        Object.assign(out, {
+          date: r.date, amount: r.total, desc: r.summary ?? cat?.name, catId: cat?.id, method: r.method, ref: r.ref, due: r.due,
+          ...(channel === 'bill' ? { who: r.vendor } : r.vendor ? { note: `ร้าน/ผู้รับเงิน: ${r.vendor}` } : {}),
+        })
+        const miss = [!r.date && 'วันที่', !r.total && 'ยอดเงิน'].filter(Boolean)
+        if (miss.length) setMsg(`อ่าน${miss.join('และ')}ไม่ได้ — กรุณากรอกเอง`)
+      } else {
+        const r = await readSlip(file)
+        Object.assign(out, { date: r.date, amount: r.amount, ref: r.ref, method: 'transfer', desc: r.memo })
+        setMsg('ยังไม่ได้ใส่รหัส Gemini — อ่านได้เฉพาะสลิปโอน (วันที่ ยอด เลขอ้างอิง) ถ้าเป็นบิลร้านค้าให้ใส่รหัสที่ ตั้งค่า › ตัวอ่านใบถวาย (Gemini) หรือกรอกเอง')
+      }
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ — กรอกเอง') }
+    setInit(out); setStage('form')
+  }
+  if (stage === 'form') return (
+    <>
+      {msg && <p className="role-toast" role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 100 }}>{msg}</p>}
+      <ExpenseForm year={year} entry={null} channel={channel} exp={exp} onClose={onClose} init={init ?? undefined} />
+    </>
+  )
+  return (
+    <Sheet title={c.title} onClose={onClose}>
+      {stage === 'pick' ? (
+        <>
+          <p className="muted small">{channel === 'bill' ? 'เลือกรูปบิลหรือใบแจ้งหนี้ (บิลซื้อของ ค่าไฟ ค่าน้ำ ฯลฯ)' : 'เลือกรูปใบเสร็จหรือสลิปโอนที่ผู้สำรองจ่ายจ่ายไปก่อน'} ระบบจะอ่านวันที่ ยอดเงิน ร้านค้า และเสนอหมวดรายจ่ายให้ ท่านตรวจแล้วกดยืนยัน{hasKey ? '' : ' (ยังไม่ได้ใส่รหัส Gemini: อ่านได้เฉพาะสลิปโอน)'}</p>
+          <label className="btn btn--gold" style={{ display: 'block', textAlign: 'center' }}>
+            📷 เลือกรูป{channel === 'bill' ? 'บิล' : 'ใบเสร็จ/สลิป'}
+            <input type="file" accept="image/*" aria-label={`เลือกรูป${channel === 'bill' ? 'บิล' : 'ใบเสร็จหรือสลิป'}`} style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void choose(f) }} />
+          </label>
+          <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => { setInit(null); setStage('form') }}>กรอกเอง (ไม่มีรูป)</button>
+        </>
+      ) : (
+        <div role="status" aria-live="polite"><p><b>กำลังอ่าน{channel === 'bill' ? 'บิล' : 'ใบเสร็จ'}…</b></p><progress style={{ width: '100%' }} /><p className="muted small">ใช้เวลาประมาณ 5–15 วินาที</p></div>
+      )}
     </Sheet>
   )
 }

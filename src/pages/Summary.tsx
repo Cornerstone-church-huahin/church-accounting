@@ -74,7 +74,7 @@ export default function Summary({ year }: { year: number }) {
         <div ref={paperRef} className="a4page" style={{ transform: `scale(${k})` }}>
           <div className="a4head"><b>สรุปรับ-จ่ายประจำสัปดาห์ · {church}</b><span>{period}</span></div>
           <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
-          <LedgerTable band="รายจ่าย" labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" />
+          <LedgerTable band="รายจ่าย" labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" minRows={0} />
           <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
             <thead><tr><th>ปิดยอด{scope === 'year' ? 'ทั้งปี' : 'รายสัปดาห์'}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
             <tbody>

@@ -2,8 +2,8 @@ import { fmtBaht } from '../lib/money'
 import type { LRow } from '../lib/weekLedger'
 
 /** ตารางรายรับ/รายจ่าย แบบใบบันทึกการถวาย: ซ้าย = เงินสด · เส้นหนา · ขวา = โอน · รวม — เติมแถวว่างให้ครบ 15 แถว */
-export default function LedgerTable({ band, labels, rows, total, tone }: { band?: string; labels: [string, string, string]; rows: LRow[]; total: string; tone?: 'in' | 'out' }) {
-  const n = Math.max(15, rows.length)
+export default function LedgerTable({ band, labels, rows, total, tone, minRows = 15 }: { band?: string; labels: [string, string, string]; rows: LRow[]; total: string; tone?: 'in' | 'out'; /** จำนวนแถวขั้นต่ำ (รายรับ 15 แถวเหมือนใบถวาย · รายจ่าย 0 = แสดงเฉพาะที่เกิดขึ้นจริง) */ minRows?: number }) {
+  const n = Math.max(minRows, rows.length)
   const sum = (f: (r: LRow) => number) => rows.reduce((a, r) => a + f(r), 0)
   return (
     <div className={`ledger${tone ? ` ledger--${tone}` : ''}`} style={{ overflowX: 'auto' }}>

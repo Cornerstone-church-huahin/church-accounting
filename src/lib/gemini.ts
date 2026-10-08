@@ -71,15 +71,15 @@ const b64 = (buf: ArrayBuffer) => {
 const FALLBACKS = ['gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-/** เรียก Gemini: ถ้ารุ่นหนึ่งไม่ว่าง (503/500/429) หรือไม่พบ (404) จะลองซ้ำแล้วสลับไปรุ่นสำรองให้เอง */
-export async function readSheet(file: Blob & { name?: string }): Promise<SheetRead> {
+/** เรียก Gemini ให้อ่านรูปแล้วตอบ JSON: ถ้ารุ่นหนึ่งไม่ว่าง (503/500/429) หรือไม่พบ (404) จะลองซ้ำแล้วสลับไปรุ่นสำรองให้เอง */
+async function geminiJson(file: Blob & { name?: string }, prompt: string, schema: unknown): Promise<string> {
   const { key, model } = getGemini()
   if (!key) throw new Error('ยังไม่ได้ใส่รหัส Gemini API')
-  const f = file instanceof File ? file : new File([file], 'sheet.jpg', { type: file.type || 'image/jpeg' })
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
   const { data } = await compressImage(f, 1800, 0.8)
   const body = JSON.stringify({
-    contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0 },
+    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
   })
   let last = ''
   for (const m of [...new Set([model, ...FALLBACKS])]) {
@@ -87,11 +87,11 @@ export async function readSheet(file: Blob & { name?: string }): Promise<SheetRe
       let r: Response
       try {
         r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body })
-      } catch { throw new Error('ไม่มีอินเทอร์เน็ต — อ่านใบถวายไม่ได้') }
+      } catch { throw new Error('ไม่มีอินเทอร์เน็ต — อ่านรูปไม่ได้') }
       if (r.ok) {
         const j = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
         const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
-        if (text) return parseSheetJson(text)
+        if (text) return text
         last = 'Gemini ไม่ส่งผลการอ่านกลับมา'
         break
       }
@@ -102,7 +102,69 @@ export async function readSheet(file: Blob & { name?: string }): Promise<SheetRe
       break
     }
   }
-  throw new Error(`${last} — ลองกด “อ่านซ้ำ” อีกครั้งในอีกสักครู่ หรือกรอกตารางเอง`)
+  throw new Error(`${last} — ลองอีกครั้งในอีกสักครู่ หรือกรอกเอง`)
+}
+
+export async function readSheet(file: Blob & { name?: string }): Promise<SheetRead> {
+  return parseSheetJson(await geminiJson(file, PROMPT, SCHEMA))
+}
+
+// ---------- บิล / ใบเสร็จ / สลิปโอน ของรายจ่าย (วางบิล · สำรองจ่าย) ----------
+export interface BillRead {
+  kind?: 'receipt' | 'invoice' | 'transfer_slip' | 'other'
+  vendor?: string
+  date?: string
+  due?: string
+  /** สตางค์ */
+  total?: number
+  summary?: string
+  ref?: string
+  /** รหัสรายการรายจ่ายที่ใกล้ที่สุด เช่น "3.1" */
+  category?: string
+  method?: 'cash' | 'transfer'
+}
+
+export function parseBillJson(text: string): BillRead {
+  const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '')
+  const j = JSON.parse(clean) as Record<string, unknown>
+  const iso = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined)
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : undefined)
+  const total = toSatang(j.total)
+  const kind = ['receipt', 'invoice', 'transfer_slip', 'other'].includes(String(j.kind)) ? (j.kind as BillRead['kind']) : undefined
+  const method = j.method === 'transfer' || j.method === 'cash' ? j.method : kind === 'transfer_slip' ? 'transfer' : undefined
+  return {
+    ...(kind ? { kind } : {}), ...(str(j.vendor) ? { vendor: str(j.vendor) } : {}), ...(iso(j.date) ? { date: iso(j.date) } : {}), ...(iso(j.due) ? { due: iso(j.due) } : {}),
+    ...(total ? { total } : {}), ...(str(j.summary) ? { summary: str(j.summary) } : {}), ...(str(j.ref) ? { ref: str(j.ref) } : {}),
+    ...(str(j.category) && /^\d{1,2}\.\d{1,2}$/.test(String(j.category).trim()) ? { category: String(j.category).trim() } : {}), ...(method ? { method } : {}),
+  }
+}
+
+const BILL_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    kind: { type: 'STRING', enum: ['receipt', 'invoice', 'transfer_slip', 'other'] },
+    vendor: { type: 'STRING', nullable: true }, date: { type: 'STRING', nullable: true }, due: { type: 'STRING', nullable: true },
+    total: { type: 'NUMBER', nullable: true }, summary: { type: 'STRING', nullable: true }, ref: { type: 'STRING', nullable: true },
+    category: { type: 'STRING', nullable: true }, method: { type: 'STRING', enum: ['cash', 'transfer'], nullable: true },
+  },
+  required: ['kind'],
+}
+
+/** อ่านบิลซื้อของ / ใบแจ้งหนี้ / ใบเสร็จ / สลิปโอนจ่ายค่าของ แล้วเสนอหมวดรายจ่ายจากรายการที่ตั้งไว้ */
+export async function readBill(file: Blob & { name?: string }, cats: { code: string; name: string }[]): Promise<BillRead> {
+  const list = cats.map((c) => `${c.code} ${c.name}`).join('\n')
+  const prompt = `นี่คือรูปเอกสารรายจ่ายของคริสตจักร (บิลซื้อของ ใบเสร็จ ใบแจ้งหนี้ เช่น ค่าไฟ ค่าน้ำ หรือสลิปโอนเงินจ่ายค่าของ) ให้อ่านและตอบเป็น JSON เท่านั้น
+- kind: receipt (ใบเสร็จ/บิลซื้อของ) · invoice (ใบแจ้งหนี้/บิลที่ยังไม่จ่าย) · transfer_slip (สลิปโอนเงิน) · other
+- vendor: ชื่อร้าน/ผู้ออกบิล/ผู้รับเงิน (ไม่ต้องใส่ชื่อบุคคลที่เป็นผู้โอน)
+- date: วันที่ในเอกสาร แปลงปี พ.ศ. เป็น ค.ศ. (ลบ 543) รูปแบบ YYYY-MM-DD · due: วันครบกำหนดจ่าย (ถ้ามี)
+- total: ยอดรวมสุทธิที่ต้องจ่ายหรือจ่ายแล้ว เป็นเลขบาท (ไม่ใช้คอมมา) ห้ามเดาถ้าอ่านไม่ออก
+- summary: สรุปสิ่งที่ซื้อ/จ่ายสั้น ๆ ไม่เกิน 60 ตัวอักษร (เช่น "ค่าไฟฟ้า ก.ย. 69", "น้ำดื่ม 5 ถัง และกระดาษ A4")
+- ref: เลขที่บิล/เลขอ้างอิงการโอน (ถ้ามี)
+- method: transfer ถ้าเป็นสลิปโอนเงิน ไม่เช่นนั้นเว้นว่าง
+- category: เลือกรหัสรายการที่ใกล้เคียงที่สุดจากรายการด้านล่าง (ตอบเฉพาะรหัส เช่น 3.1) ถ้าไม่แน่ใจให้เว้นว่าง
+รายการรายจ่าย:
+${list}`
+  return parseBillJson(await geminiJson(file, prompt, BILL_SCHEMA))
 }
 
 /** ทดสอบรหัส: '' = ใช้ได้ · อย่างอื่น = ข้อความอธิบาย */
