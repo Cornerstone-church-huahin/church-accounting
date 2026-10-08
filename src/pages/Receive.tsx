@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useIncome, useIncomeTypes, useRounds } from '../lib/data'
+import { useIncome, useIncomeTypes, useRounds, useSheetFiles } from '../lib/data'
 import { roundTotal } from '../lib/ledger'
 import { useRole } from '../lib/members'
-import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
-import { UNSORTED, type IncomeEntry } from '../lib/types'
+import { compressImage } from '../lib/image'
+import Sheet from '../components/Sheet'
+import { getBinary, getSync, putBinary } from '../lib/sync'
+import { addDays, newId, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
+import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm } from './Income'
 
 type Sub = 'manual' | 'slip' | 'sheet' | null
@@ -22,6 +25,8 @@ export default function Receive({ year }: { year: number }) {
   const inc = useIncome(year)
   const rounds = useRounds(year)
   const types = useIncomeTypes()
+  const files = useSheetFiles(year)
+  const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => {
     const s = sheetSunday(todayISO())
@@ -36,6 +41,7 @@ export default function Receive({ year }: { year: number }) {
   const manual = week.filter((x) => kindOf(x) === 'manual')
   const slips = week.filter((x) => kindOf(x) === 'slip')
   const unknown = week.filter((x) => kindOf(x) === 'unknown')
+  const weekFiles = files.items.filter((f) => sheetSunday(f.date) === sunday).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated))
   const round = rounds.items.find((r) => r.date === sunday)
   const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
   const cash = round ? roundTotal(round) : 0
@@ -89,12 +95,20 @@ export default function Receive({ year }: { year: number }) {
       )}
       {sub === 'sheet' && (
         <section className="card no-print" role="tabpanel" aria-label="ใบบันทึกการถวาย">
-          <h2>3 · ใบบันทึกการถวาย</h2>
-          <p className="muted small">กรอกวันอาทิตย์หลังนับซองและนับเงิน</p>
-          <Link className="item" to={`/rounds/${sunday}`} style={{ textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="grow"><b>{fmtDateLong(sunday)}</b><br /><span className="small muted">{!round ? 'ยังไม่ได้บันทึกยอดนับ — แตะเพื่อเริ่ม' : round.status === 'counting' ? 'รอผู้นับคนที่ 2 ยืนยัน' : !round.deposit ? 'ยืนยันแล้ว รอนำฝาก' : 'ฝากธนาคารแล้ว'}</span></span>
-            <b className="num">{round ? fmtBaht(cash) : '＋'}</b>
-          </Link>
+          <div className="row row--between"><h2>3 · ใบบันทึกการถวาย</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setAttach('new')}>＋ แนบไฟล์</button>}</div>
+          <p className="muted small">ถ่ายรูปใบบันทึกการถวายวันอาทิตย์แล้วแนบ — ระบุวันที่ของแต่ละไฟล์</p>
+          {weekFiles.length === 0 ? <p className="muted small">ยังไม่มีไฟล์ในสัปดาห์นี้</p> : (
+            <ul className="list">
+              {weekFiles.map((f) => (
+                <li key={f.id}>
+                  <button type="button" className="item" style={{ width: '100%', textAlign: 'left' }} disabled={!canWrite} onClick={() => setAttach(f)}>
+                    <span className="grow"><b>📎 {f.file.name}</b><br /><span className="small muted">บันทึกวันที่ {fmtDate(f.date)}{f.note ? ` · ${f.note}` : ''}</span></span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link className="mini" to={`/rounds/${sunday}`} style={{ display: 'inline-block', marginTop: 8 }}>{!round ? 'กรอกยอดนับเอง ›' : `เปิดใบนับเงิน (${fmtBaht(cash)}) ›`}</Link>
         </section>
       )}
 
@@ -140,7 +154,57 @@ export default function Receive({ year }: { year: number }) {
         </div>
       </section>
 
+      {attach && <AttachSheet year={year} entry={attach === 'new' ? null : attach} defaultDate={yearOf(todayISO()) === year ? todayISO() : sunday} files={files} onClose={() => setAttach(null)} />}
       {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>
+  )
+}
+
+/** แนบไฟล์ (รูป/PDF) ใบบันทึกการถวาย: อัปโหลดเข้า repo ข้อมูลเหมือนสลิป */
+function AttachSheet({ year, entry, defaultDate, files, onClose }: { year: number; entry: SheetFile | null; defaultDate: string; files: ReturnType<typeof useSheetFiles>; onClose: () => void }) {
+  const [date, setDate] = useState(entry?.date ?? defaultDate)
+  const [note, setNote] = useState(entry?.note ?? '')
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    const cfg = getSync()
+    if (!entry || !cfg) return
+    let u = ''
+    getBinary(cfg, entry.file.path).then((b) => { u = URL.createObjectURL(b); setUrl(u) }).catch(() => undefined)
+    return () => { if (u) URL.revokeObjectURL(u) }
+  }, [entry])
+  const save = async () => {
+    if (yearOf(date) !== year) return setErr(`วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`)
+    if (!entry && !file) return setErr('เลือกรูปหรือไฟล์ก่อน')
+    let f = entry?.file
+    if (file) {
+      const cfg = getSync()
+      if (!cfg) return setErr('ต้องเชื่อมต่อออนไลน์ก่อนจึงแนบไฟล์ได้ (ไฟล์เก็บใน repo ข้อมูล)')
+      setBusy(true)
+      try {
+        const { data, ext } = await compressImage(file)
+        const path = `attachments/${year}/sheet-${Date.now().toString(36)}.${ext}`
+        await putBinary(cfg, path, data, 'ใบบันทึกการถวาย')
+        f = { path, name: file.name }
+      } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบไฟล์ไม่สำเร็จ') }
+      setBusy(false)
+    }
+    if (!f) return
+    if (files.put([{ id: entry?.id ?? newId('sf'), date, file: f, note: note.trim(), updated: 0 }])) onClose()
+  }
+  return (
+    <Sheet title={entry ? 'ไฟล์ใบบันทึกการถวาย' : 'แนบไฟล์ใบบันทึกการถวาย'} onClose={onClose}>
+      <div className="field"><label htmlFor="sf-date">วันที่</label><input id="sf-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      <div className="field"><label htmlFor="sf-file">รูปหรือไฟล์ {entry ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : ''}</label><input id="sf-file" className="input" type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
+      {url && (/\.pdf$/i.test(entry?.file.path ?? '') ? <a href={url} target="_blank" rel="noreferrer">📄 เปิด PDF</a> : <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="ใบบันทึกการถวาย" style={{ maxWidth: '100%' }} /></a>)}
+      <div className="field"><label htmlFor="sf-note">หมายเหตุ (ไม่บังคับ)</label><input id="sf-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      {err && <p className="err" role="alert">{err}</p>}
+      <div className="row">
+        <button type="button" className="btn btn--gold grow" disabled={busy} onClick={save}>{busy ? 'กำลังอัปโหลด…' : 'บันทึก'}</button>
+        {entry && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบไฟล์นี้?') && files.remove(entry.id)) onClose() }}>ลบ</button>}
+      </div>
+    </Sheet>
   )
 }

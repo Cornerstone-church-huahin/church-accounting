@@ -119,3 +119,10 @@ export interface StatementLine extends SharedItem {
   balance?: number
   match?: { kind: MatchKind; refId: string; note?: string; by: string; at: number }
 }
+
+/** ไฟล์ใบบันทึกการถวายที่ถ่ายรูป/แนบมา (ให้ระบบอ่านภายหลัง) */
+export interface SheetFile extends SharedItem {
+  date: string
+  file: { path: string; name: string }
+  note?: string
+}
