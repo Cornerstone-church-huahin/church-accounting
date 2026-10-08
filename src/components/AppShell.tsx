@@ -6,6 +6,7 @@ import { useSettings, useVouchers } from '../lib/data'
 import { tasksFor } from '../lib/ledger'
 import { be, todayISO, yearOf } from '../lib/money'
 import { initialYear, saveYear, YearContext } from '../lib/year'
+import OpenInChrome from './OpenInChrome'
 import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMore, IconReceipt, IconWallet, Logo } from './Icons'
 
 const FULL = [
@@ -62,6 +63,7 @@ export default function AppShell() {
           </select>
         </header>
 
+        <OpenInChrome />
         {isSolo() && <p className="role-bar" role="status">🧪 โหมดทดลองคนเดียว — ข้อมูลอยู่ในเครื่องนี้ และข้ามกฎ “ต้องเป็นคนละคน” ให้ลองครบทุกขั้นตอน</p>}
         {role === 'viewer' && ms.myName && <p className="role-bar" role="status">👁️ สิทธิ์ของท่าน: <b>ดูอย่างเดียว</b> — เห็นรายงานและงบประมาณ</p>}
         {ms.needAdmin && (

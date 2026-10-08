@@ -80,7 +80,7 @@ function Members() {
   const [msg, setMsg] = useState('')
   if (!cfg) return null
   const flash = (t: string) => { setMsg(t); window.setTimeout(() => setMsg(''), 3000) }
-  const link = `${location.origin}${location.pathname}#/join?t=${encodeURIComponent(cfg.token)}${cfg.repo !== DEFAULT_REPO ? `&r=${encodeURIComponent(cfg.repo)}` : ''}&role=${inviteRole}${inviteFor.trim() ? `&for=${encodeURIComponent(inviteFor.trim())}` : ''}`
+  const link = `${location.origin}${location.pathname}?openExternalBrowser=1#/join?t=${encodeURIComponent(cfg.token)}${cfg.repo !== DEFAULT_REPO ? `&r=${encodeURIComponent(cfg.repo)}` : ''}&role=${inviteRole}${inviteFor.trim() ? `&for=${encodeURIComponent(inviteFor.trim())}` : ''}`
   const share = async () => {
     const text = `ขอเชิญร่วมใช้แอปบัญชีคริสตจักร${inviteFor.trim() ? ` (ถึง ${inviteFor.trim()})` : ''} — เปิดลิงก์นี้ แล้วพิมพ์ชื่อของท่านเพื่อส่งคำขอ แอดมินอนุมัติแล้วจึงใช้ได้:\n${link}`
     try {
