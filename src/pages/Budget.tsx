@@ -10,10 +10,15 @@ import { be, fmtBaht, fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import type { AdjKind, BudgetAdj, BudgetEntry, BudgetLine } from '../lib/types'
 import { useYear } from '../lib/year'
 
-const TEMPLATE = ['เงินเดือน/ค่าตอบแทน', 'สาธารณูปโภค', 'ซ่อมแซมและบำรุงอาคาร', 'พันธกิจและมิชชั่น', 'กิจกรรมและการอบรม', 'วัสดุอุปกรณ์สำนักงาน', 'ช่วยเหลือสังคม']
+/** รายการแนะนำ — ไม่เพิ่มให้เองเด็ดขาด ผู้ใช้ติ๊กเลือกเฉพาะที่ต้องการ */
+const SUGGESTED: { name: string; link?: string[]; reserve?: boolean }[] = [
+  { name: 'เงินเดือน/ค่าตอบแทน' }, { name: 'สาธารณูปโภค' }, { name: 'ซ่อมแซมและบำรุงอาคาร' }, { name: 'พันธกิจและมิชชั่น' },
+  { name: 'กิจกรรมและการอบรม' }, { name: 'วัสดุอุปกรณ์สำนักงาน' }, { name: 'ช่วยเหลือสังคม' },
+  { name: 'กองทุนเพื่อที่ดินคริสตจักร', link: ['tt4'] }, { name: 'กองทุนเพื่ออาหาร', link: ['tt5'] }, { name: 'งบฉุกเฉิน/สำรอง', reserve: true },
+]
 const KIND_LABEL: Record<AdjKind, string> = { adjust: 'ปรับงบ', emergency: 'งบฉุกเฉิน', transfer: 'โอนงบระหว่างหมวด' }
 type Rows = ReturnType<typeof budgetRows>
-type Sheets = 'adjust' | 'emergency' | 'transfer' | 'new' | null
+type Sheets = 'adjust' | 'emergency' | 'transfer' | 'new' | 'suggest' | null
 
 export default function Budget() {
   const { year } = useYear()
@@ -57,20 +62,7 @@ function Page({ year }: { year: number }) {
     if (i < 0 || j < 0 || j >= rows.length) return
     lines.put([{ ...rows[i].line, order: rows[j].line.order }, { ...rows[j].line, order: rows[i].line.order }])
   }
-  const addStandard = () => {
-    const have = new Set(lines.items.map((l) => l.name))
-    const missing = TEMPLATE.filter((n) => !have.has(n))
-    if (missing.length === 0) return alert('มีหมวดมาตรฐานครบแล้ว')
-    lines.put(missing.map((name, i) => ({ id: newId('bl'), year, name, base: 0, order: rows.length + i, updated: 0 } as BudgetLine)))
-  }
   const history = [...adjs.items].sort((a, b) => b.updated - a.updated)
-
-  const seed = () => lines.put([
-    ...TEMPLATE.map((name) => ({ name, link: [] as string[] })),
-    { name: 'กองทุนเพื่อที่ดินคริสตจักร', link: ['tt4'] },
-    { name: 'กองทุนเพื่ออาหาร', link: ['tt5'] },
-    { name: 'งบฉุกเฉิน/สำรอง', link: [] as string[] },
-  ].map((x, i, all) => ({ id: `bl-${year}-${i}`, year, name: x.name, base: 0, order: i, reserve: i === all.length - 1, ...(x.link.length ? { incomeTypeIds: x.link } : {}), updated: 0 })))
 
   return (
     <>
@@ -79,9 +71,12 @@ function Page({ year }: { year: number }) {
 
       {rows.length === 0 ? (
         <section className="card">
-          <p className="empty">ยังไม่มีงบประมาณปี {be(year)}</p>
+          <p className="empty">ยังไม่มีงบประมาณปี {be(year)} — กด “＋ ตั้งงบใหม่” ด้านบนเพื่อเริ่มทีละอัน</p>
           {isAdmin ? (
-            <><button type="button" className="btn btn--ghost" onClick={seed}>หรือสร้างหมวดงบมาตรฐานทั้งชุด (แก้ได้)</button><CopyPrev year={year} lines={lines} /></>
+            <div className="row">
+              <button type="button" className="btn btn--ghost" onClick={() => setSheet('suggest')}>เลือกจากรายการแนะนำ…</button>
+              <CopyPrev year={year} lines={lines} />
+            </div>
           ) : <p className="muted small">แอดมินเป็นผู้ตั้งงบประมาณ</p>}
           {isAdmin && deletedLines.length > 0 && <details><summary>งบที่ลบแล้ว ({deletedLines.length}) — กู้คืนได้</summary><ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button></li>)}</ul></details>}
         </section>
@@ -92,7 +87,7 @@ function Page({ year }: { year: number }) {
               <button type="button" className="mini" onClick={() => { setPickId(undefined); setSheet('adjust') }}>± ปรับงบ</button>
               <button type="button" className="mini" onClick={() => setSheet('emergency')}>🚨 เพิ่มงบฉุกเฉิน</button>
               <button type="button" className="mini" onClick={() => setSheet('transfer')}>⇄ โอนงบระหว่างหมวด</button>
-              <button type="button" className="mini" onClick={addStandard}>＋ เพิ่มหมวดมาตรฐานที่ยังไม่มี</button>
+              <button type="button" className="mini" onClick={() => setSheet('suggest')}>＋ เลือกจากรายการแนะนำ</button>
             </div>
           )}
           <section className="card" aria-label="ภาพรวมทั้งปี">
@@ -144,6 +139,7 @@ function Page({ year }: { year: number }) {
           </section>
         </>
       )}
+      {sheet === 'suggest' && <SuggestSheet year={year} existing={lines.items.map((l) => l.name)} order={rows.length} lines={lines} onClose={() => setSheet(null)} />}
       {sheet === 'new' && <NewBudget year={year} order={rows.length} lines={lines} income={income.items} onClose={() => setSheet(null)} />}
       {entry && <EntrySheet year={year} lineName={lineName(entry.lineId)} entry={entry} entries={entries} onClose={() => setEntry(null)} />}
       {editNum && <EditBudget row={rows.find((r) => r.line.id === editNum.lineId)!} focus={editNum.focus} income={income.items} lines={lines} adjs={adjs} onClose={() => setEditNum(null)} />}
@@ -279,15 +275,49 @@ function BudgetSheet({ kind, year, pickId, onClose, lines, adjs, rows }: { kind:
   )
 }
 
-/** ติ๊กแหล่งที่มาของเงิน = ประเภทที่สมาชิกถวายเข้ามา (สิบลด/กองทุนที่ดิน/อาหาร ฯลฯ) แท่งเขียวจะนับยอดถวายประเภทนั้นให้เอง */
-function Sources({ types, totals, value, onChange }: { types: { id: string; name: string }[]; totals: Map<string, number>; value: string[]; onChange: (v: string[]) => void }) {
+/**
+ * ติ๊กแหล่งที่มาของเงิน = ประเภทที่สมาชิกถวายเข้ามา (สิบลด/กองทุนที่ดิน/อาหาร ฯลฯ) แท่งเขียวจะนับยอดถวายประเภทนั้นให้เอง
+ * แอดมินเพิ่ม/แก้ชื่อ/ลบรายชื่อได้ตรงนี้เลย (ประเภทชุดเดียวกับที่ใช้บันทึกรายรับและใบถวาย)
+ */
+function Sources({ totals, value, onChange }: { totals: Map<string, number>; value: string[]; onChange: (v: string[]) => void }) {
+  const types = useIncomeTypes()
+  const role = useRole()
+  const canManage = can(role, 'settings')
+  const [name, setName] = useState('')
+  const add = () => {
+    const n = name.trim()
+    if (!n) return
+    if (types.list.some((t) => t.name === n)) return alert('มีรายชื่อนี้อยู่แล้ว')
+    const id = newId('t')
+    if (types.put([{ id, name: n, order: types.list.length, active: true, updated: 0 }])) { setName(''); onChange([...value, id]) }
+  }
+  const rename = (id: string, cur: string) => {
+    const n = prompt('แก้ชื่อแหล่งที่มา', cur)?.trim()
+    const t = types.byId(id)
+    if (n && t && n !== cur) types.put([{ ...t, name: n }])
+  }
+  const remove = (id: string, cur: string) => {
+    const t = types.byId(id)
+    if (!t || !confirm(`ลบ “${cur}” ออกจากรายชื่อแหล่งที่มา?\n\nรายรับที่เคยบันทึกด้วยชื่อนี้ไม่หาย (ยังแสดงชื่อเดิม) แต่จะไม่มีให้เลือกใหม่ — มีผลกับทุกงบและหน้าบันทึกรายรับ`)) return
+    if (types.put([{ ...t, deleted: true }])) onChange(value.filter((x) => x !== id))
+  }
   return (
     <fieldset className="card card--flat" style={{ margin: 0 }}>
       <legend><b>แหล่งที่มาของเงินในงบนี้</b> <span className="small muted">(ที่สมาชิกถวายเข้ามา — ไม่บังคับ)</span></legend>
-      {types.map((t) => (
-        <label key={t.id} className="row"><input type="checkbox" checked={value.includes(t.id)} onChange={(e) => onChange(e.target.checked ? [...value, t.id] : value.filter((x) => x !== t.id))} /> <span className="grow">{t.name}</span><span className="small muted">รับแล้ว {fmtBaht(totals.get(t.id) ?? 0, { dec: false })}</span></label>
+      {types.list.map((t) => (
+        <div key={t.id} className="row">
+          <label className="row grow"><input type="checkbox" checked={value.includes(t.id)} onChange={(e) => onChange(e.target.checked ? [...value, t.id] : value.filter((x) => x !== t.id))} /> <span className="grow">{t.name}</span><span className="small muted">รับแล้ว {fmtBaht(totals.get(t.id) ?? 0, { dec: false })}</span></label>
+          {canManage && <button type="button" className="mini" aria-label={`แก้ชื่อ ${t.name}`} onClick={() => rename(t.id, t.name)}>✎</button>}
+          {canManage && <button type="button" className="mini" aria-label={`ลบ ${t.name}`} onClick={() => remove(t.id, t.name)}>🗑️</button>}
+        </div>
       ))}
-      <p className="foot-note">ติ๊กแล้วแท่งเขียว (ได้รับ) จะนับยอดถวายประเภทที่ติ๊กให้เองตลอดปี · เพิ่มประเภทถวายใหม่ได้ที่ตั้งค่า</p>
+      {canManage && (
+        <div className="row">
+          <input className="input grow" aria-label="ชื่อแหล่งที่มาใหม่" placeholder="เพิ่มแหล่งที่มาใหม่ เช่น ถวายสวัสดิการผู้รับใช้" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} />
+          <button type="button" className="btn btn--gold" onClick={add}>＋ เพิ่ม</button>
+        </div>
+      )}
+      <p className="foot-note">ติ๊กแล้วแท่งเขียว (ได้รับ) จะนับยอดถวายประเภทที่ติ๊กให้เองตลอดปี · เพิ่ม/แก้/ลบรายชื่อได้เฉพาะแอดมิน</p>
     </fieldset>
   )
 }
@@ -296,7 +326,6 @@ const linkedSum = (income: { typeId: string; amount: number }[], ids: string[]) 
 
 /** ตั้งงบใหม่: ชื่อ · แหล่งที่มา · 3 ช่องตัวเลข · แท่งขึ้นตามที่พิมพ์ทันที */
 function NewBudget({ year, order, lines, income, onClose }: { year: number; order: number; lines: ReturnType<typeof useBudgetLines>; income: { typeId: string; amount: number }[]; onClose: () => void }) {
-  const types = useIncomeTypes()
   const [name, setName] = useState('')
   const [link, setLink] = useState<string[]>([])
   const [got, setGot] = useState<number | null>(null)
@@ -311,7 +340,7 @@ function NewBudget({ year, order, lines, income, onClose }: { year: number; orde
   return (
     <Sheet title="ตั้งงบใหม่" onClose={onClose}>
       <div className="field"><label htmlFor="nb-name">ชื่องบ</label><input id="nb-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ค่าสวัสดิการผู้รับใช้" autoFocus /></div>
-      <Sources types={types.list} totals={sumByType(income)} value={link} onChange={setLink} />
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
       <div className="field"><label htmlFor="nb-got" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา (นอกเหนือจากแหล่งที่ติ๊ก)</label><MoneyInput id="nb-got" value={got} onChange={setGot} /></div>
       <div className="field"><label htmlFor="nb-bud">② งบที่ตั้ง (แท่งกลาง) — ยังไม่ตั้งก็ปล่อยว่างได้ แท่งจะติดพื้น</label><MoneyInput id="nb-bud" value={budget} onChange={setBudget} /></div>
       <div className="field"><label htmlFor="nb-sp" style={{ color: 'var(--series-2)' }}>③ จ่ายแล้ว (แท่งแดง) — ถ้ามีใช้ไปแล้ว</label><MoneyInput id="nb-sp" value={spent} onChange={setSpent} /></div>
@@ -325,7 +354,6 @@ function NewBudget({ year, order, lines, income, onClose }: { year: number; orde
 
 /** แก้ไขงบ: ชื่อ · แหล่งที่มา · ตัวเลขทั้งสามแท่ง (ช่วงเริ่มต้น) — งบที่ตั้งที่แก้จะบันทึกลงประวัติให้เอง */
 function EditBudget({ row, focus, income, lines, adjs, onClose }: { row: Rows[number]; focus: 'name' | 'in' | 'budget' | 'out'; income: { typeId: string; amount: number }[]; lines: ReturnType<typeof useBudgetLines>; adjs: ReturnType<typeof useBudgetAdjs>; onClose: () => void }) {
-  const types = useIncomeTypes()
   const [name, setName] = useState(row.line.name)
   const [link, setLink] = useState<string[]>(row.line.incomeTypeIds ?? [])
   const [openIn, setOpenIn] = useState<number | null>(row.inParts.opening)
@@ -347,7 +375,7 @@ function EditBudget({ row, focus, income, lines, adjs, onClose }: { row: Rows[nu
   return (
     <Sheet title={`แก้ไขงบ — ${row.line.name}`} onClose={onClose}>
       <div className="field"><label htmlFor="ed-name">ชื่องบ</label><input id="ed-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus={focus === 'name'} /></div>
-      <Sources types={types.list} totals={sumByType(income)} value={link} onChange={setLink} />
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
       <div className="field">
         <label htmlFor="ed-in" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินยกมา/ที่มีอยู่แล้ว</label>
         <MoneyInput id="ed-in" value={openIn} onChange={setOpenIn} autoFocus={focus === 'in'} />
@@ -366,6 +394,28 @@ function EditBudget({ row, focus, income, lines, adjs, onClose }: { row: Rows[nu
       <BudgetCandles title={name.trim() || row.line.name} income={liveIn} budget={budget ?? 0} spent={(openOut ?? 0) + row.outParts.vouchers + row.outParts.entries} compact />
       {err && <p className="err" role="alert">{err}</p>}
       <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>
+    </Sheet>
+  )
+}
+
+/** ติ๊กเลือกหมวดจากรายการแนะนำ — เพิ่มเฉพาะที่เลือก (ตัวเลขเป็น 0 แก้ภายหลังได้) */
+function SuggestSheet({ year, existing, order, lines, onClose }: { year: number; existing: string[]; order: number; lines: ReturnType<typeof useBudgetLines>; onClose: () => void }) {
+  const left = SUGGESTED.filter((x) => !existing.includes(x.name))
+  const [pick, setPick] = useState<string[]>([])
+  const add = () => {
+    const chosen = left.filter((x) => pick.includes(x.name))
+    if (chosen.length === 0) return onClose()
+    if (lines.put(chosen.map((x, i) => ({ id: newId('bl'), year, name: x.name, base: 0, order: order + i, ...(x.reserve ? { reserve: true } : {}), ...(x.link ? { incomeTypeIds: x.link } : {}), updated: 0 } as BudgetLine)))) onClose()
+  }
+  return (
+    <Sheet title="เลือกจากรายการแนะนำ" onClose={onClose}>
+      {left.length === 0 ? <p className="muted">เพิ่มครบทุกรายการแนะนำแล้ว</p> : (
+        <>
+          <p className="muted small">ติ๊กเฉพาะหมวดที่อยากได้ — เพิ่มเข้าไปเป็นการ์ดเปล่า (ตัวเลข 0) แล้วค่อยแตะแท่งเพื่อใส่ตัวเลขทีหลัง ลบหรือเพิ่มเมื่อไรก็ได้</p>
+          {left.map((x) => <label key={x.name} className="row"><input type="checkbox" checked={pick.includes(x.name)} onChange={(e) => setPick(e.target.checked ? [...pick, x.name] : pick.filter((n) => n !== x.name))} /> {x.name}</label>)}
+        </>
+      )}
+      <button type="button" className="btn btn--gold" onClick={add}>{pick.length ? `เพิ่ม ${pick.length} หมวดที่เลือก` : 'ปิด'}</button>
     </Sheet>
   )
 }
