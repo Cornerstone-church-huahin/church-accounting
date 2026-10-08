@@ -149,7 +149,7 @@ try {
   await page.waitForTimeout(300)
   must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleting the sheet removes its cash')
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
-  must(await page.getByRole('heading', { name: '🔴 จ่าย' }).isVisible(), 'pay panel')
+  must(await page.getByRole('tab', { name: /รวมจ่าย/ }).isVisible(), 'pay mode shows its 4 tabs')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('RECEIVE OK')
 } catch (e) { await page.screenshot({ path: 'shots/receive-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
