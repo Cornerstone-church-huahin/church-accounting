@@ -1,6 +1,6 @@
 /** แปลงส่วนของหน้าเว็บ (ใบสรุป) เป็นไฟล์ PDF A4 ในเครื่อง — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น */
 /** fullPage: ใช้ทั้งหน้า A4 ตามขนาด 794×1123 px ของ element (ไม่เว้นขอบ ไม่ตัดหน้า) */
-export async function downloadPdf(el: HTMLElement, filename: string, opts: { fullPage?: boolean } = {}): Promise<void> {
+export async function downloadPdf(el: HTMLElement, filename: string, opts: { fullPage?: boolean; fitOnePage?: boolean } = {}): Promise<void> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
   const canvas = await html2canvas(el, {
     scale: 2,
@@ -17,6 +17,14 @@ export async function downloadPdf(el: HTMLElement, filename: string, opts: { ful
   }
   const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), m = 12
   const w = pw - 2 * m
+  if (opts.fitOnePage) {
+    // ย่อให้พอดี 1 หน้า (ถ้าสูงเกิน) จัดกึ่งกลาง
+    const hFull = (canvas.height * w) / canvas.width, hMax = ph - 2 * m
+    const k = Math.min(1, hMax / hFull)
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', m + (w - w * k) / 2, m, w * k, hFull * k)
+    pdf.save(filename)
+    return
+  }
   const sliceH = Math.floor(((ph - 2 * m) * canvas.width) / w) // ความสูงต่อหน้า (px ของแคนวาส)
   for (let y = 0, page = 0; y < canvas.height; y += sliceH, page++) {
     const h = Math.min(sliceH, canvas.height - y)

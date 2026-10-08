@@ -181,3 +181,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .form--compact p { font-size: 11px; }
 .form--compact .sign { font-size: 11px; gap: 1.5rem; }
 .form--compact .sign > div { padding-top: 0.6rem; }
+.paper--ledger .paper__blank td { height: 20px; padding-top: 0; padding-bottom: 0; }
+.paper--ledger .tbl--paper { font-size: 0.74rem; }
+.paper--ledger .tbl--paper th { padding: 0.15rem 0.2rem; }
+.ledger__band { margin: 0.7rem 0 0.2rem; padding: 0.15rem 0.5rem; font-weight: 700; color: #fff; background: #1b8a4b; }
+.ledger--out .ledger__band { background: #b3261e; }
+.paper__close { margin-top: 0.8rem; }
+.paper__close tfoot td { font-size: 0.9rem; }
