@@ -8,9 +8,9 @@ export default function Home() {
   return (
     <>
       <div className="page-head"><h1>บัญชีคริสตจักรศิลาเอก</h1></div>
-      <div className="seg home-tabs" role="tablist" aria-label="รับหรือจ่าย">
-        <button type="button" role="tab" aria-selected={tab === 'in'} className={tab === 'in' ? 'on' : ''} onClick={() => setTab('in')}>💚 รับ</button>
-        <button type="button" role="tab" aria-selected={tab === 'out'} className={tab === 'out' ? 'on' : ''} onClick={() => setTab('out')}>🔴 จ่าย</button>
+      <div className="home-tabs" role="tablist" aria-label="รับหรือจ่าย">
+        <button type="button" role="tab" aria-selected={tab === 'in'} className={`home-tab home-tab--in${tab === 'in' ? ' on' : ''}`} onClick={() => setTab('in')}>💚 รับ</button>
+        <button type="button" role="tab" aria-selected={tab === 'out'} className={`home-tab home-tab--out${tab === 'out' ? ' on' : ''}`} onClick={() => setTab('out')}>🔴 จ่าย</button>
       </div>
       {tab === 'in' && (
         <section className="card" role="tabpanel" aria-label="หน้ารับ">
