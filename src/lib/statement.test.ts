@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { guessMap, parseCSV, parseRows, parseStmtAmount, parseStmtDate, suggest } from './statement'
+import { guessMap, parseCSV, parseRows, parseStmtAmount, parseStmtDate, suggest, suggestGroups } from './statement'
 import type { StatementLine } from './types'
 
 describe('statement parsing', () => {
@@ -51,5 +51,23 @@ describe('suggest', () => {
   it('does not match outside the date window or crossing credit/debit', () => {
     const lines = [line('l1', '2026-11-05', 500000), line('l2', '2026-10-05', 0, 500000)]
     expect(suggest(lines, [{ kind: 'deposit', refId: 'r1', date: '2026-10-04', amount: 500000, label: '' }], 7)).toEqual([])
+  })
+})
+
+describe('suggestGroups (many bank credits = one weekly transfer total)', () => {
+  const l = (id: string, date: string, credit: number): StatementLine => ({ id, batchId: 'b', accountId: 'a', date, desc: '', credit, debit: 0, updated: 1 })
+  it('finds the group whose sum equals the sheet total', () => {
+    const lines = [l('1', '2026-09-29', 100000), l('2', '2026-10-02', 3200000), l('3', '2026-10-04', 57500), l('4', '2026-09-20', 777)]
+    const g = suggestGroups(lines, [{ sunday: '2026-10-04', amount: 3357500 }])
+    expect(g).toHaveLength(1)
+    expect(g[0].lineIds.sort()).toEqual(['1', '2', '3'])
+  })
+  it('ignores unrelated credits (e.g. a cash deposit) in the same window', () => {
+    const lines = [l('1', '2026-10-02', 100000), l('2', '2026-10-03', 50000), l('x', '2026-10-04', 500000)]
+    const g = suggestGroups(lines, [{ sunday: '2026-10-04', amount: 150000 }])
+    expect(g[0].lineIds.sort()).toEqual(['1', '2'])
+  })
+  it('suggests nothing when the sum differs', () => {
+    expect(suggestGroups([l('1', '2026-10-02', 100)], [{ sunday: '2026-10-04', amount: 200 }])).toEqual([])
   })
 })

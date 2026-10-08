@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import NoAccess from '../components/NoAccess'
 import { can } from '../lib/access'
-import { useIncomeTypes, useRounds } from '../lib/data'
-import { roundTotal } from '../lib/ledger'
+import { useIncome, useIncomeTypes, useRounds } from '../lib/data'
+import { roundTotal, weekTransfers } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { useYear } from '../lib/year'
@@ -26,6 +26,7 @@ export default function Rounds() {
 function RoundList({ year }: { year: number }) {
   const rounds = useRounds(year)
   const types = useIncomeTypes()
+  const income = useIncome(year)
   const today = todayISO()
   // อาทิตย์ที่ผ่านมาแล้ว (หรือวันนี้) ของปีนั้น เรียงล่าสุดก่อน · แสดง 12 ครั้งล่าสุด + รอบที่มีข้อมูลทั้งหมด
   const sundays = sundaysOf(year).filter((d) => d <= today).reverse()
@@ -59,7 +60,7 @@ function RoundList({ year }: { year: number }) {
               <li key={d}>
                 <Link className="item" to={`/rounds/${d}`}>
                   <span className="grow"><b>{fmtDate(d)}</b><br /><span className="small muted">{r ? `${Object.keys(r.lines).filter((k) => r.lines[k] > 0).map((k) => types.byId(k)?.name).filter(Boolean).slice(0, 3).join(', ')}` : ''}</span></span>
-                  <span className="num">{r ? <b>{fmtBaht(roundTotal(r))}</b> : ''}</span>
+                  <span className="num">{(r || weekTransfers(income.items, d).total > 0) ? <b>{fmtBaht((r ? roundTotal(r) : 0) + weekTransfers(income.items, d).total)}</b> : ''}</span>
                   {label}
                 </Link>
               </li>

@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import BarChart from '../components/BarChart'
 import { IconPrint } from '../components/Icons'
 import { useBudgetAdjs, useBudgetLines, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
-import { budgetRows, buckets, liveIncome, paidIn, periodOf, shiftPeriod, stageOf, sumBy, type Period, type PeriodKind } from '../lib/ledger'
+import { budgetRows, buckets, liveIncome, paidIn, paidItems, periodOf, shiftPeriod, stageOf, sumBy, type Period, type PeriodKind } from '../lib/ledger'
 import { be, fmtBaht, fmtDate, monthName, monthShort, todayISO, yearOf } from '../lib/money'
 import { mergeItems } from '../lib/sync'
-import type { IncomeEntry, Voucher } from '../lib/types'
+import { UNSORTED, type IncomeEntry, type Voucher } from '../lib/types'
 
 const KIND_LABEL: Record<PeriodKind, string> = { week: 'รายสัปดาห์', month: 'รายเดือน', year: 'รายปี' }
 
@@ -50,13 +50,15 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
 
   const incByType = useMemo(() => {
     const m = sumBy(inc, (x) => x.typeId, (x) => x.amount)
-    return types.list.filter((t) => t.active || m.has(t.id)).map((t) => ({ name: t.name, value: m.get(t.id) ?? 0 }))
+    const rows = types.list.filter((t) => t.active || m.has(t.id)).map((t) => ({ name: t.name, value: m.get(t.id) ?? 0 }))
+    const unsorted = m.get(UNSORTED) ?? 0
+    return unsorted > 0 ? [...rows, { name: 'โอน (ยังไม่แยกประเภท)', value: unsorted }] : rows
   }, [inc, types.list])
   const lineName = (id: string) => lines.items.find((l) => l.id === id)?.name ?? 'นอกงบประมาณ'
   const outByLine = useMemo(() => {
-    const m = sumBy(paid, (v) => v.lineId, (v) => v.amount)
+    const m = sumBy(paidItems(vouchers, p), (x) => x.item.lineId, (x) => x.item.amount)
     return [...m.entries()].map(([id, value]) => ({ name: lineName(id), value })).sort((a, b) => b.value - a.value)
-  }, [paid, lines.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [vouchers, p, lines.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const bk = buckets(p)
   const flow = bk.map((b) => ({
     label: p.kind === 'year' ? monthShort(Number(b.label)) : b.label,

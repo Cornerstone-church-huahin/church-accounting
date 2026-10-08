@@ -1,6 +1,6 @@
-import { addDays, daysInMonth, inRange, monthOf, weekStart, yearOf } from './money'
+import { addDays, daysInMonth, inRange, monthOf, sheetSunday, weekStart, yearOf } from './money'
 import type { AccessRole } from './access'
-import type { BudgetAdj, BudgetLine, IncomeEntry, Round, Voucher } from './types'
+import type { BudgetAdj, BudgetLine, IncomeEntry, Round, Voucher, VoucherItem } from './types'
 
 // ---------- รอบนับเงินวันอาทิตย์ ----------
 /** มูลค่าธนบัตร/เหรียญที่ให้กรอกจำนวน (บาท) */
@@ -8,12 +8,29 @@ export const DENOMS = [1000, 500, 100, 50, 20, 10, 5, 2, 1]
 export const roundTotal = (r: Pick<Round, 'lines'>) => Object.values(r.lines).reduce((a, b) => a + b, 0)
 export const denomTotal = (d: Record<string, number>) => Object.entries(d).reduce((a, [k, n]) => a + Number(k) * 100 * (n || 0), 0)
 export const roundId = (date: string) => `rd-${date}`
+export const envelopeTotal = (r: Pick<Round, 'envelopes'>) => Object.values(r.envelopes ?? {}).reduce((a, b) => a + b, 0)
+
+/** เงินโอนที่นับในใบถวายของวันอาทิตย์นั้น (โอนวันจันทร์–อาทิตย์) */
+export function weekTransfers(income: IncomeEntry[], sunday: string): { entries: IncomeEntry[]; total: number } {
+  const entries = income.filter((x) => !x.deleted && x.method === 'transfer' && sheetSunday(x.date) === sunday)
+  return { entries, total: entries.reduce((s, x) => s + x.amount, 0) }
+}
 
 /** เมื่อยืนยันยอดนับ: สร้างรายรับเงินสดต่อประเภท (id คงที่ จึงแก้ซ้ำแล้วไม่ซ้ำซ้อน) */
 export function entriesFromRound(r: Round): IncomeEntry[] {
   return Object.entries(r.lines).map(([typeId, amount]) => ({
     id: `${r.id}:${typeId}`, date: r.date, typeId, amount, method: 'cash' as const, roundId: r.id, updated: 0, deleted: amount <= 0,
   }))
+}
+
+// ---------- รายการในใบเบิก ----------
+/** ใบเก่า (รายการเดียว) แปลงเป็น 1 รายการ เพื่อให้ทุกที่ใช้โค้ดชุดเดียว */
+export const voucherItems = (v: Voucher): VoucherItem[] => (v.items?.length ? v.items : [{ desc: v.purpose, amount: v.amount, lineId: v.lineId, method: 'cash' }])
+export const itemsTotal = (items: Pick<VoucherItem, 'amount'>[]) => items.reduce((s, i) => s + i.amount, 0)
+/** ใบเบิกสรุปเป็นข้อความสั้น ๆ สำหรับแสดงในรายการ */
+export const voucherTitle = (v: Voucher) => {
+  const it = voucherItems(v)
+  return it.length > 1 ? `${it[0].desc} และอีก ${it.length - 1} รายการ` : it[0]?.desc ?? v.purpose
 }
 
 // ---------- งบประมาณ ----------
@@ -31,9 +48,9 @@ export interface BudgetRow {
 export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[]): BudgetRow[] {
   return [...lines].sort((a, b) => a.order - b.order).map((line) => {
     const adjust = adjs.filter((a) => a.lineId === line.id).reduce((s, a) => s + a.delta, 0)
-    const mine = vouchers.filter((v) => v.lineId === line.id)
-    const spent = mine.filter((v) => v.status === 'paid').reduce((s, v) => s + v.amount, 0)
-    const committed = mine.filter((v) => v.status === 'submitted' || v.status === 'approved').reduce((s, v) => s + v.amount, 0)
+    const mine = vouchers.filter((v) => !v.deleted).map((v) => ({ v, sum: itemsTotal(voucherItems(v).filter((i) => i.lineId === line.id)) })).filter((x) => x.sum > 0)
+    const spent = mine.filter((x) => x.v.status === 'paid').reduce((s, x) => s + x.sum, 0)
+    const committed = mine.filter((x) => x.v.status === 'submitted' || x.v.status === 'approved').reduce((s, x) => s + x.sum, 0)
     const current = line.base + adjust
     return { line, base: line.base, adjust, current, spent, committed, remaining: current - spent - committed }
   })
@@ -129,6 +146,9 @@ export function shiftPeriod(p: Period, dir: 1 | -1): Period {
 export const liveIncome = (xs: IncomeEntry[], p: Period) => xs.filter((x) => !x.deleted && inRange(x.date, p.from, p.to))
 /** รายจ่ายนับเมื่อ "จ่ายแล้ว" ตามวันที่จ่าย */
 export const paidIn = (vs: Voucher[], p: Period) => vs.filter((v) => !v.deleted && v.status === 'paid' && v.paid && inRange(v.paid.date, p.from, p.to))
+
+/** รายจ่ายที่จ่ายแล้วในช่วงเวลา แยกเป็นรายการ (1 ใบเบิกมีหลายรายการ ลงคนละหมวดได้) */
+export const paidItems = (vs: Voucher[], p: Period) => paidIn(vs, p).flatMap((v) => voucherItems(v).map((item) => ({ v, item })))
 
 export function sumBy<T>(xs: T[], key: (x: T) => string, amount: (x: T) => number): Map<string, number> {
   const m = new Map<string, number>()

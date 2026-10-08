@@ -1,15 +1,22 @@
 import { useSharedStore } from './sharedStore'
+import { mergeItems } from './sync'
 import type { BankAccount, BudgetAdj, BudgetLine, IncomeEntry, IncomeType, Round, Settings, StatementBatch, StatementLine, Voucher } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
-export const DEFAULT_INCOME_TYPES: IncomeType[] = ['ทศางค์', 'ถวายทั่วไป', 'ถวายพิเศษ', 'ถวายมิชชั่น', 'ถวายอาคาร/ก่อสร้าง', 'ถวายอื่น ๆ'].map((name, i) => ({ id: `t${i + 1}`, name, order: i, active: true, updated: 0 }))
+/** ประเภทตามใบบันทึกการถวายของคริสตจักร */
+export const DEFAULT_INCOME_TYPES: IncomeType[] = ['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'กองทุนเพื่อที่ดินคริสตจักร', 'กองทุนเพื่ออาหาร', 'รายได้อื่น (เช่น ค่าสถานที่สอน)'].map((name, i) => ({ id: `tt${i + 1}`, name, order: i, active: true, updated: 0 }))
+/** ค่าตั้งต้นรุ่นแรกที่ยังไม่มีใครแก้ (updated = 0) ซ่อนไว้ เพื่อไม่ให้ปนกับประเภทจริง */
+const LEGACY_SEED_IDS = new Set(['t1', 't2', 't3', 't4', 't5', 't6'])
+const isLegacySeed = (t: IncomeType) => LEGACY_SEED_IDS.has(t.id) && t.updated === 0
 export const DEFAULT_SETTINGS: Settings = { id: 'settings', churchName: 'คริสตจักรศิลาเอก หัวหิน', twoStepOver: 200000, matchDays: 7, csvMaps: {}, updated: 0 }
 
 /** ค่าตั้งต้นและตัวเลือกที่แอดมินแก้ได้ (ไม่แบ่งปี) */
 export function useIncomeTypes() {
-  const s = useSharedStore<IncomeType>({ localKey: k('types'), file: 'income-types.json', label: 'ประเภทถวาย', seed: () => DEFAULT_INCOME_TYPES, write: 'settings' })
-  return { ...s, list: [...s.items].sort((a, b) => a.order - b.order), byId: (id: string) => s.all.find((t) => t.id === id) }
+  const s = useSharedStore<IncomeType>({ localKey: k('types'), file: 'income-types.json', label: 'ประเภทถวาย', write: 'settings' })
+  // ค่าตั้งต้นรวมกับที่แอดมินแก้เองเสมอ (รายการที่แก้/ปิด/ลบแล้วมี updated ใหม่กว่าจึงชนะ)
+  const merged = mergeItems(DEFAULT_INCOME_TYPES, s.all).filter((t) => !isLegacySeed(t))
+  return { ...s, list: merged.filter((t) => !t.deleted).sort((a, b) => a.order - b.order), byId: (id: string) => merged.find((t) => t.id === id) }
 }
 export function useAccounts() {
   const s = useSharedStore<BankAccount>({ localKey: k('accounts'), file: 'accounts.json', label: 'บัญชีธนาคาร', write: 'settings' })

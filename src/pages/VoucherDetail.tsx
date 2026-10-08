@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import MoneyInput from '../components/MoneyInput'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can, isSolo, whoAmI } from '../lib/access'
-import { useAccounts, useBudgetLines, useSettings, useVouchers } from '../lib/data'
+import { useBudgetLines, useSettings, useVouchers } from '../lib/data'
 import { compressImage } from '../lib/image'
-import { approveBlock, isFullyApproved, stageOf, STAGE_LABEL, stepsNeeded } from '../lib/ledger'
+import { approveBlock, isFullyApproved, stageOf, STAGE_LABEL, stepsNeeded, voucherItems } from '../lib/ledger'
 import { useRole } from '../lib/members'
-import { fmtBaht, fmtDate, todayISO } from '../lib/money'
+import { fmtBaht, fmtDate, fmtDateLong, todayISO } from '../lib/money'
 import { getBinary, getSync, putBinary } from '../lib/sync'
 import type { Attachment, Voucher } from '../lib/types'
+import { METHOD_LABEL } from './Vouchers'
 
 export default function VoucherDetail() {
   const { id = '' } = useParams()
@@ -25,7 +25,6 @@ function Detail({ id, year }: { id: string; year: number }) {
   const role = useRole()
   const vs = useVouchers(year)
   const lines = useBudgetLines(year)
-  const accounts = useAccounts()
   const { settings } = useSettings()
   const me = whoAmI()
   const v = vs.items.find((x) => x.id === id)
@@ -37,7 +36,8 @@ function Detail({ id, year }: { id: string; year: number }) {
   const stage = stageOf(v)
   const block = approveBlock(v, actor, settings.twoStepOver, isSolo())
   const need = stepsNeeded(v.amount, settings.twoStepOver)
-  const line = lines.items.find((l) => l.id === v.lineId)
+  const items = voucherItems(v)
+  const lineName = (id: string) => lines.items.find((l) => l.id === id)?.name ?? 'นอกงบประมาณ'
   const save = (patch: Partial<Voucher>) => vs.put([{ ...v, ...patch }])
 
   const approve = () => {
@@ -53,20 +53,20 @@ function Detail({ id, year }: { id: string; year: number }) {
 
   return (
     <>
-      <div className="page-head"><h1>ใบเบิก {v.no}</h1><span className={`badge ${stage === 'done' ? 'badge--good' : stage === 'rejected' ? 'badge--bad' : 'badge--gold'}`}>{STAGE_LABEL[stage]}</span></div>
-      <section className="card">
+      <div className="page-head no-print"><h1>ใบเบิก {v.no}</h1><span className={`badge ${stage === 'done' ? 'badge--good' : stage === 'rejected' ? 'badge--bad' : 'badge--gold'}`}>{STAGE_LABEL[stage]}</span></div>
+      <section className="card no-print">
         <div className="money-big">{fmtBaht(v.amount)} <span className="small muted">บาท</span></div>
-        <table className="tbl"><tbody>
-          <tr><th>จ่ายให้</th><td>{v.payee}</td></tr>
-          <tr><th>รายการ</th><td>{v.purpose}</td></tr>
-          <tr><th>หมวดงบ</th><td>{line?.name ?? 'นอกงบประมาณ'}</td></tr>
-          <tr><th>ยื่นเมื่อ</th><td>{fmtDate(v.date)} โดย {v.requester.name}</td></tr>
-          {v.paid && <tr><th>จ่ายแล้ว</th><td>{fmtDate(v.paid.date)} · {{ cash: 'เงินสด', transfer: 'โอน', cheque: 'เช็ค' }[v.paid.method]}{v.paid.ref ? ` · อ้างอิง ${v.paid.ref}` : ''} · โดย {v.paid.by}</td></tr>}
-          {v.rejected && <tr><th>ไม่อนุมัติ</th><td className="bad">{v.rejected.name}: {v.rejected.reason}</td></tr>}
-        </tbody></table>
+        <p className="small muted">ยื่นเมื่อ {fmtDate(v.date)} โดย {v.requester.name}{v.payee ? ` · ผู้รับเงิน ${v.payee}` : ''}{v.paid ? ` · จ่ายแล้ว ${fmtDate(v.paid.date)} โดย ${v.paid.by}` : ''}</p>
+        <div className="scroll-x"><table className="tbl"><thead><tr><th>#</th><th>รายการ</th><th>หมวดงบ</th><th>จ่ายโดย</th><th className="num">บาท</th></tr></thead>
+          <tbody>{items.map((it, n) => <tr key={n}><td>{n + 1}</td><td>{it.desc}{it.ref ? <><br /><span className="small muted">อ้างอิง {it.ref}</span></> : null}</td><td>{lineName(it.lineId)}</td><td>{METHOD_LABEL[it.method]}</td><td className="num">{fmtBaht(it.amount)}</td></tr>)}</tbody>
+          <tfoot><tr><td colSpan={4}>รวมจ่ายเป็นเงินทั้งสิ้น</td><td className="num">{fmtBaht(v.amount)}</td></tr></tfoot></table></div>
+        {v.rejected && <p className="bad">ไม่อนุมัติโดย {v.rejected.name}: {v.rejected.reason}</p>}
+        <button type="button" className="mini no-print" onClick={() => window.print()}>🖨️ พิมพ์ใบเบิก</button>
       </section>
 
-      <section className="card" aria-labelledby="h-ap">
+      <PrintForm v={v} items={items} lineName={lineName} />
+
+      <section className="card no-print" aria-labelledby="h-ap">
         <h2 id="h-ap">การอนุมัติ ({v.approvals.length}/{need})</h2>
         <p className="small muted">{need === 1 ? 'ใบเบิกนี้ไม่เกินเกณฑ์: ผู้ตรวจสอบหรือแอดมิน 1 คนอนุมัติ' : `ใบเบิกนี้เกิน ${fmtBaht(settings.twoStepOver, { dec: false })} บาท: ต้องอนุมัติ 2 คนต่างกัน และมีแอดมินอย่างน้อย 1 คน`}</p>
         <ul className="list">{v.approvals.map((a) => <li key={a.id}><span className="grow"><b>{a.name}</b> <span className="small muted">({a.role === 'admin' ? 'แอดมิน' : 'ผู้ตรวจสอบ'} · {new Date(a.at).toLocaleDateString('th-TH')})</span>{a.note && <><br /><span className="small">{a.note}</span></>}</span><span className="ok">✓</span></li>)}</ul>
@@ -87,51 +87,64 @@ function Detail({ id, year }: { id: string; year: number }) {
       </section>
 
       {v.status === 'approved' && can(role, 'voucherPay') && (
-        <section className="card"><h2>จ่ายเงิน</h2><p className="muted small">จ่ายเงินให้ผู้รับตามใบเบิกแล้ว กดบันทึกการจ่าย แล้วแนบใบเสร็จ</p><button type="button" className="btn btn--gold" onClick={() => setPaying(true)}>💸 บันทึกการจ่ายเงิน</button></section>
+        <section className="card no-print"><h2>จ่ายเงิน</h2><p className="muted small">จ่ายเงินให้ผู้รับตามใบเบิกแล้ว กดบันทึกการจ่าย แล้วแนบใบเสร็จ</p><button type="button" className="btn btn--gold" onClick={() => setPaying(true)}>💸 บันทึกการจ่ายเงิน</button></section>
       )}
 
       <Attachments v={v} year={year} canAttach={can(role, 'attach') || v.requester.id === me.id} onChange={(attachments) => save({ attachments })} setMsg={setMsg} />
 
       {stage === 'check' && can(role, 'voucherReview') && (
-        <section className="card">
+        <section className="card no-print">
           <h2>รับรองใบเสร็จ</h2>
           <p className="muted small">ตรวจรูปใบเสร็จว่าตรงกับรายการและยอดเงิน {fmtBaht(v.amount)} บาท</p>
           <button type="button" className="btn btn--gold" disabled={v.paid?.by === me.name && !isSolo()} onClick={() => save({ receiptOk: { name: me.name, at: Date.now() } })}>✓ ใบเสร็จถูกต้องครบถ้วน</button>
           {v.paid?.by === me.name && !isSolo() && <p className="small muted">ผู้จ่ายเงินรับรองใบเสร็จของตัวเองไม่ได้</p>}
         </section>
       )}
-      {v.receiptOk && <p className="ok">✓ ใบเสร็จรับรองแล้วโดย {v.receiptOk.name}</p>}
+      {v.receiptOk && <p className="ok no-print">✓ ใบเสร็จรับรองแล้วโดย {v.receiptOk.name}</p>}
       {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
-      {paying && <PayForm v={v} accounts={accounts.list} onClose={() => setPaying(false)} onPaid={(paid) => { save({ status: 'paid', paid: { ...paid, by: me.name } }); setPaying(false) }} />}
+      {paying && <PayForm v={v} onClose={() => setPaying(false)} onPaid={(date, its) => { save({ status: 'paid', items: its, paid: { date, by: me.name } }); setPaying(false) }} />}
     </>
   )
 }
 
-function PayForm({ v, accounts, onClose, onPaid }: { v: Voucher; accounts: { id: string; name: string; last4: string }[]; onClose: () => void; onPaid: (p: { date: string; method: 'cash' | 'transfer' | 'cheque'; ref?: string; accountId?: string }) => void }) {
+function PayForm({ v, onClose, onPaid }: { v: Voucher; onClose: () => void; onPaid: (date: string, items: ReturnType<typeof voucherItems>) => void }) {
   const [date, setDate] = useState(todayISO())
-  const [method, setMethod] = useState<'cash' | 'transfer' | 'cheque'>('cash')
-  const [ref, setRef] = useState('')
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
-  const [amount, setAmount] = useState<number | null>(v.amount)
-  const [err, setErr] = useState('')
-  const go = () => {
-    if (amount !== v.amount) return setErr(`ยอดที่จ่ายต้องเท่ากับยอดในใบเบิก ${fmtBaht(v.amount)} บาท (ถ้าจ่ายต่างไป ให้ยกเลิกใบนี้แล้วทำใบใหม่)`)
-    onPaid({ date, method, ...(ref.trim() ? { ref: ref.trim() } : {}), ...(method !== 'cash' && accountId ? { accountId } : {}) })
-  }
+  const [items, setItems] = useState(voucherItems(v))
+  const go = () => onPaid(date, items)
   return (
     <Sheet title="บันทึกการจ่ายเงิน" onClose={onClose}>
+      <p className="muted small">ยอดรวม {fmtBaht(v.amount)} บาท ตามใบเบิก — จ่ายครบทุกรายการแล้วจึงกดบันทึก</p>
       <div className="field"><label htmlFor="p-date">วันที่จ่าย</label><input id="p-date" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="p-amt">ยอดที่จ่าย (บาท)</label><MoneyInput id="p-amt" value={amount} onChange={setAmount} /></div>
-      <div className="seg" role="group" aria-label="วิธีจ่าย">{(['cash', 'transfer', 'cheque'] as const).map((m) => <button key={m} type="button" className={method === m ? 'on' : ''} onClick={() => setMethod(m)}>{{ cash: 'เงินสด', transfer: 'โอน', cheque: 'เช็ค' }[m]}</button>)}</div>
-      {method !== 'cash' && (
-        <>
-          {accounts.length > 0 && <div className="field"><label htmlFor="p-acc">จากบัญชี</label><select id="p-acc" className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name} {a.last4 && `(${a.last4})`}</option>)}</select></div>}
-          <div className="field"><label htmlFor="p-ref">เลขอ้างอิงการโอน/เลขที่เช็ค</label><input id="p-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></div>
-        </>
-      )}
-      {err && <p className="err" role="alert">{err}</p>}
+      {items.map((it, n) => it.method !== 'cash' && (
+        <div className="field" key={n}>
+          <label htmlFor={`p-r${n}`}>เลขอ้างอิงการโอน — {it.desc} ({fmtBaht(it.amount)})</label>
+          <input id={`p-r${n}`} className="input" value={it.ref ?? ''} placeholder="จากสลิป" onChange={(e) => setItems(items.map((x, i) => (i === n ? { ...x, ref: e.target.value } : x)))} />
+        </div>
+      ))}
       <button type="button" className="btn btn--gold" onClick={go}>บันทึกการจ่าย</button>
     </Sheet>
+  )
+}
+
+/** หน้าตาตามใบเบิก-จ่ายเงินสดของคริสตจักร (ซ่อนบนจอ แสดงเฉพาะตอนพิมพ์) */
+function PrintForm({ v, items, lineName }: { v: Voucher; items: ReturnType<typeof voucherItems>; lineName: (id: string) => string }) {
+  const { settings } = useSettings()
+  const rows = Math.max(items.length, 14)
+  return (
+    <section className="print-only" aria-hidden="true">
+      <p style={{ textAlign: 'right' }}>{fmtDateLong(v.date)}</p>
+      <h2 style={{ textAlign: 'center' }}>{settings.churchName}</h2>
+      <h2 style={{ textAlign: 'center', textDecoration: 'underline' }}>ใบเบิก - จ่ายเงิน (เลขที่ {v.no})</h2>
+      <table className="tbl" style={{ fontSize: '11pt' }}>
+        <thead><tr><th>ลำดับที่</th><th>รายการ</th><th>หมวดงบ</th><th className="num">จำนวนเงิน</th><th>ผู้เบิกเงิน</th><th>ผู้รับเงิน</th></tr></thead>
+        <tbody>{Array.from({ length: rows }, (_, n) => { const it = items[n]; return <tr key={n} style={{ height: '1.6rem' }}><td>{it ? n + 1 : ''}</td><td>{it?.desc}{it?.ref ? ` (อ้างอิง ${it.ref})` : ''}{it && it.method !== 'cash' ? ` [${METHOD_LABEL[it.method]}]` : ''}</td><td>{it ? lineName(it.lineId) : ''}</td><td className="num">{it ? fmtBaht(it.amount) : ''}</td><td /><td /></tr> })}</tbody>
+        <tfoot><tr><td colSpan={3}>รวมจ่ายเป็นเงินทั้งสิ้น</td><td className="num">{fmtBaht(v.amount)}</td><td colSpan={2}>บาท</td></tr></tfoot>
+      </table>
+      <div className="sign" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div>ผู้อนุมัติ / ตรวจสอบ{v.approvals.length > 0 && <><br /><span className="small">{v.approvals.map((a) => a.name).join(', ')}</span></>}<br /><span className="small">วันที่ ........../........../..........</span></div>
+        <div>ผู้จ่าย / ฝ่ายบัญชี{v.paid && <><br /><span className="small">{v.paid.by}</span></>}<br /><span className="small">วันที่ {v.paid ? fmtDate(v.paid.date) : '........../........../..........'}</span></div>
+      </div>
+    </section>
   )
 }
 
@@ -139,6 +152,7 @@ function Attachments({ v, year, canAttach, onChange, setMsg }: { v: Voucher; yea
   const [kind, setKind] = useState<Attachment['kind']>(v.status === 'paid' ? 'receipt' : 'quote')
   const [busy, setBusy] = useState(false)
   const me = whoAmI()
+  useEffect(() => { if (v.status === 'paid') setKind('receipt') }, [v.status])
   const add = async (f: File | null) => {
     if (!f) return
     const cfg = getSync()
@@ -156,7 +170,7 @@ function Attachments({ v, year, canAttach, onChange, setMsg }: { v: Voucher; yea
     } finally { setBusy(false) }
   }
   return (
-    <section className="card" aria-labelledby="h-att">
+    <section className="card no-print" aria-labelledby="h-att">
       <h2 id="h-att">รูปใบเสร็จและเอกสาร ({v.attachments.length})</h2>
       <div className="thumbs">{v.attachments.map((a) => <Thumb key={a.path} a={a} />)}</div>
       {v.attachments.length === 0 && <p className="muted small">ยังไม่มีไฟล์แนบ{v.status === 'paid' ? ' — ต้องแนบใบเสร็จ' : ''}</p>}
