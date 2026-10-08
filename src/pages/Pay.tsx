@@ -22,8 +22,8 @@ interface ExpInit { file: File; date?: string; amount?: number; desc?: string; w
 
 const CH: Record<Channel, { n: number; title: string; dateLabel: string; whoLabel: string; add: string; hint: string; openLabel: string; doneLabel: string }> = {
   manual: { n: 1, title: 'บันทึกด้วยมือ', dateLabel: 'วันที่จ่าย', whoLabel: 'ผู้รับเงิน/ร้านค้า', add: '＋ บันทึก', hint: 'รายจ่ายที่จ่ายไปแล้ว บันทึกได้ทุกวัน ระบุวันที่ หมวดรายจ่าย และจ่ายด้วยเงินสดหรือโอน', openLabel: '', doneLabel: '' },
-  bill: { n: 2, title: 'วางบิล', dateLabel: 'วันที่ในบิล', whoLabel: 'ผู้ออกบิล/ร้านค้า', add: '＋ วางบิล', hint: 'บิลที่ได้รับแต่ยังไม่จ่าย (เช่น ค่าไฟ ค่าน้ำ) แนบรูปบิลได้ — เมื่อจ่ายแล้วกด “จ่ายแล้ว” ยอดจึงเข้ารวมจ่าย', openLabel: 'ค้างจ่าย', doneLabel: '✓ จ่ายแล้ว' },
-  advance: { n: 3, title: 'สำรองจ่าย', dateLabel: 'วันที่สำรองจ่าย', whoLabel: 'ผู้สำรองจ่าย', add: '＋ สำรองจ่าย', hint: 'ผู้รับใช้ออกเงินส่วนตัวไปก่อน แนบใบเสร็จได้ — เมื่อคริสตจักรคืนเงินแล้วกด “คืนเงินแล้ว” ยอดจึงเข้ารวมจ่าย', openLabel: 'รอคืนเงิน', doneLabel: '✓ คืนเงินแล้ว' },
+  bill: { n: 2, title: 'วางบิล', dateLabel: 'วันที่ในบิล', whoLabel: 'ผู้ออกบิล/ร้านค้า', add: '＋ วางบิล', hint: 'บิลที่ได้รับแต่ยังไม่จ่าย (เช่น ค่าไฟ ค่าน้ำ) แนบรูปบิลได้ — กด “จ่ายแล้ว” เมื่อจ่าย (ยอดนับเป็นรายจ่ายทันที ช่อง “ค้างจ่าย” จนกว่าจะจ่าย)', openLabel: 'ค้างจ่าย', doneLabel: '✓ จ่ายแล้ว' },
+  advance: { n: 3, title: 'สำรองจ่าย', dateLabel: 'วันที่สำรองจ่าย', whoLabel: 'ผู้สำรองจ่าย', add: '＋ สำรองจ่าย', hint: 'ผู้รับใช้ออกเงินส่วนตัวไปก่อน แนบใบเสร็จได้ — กด “คืนเงินแล้ว” เมื่อคริสตจักรคืนเงิน (ยอดนับเป็นรายจ่ายทันที ช่อง “ค้างจ่าย” จนกว่าจะคืน)', openLabel: 'รอคืนเงิน', doneLabel: '✓ คืนเงินแล้ว' },
 }
 const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidDate ?? x.date))
 const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b) ? 1 : effDate(a) > effDate(b) ? -1 : b.updated - a.updated)
@@ -150,7 +150,7 @@ export default function Pay({ year }: { year: number }) {
               <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
             </div>
             {(pending('bill').length > 0 || pending('advance').length > 0) && (
-              <p className="note">ยังไม่นับรวม: วางบิลค้างจ่าย {pending('bill').length} รายการ ({fmtBaht(sum(pending('bill')))}) · สำรองจ่ายรอคืนเงิน {pending('advance').length} รายการ ({fmtBaht(sum(pending('advance')))}) — จะเข้ารวมจ่ายเมื่อกด “จ่ายแล้ว/คืนเงินแล้ว”</p>
+              <p className="note">นับเป็นรายจ่ายแล้ว (ช่อง “ค้างจ่าย”) แต่เงินยังไม่ออก — ต้องเตรียมเบิก {fmtBaht(sum(pending('bill')) + sum(pending('advance')))}: วางบิลค้างจ่าย {pending('bill').length} รายการ ({fmtBaht(sum(pending('bill')))}) · สำรองจ่ายรอคืนเงิน {pending('advance').length} รายการ ({fmtBaht(sum(pending('advance')))}) — เมื่อกด “จ่ายแล้ว/คืนเงินแล้ว” จะย้ายเข้าเงินสด/โอน</p>
             )}
           </div>
           <header className="paper__head">
@@ -159,7 +159,7 @@ export default function Pay({ year }: { year: number }) {
             <p>{scope === 'year' ? `ประจำปี ${year + 543} (รวมทุกสัปดาห์)` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`}</p>
             {scope === 'week' && <p className="muted small">จ่ายระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
           </header>
-          <LedgerTable labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={L.outRows} total="รวมทั้งสิ้น" tone="out" minRows={0} />
+          <LedgerTable labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={L.outRows} total="รวมทั้งสิ้น" tone="out" minRows={0} pendingCol />
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
             <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
@@ -243,7 +243,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
           {channel === 'bill' && <div className="field"><label htmlFor="e-due">วันครบกำหนดจ่าย (ไม่บังคับ)</label><input id="e-due" className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}
           <div className="field"><label htmlFor="e-status">สถานะ</label>
             <select id="e-status" className="input" value={status} onChange={(e) => setStatus(e.target.value as 'open' | 'paid')}>
-              <option value="open">{c.openLabel} (ยังไม่นับรวมจ่าย)</option>
+              <option value="open">{c.openLabel} (นับเป็นรายจ่ายค้างจ่าย)</option>
               <option value="paid">{channel === 'bill' ? 'จ่ายแล้ว' : 'คืนเงินแล้ว'}</option>
             </select>
           </div>

@@ -212,3 +212,5 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .subtabs--out { grid-template-columns: repeat(4, 1fr); }
 .subtabs--out button { border-color: var(--series-2); }
 .subtabs--out button.on { background: var(--series-2); color: #fff; }
+.ledger table { min-width: 600px; }
+.a4note { margin: 2px 0 0; font-size: 12.5px; }
