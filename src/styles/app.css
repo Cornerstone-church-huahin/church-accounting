@@ -140,3 +140,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .home-tab--out { border-color: var(--series-2); }
 .home-tab--in.on { background: var(--series-1); color: #fff; }
 .home-tab--out.on { background: var(--series-2); color: #fff; }
+.subtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.5rem 0 0.75rem; }
+.subtabs button { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: 3.6rem; padding: 0.3rem 0.2rem; border-radius: 0.9rem; border: 2px solid var(--series-1); background: var(--surface); color: var(--ink); font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+.subtabs button span { font-size: 0.78rem; font-weight: 500; }
+.subtabs button.on { background: var(--series-1); color: #fff; }
