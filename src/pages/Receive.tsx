@@ -39,8 +39,8 @@ export default function Receive({ year }: { year: number }) {
   const canWrite = can(role, 'income')
   const idx = sundays.indexOf(sunday)
 
-  const [allWeeks, setAllWeeks] = useState(false)
-  const [repScope, setRepScope] = useState<'week' | 'year'>('week')
+  const [allWeeks, setAllWeeks] = useState(true)
+  const [repScope, setRepScope] = useState<'week' | 'year'>('year')
   const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId).sort(byDateDesc), [inc.items])
   const week = useMemo(() => allEnt.filter((x) => sheetSunday(x.date) === sunday), [allEnt, sunday])
   const byDateF = (a: SheetFile, b: SheetFile) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
@@ -66,10 +66,10 @@ export default function Receive({ year }: { year: number }) {
   const total = cash + sum(rep)
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
   const perType = useMemo(() => {
-    const m = new Map<string, { cash: number; transfer: number }>()
-    const add = (id: string, k: 'cash' | 'transfer', v: number) => { const c = m.get(id) ?? { cash: 0, transfer: 0 }; c[k] += v; m.set(id, c) }
-    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) add(id, 'cash', v)
-    for (const x of rep) add(x.unknown ? UNSORTED : x.typeId, x.method === 'cash' ? 'cash' : 'transfer', x.amount)
+    const m = new Map<string, { cash: number; transfer: number; n: number }>()
+    const at = (id: string) => { const c = m.get(id) ?? { cash: 0, transfer: 0, n: 0 }; m.set(id, c); return c }
+    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id); c.cash += v; c.n += r.envelopes?.[id] ?? 1 }
+    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); c[x.method === 'cash' ? 'cash' : 'transfer'] += x.amount; c.n += 1 }
     return [...m.entries()]
   }, [repRounds, rep]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -136,9 +136,9 @@ export default function Receive({ year }: { year: number }) {
       <p className="muted small no-print" style={{ textAlign: 'center' }}>{fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
-        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub(sub === 'manual' ? null : 'manual')}>1<span>บันทึกด้วยมือ{week.filter((x) => kindOf(x) === 'manual').length ? ` (${week.filter((x) => kindOf(x) === 'manual').length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub(sub === 'slip' ? null : 'slip')}>2<span>บันทึกสลิป{week.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown').length ? ` (${week.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown').length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub(sub === 'sheet' ? null : 'sheet')}>3<span>ใบบันทึกการถวาย{weekFiles.length ? ` (${weekFiles.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub(sub === 'manual' ? null : 'manual')}>1<span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub(sub === 'slip' ? null : 'slip')}>2<span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub(sub === 'sheet' ? null : 'sheet')}>3<span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
       </div>
 
       {sub === 'manual' && (
@@ -194,7 +194,7 @@ export default function Receive({ year }: { year: number }) {
             <tr><td>2 · สลิปโอน</td><td className="num">{repSlips.length}</td><td className="num">{fmtBaht(sum(repSlips))}</td></tr>
             {repUnknown.length > 0 && <tr><td>❓ เงินเข้าไม่ทราบที่มา</td><td className="num">{repUnknown.length}</td><td className="num">{fmtBaht(sum(repUnknown))}</td></tr>}
           </tbody>
-          <tfoot><tr><td colSpan={2}>รวมรายรับทั้งสัปดาห์</td><td className="num">{fmtBaht(total)}</td></tr></tfoot>
+          <tfoot><tr><td colSpan={2}>{repScope === 'year' ? 'รวมรายรับทั้งปี' : 'รวมรายรับทั้งสัปดาห์'}</td><td className="num">{fmtBaht(total)}</td></tr></tfoot>
         </table>
 
         {sheetRows.length > 0 && (
@@ -210,8 +210,8 @@ export default function Receive({ year }: { year: number }) {
           <>
             <h3>แยกตามประเภทถวาย</h3>
             <table className="tbl">
-              <thead><tr><th>ประเภท</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
-              <tbody>{perType.map(([id, v]) => <tr key={id}><td>{typeName(id)}</td><td className="num">{fmtBaht(v.cash)}</td><td className="num">{fmtBaht(v.transfer)}</td><td className="num">{fmtBaht(v.cash + v.transfer)}</td></tr>)}</tbody>
+              <thead><tr><th>ประเภท</th><th className="num">รายการ</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
+              <tbody>{perType.map(([id, v]) => <tr key={id}><td>{typeName(id)}</td><td className="num">{v.n}</td><td className="num">{fmtBaht(v.cash)}</td><td className="num">{fmtBaht(v.transfer)}</td><td className="num">{fmtBaht(v.cash + v.transfer)}</td></tr>)}</tbody>
             </table>
           </>
         )}
