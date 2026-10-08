@@ -87,7 +87,7 @@ type Role2 = 'admin' | 'auditor' | 'bookkeeper' | 'viewer'
 /** 1 ใบเบิกมีได้หลายรายการ (ตามใบเบิก-จ่ายเงินสดจริง) แต่ละรายการลงหมวดงบของตัวเอง */
 /** cash = เงินสด · transfer = โอนจากบัญชีคริสตจักร (ไปจับคู่กับสเตตเมนต์) · advance = สำรองจ่ายโดยบุคคลแล้วเบิกคืน */
 export type PayMethod = 'cash' | 'transfer' | 'advance'
-export interface VoucherItem { desc: string; amount: number; lineId: string; method: PayMethod; ref?: string }
+export interface VoucherItem { desc: string; amount: number; lineId: string; method: PayMethod; ref?: string; /** รายการในหมวดรายจ่าย (ExpenseCat.id) */ catId?: string }
 export interface Voucher extends SharedItem {
   no: string
   date: string
@@ -133,4 +133,15 @@ export interface SheetFile extends SharedItem {
   note?: string
   /** ค่าที่ระบบอ่านจากใบ (ผู้ใช้ตรวจ/แก้แล้ว) — เงินสดเท่านั้น (สตางค์) */
   read?: { rows: SheetRowRead[]; writtenCash?: number }
+}
+
+/** หมวดรายจ่าย: kind group = หมวดหลัก (เช่น 3. ค่าสาธารณูปโภค) · item = รายการในหมวด (เช่น 3.1 ค่าไฟฟ้า) */
+export interface ExpenseCat extends SharedItem {
+  kind: 'group' | 'item'
+  /** id ของหมวดหลัก (ของ group คือตัวเอง) */
+  group: string
+  code: string
+  name: string
+  order: number
+  active: boolean
 }

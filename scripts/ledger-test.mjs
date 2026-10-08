@@ -24,8 +24,9 @@ await page.evaluate(([S, Y, d3, d4, d2]) => {
   set(`income.${Y}`, [{ id: 'in1', date: d3, typeId: 'tt1', amount: 16900, method: 'transfer', source: 'slip', ref: 'X', ...base }])
   set(`budget.${Y}`, [{ id: 'b1', year: Y, name: 'ค่าสาธารณูปโภค', base: 5000000, order: 0, ...base }, { id: 'b2', year: Y, name: 'งานดูแลสมาชิก', base: 3000000, order: 1, ...base }])
   set(`vouchers.${Y}`, [
-    { id: 'v1', no: `V-${Y}-001`, date: d4, requester: { id: 'a', name: 'ก' }, payee: 'การไฟฟ้า', purpose: 'ค่าไฟ', amount: 185000, lineId: 'b1', items: [{ desc: 'ค่าไฟ', amount: 185000, lineId: 'b1', method: 'transfer' }], status: 'paid', approvals: [], attachments: [], paid: { date: d4, method: 'transfer', by: 'ก' }, ...base },
-    { id: 'v2', no: `V-${Y}-002`, date: d2, requester: { id: 'a', name: 'ก' }, payee: 'ร้านดอกไม้', purpose: 'ดอกไม้', amount: 60000, lineId: 'b2', items: [{ desc: 'ดอกไม้', amount: 60000, lineId: 'b2', method: 'cash' }], status: 'paid', approvals: [], attachments: [], paid: { date: d2, method: 'cash', by: 'ก' }, ...base },
+    { id: 'v1', no: `V-${Y}-001`, date: d4, requester: { id: 'a', name: 'ก' }, payee: 'การไฟฟ้า', purpose: 'ค่าไฟ', amount: 185000, lineId: 'b1', items: [{ desc: 'ค่าไฟ', amount: 185000, lineId: 'b1', method: 'transfer', catId: 'ei-3-1' }], status: 'paid', approvals: [], attachments: [], paid: { date: d4, method: 'transfer', by: 'ก' }, ...base },
+    { id: 'v2', no: `V-${Y}-002`, date: d2, requester: { id: 'a', name: 'ก' }, payee: 'ร้านดอกไม้', purpose: 'ดอกไม้', amount: 60000, lineId: 'b2', items: [{ desc: 'ดอกไม้', amount: 60000, lineId: 'b2', method: 'cash', catId: 'ei-11-4' }], status: 'paid', approvals: [], attachments: [], paid: { date: d2, method: 'cash', by: 'ก' }, ...base },
+    { id: 'v3', no: `V-${Y}-003`, date: d2, requester: { id: 'a', name: 'ก' }, payee: 'ร้านทั่วไป', purpose: 'อื่น ๆ', amount: 10000, lineId: 'b2', items: [{ desc: 'ของใช้', amount: 10000, lineId: 'b2', method: 'cash' }], status: 'paid', approvals: [], attachments: [], paid: { date: d2, method: 'cash', by: 'ก' }, ...base },
   ])
 }, [S, Y, day(3), day(4), day(2)])
 try {
@@ -36,12 +37,20 @@ try {
   must(/สรุปรับ-จ่ายประจำสัปดาห์/.test(t), 'title')
   must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t), 'income row (6 envelopes + 1 transfer): ' + t)
   must(/รวมรายรับ\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t), 'income total: ' + t)
-  must(/ค่าสาธารณูปโภค\s+1\s+1\s+1,850\.00\s+1,850\.00/.test(t) || /ค่าสาธารณูปโภค[\s\S]{0,30}1,850\.00/.test(t), 'expense row utilities')
-  must(/รวมรายจ่าย\s+1\s+600\.00\s+1\s+1,850\.00\s+2,450\.00/.test(t), 'expense total: ' + t)
-  // ปิดยอด: รับ 5,429 - จ่าย 2,450 = 2,979 (เงินสด 5,260-600=4,660 · โอน 169-1,850=-1,681)
-  must(/คงเหลือ\s+4,660\.00\s+[-−]1,681\.00\s+2,979\.00/.test(t), 'closing balance: ' + t)
+  must(/ค่าสาธารณูปโภคและค่าเช่า\s+1\s+1,850\.00\s+1,850\.00/.test(t), 'expense group 3 (transfer): ' + t)
+  must(/การนมัสการและการสอนพระคัมภีร์\s+1\s+600\.00\s+600\.00/.test(t), 'expense group 11 (cash)')
+  must(/ยังไม่ระบุหมวด\s+1\s+100\.00\s+100\.00/.test(t), 'uncategorized row')
+  must(/รวมรายจ่าย\s+2\s+700\.00\s+1\s+1,850\.00\s+2,550\.00/.test(t), 'expense total: ' + t)
+  // ปิดยอด: รับ 5,429 − จ่าย 2,550 = 2,879 (เงินสด 5,260−700=4,560 · โอน 169−1,850=−1,681)
+  must(/คงเหลือ\s+4,560\.00\s+[-−]1,681\.00\s+2,879\.00/.test(t), 'closing balance: ' + t)
   await page.screenshot({ path: 'shots/ledger.png', fullPage: true })
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
   await dl.saveAs('shots/ledger.pdf')
+  // ตั้งค่า: หมวดรายจ่าย 15 หมวด 150 รายการ · ใบเบิกเลือกหมวดได้
+  await page.goto(`http://localhost:${PORT}/#/settings`)
+  must(await page.getByText('🧾 หมวดรายจ่าย (15 หมวด · 150 รายการ)').isVisible(), 'settings shows 15 groups / 150 items')
+  await page.goto(`http://localhost:${PORT}/#/vouchers`)
+  await page.getByRole('button', { name: /ทำใบเบิก/ }).click()
+  must((await page.locator('select[id^="v-c"] option').count()) === 151, 'voucher form lists 150 expense items + blank')
   console.log('LEDGER OK')
 } catch (e) { await page.screenshot({ path: 'shots/ledger-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

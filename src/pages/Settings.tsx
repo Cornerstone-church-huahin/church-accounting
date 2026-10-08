@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
-import { useAccounts, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
+import { useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
@@ -23,6 +23,7 @@ export default function Settings() {
       {can(role, 'income') && <Reader />}
       {can(role, 'settings') && <General />}
       {can(role, 'settings') && <Types />}
+      {can(role, 'settings') && <ExpenseCatsCard />}
       {can(role, 'settings') && <Accounts />}
       {can(role, 'settings') && <DataClean />}
       <Display />
@@ -351,6 +352,63 @@ function Reader() {
         {cur.key && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบรหัส Gemini ออกจากเครื่องนี้?')) { saveGemini(''); setCur(getGemini()); setMsg({ ok: true, text: 'ลบรหัสออกจากเครื่องนี้แล้ว' }) } }}>ลบรหัส</button>}
       </div>
       {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
+    </section>
+  )
+}
+
+/** หมวดรายจ่าย: 15 หมวดหลัก / 150 รายการตั้งต้น — แก้ชื่อ ซ่อน ลบ เพิ่มรายการ/หมวดใหม่ได้ (ใช้ในใบเบิกและตารางรายจ่ายของใบสรุป) */
+function ExpenseCatsCard() {
+  const c = useExpenseCats()
+  const [newItem, setNewItem] = useState<Record<string, string>>({})
+  const [newGroup, setNewGroup] = useState('')
+  const maxOrder = c.list.reduce((m, x) => Math.max(m, x.order), 0)
+  const rename = (id: string) => {
+    const x = c.byId(id)
+    const n = prompt('ชื่อ', x?.name)?.trim()
+    if (x && n) c.put([{ ...x, name: n }])
+  }
+  const addItem = (g: { id: string; code: string }) => {
+    const n = (newItem[g.id] ?? '').trim()
+    if (!n) return
+    const next = c.itemsOf(g.id).reduce((m, x) => Math.max(m, Number(x.code.split('.')[1]) || 0), 0) + 1
+    c.put([{ id: newId('ei'), kind: 'item', group: g.id, code: `${g.code}.${next}`, name: n, order: maxOrder + 1, active: true, updated: 0 }])
+    setNewItem({ ...newItem, [g.id]: '' })
+  }
+  const addGroup = () => {
+    const n = newGroup.trim()
+    if (!n) return
+    const id = newId('eg')
+    c.put([{ id, kind: 'group', group: id, code: String(c.groups.reduce((m, x) => Math.max(m, Number(x.code) || 0), 0) + 1), name: n, order: maxOrder + 1, active: true, updated: 0 }])
+    setNewGroup('')
+  }
+  return (
+    <section className="card" aria-labelledby="h-ecat">
+      <h2 id="h-ecat">🧾 หมวดรายจ่าย ({c.groups.length} หมวด · {c.list.filter((x) => x.kind === 'item').length} รายการ)</h2>
+      <p className="muted small">ใช้เลือกในใบเบิก และเป็นแถวของตารางรายจ่ายในใบสรุป (แถวละหมวดหลัก) · แก้ชื่อ ซ่อน (ไม่ให้เลือก) หรือลบได้ เพิ่มรายการ/หมวดใหม่ได้</p>
+      {c.groups.map((g) => {
+        const items = c.itemsOf(g.id)
+        return (
+          <details key={g.id} className="ecat">
+            <summary style={g.active ? undefined : { opacity: 0.55 }}><b>{g.code}. {g.name}</b> <span className="muted small">({items.length} รายการ)</span></summary>
+            <div className="row" style={{ gap: 8, margin: '0.3rem 0' }}>
+              <button type="button" className="mini" onClick={() => rename(g.id)}>แก้ชื่อหมวด</button>
+              <button type="button" className="mini" onClick={() => c.put([{ ...g, active: !g.active }])}>{g.active ? 'ซ่อนหมวด' : 'แสดงหมวด'}</button>
+            </div>
+            <ul className="list">
+              {items.map((x) => (
+                <li key={x.id}>
+                  <span className="grow" style={x.active ? undefined : { opacity: 0.55 }}>{x.code} {x.name}</span>
+                  <button type="button" className="mini" onClick={() => rename(x.id)}>แก้ชื่อ</button>
+                  <button type="button" className="mini" onClick={() => c.put([{ ...x, active: !x.active }])}>{x.active ? 'ซ่อน' : 'แสดง'}</button>
+                  <button type="button" className="mini" aria-label={`ลบ ${x.name}`} onClick={() => { if (confirm(`ลบ “${x.name}” ?\n(ใบเบิกเก่าที่ใช้รายการนี้จะไปอยู่ในแถว “ยังไม่ระบุหมวด”)`)) c.put([{ ...x, deleted: true }]) }}>🗑️</button>
+                </li>
+              ))}
+            </ul>
+            <div className="row"><input className="input grow" aria-label={`เพิ่มรายการในหมวด ${g.name}`} placeholder="เพิ่มรายการในหมวดนี้" value={newItem[g.id] ?? ''} onChange={(e) => setNewItem({ ...newItem, [g.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addItem(g)} /><button type="button" className="btn btn--gold" onClick={() => addItem(g)}>เพิ่ม</button></div>
+          </details>
+        )
+      })}
+      <div className="row" style={{ marginTop: 8 }}><input className="input grow" aria-label="ชื่อหมวดหลักใหม่" placeholder="เพิ่มหมวดหลักใหม่" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addGroup()} /><button type="button" className="btn btn--gold" onClick={addGroup}>เพิ่มหมวด</button></div>
     </section>
   )
 }

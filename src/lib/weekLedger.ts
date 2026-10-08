@@ -1,6 +1,6 @@
 import { addDays, sheetSunday } from './money'
 import { directOut, paidItems, type Period } from './ledger'
-import { UNSORTED, type BudgetEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
+import { UNSORTED, type BudgetEntry, type ExpenseCat, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
 export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc }
@@ -16,6 +16,8 @@ const NO_BUDGET = '__none' // ต้องตรงกับ Vouchers.tsx
 export function computeLedger(a: {
   year: number; sunday: string; scope: 'week' | 'year'
   income: IncomeEntry[]; rounds: Round[]; vouchers: Voucher[]; lines: BudgetLine[]; funds: BudgetLine[]; entries: BudgetEntry[]; types: IncomeType[]
+  /** หมวดรายจ่าย (ถ้าใส่ ตารางรายจ่ายแยกตามหมวดหลัก 15 หมวด · ไม่ใส่ = แยกตามหมวดงบ) */
+  cats?: ExpenseCat[]
 }) {
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)')
   const ent = a.income.filter((x) => !x.roundId && (a.scope === 'year' || sheetSunday(x.date) === a.sunday))
@@ -31,11 +33,27 @@ export function computeLedger(a: {
 
   const p: Period = a.scope === 'year' ? { kind: 'year', from: `${a.year}-01-01`, to: `${a.year}-12-31` } : { kind: 'week', from: addDays(a.sunday, -6), to: a.sunday }
   const lineName = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...a.lines, ...a.funds].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
+  const cats = a.cats ?? []
+  const groups = cats.filter((c) => c.kind === 'group' && c.active).sort((x, y) => x.order - y.order)
   const o = new Map<string, LRow>()
-  const oat = (id: string) => { const r = o.get(id) ?? { key: id, label: lineName(id), cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; o.set(id, r); return r }
-  for (const { item } of paidItems(a.vouchers, p)) { const r = oat(item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
-  for (const e of directOut(a.entries, p)) { const t = oat(e.lineId).cash; t.n += 1; t.amt += e.amount }
-  const outRows = [...o.values()].sort((x, y) => y.cash.amt + y.transfer.amt - x.cash.amt - x.transfer.amt)
+  const oat = (id: string, label: string) => { const r = o.get(id) ?? { key: id, label, cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; o.set(id, r); return r }
+  const UNCAT = '__uncat'
+  // รายจ่ายแต่ละรายการ → แถวของหมวดหลัก (ถ้ามีหมวดรายจ่าย) หรือหมวดงบ (แบบเดิม)
+  const rowFor = (catId: string | undefined, lineId: string) => {
+    if (groups.length > 0) {
+      const g = catId ? cats.find((c) => c.id === catId)?.group : undefined
+      const grp = g ? groups.find((x) => x.id === g) : undefined
+      return grp ? oat(grp.id, grp.name) : oat(UNCAT, 'ยังไม่ระบุหมวด')
+    }
+    return oat(lineId, lineName(lineId))
+  }
+  for (const g of groups) oat(g.id, g.name) // แสดงหมวดหลักครบเสมอ (เหมือน 5 แถวแรกของรายรับ)
+  for (const { item } of paidItems(a.vouchers, p)) { const r = rowFor(item.catId, item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
+  for (const e of directOut(a.entries, p)) { const t = rowFor(undefined, e.lineId).cash; t.n += 1; t.amt += e.amount }
+  const outAll = [...o.values()]
+  const outRows = groups.length > 0
+    ? [...groups.map((g) => o.get(g.id)!), ...(o.get(UNCAT) && (o.get(UNCAT)!.cash.amt || o.get(UNCAT)!.transfer.amt) ? [o.get(UNCAT)!] : [])]
+    : outAll.sort((x, y) => y.cash.amt + y.transfer.amt - x.cash.amt - x.transfer.amt)
 
   return { incRows, outRows, inSum: sumRows(incRows), outSum: sumRows(outRows) }
 }
