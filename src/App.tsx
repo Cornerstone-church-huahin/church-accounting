@@ -1,4 +1,4 @@
-import { HashRouter, Route, Routes } from 'react-router-dom'
+import { HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell'
 import Home from './pages/Home'
 import Income from './pages/Income'
@@ -14,9 +14,12 @@ import Settings from './pages/Settings'
 import Join from './pages/Join'
 
 // HashRouter: ใช้ได้บนทุก Static Hosting (GitHub Pages) โดยไม่ต้องตั้งค่า rewrite
+// MemoryRouter: ใช้เฉพาะไฟล์พรีวิว (npm run build:preview) ที่เปิดในกรอบซึ่งไม่มี URL จริง
+const Router = import.meta.env.VITE_EMBED ? MemoryRouter : HashRouter
+
 export default function App() {
   return (
-    <HashRouter>
+    <Router>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Home />} />
@@ -34,6 +37,6 @@ export default function App() {
           <Route path="*" element={<p className="empty">ไม่พบหน้านี้</p>} />
         </Route>
       </Routes>
-    </HashRouter>
+    </Router>
   )
 }
