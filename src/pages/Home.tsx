@@ -30,7 +30,7 @@ function Dashboard({ year }: { year: number }) {
   const inMonth = sum(income.items, mFrom, mTo)
   const inYear = sum(income.items, `${year}-01-01`, `${year}-12-31`)
   const paidYear = vouchers.items.filter((v) => v.status === 'paid').reduce((s, v) => s + v.amount, 0)
-  const rows = budgetRows(lines.items, adjs.items, vouchers.items)
+  const rows = budgetRows(lines.items, adjs.items, vouchers.items, income.items)
   const budget = rows.reduce((s, r) => s + r.current, 0)
   const spent = rows.reduce((s, r) => s + r.spent, 0)
   const tasks = tasksFor(role, whoAmI().id, vouchers.items, settings.twoStepOver, isSolo())

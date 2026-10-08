@@ -51,7 +51,8 @@ export interface Round extends SharedItem {
   note?: string
 }
 
-export interface BudgetLine extends SharedItem { year: number; name: string; base: number; order: number; reserve?: boolean }
+/** incomeTypeIds = ประเภทรายรับที่เป็นเงินของงบนี้ (เช่น งบอาหาร ← กองทุนเพื่ออาหาร) ใช้แสดงแท่งรายรับสีเขียว */
+export interface BudgetLine extends SharedItem { year: number; name: string; base: number; order: number; reserve?: boolean; incomeTypeIds?: string[] }
 export type AdjKind = 'adjust' | 'emergency' | 'transfer'
 export interface BudgetAdj extends SharedItem {
   year: number

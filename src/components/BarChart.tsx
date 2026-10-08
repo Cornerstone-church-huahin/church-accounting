@@ -22,8 +22,7 @@ export default function BarChart({ title, cats, series, unit = 'บาท' }: { 
     <figure className="chart" style={{ margin: 0, position: 'relative' }} aria-label={title}>
       {series.length > 1 && <div className="legend" style={{ marginBottom: 6 }}>{series.map((s) => <span key={s.name}><i className={s.cls} />{s.name}</span>)}</div>}
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: ${cats.map((c, i) => `${c} ${series.map((s) => `${s.name} ${fmtBaht(s.values[i])}`).join(' ')}`).join(', ')}`}>
-        <defs><pattern id={hatch} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#fff" /><rect width="2.2" height="5" fill="var(--series-2)" /></pattern></defs>
-        <style>{`@media print{.chart svg .s2{fill:url(#${hatch})}}`}</style>
+        <defs><pattern id={hatch} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.8" height="5" fill="#fff" fillOpacity="0.45" /></pattern></defs>
         <line className="grid" x1={left} x2={left} y1={0} y2={H} />
         {cats.map((c, i) => {
           const y0 = i * rowH + 4
@@ -38,6 +37,7 @@ export default function BarChart({ title, cats, series, unit = 'บาท' }: { 
                 return (
                   <g key={s.name}>
                     <path className={s.cls} d={`M${left},${y} h${Math.max(0, w - 4)} a4,4 0 0 1 4,4 v${barH - 8} a4,4 0 0 1 -4,4 h-${Math.max(0, w - 4)} z`} style={{ display: w > 0 ? undefined : 'none' }} />
+                    {s.cls === 's2' && w > 0 && <path d={`M${left},${y} h${Math.max(0, w - 4)} a4,4 0 0 1 4,4 v${barH - 8} a4,4 0 0 1 -4,4 h-${Math.max(0, w - 4)} z`} fill={`url(#${hatch})`} />}
                     <text className="val" x={left + w + 5} y={y + barH / 2} dominantBaseline="middle" fontSize="10.5">{fmtShort(v)}</text>
                     <rect className="hit" x={0} y={y - 2} width={W} height={barH + 4}
                       onClick={() => setTip({ x: ((left + w / 2) / W) * 100, y: ((y) / H) * 100, text: `${c} · ${s.name} ${fmtBaht(v)} ${unit}` })}

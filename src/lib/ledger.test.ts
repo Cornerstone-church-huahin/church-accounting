@@ -77,6 +77,15 @@ describe('multi-item vouchers and weekly transfer totals', () => {
     expect(rows.map((r) => r.spent)).toEqual([100000, 50000])
     expect(paidItems([multi], { kind: 'year', from: '2026-01-01', to: '2026-12-31' }).length).toBe(2)
   })
+  it('counts income of the linked income types on a budget line', () => {
+    const inc: IncomeEntry[] = [
+      { id: '1', date: '2026-01-04', typeId: 'tt5', amount: 300000, method: 'cash', updated: 1 },
+      { id: '2', date: '2026-02-01', typeId: 'tt5', amount: 200000, method: 'transfer', updated: 1 },
+      { id: '3', date: '2026-02-01', typeId: 'tt1', amount: 999, method: 'cash', updated: 1 },
+    ]
+    const rows = budgetRows([{ id: 'b', year: 2026, name: 'อาหาร', base: 1, order: 0, updated: 1, incomeTypeIds: ['tt5'] }, { id: 'c', year: 2026, name: 'x', base: 1, order: 1, updated: 1 }], [], [], inc)
+    expect(rows.map((r) => r.income)).toEqual([500000, 0])
+  })
   it('groups Mon–Sun transfers into the Sunday sheet (matches the real 4 Oct sheet)', () => {
     const t = (id: string, date: string, amount: number): IncomeEntry => ({ id, date, typeId: '', amount, method: 'transfer', updated: 1 })
     const xs = [t('a', '2026-09-27', 95000), t('b', '2026-09-28', 1000), t('c', '2026-10-02', 3200000), t('d', '2026-10-04', 57500), t('e', '2026-10-05', 999)]

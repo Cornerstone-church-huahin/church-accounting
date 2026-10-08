@@ -17,9 +17,9 @@
   --warn-bg: #fff4d6;
   --warn-ink: #4a3600;
   --shadow: 0 1px 2px rgba(26, 43, 76, 0.08), 0 2px 8px rgba(26, 43, 76, 0.06);
-  /* สีกราฟ: ลำดับหมวดหมู่คงที่ (ฟ้า → ส้ม) */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
+  /* สีกราฟ: รายรับ = เขียว · รายจ่าย = แดง (ตรวจแล้วว่าแยกกันได้ แต่คนตาบอดสีแดง-เขียวแยกยาก จึงมีลายเฉียงที่แท่งแดงและตัวเลขกำกับทุกแท่งเสมอ) */
+  --series-1: #1b8a4b;
+  --series-2: #d33a2c;
   --ref: #8d93a3; /* ค่าอ้างอิง เช่น งบประมาณ — เทากลาง ไม่แย่งสีกับรายรับ/รายจ่าย */
   --font-body: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', sans-serif;
   --font-display: 'Pridi', 'Sarabun', 'Noto Serif Thai', serif;
@@ -33,14 +33,14 @@
     color-scheme: dark;
     --bg: #111b30; --surface: #1a2743; --surface-2: #22314f; --ink: #f3efe4; --ink-soft: #c5c9d4; --line: #34446a;
     --accent-ink: #e6c65c; --bar-bg: #0b1324; --shadow: none; --good: #62c585; --bad: #ff8a80;
-    --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #3987e5; --series-2: #d95926;
+    --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #35a56b; --series-2: #d6483b;
   }
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
   --bg: #111b30; --surface: #1a2743; --surface-2: #22314f; --ink: #f3efe4; --ink-soft: #c5c9d4; --line: #34446a;
   --accent-ink: #e6c65c; --bar-bg: #0b1324; --shadow: none; --good: #62c585; --bad: #ff8a80;
-  --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #3987e5; --series-2: #d95926;
+  --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #35a56b; --series-2: #d6483b;
 }
 html { font-size: 16px; }
 html[data-scale='85'] { font-size: 13.5px; }

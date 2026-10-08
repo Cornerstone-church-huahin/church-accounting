@@ -43,16 +43,20 @@ export interface BudgetRow {
   spent: number
   /** ยื่นแล้ว/อนุมัติแล้วแต่ยังไม่จ่าย */
   committed: number
+  /** รายรับที่ได้รับของงบนี้ (ตามประเภทรายรับที่ผูกไว้) */
+  income: number
   remaining: number
 }
-export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[]): BudgetRow[] {
+export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = []): BudgetRow[] {
   return [...lines].sort((a, b) => a.order - b.order).map((line) => {
     const adjust = adjs.filter((a) => a.lineId === line.id).reduce((s, a) => s + a.delta, 0)
     const mine = vouchers.filter((v) => !v.deleted).map((v) => ({ v, sum: itemsTotal(voucherItems(v).filter((i) => i.lineId === line.id)) })).filter((x) => x.sum > 0)
     const spent = mine.filter((x) => x.v.status === 'paid').reduce((s, x) => s + x.sum, 0)
     const committed = mine.filter((x) => x.v.status === 'submitted' || x.v.status === 'approved').reduce((s, x) => s + x.sum, 0)
     const current = line.base + adjust
-    return { line, base: line.base, adjust, current, spent, committed, remaining: current - spent - committed }
+    const types = new Set(line.incomeTypeIds ?? [])
+    const inc = income.filter((x) => !x.deleted && types.has(x.typeId)).reduce((s, x) => s + x.amount, 0)
+    return { line, base: line.base, adjust, current, spent, committed, income: inc, remaining: current - spent - committed }
   })
 }
 
