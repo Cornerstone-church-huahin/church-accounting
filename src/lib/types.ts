@@ -27,6 +27,8 @@ export interface IncomeEntry extends SharedItem {
   ref?: string
   accountId?: string
   note?: string
+  /** เงินเข้าบัญชีที่ไม่มีสลิป/ไม่รู้ที่มา — นับเป็นรายรับไว้ก่อน แล้วให้ผู้บันทึกบัญชีระบุที่มาทีหลัง */
+  unknown?: boolean
   /** เลขสมาชิกผู้ถวาย (ไม่ใช้ชื่อ) — ไม่แสดงในรายงาน */
   memberNo?: string
   /** รูปสลิปโอน (ในโฟลเดอร์ attachments ของ repo ข้อมูล) */

@@ -23,6 +23,25 @@ export function entriesFromRound(r: Round): IncomeEntry[] {
   }))
 }
 
+/** เงินเข้าทั้งสัปดาห์: เงินสด (ใบถวายที่ยืนยันแล้ว) + เงินโอนตามสลิป + เงินเข้าบัญชีที่ไม่ทราบที่มา */
+export function weekInflow(income: IncomeEntry[], round: Pick<Round, 'lines'> | undefined, sunday: string, bankCredits: number) {
+  const { entries, total } = weekTransfers(income, sunday)
+  const unknown = entries.filter((x) => x.unknown)
+  const slips = entries.filter((x) => !x.unknown)
+  const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
+  const cash = round ? roundTotal(round) : 0
+  return {
+    cash,
+    slips: { count: slips.length, withImage: slips.filter((x) => x.slip).length, total: sum(slips) },
+    unknown: { count: unknown.length, total: sum(unknown) },
+    transfers: total,
+    total: cash + total,
+    /** เงินเข้าบัญชีตามสมุด/สเตตเมนต์ในสัปดาห์ เทียบกับเงินโอนที่บันทึก (0 = ตรงกัน) */
+    bankCredits,
+    variance: bankCredits - total,
+  }
+}
+
 // ---------- รายการในใบเบิก ----------
 /** ใบเก่า (รายการเดียว) แปลงเป็น 1 รายการ เพื่อให้ทุกที่ใช้โค้ดชุดเดียว */
 export const voucherItems = (v: Voucher): VoucherItem[] => (v.items?.length ? v.items : [{ desc: v.purpose, amount: v.amount, lineId: v.lineId, method: 'cash' }])

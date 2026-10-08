@@ -3,8 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import NoAccess from '../components/NoAccess'
 import { can, isSolo, whoAmI } from '../lib/access'
-import { useAccounts, useIncome, useIncomeTypes, useRounds, useSettings } from '../lib/data'
-import { DENOMS, denomTotal, entriesFromRound, envelopeTotal, roundId, roundTotal, weekTransfers } from '../lib/ledger'
+import { useAccounts, useIncome, useIncomeTypes, useRounds, useSettings, useStatementLines } from '../lib/data'
+import { DENOMS, denomTotal, entriesFromRound, envelopeTotal, roundId, roundTotal, weekInflow, weekTransfers } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, isISO, monthName, monthOf, yearOf, be } from '../lib/money'
 import { UNSORTED, type Round } from '../lib/types'
@@ -27,6 +27,7 @@ function Detail({ date }: { date: string }) {
   const income = useIncome(year)
   const types = useIncomeTypes()
   const accounts = useAccounts()
+  const stmt = useStatementLines(year)
   const { settings } = useSettings()
   const id = roundId(date)
   const saved = rounds.items.find((r) => r.id === id)
@@ -50,6 +51,8 @@ function Detail({ date }: { date: string }) {
   const wk = weekTransfers(income.items, date)
   const grand = total + wk.total
   const wkFrom = addDays(date, -6)
+  const bankIn = stmt.items.filter((l) => l.credit > 0 && l.date >= wkFrom && l.date <= date).reduce((a, l) => a + l.credit, 0)
+  const inflow = weekInflow(income.items, saved?.status === 'verified' ? saved : undefined, date, bankIn)
 
   const draft = (extra: Partial<Round> = {}): Round => ({
     id, date, lines: Object.fromEntries(Object.entries(lines).filter(([, v]) => v > 0)), envelopes: Object.fromEntries(Object.entries(envelopes).filter(([, v]) => v > 0)),
@@ -131,6 +134,18 @@ function Detail({ date }: { date: string }) {
         <div className="row row--between"><b>รวมจากการโอน ({wk.entries.length} รายการ)</b><span className="money-big">{fmtBaht(wk.total)}</span></div>
         {can(role, 'income') && <button type="button" className="btn btn--ghost" onClick={() => setAdding(true)}>＋ บันทึกรายการโอน</button>}
         <div className="row row--between"><b>รวมทั้งสิ้น (ตู้ + โอน)</b><span className="money-big">{fmtBaht(grand)}</span></div>
+      </section>
+
+      <section className="card no-print" aria-labelledby="h-in">
+        <h2 id="h-in">เงินเข้าทั้งสัปดาห์</h2>
+        <table className="tbl"><tbody>
+          <tr><td>เงินสดจากตู้ถวาย{inflow.cash === 0 && saved?.status !== 'verified' && saved ? ' (รอยืนยัน)' : ''}</td><td className="num">{fmtBaht(inflow.cash)}</td></tr>
+          <tr><td>เงินโอนตามสลิป — {inflow.slips.count} รายการ (แนบรูป {inflow.slips.withImage})</td><td className="num">{fmtBaht(inflow.slips.total)}</td></tr>
+          <tr><td>❓ ไม่ทราบที่มา (เข้าบัญชีแต่ไม่มีสลิป) — {inflow.unknown.count} รายการ</td><td className="num">{fmtBaht(inflow.unknown.total)}</td></tr>
+        </tbody><tfoot><tr><td>รวมเงินเข้า</td><td className="num">{fmtBaht(inflow.total)}</td></tr></tfoot></table>
+        <p className={inflow.bankCredits === 0 || inflow.variance === 0 ? 'muted small' : 'err'} role="status">
+          {inflow.bankCredits === 0 ? 'ยังไม่มีรายการเงินเข้าจากสมุดบัญชีของสัปดาห์นี้ — พิมพ์รายการจากสมุดที่หน้า “เทียบสเตตเมนต์” เพื่อเทียบกับสลิป' : inflow.variance === 0 ? `✓ เงินโอนที่บันทึกตรงกับเงินเข้าบัญชีตามสมุด ${fmtBaht(inflow.bankCredits)} บาท` : `⚠️ เงินเข้าบัญชีตามสมุด ${fmtBaht(inflow.bankCredits)} ต่างจากเงินโอนที่บันทึก ${fmtBaht(inflow.variance, { sign: true })} บาท — ตรวจสลิปที่ขาด หรือกด “รับเป็นไม่ทราบที่มา” ที่หน้าเทียบสเตตเมนต์`}
+        </p>
       </section>
       {adding && <IncomeForm year={year} entry={null} inc={income} defaultDate={date} onClose={() => setAdding(false)} />}
 
