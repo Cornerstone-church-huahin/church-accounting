@@ -134,3 +134,5 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .install-steps { margin: 0.2rem 0 0; padding-left: 1.2rem; font-size: 0.92rem; }
 .install-banner { display: flex; gap: 0.6rem; align-items: center; background: var(--navy); color: var(--bar-ink); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
 .install-banner b { color: var(--gold); }
+.home-tabs { margin: 0.5rem 0 0.75rem; }
+.home-tabs > button { font-size: 1.1rem; font-weight: 700; min-height: 3rem; }

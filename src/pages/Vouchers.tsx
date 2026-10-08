@@ -100,7 +100,7 @@ const METHOD_LABEL: Record<PayMethod, string> = { cash: 'เงินสด', tr
 export { METHOD_LABEL }
 
 /** ใบเบิก-จ่ายเงินสด: 1 ใบมีหลายรายการ แต่ละรายการมีจำนวนเงินและหมวดงบของตัวเอง */
-function NewVoucher({ year, onClose, v }: { year: number; onClose: () => void; v: ReturnType<typeof useVouchers> }) {
+export function NewVoucher({ year, onClose, v }: { year: number; onClose: () => void; v: ReturnType<typeof useVouchers> }) {
   const lines = useBudgetLines(year)
   const adjs = useBudgetAdjs(year)
   const funds = useFunds()
