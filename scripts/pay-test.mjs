@@ -22,7 +22,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   for (const n of ['บันทึกด้วยมือ', 'วางบิล', 'สำรองจ่าย', 'รวมจ่าย']) must(await page.getByRole('tab', { name: new RegExp(n) }).isVisible(), 'pay sub tab ' + n)
-  const total = async () => { await page.getByRole('tab', { name: /รวมจ่าย/ }).click(); return (await page.locator('section.paper').innerText()).replace(/\n/g, ' ') }
+  const total = async () => { await page.getByRole('tab', { name: /รวมจ่าย/ }).click(); return (await page.locator('.a4page').innerText()).replace(/\n/g, ' ') }
   const save = () => page.getByRole('button', { name: 'บันทึก', exact: true }).click()
 
   // 1 บันทึกด้วยมือ: ค่าไฟฟ้า 1,850 โอน (หมวด 3.1)

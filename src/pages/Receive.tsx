@@ -5,6 +5,7 @@ import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from
 import { roundTotal } from '../lib/ledger'
 import { computeLedger } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
+import ScaledPage from '../components/ScaledPage'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir } from '../lib/sync'
@@ -43,7 +44,7 @@ export default function Receive({ year }: { year: number }) {
   const canWrite = can(role, 'income')
   const idx = sundays.indexOf(sunday)
 
-  const paperRef = useRef<HTMLElement>(null)
+  const paperRef = useRef<HTMLDivElement>(null)
   const blankRef = useRef<HTMLDivElement>(null)
   const blank2Ref = useRef<HTMLDivElement>(null)
   const [blankBusy, setBlankBusy] = useState(false)
@@ -190,7 +191,7 @@ export default function Receive({ year }: { year: number }) {
       )}
 
       {sub === 'total' && (
-        <section ref={paperRef} className="card paper paper--ledger" role="tabpanel" aria-labelledby="h-rep">
+        <section className="card" role="tabpanel" aria-labelledby="h-rep">
           <div className="no-print" style={{ display: 'grid', gap: 8 }}>
             <div className="seg" role="group" aria-label="ช่วงของใบสรุป">
               <button type="button" className={repScope === 'week' ? 'on' : ''} onClick={() => setRepScope('week')}>สัปดาห์ที่เลือก</button>
@@ -200,12 +201,14 @@ export default function Receive({ year }: { year: number }) {
               <button type="button" className="btn btn--gold" disabled={pdfBusy} onClick={async () => {
                 if (!paperRef.current) return
                 setPdfBusy(true)
-                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`, { fitOnePage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`, { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
                 setPdfBusy(false)
               }}>{pdfBusy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
               <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
             </div>
           </div>
+          <ScaledPage ref={paperRef} className="a4page a4page--doc">
+            <>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
             <h2 id="h-rep">ได้รับการถวายประจำสัปดาห์</h2>
@@ -220,6 +223,9 @@ export default function Receive({ year }: { year: number }) {
             <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
             <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br /><span className="small">วันที่ ........../........../..........</span></div>
           </div>
+            </>
+          </ScaledPage>
+          <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ) หรือหมุนจอเป็นแนวนอน · พิมพ์/ดาวน์โหลดได้ขนาด A4 เต็มหน้า</p>
         </section>
       )}
 

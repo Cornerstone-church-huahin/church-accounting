@@ -1,11 +1,10 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, sundaysOf, sheetSunday, todayISO } from '../lib/money'
 import { downloadPdf } from '../lib/pdf'
 import { computeLedger } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
-
-const PAGE_W = 794, PAGE_H = 1123 // A4 ที่ 96 dpi
+import ScaledPage from '../components/ScaledPage'
 
 /** แท็บ "สรุป" หน้าแรก: ดึงผลรวมรายรับ + รายจ่าย มาเป็นใบเดียวเต็มหน้า A4 (บนรายรับ ล่างรายจ่าย) แล้วปิดยอดคงเหลือ */
 export default function Summary({ year }: { year: number }) {
@@ -29,19 +28,7 @@ export default function Summary({ year }: { year: number }) {
     [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items])
   const { incRows, outRows, inSum, outSum } = L
 
-  // ย่อหน้ากระดาษให้พอดีความกว้างจอ (ตอนพิมพ์/สร้าง PDF ใช้ขนาดจริง)
-  const wrapRef = useRef<HTMLDivElement>(null)
   const paperRef = useRef<HTMLDivElement>(null)
-  const [k, setK] = useState(0.45)
-  useLayoutEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const on = () => setK(Math.min(1, el.clientWidth / PAGE_W))
-    on()
-    const ro = new ResizeObserver(on)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   const church = settings.churchName
   const period = scope === 'year' ? `ประจำปี ${year + 543}` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')} (${fmtDate(addDays(sunday, -6))} – ${fmtDate(sunday)})`
@@ -70,8 +57,8 @@ export default function Summary({ year }: { year: number }) {
         </div>
       </div>
 
-      <div ref={wrapRef} className="a4wrap" style={{ height: PAGE_H * k }}>
-        <div ref={paperRef} className="a4page" style={{ transform: `scale(${k})` }}>
+      <ScaledPage ref={paperRef}>
+        <>
           <div className="a4head"><b>สรุปรับ-จ่ายประจำสัปดาห์ · {church}</b><span>{period}</span></div>
           <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
           <LedgerTable band="รายจ่าย" labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" minRows={0} pendingCol />
@@ -89,8 +76,8 @@ export default function Summary({ year }: { year: number }) {
             <div>ผู้ตรวจสอบ<br />{dateLine}</div>
             <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br />{dateLine}</div>
           </div>
-        </div>
-      </div>
+        </>
+      </ScaledPage>
       <p className="muted small no-print" style={{ textAlign: 'center' }}>รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกตรงในงบ + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (ที่ยังไม่จ่ายแสดงในช่อง “ค้างจ่าย”) · เงินโอนวันจันทร์–อาทิตย์นับรวมในใบวันอาทิตย์ของสัปดาห์นั้น</p>
     </div>
   )
