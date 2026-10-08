@@ -20,7 +20,8 @@
   /* สีกราฟ: รายรับ = เขียว · รายจ่าย = แดง (ตรวจแล้วว่าแยกกันได้ แต่คนตาบอดสีแดง-เขียวแยกยาก จึงมีลายเฉียงที่แท่งแดงและตัวเลขกำกับทุกแท่งเสมอ) */
   --series-1: #1b8a4b;
   --series-2: #d33a2c;
-  --ref: #8d93a3; /* ค่าอ้างอิง เช่น งบประมาณ — เทากลาง ไม่แย่งสีกับรายรับ/รายจ่าย */
+  --ref-used: #4a5168; /* ส่วนของงบที่ใช้ไปแล้ว (เข้มกว่างบที่ยังเหลือ) */
+  --ref: #aeb3c0; /* ค่าอ้างอิง เช่น งบประมาณ — เทากลาง ไม่แย่งสีกับรายรับ/รายจ่าย */
   --font-body: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', sans-serif;
   --font-display: 'Pridi', 'Sarabun', 'Noto Serif Thai', serif;
   --radius: 0.8rem;
@@ -33,14 +34,14 @@
     color-scheme: dark;
     --bg: #111b30; --surface: #1a2743; --surface-2: #22314f; --ink: #f3efe4; --ink-soft: #c5c9d4; --line: #34446a;
     --accent-ink: #e6c65c; --bar-bg: #0b1324; --shadow: none; --good: #62c585; --bad: #ff8a80;
-    --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #35a56b; --series-2: #d6483b;
+    --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #35a56b; --series-2: #d6483b; --ref-used: #c5cadb; --ref: #5a6280;
   }
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
   --bg: #111b30; --surface: #1a2743; --surface-2: #22314f; --ink: #f3efe4; --ink-soft: #c5c9d4; --line: #34446a;
   --accent-ink: #e6c65c; --bar-bg: #0b1324; --shadow: none; --good: #62c585; --bad: #ff8a80;
-  --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #35a56b; --series-2: #d6483b;
+  --warn-bg: #3a2f10; --warn-ink: #ffe9a8; --series-1: #35a56b; --series-2: #d6483b; --ref-used: #c5cadb; --ref: #5a6280;
 }
 html { font-size: 16px; }
 html[data-scale='85'] { font-size: 13.5px; }

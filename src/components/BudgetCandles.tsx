@@ -1,19 +1,22 @@
 import { fmtBaht } from '../lib/money'
 
 /**
- * แท่งสามแท่งของแต่ละงบ: ซ้าย เขียว = รายรับที่ได้รับ · กลาง = งบที่ตั้ง · ขวา แดง = รายจ่าย
+ * แท่งสามแท่งของแต่ละงบ: ซ้าย เขียว = รายรับที่ได้รับ · กลาง = งบที่ตั้ง · ขวา แดง = รายจ่ายที่จ่ายแล้ว
+ * แท่งกลางแบ่งสองสี: ส่วนล่างสีเข้ม = ใช้ไปแล้ว · ส่วนบนสีอ่อน = ยังไม่ได้ใช้
  * ความสูงเทียบกับค่าสูงสุดของสามแท่ง · ตัวเลขกำกับบนทุกแท่ง · แท่งแดงมีลายเฉียงกันสับสนกับเขียวสำหรับคนตาบอดสี
  */
-export default function BudgetCandles({ title, income, budget, spent, committed = 0 }: { title: string; income: number; budget: number; spent: number; committed?: number }) {
-  const W = 300, H = 168, base = 128, top = 22, bw = 62
+export default function BudgetCandles({ title, income, budget, spent, committed = 0, compact }: { title: string; income: number; budget: number; spent: number; committed?: number; compact?: boolean }) {
+  const W = 300, H = compact ? 150 : 168, base = compact ? 112 : 128, top = 22, bw = 62
   const max = Math.max(1, income, budget, spent)
-  const h = (v: number) => Math.max(v > 0 ? 3 : 0, ((Math.max(0, v) / max) * (base - top)))
+  const h = (v: number) => Math.max(v > 0 ? 3 : 0, (Math.max(0, v) / max) * (base - top))
+  const usedH = budget > 0 ? Math.min(h(budget), (Math.min(spent, budget) / max) * (base - top)) : 0
   const bars = [
     { x: 38, v: income, cls: 's1', label: 'ได้รับ' },
     { x: 119, v: budget, cls: 's3', label: 'งบที่ตั้ง' },
     { x: 200, v: spent, cls: 's2', label: 'จ่ายแล้ว' },
   ]
-  const hatch = `cd${title.replace(/[^a-zA-Z0-9ก-๙]/g, '').slice(0, 12)}${Math.abs(Math.round(income + budget + spent)) % 9973}`
+  const hatch = `cd${Math.abs(Math.round(income * 3 + budget * 5 + spent * 7)) % 99991}${title.length}`
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0
   return (
     <figure className="chart" style={{ margin: 0 }} aria-label={title}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: ได้รับ ${fmtBaht(income)} บาท, งบที่ตั้ง ${fmtBaht(budget)} บาท, จ่ายแล้ว ${fmtBaht(spent)} บาท`}>
@@ -28,12 +31,15 @@ export default function BudgetCandles({ title, income, budget, spent, committed 
             <g key={b.label}>
               {bh > 0 && <path className={b.cls} d={d} />}
               {bh > 0 && b.cls === 's2' && <path d={d} fill={`url(#${hatch})`} />}
+              {bh > 0 && b.cls === 's3' && usedH > 0 && <rect x={b.x} y={base - usedH} width={bw} height={usedH} fill="var(--ref-used)" />}
               <text className="val" x={b.x + bw / 2} y={(bh > 0 ? y : base) - 5} textAnchor="middle" fontSize="11" fontWeight="600">{fmtBaht(b.v, { dec: false })}</text>
               <text x={b.x + bw / 2} y={base + 16} textAnchor="middle" fontSize="11">{b.label}</text>
             </g>
           )
         })}
-        {committed > 0 && <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="10.5">ยื่นเบิกแล้วยังไม่จ่ายอีก {fmtBaht(committed, { dec: false })} บาท</text>}
+        <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="10.5">
+          {budget > 0 ? `ใช้ไปแล้ว ${pct}% ของงบ (ส่วนเข้มในแท่งกลาง)` : 'ยังไม่ได้ตั้งงบ — แท่งกลางติดพื้น'} · คงเหลือจริง {fmtBaht(income - spent, { dec: false })}{committed > 0 ? ` · ยื่นเบิกค้าง ${fmtBaht(committed, { dec: false })}` : ''}
+        </text>
       </svg>
     </figure>
   )

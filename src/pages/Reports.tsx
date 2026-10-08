@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import BarChart from '../components/BarChart'
 import { IconPrint } from '../components/Icons'
-import { useBudgetAdjs, useBudgetLines, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
-import { budgetRows, buckets, liveIncome, paidIn, paidItems, periodOf, shiftPeriod, stageOf, sumBy, type Period, type PeriodKind } from '../lib/ledger'
+import { useBudgetAdjs, useBudgetEntries, useBudgetLines, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
+import { budgetRows, buckets, directOut, liveIncome, paidIn, paidItems, periodOf, shiftPeriod, stageOf, sumBy, type Period, type PeriodKind } from '../lib/ledger'
 import { be, fmtBaht, fmtDate, monthName, monthShort, todayISO, yearOf } from '../lib/money'
 import { mergeItems } from '../lib/sync'
 import { UNSORTED, type IncomeEntry, type Voucher } from '../lib/types'
@@ -42,11 +42,13 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
   const by = yearOf(p.to)
   const lines = useBudgetLines(by)
   const adjs = useBudgetAdjs(by)
+  const entries = useBudgetEntries(by)
 
   const inc = liveIncome(income, p)
   const paid = paidIn(vouchers, p)
   const totalIn = inc.reduce((s, x) => s + x.amount, 0)
-  const totalOut = paid.reduce((s, v) => s + v.amount, 0)
+  const direct = directOut(entries.items, p)
+  const totalOut = paid.reduce((s, v) => s + v.amount, 0) + direct.reduce((s, e) => s + e.amount, 0)
 
   const incByType = useMemo(() => {
     const m = sumBy(inc, (x) => x.typeId, (x) => x.amount)
@@ -56,18 +58,18 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
   }, [inc, types.list])
   const lineName = (id: string) => lines.items.find((l) => l.id === id)?.name ?? 'นอกงบประมาณ'
   const outByLine = useMemo(() => {
-    const m = sumBy(paidItems(vouchers, p), (x) => x.item.lineId, (x) => x.item.amount)
+    const m = sumBy([...paidItems(vouchers, p).map((x) => ({ lineId: x.item.lineId, amount: x.item.amount })), ...direct.map((e) => ({ lineId: e.lineId, amount: e.amount }))], (x) => x.lineId, (x) => x.amount)
     return [...m.entries()].map(([id, value]) => ({ name: lineName(id), value })).sort((a, b) => b.value - a.value)
-  }, [vouchers, p, lines.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [vouchers, p, lines.items, entries.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const bk = buckets(p)
   const flow = bk.map((b) => ({
     label: p.kind === 'year' ? monthShort(Number(b.label)) : b.label,
     inn: inc.filter((x) => x.date >= b.from && x.date <= b.to).reduce((s, x) => s + x.amount, 0),
-    out: paid.filter((v) => v.paid!.date >= b.from && v.paid!.date <= b.to).reduce((s, v) => s + v.amount, 0),
+    out: paid.filter((v) => v.paid!.date >= b.from && v.paid!.date <= b.to).reduce((s, v) => s + v.amount, 0) + direct.filter((e) => e.date >= b.from && e.date <= b.to).reduce((s, e) => s + e.amount, 0),
   }))
   // งบเทียบใช้จริง: สะสมตั้งแต่ต้นปีถึงสิ้นช่วง (นับเฉพาะที่จ่ายแล้ว)
   const ytd: Period = { kind: 'year', from: `${by}-01-01`, to: p.to }
-  const bRows = budgetRows(lines.items, adjs.items, paidIn(vouchers, ytd).map((v) => ({ ...v })))
+  const bRows = budgetRows(lines.items, adjs.items, paidIn(vouchers, ytd).map((v) => ({ ...v })), [], entries.items.filter((e) => e.kind === 'out' && e.date <= p.to))
   const open = vouchers.filter((v) => { const s = stageOf(v); return s === 'review' || s === 'pay' })
   const unverified = rounds.filter((r) => r.status === 'counting' && r.date >= p.from && r.date <= p.to)
   const flowLabel = p.kind === 'year' ? 'เดือน' : p.kind === 'month' ? 'สัปดาห์ (วันที่เริ่ม)' : 'วันที่'
@@ -131,7 +133,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
         )}
 
         <section className="card card--flat" aria-label="หมายเหตุ">
-          <p className="small">หมายเหตุ: รายรับนับเมื่อผู้นับคนที่ 2 ยืนยันยอดแล้ว · รายจ่ายนับเมื่อจ่ายเงินแล้วตามวันที่จ่าย{open.length > 0 && ` · ขณะนี้มีใบเบิกยื่นแล้วยังไม่จ่าย ${open.length} ใบ รวม ${fmtBaht(open.reduce((s, v) => s + v.amount, 0))} บาท`}{unverified.length > 0 && ` · มีรอบนับ ${unverified.length} รอบที่ยังรอยืนยัน (ยังไม่รวมในรายงานนี้)`} · รายงานนี้ไม่แสดงชื่อผู้ถวาย</p>
+          <p className="small">หมายเหตุ: รายรับนับเมื่อผู้นับคนที่ 2 ยืนยันยอดแล้ว · รายจ่ายนับเมื่อจ่ายเงินแล้วตามวันที่จ่าย (รวมรายจ่ายที่บันทึกตรงในหน้างบประมาณ){open.length > 0 && ` · ขณะนี้มีใบเบิกยื่นแล้วยังไม่จ่าย ${open.length} ใบ รวม ${fmtBaht(open.reduce((s, v) => s + v.amount, 0))} บาท`}{unverified.length > 0 && ` · มีรอบนับ ${unverified.length} รอบที่ยังรอยืนยัน (ยังไม่รวมในรายงานนี้)`} · รายงานนี้ไม่แสดงชื่อผู้ถวาย</p>
         </section>
 
         <div className="sign print-only">

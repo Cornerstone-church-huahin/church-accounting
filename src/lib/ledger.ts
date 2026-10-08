@@ -1,6 +1,6 @@
 import { addDays, daysInMonth, inRange, monthOf, sheetSunday, weekStart, yearOf } from './money'
 import type { AccessRole } from './access'
-import type { BudgetAdj, BudgetLine, IncomeEntry, Round, Voucher, VoucherItem } from './types'
+import type { BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, Round, Voucher, VoucherItem } from './types'
 
 // ---------- รอบนับเงินวันอาทิตย์ ----------
 /** มูลค่าธนบัตร/เหรียญที่ให้กรอกจำนวน (บาท) */
@@ -45,9 +45,12 @@ export interface BudgetRow {
   committed: number
   /** รายรับที่ได้รับของงบนี้ (ตามประเภทรายรับที่ผูกไว้) */
   income: number
+  /** เงินคงเหลือจริง = ได้รับ − จ่ายแล้ว (ไม่เกี่ยวกับงบที่ตั้ง) */
+  balance: number
+  /** ยังใช้ได้อีกเท่าไร: ถ้าตั้งงบแล้ว = งบ − จ่าย − ค้างเบิก · ถ้ายังไม่ตั้งงบ = เงินที่มี − จ่าย − ค้างเบิก */
   remaining: number
 }
-export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = []): BudgetRow[] {
+export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = [], entries: BudgetEntry[] = []): BudgetRow[] {
   return [...lines].sort((a, b) => a.order - b.order).map((line) => {
     const adjust = adjs.filter((a) => a.lineId === line.id).reduce((s, a) => s + a.delta, 0)
     const mine = vouchers.filter((v) => !v.deleted).map((v) => ({ v, sum: itemsTotal(voucherItems(v).filter((i) => i.lineId === line.id)) })).filter((x) => x.sum > 0)
@@ -55,8 +58,10 @@ export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Vou
     const committed = mine.filter((x) => x.v.status === 'submitted' || x.v.status === 'approved').reduce((s, x) => s + x.sum, 0)
     const current = line.base + adjust
     const types = new Set(line.incomeTypeIds ?? [])
-    const inc = income.filter((x) => !x.deleted && types.has(x.typeId)).reduce((s, x) => s + x.amount, 0)
-    return { line, base: line.base, adjust, current, spent, committed, income: inc, remaining: current - spent - committed }
+    const mineE = entries.filter((e) => !e.deleted && e.lineId === line.id)
+    const inc = income.filter((x) => !x.deleted && types.has(x.typeId)).reduce((s, x) => s + x.amount, 0) + mineE.filter((e) => e.kind === 'in').reduce((s, e) => s + e.amount, 0)
+    const direct = mineE.filter((e) => e.kind === 'out').reduce((s, e) => s + e.amount, 0)
+    return { line, base: line.base, adjust, current, spent: spent + direct, committed, income: inc, balance: inc - spent - direct, remaining: (current > 0 ? current : inc) - spent - direct - committed }
   })
 }
 
@@ -153,6 +158,9 @@ export const paidIn = (vs: Voucher[], p: Period) => vs.filter((v) => !v.deleted 
 
 /** รายจ่ายที่จ่ายแล้วในช่วงเวลา แยกเป็นรายการ (1 ใบเบิกมีหลายรายการ ลงคนละหมวดได้) */
 export const paidItems = (vs: Voucher[], p: Period) => paidIn(vs, p).flatMap((v) => voucherItems(v).map((item) => ({ v, item })))
+
+/** รายจ่ายที่บันทึกตรงในงบ (ไม่ผ่านใบเบิก) ในช่วงเวลา — นับเป็นรายจ่ายในรายงานด้วย */
+export const directOut = (es: BudgetEntry[], p: Period) => es.filter((e) => !e.deleted && e.kind === 'out' && inRange(e.date, p.from, p.to))
 
 export function sumBy<T>(xs: T[], key: (x: T) => string, amount: (x: T) => number): Map<string, number> {
   const m = new Map<string, number>()

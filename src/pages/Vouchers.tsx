@@ -141,7 +141,7 @@ function NewVoucher({ year, onClose, v }: { year: number; onClose: () => void; v
           </div>
           <div className="field"><label htmlFor={`v-l${n}`}>หมวดงบประมาณ</label>
             <select id={`v-l${n}`} className="input" value={it.lineId} onChange={(e) => set(n, { lineId: e.target.value })}>
-              {rows.map((r) => <option key={r.line.id} value={r.line.id}>{r.line.name} (เหลือ {fmtBaht(r.remaining, { dec: false })})</option>)}
+              {rows.map((r) => <option key={r.line.id} value={r.line.id}>{r.line.name} ({r.line.base + r.adjust > 0 ? 'เหลืองบ' : 'เงินคงเหลือ'} {fmtBaht(r.remaining, { dec: false })})</option>)}
               <option value={NO_BUDGET}>นอกงบประมาณ</option>
             </select>
           </div>

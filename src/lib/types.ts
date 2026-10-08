@@ -53,6 +53,8 @@ export interface Round extends SharedItem {
 
 /** incomeTypeIds = ประเภทรายรับที่เป็นเงินของงบนี้ (เช่น งบอาหาร ← กองทุนเพื่ออาหาร) ใช้แสดงแท่งรายรับสีเขียว */
 export interface BudgetLine extends SharedItem { year: number; name: string; base: number; order: number; reserve?: boolean; incomeTypeIds?: string[] }
+/** บันทึกตรงในงบ: in = เงินเข้างบ (แท่งเขียว) · out = ใช้จ่าย (แท่งแดง) โดยไม่ผ่านใบเบิก */
+export interface BudgetEntry extends SharedItem { year: number; lineId: string; kind: 'in' | 'out'; amount: number; date: string; note: string }
 export type AdjKind = 'adjust' | 'emergency' | 'transfer'
 export interface BudgetAdj extends SharedItem {
   year: number
