@@ -26,7 +26,16 @@ const sunday = new Date(today); sunday.setDate(today.getDate() - today.getDay())
 const sun = iso(sunday)
 const dmY = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`
 
+// เปิดผ่านแอป Line: ขึ้นแถบแนะนำ "เปิดใน Chrome" · เปิดด้วย Chrome ปกติ: ไม่ขึ้น
+{
+  const lineCtx = await browser.newContext({ viewport: { width: 390, height: 800 }, userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36 Line/14.9.0' })
+  const lp = await lineCtx.newPage()
+  await lp.goto(base + '#/')
+  await must(await lp.getByRole('link', { name: 'เปิดใน Chrome' }).isVisible(), 'Line in-app browser shows the open-in-Chrome banner')
+  await lineCtx.close()
+}
 await go('/')
+await must((await page.getByRole('link', { name: 'เปิดใน Chrome' }).count()) === 0, 'no in-app banner in a normal browser')
 await must(await page.getByText('โหมดทดลองคนเดียว').isVisible(), 'solo banner')
 await shot('01-home-empty')
 
