@@ -134,5 +134,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .install-steps { margin: 0.2rem 0 0; padding-left: 1.2rem; font-size: 0.92rem; }
 .install-banner { display: flex; gap: 0.6rem; align-items: center; background: var(--navy); color: var(--bar-ink); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
 .install-banner b { color: var(--gold); }
-.home-tabs { margin: 0.5rem 0 0.75rem; }
-.home-tabs > button { font-size: 1.1rem; font-weight: 700; min-height: 3rem; }
+.home-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 0.5rem 0 0.75rem; }
+.home-tab { min-height: 3.5rem; border-radius: 1rem; border: 2px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.15rem; font-weight: 700; cursor: pointer; }
+.home-tab--in { border-color: var(--series-1); }
+.home-tab--out { border-color: var(--series-2); }
+.home-tab--in.on { background: var(--series-1); color: #fff; }
+.home-tab--out.on { background: var(--series-2); color: #fff; }
