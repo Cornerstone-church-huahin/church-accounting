@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import NoAccess from '../components/NoAccess'
 import MoneyInput from '../components/MoneyInput'
@@ -70,20 +70,23 @@ function IncomeList({ year }: { year: number }) {
   )
 }
 
-export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip' }) {
+/** ค่าที่ระบบอ่านจากสลิปมาใส่ให้ล่วงหน้า (ผู้ใช้ตรวจแล้วกดยืนยัน) */
+export interface SlipInit { date?: string; amount?: number; ref?: string; note?: string; typeId?: string; file: File }
+
+export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit }) {
   const types = useIncomeTypes()
   const accounts = useAccounts()
   const active = types.list.filter((t) => t.active || t.id === entry?.typeId)
-  const [date, setDate] = useState(entry?.date ?? defaultDate ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
-  const [typeId, setTypeId] = useState(entry ? entry.typeId : preset === 'slip' ? UNSORTED : (active[0]?.id ?? ''))
+  const [date, setDate] = useState(entry?.date ?? init?.date ?? defaultDate ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
+  const [typeId, setTypeId] = useState(entry ? entry.typeId : init?.typeId ?? (preset === 'slip' ? UNSORTED : (active[0]?.id ?? '')))
   const [memberNo, setMemberNo] = useState(entry?.memberNo ?? '')
-  const [slipFile, setSlipFile] = useState<File | null>(null)
+  const [slipFile, setSlipFile] = useState<File | null>(init?.file ?? null)
   const [busy, setBusy] = useState(false)
-  const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
+  const [amount, setAmount] = useState<number | null>(entry?.amount ?? init?.amount ?? null)
   const [method, setMethod] = useState<Method>(entry?.method ?? (preset === 'manual' ? 'cash' : 'transfer'))
-  const [ref, setRef] = useState(entry?.ref ?? '')
+  const [ref, setRef] = useState(entry?.ref ?? init?.ref ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? accounts.list[0]?.id ?? '')
-  const [note, setNote] = useState(entry?.note ?? '')
+  const [note, setNote] = useState(entry?.note ?? init?.note ?? '')
   const [err, setErr] = useState('')
   const save = async () => {
     if (yearOf(date) !== year) return setErr(`วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`)
@@ -110,9 +113,10 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset }: {
     if (ok) onClose()
   }
   return (
-    <Sheet title={entry ? 'แก้ไขรายรับ' : 'บันทึกรายรับ'} onClose={onClose}>
+    <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>
+      {init && <SlipThumb file={init.file} />}
       <div className="field"><label htmlFor="i-date">วันที่</label><input id="i-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="i-type">ประเภทถวาย</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
+      <div className="field"><label htmlFor="i-type">{preset === 'slip' ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'ประเภทถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
       <div className="field"><label htmlFor="i-amt">จำนวนเงิน (บาท)</label><MoneyInput id="i-amt" value={amount} onChange={setAmount} /></div>
       <div className="seg" role="group" aria-label="วิธีรับ">
         <button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอนเงิน</button>
@@ -134,4 +138,10 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset }: {
       </div>
     </Sheet>
   )
+}
+
+function SlipThumb({ file }: { file: File }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { const u = URL.createObjectURL(file); setUrl(u); return () => URL.revokeObjectURL(u) }, [file])
+  return url ? <img src={url} alt="สลิปที่แนบ" style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 8 }} /> : null
 }
