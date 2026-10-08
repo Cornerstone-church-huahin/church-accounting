@@ -112,11 +112,15 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
     const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
     if (ok) onClose()
   }
+  // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
+  const slipLayout = preset === 'slip' || entry?.source === 'slip'
+  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'ประเภทถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
+  const memField = <div className="field"><label htmlFor="i-mem">เลขสมาชิกผู้ถวาย (ไม่ต้องใส่ชื่อ)</label><input id="i-mem" className="input" inputMode="numeric" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>
       {init && <SlipThumb file={init.file} />}
       <div className="field"><label htmlFor="i-date">วันที่</label><input id="i-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="i-type">{preset === 'slip' ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'ประเภทถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
+      {!slipLayout && typeField}
       <div className="field"><label htmlFor="i-amt">จำนวนเงิน (บาท)</label><MoneyInput id="i-amt" value={amount} onChange={setAmount} /></div>
       <div className="seg" role="group" aria-label="วิธีรับ">
         <button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอนเงิน</button>
@@ -125,12 +129,14 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
       {method === 'transfer' && (
         <>
           <div className="field"><label htmlFor="i-ref">เลขอ้างอิงการโอน</label><input id="i-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="จากสลิป/แอปธนาคาร" /></div>
-          <div className="field"><label htmlFor="i-mem">เลขสมาชิกผู้ถวาย (ไม่ต้องใส่ชื่อ)</label><input id="i-mem" className="input" inputMode="numeric" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
+      {!slipLayout && method === 'transfer' && memField}
           <div className="field"><label htmlFor="i-slip">รูปสลิป {entry?.slip ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="i-slip" className="input" type="file" accept="image/*" onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)} /></div>
           {accounts.list.length > 0 && <div className="field"><label htmlFor="i-acc">เข้าบัญชี</label><select id="i-acc" className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>{accounts.list.map((a) => <option key={a.id} value={a.id}>{a.name} {a.last4 && `(${a.last4})`}</option>)}</select></div>}
         </>
       )}
       <div className="field"><label htmlFor="i-note">หมายเหตุ (ไม่ต้องใส่ชื่อผู้ถวาย)</label><input id="i-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      {slipLayout && typeField}
+      {slipLayout && method === 'transfer' && memField}
       {err && <p className="err" role="alert">{err}</p>}
       <div className="row">
         <button type="button" className="btn btn--gold grow" disabled={busy} onClick={save}>{busy ? 'กำลังอัปโหลดสลิป…' : 'บันทึก'}</button>
