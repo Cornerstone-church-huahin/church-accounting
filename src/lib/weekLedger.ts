@@ -1,0 +1,41 @@
+import { addDays, sheetSunday } from './money'
+import { directOut, paidItems, type Period } from './ledger'
+import { UNSORTED, type BudgetEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
+
+export interface LSrc { n: number; amt: number }
+export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc }
+export const sumRows = (rs: LRow[]) => ({ cash: rs.reduce((a, r) => a + r.cash.amt, 0), transfer: rs.reduce((a, r) => a + r.transfer.amt, 0) })
+
+const NO_BUDGET = '__none' // ต้องตรงกับ Vouchers.tsx
+
+/**
+ * ตารางรับ-จ่ายของสัปดาห์ (จันทร์–อาทิตย์ ของใบวันอาทิตย์ที่เลือก) หรือทั้งปี
+ * รายรับ: ช่องแรก = ตู้ถวาย/เงินสด (ใบถวาย + เงินสดมือ) · ช่องที่สอง = โอน · 5 แถวแรกเป็นประเภทที่พิมพ์ในใบ
+ * รายจ่าย: ใบเบิกที่ "จ่ายแล้ว" + บันทึกตรงในงบ แยกตามหมวดงบ/กองทุน
+ */
+export function computeLedger(a: {
+  year: number; sunday: string; scope: 'week' | 'year'
+  income: IncomeEntry[]; rounds: Round[]; vouchers: Voucher[]; lines: BudgetLine[]; funds: BudgetLine[]; entries: BudgetEntry[]; types: IncomeType[]
+}) {
+  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)')
+  const ent = a.income.filter((x) => !x.roundId && (a.scope === 'year' || sheetSunday(x.date) === a.sunday))
+  const rds = a.scope === 'year' ? a.rounds : a.rounds.filter((r) => r.date === a.sunday)
+
+  const m = new Map<string, { cash: LSrc; transfer: LSrc }>()
+  const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
+  const order = new Map(a.types.map((t, i) => [t.id, t.order ?? i]))
+  for (const t of [...a.types].filter((x) => x.active).sort((x, y) => x.order - y.order).slice(0, 5)) at(t.id)
+  for (const r of rds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
+  for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
+  const incRows: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
+
+  const p: Period = a.scope === 'year' ? { kind: 'year', from: `${a.year}-01-01`, to: `${a.year}-12-31` } : { kind: 'week', from: addDays(a.sunday, -6), to: a.sunday }
+  const lineName = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...a.lines, ...a.funds].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
+  const o = new Map<string, LRow>()
+  const oat = (id: string) => { const r = o.get(id) ?? { key: id, label: lineName(id), cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; o.set(id, r); return r }
+  for (const { item } of paidItems(a.vouchers, p)) { const r = oat(item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
+  for (const e of directOut(a.entries, p)) { const t = oat(e.lineId).cash; t.n += 1; t.amt += e.amount }
+  const outRows = [...o.values()].sort((x, y) => y.cash.amt + y.transfer.amt - x.cash.amt - x.transfer.amt)
+
+  return { incRows, outRows, inSum: sumRows(incRows), outSum: sumRows(outRows) }
+}

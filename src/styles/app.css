@@ -134,7 +134,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .install-steps { margin: 0.2rem 0 0; padding-left: 1.2rem; font-size: 0.92rem; }
 .install-banner { display: flex; gap: 0.6rem; align-items: center; background: var(--navy); color: var(--bar-ink); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
 .install-banner b { color: var(--gold); }
-.home-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 0.5rem 0 0.75rem; }
+.home-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.5rem 0 0.75rem; }
 .home-tab { min-height: 3.5rem; border-radius: 1rem; border: 2px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.15rem; font-weight: 700; cursor: pointer; }
 .home-tab--in { border-color: var(--series-1); }
 .home-tab--out { border-color: var(--series-2); }
@@ -188,3 +188,21 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .ledger--out .ledger__band { background: #b3261e; }
 .paper__close { margin-top: 0.8rem; }
 .paper__close tfoot td { font-size: 0.9rem; }
+.home-tab--sum { border-color: var(--navy); }
+.home-tab--sum.on { background: var(--navy); color: #fff; }
+/* ใบสรุปรับ-จ่าย เต็มหน้า A4 (794×1123 px) — บนจอย่อให้พอดี ตอนพิมพ์/สร้าง PDF ใช้ขนาดจริง */
+.a4wrap { width: 100%; overflow: hidden; border: 1px solid var(--line); background: #fff; page: a4; }
+.a4page { width: 794px; height: 1123px; box-sizing: border-box; padding: 14px 18px 16px; background: #fff; color: #111; transform-origin: top left; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
+.a4head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 4px; font-size: 14.5px; white-space: nowrap; }
+.a4head span { font-size: 13px; }
+.a4page .ledger { overflow: visible !important; }
+.a4page .ledger__band { margin: 2px 0 2px; font-size: 13px; }
+.a4page .tbl--paper { font-size: 12px; }
+.a4page .tbl--paper th { font-size: 11.5px; padding: 2px 4px; }
+.a4page .paper__blank td { height: 23px; padding: 0 5px; }
+.a4page .tbl--paper tfoot td { padding: 3px 5px; }
+.a4page .paper__close { margin-top: 4px; }
+.a4page .sign { margin-top: auto; font-size: 12px; gap: 1.2rem; }
+.a4page .sign > div { padding-top: 1.4rem; }
+@page a4 { size: A4 portrait; margin: 0; }
+@media print { .a4wrap { height: auto !important; border: 0; overflow: visible; } .a4page { transform: none !important; } }

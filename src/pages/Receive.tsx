@@ -1,8 +1,10 @@
 import { forwardRef, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles, useVouchers } from '../lib/data'
-import { directOut, paidItems, roundTotal, type Period } from '../lib/ledger'
+import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
+import { roundTotal } from '../lib/ledger'
+import { computeLedger } from '../lib/weekLedger'
+import LedgerTable from '../components/LedgerTable'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir } from '../lib/sync'
@@ -10,7 +12,6 @@ import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayIS
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
-import { NO_BUDGET } from './Vouchers'
 import { downloadPdf } from '../lib/pdf'
 import { readSlip } from '../lib/slipOcr'
 
@@ -30,10 +31,6 @@ export default function Receive({ year }: { year: number }) {
   const types = useIncomeTypes()
   const { settings } = useSettings()
   const files = useSheetFiles(year)
-  const vouchers = useVouchers(year)
-  const budgetLines = useBudgetLines(year)
-  const funds = useFunds()
-  const budgetEntries = useBudgetEntries(year)
   const [pick, setPick] = useState(false)
   const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
@@ -67,23 +64,7 @@ export default function Receive({ year }: { year: number }) {
   const lstFiles = allWeeks ? allFiles : weekFiles
   const otherWeeks = (k: 'manual' | 'slip' | 'sheet') => (k === 'sheet' ? allFiles.length - weekFiles.length : allEnt.filter((x) => sheetSunday(x.date) !== sunday && (k === 'manual' ? kindOf(x) === 'manual' : kindOf(x) === 'slip' || kindOf(x) === 'unknown')).length)
   const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
-  // ใบสรุป (4): สัปดาห์ที่เลือก หรือ ทั้งปี
-  const rep = repScope === 'year' ? allEnt : week
-  const repRounds = repScope === 'year' ? rounds.items : round ? [round] : []
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
-  // แยกตามประเภทถวาย: ช่องแรก = ตู้ถวาย/เงินสด (ใบถวาย + เงินสดบันทึกมือ) · ช่องที่สอง = โอน (สลิป) · ขวาสุด = รวม
-  type Src = { n: number; amt: number }
-  const perType = useMemo(() => {
-    const m = new Map<string, { cash: Src; transfer: Src }>()
-    const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
-    // 5 แถวแรกเป็นประเภทที่พิมพ์ไว้ในใบ (แสดงแม้ไม่มียอด) · ประเภทอื่นแสดงเมื่อมียอดเท่านั้น
-    for (const t of [...types.list].filter((x) => x.active).sort((a, b) => a.order - b.order).slice(0, 5)) at(t.id)
-    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
-    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
-    const order = new Map(types.list.map((t, i) => [t.id, t.order ?? i]))
-    return [...m.entries()].sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999))
-  }, [repRounds, rep, types.list]) // eslint-disable-line react-hooks/exhaustive-deps
-
   /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
   const dropFile = async (path?: string) => {
     const cfg = getSync()
@@ -126,20 +107,8 @@ export default function Receive({ year }: { year: number }) {
   // บันทึกแล้วสลับไปดูสัปดาห์ของรายการนั้นเลย (เห็นว่าเข้าใบสรุปไหน)
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
-  // ตารางรายรับ (ครึ่งบน)
-  const incRows: LRow[] = perType.map(([id, v]) => ({ key: id, label: typeName(id), cash: v.cash, transfer: v.transfer }))
-  // ตารางรายจ่าย (ครึ่งล่าง): จ่ายแล้วในช่วง แยกตามหมวดงบ/กองทุน · เงินสด/ทดรองจ่าย = เงินสด
-  const outRows: LRow[] = useMemo(() => {
-    const p: Period = repScope === 'year' ? { kind: 'year', from: `${year}-01-01`, to: `${year}-12-31` } : { kind: 'week', from: addDays(sunday, -6), to: sunday }
-    const name = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...budgetLines.items, ...funds.items].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
-    const m = new Map<string, LRow>()
-    const at = (id: string) => { const r = m.get(id) ?? { key: id, label: name(id), cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, r); return r }
-    for (const { item } of paidItems(vouchers.items, p)) { const r = at(item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
-    for (const e of directOut(budgetEntries.items, p)) { const t = at(e.lineId).cash; t.n += 1; t.amt += e.amount }
-    return [...m.values()].sort((a, b) => b.cash.amt + b.transfer.amt - a.cash.amt - a.transfer.amt)
-  }, [repScope, year, sunday, vouchers.items, budgetLines.items, funds.items, budgetEntries.items])
-  const sumRows = (rs: LRow[]) => ({ cash: rs.reduce((a, r) => a + r.cash.amt, 0), transfer: rs.reduce((a, r) => a + r.transfer.amt, 0) })
-  const inSum = sumRows(incRows), outSum = sumRows(outRows)
+  // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
+  const { incRows } = useMemo(() => computeLedger({ year, sunday, scope: repScope, income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list }), [year, sunday, repScope, inc.items, rounds.items, types.list])
 
   /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
   const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
@@ -239,22 +208,12 @@ export default function Receive({ year }: { year: number }) {
           </div>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
-            <h2 id="h-rep">สรุปรับ-จ่ายประจำสัปดาห์</h2>
+            <h2 id="h-rep">ได้รับการถวายประจำสัปดาห์</h2>
             <p>{repScope === 'year' ? `ประจำปี ${year + 543} (รวมทุกสัปดาห์)` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`}</p>
-            {repScope === 'week' && <p className="muted small">ระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
+            {repScope === 'week' && <p className="muted small">รับระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
           </header>
 
-          <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
-          <LedgerTable band="รายจ่าย" labels={['รายการ (หมวด)', 'จำนวนรายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" />
-
-          <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
-            <thead><tr><th>ปิดยอด{repScope === 'year' ? 'ทั้งปี' : 'รายสัปดาห์'}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
-            <tbody>
-              <tr><td>รวมรายรับ</td><td className="num">{fmtBaht(inSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer)}</td></tr>
-              <tr><td>หัก รวมรายจ่าย</td><td className="num">{fmtBaht(outSum.cash)}</td><td className="num">{fmtBaht(outSum.transfer)}</td><td className="num">{fmtBaht(outSum.cash + outSum.transfer)}</td></tr>
-            </tbody>
-            <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer)}</td></tr></tfoot>
-          </table>
+          <LedgerTable labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมทั้งสิ้น" />
 
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
@@ -368,38 +327,3 @@ const BlankSheet2Up = forwardRef<HTMLDivElement, { church: string; names: string
   )
 })
 
-type LSrc = { n: number; amt: number }
-interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc }
-
-/** ตารางรายรับ/รายจ่าย แบบใบบันทึกการถวาย: ซ้าย = เงินสด · เส้นหนา · ขวา = โอน · รวม — เติมแถวว่างให้ครบ 15 แถว */
-function LedgerTable({ band, labels, rows, total, tone }: { band: string; labels: [string, string, string]; rows: LRow[]; total: string; tone: 'in' | 'out' }) {
-  const n = Math.max(15, rows.length)
-  const sum = (f: (r: LRow) => number) => rows.reduce((a, r) => a + f(r), 0)
-  return (
-    <div className={`ledger ledger--${tone}`} style={{ overflowX: 'auto' }}>
-      <div className="ledger__band">{band}</div>
-      <table className="tbl tbl--paper" aria-label={band}>
-        <thead><tr><th>No.</th><th>{labels[0]}</th><th className="num">{labels[1]}</th><th className="num">จำนวนเงิน</th><th className="num vthick">{labels[2]}</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr></thead>
-        <tbody>
-          {Array.from({ length: n }, (_, i) => {
-            const r = rows[i]
-            return (
-              <tr key={i} className="paper__blank">
-                <td>{i + 1}.</td><td>{r?.label ?? ''}</td>
-                <td className="num">{r?.cash.n || ''}</td><td className="num">{r?.cash.amt ? fmtBaht(r.cash.amt) : ''}</td>
-                <td className="num vthick">{r?.transfer.n || ''}</td><td className="num">{r?.transfer.amt ? fmtBaht(r.transfer.amt) : ''}</td>
-                <td className="num"><b>{r && r.cash.amt + r.transfer.amt ? fmtBaht(r.cash.amt + r.transfer.amt) : ''}</b></td>
-              </tr>
-            )
-          })}
-        </tbody>
-        <tfoot><tr>
-          <td colSpan={2}>{total}</td>
-          <td className="num">{sum((r) => r.cash.n)}</td><td className="num">{fmtBaht(sum((r) => r.cash.amt))}</td>
-          <td className="num vthick">{sum((r) => r.transfer.n)}</td><td className="num">{fmtBaht(sum((r) => r.transfer.amt))}</td>
-          <td className="num">{fmtBaht(sum((r) => r.cash.amt + r.transfer.amt))}</td>
-        </tr></tfoot>
-      </table>
-    </div>
-  )
-}
