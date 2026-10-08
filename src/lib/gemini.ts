@@ -47,7 +47,7 @@ const PROMPT = `นี่คือรูป "ใบบันทึกการ�
 - อ่านเฉพาะ "เงินสด" คือคอลัมน์ "จำนวนซอง" และ "จำนวนเงิน" ชุดแรก (ซ้ายสุด) ห้ามนำคอลัมน์ "จำนวนผู้โอนผ่านบ/ช" หรือคอลัมน์ "รวม" มาปน
 - ทุกแถวที่มีตัวเลขเงิน ให้ใส่ใน rows ตามลำดับบนลงล่าง รวมแถวที่พิมพ์ไว้ (สิบลด, ประจำสัปดาห์, ขอบพระคุณ, กองทุนเพื่อที่ดินคริสตจักร, กองทุนเพื่ออาหาร) และแถวที่เขียนมือเพิ่มเอง (เช่น ค่าเช่า, ถวายพิเศษเงินสด) ใช้ข้อความชื่อแถวตามที่เห็น
 - แถวที่ว่างไม่ต้องใส่ ส่วน amount เป็นเลขบาท (ไม่ใช้คอมมา) envelopes เป็นจำนวนซอง (ถ้าไม่มีให้เว้น)
-- date คือวันที่ประจำวันอาทิตย์ในใบ แปลงปี พ.ศ. เป็น ค.ศ. รูปแบบ YYYY-MM-DD (ถ้าอ่านไม่ได้ให้เว้น)
+- date: ที่หัวใบมีลายมือ "ประจำวันอาทิตย์ ที่ __ เดือน __ พ.ศ. __" ให้ประกอบเป็นวันที่เดียว แปลงปี พ.ศ. เป็น ค.ศ. (ลบ 543) รูปแบบ YYYY-MM-DD เช่น 4 ตุลาคม 2569 → 2026-10-04 (ถ้าอ่านไม่ได้ให้เว้น อย่าเดา)
 - cashTotal คือตัวเลขที่เขียนไว้ที่ "รวมจากตู้ถวาย" (ถ้ามี)
 - ห้ามเดาตัวเลขที่อ่านไม่ออก ให้ข้ามแถวนั้น`
 
@@ -68,32 +68,41 @@ const b64 = (buf: ArrayBuffer) => {
   return btoa(bin)
 }
 
+const FALLBACKS = ['gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** เรียก Gemini: ถ้ารุ่นหนึ่งไม่ว่าง (503/500/429) หรือไม่พบ (404) จะลองซ้ำแล้วสลับไปรุ่นสำรองให้เอง */
 export async function readSheet(file: Blob & { name?: string }): Promise<SheetRead> {
   const { key, model } = getGemini()
   if (!key) throw new Error('ยังไม่ได้ใส่รหัส Gemini API')
   const f = file instanceof File ? file : new File([file], 'sheet.jpg', { type: file.type || 'image/jpeg' })
   const { data } = await compressImage(f, 1800, 0.8)
-  let r: Response
-  try {
-    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0 },
-      }),
-    })
-  } catch { throw new Error('ไม่มีอินเทอร์เน็ต — อ่านใบถวายไม่ได้') }
-  if (!r.ok) {
-    if (r.status === 400 || r.status === 403) throw new Error('รหัส Gemini API ไม่ถูกต้องหรือไม่มีสิทธิ์ — ตรวจรหัสในตั้งค่า')
-    if (r.status === 429) throw new Error('ใช้โควตา Gemini ครบชั่วคราว — รอสักครู่แล้วลองใหม่')
-    if (r.status === 404) throw new Error('ไม่พบรุ่น Gemini ที่ตั้งไว้ — ใช้ค่าเริ่มต้น')
-    throw new Error(`Gemini ตอบกลับผิดพลาด (${r.status})`)
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0 },
+  })
+  let last = ''
+  for (const m of [...new Set([model, ...FALLBACKS])]) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let r: Response
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body })
+      } catch { throw new Error('ไม่มีอินเทอร์เน็ต — อ่านใบถวายไม่ได้') }
+      if (r.ok) {
+        const j = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
+        const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
+        if (text) return parseSheetJson(text)
+        last = 'Gemini ไม่ส่งผลการอ่านกลับมา'
+        break
+      }
+      const detail = ((await r.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? ''
+      if (r.status === 403 || (r.status === 400 && /api key|API_KEY/i.test(detail))) throw new Error('รหัส Gemini API ไม่ถูกต้องหรือไม่มีสิทธิ์ — ตรวจรหัสในตั้งค่า')
+      last = `Gemini (${m}) ตอบกลับ ${r.status}${detail ? `: ${detail.slice(0, 120)}` : ''}`
+      if (r.status === 503 || r.status === 500 || r.status === 429) { if (attempt === 0) { await sleep(1200); continue } }
+      break
+    }
   }
-  const j = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
-  const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
-  if (!text) throw new Error('Gemini ไม่ส่งผลการอ่านกลับมา')
-  return parseSheetJson(text)
+  throw new Error(`${last} — ลองกด “อ่านซ้ำ” อีกครั้งในอีกสักครู่ หรือกรอกตารางเอง`)
 }
 
 /** ทดสอบรหัส: '' = ใช้ได้ · อย่างอื่น = ข้อความอธิบาย */
