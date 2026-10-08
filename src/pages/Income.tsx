@@ -70,17 +70,17 @@ function IncomeList({ year }: { year: number }) {
   )
 }
 
-export function IncomeForm({ year, entry, onClose, inc, defaultDate }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string }) {
+export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip' }) {
   const types = useIncomeTypes()
   const accounts = useAccounts()
   const active = types.list.filter((t) => t.active || t.id === entry?.typeId)
   const [date, setDate] = useState(entry?.date ?? defaultDate ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
-  const [typeId, setTypeId] = useState(entry ? entry.typeId : (active[0]?.id ?? ''))
+  const [typeId, setTypeId] = useState(entry ? entry.typeId : preset === 'slip' ? UNSORTED : (active[0]?.id ?? ''))
   const [memberNo, setMemberNo] = useState(entry?.memberNo ?? '')
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
-  const [method, setMethod] = useState<Method>(entry?.method ?? 'transfer')
+  const [method, setMethod] = useState<Method>(entry?.method ?? (preset === 'manual' ? 'cash' : 'transfer'))
   const [ref, setRef] = useState(entry?.ref ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? accounts.list[0]?.id ?? '')
   const [note, setNote] = useState(entry?.note ?? '')
@@ -106,7 +106,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate }: { year: n
       } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบสลิปไม่สำเร็จ') }
       setBusy(false)
     }
-    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), note: note.trim(), updated: 0 }])
+    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
     if (ok) onClose()
   }
   return (
