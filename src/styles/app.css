@@ -158,3 +158,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .paper__sub td { font-weight: 700; background: #f2f2f2; }
 .paper__sub td:first-child { padding-left: 0.6rem; }
 .paper .sign { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; font-size: 0.74rem; }
+.tbl--paper th { text-align: center; border: 1px solid #555; }
+.tbl--paper td { border: 1px solid #aaa; }
+.tbl--paper td.num { text-align: right; }
+.tbl--paper th.grp { text-align: center; }
+.tbl--paper tfoot td { border: 1px solid #555; background: #f2f2f2; }

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
@@ -63,15 +63,17 @@ export default function Receive({ year }: { year: number }) {
   const rep = repScope === 'year' ? allEnt : week
   const repRounds = repScope === 'year' ? rounds.items : round ? [round] : []
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
-  // แยกตามประเภทถวาย และตามที่มา: ตู้ถวาย (ใบถวาย) · โอน (สลิป) · เงินสดบันทึกมือ
+  // แยกตามประเภทถวาย: ช่องแรก = ตู้ถวาย/เงินสด (ใบถวาย + เงินสดบันทึกมือ) · ช่องที่สอง = โอน (สลิป) · ขวาสุด = รวม
   type Src = { n: number; amt: number }
   const perType = useMemo(() => {
-    const m = new Map<string, { box: Src; transfer: Src; hand: Src }>()
-    const at = (id: string) => { const c = m.get(id) ?? { box: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 }, hand: { n: 0, amt: 0 } }; m.set(id, c); return c }
-    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).box; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
-    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.hand; t.amt += x.amount; t.n += 1 }
-    return [...m.entries()]
-  }, [repRounds, rep]) // eslint-disable-line react-hooks/exhaustive-deps
+    const m = new Map<string, { cash: Src; transfer: Src }>()
+    const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
+    for (const t of types.list) if (t.active) at(t.id)
+    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
+    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
+    const order = new Map(types.list.map((t, i) => [t.id, t.order ?? i]))
+    return [...m.entries()].sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999))
+  }, [repRounds, rep, types.list]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
   const dropFile = async (path?: string) => {
@@ -200,27 +202,32 @@ export default function Receive({ year }: { year: number }) {
             <p>{repScope === 'year' ? `ประจำปี ${year + 543} (รวมทุกสัปดาห์)` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`}</p>
             {repScope === 'week' && <p className="muted small">รับระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
           </header>
+          <div style={{ overflowX: 'auto' }}>
           <table className="tbl tbl--paper" aria-label="ได้รับการถวายประจำสัปดาห์">
-            <thead><tr><th>ประเภทถวาย (ที่มา)</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
+            <thead>
+              <tr><th rowSpan={2}>No.</th><th rowSpan={2}>ประเภท</th><th colSpan={2} className="num grp">ตู้ถวาย / เงินสด</th><th colSpan={2} className="num grp">โอน</th><th rowSpan={2} className="num">รวม</th></tr>
+              <tr><th className="num">จำนวน</th><th className="num">จำนวนเงิน</th><th className="num">จำนวน</th><th className="num">จำนวนเงิน</th></tr>
+            </thead>
             <tbody>
-              {perType.length === 0 && <tr><td colSpan={3} className="muted">ยังไม่มีรายการ</td></tr>}
-              {perType.map(([id, v]) => {
-                const parts = ([['ตู้ถวาย', v.box], ['โอน', v.transfer], ['เงินสดบันทึกมือ', v.hand]] as [string, Src][]).filter(([, x]) => x.n > 0)
-                const n = parts.reduce((a, [, x]) => a + x.n, 0), amt = parts.reduce((a, [, x]) => a + x.amt, 0)
-                return (
-                  <Fragment key={id}>
-                    {parts.map(([label, x]) => <tr key={label}><td>{typeName(id)} ({label})</td><td className="num">{x.n}</td><td className="num">{fmtBaht(x.amt)}</td></tr>)}
-                    {parts.length > 1 && <tr className="paper__sub"><td>รวม{typeName(id)}</td><td className="num">{n}</td><td className="num">{fmtBaht(amt)}</td></tr>}
-                  </Fragment>
-                )
-              })}
+              {perType.map(([id, v], i) => (
+                <tr key={id}>
+                  <td>{i + 1}.</td><td>{typeName(id)}</td>
+                  <td className="num">{v.cash.n || ''}</td><td className="num">{v.cash.amt ? fmtBaht(v.cash.amt) : ''}</td>
+                  <td className="num">{v.transfer.n || ''}</td><td className="num">{v.transfer.amt ? fmtBaht(v.transfer.amt) : ''}</td>
+                  <td className="num"><b>{v.cash.amt + v.transfer.amt ? fmtBaht(v.cash.amt + v.transfer.amt) : ''}</b></td>
+                </tr>
+              ))}
             </tbody>
             <tfoot><tr>
-              <td>รวมทั้งสิ้น</td>
-              <td className="num">{perType.reduce((a, [, v]) => a + v.box.n + v.transfer.n + v.hand.n, 0)}</td>
-              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.box.amt + v.transfer.amt + v.hand.amt, 0))}</td>
+              <td colSpan={2}>รวมทั้งสิ้น</td>
+              <td className="num">{perType.reduce((a, [, v]) => a + v.cash.n, 0)}</td>
+              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt, 0))}</td>
+              <td className="num">{perType.reduce((a, [, v]) => a + v.transfer.n, 0)}</td>
+              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.transfer.amt, 0))}</td>
+              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt + v.transfer.amt, 0))}</td>
             </tr></tfoot>
           </table>
+          </div>
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
             <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
