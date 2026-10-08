@@ -1,14 +1,20 @@
 /** แปลงส่วนของหน้าเว็บ (ใบสรุป) เป็นไฟล์ PDF A4 ในเครื่อง — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น */
-export async function downloadPdf(el: HTMLElement, filename: string): Promise<void> {
+/** fullPage: ใช้ทั้งหน้า A4 ตามขนาด 794×1123 px ของ element (ไม่เว้นขอบ ไม่ตัดหน้า) */
+export async function downloadPdf(el: HTMLElement, filename: string, opts: { fullPage?: boolean } = {}): Promise<void> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
   const canvas = await html2canvas(el, {
     scale: 2,
     backgroundColor: '#ffffff',
     ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
     // จัดหน้าให้กว้างพอสำหรับกระดาษ ไม่ใช่ความกว้างของมือถือ
-    onclone: (_doc, cloned) => { cloned.style.width = '720px'; cloned.style.maxWidth = '720px'; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+    onclone: (_doc, cloned) => { cloned.style.width = opts.fullPage ? '794px' : '720px'; cloned.style.maxWidth = cloned.style.width; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
   })
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
+  if (opts.fullPage) {
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight())
+    pdf.save(filename)
+    return
+  }
   const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), m = 12
   const w = pw - 2 * m
   const sliceH = Math.floor(((ph - 2 * m) * canvas.width) / w) // ความสูงต่อหน้า (px ของแคนวาส)

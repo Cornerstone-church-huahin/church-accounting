@@ -167,3 +167,17 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .paper__blank td { height: 1.9rem; }
 @media print { .paper--blank { display: none !important; } }
 .paper--blank th { white-space: normal; font-size: 0.72rem; line-height: 1.25; }
+.paper--a4 { background: #fff; color: #111; }
+.paper--a4 .half { height: 560px; padding: 24px 24px 6px; overflow: hidden; }
+.paper--a4 .cutline { height: 2px; margin: 0; font-size: 9px; line-height: 0; text-align: center; color: #666; border-top: 1px dashed #666; position: relative; }
+.paper--a4 .cutline { padding: 0; overflow: visible; }
+.form--compact .paper__head { margin: 0 0 0.25rem; }
+.form--compact .paper__head h2 { font-size: 15px; margin: 0; }
+.form--compact .paper__head p { font-size: 11px; margin: 2px 0 0; }
+.form--compact .tbl--paper { font-size: 11px; }
+.form--compact .tbl--paper th { font-size: 10px; padding: 1px 3px; line-height: 1.15; }
+.form--compact .tbl--paper td { padding: 0 4px; }
+.form--compact .paper__blank td { height: 24px; }
+.form--compact p { font-size: 11px; }
+.form--compact .sign { font-size: 11px; gap: 1.5rem; }
+.form--compact .sign > div { padding-top: 0.6rem; }

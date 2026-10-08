@@ -83,9 +83,12 @@ try {
   }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   {
-    const [bl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลดใบบันทึกการถวายเปล่า/ }).click()])
+    const [bl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /เปล่า \(PDF\)/ }).click()])
     must((await import('node:fs')).default.readFileSync(await bl.path()).subarray(0, 5).toString() === '%PDF-', 'blank sheet PDF downloads')
     await bl.saveAs('shots/blank-sheet.pdf')
+    const [b2] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ใบบันทึกการถวายเปล่า 2 ใบต่อแผ่น/ }).click()])
+    must((await import('node:fs')).default.readFileSync(await b2.path()).subarray(0, 5).toString() === '%PDF-', 'two-up blank PDF downloads')
+    await b2.saveAs('shots/blank-2up.pdf')
   }
   await page.getByRole('button', { name: '＋ แนบไฟล์' }).click()
   await page.getByLabel('เลือกรูปใบบันทึกการถวาย').setInputFiles(process.env.SHEET_FIXTURE ?? process.env.SLIP_FIXTURE ?? 'public/icon-512.png')
