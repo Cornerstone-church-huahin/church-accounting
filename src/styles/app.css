@@ -199,10 +199,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .a4page .ledger__band { margin: 2px 0 2px; font-size: 13px; }
 .a4page .tbl--paper { font-size: 12px; }
 .a4page .tbl--paper th { font-size: 11.5px; padding: 2px 4px; }
-.a4page .paper__blank td { height: 23px; padding: 0 5px; }
+.a4page .paper__blank td { height: 22px; padding: 0 5px; }
+.a4page .paper__blank td:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .a4page .tbl--paper tfoot td { padding: 3px 5px; }
 .a4page .paper__close { margin-top: 4px; }
 .a4page .sign { margin-top: auto; font-size: 12px; gap: 1.2rem; }
 .a4page .sign > div { padding-top: 1.4rem; }
 @page a4 { size: A4 portrait; margin: 0; }
 @media print { .a4wrap { height: auto !important; border: 0; overflow: visible; } .a4page { transform: none !important; } }
+.ecat { border-top: 1px solid var(--line); padding: 0.4rem 0; }
+.ecat > summary { cursor: pointer; padding: 0.3rem 0; }

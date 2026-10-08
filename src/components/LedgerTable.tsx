@@ -8,7 +8,8 @@ export default function LedgerTable({ band, labels, rows, total, tone }: { band?
   return (
     <div className={`ledger${tone ? ` ledger--${tone}` : ''}`} style={{ overflowX: 'auto' }}>
       {band && <div className="ledger__band">{band}</div>}
-      <table className="tbl tbl--paper" aria-label={band ?? total}>
+      <table className="tbl tbl--paper" aria-label={band ?? total} style={{ tableLayout: 'fixed' }}>
+        <colgroup><col style={{ width: '5%' }} /><col style={{ width: '31%' }} /><col style={{ width: '9%' }} /><col style={{ width: '13%' }} /><col style={{ width: '9%' }} /><col style={{ width: '13%' }} /><col style={{ width: '14%' }} /></colgroup>
         <thead><tr><th>No.</th><th>{labels[0]}</th><th className="num">{labels[1]}</th><th className="num">จำนวนเงิน</th><th className="num vthick">{labels[2]}</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr></thead>
         <tbody>
           {Array.from({ length: n }, (_, i) => {

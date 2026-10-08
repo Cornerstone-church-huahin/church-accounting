@@ -4,7 +4,7 @@ import MoneyInput from '../components/MoneyInput'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can, isSolo, whoAmI } from '../lib/access'
-import { useBudgetAdjs, useBudgetLines, useFunds, useSettings, useVouchers } from '../lib/data'
+import { useBudgetAdjs, useBudgetLines, useExpenseCats, useFunds, useSettings, useVouchers } from '../lib/data'
 import { budgetRows, itemsTotal, STAGE_LABEL, stageOf, tasksFor, voucherTitle, weekSummary, type Stage } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { addDays, be, fmtBaht, fmtDate, todayISO, yearOf } from '../lib/money'
@@ -104,10 +104,11 @@ export function NewVoucher({ year, onClose, v }: { year: number; onClose: () => 
   const lines = useBudgetLines(year)
   const adjs = useBudgetAdjs(year)
   const funds = useFunds()
+  const cats = useExpenseCats()
   const me = whoAmI()
   const [date, setDate] = useState(yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`)
   const [payee, setPayee] = useState('')
-  const blank = (): { desc: string; amount: number | null; lineId: string; method: PayMethod } => ({ desc: '', amount: null, lineId: lines.items[0]?.id ?? NO_BUDGET, method: 'cash' })
+  const blank = (): { desc: string; amount: number | null; lineId: string; method: PayMethod; catId: string } => ({ desc: '', amount: null, lineId: lines.items[0]?.id ?? NO_BUDGET, method: 'cash', catId: '' })
   const [items, setItems] = useState([blank()])
   const [err, setErr] = useState('')
   const rows = budgetRows(lines.items, adjs.items, v.items)
@@ -120,7 +121,7 @@ export function NewVoucher({ year, onClose, v }: { year: number; onClose: () => 
     const ok = items.filter((i) => i.desc.trim() || i.amount)
     if (ok.length === 0) return setErr('ใส่อย่างน้อย 1 รายการ')
     if (ok.some((i) => !i.desc.trim() || !i.amount || i.amount <= 0)) return setErr('ทุกรายการต้องมีชื่อรายการและจำนวนเงินมากกว่า 0')
-    const list: VoucherItem[] = ok.map((i) => ({ desc: i.desc.trim(), amount: i.amount!, lineId: i.lineId, method: i.method }))
+    const list: VoucherItem[] = ok.map((i) => ({ desc: i.desc.trim(), amount: i.amount!, lineId: i.lineId, method: i.method, ...(i.catId ? { catId: i.catId } : {}) }))
     const n = Math.max(0, ...v.all.map((x) => parseInt(x.no.split('-')[1] ?? '0', 10) || 0)) + 1
     const rec: Voucher = {
       id: `vc-${year}-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`, no: `${be(year)}-${String(n).padStart(3, '0')}`, date,
@@ -135,6 +136,12 @@ export function NewVoucher({ year, onClose, v }: { year: number; onClose: () => 
       {items.map((it, n) => (
         <fieldset key={n} className="card card--flat" style={{ margin: 0 }}>
           <legend className="small muted">รายการที่ {n + 1}</legend>
+          <div className="field"><label htmlFor={`v-c${n}`}>หมวดรายจ่าย (เลือกจากรายการ)</label>
+            <select id={`v-c${n}`} className="input" value={it.catId} onChange={(e) => { const c = cats.byId(e.target.value); set(n, { catId: e.target.value, ...(c && !it.desc.trim() ? { desc: c.name } : {}) }) }}>
+              <option value="">— ยังไม่ระบุหมวด —</option>
+              {cats.groups.filter((g) => g.active).map((g) => <optgroup key={g.id} label={`${g.code}. ${g.name}`}>{cats.itemsOf(g.id).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}</optgroup>)}
+            </select>
+          </div>
           <div className="field"><label htmlFor={`v-d${n}`}>รายการ</label><input id={`v-d${n}`} className="input" value={it.desc} onChange={(e) => set(n, { desc: e.target.value })} placeholder="เช่น ค่าน้ำมันรถ / ค่าอินเตอร์เน็ต (บิล 27-9-69)" /></div>
           <div className="grid2">
             <div className="field"><label htmlFor={`v-a${n}`}>จำนวนเงิน (บาท)</label><MoneyInput id={`v-a${n}`} value={it.amount} onChange={(a) => set(n, { amount: a })} /></div>
