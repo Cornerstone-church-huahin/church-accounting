@@ -135,11 +135,14 @@ function NewFund({ order, funds, types, income, onClose }: { order: number; fund
   return (
     <Sheet title="ตั้งกองทุนใหม่" onClose={onClose}>
       <div className="field"><label htmlFor="nf-name">ชื่อกองทุน</label><input id="nf-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น กองทุนซื้อที่ดิน / กองทุนสร้างอาคาร" autoFocus /></div>
-      <div className="field"><label htmlFor="nf-got" style={{ color: 'var(--series-1)' }}>① เก็บได้แล้ว (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา</label><MoneyInput id="nf-got" value={got} onChange={setGot} /></div>
       <label className="row"><input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} /> <span>สร้าง “ประเภทถวาย” ชื่อเดียวกับกองทุนนี้ให้ (ไว้เลือกตอนบันทึกรายรับ/ใบถวาย — เงินถวายประเภทนี้จะเข้ากองทุนนี้เอง)</span></label>
       <Sources totals={sumByType(income)} value={link} onChange={setLink} />
+      <fieldset data-zone="numbers" className="card card--flat" style={{ margin: 0 }}>
+        <legend className="small muted">ตัวเลขของ 3 แท่ง — เขียว → เทา → แดง</legend>
+      <div className="field"><label htmlFor="nf-got" style={{ color: 'var(--series-1)' }}>① เก็บได้แล้ว (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา</label><MoneyInput id="nf-got" value={got} onChange={setGot} /></div>
       <div className="field"><label htmlFor="nf-target">② เป้าหมาย (แท่งเทา) — เช่น 6,000,000 ยังไม่ตั้งก็ปล่อยว่างได้</label><MoneyInput id="nf-target" value={target} onChange={setTarget} /></div>
       <div className="field"><label htmlFor="nf-sp" style={{ color: 'var(--series-2)' }}>③ จ่ายออกไปแล้ว (แท่งแดง) — ถ้ามี</label><MoneyInput id="nf-sp" value={spent} onChange={setSpent} /></div>
+      </fieldset>
       <BudgetCandles fund title={name.trim() || 'กองทุนใหม่'} income={(got ?? 0) + linkedSum(income, link)} budget={target ?? 0} spent={spent ?? 0} compact />
       {err && <p className="err" role="alert">{err}</p>}
       <button type="button" className="btn btn--gold" onClick={save}>บันทึกกองทุน</button>
@@ -167,18 +170,21 @@ function EditFund({ row, focus, income, funds, types, onClose }: { row: ReturnTy
   return (
     <Sheet title={`แก้ไขกองทุน — ${row.line.name}`} onClose={onClose}>
       <div className="field"><label htmlFor="ef-name">ชื่อกองทุน</label><input id="ef-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus={focus === 'name'} /></div>
+      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
+      <fieldset data-zone="numbers" className="card card--flat" style={{ margin: 0 }}>
+        <legend className="small muted">ตัวเลขของ 3 แท่ง — เขียว → เทา → แดง</legend>
       <div className="field">
         <label htmlFor="ef-in" style={{ color: 'var(--series-1)' }}>① เก็บได้แล้ว (แท่งเขียว) — เงินยกมา/ที่มีอยู่แล้ว</label>
         <MoneyInput id="ef-in" value={openIn} onChange={setOpenIn} autoFocus={focus === 'in'} />
         <span className="foot-note">แท่งเขียวตอนนี้ {fmtBaht(liveIn)} = ยกมา {fmtBaht(openIn ?? 0)} + จากแหล่งที่ติ๊ก {fmtBaht(linkedSum(income, link))} + บันทึกตรง {fmtBaht(row.inParts.entries)}</span>
       </div>
-      <Sources totals={sumByType(income)} value={link} onChange={setLink} />
       <div className="field"><label htmlFor="ef-target">② เป้าหมาย (แท่งเทา)</label><MoneyInput id="ef-target" value={target} onChange={setTarget} autoFocus={focus === 'budget'} /></div>
       <div className="field">
         <label htmlFor="ef-out" style={{ color: 'var(--series-2)' }}>③ จ่ายออกไปแล้วก่อนเริ่มใช้ระบบ (แท่งแดง)</label>
         <MoneyInput id="ef-out" value={openOut} onChange={setOpenOut} autoFocus={focus === 'out'} />
         <span className="foot-note">แท่งแดงตอนนี้ {fmtBaht((openOut ?? 0) + row.outParts.vouchers + row.outParts.entries)} = ตั้งต้น {fmtBaht(openOut ?? 0)} + จากใบเบิก {fmtBaht(row.outParts.vouchers)} + บันทึกตรง {fmtBaht(row.outParts.entries)}</span>
       </div>
+      </fieldset>
       <BudgetCandles fund title={name.trim() || row.line.name} income={liveIn} budget={target ?? 0} spent={(openOut ?? 0) + row.outParts.vouchers + row.outParts.entries} compact />
       {err && <p className="err" role="alert">{err}</p>}
       <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>

@@ -18,6 +18,8 @@ const shot = (n) => page.screenshot({ path: `shots/${n}.png`, fullPage: true })
 const go = async (hash) => { await page.goto(base + '#' + hash); await page.waitForLoadState('networkidle') }
 const must = async (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg) }
 // ลำดับบนจอต้องเป็น เขียว(①) → เทา(②) → แดง(③) เสมอ ทุกฟอร์ม
+// ช่องกรอก ①②③ ต้องอยู่ในโซนเดียวกันติดกัน (ไม่มีรายการติ๊กแหล่งที่มาคั่นกลาง)
+const oneZone = async (a, b, c) => page.evaluate(([x, y, z]) => { const zn = document.querySelector(x)?.closest('[data-zone="numbers"]'); return !!zn && zn === document.querySelector(y)?.closest('[data-zone="numbers"]') && zn === document.querySelector(z)?.closest('[data-zone="numbers"]') && !zn.querySelector('input[type="checkbox"]') }, [a, b, c])
 const inOrder = async (...sel) => { const ys = []; for (const q of sel) ys.push((await page.locator(q).first().boundingBox()).y); return ys.every((y, i) => i === 0 || y > ys[i - 1]) }
 
 const today = new Date()
@@ -65,6 +67,7 @@ await shot('03-income')
 await go('/budget')
 await page.getByRole('button', { name: '＋ ตั้งงบใหม่' }).click()
 await page.getByLabel('ชื่องบ', { exact: true }).fill('ค่าสวัสดิการผู้รับใช้')
+await must(await inOrder('.sheet fieldset', '#nb-got', '#nb-bud', '#nb-sp') && await oneZone('#nb-got', '#nb-bud', '#nb-sp'), 'new budget form: sources, then ①②③ together in one zone')
 await page.getByLabel(/ได้รับ \(แท่งเขียว\)/).fill('20000')
 await page.getByLabel(/งบที่ตั้ง \(แท่งเทา\)/).fill('50000')
 await page.getByLabel(/จ่ายแล้ว \(แท่งแดง\)/).fill('5000')
@@ -78,7 +81,7 @@ await page.getByRole('button', { name: 'บันทึก', exact: true }).clic
 await page.locator('svg[aria-label*="ค่าสวัสดิการผู้รับใช้: ได้รับ 20,000.00 บาท, งบที่ตั้ง 50,000.00 บาท, จ่ายแล้ว 8,000.00"]').waitFor({ state: 'attached' })
 // แตะแท่งเขียวเพื่อแก้ตัวเลข: ยกมา 25,000 และงบที่ตั้งเป็น 60,000 (แท่งกลางแก้ตรง ๆ แล้วลงประวัติเอง)
 await page.locator('section[aria-label="งบ ค่าสวัสดิการผู้รับใช้"]').getByRole('button', { name: 'แก้ตัวเลขแท่ง ได้รับ' }).click()
-await must(await inOrder('#ed-in', '.sheet fieldset', '#ed-bud', '#ed-out'), 'edit budget form order')
+await must(await inOrder('.sheet fieldset', '#ed-in', '#ed-bud', '#ed-out') && await oneZone('#ed-in', '#ed-bud', '#ed-out'), 'edit budget form: ①②③ together')
 await page.getByLabel(/① ได้รับ/).fill('25000')
 await page.getByLabel(/② งบที่ตั้ง/).fill('60000')
 await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
@@ -146,7 +149,7 @@ await go('/budget')
 await page.getByRole('button', { name: 'กองทุน (สะสม)' }).click()
 await page.getByRole('button', { name: '＋ ตั้งกองทุนใหม่' }).click()
 await page.getByLabel('ชื่อกองทุน', { exact: true }).fill('กองทุนซื้อที่ดิน')
-await must(await inOrder('#nf-got', '.sheet fieldset', '#nf-target', '#nf-sp'), 'new fund form: ① green, sources, ② grey, ③ red in order')
+await must(await inOrder('.sheet fieldset', '#nf-got', '#nf-target', '#nf-sp') && await oneZone('#nf-got', '#nf-target', '#nf-sp'), 'new fund form: sources, then ①②③ together in one zone')
 await page.getByLabel(/② เป้าหมาย/).fill('6000000')
 await page.getByRole('button', { name: 'บันทึกกองทุน' }).click()
 await page.locator('svg[aria-label*="กองทุนซื้อที่ดิน: เก็บได้ 0.00 บาท, เป้าหมาย 6,000,000.00 บาท, จ่ายแล้ว 0.00"]').waitFor({ state: 'attached' })
@@ -166,7 +169,7 @@ await page.getByRole('button', { name: 'บันทึก', exact: true }).clic
 await page.locator('svg[aria-label*="กองทุนซื้อที่ดิน: เก็บได้ 250,000.00 บาท, เป้าหมาย 6,000,000.00 บาท, จ่ายแล้ว 50,000.00"]').waitFor({ state: 'attached' })
 await must(await page.getByText(/ขาดอีก 5,750,000 ถึงเป้าหมาย/).isVisible(), 'fund shows the shortfall to target')
 await page.getByRole('button', { name: /✎ แก้ไขกองทุน/ }).first().click()
-await must(await inOrder('#ef-in', '.sheet fieldset', '#ef-target', '#ef-out'), 'edit fund form order')
+await must(await inOrder('.sheet fieldset', '#ef-in', '#ef-target', '#ef-out') && await oneZone('#ef-in', '#ef-target', '#ef-out'), 'edit fund form: ①②③ together')
 await page.getByRole('button', { name: 'ปิด' }).click()
 await shot('04b-fund')
 // ใบเบิกเลือกกองทุนเป็นหมวดได้
