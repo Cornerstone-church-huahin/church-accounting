@@ -112,6 +112,21 @@ try {
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  // กรณีของผู้ใช้: ใบถวายสิบลด 6 ซอง 1,150 + โอน 1 รายการ 169 → แถวสิบลด: 6 | 1,150.00 | 1 | 169.00 | 1,319.00
+  await page.getByRole('button', { name: '＋ บันทึก' }).click()
+  await page.getByRole('button', { name: 'โอนเงิน' }).click()
+  await page.locator('#i-amt').fill('169')
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  const t4 = await readTotal()
+  must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t4), 'row shows 6 envelopes 1,150 + 1 transfer 169 = 1,319: ' + t4)
+  must(/รวมทั้งสิ้น\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t4), 'grand total row: ' + t4)
+  {
+    const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
+    await d2.saveAs('shots/total-user.pdf')
+  }
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   // แก้ไขไฟล์ที่แนบ: เปลี่ยนยอดแล้วใบสรุปเปลี่ยนตาม · ลบไฟล์แล้วยอดในใบนับหายไป
   await page.getByRole('button', { name: '✎ แก้ไข' }).first().click()
