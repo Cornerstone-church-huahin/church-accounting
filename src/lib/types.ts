@@ -55,6 +55,8 @@ export interface Round extends SharedItem {
   verifier?: { id: string; name: string; at: number }
   deposit?: { date: string; amount: number; accountId: string; slip?: string }
   note?: string
+  /** สร้าง/อัปเดตจากไฟล์ใบบันทึกการถวายนี้ */
+  sheetFileId?: string
 }
 
 /** incomeTypeIds = ประเภทรายรับที่เป็นเงินของงบนี้ (เช่น งบอาหาร ← กองทุนเพื่ออาหาร) ใช้แสดงแท่งรายรับสีเขียว */
@@ -123,8 +125,12 @@ export interface StatementLine extends SharedItem {
 }
 
 /** ไฟล์ใบบันทึกการถวายที่ถ่ายรูป/แนบมา (ให้ระบบอ่านภายหลัง) */
+export interface SheetRowRead { label: string; typeId: string; envelopes?: number; amount: number }
 export interface SheetFile extends SharedItem {
   date: string
+  /** path ว่าง = โหมดทดลอง (ยังไม่เชื่อมออนไลน์ ไม่ได้เก็บรูป) */
   file: { path: string; name: string }
   note?: string
+  /** ค่าที่ระบบอ่านจากใบ (ผู้ใช้ตรวจ/แก้แล้ว) — เงินสดเท่านั้น (สตางค์) */
+  read?: { rows: SheetRowRead[]; writtenCash?: number }
 }
