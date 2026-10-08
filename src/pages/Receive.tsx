@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useIncome, useIncomeTypes, useRounds, useSheetFiles } from '../lib/data'
+import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
 import { roundTotal } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
@@ -26,6 +26,7 @@ export default function Receive({ year }: { year: number }) {
   const inc = useIncome(year)
   const rounds = useRounds(year)
   const types = useIncomeTypes()
+  const { settings } = useSettings()
   const files = useSheetFiles(year)
   const [pick, setPick] = useState(false)
   const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
@@ -47,6 +48,7 @@ export default function Receive({ year }: { year: number }) {
   const weekFiles = files.items.filter((f) => sheetSunday(f.date) === sunday).sort(byDateF)
   const allFiles = [...files.items].sort(byDateF)
   const round = rounds.items.find((r) => r.date === sunday)
+  const cash = round ? roundTotal(round) : 0
   // รายการในการ์ดของช่อง 1–3: สัปดาห์ที่เลือก หรือ "ทุกสัปดาห์"
   const lst = allWeeks ? allEnt : week
   const manual = lst.filter((x) => kindOf(x) === 'manual')
@@ -56,20 +58,15 @@ export default function Receive({ year }: { year: number }) {
   const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
   // ใบสรุป (4): สัปดาห์ที่เลือก หรือ ทั้งปี
   const rep = repScope === 'year' ? allEnt : week
-  const repManual = rep.filter((x) => kindOf(x) === 'manual')
-  const repSlips = rep.filter((x) => kindOf(x) === 'slip')
-  const repUnknown = rep.filter((x) => kindOf(x) === 'unknown')
   const repRounds = repScope === 'year' ? rounds.items : round ? [round] : []
-  const repFiles = repScope === 'year' ? allFiles : weekFiles
-  const sheetRows = repFiles.flatMap((f) => (f.read?.rows ?? []).map((r) => ({ ...r, date: f.date })))
-  const cash = repRounds.reduce((s, r) => s + roundTotal(r), 0)
-  const total = cash + sum(rep)
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
+  // แยกตามประเภทถวาย และตามที่มา: ตู้ถวาย (ใบถวาย) · โอน (สลิป) · เงินสดบันทึกมือ
+  type Src = { n: number; amt: number }
   const perType = useMemo(() => {
-    const m = new Map<string, { cash: number; transfer: number; n: number; sheet: number; slip: number; hand: number }>()
-    const at = (id: string) => { const c = m.get(id) ?? { cash: 0, transfer: 0, n: 0, sheet: 0, slip: 0, hand: 0 }; m.set(id, c); return c }
-    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id); const k = r.envelopes?.[id] ?? 1; c.cash += v; c.n += k; c.sheet += k }
-    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); c[x.method === 'cash' ? 'cash' : 'transfer'] += x.amount; c.n += 1; if (kindOf(x) === 'manual') c.hand += 1; else c.slip += 1 }
+    const m = new Map<string, { box: Src; transfer: Src; hand: Src }>()
+    const at = (id: string) => { const c = m.get(id) ?? { box: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 }, hand: { n: 0, amt: 0 } }; m.set(id, c); return c }
+    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).box; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
+    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.hand; t.amt += x.amount; t.n += 1 }
     return [...m.entries()]
   }, [repRounds, rep]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -178,60 +175,47 @@ export default function Receive({ year }: { year: number }) {
       )}
 
       {sub === 'total' && (
-      <section className="card" role="tabpanel" aria-labelledby="h-rep">
-        <div className="row row--between">
-          <h2 id="h-rep">4 · ผลรวม (ใบสรุปเงินรับ)</h2>
-          <button type="button" className="mini no-print" onClick={() => window.print()}>🖨️ พิมพ์</button>
-        </div>
-        <div className="seg no-print" role="group" aria-label="ช่วงของใบสรุป">
-          <button type="button" className={repScope === 'week' ? 'on' : ''} onClick={() => setRepScope('week')}>สัปดาห์ที่เลือก</button>
-          <button type="button" className={repScope === 'year' ? 'on' : ''} onClick={() => setRepScope('year')}>ทั้งปี {year + 543}</button>
-        </div>
-        <p className="muted small">{repScope === 'year' ? `ทั้งปี ${year + 543} (รวมทุกสัปดาห์)` : `สัปดาห์ ${fmtDate(addDays(sunday, -6))} – ${fmtDate(sunday)} (ใบถวายวันอาทิตย์ที่ ${fmtDate(sunday)})`} · เงินโอนวันจันทร์–อาทิตย์นับรวมในใบวันอาทิตย์ของสัปดาห์นั้น</p>
-        <table className="tbl">
-          <thead><tr><th>ที่มา</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
-          <tbody>
-            <tr><td>3 · ใบบันทึกการถวาย (เงินสด){repRounds.some((r) => r.status === 'counting') ? ' — รอยืนยัน' : ''}</td><td className="num">{repFiles.length || repRounds.length}</td><td className="num">{fmtBaht(cash)}</td></tr>
-            <tr><td>1 · บันทึกด้วยมือ</td><td className="num">{repManual.length}</td><td className="num">{fmtBaht(sum(repManual))}</td></tr>
-            <tr><td>2 · สลิปโอน</td><td className="num">{repSlips.length}</td><td className="num">{fmtBaht(sum(repSlips))}</td></tr>
-            {repUnknown.length > 0 && <tr><td>❓ เงินเข้าไม่ทราบที่มา</td><td className="num">{repUnknown.length}</td><td className="num">{fmtBaht(sum(repUnknown))}</td></tr>}
-          </tbody>
-          <tfoot><tr><td colSpan={2}>{repScope === 'year' ? 'รวมรายรับทั้งปี' : 'รวมรายรับทั้งสัปดาห์'}</td><td className="num">{fmtBaht(total)}</td></tr></tfoot>
-        </table>
-
-        {sheetRows.length > 0 && (
-          <>
-            <h3>จากใบบันทึกการถวาย (เงินสด)</h3>
-            <table className="tbl">
-              <thead><tr><th>รายการ</th><th className="num">ซอง</th><th className="num">จำนวนเงิน</th></tr></thead>
-              <tbody>{sheetRows.map((r, i) => <tr key={i}><td>{repScope === 'year' ? `${fmtDate(r.date)} · ` : ''}{r.label || typeName(r.typeId)}</td><td className="num">{r.envelopes ?? '-'}</td><td className="num">{fmtBaht(r.amount)}</td></tr>)}</tbody>
-            </table>
-          </>
-        )}
-        {perType.length > 0 && (
-          <>
-            <h3>แยกตามประเภทถวาย</h3>
-            <table className="tbl">
-              <thead><tr><th>ประเภท</th><th className="num">รายการ</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
-              <tbody>{perType.map(([id, v]) => <tr key={id}><td>{typeName(id)}</td><td className="num">{v.n}<br /><span className="small muted">{[v.sheet ? `ใบถวาย ${v.sheet}` : '', v.slip ? `สลิป ${v.slip}` : '', v.hand ? `มือ ${v.hand}` : ''].filter(Boolean).join(' + ')}</span></td><td className="num">{fmtBaht(v.cash)}</td><td className="num">{fmtBaht(v.transfer)}</td><td className="num">{fmtBaht(v.cash + v.transfer)}</td></tr>)}</tbody>
-            </table>
-          </>
-        )}
-        {rep.length > 0 && (
-          <>
-            <h3>รายการที่บันทึก{repScope === 'year' ? 'ทั้งปี' : 'ในสัปดาห์'} (ตามวันที่)</h3>
-            <table className="tbl">
-              <thead><tr><th>วันที่</th><th>รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
-              <tbody>{[...rep].reverse().map((x) => <tr key={x.id}><td>{fmtDate(x.date)}</td><td>{typeName(x.typeId)} · {kindOf(x) === 'manual' ? 'มือ' : kindOf(x) === 'unknown' ? 'ไม่ทราบที่มา' : 'สลิป'}</td><td className="num">{fmtBaht(x.amount)}</td></tr>)}</tbody>
-            </table>
-          </>
-        )}
-        <div className="sign print-only">
-          <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
-          <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
-          <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br /><span className="small">วันที่ ........../........../..........</span></div>
-        </div>
-      </section>
+        <section className="card paper" role="tabpanel" aria-labelledby="h-rep">
+          <div className="no-print" style={{ display: 'grid', gap: 8 }}>
+            <div className="seg" role="group" aria-label="ช่วงของใบสรุป">
+              <button type="button" className={repScope === 'week' ? 'on' : ''} onClick={() => setRepScope('week')}>สัปดาห์ที่เลือก</button>
+              <button type="button" className={repScope === 'year' ? 'on' : ''} onClick={() => setRepScope('year')}>ทั้งปี {year + 543}</button>
+            </div>
+            <button type="button" className="btn btn--gold" onClick={() => window.print()}>🖨️ พิมพ์ / บันทึกเป็น PDF</button>
+          </div>
+          <header className="paper__head">
+            <p className="muted small">{settings.churchName}</p>
+            <h2 id="h-rep">ได้รับการถวายประจำสัปดาห์</h2>
+            <p>{repScope === 'year' ? `ประจำปี ${year + 543} (รวมทุกสัปดาห์)` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`}</p>
+            {repScope === 'week' && <p className="muted small">รับระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
+          </header>
+          <table className="tbl tbl--paper" aria-label="ได้รับการถวายประจำสัปดาห์">
+            <thead><tr><th>ประเภทถวาย (ที่มา)</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
+            <tbody>
+              {perType.length === 0 && <tr><td colSpan={3} className="muted">ยังไม่มีรายการ</td></tr>}
+              {perType.map(([id, v]) => {
+                const parts = ([['ตู้ถวาย', v.box], ['โอน', v.transfer], ['เงินสดบันทึกมือ', v.hand]] as [string, Src][]).filter(([, x]) => x.n > 0)
+                const n = parts.reduce((a, [, x]) => a + x.n, 0), amt = parts.reduce((a, [, x]) => a + x.amt, 0)
+                return (
+                  <Fragment key={id}>
+                    {parts.map(([label, x]) => <tr key={label}><td>{typeName(id)} ({label})</td><td className="num">{x.n}</td><td className="num">{fmtBaht(x.amt)}</td></tr>)}
+                    {parts.length > 1 && <tr className="paper__sub"><td>รวม{typeName(id)}</td><td className="num">{n}</td><td className="num">{fmtBaht(amt)}</td></tr>}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+            <tfoot><tr>
+              <td>รวมทั้งสิ้น</td>
+              <td className="num">{perType.reduce((a, [, v]) => a + v.box.n + v.transfer.n + v.hand.n, 0)}</td>
+              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.box.amt + v.transfer.amt + v.hand.amt, 0))}</td>
+            </tr></tfoot>
+          </table>
+          <div className="sign" style={{ display: 'grid' }}>
+            <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
+            <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
+            <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br /><span className="small">วันที่ ........../........../..........</span></div>
+          </div>
+        </section>
       )}
 
       {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
