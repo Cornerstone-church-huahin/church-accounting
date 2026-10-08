@@ -39,24 +39,39 @@ export default function Receive({ year }: { year: number }) {
   const canWrite = can(role, 'income')
   const idx = sundays.indexOf(sunday)
 
-  const week = useMemo(() => inc.items.filter((x) => sheetSunday(x.date) === sunday && !x.roundId).sort(byDateDesc), [inc.items, sunday])
-  const manual = week.filter((x) => kindOf(x) === 'manual')
-  const slips = week.filter((x) => kindOf(x) === 'slip')
-  const unknown = week.filter((x) => kindOf(x) === 'unknown')
-  const weekFiles = files.items.filter((f) => sheetSunday(f.date) === sunday).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated))
-  const sheetRows = weekFiles.find((f) => f.read)?.read?.rows ?? []
+  const [allWeeks, setAllWeeks] = useState(false)
+  const [repScope, setRepScope] = useState<'week' | 'year'>('week')
+  const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId).sort(byDateDesc), [inc.items])
+  const week = useMemo(() => allEnt.filter((x) => sheetSunday(x.date) === sunday), [allEnt, sunday])
+  const byDateF = (a: SheetFile, b: SheetFile) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
+  const weekFiles = files.items.filter((f) => sheetSunday(f.date) === sunday).sort(byDateF)
+  const allFiles = [...files.items].sort(byDateF)
   const round = rounds.items.find((r) => r.date === sunday)
+  // รายการในการ์ดของช่อง 1–3: สัปดาห์ที่เลือก หรือ "ทุกสัปดาห์"
+  const lst = allWeeks ? allEnt : week
+  const manual = lst.filter((x) => kindOf(x) === 'manual')
+  const slips = lst.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown')
+  const lstFiles = allWeeks ? allFiles : weekFiles
+  const otherWeeks = (k: 'manual' | 'slip' | 'sheet') => (k === 'sheet' ? allFiles.length - weekFiles.length : allEnt.filter((x) => sheetSunday(x.date) !== sunday && (k === 'manual' ? kindOf(x) === 'manual' : kindOf(x) === 'slip' || kindOf(x) === 'unknown')).length)
   const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
-  const cash = round ? roundTotal(round) : 0
-  const total = cash + sum(week)
+  // ใบสรุป (4): สัปดาห์ที่เลือก หรือ ทั้งปี
+  const rep = repScope === 'year' ? allEnt : week
+  const repManual = rep.filter((x) => kindOf(x) === 'manual')
+  const repSlips = rep.filter((x) => kindOf(x) === 'slip')
+  const repUnknown = rep.filter((x) => kindOf(x) === 'unknown')
+  const repRounds = repScope === 'year' ? rounds.items : round ? [round] : []
+  const repFiles = repScope === 'year' ? allFiles : weekFiles
+  const sheetRows = repFiles.flatMap((f) => (f.read?.rows ?? []).map((r) => ({ ...r, date: f.date })))
+  const cash = repRounds.reduce((s, r) => s + roundTotal(r), 0)
+  const total = cash + sum(rep)
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
   const perType = useMemo(() => {
     const m = new Map<string, { cash: number; transfer: number }>()
     const add = (id: string, k: 'cash' | 'transfer', v: number) => { const c = m.get(id) ?? { cash: 0, transfer: 0 }; c[k] += v; m.set(id, c) }
-    if (round) for (const [id, v] of Object.entries(round.lines)) if (v > 0) add(id, 'cash', v)
-    for (const x of week) add(x.unknown ? UNSORTED : x.typeId, x.method === 'cash' ? 'cash' : 'transfer', x.amount)
+    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) add(id, 'cash', v)
+    for (const x of rep) add(x.unknown ? UNSORTED : x.typeId, x.method === 'cash' ? 'cash' : 'transfer', x.amount)
     return [...m.entries()]
-  }, [round, week])
+  }, [repRounds, rep]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
   const dropFile = async (path?: string) => {
@@ -90,12 +105,26 @@ export default function Receive({ year }: { year: number }) {
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
     <li key={x.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span className="grow"><b>{typeName(x.typeId)}</b>{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
+        <span className="grow"><b>{typeName(x.typeId)}</b>{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
       </div>
       {actions(() => setForm({ entry: x, preset }), () => delEntry(x))}
     </li>
   )
+
+  // บันทึกแล้วสลับไปดูสัปดาห์ของรายการนั้นเลย (เห็นว่าเข้าใบสรุปไหน)
+  const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
+
+  /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
+  const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
+    const other = otherWeeks(k)
+    return (
+      <div className="row row--between" style={{ margin: '0.4rem 0' }}>
+        <b>{n} รายการ · รวม {fmtBaht(amt)}</b>
+        {(allWeeks || other > 0) && <button type="button" className="mini" onClick={() => setAllWeeks(!allWeeks)}>{allWeeks ? 'เฉพาะสัปดาห์นี้' : `ดูทุกสัปดาห์ (อีก ${other})`}</button>}
+      </div>
+    )
+  }
 
   return (
     <>
@@ -107,32 +136,35 @@ export default function Receive({ year }: { year: number }) {
       <p className="muted small no-print" style={{ textAlign: 'center' }}>{fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
-        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub(sub === 'manual' ? null : 'manual')}>1<span>บันทึกด้วยมือ</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub(sub === 'slip' ? null : 'slip')}>2<span>บันทึกสลิป</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub(sub === 'sheet' ? null : 'sheet')}>3<span>ใบบันทึกการถวาย</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub(sub === 'manual' ? null : 'manual')}>1<span>บันทึกด้วยมือ{week.filter((x) => kindOf(x) === 'manual').length ? ` (${week.filter((x) => kindOf(x) === 'manual').length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub(sub === 'slip' ? null : 'slip')}>2<span>บันทึกสลิป{week.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown').length ? ` (${week.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown').length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub(sub === 'sheet' ? null : 'sheet')}>3<span>ใบบันทึกการถวาย{weekFiles.length ? ` (${weekFiles.length})` : ''}</span></button>
       </div>
 
       {sub === 'manual' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <div className="row row--between"><h2>1 · บันทึกด้วยมือ</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึก</button>}</div>
           <p className="muted small">เงินที่ถวายเข้ามานอกใบถวาย เช่น ค่าเช่า ถวายพิเศษ — บันทึกได้ทุกวัน ระบุวันที่ของแต่ละรายการ</p>
-          {manual.length === 0 ? <p className="muted small">ยังไม่มีรายการในสัปดาห์นี้</p> : <ul className="list">{manual.map((x) => row(x, 'manual'))}</ul>}
+          {scopeBar('manual', manual.length, sum(manual))}
+          {manual.length === 0 ? <p className="muted small">ยังไม่มีรายการ{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : <ul className="list">{manual.map((x) => row(x, 'manual'))}</ul>}
         </section>
       )}
       {sub === 'slip' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกสลิป">
           <div className="row row--between"><h2>2 · บันทึกสลิป</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setPick(true)}>＋ แนบสลิป</button>}</div>
           <p className="muted small">แนบรูปสลิปโอนเงินไปเรื่อย ๆ ระหว่างสัปดาห์ — ระบบอ่านวันที่ ยอด และเลขอ้างอิงจากสลิปให้ ท่านตรวจแล้วกดยืนยัน</p>
-          {slips.length + unknown.length === 0 ? <p className="muted small">ยังไม่มีสลิปในสัปดาห์นี้</p> : <ul className="list">{[...slips, ...unknown].map((x) => row(x, 'slip'))}</ul>}
+          {scopeBar('slip', slips.length, sum(slips))}
+          {slips.length === 0 ? <p className="muted small">ยังไม่มีสลิป{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : <ul className="list">{slips.map((x) => row(x, 'slip'))}</ul>}
         </section>
       )}
       {sub === 'sheet' && (
         <section className="card no-print" role="tabpanel" aria-label="ใบบันทึกการถวาย">
           <div className="row row--between"><h2>3 · ใบบันทึกการถวาย</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setAttach('new')}>＋ แนบไฟล์</button>}</div>
           <p className="muted small">ถ่ายรูปใบบันทึกการถวายวันอาทิตย์แล้วแนบ — ระบบอ่านแถวเงินสดให้ ท่านตรวจแล้วกดยืนยัน ยอดจะเข้าใบสรุปช่อง 4</p>
-          {weekFiles.length === 0 ? <p className="muted small">ยังไม่มีไฟล์ในสัปดาห์นี้</p> : (
+          {scopeBar('sheet', lstFiles.length, lstFiles.reduce((a, f) => a + (f.read?.rows.reduce((q, r) => q + r.amount, 0) ?? 0), 0))}
+          {lstFiles.length === 0 ? <p className="muted small">ยังไม่มีไฟล์{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : (
             <ul className="list">
-              {weekFiles.map((f) => (
+              {lstFiles.map((f) => (
                 <li key={f.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
                   <span className="grow"><b>📎 {f.file.name}</b><br /><span className="small muted">ใบวันอาทิตย์ที่ {fmtDate(f.date)}{f.read ? ` · อ่านแล้ว ${f.read.rows.length} แถว รวมเงินสด ${fmtBaht(f.read.rows.reduce((a, r) => a + r.amount, 0))}` : ' · ยังไม่ได้อ่านข้อมูล'}{f.file.path ? '' : ' · (โหมดทดลอง ไม่ได้เก็บรูป)'}</span></span>
                   {actions(() => setAttach(f), () => delFile(f))}
@@ -149,14 +181,18 @@ export default function Receive({ year }: { year: number }) {
           <h2 id="h-rep">4 · ใบสรุปเงินรับ</h2>
           <button type="button" className="mini no-print" onClick={() => window.print()}>🖨️ พิมพ์</button>
         </div>
-        <p className="muted small">สัปดาห์ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)} (ใบถวายวันอาทิตย์ที่ {fmtDate(sunday)})</p>
+        <div className="seg no-print" role="group" aria-label="ช่วงของใบสรุป">
+          <button type="button" className={repScope === 'week' ? 'on' : ''} onClick={() => setRepScope('week')}>สัปดาห์ที่เลือก</button>
+          <button type="button" className={repScope === 'year' ? 'on' : ''} onClick={() => setRepScope('year')}>ทั้งปี {year + 543}</button>
+        </div>
+        <p className="muted small">{repScope === 'year' ? `ทั้งปี ${year + 543} (รวมทุกสัปดาห์)` : `สัปดาห์ ${fmtDate(addDays(sunday, -6))} – ${fmtDate(sunday)} (ใบถวายวันอาทิตย์ที่ ${fmtDate(sunday)})`} · เงินโอนวันจันทร์–อาทิตย์นับรวมในใบวันอาทิตย์ของสัปดาห์นั้น</p>
         <table className="tbl">
           <thead><tr><th>ที่มา</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
           <tbody>
-            <tr><td>3 · ใบบันทึกการถวาย (เงินสด){round?.status === 'counting' ? ' — รอยืนยัน' : ''}</td><td className="num">{weekFiles.length || (round ? 1 : 0)}</td><td className="num">{fmtBaht(cash)}</td></tr>
-            <tr><td>1 · บันทึกด้วยมือ</td><td className="num">{manual.length}</td><td className="num">{fmtBaht(sum(manual))}</td></tr>
-            <tr><td>2 · สลิปโอน</td><td className="num">{slips.length}</td><td className="num">{fmtBaht(sum(slips))}</td></tr>
-            {unknown.length > 0 && <tr><td>❓ เงินเข้าไม่ทราบที่มา</td><td className="num">{unknown.length}</td><td className="num">{fmtBaht(sum(unknown))}</td></tr>}
+            <tr><td>3 · ใบบันทึกการถวาย (เงินสด){repRounds.some((r) => r.status === 'counting') ? ' — รอยืนยัน' : ''}</td><td className="num">{repFiles.length || repRounds.length}</td><td className="num">{fmtBaht(cash)}</td></tr>
+            <tr><td>1 · บันทึกด้วยมือ</td><td className="num">{repManual.length}</td><td className="num">{fmtBaht(sum(repManual))}</td></tr>
+            <tr><td>2 · สลิปโอน</td><td className="num">{repSlips.length}</td><td className="num">{fmtBaht(sum(repSlips))}</td></tr>
+            {repUnknown.length > 0 && <tr><td>❓ เงินเข้าไม่ทราบที่มา</td><td className="num">{repUnknown.length}</td><td className="num">{fmtBaht(sum(repUnknown))}</td></tr>}
           </tbody>
           <tfoot><tr><td colSpan={2}>รวมรายรับทั้งสัปดาห์</td><td className="num">{fmtBaht(total)}</td></tr></tfoot>
         </table>
@@ -166,7 +202,7 @@ export default function Receive({ year }: { year: number }) {
             <h3>จากใบบันทึกการถวาย (เงินสด)</h3>
             <table className="tbl">
               <thead><tr><th>รายการ</th><th className="num">ซอง</th><th className="num">จำนวนเงิน</th></tr></thead>
-              <tbody>{sheetRows.map((r, i) => <tr key={i}><td>{r.label || typeName(r.typeId)}</td><td className="num">{r.envelopes ?? '-'}</td><td className="num">{fmtBaht(r.amount)}</td></tr>)}</tbody>
+              <tbody>{sheetRows.map((r, i) => <tr key={i}><td>{repScope === 'year' ? `${fmtDate(r.date)} · ` : ''}{r.label || typeName(r.typeId)}</td><td className="num">{r.envelopes ?? '-'}</td><td className="num">{fmtBaht(r.amount)}</td></tr>)}</tbody>
             </table>
           </>
         )}
@@ -179,12 +215,12 @@ export default function Receive({ year }: { year: number }) {
             </table>
           </>
         )}
-        {week.length > 0 && (
+        {rep.length > 0 && (
           <>
-            <h3>รายการที่บันทึกในสัปดาห์ (ตามวันที่)</h3>
+            <h3>รายการที่บันทึก{repScope === 'year' ? 'ทั้งปี' : 'ในสัปดาห์'} (ตามวันที่)</h3>
             <table className="tbl">
               <thead><tr><th>วันที่</th><th>รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
-              <tbody>{[...week].reverse().map((x) => <tr key={x.id}><td>{fmtDate(x.date)}</td><td>{typeName(x.typeId)} · {kindOf(x) === 'manual' ? 'มือ' : kindOf(x) === 'unknown' ? 'ไม่ทราบที่มา' : 'สลิป'}</td><td className="num">{fmtBaht(x.amount)}</td></tr>)}</tbody>
+              <tbody>{[...rep].reverse().map((x) => <tr key={x.id}><td>{fmtDate(x.date)}</td><td>{typeName(x.typeId)} · {kindOf(x) === 'manual' ? 'มือ' : kindOf(x) === 'unknown' ? 'ไม่ทราบที่มา' : 'สลิป'}</td><td className="num">{fmtBaht(x.amount)}</td></tr>)}</tbody>
             </table>
           </>
         )}
@@ -195,16 +231,16 @@ export default function Receive({ year }: { year: number }) {
         </div>
       </section>
 
-      {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={(d) => { const s2 = sheetSunday(d); if (sundays.includes(s2)) setSunday(s2) }} />}
-      {pick && <SlipFlow year={year} inc={inc} onClose={() => setPick(false)} />}
-      {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
+      {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
+      {pick && <SlipFlow year={year} inc={inc} onClose={() => setPick(false)} onSaved={goWeek} />}
+      {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} onSaved={goWeek} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>
   )
 }
 
 
 /** แนบสลิป: เลือกรูป → ระบบอ่านในเครื่อง → ใส่ค่าให้ในฟอร์ม → ตรวจและยืนยัน */
-function SlipFlow({ year, inc, onClose }: { year: number; inc: ReturnType<typeof useIncome>; onClose: () => void }) {
+function SlipFlow({ year, inc, onClose, onSaved }: { year: number; inc: ReturnType<typeof useIncome>; onClose: () => void; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
   const [stage, setStage] = useState<'pick' | 'read' | 'confirm'>('pick')
   const [pct, setPct] = useState(0)
@@ -224,7 +260,7 @@ function SlipFlow({ year, inc, onClose }: { year: number; inc: ReturnType<typeof
   if (stage === 'confirm' && init) return (
     <>
       {msg && <p className="role-toast" role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 100 }}>{msg}</p>}
-      <IncomeForm year={year} entry={null} preset="slip" init={init} inc={inc} onClose={onClose} />
+      <IncomeForm year={year} entry={null} preset="slip" init={init} inc={inc} onClose={onClose} onSaved={onSaved} />
     </>
   )
   return (

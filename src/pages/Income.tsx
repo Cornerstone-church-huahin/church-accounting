@@ -73,7 +73,7 @@ function IncomeList({ year }: { year: number }) {
 /** ค่าที่ระบบอ่านจากสลิปมาใส่ให้ล่วงหน้า (ผู้ใช้ตรวจแล้วกดยืนยัน) */
 export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; file: File }
 
-export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit }) {
+export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init, onSaved }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
   const accounts = useAccounts()
   const active = types.list.filter((t) => t.active || t.id === entry?.typeId)
@@ -111,7 +111,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
       setBusy(false)
     }
     const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), ...(time ? { time } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
-    if (ok) onClose()
+    if (ok) { onSaved?.(date); onClose() }
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
   const slipLayout = preset === 'slip' || entry?.source === 'slip'

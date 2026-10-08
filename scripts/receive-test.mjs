@@ -46,8 +46,13 @@ try {
   const txt = await rep.innerText()
   must(/10,000\.00/.test(txt), 'report total 10,000 :: ' + txt)
   must(/บันทึกด้วยมือ\s+1\s+10,000\.00/.test(txt.replace(/\n/g, ' ').replace(/\t/g, ' ')), 'manual row')
-  // แก้ไข / ลบ รายการที่บันทึกแล้ว
+  // การ์ดแสดงจำนวนรายการ + รวม · ใบสรุปสลับ ทั้งปี ได้ · ทุกสัปดาห์
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  must(await page.getByText('1 รายการ · รวม 10,000.00').isVisible(), 'card header shows count and sum')
+  await page.getByRole('button', { name: /^ทั้งปี/ }).click()
+  must(/ทั้งปี[\s\S]*10,000\.00/.test(await rep.innerText()), 'year scope includes the entry')
+  await page.getByRole('button', { name: 'สัปดาห์ที่เลือก' }).click()
+  // แก้ไข / ลบ รายการที่บันทึกแล้ว
   await page.getByRole('button', { name: '✎ แก้ไข' }).first().click()
   await page.locator('#i-amt').fill('12000')
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
