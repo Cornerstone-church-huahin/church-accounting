@@ -57,6 +57,11 @@ function Page({ year }: { year: number }) {
     const msg = `ลบงบ “${l.name}” ออกจากหน้างบประมาณ?${has ? `\n\nงบนี้มีข้อมูลเกี่ยวข้อง: ใบเบิก ${u.vouchers} ใบ · บันทึกตรง ${u.entries} รายการ · ประวัติปรับงบ ${u.adjs} รายการ\nข้อมูลเหล่านี้ไม่หาย แต่จะไม่ถูกนับในงบนี้ (ใบเบิกจะแสดงว่า “ลบแล้ว”)` : ''}\n\nกู้คืนได้ที่ “งบที่ลบแล้ว” ด้านล่างหน้า`
     if (confirm(msg)) lines.remove(id)
   }
+  /** ลบถาวร: เอางบนี้และประวัติปรับงบ/บันทึกตรงของมันออกจากไฟล์จริง (ใบเบิกที่อ้างถึงจะแสดง “นอกงบประมาณ”) */
+  const purgeLine = async (id: string, name: string) => {
+    if (!confirm(`ลบถาวรงบ “${name}”?\nเอาออกจากไฟล์จริงพร้อมประวัติปรับงบและบันทึกตรงของงบนี้ กู้คืนไม่ได้`)) return
+    await Promise.all([lines.purge((x) => x.id === id), adjs.purge((a) => a.lineId === id), entries.purge((e) => e.lineId === id)])
+  }
   const move = (id: string, dir: -1 | 1) => {
     const i = rows.findIndex((r) => r.line.id === id), j = i + dir
     if (i < 0 || j < 0 || j >= rows.length) return
@@ -78,7 +83,7 @@ function Page({ year }: { year: number }) {
               <CopyPrev year={year} lines={lines} />
             </div>
           ) : <p className="muted small">แอดมินเป็นผู้ตั้งงบประมาณ</p>}
-          {isAdmin && deletedLines.length > 0 && <details><summary>งบที่ลบแล้ว ({deletedLines.length}) — กู้คืนได้</summary><ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button></li>)}</ul></details>}
+          {isAdmin && deletedLines.length > 0 && <details><summary>งบที่ลบแล้ว ({deletedLines.length}) — กู้คืนได้</summary><ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button><button type="button" className="mini" aria-label={`ลบถาวร ${l.name}`} onClick={() => purgeLine(l.id, l.name)}>ลบถาวร</button></li>)}</ul></details>}
         </section>
       ) : (
         <>
@@ -126,7 +131,7 @@ function Page({ year }: { year: number }) {
           {isAdmin && deletedLines.length > 0 && (
             <details className="card no-print">
               <summary><b>งบที่ลบแล้ว ({deletedLines.length})</b> — กู้คืนได้</summary>
-              <ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button></li>)}</ul>
+              <ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button><button type="button" className="mini" aria-label={`ลบถาวร ${l.name}`} onClick={() => purgeLine(l.id, l.name)}>ลบถาวร</button></li>)}</ul>
             </details>
           )}
           <section className="card" aria-labelledby="h-hist">

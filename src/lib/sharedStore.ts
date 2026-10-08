@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { blocked, MEMBERS_KEY, myRole, STORE_EVENT, whoAmI, type Perm } from './access'
-import { getSync, mergeItems, pullFile, pushFile, SYNC_EVENT, type SharedItem, type SyncStatus } from './sync'
+import { getSync, mergeItems, pullFile, pushFile, remoteWins, SYNC_EVENT, type SharedItem, type SyncStatus } from './sync'
 
 /**
  * ที่เก็บข้อมูลที่ใช้ร่วมกัน: บันทึกในเครื่องทันที แล้วซิงก์ขึ้น GitHub (repo ส่วนตัว) อัตโนมัติ
@@ -18,6 +18,9 @@ export function useSharedStore<T extends SharedItem>(opts: {
   write?: Perm
 }) {
   const { localKey, file, label } = opts
+  const epochKey = `${localKey}.epoch`
+  const getEpoch = () => { try { return Number(localStorage.getItem(epochKey) ?? 0) } catch { return 0 } }
+  const setEpoch = (n: number) => { try { localStorage.setItem(epochKey, String(n)) } catch { /* ignore */ } }
   const scope = opts.scope ?? 'shared'
   const read = (): T[] | null => {
     try {
@@ -31,6 +34,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
   const [sync, setSync] = useState<SyncStatus>(getSync() ? { state: 'idle' } : { state: 'off' })
   const syncNowRef = useRef<() => void>(() => undefined)
   const latest = useRef(all)
+  const busy = useRef(false) // ระหว่างลบถาวร/ล้างข้อมูล ห้ามซิงก์แทรก (กันข้อมูลเก่ารวมกลับมา)
   latest.current = all
   const timer = useRef<number | undefined>(undefined)
   const [me] = useState(() => Symbol('store'))
@@ -59,19 +63,26 @@ export function useSharedStore<T extends SharedItem>(opts: {
 
   const syncNow = useCallback(async () => {
     const cfg = getSync()
+    if (busy.current) return
     if (!cfg) return setSync({ state: 'off' })
     // ยังไม่รู้สิทธิ์ (รายชื่อผู้ใช้ร่วมยังไม่เคยซิงก์) หรือรออนุมัติ: ยังไม่ดึง/ส่งข้อมูลบัญชี
     if (scope !== 'members' && (localStorage.getItem(MEMBERS_KEY) === null || myRole() === 'pending')) return setSync({ state: 'idle' })
     setSync({ state: 'syncing' })
     try {
       const remote = await pullFile<T>(cfg, file)
+      if (remoteWins(getEpoch(), remote.epoch)) {
+        // ไฟล์ออนไลน์ถูกลบถาวร/ล้างข้อมูลหลังซิงก์ครั้งล่าสุดของเครื่องนี้: ใช้ของออนไลน์ ทิ้งของเก่าในเครื่อง (กันข้อมูลที่ลบแล้วผุดกลับ)
+        setLocal(remote.items)
+        setEpoch(remote.epoch ?? 0)
+        return setSync({ state: 'ok', at: Date.now() })
+      }
       const merged = mergeItems(latest.current, remote.items)
       setLocal(merged)
       const localNewer = merged.some((x) => {
         const r = remote.items.find((y) => y.id === x.id)
         return !r || x.updated > r.updated
       })
-      if (localNewer) await pushFile(cfg, file, label, merged, remote.sha)
+      if (localNewer) await pushFile(cfg, file, label, merged, remote.sha, true, remote.epoch)
       setSync({ state: 'ok', at: Date.now() })
     } catch (e) {
       setSync({ state: 'error', message: e instanceof Error ? e.message : String(e) })
@@ -111,7 +122,42 @@ export function useSharedStore<T extends SharedItem>(opts: {
     [setLocal, syncNow, opts.write],
   )
 
+  /**
+   * ลบถาวร: เอารายการที่ keep() ไม่ผ่านออกจากไฟล์จริง (ในเครื่องและออนไลน์) แล้วประทับ epoch ใหม่
+   * เครื่องอื่นจะรับไฟล์ออนไลน์เป็นหลักตอนซิงก์ครั้งถัดไป → ของที่ลบแล้วไม่ผุดกลับ (งานที่ยังไม่ซิงก์ในเครื่องอื่นจะหาย)
+   */
+  const rewrite = useCallback(
+    async (keep: (x: T) => boolean): Promise<boolean> => {
+      if (blocked('settings')) return false // เฉพาะแอดมิน
+      busy.current = true
+      try {
+      const next = latest.current.filter(keep)
+      const epoch = Date.now()
+      setEpoch(epoch)
+      setLocal(next)
+      const cfg = getSync()
+      if (!cfg) return true
+      try {
+        const remote = await pullFile<T>(cfg, file)
+        await pushFile(cfg, file, label, next, remote.sha, true, epoch, true)
+        setSync({ state: 'ok', at: Date.now() })
+        return true
+      } catch (e) {
+        setSync({ state: 'error', message: e instanceof Error ? e.message : String(e) })
+        return false
+      }
+      } finally { busy.current = false }
+    },
+    [file, label, setLocal], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
   return {
+    purge: (pred: (x: T) => boolean) => rewrite((x) => !pred(x)),
+    /** เอารายการที่ "ลบแล้ว" ออกจากไฟล์จริงทั้งหมด */
+    purgeDeleted: () => rewrite((x) => !x.deleted),
+    /** ล้างทั้งไฟล์ให้ว่าง */
+    resetAll: () => rewrite(() => false),
+    deletedCount: all.filter((x) => x.deleted).length,
     items: all.filter((x) => !x.deleted),
     all,
     sync,
