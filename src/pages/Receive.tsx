@@ -95,7 +95,7 @@ export default function Receive({ year }: { year: number }) {
     </span>
   )
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
-    <li key={x.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
+    <li key={x.id} style={{ display: 'block', padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         <span className="grow"><b>{typeName(x.typeId)}</b>{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
@@ -134,7 +134,7 @@ export default function Receive({ year }: { year: number }) {
         <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}>1<span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
         <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}>2<span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
         <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}>3<span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
-              <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}>4<span>ผลรวม</span></button>
+              <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}>4<span>รวมรับ</span></button>
       </div>
 
       {sub === 'manual' && (

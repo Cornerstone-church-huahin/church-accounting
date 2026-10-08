@@ -1,6 +1,7 @@
 import { addDays, sheetSunday } from './money'
 import { directOut, paidItems, type Period } from './ledger'
-import { UNSORTED, type BudgetEntry, type ExpenseCat, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
+import { inRange } from './money'
+import { UNSORTED, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
 export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc }
@@ -18,6 +19,8 @@ export function computeLedger(a: {
   income: IncomeEntry[]; rounds: Round[]; vouchers: Voucher[]; lines: BudgetLine[]; funds: BudgetLine[]; entries: BudgetEntry[]; types: IncomeType[]
   /** หมวดรายจ่าย (ถ้าใส่ ตารางรายจ่ายแยกตามหมวดหลัก 15 หมวด · ไม่ใส่ = แยกตามหมวดงบ) */
   cats?: ExpenseCat[]
+  /** รายจ่ายนอกใบเบิก (นับเมื่อจ่ายแล้ว ตามวันที่จ่าย) */
+  expenses?: ExpenseEntry[]
 }) {
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)')
   const ent = a.income.filter((x) => !x.roundId && (a.scope === 'year' || sheetSunday(x.date) === a.sunday))
@@ -49,6 +52,13 @@ export function computeLedger(a: {
   }
   for (const g of groups) oat(g.id, g.name) // แสดงหมวดหลักครบเสมอ (เหมือน 5 แถวแรกของรายรับ)
   for (const { item } of paidItems(a.vouchers, p)) { const r = rowFor(item.catId, item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
+  // รายจ่ายบันทึกด้วยมือ/วางบิล/สำรองจ่าย: นับเมื่อจ่ายแล้ว ตามวันที่จ่าย
+  for (const x of a.expenses ?? []) {
+    if (x.deleted || x.status !== 'paid') continue
+    const d = x.channel === 'manual' ? x.date : (x.paidDate ?? x.date)
+    if (!inRange(d, p.from, p.to)) continue
+    const r = rowFor(x.catId, '__none'); const t = x.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += x.amount
+  }
   for (const e of directOut(a.entries, p)) { const t = rowFor(undefined, e.lineId).cash; t.n += 1; t.amt += e.amount }
   const outAll = [...o.values()]
   const outRows = groups.length > 0

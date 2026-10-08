@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useYear } from '../lib/year'
 import Receive from './Receive'
 import Summary from './Summary'
+import Pay from './Pay'
 
 type Tab = 'in' | 'out' | 'sum' | null
 
@@ -19,12 +20,7 @@ export default function Home() {
       </div>
       {tab === 'in' && <Receive key={year} year={year} />}
       {tab === 'sum' && <Summary key={year} year={year} />}
-      {tab === 'out' && (
-        <section className="card" role="tabpanel" aria-label="หน้าจ่าย">
-          <h2>🔴 จ่าย</h2>
-          <p className="muted small">หน้าจ่าย — ยังว่าง รอกำหนดเนื้อหา</p>
-        </section>
-      )}
+      {tab === 'out' && <Pay key={year} year={year} />}
     </>
   )
 }
