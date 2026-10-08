@@ -32,6 +32,9 @@ try {
     await page.locator('#i-amt').waitFor({ timeout: 90000 })
     must((await page.locator('#i-date').inputValue()) === process.env.SLIP_DATE, 'date read from slip: ' + (await page.locator('#i-date').inputValue()))
     must((await page.locator('#i-amt').inputValue()).replace(/[^\d.]/g, '') === process.env.SLIP_AMOUNT, 'amount read from slip: ' + (await page.locator('#i-amt').inputValue()))
+    const ys = []
+    for (const q of ['#i-date', '#i-amt', '#i-ref', '#i-note', '#i-type', '#i-mem']) ys.push((await page.locator(q).boundingBox()).y)
+    must(ys.every((y, i) => i === 0 || y > ys[i - 1]), 'slip form order: date, amount, ref, note, then purpose and member no. at the bottom ' + ys.join(','))
     await page.screenshot({ path: 'shots/slip-confirm.png', fullPage: true })
   }
   await page.keyboard.press('Escape')
