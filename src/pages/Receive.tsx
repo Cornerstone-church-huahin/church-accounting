@@ -205,15 +205,14 @@ export default function Receive({ year }: { year: number }) {
           <div style={{ overflowX: 'auto' }}>
           <table className="tbl tbl--paper" aria-label="ได้รับการถวายประจำสัปดาห์">
             <thead>
-              <tr><th rowSpan={2}>No.</th><th rowSpan={2}>ประเภท</th><th colSpan={2} className="num grp">ตู้ถวาย / เงินสด</th><th colSpan={2} className="num grp">โอน</th><th rowSpan={2} className="num">รวม</th></tr>
-              <tr><th className="num">จำนวน</th><th className="num">จำนวนเงิน</th><th className="num">จำนวน</th><th className="num">จำนวนเงิน</th></tr>
+              <tr><th>No.</th><th>ประเภท</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num vthick">จำนวนโอน</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr>
             </thead>
             <tbody>
               {perType.map(([id, v], i) => (
                 <tr key={id}>
                   <td>{i + 1}.</td><td>{typeName(id)}</td>
                   <td className="num">{v.cash.n || ''}</td><td className="num">{v.cash.amt ? fmtBaht(v.cash.amt) : ''}</td>
-                  <td className="num">{v.transfer.n || ''}</td><td className="num">{v.transfer.amt ? fmtBaht(v.transfer.amt) : ''}</td>
+                  <td className="num vthick">{v.transfer.n || ''}</td><td className="num">{v.transfer.amt ? fmtBaht(v.transfer.amt) : ''}</td>
                   <td className="num"><b>{v.cash.amt + v.transfer.amt ? fmtBaht(v.cash.amt + v.transfer.amt) : ''}</b></td>
                 </tr>
               ))}
@@ -222,7 +221,7 @@ export default function Receive({ year }: { year: number }) {
               <td colSpan={2}>รวมทั้งสิ้น</td>
               <td className="num">{perType.reduce((a, [, v]) => a + v.cash.n, 0)}</td>
               <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt, 0))}</td>
-              <td className="num">{perType.reduce((a, [, v]) => a + v.transfer.n, 0)}</td>
+              <td className="num vthick">{perType.reduce((a, [, v]) => a + v.transfer.n, 0)}</td>
               <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.transfer.amt, 0))}</td>
               <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt + v.transfer.amt, 0))}</td>
             </tr></tfoot>
