@@ -1,8 +1,8 @@
 import { forwardRef, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
-import { roundTotal } from '../lib/ledger'
+import { useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles, useVouchers } from '../lib/data'
+import { directOut, paidItems, roundTotal, type Period } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir } from '../lib/sync'
@@ -10,6 +10,7 @@ import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayIS
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
+import { NO_BUDGET } from './Vouchers'
 import { downloadPdf } from '../lib/pdf'
 import { readSlip } from '../lib/slipOcr'
 
@@ -29,6 +30,10 @@ export default function Receive({ year }: { year: number }) {
   const types = useIncomeTypes()
   const { settings } = useSettings()
   const files = useSheetFiles(year)
+  const vouchers = useVouchers(year)
+  const budgetLines = useBudgetLines(year)
+  const funds = useFunds()
+  const budgetEntries = useBudgetEntries(year)
   const [pick, setPick] = useState(false)
   const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
@@ -121,6 +126,21 @@ export default function Receive({ year }: { year: number }) {
   // บันทึกแล้วสลับไปดูสัปดาห์ของรายการนั้นเลย (เห็นว่าเข้าใบสรุปไหน)
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
+  // ตารางรายรับ (ครึ่งบน)
+  const incRows: LRow[] = perType.map(([id, v]) => ({ key: id, label: typeName(id), cash: v.cash, transfer: v.transfer }))
+  // ตารางรายจ่าย (ครึ่งล่าง): จ่ายแล้วในช่วง แยกตามหมวดงบ/กองทุน · เงินสด/ทดรองจ่าย = เงินสด
+  const outRows: LRow[] = useMemo(() => {
+    const p: Period = repScope === 'year' ? { kind: 'year', from: `${year}-01-01`, to: `${year}-12-31` } : { kind: 'week', from: addDays(sunday, -6), to: sunday }
+    const name = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...budgetLines.items, ...funds.items].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
+    const m = new Map<string, LRow>()
+    const at = (id: string) => { const r = m.get(id) ?? { key: id, label: name(id), cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, r); return r }
+    for (const { item } of paidItems(vouchers.items, p)) { const r = at(item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
+    for (const e of directOut(budgetEntries.items, p)) { const t = at(e.lineId).cash; t.n += 1; t.amt += e.amount }
+    return [...m.values()].sort((a, b) => b.cash.amt + b.transfer.amt - a.cash.amt - a.transfer.amt)
+  }, [repScope, year, sunday, vouchers.items, budgetLines.items, funds.items, budgetEntries.items])
+  const sumRows = (rs: LRow[]) => ({ cash: rs.reduce((a, r) => a + r.cash.amt, 0), transfer: rs.reduce((a, r) => a + r.transfer.amt, 0) })
+  const inSum = sumRows(incRows), outSum = sumRows(outRows)
+
   /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
   const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
     const other = otherWeeks(k)
@@ -201,7 +221,7 @@ export default function Receive({ year }: { year: number }) {
       )}
 
       {sub === 'total' && (
-        <section ref={paperRef} className="card paper" role="tabpanel" aria-labelledby="h-rep">
+        <section ref={paperRef} className="card paper paper--ledger" role="tabpanel" aria-labelledby="h-rep">
           <div className="no-print" style={{ display: 'grid', gap: 8 }}>
             <div className="seg" role="group" aria-label="ช่วงของใบสรุป">
               <button type="button" className={repScope === 'week' ? 'on' : ''} onClick={() => setRepScope('week')}>สัปดาห์ที่เลือก</button>
@@ -211,7 +231,7 @@ export default function Receive({ year }: { year: number }) {
               <button type="button" className="btn btn--gold" disabled={pdfBusy} onClick={async () => {
                 if (!paperRef.current) return
                 setPdfBusy(true)
-                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`, { fitOnePage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
                 setPdfBusy(false)
               }}>{pdfBusy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
               <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
@@ -219,38 +239,23 @@ export default function Receive({ year }: { year: number }) {
           </div>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
-            <h2 id="h-rep">ได้รับการถวายประจำสัปดาห์</h2>
+            <h2 id="h-rep">สรุปรับ-จ่ายประจำสัปดาห์</h2>
             <p>{repScope === 'year' ? `ประจำปี ${year + 543} (รวมทุกสัปดาห์)` : `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`}</p>
-            {repScope === 'week' && <p className="muted small">รับระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
+            {repScope === 'week' && <p className="muted small">ระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
           </header>
-          <div style={{ overflowX: 'auto' }}>
-          <table className="tbl tbl--paper" aria-label="ได้รับการถวายประจำสัปดาห์">
-            <thead>
-              <tr><th>No.</th><th>ประเภท</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num vthick">จำนวนโอน</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr>
-            </thead>
+
+          <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
+          <LedgerTable band="รายจ่าย" labels={['รายการ (หมวด)', 'จำนวนรายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" />
+
+          <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
+            <thead><tr><th>ปิดยอด{repScope === 'year' ? 'ทั้งปี' : 'รายสัปดาห์'}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
             <tbody>
-              {perType.map(([id, v], i) => (
-                <tr key={id}>
-                  <td>{i + 1}.</td><td>{typeName(id)}</td>
-                  <td className="num">{v.cash.n || ''}</td><td className="num">{v.cash.amt ? fmtBaht(v.cash.amt) : ''}</td>
-                  <td className="num vthick">{v.transfer.n || ''}</td><td className="num">{v.transfer.amt ? fmtBaht(v.transfer.amt) : ''}</td>
-                  <td className="num"><b>{v.cash.amt + v.transfer.amt ? fmtBaht(v.cash.amt + v.transfer.amt) : ''}</b></td>
-                </tr>
-              ))}
-              {Array.from({ length: Math.max(0, 15 - perType.length) }, (_, k) => (
-                <tr key={`blank-${k}`} className="paper__blank"><td>{perType.length + k + 1}.</td><td /><td /><td /><td className="vthick" /><td /><td /></tr>
-              ))}
+              <tr><td>รวมรายรับ</td><td className="num">{fmtBaht(inSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer)}</td></tr>
+              <tr><td>หัก รวมรายจ่าย</td><td className="num">{fmtBaht(outSum.cash)}</td><td className="num">{fmtBaht(outSum.transfer)}</td><td className="num">{fmtBaht(outSum.cash + outSum.transfer)}</td></tr>
             </tbody>
-            <tfoot><tr>
-              <td colSpan={2}>รวมทั้งสิ้น</td>
-              <td className="num">{perType.reduce((a, [, v]) => a + v.cash.n, 0)}</td>
-              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt, 0))}</td>
-              <td className="num vthick">{perType.reduce((a, [, v]) => a + v.transfer.n, 0)}</td>
-              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.transfer.amt, 0))}</td>
-              <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt + v.transfer.amt, 0))}</td>
-            </tr></tfoot>
+            <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer)}</td></tr></tfoot>
           </table>
-          </div>
+
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>
             <div>ผู้ตรวจสอบ<br /><span className="small">วันที่ ........../........../..........</span></div>
@@ -362,3 +367,39 @@ const BlankSheet2Up = forwardRef<HTMLDivElement, { church: string; names: string
     </div>
   )
 })
+
+type LSrc = { n: number; amt: number }
+interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc }
+
+/** ตารางรายรับ/รายจ่าย แบบใบบันทึกการถวาย: ซ้าย = เงินสด · เส้นหนา · ขวา = โอน · รวม — เติมแถวว่างให้ครบ 15 แถว */
+function LedgerTable({ band, labels, rows, total, tone }: { band: string; labels: [string, string, string]; rows: LRow[]; total: string; tone: 'in' | 'out' }) {
+  const n = Math.max(15, rows.length)
+  const sum = (f: (r: LRow) => number) => rows.reduce((a, r) => a + f(r), 0)
+  return (
+    <div className={`ledger ledger--${tone}`} style={{ overflowX: 'auto' }}>
+      <div className="ledger__band">{band}</div>
+      <table className="tbl tbl--paper" aria-label={band}>
+        <thead><tr><th>No.</th><th>{labels[0]}</th><th className="num">{labels[1]}</th><th className="num">จำนวนเงิน</th><th className="num vthick">{labels[2]}</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr></thead>
+        <tbody>
+          {Array.from({ length: n }, (_, i) => {
+            const r = rows[i]
+            return (
+              <tr key={i} className="paper__blank">
+                <td>{i + 1}.</td><td>{r?.label ?? ''}</td>
+                <td className="num">{r?.cash.n || ''}</td><td className="num">{r?.cash.amt ? fmtBaht(r.cash.amt) : ''}</td>
+                <td className="num vthick">{r?.transfer.n || ''}</td><td className="num">{r?.transfer.amt ? fmtBaht(r.transfer.amt) : ''}</td>
+                <td className="num"><b>{r && r.cash.amt + r.transfer.amt ? fmtBaht(r.cash.amt + r.transfer.amt) : ''}</b></td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot><tr>
+          <td colSpan={2}>{total}</td>
+          <td className="num">{sum((r) => r.cash.n)}</td><td className="num">{fmtBaht(sum((r) => r.cash.amt))}</td>
+          <td className="num vthick">{sum((r) => r.transfer.n)}</td><td className="num">{fmtBaht(sum((r) => r.transfer.amt))}</td>
+          <td className="num">{fmtBaht(sum((r) => r.cash.amt + r.transfer.amt))}</td>
+        </tr></tfoot>
+      </table>
+    </div>
+  )
+}

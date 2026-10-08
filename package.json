@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "build:preview": "node scripts/build-preview.mjs",
     "test": "vitest run",
-    "test:e2e": "node scripts/smoke-test.mjs && node scripts/receive-test.mjs && node scripts/sync-test.mjs"
+    "test:e2e": "node scripts/smoke-test.mjs && node scripts/receive-test.mjs && node scripts/ledger-test.mjs && node scripts/sync-test.mjs"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
