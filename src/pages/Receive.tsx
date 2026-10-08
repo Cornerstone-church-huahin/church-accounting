@@ -6,7 +6,7 @@ import { roundTotal } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { compressImage } from '../lib/image'
 import Sheet from '../components/Sheet'
-import { getBinary, getSync, putBinary } from '../lib/sync'
+import { deleteFile, getBinary, getSync, listDir, putBinary } from '../lib/sync'
 import { addDays, newId, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
@@ -57,12 +57,37 @@ export default function Receive({ year }: { year: number }) {
     return [...m.entries()]
   }, [round, week])
 
+  /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
+  const dropFile = async (path?: string) => {
+    const cfg = getSync()
+    if (!path || !cfg) return
+    try {
+      const dir = path.slice(0, path.lastIndexOf('/'))
+      const f = (await listDir(cfg, dir)).find((x) => x.path === path)
+      if (f) await deleteFile(cfg, f.path, f.sha, 'สลิป/ใบถวายที่ลบ')
+    } catch { /* ignore */ }
+  }
+  const delEntry = (x: IncomeEntry) => {
+    if (!confirm(`ลบรายการ ${fmtBaht(x.amount)} (${fmtDate(x.date)}) พร้อมรูปสลิปที่แนบ?`)) return
+    if (inc.remove(x.id)) void dropFile(x.slip?.path)
+  }
+  const delFile = (f: SheetFile) => {
+    if (!confirm(`ลบไฟล์ ${f.file.name} (${fmtDate(f.date)})?`)) return
+    if (files.remove(f.id)) void dropFile(f.file.path)
+  }
+  const actions = (edit: () => void, del: () => void) => canWrite && (
+    <span className="row" style={{ gap: 8, marginTop: 6 }}>
+      <button type="button" className="mini" onClick={edit}>✎ แก้ไข</button>
+      <button type="button" className="mini" onClick={del}>🗑️ ลบ</button>
+    </span>
+  )
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
-    <li key={x.id}>
-      <button type="button" className="item" style={{ width: '100%', textAlign: 'left' }} disabled={!canWrite} onClick={() => setForm({ entry: x, preset })}>
-        <span className="grow"><b>{typeName(x.typeId)}</b><br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note ? ` · ${x.note}` : ''}</span></span>
+    <li key={x.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <span className="grow"><b>{typeName(x.typeId)}</b>{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
-      </button>
+      </div>
+      {actions(() => setForm({ entry: x, preset }), () => delEntry(x))}
     </li>
   )
 
@@ -102,10 +127,9 @@ export default function Receive({ year }: { year: number }) {
           {weekFiles.length === 0 ? <p className="muted small">ยังไม่มีไฟล์ในสัปดาห์นี้</p> : (
             <ul className="list">
               {weekFiles.map((f) => (
-                <li key={f.id}>
-                  <button type="button" className="item" style={{ width: '100%', textAlign: 'left' }} disabled={!canWrite} onClick={() => setAttach(f)}>
-                    <span className="grow"><b>📎 {f.file.name}</b><br /><span className="small muted">บันทึกวันที่ {fmtDate(f.date)}{f.note ? ` · ${f.note}` : ''}</span></span>
-                  </button>
+                <li key={f.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
+                  <span className="grow"><b>📎 {f.file.name}</b><br /><span className="small muted">บันทึกวันที่ {fmtDate(f.date)}{f.note ? ` · ${f.note}` : ''}</span></span>
+                  {actions(() => setAttach(f), () => delFile(f))}
                 </li>
               ))}
             </ul>
