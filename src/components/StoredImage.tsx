@@ -15,3 +15,10 @@ export default function StoredImage({ path, alt }: { path: string; alt: string }
   }, [path])
   return url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={alt} style={{ maxWidth: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 8 }} /></a> : <p className="muted small">{err || 'กำลังโหลดรูป…'}</p>
 }
+
+/** รูปที่เพิ่งเลือก (ยังไม่ได้อัปโหลด) */
+export function LocalImage({ file, alt }: { file: File; alt: string }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { const u = URL.createObjectURL(file); setUrl(u); return () => URL.revokeObjectURL(u) }, [file])
+  return url ? <img src={url} alt={alt} style={{ maxWidth: '100%', maxHeight: 240, objectFit: 'contain', borderRadius: 8 }} /> : null
+}

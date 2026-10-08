@@ -40,6 +40,7 @@ try {
   must(/ค่าสาธารณูปโภคและค่าเช่า\s+1\s+1,850\.00\s+1,850\.00/.test(t), 'expense group 3 (transfer): ' + t)
   must(/การนมัสการและการสอนพระคัมภีร์\s+1\s+600\.00\s+600\.00/.test(t), 'expense group 11 (cash)')
   must(/ยังไม่ระบุหมวด\s+1\s+100\.00\s+100\.00/.test(t), 'uncategorized row')
+  must(!/เงินเดือนและค่าตอบแทน|ที่ดิน ก่อสร้าง ภาระชำระ/.test(t.split('รายจ่าย')[1] ?? ''), 'expense table lists only categories that actually occurred')
   must(/รวมรายจ่าย\s+2\s+700\.00\s+1\s+1,850\.00\s+2,550\.00/.test(t), 'expense total: ' + t)
   // ปิดยอด: รับ 5,429 − จ่าย 2,550 = 2,879 (เงินสด 5,260−700=4,560 · โอน 169−1,850=−1,681)
   must(/คงเหลือ\s+4,560\.00\s+[-−]1,681\.00\s+2,879\.00/.test(t), 'closing balance: ' + t)
@@ -51,6 +52,6 @@ try {
   must(await page.getByText('🧾 หมวดรายจ่าย (15 หมวด · 150 รายการ)').isVisible(), 'settings shows 15 groups / 150 items')
   await page.goto(`http://localhost:${PORT}/#/vouchers`)
   await page.getByRole('button', { name: /ทำใบเบิก/ }).click()
-  must((await page.locator('select[id^="v-c"] option').count()) === 151, 'voucher form lists 150 expense items + blank')
+  must((await page.locator('select[id^="v-c"] option').count()) === 166, 'voucher form lists 15 whole-group options + 150 items + blank')
   console.log('LEDGER OK')
 } catch (e) { await page.screenshot({ path: 'shots/ledger-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

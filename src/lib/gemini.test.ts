@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSheetJson } from './gemini'
+import { parseBillJson, parseSheetJson } from './gemini'
 
 describe('อ่านผลใบถวายจาก Gemini', () => {
   it('แปลงเป็นสตางค์ และข้ามแถวว่าง', () => {
@@ -12,5 +12,11 @@ describe('อ่านผลใบถวายจาก Gemini', () => {
   })
   it('ข้อมูลเพี้ยนไม่ทำให้ระบบพัง', () => {
     expect(parseSheetJson('{"rows":"x","date":"4/10/69"}')).toEqual({ rows: [] })
+  })
+  it('อ่านบิลรายจ่าย: ยอดเป็นสตางค์ หมวดเป็นรหัส วันที่ ISO', () => {
+    const r = parseBillJson('{"kind":"invoice","vendor":"การประปาส่วนภูมิภาค","date":"2026-10-08","due":"2026-10-20","total":"2,000","summary":"ค่าน้ำประปา ก.ย. 69","category":"3.3","ref":"INV123"}')
+    expect(r).toMatchObject({ kind: 'invoice', vendor: 'การประปาส่วนภูมิภาค', date: '2026-10-08', due: '2026-10-20', total: 200000, category: '3.3', ref: 'INV123' })
+    expect(parseBillJson('{"kind":"transfer_slip","total":600}')).toMatchObject({ kind: 'transfer_slip', method: 'transfer', total: 60000 })
+    expect(parseBillJson('{"kind":"x","date":"8/10/69","category":"ไม่ทราบ"}')).toEqual({})
   })
 })

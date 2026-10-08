@@ -139,7 +139,7 @@ export function NewVoucher({ year, onClose, v }: { year: number; onClose: () => 
           <div className="field"><label htmlFor={`v-c${n}`}>หมวดรายจ่าย (เลือกจากรายการ)</label>
             <select id={`v-c${n}`} className="input" value={it.catId} onChange={(e) => { const c = cats.byId(e.target.value); set(n, { catId: e.target.value, ...(c && !it.desc.trim() ? { desc: c.name } : {}) }) }}>
               <option value="">— ยังไม่ระบุหมวด —</option>
-              {cats.groups.filter((g) => g.active).map((g) => <optgroup key={g.id} label={`${g.code}. ${g.name}`}>{cats.itemsOf(g.id).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}</optgroup>)}
+              {cats.groups.filter((g) => g.active).map((g) => <optgroup key={g.id} label={`${g.code}. ${g.name}`}><option value={g.id}>{g.code}. {g.name} (ทั้งหมวด)</option>{cats.itemsOf(g.id).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}</optgroup>)}
             </select>
           </div>
           <div className="field"><label htmlFor={`v-d${n}`}>รายการ</label><input id={`v-d${n}`} className="input" value={it.desc} onChange={(e) => set(n, { desc: e.target.value })} placeholder="เช่น ค่าน้ำมันรถ / ค่าอินเตอร์เน็ต (บิล 27-9-69)" /></div>
