@@ -68,7 +68,8 @@ export default function Receive({ year }: { year: number }) {
   const perType = useMemo(() => {
     const m = new Map<string, { cash: Src; transfer: Src }>()
     const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
-    for (const t of types.list) if (t.active) at(t.id)
+    // 5 แถวแรกเป็นประเภทที่พิมพ์ไว้ในใบ (แสดงแม้ไม่มียอด) · ประเภทอื่นแสดงเมื่อมียอดเท่านั้น
+    for (const t of [...types.list].filter((x) => x.active).sort((a, b) => a.order - b.order).slice(0, 5)) at(t.id)
     for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
     for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
     const order = new Map(types.list.map((t, i) => [t.id, t.order ?? i]))
@@ -205,24 +206,26 @@ export default function Receive({ year }: { year: number }) {
           <div style={{ overflowX: 'auto' }}>
           <table className="tbl tbl--paper" aria-label="ได้รับการถวายประจำสัปดาห์">
             <thead>
-              <tr><th rowSpan={2}>No.</th><th rowSpan={2}>ประเภท</th><th colSpan={2} className="num grp">ตู้ถวาย / เงินสด</th><th colSpan={2} className="num grp">โอน</th><th rowSpan={2} className="num">รวม</th></tr>
-              <tr><th className="num">จำนวน</th><th className="num">จำนวนเงิน</th><th className="num">จำนวน</th><th className="num">จำนวนเงิน</th></tr>
+              <tr><th>No.</th><th>ประเภท</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num vthick">จำนวนโอน</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr>
             </thead>
             <tbody>
               {perType.map(([id, v], i) => (
                 <tr key={id}>
                   <td>{i + 1}.</td><td>{typeName(id)}</td>
                   <td className="num">{v.cash.n || ''}</td><td className="num">{v.cash.amt ? fmtBaht(v.cash.amt) : ''}</td>
-                  <td className="num">{v.transfer.n || ''}</td><td className="num">{v.transfer.amt ? fmtBaht(v.transfer.amt) : ''}</td>
+                  <td className="num vthick">{v.transfer.n || ''}</td><td className="num">{v.transfer.amt ? fmtBaht(v.transfer.amt) : ''}</td>
                   <td className="num"><b>{v.cash.amt + v.transfer.amt ? fmtBaht(v.cash.amt + v.transfer.amt) : ''}</b></td>
                 </tr>
+              ))}
+              {Array.from({ length: Math.max(0, 15 - perType.length) }, (_, k) => (
+                <tr key={`blank-${k}`} className="paper__blank"><td>{perType.length + k + 1}.</td><td /><td /><td /><td className="vthick" /><td /><td /></tr>
               ))}
             </tbody>
             <tfoot><tr>
               <td colSpan={2}>รวมทั้งสิ้น</td>
               <td className="num">{perType.reduce((a, [, v]) => a + v.cash.n, 0)}</td>
               <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt, 0))}</td>
-              <td className="num">{perType.reduce((a, [, v]) => a + v.transfer.n, 0)}</td>
+              <td className="num vthick">{perType.reduce((a, [, v]) => a + v.transfer.n, 0)}</td>
               <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.transfer.amt, 0))}</td>
               <td className="num">{fmtBaht(perType.reduce((a, [, v]) => a + v.cash.amt + v.transfer.amt, 0))}</td>
             </tr></tfoot>

@@ -163,3 +163,5 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .tbl--paper td.num { text-align: right; }
 .tbl--paper th.grp { text-align: center; }
 .tbl--paper tfoot td { border: 1px solid #555; background: #f2f2f2; }
+.tbl--paper .vthick { border-left: 3px solid #111; }
+.paper__blank td { height: 1.9rem; }
