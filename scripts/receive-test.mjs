@@ -101,6 +101,12 @@ try {
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   const t3 = (await readTotal())
   await page.screenshot({ path: 'shots/total.png', fullPage: true })
+  // ดาวน์โหลด PDF
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
+  const pdfPath = await dl.path()
+  const head = (await import('node:fs')).default.readFileSync(pdfPath).subarray(0, 5).toString()
+  must(head === '%PDF-' && /\.pdf$/.test(dl.suggestedFilename()), 'PDF downloaded: ' + dl.suggestedFilename() + ' ' + head)
+  await dl.saveAs('shots/total.pdf')
   must(/6,260\.00/.test(t3), 'sources are combined in the summary: ' + t3)
   must(/สิบลด \(ตู้ถวาย\)\s+6\s+1,150\.00\s+สิบลด \(เงินสดบันทึกมือ\)\s+1\s+1,000\.00\s+รวมสิบลด\s+7\s+2,150\.00/.test(t3), 'type row combines sheet envelopes + hand entry (6+1=7): ' + t3)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()

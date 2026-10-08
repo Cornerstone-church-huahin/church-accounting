@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
@@ -10,6 +10,7 @@ import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayIS
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
+import { downloadPdf } from '../lib/pdf'
 import { readSlip } from '../lib/slipOcr'
 
 type Sub = 'manual' | 'slip' | 'sheet' | 'total' | null
@@ -40,6 +41,8 @@ export default function Receive({ year }: { year: number }) {
   const canWrite = can(role, 'income')
   const idx = sundays.indexOf(sunday)
 
+  const paperRef = useRef<HTMLElement>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
   const [allWeeks, setAllWeeks] = useState(true)
   const [repScope, setRepScope] = useState<'week' | 'year'>('year')
   const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId).sort(byDateDesc), [inc.items])
@@ -175,13 +178,21 @@ export default function Receive({ year }: { year: number }) {
       )}
 
       {sub === 'total' && (
-        <section className="card paper" role="tabpanel" aria-labelledby="h-rep">
+        <section ref={paperRef} className="card paper" role="tabpanel" aria-labelledby="h-rep">
           <div className="no-print" style={{ display: 'grid', gap: 8 }}>
             <div className="seg" role="group" aria-label="ช่วงของใบสรุป">
               <button type="button" className={repScope === 'week' ? 'on' : ''} onClick={() => setRepScope('week')}>สัปดาห์ที่เลือก</button>
               <button type="button" className={repScope === 'year' ? 'on' : ''} onClick={() => setRepScope('year')}>ทั้งปี {year + 543}</button>
             </div>
-            <button type="button" className="btn btn--gold" onClick={() => window.print()}>🖨️ พิมพ์ / บันทึกเป็น PDF</button>
+            <div className="grid2">
+              <button type="button" className="btn btn--gold" disabled={pdfBusy} onClick={async () => {
+                if (!paperRef.current) return
+                setPdfBusy(true)
+                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`) } catch { alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+                setPdfBusy(false)
+              }}>{pdfBusy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
+              <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
+            </div>
           </div>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
