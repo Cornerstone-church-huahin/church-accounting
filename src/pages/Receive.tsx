@@ -12,7 +12,7 @@ import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
 import { readSlip } from '../lib/slipOcr'
 
-type Sub = 'manual' | 'slip' | 'sheet' | null
+type Sub = 'manual' | 'slip' | 'sheet' | 'total' | null
 
 /** แต่ละรายการอยู่ช่องไหน: ใบถวาย (มาจากรอบนับ) · สลิป · ไม่ทราบที่มา · บันทึกด้วยมือ */
 const kindOf = (x: IncomeEntry): 'sheet' | 'slip' | 'unknown' | 'manual' =>
@@ -66,10 +66,10 @@ export default function Receive({ year }: { year: number }) {
   const total = cash + sum(rep)
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
   const perType = useMemo(() => {
-    const m = new Map<string, { cash: number; transfer: number; n: number }>()
-    const at = (id: string) => { const c = m.get(id) ?? { cash: 0, transfer: 0, n: 0 }; m.set(id, c); return c }
-    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id); c.cash += v; c.n += r.envelopes?.[id] ?? 1 }
-    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); c[x.method === 'cash' ? 'cash' : 'transfer'] += x.amount; c.n += 1 }
+    const m = new Map<string, { cash: number; transfer: number; n: number; sheet: number; slip: number; hand: number }>()
+    const at = (id: string) => { const c = m.get(id) ?? { cash: 0, transfer: 0, n: 0, sheet: 0, slip: 0, hand: 0 }; m.set(id, c); return c }
+    for (const r of repRounds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id); const k = r.envelopes?.[id] ?? 1; c.cash += v; c.n += k; c.sheet += k }
+    for (const x of rep) { const c = at(x.unknown ? UNSORTED : x.typeId); c[x.method === 'cash' ? 'cash' : 'transfer'] += x.amount; c.n += 1; if (kindOf(x) === 'manual') c.hand += 1; else c.slip += 1 }
     return [...m.entries()]
   }, [repRounds, rep]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -136,9 +136,10 @@ export default function Receive({ year }: { year: number }) {
       <p className="muted small no-print" style={{ textAlign: 'center' }}>{fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
-        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub(sub === 'manual' ? null : 'manual')}>1<span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub(sub === 'slip' ? null : 'slip')}>2<span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub(sub === 'sheet' ? null : 'sheet')}>3<span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}>1<span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}>2<span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}>3<span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
+              <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}>4<span>ผลรวม</span></button>
       </div>
 
       {sub === 'manual' && (
@@ -176,9 +177,10 @@ export default function Receive({ year }: { year: number }) {
         </section>
       )}
 
-      <section className="card" aria-labelledby="h-rep">
+      {sub === 'total' && (
+      <section className="card" role="tabpanel" aria-labelledby="h-rep">
         <div className="row row--between">
-          <h2 id="h-rep">4 · ใบสรุปเงินรับ</h2>
+          <h2 id="h-rep">4 · ผลรวม (ใบสรุปเงินรับ)</h2>
           <button type="button" className="mini no-print" onClick={() => window.print()}>🖨️ พิมพ์</button>
         </div>
         <div className="seg no-print" role="group" aria-label="ช่วงของใบสรุป">
@@ -211,7 +213,7 @@ export default function Receive({ year }: { year: number }) {
             <h3>แยกตามประเภทถวาย</h3>
             <table className="tbl">
               <thead><tr><th>ประเภท</th><th className="num">รายการ</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">รวม</th></tr></thead>
-              <tbody>{perType.map(([id, v]) => <tr key={id}><td>{typeName(id)}</td><td className="num">{v.n}</td><td className="num">{fmtBaht(v.cash)}</td><td className="num">{fmtBaht(v.transfer)}</td><td className="num">{fmtBaht(v.cash + v.transfer)}</td></tr>)}</tbody>
+              <tbody>{perType.map(([id, v]) => <tr key={id}><td>{typeName(id)}</td><td className="num">{v.n}<br /><span className="small muted">{[v.sheet ? `ใบถวาย ${v.sheet}` : '', v.slip ? `สลิป ${v.slip}` : '', v.hand ? `มือ ${v.hand}` : ''].filter(Boolean).join(' + ')}</span></td><td className="num">{fmtBaht(v.cash)}</td><td className="num">{fmtBaht(v.transfer)}</td><td className="num">{fmtBaht(v.cash + v.transfer)}</td></tr>)}</tbody>
             </table>
           </>
         )}
@@ -230,6 +232,7 @@ export default function Receive({ year }: { year: number }) {
           <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br /><span className="small">วันที่ ........../........../..........</span></div>
         </div>
       </section>
+      )}
 
       {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
       {pick && <SlipFlow year={year} inc={inc} onClose={() => setPick(false)} onSaved={goWeek} />}
