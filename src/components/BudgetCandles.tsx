@@ -1,3 +1,4 @@
+import type React from 'react'
 import { fmtBaht } from '../lib/money'
 
 /**
@@ -5,15 +6,15 @@ import { fmtBaht } from '../lib/money'
  * แท่งกลางแบ่งสองสี: ส่วนล่างสีเข้ม = ใช้ไปแล้ว · ส่วนบนสีอ่อน = ยังไม่ได้ใช้
  * ความสูงเทียบกับค่าสูงสุดของสามแท่ง · ตัวเลขกำกับบนทุกแท่ง · แท่งแดงมีลายเฉียงกันสับสนกับเขียวสำหรับคนตาบอดสี
  */
-export default function BudgetCandles({ title, income, budget, spent, committed = 0, compact }: { title: string; income: number; budget: number; spent: number; committed?: number; compact?: boolean }) {
+export default function BudgetCandles({ title, income, budget, spent, committed = 0, compact, onEdit }: { title: string; income: number; budget: number; spent: number; committed?: number; compact?: boolean; onEdit?: (bar: 'in' | 'budget' | 'out') => void }) {
   const W = 300, H = compact ? 150 : 168, base = compact ? 112 : 128, top = 22, bw = 62
   const max = Math.max(1, income, budget, spent)
   const h = (v: number) => Math.max(v > 0 ? 3 : 0, (Math.max(0, v) / max) * (base - top))
   const usedH = budget > 0 ? Math.min(h(budget), (Math.min(spent, budget) / max) * (base - top)) : 0
   const bars = [
-    { x: 38, v: income, cls: 's1', label: 'ได้รับ' },
-    { x: 119, v: budget, cls: 's3', label: 'งบที่ตั้ง' },
-    { x: 200, v: spent, cls: 's2', label: 'จ่ายแล้ว' },
+    { x: 38, v: income, cls: 's1', label: 'ได้รับ', key: 'in' as const },
+    { x: 119, v: budget, cls: 's3', label: 'งบที่ตั้ง', key: 'budget' as const },
+    { x: 200, v: spent, cls: 's2', label: 'จ่ายแล้ว', key: 'out' as const },
   ]
   const hatch = `cd${Math.abs(Math.round(income * 3 + budget * 5 + spent * 7)) % 99991}${title.length}`
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0
@@ -28,7 +29,8 @@ export default function BudgetCandles({ title, income, budget, spent, committed 
           // มุมบนโค้ง 4px ฐานแนบเส้นพื้น
           const d = `M${b.x},${base} V${y + 4} a4,4 0 0 1 4,-4 h${bw - 8} a4,4 0 0 1 4,4 V${base} z`
           return (
-            <g key={b.label}>
+            <g key={b.label} {...(onEdit ? { role: 'button', tabIndex: 0, 'aria-label': `แก้ตัวเลขแท่ง ${b.label}`, style: { cursor: 'pointer' }, onClick: () => onEdit(b.key), onKeyDown: (e: React.KeyboardEvent) => (e.key === 'Enter' || e.key === ' ') && onEdit(b.key) } : {})}>
+              {onEdit && <rect x={b.x - 6} y={0} width={bw + 12} height={base + 24} fill="transparent" />}
               {bh > 0 && <path className={b.cls} d={d} />}
               {bh > 0 && b.cls === 's2' && <path d={d} fill={`url(#${hatch})`} />}
               {bh > 0 && b.cls === 's3' && usedH > 0 && <rect x={b.x} y={base - usedH} width={bw} height={usedH} fill="var(--ref-used)" />}
@@ -38,7 +40,7 @@ export default function BudgetCandles({ title, income, budget, spent, committed 
           )
         })}
         <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="10.5">
-          {budget > 0 ? `ใช้ไปแล้ว ${pct}% ของงบ (ส่วนเข้มในแท่งกลาง)` : 'ยังไม่ได้ตั้งงบ — แท่งกลางติดพื้น'} · คงเหลือจริง {fmtBaht(income - spent, { dec: false })}{committed > 0 ? ` · ยื่นเบิกค้าง ${fmtBaht(committed, { dec: false })}` : ''}
+          {onEdit ? '✎ แตะแท่งเพื่อแก้ตัวเลข · ' : ''}{budget > 0 ? `ใช้ไปแล้ว ${pct}% ของงบ (ส่วนเข้มในแท่งกลาง)` : 'ยังไม่ได้ตั้งงบ — แท่งกลางติดพื้น'} · คงเหลือจริง {fmtBaht(income - spent, { dec: false })}{committed > 0 ? ` · ยื่นเบิกค้าง ${fmtBaht(committed, { dec: false })}` : ''}
         </text>
       </svg>
     </figure>

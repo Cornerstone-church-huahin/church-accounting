@@ -31,6 +31,7 @@ function Page({ year }: { year: number }) {
   const [sheet, setSheet] = useState<Sheets>(null)
   const [pickId, setPickId] = useState<string | undefined>()
   const [linkId, setLinkId] = useState<string | null>(null)
+  const [editNum, setEditNum] = useState<{ lineId: string; focus: 'in' | 'budget' | 'out' } | null>(null)
   const [entry, setEntry] = useState<{ lineId: string; kind: 'in' | 'out'; edit?: BudgetEntry } | null>(null)
   const isAdmin = can(role, 'budget')
   const canEntry = can(role, 'income')
@@ -71,7 +72,7 @@ function Page({ year }: { year: number }) {
           <section className="card" aria-label="ภาพรวมทั้งปี">
             <h2>ภาพรวมทั้งปี</h2>
             <BudgetCandles title="ภาพรวมทั้งปี" income={yearIncome} budget={tot.current} spent={tot.spent} committed={tot.committed} />
-            <p className="foot-note">แท่งเขียวของภาพรวม = รายรับทุกประเภทตลอดปี · เหลือรวม (หักที่ยื่นเบิกค้าง) {fmtBaht(tot.remaining, { dec: false })} บาท</p>
+            <p className="foot-note">ภาพรวม = ผลรวมของทุกงบ (แท่งเขียว = รายรับทุกประเภทตลอดปี) แก้ตัวเลขที่การ์ดของแต่ละงบด้านล่าง · เหลือรวม (หักที่ยื่นเบิกค้าง) {fmtBaht(tot.remaining, { dec: false })} บาท</p>
           </section>
 
           {rows.map((r) => (
@@ -80,7 +81,7 @@ function Page({ year }: { year: number }) {
                 <h2>{r.line.name}{r.line.reserve && <span className="badge"> สำรอง</span>}</h2>
                 <span className={r.remaining < 0 ? 'bad' : 'good'}><b>{r.current > 0 ? 'เหลืองบ' : 'คงเหลือ'} {fmtBaht(r.remaining, { dec: false })}</b></span>
               </div>
-              <BudgetCandles title={r.line.name} income={r.income} budget={r.current} spent={r.spent} committed={r.committed} />
+              <BudgetCandles title={r.line.name} income={r.income} budget={r.current} spent={r.spent} committed={r.committed} onEdit={isAdmin ? (bar) => setEditNum({ lineId: r.line.id, focus: bar }) : undefined} />
               <div className="row no-print">
                 {canEntry && <button type="button" className="mini" style={{ borderColor: 'var(--series-1)' }} onClick={() => setEntry({ lineId: r.line.id, kind: 'in' })}>＋ เงินเข้า</button>}
                 {canEntry && <button type="button" className="mini" style={{ borderColor: 'var(--series-2)' }} onClick={() => setEntry({ lineId: r.line.id, kind: 'out' })}>＋ ใช้จ่าย</button>}
@@ -105,8 +106,9 @@ function Page({ year }: { year: number }) {
           </section>
         </>
       )}
-      {sheet === 'new' && <NewBudget year={year} order={rows.length} lines={lines} entries={entries} onClose={() => setSheet(null)} />}
+      {sheet === 'new' && <NewBudget year={year} order={rows.length} lines={lines} onClose={() => setSheet(null)} />}
       {entry && <EntrySheet year={year} lineName={lineName(entry.lineId)} entry={entry} entries={entries} onClose={() => setEntry(null)} />}
+      {editNum && <EditNumbers row={rows.find((r) => r.line.id === editNum.lineId)!} focus={editNum.focus} lines={lines} adjs={adjs} onClose={() => setEditNum(null)} />}
       {linkId && <LinkSheet line={lines.items.find((l) => l.id === linkId)!} types={types.list} onClose={() => setLinkId(null)} lines={lines} />}
       {(sheet === 'adjust' || sheet === 'emergency' || sheet === 'transfer') && <BudgetSheet kind={sheet} year={year} pickId={pickId} onClose={() => setSheet(null)} lines={lines} adjs={adjs} rows={rows} />}
     </>
@@ -136,7 +138,7 @@ function EntryList({ rows, entries, canEdit, onEdit }: { rows: Rows[number]; ent
 }
 
 /** ตั้งงบใหม่: ชื่อ + 3 ช่อง (ได้รับ/งบที่ตั้ง/จ่ายแล้ว) แท่งขึ้นตามที่พิมพ์ทันที */
-function NewBudget({ year, order, lines, entries, onClose }: { year: number; order: number; lines: ReturnType<typeof useBudgetLines>; entries: ReturnType<typeof useBudgetEntries>; onClose: () => void }) {
+function NewBudget({ year, order, lines, onClose }: { year: number; order: number; lines: ReturnType<typeof useBudgetLines>; onClose: () => void }) {
   const types = useIncomeTypes()
   const [name, setName] = useState('')
   const [got, setGot] = useState<number | null>(null)
@@ -147,13 +149,7 @@ function NewBudget({ year, order, lines, entries, onClose }: { year: number; ord
   const save = () => {
     if (!name.trim()) return setErr('ตั้งชื่องบก่อน เช่น ค่าสวัสดิการผู้รับใช้')
     if (!budget && !got && !spent) return setErr('ใส่ตัวเลขอย่างน้อย 1 ช่อง (ได้รับ / งบที่ตั้ง / จ่ายแล้ว)')
-    const id = newId('bl')
-    if (!lines.put([{ id, year, name: name.trim(), base: budget ?? 0, order, ...(link.length ? { incomeTypeIds: link } : {}), updated: 0 } as BudgetLine])) return
-    const today = yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`
-    const mk = (kind: 'in' | 'out', amount: number): BudgetEntry => ({ id: newId('be'), year, lineId: id, kind, amount, date: today, note: 'ยอดตั้งต้น', updated: 0 })
-    const first: BudgetEntry[] = [...(got ? [mk('in', got)] : []), ...(spent ? [mk('out', spent)] : [])]
-    if (first.length) entries.put(first)
-    onClose()
+    if (lines.put([{ id: newId('bl'), year, name: name.trim(), base: budget ?? 0, order, ...(got ? { openingIn: got } : {}), ...(spent ? { openingOut: spent } : {}), ...(link.length ? { incomeTypeIds: link } : {}), updated: 0 } as BudgetLine])) onClose()
   }
   return (
     <Sheet title="ตั้งงบใหม่" onClose={onClose}>
@@ -297,6 +293,48 @@ function LinkSheet({ line, types, onClose, lines }: { line: BudgetLine; types: {
       <TypeChecks types={types} value={link} onChange={setLink} />
       <p className="foot-note">เช่น งบอาหาร ← กองทุนเพื่ออาหาร · ประเภทเดียวกันผูกกับหลายงบได้ แต่ยอดจะถูกนับซ้ำในแต่ละแท่ง</p>
       <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>
+    </Sheet>
+  )
+}
+
+/** แก้ตัวเลขทั้งสามแท่งในที่เดียว (ช่วงเริ่มต้น) — แสดงที่มาของตัวเลขแต่ละแท่ง งบที่ตั้งที่แก้จะบันทึกลงประวัติให้เอง */
+function EditNumbers({ row, focus, lines, adjs, onClose }: { row: Rows[number]; focus: 'in' | 'budget' | 'out'; lines: ReturnType<typeof useBudgetLines>; adjs: ReturnType<typeof useBudgetAdjs>; onClose: () => void }) {
+  const [openIn, setOpenIn] = useState<number | null>(row.inParts.opening)
+  const [budget, setBudget] = useState<number | null>(row.current)
+  const [openOut, setOpenOut] = useState<number | null>(row.outParts.opening)
+  const [err, setErr] = useState('')
+  const save = () => {
+    const oi = openIn ?? 0, oo = openOut ?? 0, b = budget ?? 0
+    if (oi < 0 || oo < 0 || b < 0) return setErr('ตัวเลขต้องไม่ติดลบ')
+    const ok = lines.put([{ ...row.line, openingIn: oi, openingOut: oo }])
+    if (!ok) return
+    if (b !== row.current) {
+      const y = row.line.year
+      adjs.put([{ id: newId('ba'), year: y, lineId: row.line.id, delta: b - row.current, kind: 'adjust', reason: 'แก้ตัวเลขงบที่ตั้งโดยตรง (ช่วงตั้งต้น)', date: yearOf(todayISO()) === y ? todayISO() : `${y}-01-01`, updated: 0 } as BudgetAdj])
+    }
+    onClose()
+  }
+  const f = (b: 'in' | 'budget' | 'out') => focus === b
+  return (
+    <Sheet title={`แก้ตัวเลข — ${row.line.name}`} onClose={onClose}>
+      <div className="field">
+        <label htmlFor="ed-in" style={{ color: 'var(--series-1)' }}>① ได้รับ (แท่งเขียว) — เงินที่มีอยู่แล้ว/ยกมา</label>
+        <MoneyInput id="ed-in" value={openIn} onChange={setOpenIn} autoFocus={f('in')} />
+        <span className="foot-note">แท่งเขียวตอนนี้ {fmtBaht(row.income)} = ยกมา {fmtBaht(row.inParts.opening)} + จากรายรับที่ผูกไว้ {fmtBaht(row.inParts.linked)} + บันทึกตรง {fmtBaht(row.inParts.entries)} (รายการบันทึกตรงแก้ได้ในรายการใต้การ์ด)</span>
+      </div>
+      <div className="field">
+        <label htmlFor="ed-bud">② งบที่ตั้ง (แท่งกลาง)</label>
+        <MoneyInput id="ed-bud" value={budget} onChange={setBudget} autoFocus={f('budget')} />
+        <span className="foot-note">ใส่ 0 ถ้ายังไม่ตั้งงบ (แท่งจะติดพื้น) · ที่แก้จะบันทึกในประวัติการปรับงบ</span>
+      </div>
+      <div className="field">
+        <label htmlFor="ed-out" style={{ color: 'var(--series-2)' }}>③ จ่ายแล้วก่อนเริ่มใช้ระบบ (แท่งแดง)</label>
+        <MoneyInput id="ed-out" value={openOut} onChange={setOpenOut} autoFocus={f('out')} />
+        <span className="foot-note">แท่งแดงตอนนี้ {fmtBaht(row.spent)} = ตั้งต้น {fmtBaht(row.outParts.opening)} + จากใบเบิก {fmtBaht(row.outParts.vouchers)} + บันทึกตรง {fmtBaht(row.outParts.entries)} (ใบเบิกแก้ที่เมนู “เบิกจ่าย”)</span>
+      </div>
+      <BudgetCandles title={row.line.name} income={(openIn ?? 0) + row.inParts.linked + row.inParts.entries} budget={budget ?? 0} spent={(openOut ?? 0) + row.outParts.vouchers + row.outParts.entries} compact />
+      {err && <p className="err" role="alert">{err}</p>}
+      <button type="button" className="btn btn--gold" onClick={save}>บันทึกตัวเลข</button>
     </Sheet>
   )
 }

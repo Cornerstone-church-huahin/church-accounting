@@ -45,6 +45,9 @@ export interface BudgetRow {
   committed: number
   /** รายรับที่ได้รับของงบนี้ (ตามประเภทรายรับที่ผูกไว้) */
   income: number
+  /** ที่มาของแท่งเขียว/แดง (เพื่อให้แก้ตัวเลขได้ถูกที่) */
+  inParts: { opening: number; linked: number; entries: number }
+  outParts: { opening: number; vouchers: number; entries: number }
   /** เงินคงเหลือจริง = ได้รับ − จ่ายแล้ว (ไม่เกี่ยวกับงบที่ตั้ง) */
   balance: number
   /** ยังใช้ได้อีกเท่าไร: ถ้าตั้งงบแล้ว = งบ − จ่าย − ค้างเบิก · ถ้ายังไม่ตั้งงบ = เงินที่มี − จ่าย − ค้างเบิก */
@@ -59,9 +62,13 @@ export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Vou
     const current = line.base + adjust
     const types = new Set(line.incomeTypeIds ?? [])
     const mineE = entries.filter((e) => !e.deleted && e.lineId === line.id)
-    const inc = income.filter((x) => !x.deleted && types.has(x.typeId)).reduce((s, x) => s + x.amount, 0) + mineE.filter((e) => e.kind === 'in').reduce((s, e) => s + e.amount, 0)
-    const direct = mineE.filter((e) => e.kind === 'out').reduce((s, e) => s + e.amount, 0)
-    return { line, base: line.base, adjust, current, spent: spent + direct, committed, income: inc, balance: inc - spent - direct, remaining: (current > 0 ? current : inc) - spent - direct - committed }
+    const linked = income.filter((x) => !x.deleted && types.has(x.typeId)).reduce((s, x) => s + x.amount, 0)
+    const entriesIn = mineE.filter((e) => e.kind === 'in').reduce((s, e) => s + e.amount, 0)
+    const entriesOut = mineE.filter((e) => e.kind === 'out').reduce((s, e) => s + e.amount, 0)
+    const openIn = line.openingIn ?? 0, openOut = line.openingOut ?? 0
+    const inc = openIn + linked + entriesIn
+    const out = spent + entriesOut + openOut
+    return { line, base: line.base, adjust, current, spent: out, committed, income: inc, inParts: { opening: openIn, linked, entries: entriesIn }, outParts: { opening: openOut, vouchers: spent, entries: entriesOut }, balance: inc - out, remaining: (current > 0 ? current : inc) - out - committed }
   })
 }
 

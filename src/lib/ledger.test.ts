@@ -101,6 +101,12 @@ describe('multi-item vouchers and weekly transfer totals', () => {
     ])
     expect(rows[0]).toMatchObject({ current: 0, income: 300000, spent: 100000, balance: 200000, remaining: 200000 })
   })
+  it('opening balances are editable starting points for the green and red bars', () => {
+    const rows = budgetRows([{ id: 'f', year: 2026, name: 'กองทุน', base: 0, order: 0, updated: 1, openingIn: 400000, openingOut: 50000 }], [], [], [], [
+      { id: 'e1', year: 2026, lineId: 'f', kind: 'in', amount: 100000, date: '2026-01-05', note: '', updated: 1 },
+    ])
+    expect(rows[0]).toMatchObject({ income: 500000, spent: 50000, balance: 450000, inParts: { opening: 400000, linked: 0, entries: 100000 } })
+  })
   it('groups Mon–Sun transfers into the Sunday sheet (matches the real 4 Oct sheet)', () => {
     const t = (id: string, date: string, amount: number): IncomeEntry => ({ id, date, typeId: '', amount, method: 'transfer', updated: 1 })
     const xs = [t('a', '2026-09-27', 95000), t('b', '2026-09-28', 1000), t('c', '2026-10-02', 3200000), t('d', '2026-10-04', 57500), t('e', '2026-10-05', 999)]
