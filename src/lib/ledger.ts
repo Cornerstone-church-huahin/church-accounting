@@ -1,6 +1,6 @@
-import { addDays, daysInMonth, inRange, monthOf, weekStart, yearOf } from './money'
+import { addDays, daysInMonth, inRange, monthOf, sheetSunday, weekStart, yearOf } from './money'
 import type { AccessRole } from './access'
-import type { BudgetAdj, BudgetLine, IncomeEntry, Round, Voucher } from './types'
+import type { BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, Round, Voucher, VoucherItem } from './types'
 
 // ---------- รอบนับเงินวันอาทิตย์ ----------
 /** มูลค่าธนบัตร/เหรียญที่ให้กรอกจำนวน (บาท) */
@@ -8,12 +8,29 @@ export const DENOMS = [1000, 500, 100, 50, 20, 10, 5, 2, 1]
 export const roundTotal = (r: Pick<Round, 'lines'>) => Object.values(r.lines).reduce((a, b) => a + b, 0)
 export const denomTotal = (d: Record<string, number>) => Object.entries(d).reduce((a, [k, n]) => a + Number(k) * 100 * (n || 0), 0)
 export const roundId = (date: string) => `rd-${date}`
+export const envelopeTotal = (r: Pick<Round, 'envelopes'>) => Object.values(r.envelopes ?? {}).reduce((a, b) => a + b, 0)
+
+/** เงินโอนที่นับในใบถวายของวันอาทิตย์นั้น (โอนวันจันทร์–อาทิตย์) */
+export function weekTransfers(income: IncomeEntry[], sunday: string): { entries: IncomeEntry[]; total: number } {
+  const entries = income.filter((x) => !x.deleted && x.method === 'transfer' && sheetSunday(x.date) === sunday)
+  return { entries, total: entries.reduce((s, x) => s + x.amount, 0) }
+}
 
 /** เมื่อยืนยันยอดนับ: สร้างรายรับเงินสดต่อประเภท (id คงที่ จึงแก้ซ้ำแล้วไม่ซ้ำซ้อน) */
 export function entriesFromRound(r: Round): IncomeEntry[] {
   return Object.entries(r.lines).map(([typeId, amount]) => ({
     id: `${r.id}:${typeId}`, date: r.date, typeId, amount, method: 'cash' as const, roundId: r.id, updated: 0, deleted: amount <= 0,
   }))
+}
+
+// ---------- รายการในใบเบิก ----------
+/** ใบเก่า (รายการเดียว) แปลงเป็น 1 รายการ เพื่อให้ทุกที่ใช้โค้ดชุดเดียว */
+export const voucherItems = (v: Voucher): VoucherItem[] => (v.items?.length ? v.items : [{ desc: v.purpose, amount: v.amount, lineId: v.lineId, method: 'cash' }])
+export const itemsTotal = (items: Pick<VoucherItem, 'amount'>[]) => items.reduce((s, i) => s + i.amount, 0)
+/** ใบเบิกสรุปเป็นข้อความสั้น ๆ สำหรับแสดงในรายการ */
+export const voucherTitle = (v: Voucher) => {
+  const it = voucherItems(v)
+  return it.length > 1 ? `${it[0].desc} และอีก ${it.length - 1} รายการ` : it[0]?.desc ?? v.purpose
 }
 
 // ---------- งบประมาณ ----------
@@ -26,16 +43,37 @@ export interface BudgetRow {
   spent: number
   /** ยื่นแล้ว/อนุมัติแล้วแต่ยังไม่จ่าย */
   committed: number
+  /** รายรับที่ได้รับของงบนี้ (ตามประเภทรายรับที่ผูกไว้) */
+  income: number
+  /** ที่มาของแท่งเขียว/แดง (เพื่อให้แก้ตัวเลขได้ถูกที่) */
+  inParts: { opening: number; linked: number; entries: number }
+  outParts: { opening: number; vouchers: number; entries: number }
+  /** เงินคงเหลือจริง = ได้รับ − จ่ายแล้ว (ไม่เกี่ยวกับงบที่ตั้ง) */
+  balance: number
+  /** ยังใช้ได้อีกเท่าไร: ถ้าตั้งงบแล้ว = งบ − จ่าย − ค้างเบิก · ถ้ายังไม่ตั้งงบ = เงินที่มี − จ่าย − ค้างเบิก */
   remaining: number
 }
-export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[]): BudgetRow[] {
+/** แหล่งที่มาพิเศษของงบ: “คริสตจักร” = รายรับทุกประเภทที่ไม่ได้เป็นของกองทุนใด (รวมเงินโอนที่ยังไม่แยกประเภท) */
+export const CHURCH_SOURCE = '__church'
+
+export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = [], entries: BudgetEntry[] = [], fundTypeIds: string[] = []): BudgetRow[] {
+  const fundTypes = new Set(fundTypeIds)
   return [...lines].sort((a, b) => a.order - b.order).map((line) => {
     const adjust = adjs.filter((a) => a.lineId === line.id).reduce((s, a) => s + a.delta, 0)
-    const mine = vouchers.filter((v) => v.lineId === line.id)
-    const spent = mine.filter((v) => v.status === 'paid').reduce((s, v) => s + v.amount, 0)
-    const committed = mine.filter((v) => v.status === 'submitted' || v.status === 'approved').reduce((s, v) => s + v.amount, 0)
+    const mine = vouchers.filter((v) => !v.deleted).map((v) => ({ v, sum: itemsTotal(voucherItems(v).filter((i) => i.lineId === line.id)) })).filter((x) => x.sum > 0)
+    const spent = mine.filter((x) => x.v.status === 'paid').reduce((s, x) => s + x.sum, 0)
+    const committed = mine.filter((x) => x.v.status === 'submitted' || x.v.status === 'approved').reduce((s, x) => s + x.sum, 0)
     const current = line.base + adjust
-    return { line, base: line.base, adjust, current, spent, committed, remaining: current - spent - committed }
+    const types = new Set(line.incomeTypeIds ?? [])
+    const mineE = entries.filter((e) => !e.deleted && e.lineId === line.id)
+    const church = types.has(CHURCH_SOURCE)
+    const linked = income.filter((x) => !x.deleted && (types.has(x.typeId) || (church && !fundTypes.has(x.typeId)))).reduce((s, x) => s + x.amount, 0)
+    const entriesIn = mineE.filter((e) => e.kind === 'in').reduce((s, e) => s + e.amount, 0)
+    const entriesOut = mineE.filter((e) => e.kind === 'out').reduce((s, e) => s + e.amount, 0)
+    const openIn = line.openingIn ?? 0, openOut = line.openingOut ?? 0
+    const inc = openIn + linked + entriesIn
+    const out = spent + entriesOut + openOut
+    return { line, base: line.base, adjust, current, spent: out, committed, income: inc, inParts: { opening: openIn, linked, entries: entriesIn }, outParts: { opening: openOut, vouchers: spent, entries: entriesOut }, balance: inc - out, remaining: (current > 0 ? current : inc) - out - committed }
   })
 }
 
@@ -129,6 +167,12 @@ export function shiftPeriod(p: Period, dir: 1 | -1): Period {
 export const liveIncome = (xs: IncomeEntry[], p: Period) => xs.filter((x) => !x.deleted && inRange(x.date, p.from, p.to))
 /** รายจ่ายนับเมื่อ "จ่ายแล้ว" ตามวันที่จ่าย */
 export const paidIn = (vs: Voucher[], p: Period) => vs.filter((v) => !v.deleted && v.status === 'paid' && v.paid && inRange(v.paid.date, p.from, p.to))
+
+/** รายจ่ายที่จ่ายแล้วในช่วงเวลา แยกเป็นรายการ (1 ใบเบิกมีหลายรายการ ลงคนละหมวดได้) */
+export const paidItems = (vs: Voucher[], p: Period) => paidIn(vs, p).flatMap((v) => voucherItems(v).map((item) => ({ v, item })))
+
+/** รายจ่ายที่บันทึกตรงในงบ (ไม่ผ่านใบเบิก) ในช่วงเวลา — นับเป็นรายจ่ายในรายงานด้วย */
+export const directOut = (es: BudgetEntry[], p: Period) => es.filter((e) => !e.deleted && e.kind === 'out' && inRange(e.date, p.from, p.to))
 
 export function sumBy<T>(xs: T[], key: (x: T) => string, amount: (x: T) => number): Map<string, number> {
   const m = new Map<string, number>()

@@ -82,3 +82,6 @@ export function sundaysOf(year: number): string[] {
   return out
 }
 export const inRange = (d: string, from: string, to: string) => d >= from && d <= to
+
+/** ใบบันทึกการถวายของวันอาทิตย์ใด: เงินโอนวันจันทร์–อาทิตย์ นับรวมในใบของวันอาทิตย์ที่ปิดสัปดาห์นั้น */
+export const sheetSunday = (iso: string) => addDays(iso, (7 - dow(iso)) % 7)

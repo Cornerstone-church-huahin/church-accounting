@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
-import { useAccounts, useIncomeTypes, useSettings } from '../lib/data'
+import { useAccounts, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
-import { DEFAULT_REPO, getSync, saveSync, testSync } from '../lib/sync'
+import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
+import { be } from '../lib/money'
+import { useYear } from '../lib/year'
 
 const fmtJoined = (t: number) => (t ? new Date(t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '')
 
@@ -18,6 +20,7 @@ export default function Settings() {
       {can(role, 'settings') && <General />}
       {can(role, 'settings') && <Types />}
       {can(role, 'settings') && <Accounts />}
+      {can(role, 'settings') && <DataClean />}
       <Display />
     </>
   )
@@ -243,6 +246,71 @@ function Display() {
       <div className="seg" role="group" aria-label="ขนาดตัวอักษร">
         {['85', '100', '125', '150'].map((s) => <button key={s} type="button" className={scale === s ? 'on' : ''} aria-pressed={scale === s} onClick={() => set(s)}>{s}%</button>)}
       </div>
+    </section>
+  )
+}
+
+/** ล้างข้อมูล: ลบถาวรรายการที่ลบแล้ว · ล้างข้อมูลทดสอบทั้งปี (รายรับ รอบนับ ใบเบิก งบ สเตตเมนต์) — ไม่แตะผู้ใช้ ประเภทถวาย บัญชีธนาคาร ตั้งค่า */
+function DataClean() {
+  const { year } = useYear()
+  const income = useIncome(year), rounds = useRounds(year), vouchers = useVouchers(year)
+  const lines = useBudgetLines(year), adjs = useBudgetAdjs(year), entries = useBudgetEntries(year)
+  const stmt = useStatementLines(year), batches = useStatementBatches(), types = useIncomeTypes(), accounts = useAccounts()
+  const funds = useFunds()
+  const [withFunds, setWithFunds] = useState(false)
+  const [word, setWord] = useState('')
+  const [files, setFiles] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const all = [income, rounds, vouchers, lines, adjs, entries, stmt, batches] as const
+  const pending = [...all.map((s) => s.deletedCount), funds.deletedCount, types.deletedCount, accounts.deletedCount].reduce((a, b) => a + b, 0)
+  const total = all.reduce((a, s) => a + s.all.length, 0)
+
+  const purge = async () => {
+    if (!confirm(`ลบถาวร ${pending} รายการที่ลบแล้ว?\nเอาออกจากไฟล์จริง กู้คืนไม่ได้`)) return
+    setBusy(true)
+    const rs = await Promise.all([...all.map((s) => s.purgeDeleted()), funds.purgeDeleted(), types.purgeDeleted(), accounts.purgeDeleted()])
+    setBusy(false)
+    setMsg(rs.every(Boolean) ? { ok: true, text: `ลบถาวรแล้ว ${pending} รายการ ✓` } : { ok: false, text: 'ทำไม่สำเร็จบางส่วน ตรวจการเชื่อมต่อแล้วลองใหม่' })
+  }
+  const reset = async () => {
+    setBusy(true); setMsg(null)
+    const rs = await Promise.all([...all.map((s) => s.resetAll()), ...(withFunds ? [funds.resetAll()] : [])])
+    let removed = 0
+    const cfg = getSync()
+    if (files && cfg) {
+      try {
+        for (const dir of [`attachments/${year}`, `attachments/statements/${year}`]) {
+          for (const f of await listDir(cfg, dir)) if (f.type === 'file') { await deleteFile(cfg, f.path, f.sha, 'ไฟล์แนบ'); removed++ }
+        }
+      } catch (e) { setBusy(false); return setMsg({ ok: false, text: `ล้างข้อมูลแล้ว แต่ลบไฟล์แนบไม่สำเร็จ: ${e instanceof Error ? e.message : ''}` }) }
+    }
+    setBusy(false); setWord('')
+    setMsg(rs.every(Boolean) ? { ok: true, text: `ล้างข้อมูลปี ${be(year)} เรียบร้อย ✓${removed ? ` (ลบไฟล์แนบ ${removed} ไฟล์)` : ''}` } : { ok: false, text: 'ทำไม่สำเร็จบางส่วน ตรวจการเชื่อมต่อแล้วลองใหม่' })
+  }
+  return (
+    <section className="card" aria-labelledby="h-clean">
+      <h2 id="h-clean">🧹 ล้างข้อมูล (ลบถาวร)</h2>
+      <p className="muted small">ปกติเมื่อกด “ลบ” ข้อมูลแค่ถูกซ่อน (กู้คืนได้ และใช้ให้เครื่องอื่นรับรู้การลบ) ส่วนนี้ใช้เอาออกจากไฟล์จริงเมื่อต้องการให้สะอาด เฉพาะแอดมิน</p>
+      <div className="stack">
+        <h3>1) ลบถาวรรายการที่ลบแล้ว ({pending})</h3>
+        <button type="button" className="btn btn--ghost" disabled={busy || pending === 0} onClick={purge}>🗑️ ลบถาวรรายการที่ลบแล้วทั้งหมด</button>
+        <h3>2) ล้างข้อมูลทดสอบ ปี {be(year)} ({total} รายการ)</h3>
+        <p className="small">ล้าง: รายรับ · ใบบันทึกการถวาย/รอบนับ · ใบเบิกจ่าย · งบประมาณและบันทึกในงบ/กองทุนของปีนี้ · รายการสเตตเมนต์ · (กองทุนล้างเมื่อติ๊กเลือก) · <b>ไม่แตะ:</b> ผู้ใช้และสิทธิ์ ประเภทถวาย บัญชีธนาคาร ค่าตั้งค่า</p>
+        <label className="row"><input type="checkbox" checked={withFunds} onChange={(e) => setWithFunds(e.target.checked)} /> ล้างกองทุนทั้งหมดด้วย ({funds.items.length} กองทุน — กองทุนสะสมข้ามปี ไม่ผูกกับปีใดปีหนึ่ง)</label>
+        <label className="row"><input type="checkbox" checked={files} onChange={(e) => setFiles(e.target.checked)} /> ลบรูปใบเสร็จ/สลิป/ไฟล์สเตตเมนต์ของปีนี้ใน repo ด้วย</label>
+        <div className="field"><label htmlFor="cl-word">พิมพ์ “ล้างข้อมูล” เพื่อยืนยัน</label><input id="cl-word" className="input" value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" /></div>
+        <button type="button" className="btn btn--danger" disabled={busy || word.trim() !== 'ล้างข้อมูล'} onClick={reset}>{busy ? 'กำลังล้าง…' : `ล้างข้อมูลปี ${be(year)}`}</button>
+      </div>
+      {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
+      <details>
+        <summary>ควรรู้ก่อนล้าง</summary>
+        <ul className="small">
+          <li>ให้ทุกเครื่องซิงก์ให้เสร็จก่อน — งานที่ยังไม่ซิงก์ในเครื่องอื่นจะถูกทิ้งเมื่อเครื่องนั้นรับการล้าง (เพื่อไม่ให้ข้อมูลเก่าผุดกลับ)</li>
+          <li>ประวัติ commit ใน GitHub ยังเก็บข้อมูลเก่าไว้ (ย้อนดูได้) ถ้าต้องการสะอาด 100% ตอนเริ่มใช้งานจริง ให้สร้าง repo ข้อมูลใหม่ แล้วเชื่อมต่อใหม่ด้วยรหัสใหม่ — ง่ายที่สุด</li>
+          <li>เปลี่ยนปีบัญชีที่มุมขวาบนเพื่อล้างปีอื่น</li>
+        </ul>
+      </details>
     </section>
   )
 }

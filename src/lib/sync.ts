@@ -66,7 +66,13 @@ function explain(status: number): string {
 const OFFLINE = 'ไม่มีอินเทอร์เน็ต — บันทึกไว้ในเครื่องก่อน จะส่งขึ้นเมื่อเชื่อมต่อได้'
 const encPath = (p: string) => p.split('/').map(encodeURIComponent).join('/')
 
-export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<{ items: T[]; sha?: string; exists: boolean }> {
+/**
+ * epoch = เวลาที่ไฟล์นี้ถูก "ลบถาวร/ล้างข้อมูล" ครั้งล่าสุด · เครื่องที่ซิงก์ครั้งสุดท้ายก่อน epoch นี้ต้องยอมรับไฟล์ออนไลน์เป็นหลัก
+ * (ทิ้งของเก่าในเครื่อง) ไม่อย่างนั้นข้อมูลที่ลบแล้วจะผุดกลับมาจากเครื่องที่ยังไม่ซิงก์
+ */
+export const remoteWins = (localEpoch: number, remoteEpoch: number | undefined) => (remoteEpoch ?? 0) > localEpoch
+
+export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<{ items: T[]; sha?: string; exists: boolean; epoch?: number }> {
   let r: Response
   try {
     r = await api(cfg, `contents/${encPath(file)}`)
@@ -87,8 +93,8 @@ export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: stri
     const raw = await api(cfg, `contents/${encPath(file)}`, { headers: { accept: 'application/vnd.github.raw' } })
     text = raw.ok ? await raw.text() : ''
   }
-  const data = JSON.parse(text || '{"items":[]}') as { items?: T[] }
-  return { items: (data.items ?? []).filter((x) => x && x.id), sha: body.sha, exists: true }
+  const data = JSON.parse(text || '{"items":[]}') as { items?: T[]; epoch?: number }
+  return { items: (data.items ?? []).filter((x) => x && x.id), sha: body.sha, exists: true, epoch: data.epoch }
 }
 
 export function mergeItems<T extends SharedItem>(a: T[], b: T[]): T[] {
@@ -100,17 +106,19 @@ export function mergeItems<T extends SharedItem>(a: T[], b: T[]): T[] {
   return [...m.values()]
 }
 
-export async function pushFile<T extends SharedItem>(cfg: SyncConfig, file: string, label: string, items: T[], sha?: string, retry = true): Promise<void> {
-  const content = JSON.stringify({ app: 'church-accounting', version: 1, saved: new Date().toISOString(), items }, null, 1)
+export async function pushFile<T extends SharedItem>(cfg: SyncConfig, file: string, label: string, items: T[], sha?: string, retry = true, epoch?: number, replace = false): Promise<void> {
+  const content = JSON.stringify({ app: 'church-accounting', version: 1, saved: new Date().toISOString(), ...(epoch ? { epoch } : {}), items }, null, 1)
   const r = await api(cfg, `contents/${encPath(file)}`, {
     method: 'PUT',
     body: JSON.stringify({ message: `อัปเดต${label}${cfg.name ? ` โดย ${cfg.name}` : ''}`, content: b64encode(content), ...(sha ? { sha } : {}) }),
   }).catch(() => null)
   if (!r) throw new Error(OFFLINE)
   if ((r.status === 409 || r.status === 422) && retry) {
-    // อีกเครื่องเพิ่งบันทึก → ดึงของล่าสุดมารวมแล้วส่งใหม่
+    // อีกเครื่องเพิ่งบันทึก → ดึงของล่าสุดมารวมแล้วส่งใหม่ (ถ้าเป็นการลบถาวร/ล้างข้อมูล ไม่รวม ใช้ของเราแทนทั้งไฟล์)
     const remote = await pullFile<T>(cfg, file)
-    return pushFile(cfg, file, label, mergeItems(items, remote.items), remote.sha, false)
+    return replace
+      ? pushFile(cfg, file, label, items, remote.sha, false, epoch, true)
+      : pushFile(cfg, file, label, mergeItems(items, remote.items), remote.sha, false, Math.max(epoch ?? 0, remote.epoch ?? 0) || undefined)
   }
   if (!r.ok) throw new Error(explain(r.status))
 }
@@ -146,4 +154,19 @@ export async function getBinary(cfg: SyncConfig, path: string): Promise<Blob> {
   if (!r) throw new Error('ไม่มีอินเทอร์เน็ต — เปิดไฟล์ไม่ได้')
   if (!r.ok) throw new Error(r.status === 404 ? 'ไม่พบไฟล์นี้ใน repo' : explain(r.status))
   return r.blob()
+}
+
+/** รายชื่อไฟล์ในโฟลเดอร์ของ repo ข้อมูล (ไม่มีโฟลเดอร์ = ว่าง) */
+export async function listDir(cfg: SyncConfig, dir: string): Promise<{ path: string; sha: string; type: 'file' | 'dir' }[]> {
+  const r = await api(cfg, `contents/${encPath(dir)}`).catch(() => null)
+  if (!r || r.status === 404) return []
+  if (!r.ok) throw new Error(explain(r.status))
+  const j = (await r.json()) as { path: string; sha: string; type: string }[]
+  return Array.isArray(j) ? j.map((x) => ({ path: x.path, sha: x.sha, type: x.type === 'dir' ? 'dir' : 'file' })) : []
+}
+/** ลบไฟล์ออกจาก repo ข้อมูล (ประวัติ commit เดิมยังอยู่) */
+export async function deleteFile(cfg: SyncConfig, path: string, sha: string, label: string): Promise<void> {
+  const r = await api(cfg, `contents/${encPath(path)}`, { method: 'DELETE', body: JSON.stringify({ message: `ลบไฟล์${label}${cfg.name ? ` โดย ${cfg.name}` : ''}`, sha }) }).catch(() => null)
+  if (!r) throw new Error(OFFLINE)
+  if (!r.ok && r.status !== 404) throw new Error(explain(r.status))
 }

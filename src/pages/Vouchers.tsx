@@ -4,11 +4,11 @@ import MoneyInput from '../components/MoneyInput'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can, isSolo, whoAmI } from '../lib/access'
-import { useBudgetAdjs, useBudgetLines, useSettings, useVouchers } from '../lib/data'
-import { budgetRows, STAGE_LABEL, stageOf, tasksFor, weekSummary, type Stage } from '../lib/ledger'
+import { useBudgetAdjs, useBudgetLines, useFunds, useSettings, useVouchers } from '../lib/data'
+import { budgetRows, itemsTotal, STAGE_LABEL, stageOf, tasksFor, voucherTitle, weekSummary, type Stage } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { addDays, be, fmtBaht, fmtDate, todayISO, yearOf } from '../lib/money'
-import type { Voucher } from '../lib/types'
+import type { PayMethod, Voucher, VoucherItem } from '../lib/types'
 import { useYear } from '../lib/year'
 
 export const NO_BUDGET = '__none'
@@ -26,7 +26,6 @@ export default function Vouchers() {
 function List({ year }: { year: number }) {
   const role = useRole()
   const v = useVouchers(year)
-  const lines = useBudgetLines(year)
   const { settings } = useSettings()
   const me = whoAmI()
   const [anchor, setAnchor] = useState(() => (yearOf(todayISO()) === year ? todayISO() : `${year}-12-31`))
@@ -34,7 +33,6 @@ function List({ year }: { year: number }) {
   const [creating, setCreating] = useState(false)
   const sum = useMemo(() => weekSummary(v.items, anchor), [v.items, anchor])
   const mine = tasksFor(role, me.id, v.items, settings.twoStepOver, isSolo())
-  const lineName = (id: string) => lines.items.find((l) => l.id === id)?.name ?? 'นอกงบประมาณ'
   const rows = v.items.filter((x) => stage === 'all' || stageOf(x) === stage).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.no.localeCompare(a.no)))
   return (
     <>
@@ -70,7 +68,7 @@ function List({ year }: { year: number }) {
       {mine.length > 0 && (
         <section className="card" aria-labelledby="h-mine">
           <h2 id="h-mine">งานของท่าน ({mine.length})</h2>
-          <ul className="list">{mine.map((t) => <li key={t.voucher.id}><Link className="item" to={`/vouchers/${t.voucher.id}`}><span className="grow"><b>{t.text}</b><br /><span className="small muted">{t.voucher.no} · {t.voucher.payee} · {t.voucher.purpose}</span></span><b className="num">{fmtBaht(t.voucher.amount)}</b></Link></li>)}</ul>
+          <ul className="list">{mine.map((t) => <li key={t.voucher.id}><Link className="item" to={`/vouchers/${t.voucher.id}`}><span className="grow"><b>{t.text}</b><br /><span className="small muted">{t.voucher.no} · {voucherTitle(t.voucher)}</span></span><b className="num">{fmtBaht(t.voucher.amount)}</b></Link></li>)}</ul>
         </section>
       )}
 
@@ -86,7 +84,7 @@ function List({ year }: { year: number }) {
           <ul className="list">
             {rows.map((x) => (
               <li key={x.id}><Link className="item" to={`/vouchers/${x.id}`}>
-                <span className="grow"><b>{x.payee}</b> <span className="small muted">· {x.no}</span><br /><span className="small muted">{fmtDate(x.date)} · {lineName(x.lineId)} · {x.purpose}</span></span>
+                <span className="grow"><b>{x.no}</b> <span className="small muted">· {fmtDate(x.date)}</span><br /><span className="small muted">{voucherTitle(x)}{x.payee ? ` · ${x.payee}` : ''}</span></span>
                 <span style={{ textAlign: 'right' }}><b className="num">{fmtBaht(x.amount)}</b><br /><span className={`badge ${stageOf(x) === 'done' ? 'badge--good' : stageOf(x) === 'rejected' ? 'badge--bad' : ''}`}>{STAGE_LABEL[stageOf(x)]}</span></span>
               </Link></li>
             ))}
@@ -98,48 +96,67 @@ function List({ year }: { year: number }) {
   )
 }
 
+const METHOD_LABEL: Record<PayMethod, string> = { cash: 'เงินสด', transfer: 'โอนจากบัญชีคริสตจักร', advance: 'สำรองจ่าย (เบิกคืน)' }
+export { METHOD_LABEL }
+
+/** ใบเบิก-จ่ายเงินสด: 1 ใบมีหลายรายการ แต่ละรายการมีจำนวนเงินและหมวดงบของตัวเอง */
 function NewVoucher({ year, onClose, v }: { year: number; onClose: () => void; v: ReturnType<typeof useVouchers> }) {
   const lines = useBudgetLines(year)
   const adjs = useBudgetAdjs(year)
+  const funds = useFunds()
   const me = whoAmI()
   const [date, setDate] = useState(yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`)
   const [payee, setPayee] = useState('')
-  const [purpose, setPurpose] = useState('')
-  const [amount, setAmount] = useState<number | null>(null)
-  const [lineId, setLineId] = useState(lines.items[0]?.id ?? NO_BUDGET)
+  const blank = (): { desc: string; amount: number | null; lineId: string; method: PayMethod } => ({ desc: '', amount: null, lineId: lines.items[0]?.id ?? NO_BUDGET, method: 'cash' })
+  const [items, setItems] = useState([blank()])
   const [err, setErr] = useState('')
   const rows = budgetRows(lines.items, adjs.items, v.items)
-  const row = rows.find((r) => r.line.id === lineId)
-  const over = row && amount ? amount > row.remaining : false
+  const total = items.reduce((s, i) => s + (i.amount ?? 0), 0)
+  const set = (n: number, patch: Partial<ReturnType<typeof blank>>) => setItems(items.map((it, i) => (i === n ? { ...it, ...patch } : it)))
+  // เทียบงบคงเหลือรวมต่อหมวดของทุกรายการในใบนี้
+  const overs = rows.filter((r) => items.filter((i) => i.lineId === r.line.id).reduce((s, i) => s + (i.amount ?? 0), 0) > r.remaining)
   const save = () => {
     if (yearOf(date) !== year) return setErr(`วันที่ต้องอยู่ในปี ${be(year)} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`)
-    if (!payee.trim() || !purpose.trim()) return setErr('ใส่ชื่อผู้รับเงิน/ร้านค้า และรายการที่เบิก')
-    if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    const ok = items.filter((i) => i.desc.trim() || i.amount)
+    if (ok.length === 0) return setErr('ใส่อย่างน้อย 1 รายการ')
+    if (ok.some((i) => !i.desc.trim() || !i.amount || i.amount <= 0)) return setErr('ทุกรายการต้องมีชื่อรายการและจำนวนเงินมากกว่า 0')
+    const list: VoucherItem[] = ok.map((i) => ({ desc: i.desc.trim(), amount: i.amount!, lineId: i.lineId, method: i.method }))
     const n = Math.max(0, ...v.all.map((x) => parseInt(x.no.split('-')[1] ?? '0', 10) || 0)) + 1
     const rec: Voucher = {
       id: `vc-${year}-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`, no: `${be(year)}-${String(n).padStart(3, '0')}`, date,
-      requester: { id: me.id, name: me.name }, payee: payee.trim(), purpose: purpose.trim(), amount, lineId, status: 'submitted', approvals: [], attachments: [], updated: 0,
+      requester: { id: me.id, name: me.name }, payee: payee.trim(), purpose: '', amount: itemsTotal(list), lineId: list[0].lineId, items: list, status: 'submitted', approvals: [], attachments: [], updated: 0,
     }
     if (v.put([rec])) onClose()
   }
   return (
-    <Sheet title="ทำใบเบิกจ่าย" onClose={onClose}>
+    <Sheet title="ใบเบิก-จ่ายเงิน" onClose={onClose}>
       <div className="field"><label htmlFor="v-date">วันที่ยื่น</label><input id="v-date" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="v-payee">จ่ายให้ (ผู้รับเงิน/ร้านค้า)</label><input id="v-payee" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
-      <div className="field"><label htmlFor="v-purpose">รายการที่เบิก</label><textarea id="v-purpose" className="input" value={purpose} onChange={(e) => setPurpose(e.target.value)} /></div>
-      <div className="field"><label htmlFor="v-amt">จำนวนเงิน (บาท)</label><MoneyInput id="v-amt" value={amount} onChange={setAmount} /></div>
-      <div className="field">
-        <label htmlFor="v-line">หมวดงบประมาณ</label>
-        <select id="v-line" className="input" value={lineId} onChange={(e) => setLineId(e.target.value)}>
-          {rows.map((r) => <option key={r.line.id} value={r.line.id}>{r.line.name} (เหลือ {fmtBaht(r.remaining, { dec: false })})</option>)}
-          <option value={NO_BUDGET}>นอกงบประมาณ</option>
-        </select>
-      </div>
-      {lineId === NO_BUDGET && <p className="note">รายการนอกงบประมาณ — ผู้อนุมัติจะเห็นข้อความนี้</p>}
-      {over && <p className="note">⚠️ เกินงบคงเหลือของหมวดนี้ {fmtBaht((amount ?? 0) - row!.remaining)} บาท (ยังยื่นได้ แต่ผู้อนุมัติจะต้องพิจารณา หรือให้แอดมินปรับงบก่อน)</p>}
+      <div className="field"><label htmlFor="v-payee">ผู้รับเงิน/ร้านค้า (ถ้าทั้งใบจ่ายให้คนเดียว ไม่ใส่ก็ได้)</label><input id="v-payee" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
+      {items.map((it, n) => (
+        <fieldset key={n} className="card card--flat" style={{ margin: 0 }}>
+          <legend className="small muted">รายการที่ {n + 1}</legend>
+          <div className="field"><label htmlFor={`v-d${n}`}>รายการ</label><input id={`v-d${n}`} className="input" value={it.desc} onChange={(e) => set(n, { desc: e.target.value })} placeholder="เช่น ค่าน้ำมันรถ / ค่าอินเตอร์เน็ต (บิล 27-9-69)" /></div>
+          <div className="grid2">
+            <div className="field"><label htmlFor={`v-a${n}`}>จำนวนเงิน (บาท)</label><MoneyInput id={`v-a${n}`} value={it.amount} onChange={(a) => set(n, { amount: a })} /></div>
+            <div className="field"><label htmlFor={`v-m${n}`}>จ่ายโดย</label><select id={`v-m${n}`} className="input" value={it.method} onChange={(e) => set(n, { method: e.target.value as PayMethod })}>{(Object.keys(METHOD_LABEL) as PayMethod[]).map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}</select></div>
+          </div>
+          <div className="field"><label htmlFor={`v-l${n}`}>หมวดงบประมาณ</label>
+            <select id={`v-l${n}`} className="input" value={it.lineId} onChange={(e) => set(n, { lineId: e.target.value })}>
+              {rows.map((r) => <option key={r.line.id} value={r.line.id}>{r.line.name} ({r.line.base + r.adjust > 0 ? 'เหลืองบ' : 'เงินคงเหลือ'} {fmtBaht(r.remaining, { dec: false })})</option>)}
+              {funds.items.length > 0 && <optgroup label="กองทุน">{funds.items.map((f) => <option key={f.id} value={f.id}>{f.name} (กองทุน)</option>)}</optgroup>}
+              <option value={NO_BUDGET}>นอกงบประมาณ</option>
+            </select>
+          </div>
+          {items.length > 1 && <button type="button" className="mini" onClick={() => setItems(items.filter((_, i) => i !== n))}>ลบรายการนี้</button>}
+        </fieldset>
+      ))}
+      <button type="button" className="btn btn--ghost" onClick={() => setItems([...items, { ...blank(), lineId: items[items.length - 1].lineId }])}>＋ เพิ่มรายการ</button>
+      <div className="row row--between"><b>รวมจ่ายเป็นเงินทั้งสิ้น</b><span className="money-big">{fmtBaht(total)}</span></div>
+      {items.some((i) => i.lineId === NO_BUDGET) && <p className="note">มีรายการนอกงบประมาณ — ผู้อนุมัติจะเห็นข้อความนี้</p>}
+      {overs.map((r) => <p key={r.line.id} className="note">⚠️ หมวด “{r.line.name}” เกินงบคงเหลือ (ยังยื่นได้ แต่ผู้อนุมัติต้องพิจารณา หรือให้แอดมินปรับงบก่อน)</p>)}
       {err && <p className="err" role="alert">{err}</p>}
       <button type="button" className="btn btn--gold" onClick={save}>ยื่นใบเบิก</button>
-      <p className="foot-note">แนบใบเสนอราคา/ใบเสร็จได้ที่หน้ารายละเอียดหลังยื่น</p>
+      <p className="foot-note">แนบใบเสร็จ/สลิปได้ที่หน้ารายละเอียดหลังยื่น</p>
     </Sheet>
   )
 }

@@ -109,7 +109,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .chart .hit { fill: transparent; cursor: pointer; }
 .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem; }
 .legend i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 2px; margin-right: 0.35rem; vertical-align: -1px; }
-.legend .s1 { background: var(--series-1); } .legend .s2 { background: var(--series-2); } .legend .s3 { background: var(--ref); }
+.legend .s1 { background: var(--series-1); } .legend .s2 { background: repeating-linear-gradient(45deg, var(--series-2) 0 3px, color-mix(in srgb, var(--series-2) 60%, #fff) 3px 5px); } .legend .s3 { background: var(--ref); }
 .tip { position: absolute; z-index: 5; pointer-events: none; background: var(--navy); color: #fff; border-radius: 0.5rem; padding: 0.3rem 0.55rem; font-size: 0.8rem; white-space: nowrap; transform: translate(-50%, -110%); }
 
 /* ---------- พิมพ์ ---------- */
@@ -118,14 +118,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .sign > div { padding-top: 2.4rem; border-top: 1px solid var(--ink); }
 @page { size: A4 portrait; margin: 14mm; }
 @media print {
-  :root, :root[data-theme='dark'] { color-scheme: light; --bg: #fff; --surface: #fff; --surface-2: #f2f2f2; --ink: #000; --ink-soft: #333; --line: #bbb; --series-1: #1f5fae; --series-2: #c2410c; }
+  :root, :root[data-theme='dark'] { color-scheme: light; --bg: #fff; --surface: #fff; --surface-2: #f2f2f2; --ink: #000; --ink-soft: #333; --line: #bbb; --series-1: #17733f; --series-2: #b3261e; }
   body { background: #fff; font-size: 11pt; }
   .topbar, .bottomnav, .no-print, .role-bar, .role-toast, .role-first { display: none !important; }
   .print-only { display: block; }
   .sign.print-only { display: grid; }
   .main { max-width: none; padding: 0; gap: 0.8rem; }
   .card { box-shadow: none; border-color: #999; break-inside: avoid; }
-  .legend .s2 { background: repeating-linear-gradient(45deg, var(--series-2) 0 2px, #fff 2px 4px); border: 1px solid var(--series-2); }
   .sign { page-break-inside: avoid; }
 }
 .btn svg { width: 1.2rem; height: 1.2rem; flex: none; }

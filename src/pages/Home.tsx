@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { can, isSolo, ROLE_LABEL, whoAmI } from '../lib/access'
 import { useBudgetAdjs, useBudgetLines, useIncome, useRounds, useSettings, useStatementLines, useVouchers } from '../lib/data'
-import { budgetRows, roundTotal, tasksFor } from '../lib/ledger'
+import { budgetRows, roundTotal, tasksFor, weekTransfers } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, fmtDateLong, inRange, monthName, monthOf, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { getSync } from '../lib/sync'
@@ -30,7 +30,7 @@ function Dashboard({ year }: { year: number }) {
   const inMonth = sum(income.items, mFrom, mTo)
   const inYear = sum(income.items, `${year}-01-01`, `${year}-12-31`)
   const paidYear = vouchers.items.filter((v) => v.status === 'paid').reduce((s, v) => s + v.amount, 0)
-  const rows = budgetRows(lines.items, adjs.items, vouchers.items)
+  const rows = budgetRows(lines.items, adjs.items, vouchers.items, income.items)
   const budget = rows.reduce((s, r) => s + r.current, 0)
   const spent = rows.reduce((s, r) => s + r.spent, 0)
   const tasks = tasksFor(role, whoAmI().id, vouchers.items, settings.twoStepOver, isSolo())
@@ -75,7 +75,7 @@ function Dashboard({ year }: { year: number }) {
             {lastSunday ? (
               <Link className="item" to={`/rounds/${lastSunday}`} style={{ textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span className="grow"><b>{fmtDateLong(lastSunday)}</b><br /><span className="small muted">{!round ? 'ยังไม่ได้บันทึกยอดนับ' : round.status === 'counting' ? 'รอผู้นับคนที่ 2 ยืนยัน' : !round.deposit ? 'ยืนยันแล้ว รอนำฝาก' : 'ฝากธนาคารแล้ว'}</span></span>
-                <b className="num">{round ? fmtBaht(roundTotal(round)) : '＋ นับเงิน'}</b>
+                <b className="num">{round ? fmtBaht(roundTotal(round) + weekTransfers(income.items, lastSunday).total) : '＋ นับเงิน'}</b>
               </Link>
             ) : <p className="muted small">ยังไม่มีวันอาทิตย์ในปีนี้</p>}
           </section>

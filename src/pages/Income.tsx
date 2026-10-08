@@ -7,7 +7,9 @@ import { can } from '../lib/access'
 import { useAccounts, useIncome, useIncomeTypes } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, monthName, monthOf, newId, todayISO, yearOf } from '../lib/money'
-import type { IncomeEntry, Method } from '../lib/types'
+import { UNSORTED, type IncomeEntry, type Method } from '../lib/types'
+import { compressImage } from '../lib/image'
+import { getSync, putBinary } from '../lib/sync'
 import { useYear } from '../lib/year'
 
 export default function Income() {
@@ -25,7 +27,7 @@ function IncomeList({ year }: { year: number }) {
   const [edit, setEdit] = useState<IncomeEntry | 'new' | null>(null)
   const rows = inc.items.filter((x) => !month || monthOf(x.date) === month).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated))
   const total = rows.reduce((s, x) => s + x.amount, 0)
-  const typeName = (id: string) => types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)'
+  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
   const canWrite = can(role, 'income')
   return (
     <>
@@ -48,7 +50,7 @@ function IncomeList({ year }: { year: number }) {
               const body = (
                 <>
                   <span className="grow"><b>{typeName(x.typeId)}</b><br />
-                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.note ? ` · ${x.note}` : ''}</span>
+                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note ? ` · ${x.note}` : ''}</span>
                   </span>
                   <span className="num"><b>{fmtBaht(x.amount)}</b></span>
                 </>
@@ -68,33 +70,49 @@ function IncomeList({ year }: { year: number }) {
   )
 }
 
-function IncomeForm({ year, entry, onClose, inc }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome> }) {
+export function IncomeForm({ year, entry, onClose, inc, defaultDate }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string }) {
   const types = useIncomeTypes()
   const accounts = useAccounts()
   const active = types.list.filter((t) => t.active || t.id === entry?.typeId)
-  const [date, setDate] = useState(entry?.date ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
-  const [typeId, setTypeId] = useState(entry?.typeId ?? active[0]?.id ?? '')
+  const [date, setDate] = useState(entry?.date ?? defaultDate ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
+  const [typeId, setTypeId] = useState(entry ? entry.typeId : (active[0]?.id ?? ''))
+  const [memberNo, setMemberNo] = useState(entry?.memberNo ?? '')
+  const [slipFile, setSlipFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
   const [method, setMethod] = useState<Method>(entry?.method ?? 'transfer')
   const [ref, setRef] = useState(entry?.ref ?? '')
   const [accountId, setAccountId] = useState(entry?.accountId ?? accounts.list[0]?.id ?? '')
   const [note, setNote] = useState(entry?.note ?? '')
   const [err, setErr] = useState('')
-  const save = () => {
+  const save = async () => {
     if (yearOf(date) !== year) return setErr(`วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`)
-    if (!typeId) return setErr('เลือกประเภทถวาย')
+    if (typeId === UNSORTED && method === 'cash') return setErr('เงินสดต้องเลือกประเภทถวาย (เลือก “ยังไม่แยกประเภท” ได้เฉพาะเงินโอน)')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
     if (method === 'transfer' && ref.trim()) {
       const dup = inc.items.find((x) => x.id !== entry?.id && x.method === 'transfer' && x.ref === ref.trim())
       if (dup && !confirm(`เลขอ้างอิง ${ref.trim()} ถูกบันทึกแล้วเมื่อ ${fmtDate(dup.date)} (${fmtBaht(dup.amount)}) — ซ้ำใช่ไหม? กด ตกลง เพื่อบันทึกต่อ`)) return
     }
-    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId } : {}), note: note.trim(), updated: 0 }])
+    let slip = entry?.slip
+    if (slipFile && method === 'transfer') {
+      const cfg = getSync()
+      if (!cfg) return setErr('ต้องเชื่อมต่อออนไลน์ก่อนจึงแนบรูปสลิปได้ (รูปเก็บใน repo ข้อมูล)')
+      setBusy(true)
+      try {
+        const { data, ext } = await compressImage(slipFile)
+        const path = `attachments/${year}/slip-${Date.now().toString(36)}.${ext}`
+        await putBinary(cfg, path, data, 'สลิปโอน')
+        slip = { path, name: slipFile.name }
+      } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบสลิปไม่สำเร็จ') }
+      setBusy(false)
+    }
+    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), note: note.trim(), updated: 0 }])
     if (ok) onClose()
   }
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : 'บันทึกรายรับ'} onClose={onClose}>
       <div className="field"><label htmlFor="i-date">วันที่</label><input id="i-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="i-type">ประเภทถวาย</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+      <div className="field"><label htmlFor="i-type">ประเภทถวาย</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
       <div className="field"><label htmlFor="i-amt">จำนวนเงิน (บาท)</label><MoneyInput id="i-amt" value={amount} onChange={setAmount} /></div>
       <div className="seg" role="group" aria-label="วิธีรับ">
         <button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอนเงิน</button>
@@ -103,13 +121,15 @@ function IncomeForm({ year, entry, onClose, inc }: { year: number; entry: Income
       {method === 'transfer' && (
         <>
           <div className="field"><label htmlFor="i-ref">เลขอ้างอิงการโอน</label><input id="i-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="จากสลิป/แอปธนาคาร" /></div>
+          <div className="field"><label htmlFor="i-mem">เลขสมาชิกผู้ถวาย (ไม่ต้องใส่ชื่อ)</label><input id="i-mem" className="input" inputMode="numeric" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
+          <div className="field"><label htmlFor="i-slip">รูปสลิป {entry?.slip ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="i-slip" className="input" type="file" accept="image/*" onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)} /></div>
           {accounts.list.length > 0 && <div className="field"><label htmlFor="i-acc">เข้าบัญชี</label><select id="i-acc" className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>{accounts.list.map((a) => <option key={a.id} value={a.id}>{a.name} {a.last4 && `(${a.last4})`}</option>)}</select></div>}
         </>
       )}
       <div className="field"><label htmlFor="i-note">หมายเหตุ (ไม่ต้องใส่ชื่อผู้ถวาย)</label><input id="i-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
       {err && <p className="err" role="alert">{err}</p>}
       <div className="row">
-        <button type="button" className="btn btn--gold grow" onClick={save}>บันทึก</button>
+        <button type="button" className="btn btn--gold grow" disabled={busy} onClick={save}>{busy ? 'กำลังอัปโหลดสลิป…' : 'บันทึก'}</button>
         {entry && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบรายการนี้?') && inc.remove(entry.id)) onClose() }}>ลบ</button>}
       </div>
     </Sheet>

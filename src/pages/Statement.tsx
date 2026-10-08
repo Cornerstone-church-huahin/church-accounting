@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import MoneyInput from '../components/MoneyInput'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can, whoAmI } from '../lib/access'
 import { useAccounts, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
+import { voucherItems } from '../lib/ledger'
 import { useRole } from '../lib/members'
-import { fmtBaht, fmtDate, newId, yearOf } from '../lib/money'
-import { guessMap, parseCSV, parseRows, suggest, type Candidate } from '../lib/statement'
+import { fmtBaht, fmtDate, isISO, newId, sheetSunday, todayISO, yearOf } from '../lib/money'
+import { guessMap, parseCSV, parseRows, suggest, suggestGroups, type Candidate } from '../lib/statement'
 import { getSync, putBinary } from '../lib/sync'
 import type { CsvMap, MatchKind, StatementLine } from '../lib/types'
 import { useYear } from '../lib/year'
@@ -37,6 +39,9 @@ function Page({ year }: { year: number }) {
   const [filter, setFilter] = useState<'open' | 'all'>('open')
   const [pick, setPick] = useState<StatementLine | null>(null)
   const [up, setUp] = useState(false)
+  const [manual, setManual] = useState(false)
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [groupSheet, setGroupSheet] = useState(false)
   const me = whoAmI()
   const canEdit = can(role, 'statement')
 
@@ -45,12 +50,25 @@ function Page({ year }: { year: number }) {
     const out: Candidate[] = []
     for (const r of rounds.items) if (r.deposit) out.push({ kind: 'deposit', refId: r.id, date: r.deposit.date, amount: r.deposit.amount, label: `ฝากเงินสด รอบ ${fmtDate(r.date)}` })
     for (const x of income.items) if (x.method === 'transfer') out.push({ kind: 'income', refId: x.id, date: x.date, amount: x.amount, ref: x.ref, label: `โอน ${types.byId(x.typeId)?.name ?? ''}${x.ref ? ` อ้างอิง ${x.ref}` : ''}` })
-    for (const v of vouchers.items) if (v.status === 'paid' && v.paid && v.paid.method !== 'cash') out.push({ kind: 'voucher', refId: v.id, date: v.paid.date, amount: v.amount, label: `จ่าย ${v.no} ${v.payee}` })
+    for (const v of vouchers.items) if (v.status === 'paid' && v.paid) voucherItems(v).forEach((it, n) => { if (it.method === 'transfer') out.push({ kind: 'voucher', refId: `${v.id}#${n}`, date: v.paid!.date, amount: it.amount, ref: it.ref, label: `จ่าย ${v.no}: ${it.desc}` }) })
     return out
   }, [rounds.items, income.items, vouchers.items, types])
   const open = cands.filter((c) => !matchedRefs.has(`${c.kind}:${c.refId}`))
   const sugg = useMemo(() => suggest(lines.items, open, settings.matchDays), [lines.items, open, settings.matchDays])
   const suggBy = new Map(sugg.map((s) => [s.lineId, s]))
+  // ยอดโอนรวมต่อสัปดาห์ (ตามใบบันทึกการถวาย) ↔ รายการเงินเข้าหลายรายการในสมุด
+  const weeks = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const x of income.items) if (x.method === 'transfer') m.set(sheetSunday(x.date), (m.get(sheetSunday(x.date)) ?? 0) + x.amount)
+    return [...m.entries()].map(([sunday, amount]) => {
+      const matched = lines.items.filter((l) => l.match?.kind === 'week' && l.match.refId === sunday).reduce((a, l) => a + l.credit, 0)
+      return { sunday, amount, matched }
+    }).sort((a, b) => (a.sunday < b.sunday ? 1 : -1))
+  }, [income.items, lines.items])
+  const openWeeks = weeks.filter((w) => w.matched !== w.amount)
+  const groups = useMemo(() => suggestGroups(lines.items, openWeeks.filter((w) => w.matched === 0), settings.matchDays), [lines.items, openWeeks, settings.matchDays])
+  const selTotal = lines.items.filter((l) => sel.has(l.id)).reduce((a, l) => a + l.credit, 0)
+  const linkGroup = (ids: string[], sunday: string) => lines.put(ids.flatMap((id) => { const l = lines.items.find((x) => x.id === id); return l ? [{ ...l, match: { kind: 'week' as MatchKind, refId: sunday, by: me.name, at: Date.now() } }] : [] }))
 
   const link = (l: StatementLine, kind: MatchKind, refId: string, note = '') => lines.put([{ ...l, match: { kind, refId, note, by: me.name, at: Date.now() } }])
   const acceptAll = () => lines.put(sugg.flatMap((s) => { const l = lines.items.find((x) => x.id === s.lineId); return l ? [{ ...l, match: { kind: s.cand.kind as MatchKind, refId: s.cand.refId, by: me.name, at: Date.now() } }] : [] }))
@@ -58,7 +76,7 @@ function Page({ year }: { year: number }) {
   const shown = lines.items.filter((l) => filter === 'all' || !l.match).sort((a, b) => (a.date < b.date ? 1 : -1))
   const unmatchedCount = lines.items.filter((l) => !l.match).length
   const accName = (id: string) => accounts.list.find((a) => a.id === id)?.name ?? ''
-  const labelOf = (m: NonNullable<StatementLine['match']>) => m.kind === 'other' ? `อื่น ๆ: ${m.note}` : cands.find((c) => c.kind === m.kind && c.refId === m.refId)?.label ?? 'จับคู่แล้ว (ไม่พบรายการ)'
+  const labelOf = (m: NonNullable<StatementLine['match']>) => m.kind === 'other' ? `อื่น ๆ: ${m.note}` : m.kind === 'week' ? `ยอดโอนรวมใบถวาย ${fmtDate(m.refId)}` : cands.find((c) => c.kind === m.kind && c.refId === m.refId)?.label ?? 'จับคู่แล้ว (ไม่พบรายการ)'
 
   return (
     <>
@@ -74,7 +92,13 @@ function Page({ year }: { year: number }) {
             <div><span>ยังไม่จับคู่</span><b className={unmatchedCount ? 'bad' : 'good'}>{unmatchedCount}</b></div>
             <div><span>ยอดฝาก/โอน/จ่ายที่ยังไม่พบในสเตตเมนต์</span><b className={open.length ? 'bad' : 'good'}>{open.length}</b></div>
           </div>
-          {canEdit && <button type="button" className="btn btn--gold" onClick={() => setUp(true)}>⬆️ อัปโหลดสเตตเมนต์</button>}
+          {canEdit && <div className="row"><button type="button" className="btn btn--gold grow" onClick={() => setManual(true)}>✍️ พิมพ์รายการจากสมุด</button><button type="button" className="btn btn--ghost" onClick={() => setUp(true)}>⬆️ ไฟล์ CSV/รูป</button></div>}
+          {groups.length > 0 && canEdit && (
+            <div className="note" role="status">
+              💡 รายการเงินเข้าในสมุดรวมกันได้เท่ากับยอดโอนรวมในใบถวาย {groups.length} สัปดาห์:
+              {groups.map((g) => <div key={g.sunday}>อาทิตย์ {fmtDate(g.sunday)} · {g.lineIds.length} รายการ รวม {fmtBaht(g.total)} <button type="button" className="mini" onClick={() => linkGroup(g.lineIds, g.sunday)}>ยอมรับ</button></div>)}
+            </div>
+          )}
 
           {sugg.length > 0 && canEdit && (
             <div className="note" role="status">
@@ -94,7 +118,7 @@ function Page({ year }: { year: number }) {
                   return (
                     <li key={l.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
                       <div className="row row--between">
-                        <span className="small muted">{fmtDate(l.date)} · {accName(l.accountId)}</span>
+                        <span className="small muted">{canEdit && !l.match && l.credit > 0 && <input type="checkbox" aria-label={`เลือกรายการ ${fmtDate(l.date)} ${fmtBaht(l.credit)}`} checked={sel.has(l.id)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(l.id); else n.delete(l.id); setSel(n) }} />} {fmtDate(l.date)} · {accName(l.accountId)}</span>
                         <b className={l.credit ? 'good num' : 'bad num'}>{l.credit ? `+${fmtBaht(l.credit)}` : `−${fmtBaht(l.debit)}`}</b>
                       </div>
                       <div className="small">{l.desc || '—'}</div>
@@ -112,6 +136,20 @@ function Page({ year }: { year: number }) {
               </ul>
             )}
           </section>
+
+          {sel.size > 0 && (
+            <div className="note row row--between" role="status" style={{ position: 'sticky', bottom: '4.2rem' }}>
+              <span>เลือก {sel.size} รายการ รวม <b>{fmtBaht(selTotal)}</b></span>
+              <span className="row"><button type="button" className="btn btn--gold" onClick={() => setGroupSheet(true)}>จับคู่กับยอดโอนรวมของสัปดาห์…</button><button type="button" className="mini" onClick={() => setSel(new Set())}>ล้าง</button></span>
+            </div>
+          )}
+
+          {openWeeks.length > 0 && (
+            <details className="card">
+              <summary><b>ยอดโอนรวมใบถวายที่ยังจับคู่ไม่ครบ ({openWeeks.length})</b></summary>
+              <ul className="list">{openWeeks.map((w) => <li key={w.sunday}><span className="grow small">อาทิตย์ {fmtDate(w.sunday)} · จับคู่แล้ว {fmtBaht(w.matched)}</span><b className="num">{fmtBaht(w.amount)}</b></li>)}</ul>
+            </details>
+          )}
 
           {open.length > 0 && (
             <details className="card">
@@ -133,6 +171,20 @@ function Page({ year }: { year: number }) {
           <OtherMatch onSave={(note) => { link(pick, 'other', 'other', note); setPick(null) }} />
         </Sheet>
       )}
+      {groupSheet && (
+        <Sheet title="จับคู่กับยอดโอนรวมของสัปดาห์" onClose={() => setGroupSheet(false)}>
+          <p className="small">รายการที่เลือก {sel.size} รายการ รวม <b>{fmtBaht(selTotal)}</b> บาท</p>
+          <ul className="list">
+            {weeks.map((w) => (
+              <li key={w.sunday}><button type="button" className="mini grow" style={{ textAlign: 'left' }} onClick={() => { linkGroup([...sel], w.sunday); setSel(new Set()); setGroupSheet(false) }}>
+                อาทิตย์ {fmtDate(w.sunday)} · ยอดโอนรวม <b>{fmtBaht(w.amount)}</b>{w.matched > 0 && ` (จับคู่แล้ว ${fmtBaht(w.matched)})`} {w.amount === w.matched + selTotal ? <span className="ok"> ✓ ครบพอดี</span> : <span className="bad"> (ต่าง {fmtBaht(w.amount - w.matched - selTotal, { sign: true })})</span>}
+              </button></li>
+            ))}
+          </ul>
+          {weeks.length === 0 && <p className="muted">ยังไม่มีรายการเงินโอนในใบถวาย</p>}
+        </Sheet>
+      )}
+      {manual && <ManualLines year={year} accounts={accounts.list} lines={lines} onClose={() => setManual(false)} />}
       {up && <Upload year={year} onClose={() => setUp(false)} lines={lines} batches={batches} accounts={accounts.list} csvMaps={settings.csvMaps} rememberMap={(accId, m) => { if (can(role, 'settings')) save({ csvMaps: { ...settings.csvMaps, [accId]: m } }) }} />}
     </>
   )
@@ -226,6 +278,50 @@ function Upload({ year, onClose, lines, batches, accounts, csvMaps, rememberMap 
       )}
       {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
       <button type="button" className="btn btn--gold" disabled={busy || !file || (isCsv && !ready)} onClick={run}>{busy ? 'กำลังนำเข้า…' : isCsv ? `นำเข้า ${fresh.length} รายการ` : 'เก็บไฟล์เป็นหลักฐาน'}</button>
+    </Sheet>
+  )
+}
+
+const CODES: { code: string; label: string; dir: 'in' | 'out'; auto?: string }[] = [
+  { code: 'TN', label: 'TN โอนเข้า', dir: 'in' }, { code: 'DB', label: 'DB ฝากเงินสด', dir: 'in' }, { code: 'IN', label: 'IN ดอกเบี้ย', dir: 'in', auto: 'ดอกเบี้ยเงินฝาก' },
+  { code: 'WB', label: 'WB ถอน', dir: 'out' }, { code: 'TX', label: 'TX ภาษีหัก ณ ที่จ่าย', dir: 'out', auto: 'ภาษีหัก ณ ที่จ่าย' },
+  { code: 'INX', label: 'อื่น ๆ (เงินเข้า)', dir: 'in' }, { code: 'OUTX', label: 'อื่น ๆ (เงินออก)', dir: 'out' },
+]
+
+/** พิมพ์รายการจากสมุดคู่ฝาก/สเตตเมนต์ทีละบรรทัด — คงวันที่ไว้ให้พิมพ์ต่อเร็ว ๆ */
+function ManualLines({ year, accounts, lines, onClose }: { year: number; accounts: { id: string; name: string; last4: string }[]; lines: ReturnType<typeof useStatementLines>; onClose: () => void }) {
+  const me = whoAmI()
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
+  const [date, setDate] = useState(yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`)
+  const [code, setCode] = useState('TN')
+  const [amount, setAmount] = useState<number | null>(null)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [note, setNote] = useState('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [n, setN] = useState(0)
+  const c = CODES.find((x) => x.code === code)!
+  const add = () => {
+    if (!isISO(date) || yearOf(date) !== year) return setMsg({ ok: false, text: `วันที่ต้องอยู่ในปี ${year + 543}` })
+    if (!amount || amount <= 0) return setMsg({ ok: false, text: 'ใส่จำนวนเงิน' })
+    const id = newId('sl')
+    const rec: StatementLine = { id, batchId: 'manual', accountId, date, desc: `${c.code.length === 2 ? c.code + ' ' : ''}${note.trim()}`.trim(), credit: c.dir === 'in' ? amount : 0, debit: c.dir === 'out' ? amount : 0, ...(balance ? { balance } : {}), ...(c.auto ? { match: { kind: 'other' as MatchKind, refId: 'auto', note: c.auto, by: me.name, at: Date.now() } } : {}), updated: 0 }
+    if (lines.put([rec])) { setN(n + 1); setAmount(null); setBalance(null); setNote(''); setMsg({ ok: true, text: `บันทึกแล้ว ✓ (${n + 1} รายการ) พิมพ์บรรทัดถัดไปได้เลย` }) }
+  }
+  return (
+    <Sheet title="พิมพ์รายการจากสมุด" onClose={onClose}>
+      {accounts.length > 1 && <div className="field"><label htmlFor="m-acc">บัญชี</label><select id="m-acc" className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name} {a.last4 && `(${a.last4})`}</option>)}</select></div>}
+      <div className="grid2">
+        <div className="field"><label htmlFor="m-date">วันที่</label><input id="m-date" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div className="field"><label htmlFor="m-code">รายการ</label><select id="m-code" className="input" value={code} onChange={(e) => setCode(e.target.value)}>{CODES.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></div>
+      </div>
+      <div className="grid2">
+        <div className="field"><label htmlFor="m-amt">{c.dir === 'in' ? 'ฝาก/เข้า (บาท)' : 'ถอน/ออก (บาท)'}</label><MoneyInput id="m-amt" value={amount} onChange={setAmount} /></div>
+        <div className="field"><label htmlFor="m-bal">คงเหลือ (ถ้าจะเทียบ)</label><MoneyInput id="m-bal" value={balance} onChange={setBalance} placeholder="ไม่บังคับ" /></div>
+      </div>
+      <div className="field"><label htmlFor="m-note">หมายเหตุ (ลายมือที่เขียนในสมุด)</label><input id="m-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น สิบลด / ถอนเตรียมจ่ายเงินสด" /></div>
+      {c.auto && <p className="muted small">รายการชนิดนี้จะถูกจับคู่ให้อัตโนมัติว่าเป็น “{c.auto}”</p>}
+      {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
+      <div className="row"><button type="button" className="btn btn--gold grow" onClick={add}>บันทึกรายการ</button><button type="button" className="btn btn--ghost" onClick={onClose}>เสร็จ</button></div>
     </Sheet>
   )
 }

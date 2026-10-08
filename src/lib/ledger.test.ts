@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { approveBlock, budgetRows, buckets, entriesFromRound, isFullyApproved, periodOf, shiftPeriod, stageOf, weekSummary } from './ledger'
-import type { Voucher } from './types'
+import { approveBlock, budgetRows, buckets, entriesFromRound, isFullyApproved, paidItems, periodOf, shiftPeriod, stageOf, voucherItems, weekSummary, weekTransfers } from './ledger'
+import type { IncomeEntry, Voucher } from './types'
 
 const v = (o: Partial<Voucher> = {}): Voucher => ({
   id: 'v1', no: 'V1', date: '2026-10-05', requester: { id: 'u1', name: 'ก' }, payee: 'ร้าน', purpose: 'ซื้อของ', amount: 100000, lineId: 'b1',
@@ -58,5 +58,69 @@ describe('budget, weeks, periods', () => {
   it('creates stable cash entries from a round', () => {
     const e = entriesFromRound({ id: 'rd-2026-10-04', date: '2026-10-04', lines: { t1: 100, t2: 0 }, denoms: {}, status: 'verified', counter: { id: 'a', name: 'a' }, updated: 1 })
     expect(e.map((x) => [x.id, x.deleted])).toEqual([['rd-2026-10-04:t1', false], ['rd-2026-10-04:t2', true]])
+  })
+})
+
+describe('multi-item vouchers and weekly transfer totals', () => {
+  const multi = v({ amount: 150000, status: 'paid', paid: { date: '2026-10-05', by: 'ก' }, items: [
+    { desc: 'น้ำมัน', amount: 100000, lineId: 'b1', method: 'cash' },
+    { desc: 'ถวายสิบลดภาค 7', amount: 50000, lineId: 'b2', method: 'advance', ref: 'X1' },
+  ] })
+  it('falls back to a single item for old vouchers', () => {
+    expect(voucherItems(v())).toEqual([{ desc: 'ซื้อของ', amount: 100000, lineId: 'b1', method: 'cash' }])
+  })
+  it('spends budget per item line', () => {
+    const rows = budgetRows(
+      [{ id: 'b1', year: 2026, name: 'A', base: 500000, order: 0, updated: 1 }, { id: 'b2', year: 2026, name: 'B', base: 100000, order: 1, updated: 1 }],
+      [], [multi],
+    )
+    expect(rows.map((r) => r.spent)).toEqual([100000, 50000])
+    expect(paidItems([multi], { kind: 'year', from: '2026-01-01', to: '2026-12-31' }).length).toBe(2)
+  })
+  it('counts income of the linked income types on a budget line', () => {
+    const inc: IncomeEntry[] = [
+      { id: '1', date: '2026-01-04', typeId: 'tt5', amount: 300000, method: 'cash', updated: 1 },
+      { id: '2', date: '2026-02-01', typeId: 'tt5', amount: 200000, method: 'transfer', updated: 1 },
+      { id: '3', date: '2026-02-01', typeId: 'tt1', amount: 999, method: 'cash', updated: 1 },
+    ]
+    const rows = budgetRows([{ id: 'b', year: 2026, name: 'อาหาร', base: 1, order: 0, updated: 1, incomeTypeIds: ['tt5'] }, { id: 'c', year: 2026, name: 'x', base: 1, order: 1, updated: 1 }], [], [], inc)
+    expect(rows.map((r) => r.income)).toEqual([500000, 0])
+  })
+  it('adds direct budget entries to income (green) and spending (red)', () => {
+    const rows = budgetRows([{ id: 'b', year: 2026, name: 'สวัสดิการ', base: 5000000, order: 0, updated: 1 }], [], [], [], [
+      { id: 'e1', year: 2026, lineId: 'b', kind: 'in', amount: 2000000, date: '2026-01-05', note: '', updated: 1 },
+      { id: 'e2', year: 2026, lineId: 'b', kind: 'out', amount: 500000, date: '2026-02-05', note: '', updated: 1 },
+      { id: 'e3', year: 2026, lineId: 'b', kind: 'out', amount: 100, date: '2026-02-05', note: '', deleted: true, updated: 1 },
+    ])
+    expect(rows[0]).toMatchObject({ income: 2000000, spent: 500000, remaining: 4500000 })
+  })
+  it('a fund with money but no budget: balance is income minus spending, budget bar stays at zero', () => {
+    const rows = budgetRows([{ id: 'f', year: 2026, name: 'กองทุน', base: 0, order: 0, updated: 1 }], [], [], [], [
+      { id: 'e1', year: 2026, lineId: 'f', kind: 'in', amount: 300000, date: '2026-01-05', note: '', updated: 1 },
+      { id: 'e2', year: 2026, lineId: 'f', kind: 'out', amount: 100000, date: '2026-02-05', note: '', updated: 1 },
+    ])
+    expect(rows[0]).toMatchObject({ current: 0, income: 300000, spent: 100000, balance: 200000, remaining: 200000 })
+  })
+  it('opening balances are editable starting points for the green and red bars', () => {
+    const rows = budgetRows([{ id: 'f', year: 2026, name: 'กองทุน', base: 0, order: 0, updated: 1, openingIn: 400000, openingOut: 50000 }], [], [], [], [
+      { id: 'e1', year: 2026, lineId: 'f', kind: 'in', amount: 100000, date: '2026-01-05', note: '', updated: 1 },
+    ])
+    expect(rows[0]).toMatchObject({ income: 500000, spent: 50000, balance: 450000, inParts: { opening: 400000, linked: 0, entries: 100000 } })
+  })
+  it('“คริสตจักร” source takes every income type that is not owned by a fund', () => {
+    const inc: IncomeEntry[] = [
+      { id: '1', date: '2026-01-04', typeId: 'tt1', amount: 100000, method: 'cash', updated: 1 },
+      { id: '2', date: '2026-01-04', typeId: '', amount: 50000, method: 'transfer', updated: 1 },
+      { id: '3', date: '2026-01-04', typeId: 'fund-type', amount: 999999, method: 'cash', updated: 1 },
+    ]
+    const rows = budgetRows([{ id: 'b', year: 2026, name: 'x', base: 1, order: 0, updated: 1, incomeTypeIds: ['__church'] }], [], [], inc, [], ['fund-type'])
+    expect(rows[0].income).toBe(150000)
+  })
+  it('groups Mon–Sun transfers into the Sunday sheet (matches the real 4 Oct sheet)', () => {
+    const t = (id: string, date: string, amount: number): IncomeEntry => ({ id, date, typeId: '', amount, method: 'transfer', updated: 1 })
+    const xs = [t('a', '2026-09-27', 95000), t('b', '2026-09-28', 1000), t('c', '2026-10-02', 3200000), t('d', '2026-10-04', 57500), t('e', '2026-10-05', 999)]
+    expect(weekTransfers(xs, '2026-10-04').total).toBe(3258500)
+    expect(weekTransfers(xs, '2026-09-27').total).toBe(95000)
+    expect(weekTransfers(xs, '2026-10-11').total).toBe(999)
   })
 })

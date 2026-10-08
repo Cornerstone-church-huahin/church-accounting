@@ -146,3 +146,36 @@ export function suggest(lines: StatementLine[], cands: Candidate[], maxDays: num
   }
   return out
 }
+
+export interface WeekCandidate { sunday: string; amount: number }
+export interface GroupSuggestion { sunday: string; lineIds: string[]; total: number }
+
+/**
+ * เงินโอนเข้าสมุด/สเตตเมนต์เป็นรายการย่อยหลายรายการ แต่ใบถวายลงเป็นยอดโอนรวมต่อสัปดาห์
+ * เสนอกลุ่มที่ "ผลรวมรายการเงินเข้าที่ยังไม่จับคู่ในช่วงจันทร์–อาทิตย์ (+ผ่อนผัน graceDays วัน) เท่ากับยอดโอนรวมเป๊ะ"
+ */
+export function suggestGroups(lines: StatementLine[], weeks: WeekCandidate[], graceDays = 3): GroupSuggestion[] {
+  const out: GroupSuggestion[] = []
+  const used = new Set<string>()
+  for (const w of weeks) {
+    if (w.amount <= 0) continue
+    const from = diffDaysISO(w.sunday, -6), to = diffDaysISO(w.sunday, graceDays)
+    let pool = lines.filter((l) => !l.match && !l.deleted && l.credit > 0 && !used.has(l.id) && l.date >= from && l.date <= to)
+    // รายการน้อยพอจะลองทุกชุดย่อยได้ (รายการอื่นที่ปนมาในช่วงเดียวกัน เช่น ยอดฝากเงินสด จะถูกคัดออกเอง)
+    if (pool.length > 16) pool = pool.sort((a, b) => Math.abs(diffDaysTo(a.date, w.sunday)) - Math.abs(diffDaysTo(b.date, w.sunday))).slice(0, 16)
+    let best: StatementLine[] | null = null
+    for (let mask = 1; mask < 1 << pool.length; mask++) {
+      let sum = 0, cnt = 0
+      for (let i = 0; i < pool.length; i++) if (mask & (1 << i)) { sum += pool[i].credit; cnt++ }
+      if (sum === w.amount && (!best || cnt > best.length)) best = pool.filter((_, i) => mask & (1 << i))
+    }
+    if (best) { out.push({ sunday: w.sunday, lineIds: best.map((l) => l.id), total: w.amount }); best.forEach((l) => used.add(l.id)) }
+  }
+  return out
+}
+const diffDaysTo = (a: string, b: string) => Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86_400_000)
+function diffDaysISO(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d + n))
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`
+}
