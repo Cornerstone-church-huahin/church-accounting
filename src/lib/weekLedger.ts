@@ -4,8 +4,8 @@ import { inRange } from './money'
 import { UNSORTED, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
-export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc }
-export const sumRows = (rs: LRow[]) => ({ cash: rs.reduce((a, r) => a + r.cash.amt, 0), transfer: rs.reduce((a, r) => a + r.transfer.amt, 0) })
+export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc; /** ค้างจ่าย: วางบิลที่ยังไม่จ่าย / สำรองจ่ายที่ยังไม่คืนเงิน (นับเป็นรายจ่ายแล้ว แต่เงินยังไม่ออก) */ pending?: LSrc }
+export const sumRows = (rs: LRow[]) => ({ cash: rs.reduce((a, r) => a + r.cash.amt, 0), transfer: rs.reduce((a, r) => a + r.transfer.amt, 0), pending: rs.reduce((a, r) => a + (r.pending?.amt ?? 0), 0) })
 
 const NO_BUDGET = '__none' // ต้องตรงกับ Vouchers.tsx
 
@@ -39,7 +39,7 @@ export function computeLedger(a: {
   const cats = a.cats ?? []
   const groups = cats.filter((c) => c.kind === 'group' && c.active).sort((x, y) => x.order - y.order)
   const o = new Map<string, LRow>()
-  const oat = (id: string, label: string) => { const r = o.get(id) ?? { key: id, label, cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; o.set(id, r); return r }
+  const oat = (id: string, label: string) => { const r = o.get(id) ?? { key: id, label, cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 }, pending: { n: 0, amt: 0 } }; o.set(id, r); return r }
   const UNCAT = '__uncat'
   // รายจ่ายแต่ละรายการ → แถวของหมวดหลัก (ถ้ามีหมวดรายจ่าย) หรือหมวดงบ (แบบเดิม)
   const rowFor = (catId: string | undefined, lineId: string) => {
@@ -51,20 +51,20 @@ export function computeLedger(a: {
     return oat(lineId, lineName(lineId))
   }
   for (const { item } of paidItems(a.vouchers, p)) { const r = rowFor(item.catId, item.lineId); const t = item.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += item.amount }
-  // รายจ่ายบันทึกด้วยมือ/วางบิล/สำรองจ่าย: นับเมื่อจ่ายแล้ว ตามวันที่จ่าย
+  // รายจ่ายบันทึกด้วยมือ/วางบิล/สำรองจ่าย: นับเป็นรายจ่ายทันทีตามวันที่เกิดรายการ — จ่ายแล้วเข้าเงินสด/โอน ยังไม่จ่าย (ค้างจ่าย/รอคืนเงิน) เข้าช่อง "ค้างจ่าย"
   for (const x of a.expenses ?? []) {
-    if (x.deleted || x.status !== 'paid') continue
-    const d = x.channel === 'manual' ? x.date : (x.paidDate ?? x.date)
-    if (!inRange(d, p.from, p.to)) continue
-    const r = rowFor(x.catId, '__none'); const t = x.method === 'transfer' ? r.transfer : r.cash; t.n += 1; t.amt += x.amount
+    if (x.deleted || !inRange(x.date, p.from, p.to)) continue
+    const r = rowFor(x.catId, '__none')
+    const t = x.status !== 'paid' ? r.pending! : x.method === 'transfer' ? r.transfer : r.cash
+    t.n += 1; t.amt += x.amount
   }
   for (const e of directOut(a.entries, p)) { const t = rowFor(undefined, e.lineId).cash; t.n += 1; t.amt += e.amount }
   const outAll = [...o.values()]
-  const hasAmt = (r: LRow) => r.cash.amt > 0 || r.transfer.amt > 0
+  const hasAmt = (r: LRow) => r.cash.amt > 0 || r.transfer.amt > 0 || (r.pending?.amt ?? 0) > 0
   // รายจ่ายแสดงเฉพาะหมวดที่เกิดรายการจริง เรียงตามลำดับหมวดหลัก (ยังไม่ระบุหมวดไว้ท้าย)
   const outRows = groups.length > 0
     ? [...groups.map((g) => o.get(g.id)).filter((r): r is LRow => !!r && hasAmt(r)), ...(o.get(UNCAT) && hasAmt(o.get(UNCAT)!) ? [o.get(UNCAT)!] : [])]
-    : outAll.sort((x, y) => y.cash.amt + y.transfer.amt - x.cash.amt - x.transfer.amt)
+    : outAll.sort((x, y) => y.cash.amt + y.transfer.amt + (y.pending?.amt ?? 0) - x.cash.amt - x.transfer.amt - (x.pending?.amt ?? 0))
 
   return { incRows, outRows, inSum: sumRows(incRows), outSum: sumRows(outRows) }
 }
