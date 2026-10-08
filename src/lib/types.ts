@@ -145,3 +145,25 @@ export interface ExpenseCat extends SharedItem {
   order: number
   active: boolean
 }
+
+/** รายจ่ายนอกใบเบิก 3 ช่องทาง: manual = บันทึกด้วยมือ (จ่ายแล้ว) · bill = วางบิล (ค้างจ่ายจนกว่าจะจ่าย) · advance = สำรองจ่าย (ผู้สำรองจ่ายรอรับเงินคืน) */
+export interface ExpenseEntry extends SharedItem {
+  channel: 'manual' | 'bill' | 'advance'
+  /** manual: วันที่จ่าย · bill: วันที่ในบิล · advance: วันที่สำรองจ่าย */
+  date: string
+  amount: number
+  desc: string
+  catId?: string
+  /** bill: ผู้ออกบิล/ร้าน · advance: ผู้สำรองจ่าย · manual: ผู้รับเงิน */
+  who?: string
+  /** bill: วันครบกำหนด */
+  due?: string
+  /** จ่ายแล้ว (manual = จ่ายแล้วเสมอ) · bill/advance: open = ค้างจ่าย/รอคืนเงิน */
+  status: 'open' | 'paid'
+  paidDate?: string
+  method?: 'cash' | 'transfer'
+  ref?: string
+  note?: string
+  /** รูปบิล/ใบเสร็จ (path ว่าง = โหมดทดลอง ไม่ได้เก็บรูป) */
+  file?: { path: string; name: string }
+}

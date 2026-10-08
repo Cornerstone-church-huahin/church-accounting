@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS } from './expenseCats'
-import type { BankAccount, ExpenseCat, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -48,3 +48,6 @@ export function useExpenseCats() {
   const merged = mergeItems(DEFAULT_EXPENSE_CATS, s.all).filter((c) => !c.deleted).sort((a, b) => a.order - b.order)
   return { ...s, list: merged, groups: merged.filter((c) => c.kind === 'group'), itemsOf: (g: string) => merged.filter((c) => c.kind === 'item' && c.group === g), byId: (id: string) => merged.find((c) => c.id === id) }
 }
+
+/** รายจ่ายนอกใบเบิก (บันทึกด้วยมือ / วางบิล / สำรองจ่าย) รายปี */
+export const useExpenses = (year: number) => useSharedStore<ExpenseEntry>({ localKey: k(`expenses.${year}`), file: `expenses-${year}.json`, label: `รายจ่าย ${year}`, write: 'voucherPay' })

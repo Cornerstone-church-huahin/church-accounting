@@ -19,7 +19,7 @@ try {
   must(await page.getByRole('tab', { name: 'บันทึกด้วยมือ' }).count() === 0, 'sub tabs hidden before clicking รับ')
   await page.getByRole('tab', { name: '💚 รับ' }).click()
   for (const n of ['บันทึกด้วยมือ', 'บันทึกสลิป', 'ใบบันทึกการถวาย']) must(await page.getByRole('tab', { name: new RegExp(n) }).isVisible(), 'sub tab ' + n)
-  must(await page.getByRole('tab', { name: /ผลรวม/ }).isVisible(), 'total tab (4) exists')
+  must(await page.getByRole('tab', { name: /รวมรับ/ }).isVisible(), 'total tab (4) exists')
   // 1 บันทึกด้วยมือ: ค่าเช่า 10,000 เงินสด
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   await page.getByRole('button', { name: '＋ บันทึก' }).click()
@@ -45,7 +45,7 @@ try {
   await page.keyboard.press('Escape')
   await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
   const rep = page.locator('section', { has: page.locator('#h-rep') })
-  const readTotal = async () => { await page.getByRole('tab', { name: /ผลรวม/ }).click(); return (await rep.innerText()).replace(/\n/g, ' ') }
+  const readTotal = async () => { await page.getByRole('tab', { name: /รวมรับ/ }).click(); return (await rep.innerText()).replace(/\n/g, ' ') }
   const txt = await readTotal()
   must(/ได้รับการถวายประจำสัปดาห์/.test(txt) && /สิบลด\s+1\s+10,000\.00\s+10,000\.00[\s\S]*รวมทั้งสิ้น\s+1\s+10,000\.00\s+0\s+0\.00\s+10,000\.00/.test(txt), 'summary page shows only the per-type table with totals :: ' + txt)
   must(!/ใบสรุปเงินรับ|รายการที่บันทึก/.test(txt), 'no extra tables in tab 4')
@@ -149,7 +149,7 @@ try {
   await page.waitForTimeout(300)
   must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleting the sheet removes its cash')
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
-  must(await page.getByRole('heading', { name: '🔴 จ่าย' }).isVisible(), 'pay panel')
+  must(await page.getByRole('tab', { name: /รวมจ่าย/ }).isVisible(), 'pay mode shows its 4 tabs')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('RECEIVE OK')
 } catch (e) { await page.screenshot({ path: 'shots/receive-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

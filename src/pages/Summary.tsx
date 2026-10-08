@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useBudgetEntries, useBudgetLines, useExpenseCats, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, sundaysOf, sheetSunday, todayISO } from '../lib/money'
 import { downloadPdf } from '../lib/pdf'
 import { computeLedger } from '../lib/weekLedger'
@@ -18,14 +18,15 @@ export default function Summary({ year }: { year: number }) {
   const entries = useBudgetEntries(year)
   const types = useIncomeTypes()
   const cats = useExpenseCats()
+  const expenses = useExpenses(year)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const [scope, setScope] = useState<'week' | 'year'>('week')
   const [busy, setBusy] = useState(false)
   const idx = sundays.indexOf(sunday)
 
-  const L = useMemo(() => computeLedger({ year, sunday, scope, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list }),
-    [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list])
+  const L = useMemo(() => computeLedger({ year, sunday, scope, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items }),
+    [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items])
   const { incRows, outRows, inSum, outSum } = L
 
   // ย่อหน้ากระดาษให้พอดีความกว้างจอ (ตอนพิมพ์/สร้าง PDF ใช้ขนาดจริง)
