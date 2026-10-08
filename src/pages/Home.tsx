@@ -4,6 +4,7 @@ import { useBudgetAdjs, useBudgetLines, useIncome, useRounds, useSettings, useSt
 import { budgetRows, roundTotal, tasksFor, weekTransfers } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, fmtDateLong, inRange, monthName, monthOf, sundaysOf, todayISO, yearOf } from '../lib/money'
+import InstallApp from '../components/InstallApp'
 import { getSync } from '../lib/sync'
 import { useYear } from '../lib/year'
 
@@ -49,6 +50,7 @@ function Dashboard({ year }: { year: number }) {
           <p className="muted small">ปีบัญชี {be(year)} · {getSync() ? `${whoAmI().name} (${role === 'pending' ? 'รออนุมัติ' : ROLE_LABEL[role]})` : 'โหมดทดลองในเครื่องนี้ — ยังไม่เชื่อมออนไลน์'}</p>
         </div>
       </div>
+      <InstallApp banner />
       {!getSync() && <Link to="/settings" className="note" style={{ textDecoration: 'none' }}>☁️ ข้อมูลตอนนี้อยู่ในเครื่องนี้เท่านั้น · กดเพื่อเชื่อมออนไลน์ให้ทุกคนเห็นข้อมูลชุดเดียวกัน</Link>}
       {sync.state === 'error' && <p className="note" role="alert">⚠️ ซิงก์ไม่สำเร็จ: {sync.message}</p>}
 

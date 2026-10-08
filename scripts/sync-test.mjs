@@ -97,5 +97,33 @@ try {
   await B.getByRole('button', { name: 'บันทึก', exact: true }).click()
   for (let i = 0; i < 40 && inc().items.length < 1; i++) await B.waitForTimeout(250)
   ok(inc().items.length === 1 && inc().items[0].amount === 20000, 'B can add new data after the reset')
+  // ---- เชิญคนใหม่ด้วยลิงก์: ภรรยาเปิดลิงก์ → พิมพ์ชื่อ → ขอเข้าใช้ → แอดมินเห็นชื่อ → ให้สิทธิ์ผู้ตรวจสอบ + อนุมัติ → ภรรยาเข้าใช้ได้ ----
+  const C = await (async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } })
+    await ctx.route('https://api.github.com/**', fake)
+    const page = await ctx.newPage(); page.on('dialog', (d) => d.accept()); return page
+  })()
+  await C.goto(base + '/join?t=fake&role=bookkeeper&for=' + encodeURIComponent('ภรรยา'))
+  await C.getByLabel('ชื่อของท่าน').fill('ภรรยา')
+  await C.getByRole('button', { name: /ส่งคำขอร่วมใช้/ }).click()
+  await C.getByText(/ส่งคำขอร่วมใช้แล้ว — รอแอดมินอนุมัติ/).waitFor({ timeout: 10000 })
+  for (let i = 0; i < 40 && !files.get('members.json').text.includes('ภรรยา'); i++) await C.waitForTimeout(250)
+  ok(JSON.parse(files.get('members.json').text).items.some((m) => m.name === 'ภรรยา' && m.status === 'pending'), 'wife request written as pending')
+  // ก่อนอนุมัติ ภรรยาเข้าแอปไม่ได้
+  ok((await C.getByRole('link', { name: 'รายรับ', exact: true }).count()) === 0, 'pending user cannot see the app')
+  // แอดมินเห็นชื่อ ให้สิทธิ์ แล้วอนุมัติ
+  await A.goto(base + '/settings')
+  await A.reload()
+  await A.getByText('ภรรยา', { exact: false }).first().waitFor({ timeout: 10000 })
+  await A.getByLabel('สิทธิ์ที่จะให้ ภรรยา').selectOption({ label: 'ผู้ตรวจสอบ' })
+  await A.getByRole('button', { name: '✓ อนุมัติ' }).click()
+  await A.getByText(/อนุมัติ ภรรยา แล้ว/).waitFor({ timeout: 10000 })
+  // แอดมินส่งขึ้นไฟล์ (หน่วง 0.6 วิ) แล้วภรรยาตรวจสถานะ → เข้าใช้ได้ตามสิทธิ์ผู้ตรวจสอบ
+  for (let i = 0; i < 40 && !JSON.parse(files.get('members.json').text).items.some((m) => m.name === 'ภรรยา' && m.status === 'active'); i++) await A.waitForTimeout(250)
+  await C.getByRole('button', { name: /ตรวจว่าอนุมัติแล้วหรือยัง/ }).click()
+  await C.getByRole('link', { name: 'รายรับ', exact: true }).waitFor({ timeout: 10000 })
+  await C.goto(base + '/income')
+  await C.getByText('1,500.00').or(C.getByText('200.00')).first().waitFor({ timeout: 10000 })
+  ok((await C.getByRole('button', { name: '＋ บันทึกรายรับ' }).count()) === 0, 'auditor can view but not add income')
   console.log('SYNC OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

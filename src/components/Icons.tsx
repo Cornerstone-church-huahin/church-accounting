@@ -9,3 +9,7 @@ export const IconWallet = () => <svg {...base}><path d="M3.5 7.5A2.5 2.5 0 0 1 6
 export const IconSettings = () => <svg {...base}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" /></svg>
 export const IconBack = () => <svg {...base}><path d="m15 5-7 7 7 7" /></svg>
 export const IconPrint = () => <svg {...base}><path d="M7 9V3h10v6M7 17H4.5v-7h15v7H17" /><rect x="7" y="14" width="10" height="7" /></svg>
+/** โลโก้เหรียญ (ตรงกับไอคอนแอป) ใช้แทนชื่อแอปที่หัวจอ */
+export const Logo = () => (
+  <svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#1A2B4C" /><circle cx="256" cy="256" r="150" fill="none" stroke="#D4AF37" strokeWidth="32" /><path d="M236 170v172M236 190h52a32 32 0 0 1 0 64h-52M236 254h60a32 32 0 0 1 0 64h-60" fill="none" stroke="#D4AF37" strokeWidth="30" strokeLinecap="round" strokeLinejoin="round" /></svg>
+)
