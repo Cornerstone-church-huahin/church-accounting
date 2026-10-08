@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { forwardRef, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
@@ -42,6 +42,8 @@ export default function Receive({ year }: { year: number }) {
   const idx = sundays.indexOf(sunday)
 
   const paperRef = useRef<HTMLElement>(null)
+  const blankRef = useRef<HTMLDivElement>(null)
+  const [blankBusy, setBlankBusy] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
   const [allWeeks, setAllWeeks] = useState(true)
   const [repScope, setRepScope] = useState<'week' | 'year'>('year')
@@ -163,7 +165,18 @@ export default function Receive({ year }: { year: number }) {
       )}
       {sub === 'sheet' && (
         <section className="card no-print" role="tabpanel" aria-label="ใบบันทึกการถวาย">
-          <div className="row row--between"><h2>3 · ใบบันทึกการถวาย</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setAttach('new')}>＋ แนบไฟล์</button>}</div>
+          <div className="row row--between">
+            <h2>3 · ใบบันทึกการถวาย</h2>
+            <span className="row" style={{ gap: 8 }}>
+              <button type="button" className="icon-btn" disabled={blankBusy} aria-label="ดาวน์โหลดใบบันทึกการถวายเปล่า (PDF) ไว้พิมพ์ใช้" title="ดาวน์โหลดใบเปล่า (PDF)" onClick={async () => {
+                if (!blankRef.current) return
+                setBlankBusy(true)
+                try { await downloadPdf(blankRef.current, 'offering-sheet-blank.pdf') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองใหม่อีกครั้ง') }
+                setBlankBusy(false)
+              }}>{blankBusy ? '…' : '📄⬇️'}</button>
+              {canWrite && <button type="button" className="btn btn--gold" onClick={() => setAttach('new')}>＋ แนบไฟล์</button>}
+            </span>
+          </div>
           <p className="muted small">ถ่ายรูปใบบันทึกการถวายวันอาทิตย์แล้วแนบ — ระบบอ่านแถวเงินสดให้ ท่านตรวจแล้วกดยืนยัน ยอดจะเข้าใบสรุปช่อง 4</p>
           {scopeBar('sheet', lstFiles.length, lstFiles.reduce((a, f) => a + (f.read?.rows.reduce((q, r) => q + r.amount, 0) ?? 0), 0))}
           {lstFiles.length === 0 ? <p className="muted small">ยังไม่มีไฟล์{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : (
@@ -191,7 +204,7 @@ export default function Receive({ year }: { year: number }) {
               <button type="button" className="btn btn--gold" disabled={pdfBusy} onClick={async () => {
                 if (!paperRef.current) return
                 setPdfBusy(true)
-                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`) } catch { alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+                try { await downloadPdf(paperRef.current, `offering-${repScope === 'year' ? year + 543 : sunday}.pdf`) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
                 setPdfBusy(false)
               }}>{pdfBusy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
               <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
@@ -237,6 +250,10 @@ export default function Receive({ year }: { year: number }) {
             <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br /><span className="small">วันที่ ........../........../..........</span></div>
           </div>
         </section>
+      )}
+
+      {sub === 'sheet' && (
+        <BlankSheet ref={blankRef} church={settings.churchName.split(' ')[0]} names={[...types.list].filter((x) => x.active).sort((a, b) => a.order - b.order).slice(0, 5).map((x) => x.name)} />
       )}
 
       {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
@@ -291,3 +308,27 @@ function SlipFlow({ year, inc, onClose, onSaved }: { year: number; inc: ReturnTy
     </Sheet>
   )
 }
+
+/** ใบบันทึกการถวายเปล่า (ไม่มีตัวเลข) สำหรับดาวน์โหลดเป็น PDF ไว้พิมพ์ใช้ — วาดนอกจอ */
+const BlankSheet = forwardRef<HTMLDivElement, { church: string; names: string[] }>(function BlankSheet({ church, names }, ref) {
+  const rows = Array.from({ length: 15 }, (_, i) => i)
+  return (
+    <div ref={ref} className="paper paper--blank" aria-hidden="true" style={{ position: 'fixed', left: '-10000px', top: 0, width: 720, border: 0 }}>
+      <header className="paper__head">
+        <h2>ใบบันทึกการถวาย {church}</h2>
+        <p>ประจำวันอาทิตย์ ที่.........เดือน.....................................พ.ศ.................</p>
+      </header>
+      <table className="tbl tbl--paper" style={{ tableLayout: 'fixed' }}>
+        <colgroup><col style={{ width: '6%' }} /><col style={{ width: '21%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: '16%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /></colgroup>
+        <thead><tr><th>No.</th><th>ประเภท</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num vthick">จำนวนผู้โอน<wbr />ผ่านบ/ช</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th><th>หมายเหตุ</th></tr></thead>
+        <tbody>
+          {rows.map((i) => <tr key={i} className="paper__blank"><td>{i + 1}.</td><td>{names[i] ?? ''}</td><td /><td /><td className="vthick" /><td /><td /><td /></tr>)}
+        </tbody>
+      </table>
+      <p style={{ marginTop: '1rem' }}>รวมจากตู้ถวาย.........................&nbsp;&nbsp;รวมจากการโอน.........................&nbsp;&nbsp;รวมทั้งสิ้น.........................</p>
+      <div className="sign" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginTop: '2rem' }}>
+        <div>ลงชื่อผู้ตรวจนับ 1</div><div>ลงชื่อผู้ตรวจนับ 2</div>
+      </div>
+    </div>
+  )
+})

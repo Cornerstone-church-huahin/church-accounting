@@ -165,3 +165,5 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .tbl--paper tfoot td { border: 1px solid #555; background: #f2f2f2; }
 .tbl--paper .vthick { border-left: 3px solid #111; }
 .paper__blank td { height: 1.9rem; }
+@media print { .paper--blank { display: none !important; } }
+.paper--blank th { white-space: normal; font-size: 0.72rem; line-height: 1.25; }

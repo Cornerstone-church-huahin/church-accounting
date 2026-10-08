@@ -6,7 +6,7 @@ export async function downloadPdf(el: HTMLElement, filename: string): Promise<vo
     backgroundColor: '#ffffff',
     ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
     // จัดหน้าให้กว้างพอสำหรับกระดาษ ไม่ใช่ความกว้างของมือถือ
-    onclone: (_doc, cloned) => { cloned.style.width = '720px'; cloned.style.maxWidth = '720px'; cloned.style.boxShadow = 'none' },
+    onclone: (_doc, cloned) => { cloned.style.width = '720px'; cloned.style.maxWidth = '720px'; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
   })
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
   const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), m = 12

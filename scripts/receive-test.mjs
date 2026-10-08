@@ -9,6 +9,8 @@ const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chrom
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const page = await (await browser.newContext({ viewport: { width: 390, height: 800 }, locale: 'th-TH' })).newPage()
 const errors = []
+page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE:', m.text().slice(0, 300)))
+page.on('dialog', (d) => { if (!/ลบ/.test(d.message())) console.log('DIALOG:', d.message()) })
 page.on('pageerror', (e) => errors.push(String(e)))
 const sunStr = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
@@ -80,6 +82,11 @@ try {
       { label: 'สิบลด', envelopes: 6, amount: 1150 }, { label: 'ประจำสัปดาห์', envelopes: 7, amount: 2040 }, { label: 'ขอบพระคุณ', envelopes: 10, amount: 1970 }, { label: 'กองทุนเพื่ออาหาร', envelopes: 1, amount: 100 }] }) }] } }] }),
   }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
+  {
+    const [bl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลดใบบันทึกการถวายเปล่า/ }).click()])
+    must((await import('node:fs')).default.readFileSync(await bl.path()).subarray(0, 5).toString() === '%PDF-', 'blank sheet PDF downloads')
+    await bl.saveAs('shots/blank-sheet.pdf')
+  }
   await page.getByRole('button', { name: '＋ แนบไฟล์' }).click()
   await page.getByLabel('เลือกรูปใบบันทึกการถวาย').setInputFiles(process.env.SHEET_FIXTURE ?? process.env.SLIP_FIXTURE ?? 'public/icon-512.png')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).waitFor({ timeout: 30000 })
@@ -109,6 +116,21 @@ try {
   await dl.saveAs('shots/total.pdf')
   must(/6,260\.00/.test(t3), 'sources are combined in the summary: ' + t3)
   must(/สิบลด\s+7\s+2,150\.00\s+2,150\.00/.test(t3), 'type row combines sheet envelopes + hand entry (6+1=7): ' + t3)
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  // กรณีของผู้ใช้: ใบถวายสิบลด 6 ซอง 1,150 + โอน 1 รายการ 169 → แถวสิบลด: 6 | 1,150.00 | 1 | 169.00 | 1,319.00
+  await page.getByRole('button', { name: '＋ บันทึก' }).click()
+  await page.getByRole('button', { name: 'โอนเงิน' }).click()
+  await page.locator('#i-amt').fill('169')
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  const t4 = await readTotal()
+  must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t4), 'row shows 6 envelopes 1,150 + 1 transfer 169 = 1,319: ' + t4)
+  must(/รวมทั้งสิ้น\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t4), 'grand total row: ' + t4)
+  {
+    const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
+    await d2.saveAs('shots/total-user.pdf')
+  }
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
