@@ -56,6 +56,12 @@ try {
   await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
   await page.waitForTimeout(300)
   must(/รวมรายรับทั้งสัปดาห์\s+0\.00/.test((await rep.innerText()).replace(/\n/g, ' ')), 'deleted entry leaves the report')
+  // ตั้งค่า: ใส่รหัส Gemini ที่หน้าตั้งค่า
+  await page.goto(`http://localhost:${PORT}/#/settings`)
+  await page.getByLabel('รหัส Gemini API').fill('TEST-KEY-1234')
+  await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
+  must(await page.getByText('…1234').isVisible(), 'settings shows saved gemini key (last 4)')
+  await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
   // 3 ใบบันทึกการถวาย: ให้ Gemini อ่าน (จำลองคำตอบด้วยค่าจากใบจริงของท่าน) → ตรวจ → ยืนยัน → เข้าใบสรุป 4
   await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({
     status: 200, contentType: 'application/json',
@@ -64,8 +70,6 @@ try {
   }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   await page.getByRole('button', { name: '＋ แนบไฟล์' }).click()
-  await page.getByLabel('รหัส Gemini API').fill('TEST-KEY')
-  await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
   await page.getByLabel('เลือกรูปใบบันทึกการถวาย').setInputFiles(process.env.SHEET_FIXTURE ?? process.env.SLIP_FIXTURE ?? 'public/icon-512.png')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).waitFor({ timeout: 30000 })
   must(await page.getByText(/ตรงกับยอด/).isVisible(), 'sum matches written total')

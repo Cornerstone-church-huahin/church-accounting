@@ -5,6 +5,7 @@ import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
+import { DEFAULT_MODEL, getGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
 import { useYear } from '../lib/year'
 
@@ -19,6 +20,7 @@ export default function Settings() {
       <section className="card" aria-labelledby="h-inst"><h2 id="h-inst">📲 ติดตั้งเป็นแอป</h2><InstallApp /></section>
       <Connect />
       {cfg && <Members />}
+      {can(role, 'income') && <Reader />}
       {can(role, 'settings') && <General />}
       {can(role, 'settings') && <Types />}
       {can(role, 'settings') && <Accounts />}
@@ -313,6 +315,42 @@ function DataClean() {
           <li>เปลี่ยนปีบัญชีที่มุมขวาบนเพื่อล้างปีอื่น</li>
         </ul>
       </details>
+    </section>
+  )
+}
+
+/** ตัวอ่านใบถวายด้วย Gemini: รหัส API ของเครื่องนี้ (เก็บในเครื่อง ไม่ขึ้น repo) */
+function Reader() {
+  const [cur, setCur] = useState(getGemini)
+  const [key, setKey] = useState('')
+  const [model, setModel] = useState(cur.model)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const save = () => {
+    if (!key.trim()) return setMsg({ ok: false, text: 'วางรหัส Gemini API ก่อน' })
+    saveGemini(key, model)
+    setCur(getGemini()); setKey('')
+    setMsg({ ok: true, text: 'บันทึกรหัสแล้ว (เก็บในเครื่องนี้เท่านั้น) — กด “ทดสอบรหัส” เพื่อเช็กว่าใช้ได้' })
+  }
+  const test = async () => {
+    setBusy(true)
+    const err = await testGemini()
+    setBusy(false)
+    setMsg(err ? { ok: false, text: err } : { ok: true, text: '✓ รหัสใช้ได้ — พร้อมอ่านใบบันทึกการถวาย' })
+  }
+  return (
+    <section className="card" aria-labelledby="h-gem">
+      <h2 id="h-gem">🤖 ตัวอ่านใบถวาย (Gemini)</h2>
+      <p className="muted small">ใส่รหัส API ที่ขอจาก aistudio.google.com/apikey เพื่อให้ระบบอ่านรูปใบบันทึกการถวาย (ช่อง 3 ในหน้าแรก › รับ) · เก็บในเครื่องนี้เครื่องเดียว ไม่ส่งขึ้น GitHub · แต่ละเครื่อง/แต่ละคนใส่รหัสของตัวเอง</p>
+      <p className="small">สถานะ: {cur.key ? <b className="ok">มีรหัสแล้ว (…{cur.key.slice(-4)})</b> : <b>ยังไม่ได้ใส่รหัส</b>}</p>
+      <div className="field"><label htmlFor="gem-key">รหัส Gemini API</label><input id="gem-key" className="input" type="password" autoComplete="off" placeholder={cur.key ? 'วางรหัสใหม่เพื่อเปลี่ยน' : 'วางรหัสที่นี่'} value={key} onChange={(e) => setKey(e.target.value)} /></div>
+      <div className="field"><label htmlFor="gem-model">รุ่น (ปกติไม่ต้องแก้)</label><input id="gem-model" className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder={DEFAULT_MODEL} /></div>
+      <div className="row">
+        <button type="button" className="btn btn--gold grow" onClick={save}>บันทึกรหัส</button>
+        {cur.key && <button type="button" className="btn btn--ghost" disabled={busy} onClick={test}>{busy ? 'กำลังทดสอบ…' : 'ทดสอบรหัส'}</button>}
+        {cur.key && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบรหัส Gemini ออกจากเครื่องนี้?')) { saveGemini(''); setCur(getGemini()); setMsg({ ok: true, text: 'ลบรหัสออกจากเครื่องนี้แล้ว' }) } }}>ลบรหัส</button>}
+      </div>
+      {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
     </section>
   )
 }

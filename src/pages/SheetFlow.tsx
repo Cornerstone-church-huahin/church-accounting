@@ -108,7 +108,7 @@ export default function SheetFlow({ year, sunday, existing, onClose }: { year: n
 
   if (stage === 'key') return (
     <Sheet title="ตั้งค่าตัวอ่านใบถวาย (Gemini)" onClose={onClose}>
-      <p className="muted small">ให้ AI (Gemini ของ Google) อ่านรูปใบบันทึกการถวายให้ ต้องมีรหัส API ของท่านเอง (ฟรีตามโควตา) ขอที่ aistudio.google.com/apikey แล้ววางที่นี่ — เก็บในเครื่องนี้เครื่องเดียว ไม่ส่งขึ้นที่เก็บข้อมูล และไม่ต้องส่งให้ใครในแชต</p>
+      <p className="muted small">ให้ AI (Gemini ของ Google) อ่านรูปใบบันทึกการถวายให้ ต้องมีรหัส API ของท่านเอง (ฟรีตามโควตา) ขอที่ aistudio.google.com/apikey แล้ววางที่นี่ หรือที่หน้า ตั้งค่า › ตัวอ่านใบถวาย — เก็บในเครื่องนี้เครื่องเดียว ไม่ส่งขึ้นที่เก็บข้อมูล และไม่ต้องส่งให้ใครในแชต</p>
       <div className="field"><label htmlFor="g-key">รหัส Gemini API</label><input id="g-key" className="input" type="password" autoComplete="off" value={keyIn} onChange={(e) => setKeyIn(e.target.value)} /></div>
       <div className="row">
         <button type="button" className="btn btn--gold grow" disabled={!keyIn.trim()} onClick={() => { saveGemini(keyIn); setKeyIn(''); setStage('pick') }}>บันทึกรหัส</button>

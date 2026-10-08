@@ -95,3 +95,17 @@ export async function readSheet(file: Blob & { name?: string }): Promise<SheetRe
   if (!text) throw new Error('Gemini ไม่ส่งผลการอ่านกลับมา')
   return parseSheetJson(text)
 }
+
+/** ทดสอบรหัส: '' = ใช้ได้ · อย่างอื่น = ข้อความอธิบาย */
+export async function testGemini(): Promise<string> {
+  const { key, model } = getGemini()
+  if (!key) return 'ยังไม่ได้ใส่รหัส'
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`, { headers: { 'x-goog-api-key': key } })
+    if (r.ok) return ''
+    if (r.status === 400 || r.status === 403) return 'รหัสไม่ถูกต้องหรือยังไม่ได้เปิดสิทธิ์ใช้งาน Gemini API'
+    if (r.status === 404) return `ไม่พบรุ่น “${model}” — ลองล้างช่องรุ่นให้ใช้ค่าเริ่มต้น`
+    if (r.status === 429) return 'โควตาครบชั่วคราว — รหัสน่าจะใช้ได้ ลองใหม่ภายหลัง'
+    return `ทดสอบไม่สำเร็จ (${r.status})`
+  } catch { return 'ไม่มีอินเทอร์เน็ต' }
+}
