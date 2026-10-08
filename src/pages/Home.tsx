@@ -40,6 +40,7 @@ function Dashboard({ year }: { year: number }) {
   const waiting = rounds.items.filter((r) => r.status === 'counting').length
   const undeposited = rounds.items.filter((r) => r.status === 'verified' && !r.deposit).length
   const unmatched = stmt.items.filter((l) => !l.match).length
+  const unknownIn = income.items.filter((x) => x.unknown).length
   const sync = income.sync
 
   return (
@@ -84,11 +85,12 @@ function Dashboard({ year }: { year: number }) {
 
           <section className="card" aria-labelledby="h-todo">
             <h2 id="h-todo">สิ่งที่ต้องทำ</h2>
-            {tasks.length + waiting + undeposited + unmatched === 0 ? <p className="ok">✓ ไม่มีงานค้างสำหรับท่าน</p> : (
+            {tasks.length + waiting + undeposited + unmatched + unknownIn === 0 ? <p className="ok">✓ ไม่มีงานค้างสำหรับท่าน</p> : (
               <ul className="list">
                 {tasks.length > 0 && <li><Link className="item" to="/vouchers"><span className="grow">ใบเบิกที่ต้องดำเนินการ</span><span className="badge badge--gold">{tasks.length}</span></Link></li>}
                 {waiting > 0 && <li><Link className="item" to="/rounds"><span className="grow">รอบนับที่รอผู้นับคนที่ 2 ยืนยัน</span><span className="badge badge--gold">{waiting}</span></Link></li>}
                 {undeposited > 0 && <li><Link className="item" to="/rounds"><span className="grow">ยอดนับที่ยังไม่ได้นำฝาก</span><span className="badge badge--gold">{undeposited}</span></Link></li>}
+                {unknownIn > 0 && <li><Link className="item" to="/income"><span className="grow">เงินเข้าไม่ทราบที่มา — ระบุที่มา</span><span className="badge badge--gold">{unknownIn}</span></Link></li>}
                 {unmatched > 0 && <li><Link className="item" to="/rounds/statement"><span className="grow">รายการธนาคารที่ยังไม่จับคู่</span><span className="badge badge--gold">{unmatched}</span></Link></li>}
               </ul>
             )}

@@ -49,7 +49,7 @@ function Page({ year }: { year: number }) {
   const cands: Candidate[] = useMemo(() => {
     const out: Candidate[] = []
     for (const r of rounds.items) if (r.deposit) out.push({ kind: 'deposit', refId: r.id, date: r.deposit.date, amount: r.deposit.amount, label: `ฝากเงินสด รอบ ${fmtDate(r.date)}` })
-    for (const x of income.items) if (x.method === 'transfer') out.push({ kind: 'income', refId: x.id, date: x.date, amount: x.amount, ref: x.ref, label: `โอน ${types.byId(x.typeId)?.name ?? ''}${x.ref ? ` อ้างอิง ${x.ref}` : ''}` })
+    for (const x of income.items) if (x.method === 'transfer') out.push({ kind: 'income', refId: x.id, date: x.date, amount: x.amount, ref: x.ref, label: x.unknown ? 'ไม่ทราบที่มา (ไม่มีสลิป)' : `โอน ${types.byId(x.typeId)?.name ?? ''}${x.ref ? ` อ้างอิง ${x.ref}` : ''}` })
     for (const v of vouchers.items) if (v.status === 'paid' && v.paid) voucherItems(v).forEach((it, n) => { if (it.method === 'transfer') out.push({ kind: 'voucher', refId: `${v.id}#${n}`, date: v.paid!.date, amount: it.amount, ref: it.ref, label: `จ่าย ${v.no}: ${it.desc}` }) })
     return out
   }, [rounds.items, income.items, vouchers.items, types])
@@ -71,10 +71,18 @@ function Page({ year }: { year: number }) {
   const linkGroup = (ids: string[], sunday: string) => lines.put(ids.flatMap((id) => { const l = lines.items.find((x) => x.id === id); return l ? [{ ...l, match: { kind: 'week' as MatchKind, refId: sunday, by: me.name, at: Date.now() } }] : [] }))
 
   const link = (l: StatementLine, kind: MatchKind, refId: string, note = '') => lines.put([{ ...l, match: { kind, refId, note, by: me.name, at: Date.now() } }])
+  /** เงินเข้าบัญชีที่ไม่มีสลิป → รับเป็นรายรับ "ไม่ทราบที่มา" (ผู้บันทึกบัญชีระบุที่มาทีหลัง) และจับคู่กับรายการธนาคารให้ */
+  const receiveUnknown = (ls: StatementLine[]) => {
+    const credits = ls.filter((l) => l.credit > 0 && !l.match)
+    if (credits.length === 0) return
+    if (!income.put(credits.map((l) => ({ id: `unk-${l.id}`, date: l.date, typeId: '', amount: l.credit, method: 'transfer' as const, accountId: l.accountId, unknown: true, note: 'ไม่ทราบที่มา (ไม่มีสลิป)', updated: 0 })))) return
+    lines.put(credits.map((l) => ({ ...l, match: { kind: 'income' as MatchKind, refId: `unk-${l.id}`, note: 'ไม่ทราบที่มา', by: me.name, at: Date.now() } })))
+  }
   const acceptAll = () => lines.put(sugg.flatMap((s) => { const l = lines.items.find((x) => x.id === s.lineId); return l ? [{ ...l, match: { kind: s.cand.kind as MatchKind, refId: s.cand.refId, by: me.name, at: Date.now() } }] : [] }))
 
   const shown = lines.items.filter((l) => filter === 'all' || !l.match).sort((a, b) => (a.date < b.date ? 1 : -1))
   const unmatchedCount = lines.items.filter((l) => !l.match).length
+  const unknownCredits = lines.items.filter((l) => !l.match && l.credit > 0)
   const accName = (id: string) => accounts.list.find((a) => a.id === id)?.name ?? ''
   const labelOf = (m: NonNullable<StatementLine['match']>) => m.kind === 'other' ? `อื่น ๆ: ${m.note}` : m.kind === 'week' ? `ยอดโอนรวมใบถวาย ${fmtDate(m.refId)}` : cands.find((c) => c.kind === m.kind && c.refId === m.refId)?.label ?? 'จับคู่แล้ว (ไม่พบรายการ)'
 
@@ -106,6 +114,13 @@ function Page({ year }: { year: number }) {
             </div>
           )}
 
+          {canEdit && unknownCredits.length > 0 && (
+            <div className="note" role="status">
+              ❓ เงินเข้าในสมุด {unknownCredits.length} รายการ รวม {fmtBaht(unknownCredits.reduce((a, l) => a + l.credit, 0))} บาท ยังไม่มีสลิปหรือที่มา{' '}
+              <button type="button" className="mini" onClick={() => receiveUnknown(unknownCredits)}>รับทั้งหมดเป็น “ไม่ทราบที่มา”</button>
+              <div className="small">นับเป็นรายรับไว้ก่อนให้ยอดเงินรวมถูกต้อง แล้วไประบุที่มาทีหลังที่หน้ารายรับ</div>
+            </div>
+          )}
           <div className="seg" role="group" aria-label="กรองรายการ">
             <button type="button" className={filter === 'open' ? 'on' : ''} onClick={() => setFilter('open')}>ยังไม่จับคู่</button>
             <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>ทั้งหมด</button>
@@ -128,6 +143,7 @@ function Page({ year }: { year: number }) {
                         <div className="row">
                           {s && <button type="button" className="mini" onClick={() => link(l, s.cand.kind as MatchKind, s.cand.refId)}>💡 {s.cand.label}</button>}
                           <button type="button" className="mini" onClick={() => setPick(l)}>จับคู่เอง…</button>
+                          {l.credit > 0 && <button type="button" className="mini" onClick={() => receiveUnknown([l])}>❓ รับเป็นไม่ทราบที่มา</button>}
                         </div>
                       )}
                     </li>

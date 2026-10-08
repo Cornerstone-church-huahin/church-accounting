@@ -50,7 +50,7 @@ function IncomeList({ year }: { year: number }) {
               const body = (
                 <>
                   <span className="grow"><b>{typeName(x.typeId)}</b><br />
-                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note ? ` · ${x.note}` : ''}</span>
+                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.unknown ? ' · ❓ไม่ทราบที่มา — แตะเพื่อระบุที่มา' : ''}{x.note ? ` · ${x.note}` : ''}</span>
                   </span>
                   <span className="num"><b>{fmtBaht(x.amount)}</b></span>
                 </>
@@ -106,7 +106,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate }: { year: n
       } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบสลิปไม่สำเร็จ') }
       setBusy(false)
     }
-    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), note: note.trim(), updated: 0 }])
+    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), note: note.trim(), updated: 0 }])
     if (ok) onClose()
   }
   return (

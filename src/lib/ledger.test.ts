@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { approveBlock, budgetRows, buckets, entriesFromRound, isFullyApproved, paidItems, periodOf, shiftPeriod, stageOf, voucherItems, weekSummary, weekTransfers } from './ledger'
+import { approveBlock, budgetRows, buckets, weekInflow, entriesFromRound, isFullyApproved, paidItems, periodOf, shiftPeriod, stageOf, voucherItems, weekSummary, weekTransfers } from './ledger'
 import type { IncomeEntry, Voucher } from './types'
 
 const v = (o: Partial<Voucher> = {}): Voucher => ({
@@ -115,6 +115,14 @@ describe('multi-item vouchers and weekly transfer totals', () => {
     ]
     const rows = budgetRows([{ id: 'b', year: 2026, name: 'x', base: 1, order: 0, updated: 1, incomeTypeIds: ['__church'] }], [], [], inc, [], ['fund-type'])
     expect(rows[0].income).toBe(150000)
+  })
+  it('weekly inflow = cash + slips + unknown, compared with what the bank received', () => {
+    const t = (id: string, date: string, amount: number, extra: Partial<IncomeEntry> = {}): IncomeEntry => ({ id, date, typeId: '', amount, method: 'transfer', updated: 1, ...extra })
+    const inc = [t('a', '2026-10-01', 100000, { slip: { path: 'p', name: 'n' } }), t('b', '2026-10-02', 50000), t('u', '2026-10-03', 77700, { unknown: true })]
+    const w = weekInflow(inc, { lines: { t1: 526000 } }, '2026-10-04', 227700)
+    expect(w).toMatchObject({ cash: 526000, transfers: 227700, total: 753700, variance: 0 })
+    expect(w.slips).toEqual({ count: 2, withImage: 1, total: 150000 })
+    expect(w.unknown).toEqual({ count: 1, total: 77700 })
   })
   it('groups Mon–Sun transfers into the Sunday sheet (matches the real 4 Oct sheet)', () => {
     const t = (id: string, date: string, amount: number): IncomeEntry => ({ id, date, typeId: '', amount, method: 'transfer', updated: 1 })
