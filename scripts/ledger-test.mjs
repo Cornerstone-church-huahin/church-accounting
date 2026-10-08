@@ -30,10 +30,9 @@ await page.evaluate(([S, Y, d3, d4, d2]) => {
 }, [S, Y, day(3), day(4), day(2)])
 try {
   await page.goto(`http://localhost:${PORT}/#/settings`); await page.goto(`http://localhost:${PORT}/#/`); await page.reload()
-  await page.getByRole('tab', { name: '💚 รับ' }).click()
-  await page.getByRole('tab', { name: /ผลรวม/ }).click()
+  await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.getByRole('button', { name: 'สัปดาห์ที่เลือก' }).click()
-  const t = (await page.locator('section.paper').innerText()).replace(/\n/g, ' ')
+  const t = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
   must(/สรุปรับ-จ่ายประจำสัปดาห์/.test(t), 'title')
   must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t), 'income row (6 envelopes + 1 transfer): ' + t)
   must(/รวมรายรับ\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t), 'income total: ' + t)

@@ -47,7 +47,7 @@ try {
   const rep = page.locator('section', { has: page.locator('#h-rep') })
   const readTotal = async () => { await page.getByRole('tab', { name: /ผลรวม/ }).click(); return (await rep.innerText()).replace(/\n/g, ' ') }
   const txt = await readTotal()
-  must(/ได้รับการถวายประจำสัปดาห์/.test(txt) && /สิบลด\s+1\s+10,000\.00\s+10,000\.00[\s\S]*รวมรายรับ\s+1\s+10,000\.00\s+0\s+0\.00\s+10,000\.00/.test(txt), 'summary page shows only the per-type table with totals :: ' + txt)
+  must(/ได้รับการถวายประจำสัปดาห์/.test(txt) && /สิบลด\s+1\s+10,000\.00\s+10,000\.00[\s\S]*รวมทั้งสิ้น\s+1\s+10,000\.00\s+0\s+0\.00\s+10,000\.00/.test(txt), 'summary page shows only the per-type table with totals :: ' + txt)
   must(!/ใบสรุปเงินรับ|รายการที่บันทึก/.test(txt), 'no extra tables in tab 4')
   must(/ผู้ตรวจสอบ/.test(txt), 'signature block shown')
   // การ์ดแสดงจำนวนรายการ + รวม · ใบสรุปสลับ ทั้งปี ได้ · ทุกสัปดาห์
@@ -67,7 +67,7 @@ try {
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
   await page.waitForTimeout(300)
-  must(/รวมรายรับ\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleted entry leaves the report')
+  must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleted entry leaves the report')
   // ตั้งค่า: ใส่รหัส Gemini ที่หน้าตั้งค่า
   await page.goto(`http://localhost:${PORT}/#/settings`)
   await page.getByLabel('รหัส Gemini API').fill('TEST-KEY-1234')
@@ -102,7 +102,7 @@ try {
   must((await page.getByLabel('ชื่อแถว 3').inputValue()) === 'ขอบพระคุณ', 'rows read')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).click()
   const t2 = (await readTotal())
-  must(/สิบลด\s+6\s+1,150\.00\s+1,150\.00[\s\S]*รวมรายรับ\s+24\s+5,260\.00\s+0\s+0\.00\s+5,260\.00/.test(t2), 'sheet cash flows into the summary: ' + t2)
+  must(/สิบลด\s+6\s+1,150\.00\s+1,150\.00[\s\S]*รวมทั้งสิ้น\s+24\s+5,260\.00\s+0\s+0\.00\s+5,260\.00/.test(t2), 'sheet cash flows into the summary: ' + t2)
   must(/ขอบพระคุณ\s+10\s+1,970\.00/.test(t2), 'per-type rows from the sheet')
   // รวมทุกช่อง: เพิ่มรายการช่อง 1 (สิบลด 1,000) → ใบสรุป 4 รวมกับใบถวาย: สิบลด 6 ซอง + 1 รายการ = 7 · ยอดรวม 6,260
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
@@ -129,7 +129,7 @@ try {
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   const t4 = await readTotal()
   must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t4), 'row shows 6 envelopes 1,150 + 1 transfer 169 = 1,319: ' + t4)
-  must(/รวมรายรับ\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t4), 'grand total row: ' + t4)
+  must(/รวมทั้งสิ้น\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t4), 'grand total row: ' + t4)
   {
     const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
     await d2.saveAs('shots/total-user.pdf')
@@ -147,7 +147,7 @@ try {
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
   await page.waitForTimeout(300)
-  must(/รวมรายรับ\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleting the sheet removes its cash')
+  must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleting the sheet removes its cash')
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   must(await page.getByRole('heading', { name: '🔴 จ่าย' }).isVisible(), 'pay panel')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))

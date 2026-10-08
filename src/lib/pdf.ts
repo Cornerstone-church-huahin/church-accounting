@@ -7,7 +7,7 @@ export async function downloadPdf(el: HTMLElement, filename: string, opts: { ful
     backgroundColor: '#ffffff',
     ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
     // จัดหน้าให้กว้างพอสำหรับกระดาษ ไม่ใช่ความกว้างของมือถือ
-    onclone: (_doc, cloned) => { cloned.style.width = opts.fullPage ? '794px' : '720px'; cloned.style.maxWidth = cloned.style.width; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+    onclone: (_doc, cloned) => { cloned.style.width = opts.fullPage ? '794px' : '720px'; cloned.style.maxWidth = cloned.style.width; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
   })
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
   if (opts.fullPage) {
