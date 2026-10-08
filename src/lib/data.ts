@@ -1,6 +1,6 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
-import type { BankAccount, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, StatementBatch, StatementLine, Voucher } from './types'
+import type { BankAccount, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -39,3 +39,4 @@ export const useFunds = () => useSharedStore<BudgetLine>({ localKey: k('funds'),
 export const useBudgetAdjs = (year: number) => useSharedStore<BudgetAdj>({ localKey: k(`budgetlog.${year}`), file: `budget-log-${year}.json`, label: `ประวัติปรับงบ ${year}`, write: 'budget' })
 export const useStatementLines = (year: number) => useSharedStore<StatementLine>({ localKey: k(`stmt.${year}`), file: `statement-lines-${year}.json`, label: `รายการสเตตเมนต์ ${year}`, write: 'statement' })
 export const useStatementBatches = () => useSharedStore<StatementBatch>({ localKey: k('stmt-batches'), file: 'statement-batches.json', label: 'ไฟล์สเตตเมนต์', write: 'statement' })
+export const useSheetFiles = (year: number) => useSharedStore<SheetFile>({ localKey: k(`sheetfiles.${year}`), file: `sheet-files-${year}.json`, label: `ไฟล์ใบบันทึกการถวาย ${year}`, write: 'income' })
