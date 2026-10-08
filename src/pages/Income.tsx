@@ -9,7 +9,7 @@ import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, monthName, monthOf, newId, todayISO, yearOf } from '../lib/money'
 import { UNSORTED, type IncomeEntry, type Method } from '../lib/types'
 import { compressImage } from '../lib/image'
-import { getSync, putBinary } from '../lib/sync'
+import { getBinary, getSync, putBinary } from '../lib/sync'
 import { useYear } from '../lib/year'
 
 export default function Income() {
@@ -71,7 +71,7 @@ function IncomeList({ year }: { year: number }) {
 }
 
 /** ค่าที่ระบบอ่านจากสลิปมาใส่ให้ล่วงหน้า (ผู้ใช้ตรวจแล้วกดยืนยัน) */
-export interface SlipInit { date?: string; amount?: number; ref?: string; note?: string; typeId?: string; file: File }
+export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; file: File }
 
 export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit }) {
   const types = useIncomeTypes()
@@ -79,6 +79,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   const active = types.list.filter((t) => t.active || t.id === entry?.typeId)
   const [date, setDate] = useState(entry?.date ?? init?.date ?? defaultDate ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
   const [typeId, setTypeId] = useState(entry ? entry.typeId : init?.typeId ?? (preset === 'slip' ? UNSORTED : (active[0]?.id ?? '')))
+  const [time, setTime] = useState(entry?.time ?? init?.time ?? '')
   const [memberNo, setMemberNo] = useState(entry?.memberNo ?? '')
   const [slipFile, setSlipFile] = useState<File | null>(init?.file ?? null)
   const [busy, setBusy] = useState(false)
@@ -109,32 +110,37 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
       } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบสลิปไม่สำเร็จ') }
       setBusy(false)
     }
-    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
+    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), ...(time ? { time } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
     if (ok) onClose()
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
   const slipLayout = preset === 'slip' || entry?.source === 'slip'
   const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'ประเภทถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
-  const memField = <div className="field"><label htmlFor="i-mem">เลขสมาชิกผู้ถวาย (ไม่ต้องใส่ชื่อ)</label><input id="i-mem" className="input" inputMode="numeric" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
+  const memField = <div className="field"><label htmlFor="i-mem">ชื่อผู้ถวาย หรือเลขที่สมาชิก (ไม่แสดงในรายงาน)</label><input id="i-mem" className="input" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>
       {init && <SlipThumb file={init.file} />}
+      {!init && entry?.slip && <SavedSlip path={entry.slip.path} />}
+      {slipLayout ? (
+        <div className="field"><label htmlFor="i-date">วันที่และเวลาโอน</label><div style={{ display: 'flex', gap: 8 }}><input id="i-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ flex: 2 }} /><input id="i-time" className="input" type="time" aria-label="เวลา" value={time} onChange={(e) => setTime(e.target.value)} style={{ flex: 1 }} /></div></div>
+      ) : (
       <div className="field"><label htmlFor="i-date">วันที่</label><input id="i-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      )}
       {!slipLayout && typeField}
       <div className="field"><label htmlFor="i-amt">จำนวนเงิน (บาท)</label><MoneyInput id="i-amt" value={amount} onChange={setAmount} /></div>
-      <div className="seg" role="group" aria-label="วิธีรับ">
+      {!slipLayout && <div className="seg" role="group" aria-label="วิธีรับ">
         <button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอนเงิน</button>
         <button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด</button>
-      </div>
+      </div>}
       {method === 'transfer' && (
         <>
           <div className="field"><label htmlFor="i-ref">เลขอ้างอิงการโอน</label><input id="i-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="จากสลิป/แอปธนาคาร" /></div>
       {!slipLayout && method === 'transfer' && memField}
-          <div className="field"><label htmlFor="i-slip">รูปสลิป {entry?.slip ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="i-slip" className="input" type="file" accept="image/*" onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)} /></div>
+          {!slipLayout && <div className="field"><label htmlFor="i-slip">รูปสลิป {entry?.slip ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="i-slip" className="input" type="file" accept="image/*" onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)} /></div>}
           {accounts.list.length > 0 && <div className="field"><label htmlFor="i-acc">เข้าบัญชี</label><select id="i-acc" className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>{accounts.list.map((a) => <option key={a.id} value={a.id}>{a.name} {a.last4 && `(${a.last4})`}</option>)}</select></div>}
         </>
       )}
-      <div className="field"><label htmlFor="i-note">หมายเหตุ (ไม่ต้องใส่ชื่อผู้ถวาย)</label><input id="i-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      {!slipLayout && <div className="field"><label htmlFor="i-note">หมายเหตุ (ไม่ต้องใส่ชื่อผู้ถวาย)</label><input id="i-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
       {slipLayout && typeField}
       {slipLayout && method === 'transfer' && memField}
       {err && <p className="err" role="alert">{err}</p>}
@@ -150,4 +156,18 @@ function SlipThumb({ file }: { file: File }) {
   const [url, setUrl] = useState('')
   useEffect(() => { const u = URL.createObjectURL(file); setUrl(u); return () => URL.revokeObjectURL(u) }, [file])
   return url ? <img src={url} alt="สลิปที่แนบ" style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 8 }} /> : null
+}
+
+/** สลิปที่แนบไว้แล้ว: ดึงจาก repo ข้อมูลมาดูภายหลัง */
+function SavedSlip({ path }: { path: string }) {
+  const [url, setUrl] = useState('')
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    const cfg = getSync()
+    if (!cfg) { setErr('ต้องเชื่อมต่อออนไลน์จึงจะเปิดดูสลิปได้'); return }
+    let u = ''
+    getBinary(cfg, path).then((b) => { u = URL.createObjectURL(b); setUrl(u) }).catch((e: Error) => setErr(e.message))
+    return () => { if (u) URL.revokeObjectURL(u) }
+  }, [path])
+  return url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="สลิปที่แนบไว้" style={{ maxWidth: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 8 }} /></a> : <p className="muted small">{err || 'กำลังโหลดสลิป…'}</p>
 }

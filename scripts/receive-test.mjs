@@ -33,8 +33,10 @@ try {
     must((await page.locator('#i-date').inputValue()) === process.env.SLIP_DATE, 'date read from slip: ' + (await page.locator('#i-date').inputValue()))
     must((await page.locator('#i-amt').inputValue()).replace(/[^\d.]/g, '') === process.env.SLIP_AMOUNT, 'amount read from slip: ' + (await page.locator('#i-amt').inputValue()))
     const ys = []
-    for (const q of ['#i-date', '#i-amt', '#i-ref', '#i-note', '#i-type', '#i-mem']) ys.push((await page.locator(q).boundingBox()).y)
-    must(ys.every((y, i) => i === 0 || y > ys[i - 1]), 'slip form order: date, amount, ref, note, then purpose and member no. at the bottom ' + ys.join(','))
+    for (const q of ['#i-date', '#i-amt', '#i-ref', '#i-type', '#i-mem']) ys.push((await page.locator(q).boundingBox()).y)
+    must(ys.every((y, i) => i === 0 || y > ys[i - 1]), 'slip form order: date+time, amount, ref, then purpose and member no. at the bottom ' + ys.join(','))
+    must((await page.locator('#i-time').inputValue()) === process.env.SLIP_TIME, 'time shown beside date: ' + (await page.locator('#i-time').inputValue()))
+    must((await page.locator('#i-note').count()) === 0 && (await page.locator('#i-slip').count()) === 0, 'no note / file inputs in slip form')
     await page.screenshot({ path: 'shots/slip-confirm.png', fullPage: true })
   }
   await page.keyboard.press('Escape')
