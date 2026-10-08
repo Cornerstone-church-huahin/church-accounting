@@ -10,6 +10,7 @@ const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const page = await (await browser.newContext({ viewport: { width: 390, height: 800 }, locale: 'th-TH' })).newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
+const sunStr = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
@@ -55,14 +56,34 @@ try {
   await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
   await page.waitForTimeout(300)
   must(/รวมรายรับทั้งสัปดาห์\s+0\.00/.test((await rep.innerText()).replace(/\n/g, ' ')), 'deleted entry leaves the report')
+  // 3 ใบบันทึกการถวาย: ให้ Gemini อ่าน (จำลองคำตอบด้วยค่าจากใบจริงของท่าน) → ตรวจ → ยืนยัน → เข้าใบสรุป 4
+  await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ date: sunStr, cashTotal: 5260, rows: [
+      { label: 'สิบลด', envelopes: 6, amount: 1150 }, { label: 'ประจำสัปดาห์', envelopes: 7, amount: 2040 }, { label: 'ขอบพระคุณ', envelopes: 10, amount: 1970 }, { label: 'กองทุนเพื่ออาหาร', envelopes: 1, amount: 100 }] }) }] } }] }),
+  }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
-  must(await page.getByRole('link', { name: /กรอกยอดนับเอง/ }).isVisible(), 'sheet manual link')
   await page.getByRole('button', { name: '＋ แนบไฟล์' }).click()
-  must(await page.getByLabel(/รูปหรือไฟล์/).isVisible(), 'attach form has file input')
-  await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
-  must(await page.getByRole('alert').filter({ hasText: 'เลือกรูปหรือไฟล์ก่อน' }).isVisible(), 'asks for a file')
-  await page.keyboard.press('Escape')
-  await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
+  await page.getByLabel('รหัส Gemini API').fill('TEST-KEY')
+  await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
+  await page.getByLabel('เลือกรูปใบบันทึกการถวาย').setInputFiles(process.env.SHEET_FIXTURE ?? process.env.SLIP_FIXTURE ?? 'public/icon-512.png')
+  await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).waitFor({ timeout: 30000 })
+  must(await page.getByText(/ตรงกับยอด/).isVisible(), 'sum matches written total')
+  await page.screenshot({ path: 'shots/sheet-review.png', fullPage: true })
+  must((await page.getByLabel('ชื่อแถว 3').inputValue()) === 'ขอบพระคุณ', 'rows read')
+  await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).click()
+  const t2 = (await rep.innerText()).replace(/\n/g, ' ')
+  must(/3 · ใบบันทึกการถวาย \(เงินสด\)[^0-9]*1\s+5,260\.00/.test(t2), 'sheet cash flows into report: ' + t2)
+  must(/จากใบบันทึกการถวาย/.test(t2) && /ขอบพระคุณ\s+10\s+1,970\.00/.test(t2), 'sheet rows listed in report')
+  // แก้ไขไฟล์ที่แนบ: เปลี่ยนยอดแล้วใบสรุปเปลี่ยนตาม · ลบไฟล์แล้วยอดในใบนับหายไป
+  await page.getByRole('button', { name: '✎ แก้ไข' }).first().click()
+  await page.locator('#sr-amt-0').fill('1200')
+  await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).click()
+  must(/5,310\.00/.test(await rep.innerText()), 'edited sheet updates the report')
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  await page.waitForTimeout(300)
+  must(/รวมรายรับทั้งสัปดาห์\s+0\.00/.test((await rep.innerText()).replace(/\n/g, ' ')), 'deleting the sheet removes its cash')
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   must(await page.getByRole('heading', { name: '🔴 จ่าย' }).isVisible(), 'pay panel')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
