@@ -7,6 +7,8 @@ process.env.VITE_EMBED = '1'
 const out = 'dist-preview'
 await build({
   configFile: false, base: './', plugins: [react()], logLevel: 'warn',
+  // ตัวสร้าง PDF และตัวอ่านสลิป (OCR) ใหญ่และต้องมีไฟล์ประกอบ — ไม่รวมในพรีวิวไฟล์เดียว
+  resolve: { alias: { html2canvas: path.resolve('scripts/stubs/pdf-stub.mjs'), jspdf: path.resolve('scripts/stubs/pdf-stub.mjs'), 'tesseract.js': path.resolve('scripts/stubs/pdf-stub.mjs') } },
   build: { outDir: out, emptyOutDir: true, modulePreload: false, cssCodeSplit: false, rollupOptions: { output: { format: 'iife', inlineDynamicImports: true } } },
 })
 const dir = path.join(out, 'assets')
