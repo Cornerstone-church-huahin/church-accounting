@@ -37,7 +37,7 @@ function Detail({ id, year }: { id: string; year: number }) {
   const block = approveBlock(v, actor, settings.twoStepOver, isSolo())
   const need = stepsNeeded(v.amount, settings.twoStepOver)
   const items = voucherItems(v)
-  const lineName = (id: string) => lines.items.find((l) => l.id === id)?.name ?? 'นอกงบประมาณ'
+  const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
   const save = (patch: Partial<Voucher>) => vs.put([{ ...v, ...patch }])
 
   const approve = () => {

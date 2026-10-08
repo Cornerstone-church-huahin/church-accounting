@@ -39,6 +39,31 @@ function Page({ year }: { year: number }) {
   const yearIncome = income.items.reduce((s, x) => s + x.amount, 0)
   const tot = rows.reduce((a, r) => ({ current: a.current + r.current, spent: a.spent + r.spent, committed: a.committed + r.committed, remaining: a.remaining + (r.current > 0 ? r.remaining : 0) }), { current: 0, spent: 0, committed: 0, remaining: 0 })
   const lineName = (id: string) => lines.all.find((l) => l.id === id)?.name ?? '?'
+  const deletedLines = lines.all.filter((l) => l.deleted)
+  const used = (id: string) => ({
+    vouchers: vs.items.filter((v) => (v.items?.length ? v.items : [{ lineId: v.lineId }]).some((i) => i.lineId === id)).length,
+    entries: entries.items.filter((e) => e.lineId === id).length,
+    adjs: adjs.items.filter((a) => a.lineId === id).length,
+  })
+  const del = (id: string) => {
+    const l = lines.items.find((x) => x.id === id)
+    if (!l) return
+    const u = used(id)
+    const has = u.vouchers + u.entries + u.adjs
+    const msg = `ลบงบ “${l.name}” ออกจากหน้างบประมาณ?${has ? `\n\nงบนี้มีข้อมูลเกี่ยวข้อง: ใบเบิก ${u.vouchers} ใบ · บันทึกตรง ${u.entries} รายการ · ประวัติปรับงบ ${u.adjs} รายการ\nข้อมูลเหล่านี้ไม่หาย แต่จะไม่ถูกนับในงบนี้ (ใบเบิกจะแสดงว่า “ลบแล้ว”)` : ''}\n\nกู้คืนได้ที่ “งบที่ลบแล้ว” ด้านล่างหน้า`
+    if (confirm(msg)) lines.remove(id)
+  }
+  const move = (id: string, dir: -1 | 1) => {
+    const i = rows.findIndex((r) => r.line.id === id), j = i + dir
+    if (i < 0 || j < 0 || j >= rows.length) return
+    lines.put([{ ...rows[i].line, order: rows[j].line.order }, { ...rows[j].line, order: rows[i].line.order }])
+  }
+  const addStandard = () => {
+    const have = new Set(lines.items.map((l) => l.name))
+    const missing = TEMPLATE.filter((n) => !have.has(n))
+    if (missing.length === 0) return alert('มีหมวดมาตรฐานครบแล้ว')
+    lines.put(missing.map((name, i) => ({ id: newId('bl'), year, name, base: 0, order: rows.length + i, updated: 0 } as BudgetLine)))
+  }
   const history = [...adjs.items].sort((a, b) => b.updated - a.updated)
 
   const seed = () => lines.put([
@@ -59,6 +84,7 @@ function Page({ year }: { year: number }) {
           {isAdmin ? (
             <><button type="button" className="btn btn--ghost" onClick={seed}>หรือสร้างหมวดงบมาตรฐานทั้งชุด (แก้ได้)</button><CopyPrev year={year} lines={lines} /></>
           ) : <p className="muted small">แอดมินเป็นผู้ตั้งงบประมาณ</p>}
+          {isAdmin && deletedLines.length > 0 && <details><summary>งบที่ลบแล้ว ({deletedLines.length}) — กู้คืนได้</summary><ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button></li>)}</ul></details>}
         </section>
       ) : (
         <>
@@ -67,6 +93,7 @@ function Page({ year }: { year: number }) {
               <button type="button" className="mini" onClick={() => { setPickId(undefined); setSheet('adjust') }}>± ปรับงบ</button>
               <button type="button" className="mini" onClick={() => setSheet('emergency')}>🚨 เพิ่มงบฉุกเฉิน</button>
               <button type="button" className="mini" onClick={() => setSheet('transfer')}>⇄ โอนงบระหว่างหมวด</button>
+              <button type="button" className="mini" onClick={addStandard}>＋ เพิ่มหมวดมาตรฐานที่ยังไม่มี</button>
             </div>
           )}
           <section className="card" aria-label="ภาพรวมทั้งปี">
@@ -87,6 +114,9 @@ function Page({ year }: { year: number }) {
                 {canEntry && <button type="button" className="mini" style={{ borderColor: 'var(--series-2)' }} onClick={() => setEntry({ lineId: r.line.id, kind: 'out' })}>＋ ใช้จ่าย</button>}
                 {isAdmin && <button type="button" className="mini" onClick={() => { setPickId(r.line.id); setSheet('adjust') }}>{r.current > 0 ? 'แก้งบที่ตั้ง' : 'ตั้งงบ (แท่งกลาง)'}</button>}
                 {isAdmin && <button type="button" className="mini" onClick={() => setLinkId(r.line.id)}>ผูกรายรับ / ชื่อ</button>}
+                {isAdmin && <button type="button" className="mini" aria-label={`เลื่อน ${r.line.name} ขึ้น`} onClick={() => move(r.line.id, -1)}>▲</button>}
+                {isAdmin && <button type="button" className="mini" aria-label={`เลื่อน ${r.line.name} ลง`} onClick={() => move(r.line.id, 1)}>▼</button>}
+                {isAdmin && <button type="button" className="mini" aria-label={`ลบงบ ${r.line.name}`} onClick={() => del(r.line.id)}>🗑️ ลบงบนี้</button>}
               </div>
               <p className="small muted">
                 เงินคงเหลือจริง (ได้รับ − จ่าย) <b className={r.balance < 0 ? 'bad' : ''}>{fmtBaht(r.balance, { dec: false })}</b> · งบเดิม {fmtBaht(r.base, { dec: false })}{r.adjust !== 0 && ` · ปรับ ${fmtBaht(r.adjust, { dec: false, sign: true })}`} ·{' '}
@@ -96,6 +126,12 @@ function Page({ year }: { year: number }) {
             </section>
           ))}
 
+          {isAdmin && deletedLines.length > 0 && (
+            <details className="card no-print">
+              <summary><b>งบที่ลบแล้ว ({deletedLines.length})</b> — กู้คืนได้</summary>
+              <ul className="list">{deletedLines.map((l) => <li key={l.id}><span className="grow">{l.name}</span><button type="button" className="mini" onClick={() => lines.put([{ ...l, deleted: false }])}>↩︎ กู้คืน</button></li>)}</ul>
+            </details>
+          )}
           <section className="card" aria-labelledby="h-hist">
             <h2 id="h-hist">ประวัติการปรับงบ ({history.length})</h2>
             {history.length === 0 ? <p className="muted small">ยังไม่เคยปรับงบ</p> : (

@@ -56,7 +56,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
     const unsorted = m.get(UNSORTED) ?? 0
     return unsorted > 0 ? [...rows, { name: 'โอน (ยังไม่แยกประเภท)', value: unsorted }] : rows
   }, [inc, types.list])
-  const lineName = (id: string) => lines.items.find((l) => l.id === id)?.name ?? 'นอกงบประมาณ'
+  const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
   const outByLine = useMemo(() => {
     const m = sumBy([...paidItems(vouchers, p).map((x) => ({ lineId: x.item.lineId, amount: x.item.amount })), ...direct.map((e) => ({ lineId: e.lineId, amount: e.amount }))], (x) => x.lineId, (x) => x.amount)
     return [...m.entries()].map(([id, value]) => ({ name: lineName(id), value })).sort((a, b) => b.value - a.value)
