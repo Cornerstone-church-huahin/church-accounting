@@ -9,6 +9,8 @@ const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chrom
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const page = await (await browser.newContext({ viewport: { width: 390, height: 800 }, locale: 'th-TH' })).newPage()
 const errors = []
+page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE:', m.text().slice(0, 300)))
+page.on('dialog', (d) => { if (!/ลบ/.test(d.message())) console.log('DIALOG:', d.message()) })
 page.on('pageerror', (e) => errors.push(String(e)))
 const sunStr = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
@@ -80,6 +82,11 @@ try {
       { label: 'สิบลด', envelopes: 6, amount: 1150 }, { label: 'ประจำสัปดาห์', envelopes: 7, amount: 2040 }, { label: 'ขอบพระคุณ', envelopes: 10, amount: 1970 }, { label: 'กองทุนเพื่ออาหาร', envelopes: 1, amount: 100 }] }) }] } }] }),
   }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
+  {
+    const [bl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลดใบบันทึกการถวายเปล่า/ }).click()])
+    must((await import('node:fs')).default.readFileSync(await bl.path()).subarray(0, 5).toString() === '%PDF-', 'blank sheet PDF downloads')
+    await bl.saveAs('shots/blank-sheet.pdf')
+  }
   await page.getByRole('button', { name: '＋ แนบไฟล์' }).click()
   await page.getByLabel('เลือกรูปใบบันทึกการถวาย').setInputFiles(process.env.SHEET_FIXTURE ?? process.env.SLIP_FIXTURE ?? 'public/icon-512.png')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).waitFor({ timeout: 30000 })
