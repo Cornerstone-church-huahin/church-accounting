@@ -195,7 +195,7 @@ export default function Receive({ year }: { year: number }) {
         </div>
       </section>
 
-      {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} />}
+      {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={(d) => { const s2 = sheetSunday(d); if (sundays.includes(s2)) setSunday(s2) }} />}
       {pick && <SlipFlow year={year} inc={inc} onClose={() => setPick(false)} />}
       {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>

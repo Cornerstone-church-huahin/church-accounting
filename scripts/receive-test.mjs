@@ -63,7 +63,8 @@ try {
   must(await page.getByText('…1234').isVisible(), 'settings shows saved gemini key (last 4)')
   await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
   // 3 ใบบันทึกการถวาย: ให้ Gemini อ่าน (จำลองคำตอบด้วยค่าจากใบจริงของท่าน) → ตรวจ → ยืนยัน → เข้าใบสรุป 4
-  await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({
+  let gcalls = 0
+  await page.route('**/generativelanguage.googleapis.com/**', (route) => ++gcalls === 1 ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"message":"overloaded"}}' }) : route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ date: sunStr, cashTotal: 5260, rows: [
       { label: 'สิบลด', envelopes: 6, amount: 1150 }, { label: 'ประจำสัปดาห์', envelopes: 7, amount: 2040 }, { label: 'ขอบพระคุณ', envelopes: 10, amount: 1970 }, { label: 'กองทุนเพื่ออาหาร', envelopes: 1, amount: 100 }] }) }] } }] }),
@@ -72,7 +73,11 @@ try {
   await page.getByRole('button', { name: '＋ แนบไฟล์' }).click()
   await page.getByLabel('เลือกรูปใบบันทึกการถวาย').setInputFiles(process.env.SHEET_FIXTURE ?? process.env.SLIP_FIXTURE ?? 'public/icon-512.png')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).waitFor({ timeout: 30000 })
-  must(await page.getByText(/ตรงกับยอด/).isVisible(), 'sum matches written total')
+  must(await page.getByText(/ตรงกับยอด/).isVisible(), 'sum matches written total (after a 503 retry)')
+  must(gcalls >= 2, 'retried after 503')
+  must((await page.locator('#sf-date').inputValue()) === sunStr && await page.getByText('อ่านจากใบ').first().isVisible(), 'date is read from the sheet automatically')
+  for (let i = 1; i <= 5; i++) must(await page.getByLabel(`ชื่อแถว ${i}`).isVisible(), 'all 5 printed rows are shown: ' + i)
+  must((await page.getByLabel('ชื่อแถว 4').inputValue()).includes('ที่ดิน'), 'blank land-fund row is still shown')
   await page.screenshot({ path: 'shots/sheet-review.png', fullPage: true })
   must((await page.getByLabel('ชื่อแถว 3').inputValue()) === 'ขอบพระคุณ', 'rows read')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).click()

@@ -5,23 +5,54 @@ import { whoAmI } from '../lib/access'
 import { getGemini, readSheet, saveGemini, type SheetRead } from '../lib/gemini'
 import { compressImage } from '../lib/image'
 import { entriesFromRound, roundId } from '../lib/ledger'
-import { fmtBaht, fmtDate, newId, sheetSunday, todayISO, yearOf } from '../lib/money'
+import { addDays, fmtBaht, fmtDate, newId, sheetSunday, todayISO, yearOf } from '../lib/money'
 import { getBinary, getSync, putBinary } from '../lib/sync'
 import type { IncomeType, Round, SheetFile, SheetRowRead } from '../lib/types'
 import { useIncome, useIncomeTypes, useRounds, useSheetFiles } from '../lib/data'
 
 type RowDraft = { label: string; typeId: string; envelopes: number | null; amount: number | null }
 
-/** เดาประเภทถวายจากชื่อแถวที่อ่านได้ (ไม่ตรง → "รายได้อื่น" ให้ผู้ใช้เลือกแก้เอง) */
+const bigrams = (t: string) => { const a = t.replace(/\s+/g, ''); const m = new Map<string, number>(); for (let i = 0; i < a.length - 1; i++) { const g = a.slice(i, i + 2); m.set(g, (m.get(g) ?? 0) + 1) } return m }
+const dice = (x: string, y: string) => {
+  const A = bigrams(x), B = bigrams(y)
+  let hit = 0, nA = 0, nB = 0
+  for (const [g, c] of A) { nA += c; hit += Math.min(c, B.get(g) ?? 0) }
+  for (const c of B.values()) nB += c
+  return nA + nB ? (2 * hit) / (nA + nB) : 0
+}
+
+/** เดาประเภทถวายจากชื่อแถวที่อ่านได้: ชื่อตรงกัน → ใกล้เคียงที่สุด (≥ 0.5) → ไม่ตรง ใช้ "รายได้อื่น" ให้ผู้ใช้เลือกแก้เอง */
 export function matchType(label: string, types: IncomeType[]): string {
   const l = label.replace(/\s+/g, '')
   const act = types.filter((t) => t.active)
-  const hit = act.find((t) => { const n = t.name.replace(/\s+/g, '').replace(/\(.*\)/, ''); return n && (l.includes(n) || n.includes(l) || (l.length > 2 && l.includes(n.slice(0, 5)))) })
-  return hit?.id ?? act.find((t) => t.id === 'tt6')?.id ?? act[0]?.id ?? ''
+  const name = (t: IncomeType) => t.name.replace(/\s+/g, '').replace(/\(.*\)/, '')
+  const exact = act.find((t) => l && name(t) === l)
+  if (exact) return exact.id
+  const scored = act.map((t) => ({ t, sc: l ? dice(l, name(t)) : 0 })).sort((a, b) => b.sc - a.sc)[0]
+  if (scored && scored.sc >= 0.5) return scored.t.id
+  return act.find((t) => t.id === 'tt6')?.id ?? act[0]?.id ?? ''
+}
+
+/** ใส่ยอดที่อ่านได้ลงแถวพิมพ์ของประเภทเดียวกัน (ถ้าแถวนั้นยังว่าง) ที่เหลือ (แถวเขียนมือ/ซ้ำ) ต่อท้าย */
+function mergeRows(base: RowDraft[], read: RowDraft[]): RowDraft[] {
+  const out = base.map((r) => ({ ...r }))
+  const extra: RowDraft[] = []
+  for (const r of read) {
+    const hit = out.find((b) => b.typeId === r.typeId && b.amount === null && b.label.replace(/\s+/g, '') === r.label.replace(/\s+/g, '')) ?? out.find((b) => b.typeId === r.typeId && b.amount === null && r.typeId !== 'tt6')
+    if (hit) { hit.amount = r.amount; hit.envelopes = r.envelopes; if (r.label) hit.label = r.label } else extra.push(r)
+  }
+  return [...out, ...extra]
+}
+
+/** แถวที่พิมพ์ไว้ในใบ (5 ประเภทแรก) — แสดงครบเสมอ แม้ยังอ่านไม่ได้/ไม่มียอด */
+function baseRows(types: IncomeType[]): RowDraft[] {
+  const act = types.filter((t) => t.active && t.id !== 'tt6')
+  const fixed = ['tt1', 'tt2', 'tt3', 'tt4', 'tt5'].map((id) => act.find((t) => t.id === id)).filter((t): t is IncomeType => !!t)
+  return (fixed.length >= 5 ? fixed : act.slice(0, 5)).map((t) => ({ label: t.name, typeId: t.id, envelopes: null, amount: null }))
 }
 
 /** ช่อง 3: แนบรูปใบบันทึกการถวาย → Gemini อ่านแถวเงินสด → ตรวจ/แก้ → ยืนยัน → ใส่ในใบนับวันอาทิตย์ (แสดงในใบสรุปช่อง 4) */
-export default function SheetFlow({ year, sunday, existing, onClose }: { year: number; sunday: string; existing: SheetFile | null; onClose: () => void }) {
+export default function SheetFlow({ year, sunday, existing, onClose, onSaved }: { year: number; sunday: string; existing: SheetFile | null; onClose: () => void; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
   const files = useSheetFiles(year)
   const rounds = useRounds(year)
@@ -32,8 +63,12 @@ export default function SheetFlow({ year, sunday, existing, onClose }: { year: n
   const [file, setFile] = useState<File | null>(null)
   const [url, setUrl] = useState('')
   const [date, setDate] = useState(existing?.date ?? sunday)
-  const [rows, setRows] = useState<RowDraft[]>(() => (existing?.read?.rows ?? []).map((r) => ({ label: r.label, typeId: r.typeId, envelopes: r.envelopes ?? null, amount: r.amount })))
+  const [rows, setRows] = useState<RowDraft[]>(() => {
+    const saved = (existing?.read?.rows ?? []).map((r) => ({ label: r.label, typeId: r.typeId, envelopes: r.envelopes ?? null, amount: r.amount }))
+    return existing ? mergeRows(baseRows(types.list), saved) : baseRows(types.list)
+  })
   const [written, setWritten] = useState<number | undefined>(existing?.read?.writtenCash)
+  const [dateSrc, setDateSrc] = useState('')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,14 +83,21 @@ export default function SheetFlow({ year, sunday, existing, onClose }: { year: n
   }, [file, existing])
 
   const applyRead = (r: SheetRead) => {
-    setRows(r.rows.map((x) => ({ label: x.label, typeId: matchType(x.label, types.list), envelopes: x.envelopes ?? null, amount: x.amount })))
+    setRows(mergeRows(baseRows(types.list), r.rows.map((x) => ({ label: x.label, typeId: matchType(x.label, types.list), envelopes: x.envelopes ?? null, amount: x.amount }))))
     setWritten(r.writtenCash)
-    if (r.date && sheetSunday(r.date) === r.date && yearOf(r.date) === year) setDate(r.date)
-    setMsg(r.rows.length ? '' : 'ระบบอ่านแถวเงินสดไม่ได้ — กรอกเองได้ในตารางด้านล่าง')
+    // วันที่: อ่านจากใบ → ไม่ได้ ใช้วันที่ถ่ายรูป (วันอาทิตย์ล่าสุดก่อนหน้านั้น) → ไม่ได้ ใช้สัปดาห์ที่เลือกไว้
+    if (r.date && yearOf(r.date) === year) { setDate(r.date); setDateSrc(sheetSunday(r.date) === r.date ? 'อ่านจากใบ' : 'อ่านจากใบ (ไม่ใช่วันอาทิตย์ — ตรวจอีกครั้ง)') }
+    else if (file?.lastModified) {
+      const d = new Date(file.lastModified)
+      const taken = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const sun = addDays(taken, -new Date(taken + 'T00:00:00').getDay())
+      if (yearOf(sun) === year) { setDate(sun); setDateSrc('อ่านวันที่จากใบไม่ได้ — ใช้วันที่ถ่ายรูป') }
+    }
+    setMsg(r.rows.length ? '' : 'ระบบอ่านแถวเงินสดไม่ได้ — กรอกเองในตารางด้านล่าง')
   }
   const doRead = async (f: Blob) => {
     setStage('read'); setErr('')
-    try { applyRead(await readSheet(f)) } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านใบถวายไม่สำเร็จ'); setRows([]) }
+    try { applyRead(await readSheet(f)) } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านใบถวายไม่สำเร็จ'); setRows(baseRows(types.list)) }
     setStage('review')
   }
   const reread = async () => {
@@ -103,6 +145,7 @@ export default function SheetFlow({ year, sunday, existing, onClose }: { year: n
       const gone = Object.keys(old?.lines ?? {}).filter((k) => !(k in lines)).flatMap((k) => entriesFromRound({ ...(old as Round), lines: { [k]: 0 } }))
       income.put([...entriesFromRound(round), ...gone])
     }
+    onSaved?.(date)
     onClose()
   }
 
@@ -137,7 +180,7 @@ export default function SheetFlow({ year, sunday, existing, onClose }: { year: n
     <Sheet title={existing ? 'ใบบันทึกการถวาย — ตรวจ/แก้ไข' : 'ตรวจและยืนยันใบบันทึกการถวาย'} onClose={onClose}>
       {url && <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="ใบบันทึกการถวาย" style={{ maxWidth: '100%', maxHeight: 240, objectFit: 'contain', borderRadius: 8 }} /></a>}
       {msg && <p className="note" role="status">{msg}</p>}
-      <div className="field"><label htmlFor="sf-date">ประจำวันอาทิตย์ที่</label><input id="sf-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      <div className="field"><label htmlFor="sf-date">ประจำวันอาทิตย์ที่</label><input id="sf-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); setDateSrc('') }} />{dateSrc && <span className="small muted">{dateSrc}</span>}</div>
       <table className="tbl" aria-label="แถวเงินสดในใบถวาย">
         <thead><tr><th>รายการ / ประเภท</th><th className="num">ซอง</th><th className="num">เงิน (บาท)</th><th /></tr></thead>
         <tbody>
