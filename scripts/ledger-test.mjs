@@ -60,6 +60,7 @@ try {
   must(/sheet2\.pdf$/.test(dl2.suggestedFilename()), 'sheet 2 downloads alone: ' + dl2.suggestedFilename())
   await page.locator('.a4page').first().screenshot({ path: 'shots/sum-year-1.png' })
   await page.locator('.a4page--land').screenshot({ path: 'shots/sum-year-2.png' })
+  must((await page.locator('svg[aria-label="รายจ่ายแยกตามหมวดหลัก"]').count()) === 1, 'category bars present')
   await page.getByRole('tab', { name: /^1\s*สัปดาห์/ }).click()
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: 'ดาวน์โหลดใบนี้เป็น PDF' }).first().click()])
   await dl.saveAs('shots/ledger.pdf')

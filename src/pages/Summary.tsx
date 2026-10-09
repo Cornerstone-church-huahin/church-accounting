@@ -4,7 +4,7 @@ import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundays
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
 import { computeSeries, topRows, type LedgerInput } from '../lib/seriesLedger'
-import { CumLine, Donut, GroupedBars, Legend } from '../components/StatCharts'
+import { CatBars, CumLine, Donut, GroupedBars, Legend } from '../components/StatCharts'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import PeriodBar from '../components/PeriodBar'
@@ -60,6 +60,13 @@ export default function Summary({ year }: { year: number }) {
   const series = useMemo(() => computeSeries(input, kind), [input, kind])
   const active = (b: { inTotal: number; outTotal: number }) => b.inTotal > 0 || b.outTotal > 0
   const tableBuckets = series.filter(active) // ตารางแสดงเฉพาะช่วงที่มีรายการจริง
+  const catBars = useMemo(() => {
+    const val = (r?: { cash: { amt: number }; transfer: { amt: number }; pending?: { amt: number } }) => (r ? r.cash.amt + r.transfer.amt + (r.pending?.amt ?? 0) : 0)
+    const gs = cats.list.filter((c) => c.kind === 'group' && c.active).sort((a, b) => a.order - b.order)
+    const rows = gs.map((g) => ({ code: g.code, label: g.name, value: val(L.outRows.find((r) => r.key === g.id)) }))
+    const un = L.outRows.find((r) => r.key === '__uncat' || (gs.length === 0))
+    return gs.length > 0 ? [...rows, ...(un && gs.length > 0 && un.key === '__uncat' ? [{ code: '—', label: 'ยังไม่ระบุหมวด', value: val(un) }] : [])] : L.outRows.map((r, i) => ({ code: String(i + 1), label: r.label, value: val(r) }))
+  }, [L, cats.list])
   const first = series.findIndex(active), lastI = series.length - 1 - [...series].reverse().findIndex(active)
   const chartBuckets = first < 0 ? [] : series.slice(first, lastI + 1) // กราฟตัดช่วงว่างหัว-ท้ายออก
   const { incRows, outRows, inSum, outSum } = L
@@ -184,9 +191,9 @@ export default function Summary({ year }: { year: number }) {
               <div className="land-grid">
                 <div>
                   <div className="stat-title">รายรับ-รายจ่ายแยกตาม{kind === 'week' ? 'วัน' : kind === 'month' ? 'สัปดาห์ (วันที่)' : 'เดือน'}</div>
-                  <GroupedBars buckets={chartBuckets} height={260} />
+                  <GroupedBars buckets={chartBuckets} height={190} />
                   <div className="stat-title">คงเหลือสะสม (รับ − จ่าย)</div>
-                  <CumLine buckets={chartBuckets} height={170} />
+                  <CumLine buckets={chartBuckets} height={120} />
                 </div>
                 <div>
                   <div className="stat-title">สัดส่วนรายรับตามประเภทถวาย (บาท · %)</div>
@@ -195,6 +202,8 @@ export default function Summary({ year }: { year: number }) {
                   <Donut rows={topRows(outRows, 6)} tone="out" />
                 </div>
               </div>
+              <div className="stat-title" style={{ marginTop: 6 }}>รายจ่ายแยกตามหมวดหลัก — ทุกหมวด (บาท · แท่งสูง = จ่ายมาก · แต่ละหมวดคนละสี)</div>
+              <CatBars height={150} cats={catBars} />
               <p className="a4note">รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (รวมค้างจ่าย) · ข้อมูลเดียวกับใบที่ 1 ทุกตัวเลข · ชี้ที่แท่งหรือจุดเพื่อดูตัวเลข</p>
             </>
           </ScaledPage>
