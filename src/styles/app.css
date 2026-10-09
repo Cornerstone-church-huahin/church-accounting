@@ -225,3 +225,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .a4page--doc .ledger { overflow: visible !important; }
 .a4page--doc .sign { margin-top: auto; font-size: 13px; gap: 1.5rem; }
 .a4page--doc .sign > div { padding-top: 2rem; }
+.subtabs--sum { grid-template-columns: repeat(2, 1fr); }
+.subtabs--sum button { border-color: var(--navy); }
+.subtabs--sum button.on { background: var(--navy); color: #fff; }

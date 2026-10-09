@@ -32,7 +32,7 @@ await page.evaluate(([S, Y, d3, d4, d2]) => {
 try {
   await page.goto(`http://localhost:${PORT}/#/settings`); await page.goto(`http://localhost:${PORT}/#/`); await page.reload()
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.getByRole('button', { name: 'สัปดาห์ที่เลือก' }).click()
+  await page.getByRole('tab', { name: /สัปดาห์ที่เลือก/ }).click()
   const t = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
   must(/สรุปรับ-จ่ายประจำสัปดาห์/.test(t), 'title')
   must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t), 'income row (6 envelopes + 1 transfer): ' + t)

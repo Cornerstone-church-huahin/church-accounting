@@ -54,7 +54,7 @@ try {
   must(await page.getByText(/ต้องเตรียมเบิก 2,000\.00/).isVisible(), 'pending note shows the amount to prepare for withdrawal')
   // สรุป: รายจ่ายค้างจ่ายถูกหักลบทันที (ยังไม่มีรายรับ)
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.getByRole('button', { name: /^ทั้งปี/ }).click()
+  await page.getByRole('tab', { name: /ทั้งปี/ }).click()
   const st0 = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
   must(/รวมรายจ่าย\s+0\s+0\.00\s+1\s+1,850\.00\s+2,000\.00\s+3,850\.00/.test(st0), 'summary shows the unpaid bill as pending expense: ' + st0)
   must(/คงเหลือ\s+0\.00\s+[-−]1,850\.00\s+[-−]2,000\.00\s+[-−]3,850\.00/.test(st0), 'summary balance deducts pending too: ' + st0)
@@ -96,7 +96,7 @@ try {
 
   // สรุป: หักลบกับรายรับอัตโนมัติ (ไม่มีรายรับ → คงเหลือติดลบเท่ารายจ่าย)
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.getByRole('button', { name: /^ทั้งปี/ }).click()
+  await page.getByRole('tab', { name: /ทั้งปี/ }).click()
   const st = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
   must(/รวมรายจ่าย\s+2\s+2,600\.00\s+0\s+0\.00\s+0\.00\s+2,600\.00/.test(st), 'summary shows expenses from the pay tabs: ' + st)
   must(/คงเหลือ\s+[-−]2,600\.00\s+0\.00\s+0\.00\s+[-−]2,600\.00/.test(st), 'summary balance deducts expenses: ' + st)
