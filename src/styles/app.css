@@ -256,3 +256,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .pie-legend td { padding: 2px 4px; border-bottom: 1px solid var(--line, #eee); }
 .pie-legend td.num { text-align: right; white-space: nowrap; }
 .a4page--land .land-grid { grid-template-columns: 1.35fr 1fr; }
+.capbar { margin: 0.5rem 0; }
+.capbar__row { display: flex; gap: 10px; }
+.act-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0.5rem 0.25rem; min-height: 64px; border: 1.5px solid var(--line, #ddd); border-radius: 14px; background: #fff; font: inherit; font-size: 0.8rem; text-align: center; cursor: pointer; color: inherit; }
+.act-btn__ico { font-size: 1.5rem; line-height: 1.2; }
+.act-btn:active { background: #f4f1ea; }
+.act-btn[disabled] { opacity: .5; }
+.capbar__menu { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }

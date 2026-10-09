@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
+import CaptureBar from '../components/CaptureBar'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
@@ -46,7 +47,7 @@ export default function Pay({ year }: { year: number }) {
   const canWrite = can(role, 'voucherPay')
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: ExpenseEntry | null; channel: Channel } | null>(null)
-  const [flow, setFlow] = useState<Channel | null>(null)
+  const [flow, setFlow] = useState<{ channel: Channel; file?: File } | null>(null)
   const [payFor, setPayFor] = useState<ExpenseEntry | null>(null)
   const [scope, setScope] = useState<'week' | 'year'>('year')
   const sundays = useMemo(() => sundaysOf(year), [year])
@@ -105,7 +106,10 @@ export default function Pay({ year }: { year: number }) {
     const open = pending(c)
     return (
       <section className="card no-print" role="tabpanel" aria-label={CH[c].title}>
-        <div className="row row--between"><h2>{CH[c].n} · {CH[c].title}</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => (c === 'manual' ? setForm({ entry: null, channel: c }) : setFlow(c))}>{CH[c].add}</button>}</div>
+        <h2>{CH[c].n} · {CH[c].title}</h2>
+        {canWrite && (c === 'manual'
+          ? <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, channel: c })}>{CH[c].add}</button>
+          : <CaptureBar noun={c === 'bill' ? 'บิล' : 'ใบเสร็จ'} onFile={(file) => setFlow({ channel: c, file })}><button type="button" className="mini" onClick={() => setFlow({ channel: c })} style={{ marginTop: 6 }}>✍️ กรอกเอง (ไม่มีรูป)</button></CaptureBar>)}
         <p className="muted small">{CH[c].hint}</p>
         <div className="row row--between" style={{ margin: '0.4rem 0' }}>
           <b>{xs.length} รายการ · รวม {fmtBaht(sum(xs))}</b>
@@ -174,7 +178,7 @@ export default function Pay({ year }: { year: number }) {
         </section>
       )}
 
-      {flow && <ExpenseFlow year={year} channel={flow} exp={exp} onClose={() => setFlow(null)} />}
+      {flow && <ExpenseFlow year={year} channel={flow.channel} initialFile={flow.file} exp={exp} onClose={() => setFlow(null)} />}
       {form && <ExpenseForm year={year} entry={form.entry} channel={form.channel} exp={exp} onClose={() => setForm(null)} />}
       {payFor && <MarkPaid entry={payFor} exp={exp} onClose={() => setPayFor(null)} />}
     </>
@@ -295,10 +299,10 @@ function MarkPaid({ entry, exp, onClose }: { entry: ExpenseEntry; exp: ReturnTyp
 }
 
 /** วางบิล / สำรองจ่าย: เลือกรูป → ระบบอ่าน (Gemini ถ้ามีรหัส · ไม่มีใช้อ่านสลิปในเครื่อง) → ใส่ในฟอร์มให้ตรวจและยืนยัน */
-function ExpenseFlow({ year, channel, exp, onClose }: { year: number; channel: Channel; exp: ReturnType<typeof useExpenses>; onClose: () => void }) {
+function ExpenseFlow({ year, channel, initialFile, exp, onClose }: { year: number; channel: Channel; initialFile?: File; exp: ReturnType<typeof useExpenses>; onClose: () => void }) {
   const cats = useExpenseCats()
   const c = CH[channel]
-  const [stage, setStage] = useState<'pick' | 'read' | 'form'>('pick')
+  const [stage, setStage] = useState<'pick' | 'read' | 'form'>(initialFile ? 'read' : 'form')
   const [init, setInit] = useState<ExpInit | null>(null)
   const [msg, setMsg] = useState('')
   const hasKey = !!getGemini().key
@@ -323,6 +327,7 @@ function ExpenseFlow({ year, channel, exp, onClose }: { year: number; channel: C
     } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ — กรอกเอง') }
     setInit(out); setStage('form')
   }
+  useEffect(() => { if (initialFile) void choose(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (stage === 'form') return (
     <>
       {msg && <p className="role-toast" role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 100 }}>{msg}</p>}

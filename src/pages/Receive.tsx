@@ -1,4 +1,4 @@
-import { forwardRef, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
@@ -13,6 +13,7 @@ import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayIS
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
+import CaptureBar from '../components/CaptureBar'
 import { downloadPdf } from '../lib/pdf'
 import { readSlip } from '../lib/slipOcr'
 
@@ -32,7 +33,8 @@ export default function Receive({ year }: { year: number }) {
   const types = useIncomeTypes()
   const { settings } = useSettings()
   const files = useSheetFiles(year)
-  const [pick, setPick] = useState(false)
+  const [slipFile, setSlipFile] = useState<File | null>(null)
+  const [newSheetFile, setNewSheetFile] = useState<File | null>(null)
   const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => {
@@ -148,7 +150,8 @@ export default function Receive({ year }: { year: number }) {
       )}
       {sub === 'slip' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกสลิป">
-          <div className="row row--between"><h2>2 · บันทึกสลิป</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setPick(true)}>＋ แนบสลิป</button>}</div>
+          <h2>2 · บันทึกสลิป</h2>
+          {canWrite && <CaptureBar noun="สลิป" onFile={setSlipFile} />}
           <p className="muted small">แนบรูปสลิปโอนเงินไปเรื่อย ๆ ระหว่างสัปดาห์ — ระบบอ่านวันที่ ยอด และเลขอ้างอิงจากสลิปให้ ท่านตรวจแล้วกดยืนยัน</p>
           {scopeBar('slip', slips.length, sum(slips))}
           {slips.length === 0 ? <p className="muted small">ยังไม่มีสลิป{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : <ul className="list">{slips.map((x) => row(x, 'slip'))}</ul>}
@@ -156,24 +159,13 @@ export default function Receive({ year }: { year: number }) {
       )}
       {sub === 'sheet' && (
         <section className="card no-print" role="tabpanel" aria-label="ใบบันทึกการถวาย">
-          <div className="row row--between">
-            <h2>3 · ใบบันทึกการถวาย</h2>
-            <span className="row" style={{ gap: 8 }}>
-              <button type="button" className="icon-btn" disabled={blankBusy} aria-label="ดาวน์โหลดใบบันทึกการถวายเปล่า (PDF) ไว้พิมพ์ใช้" title="ดาวน์โหลดใบเปล่า (PDF)" onClick={async () => {
-                if (!blankRef.current) return
-                setBlankBusy(true)
-                try { await downloadPdf(blankRef.current, 'offering-sheet-blank.pdf') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองใหม่อีกครั้ง') }
-                setBlankBusy(false)
-              }}>{blankBusy ? '…' : '📄⬇️'}</button>
-              <button type="button" className="icon-btn" disabled={blankBusy} aria-label="ดาวน์โหลดใบบันทึกการถวายเปล่า 2 ใบต่อแผ่น A4 (ตัดครึ่ง)" title="ใบเปล่า 2 ใบต่อแผ่น A4 (ตัดครึ่ง)" onClick={async () => {
-                if (!blank2Ref.current) return
-                setBlankBusy(true)
-                try { await downloadPdf(blank2Ref.current, 'offering-sheet-blank-2up.pdf', { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองใหม่อีกครั้ง') }
-                setBlankBusy(false)
-              }}>{blankBusy ? '…' : '📄✂️'}</button>
-              {canWrite && <button type="button" className="btn btn--gold" onClick={() => setAttach('new')}>＋ แนบไฟล์</button>}
-            </span>
-          </div>
+          <h2>3 · ใบบันทึกการถวาย</h2>
+          {canWrite ? (
+            <CaptureBar noun="ใบถวาย" onFile={setNewSheetFile} busy={blankBusy} downloads={[
+              { label: '📄 ใบเปล่า 1 ใบ/แผ่น (PDF)', run: async () => { if (!blankRef.current) return; setBlankBusy(true); try { await downloadPdf(blankRef.current, 'offering-sheet-blank.pdf') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ') } setBlankBusy(false) } },
+              { label: '✂️ ใบเปล่า 2 ใบ/แผ่น A4 (PDF)', run: async () => { if (!blank2Ref.current) return; setBlankBusy(true); try { await downloadPdf(blank2Ref.current, 'offering-sheet-blank-2up.pdf', { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ') } setBlankBusy(false) } },
+            ]} />
+          ) : null}
           <p className="muted small">ถ่ายรูปใบบันทึกการถวายวันอาทิตย์แล้วแนบ — ระบบอ่านแถวเงินสดให้ ท่านตรวจแล้วกดยืนยัน ยอดจะเข้าใบสรุปช่อง 4</p>
           {scopeBar('sheet', lstFiles.length, lstFiles.reduce((a, f) => a + (f.read?.rows.reduce((q, r) => q + r.amount, 0) ?? 0), 0))}
           {lstFiles.length === 0 ? <p className="muted small">ยังไม่มีไฟล์{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : (
@@ -236,8 +228,9 @@ export default function Receive({ year }: { year: number }) {
         </>
       )}
 
-      {attach && <SheetFlow year={year} sunday={sunday} existing={attach === 'new' ? null : attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
-      {pick && <SlipFlow year={year} inc={inc} onClose={() => setPick(false)} onSaved={goWeek} />}
+      {attach && attach !== 'new' && <SheetFlow year={year} sunday={sunday} existing={attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
+      {newSheetFile && <SheetFlow year={year} sunday={sunday} existing={null} initialFile={newSheetFile} onClose={() => setNewSheetFile(null)} onSaved={goWeek} />}
+      {slipFile && <SlipFlow year={year} inc={inc} initialFile={slipFile} onClose={() => setSlipFile(null)} onSaved={goWeek} />}
       {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} onSaved={goWeek} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>
   )
@@ -245,7 +238,7 @@ export default function Receive({ year }: { year: number }) {
 
 
 /** แนบสลิป: เลือกรูป → ระบบอ่านในเครื่อง → ใส่ค่าให้ในฟอร์ม → ตรวจและยืนยัน */
-function SlipFlow({ year, inc, onClose, onSaved }: { year: number; inc: ReturnType<typeof useIncome>; onClose: () => void; onSaved?: (date: string) => void }) {
+function SlipFlow({ year, inc, initialFile, onClose, onSaved }: { year: number; initialFile?: File; inc: ReturnType<typeof useIncome>; onClose: () => void; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
   const [stage, setStage] = useState<'pick' | 'read' | 'confirm'>('pick')
   const [pct, setPct] = useState(0)
@@ -262,6 +255,7 @@ function SlipFlow({ year, inc, onClose, onSaved }: { year: number; inc: ReturnTy
     setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo })
     setStage('confirm')
   }
+  useEffect(() => { if (initialFile) void choose(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (stage === 'confirm' && init) return (
     <>
       {msg && <p className="role-toast" role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 100 }}>{msg}</p>}
