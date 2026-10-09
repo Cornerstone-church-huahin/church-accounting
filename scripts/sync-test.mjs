@@ -127,5 +127,15 @@ try {
   await C.goto(base + '/income')
   await C.getByText('1,500.00').or(C.getByText('200.00')).first().waitFor({ timeout: 10000 })
   ok((await C.getByRole('button', { name: '＋ บันทึกรายรับ' }).count()) === 0, 'auditor can view but not add income')
+  // รหัส Gemini ร่วม: แอดมินใส่ครั้งเดียว → ผู้ใช้อื่น (ผู้บันทึกบัญชี) ใช้ได้เลย
+  await A.goto(base + '/settings')
+  await A.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
+  await A.getByLabel('รหัส Gemini API').fill('SHARED-KEY-9999')
+  await A.getByRole('button', { name: 'บันทึกรหัส' }).click()
+  await A.getByText(/แชร์ให้ผู้ใช้ร่วมทุกคน/).first().waitFor({ timeout: 10000 })
+  ok(files.has('gemini-shared.json') && files.get('gemini-shared.json').text.includes('SHARED-KEY-9999'), 'shared key written to the data repo')
+  await B.reload()
+  await B.waitForFunction(() => (localStorage.getItem('acct.gemini.shared.v1') ?? '').includes('SHARED-KEY-9999'), null, { timeout: 15000 })
+  ok(!(await B.evaluate(() => localStorage.getItem('acct.gemini.v1'))), 'B has no personal key yet uses the shared one')
   console.log('SYNC OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

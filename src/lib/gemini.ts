@@ -1,17 +1,53 @@
 import { compressImage } from './image'
 
-/** อ่านใบบันทึกการถวายด้วย Gemini (เฉพาะแถวเงินสด) — รหัส API เก็บในเครื่องนี้เท่านั้น ไม่ส่งขึ้น repo */
+import { getSync, pullFile, pushFile, type SharedItem } from './sync'
+
+/**
+ * รหัส Gemini: ใช้ของเครื่องนี้ก่อน ถ้าไม่มีให้ใช้ "รหัสร่วม" ที่แอดมินแชร์ไว้ใน repo ข้อมูลส่วนตัว (gemini-shared.json)
+ * — ผู้ใช้ร่วมจึงไม่ต้องขอรหัสเอง
+ */
 const KEY = 'acct.gemini.v1'
+const SHARED = 'acct.gemini.shared.v1'
+const SHARED_FILE = 'gemini-shared.json'
 export const DEFAULT_MODEL = 'gemini-flash-latest'
 
-export function getGemini(): { key: string; model: string } {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { key?: string; model?: string } | null
-    return { key: v?.key ?? '', model: v?.model || DEFAULT_MODEL }
-  } catch { return { key: '', model: DEFAULT_MODEL } }
+const read = (k: string): { key?: string; model?: string } | null => {
+  try { return JSON.parse(localStorage.getItem(k) ?? 'null') } catch { return null }
+}
+export function getGemini(): { key: string; model: string; shared: boolean } {
+  const own = read(KEY)
+  if (own?.key) return { key: own.key, model: own.model || DEFAULT_MODEL, shared: false }
+  const sh = read(SHARED)
+  if (sh?.key) return { key: sh.key, model: sh.model || DEFAULT_MODEL, shared: true }
+  return { key: '', model: DEFAULT_MODEL, shared: false }
 }
 export function saveGemini(key: string, model = DEFAULT_MODEL) {
   try { if (key.trim()) localStorage.setItem(KEY, JSON.stringify({ key: key.trim(), model: model.trim() || DEFAULT_MODEL })); else localStorage.removeItem(KEY) } catch { /* ignore */ }
+}
+
+interface SharedKey extends SharedItem { key?: string; model?: string }
+export const hasSharedGemini = () => !!read(SHARED)?.key
+
+/** ดึงรหัสร่วมจาก repo ข้อมูล (ไม่มีเน็ต/ไม่มีไฟล์ = คงค่าเดิมในเครื่อง) — คืน true ถ้ามีรหัสร่วมอยู่ */
+export async function refreshSharedGemini(): Promise<boolean> {
+  const cfg = getSync()
+  if (!cfg) return false
+  try {
+    const f = await pullFile<SharedKey>(cfg, SHARED_FILE)
+    const it = f.items.find((x) => x.id === 'gemini')
+    if (it && !it.deleted && it.key) localStorage.setItem(SHARED, JSON.stringify({ key: it.key, model: it.model || DEFAULT_MODEL }))
+    else localStorage.removeItem(SHARED)
+    return !!(it && !it.deleted && it.key)
+  } catch { return hasSharedGemini() }
+}
+/** แอดมินแชร์รหัสให้ทุกคนที่ใช้ร่วม (key ว่าง = เลิกแชร์) */
+export async function publishSharedGemini(key: string, model = DEFAULT_MODEL): Promise<void> {
+  const cfg = getSync()
+  if (!cfg) throw new Error('ยังไม่ได้เชื่อมต่อออนไลน์')
+  const f = await pullFile<SharedKey>(cfg, SHARED_FILE)
+  const item: SharedKey = key.trim() ? { id: 'gemini', updated: Date.now(), key: key.trim(), model: model.trim() || DEFAULT_MODEL } : { id: 'gemini', updated: Date.now(), deleted: true }
+  await pushFile(cfg, SHARED_FILE, 'รหัสตัวอ่าน Gemini ร่วม', [item], f.sha, true, undefined, true)
+  if (key.trim()) localStorage.setItem(SHARED, JSON.stringify({ key: item.key, model: item.model })); else localStorage.removeItem(SHARED)
 }
 
 export interface SheetRead {
