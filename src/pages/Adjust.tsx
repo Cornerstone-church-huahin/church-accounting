@@ -8,7 +8,7 @@ import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
-import { CODE_LEGEND, chainGap, checkChain, classify, dedupeLines, dupIndexes, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
+import { CODE_LEGEND, typeFromNote, chainGap, checkChain, classify, dedupeLines, dupIndexes, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
@@ -204,7 +204,7 @@ export default function Adjust({ year }: { year: number }) {
                       <button type="button" className="mini" onClick={() => toIncome(l, asIncome.typeId)}>ลงรายรับ</button>
                     </span>
                   ) : <>
-                    <span className="badge badge--warn">ไม่ทราบที่มา</span>
+                    {(() => { const tid = typeFromNote(l.desc, types.list); const tn = tid ? types.list.find((t) => t.id === tid)?.name : undefined; return tn ? <span className="badge badge--good">นับเป็น {tn} (ตามหมายเหตุ)</span> : <span className="badge badge--warn">ไม่ทราบที่มา</span> })()}
                     <button type="button" className="mini" onClick={() => setAsIncome({ id: l.id, typeId: types.list.find((t) => t.active)?.id ?? '' })}>ลงเป็นรายรับ</button>
                     <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>
                   </>) : <span className="badge">ไม่มีสลิป</span>)))}

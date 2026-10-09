@@ -1,5 +1,5 @@
 import { addDays, sheetSunday } from './money'
-import type { IncomeEntry, PassbookLine, PbKind } from './types'
+import type { IncomeEntry, IncomeType, PassbookLine, PbKind } from './types'
 
 export interface RawPbRow { date?: string; code?: string; desc?: string; deposit?: number; withdraw?: number; balance?: number }
 
@@ -172,3 +172,11 @@ export function reconcileWeek(sunday: string, all: PassbookLine[], income: Incom
 
 /** คำอธิบายรหัสรายการในสมุด (ธนาคารกรุงเทพ) ไว้แสดงเป็นหมายเหตุ */
 export const CODE_LEGEND = 'DEP/NBD = ฝากเงินสด · TRD = โอนเข้า · W/D = ถอนเงินสด · TRW = โอนออก · INT = ดอกเบี้ย'
+
+/** ประเภทถวายที่ระบุไว้ในลายมือ/หมายเหตุข้างบรรทัดสมุด (เช่น "สิบลด") — ต้องมีชื่อประเภทอยู่ในข้อความจริง ไม่เดา · ไม่พบ = ไม่ทราบที่มา */
+export function typeFromNote(text: string | undefined, types: IncomeType[]): string | undefined {
+  const t = (text ?? '').replace(/\s+/g, '')
+  if (!t) return undefined
+  const names = types.filter((x) => x.active).map((x) => ({ id: x.id, n: x.name.replace(/\s+/g, '').replace(/\(.*\)/, '') })).filter((x) => x.n.length >= 3).sort((a, b) => b.n.length - a.n.length)
+  return names.find((x) => t.includes(x.n))?.id
+}
