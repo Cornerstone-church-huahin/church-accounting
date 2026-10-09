@@ -1,3 +1,4 @@
+import { readWithRotations } from './image'
 import { mergeSlipReads, parseSlipText, type SlipRead } from './slipParse'
 
 /**
@@ -23,7 +24,7 @@ function getWorker(onProgress?: (p: number) => void): Promise<Worker> {
 }
 
 async function variants(file: File): Promise<HTMLCanvasElement[]> {
-  const bmp = await createImageBitmap(file)
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
   const long = Math.max(bmp.width, bmp.height)
   const scale = bmp.width < 1600 ? 1800 / bmp.width : long > 2600 ? 2600 / long : 1
   const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale)
@@ -75,6 +76,11 @@ export interface SlipResult extends SlipRead { texts: string[] }
 
 /** อ่านสลิป 1 ใบ — โยน error ถ้าตัวอ่านโหลดไม่ได้ (เช่น ไฟล์ OCR ไม่อยู่ในแอป) */
 export async function readSlip(file: File, onProgress?: (p: number) => void): Promise<SlipResult> {
+  // รูปมาตะแคง/แนวนอน/กลับหัว: ถ้าอ่านวันที่และยอดไม่ได้เลย ลองหมุนแล้วอ่านใหม่
+  return readWithRotations(file, (f) => readSlipOnce(f, onProgress), (r) => !r.amount && !r.date)
+}
+
+async function readSlipOnce(file: File, onProgress?: (p: number) => void): Promise<SlipResult> {
   const worker = await getWorker()
   const vs = await variants(file)
   const reads: SlipRead[] = []

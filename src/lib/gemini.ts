@@ -1,4 +1,4 @@
-import { compressImage } from './image'
+import { compressImage, readWithRotations } from './image'
 
 import { getSync, pullFile, pushFile, type SharedItem } from './sync'
 
@@ -83,6 +83,7 @@ export function parseSheetJson(text: string): SheetRead {
   return { ...(date ? { date } : {}), rows, ...(writtenCash ? { writtenCash } : {}) }
 }
 
+const ROTATE_NOTE = '\n- รูปอาจถ่ายแนวนอน ตะแคง หรือกลับหัว ให้หมุนภาพในใจให้ตัวอักษรตั้งตรงก่อนแล้วจึงอ่านตามปกติ'
 const PROMPT = `นี่คือรูป "ใบบันทึกการถวาย" ของคริสตจักรศิลาเอก (ตารางพิมพ์ มีลายมือกรอก) ให้อ่านและตอบเป็น JSON เท่านั้น
 กติกา:
 - อ่านเฉพาะ "เงินสด" คือคอลัมน์ "จำนวนซอง" และ "จำนวนเงิน" ชุดแรก (ซ้ายสุด) ห้ามนำคอลัมน์ "จำนวนผู้โอนผ่านบ/ช" หรือคอลัมน์ "รวม" มาปน
@@ -147,7 +148,8 @@ async function geminiJson(file: Blob & { name?: string }, prompt: string, schema
 }
 
 export async function readSheet(file: Blob & { name?: string }): Promise<SheetRead> {
-  return parseSheetJson(await geminiJson(file, PROMPT, SCHEMA))
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
+  return readWithRotations(f, async (x) => parseSheetJson(await geminiJson(x, PROMPT + ROTATE_NOTE, SCHEMA)), (r) => r.rows.length === 0)
 }
 
 // ---------- บิล / ใบเสร็จ / สลิปโอน ของรายจ่าย (วางบิล · สำรองจ่าย) ----------
@@ -205,7 +207,8 @@ export async function readBill(file: Blob & { name?: string }, cats: { code: str
 - category: เลือกรหัสรายการที่ใกล้เคียงที่สุดจากรายการด้านล่าง (ตอบเฉพาะรหัส เช่น 3.1) ถ้าไม่แน่ใจให้เว้นว่าง
 รายการรายจ่าย:
 ${list}`
-  return parseBillJson(await geminiJson(file, prompt, BILL_SCHEMA))
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
+  return readWithRotations(f, async (x) => parseBillJson(await geminiJson(x, prompt + ROTATE_NOTE, BILL_SCHEMA)), (r) => !r.total && !r.date)
 }
 
 /** ทดสอบรหัส: '' = ใช้ได้ · อย่างอื่น = ข้อความอธิบาย */
