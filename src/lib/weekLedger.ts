@@ -1,10 +1,20 @@
-import { addDays, sheetSunday } from './money'
+import { addDays, daysInMonth } from './money'
 import { directOut, paidItems, type Period } from './ledger'
 import { inRange } from './money'
 import { UNSORTED, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
 export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc; /** ค้างจ่าย: วางบิลที่ยังไม่จ่าย / สำรองจ่ายที่ยังไม่คืนเงิน (นับเป็นรายจ่ายแล้ว แต่เงินยังไม่ออก) */ pending?: LSrc }
+export type SumKind = 'week' | 'month' | 'quarter' | 'year'
+/** ช่วงวันที่ของใบสรุป: สัปดาห์ = จันทร์–อาทิตย์ของใบวันอาทิตย์ · เดือน · ไตรมาส (1–4) · ปี */
+export function rangeOf(kind: SumKind, year: number, o: { sunday?: string; month?: number; quarter?: number } = {}): { from: string; to: string } {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  if (kind === 'week') { const s = o.sunday ?? `${year}-01-01`; return { from: addDays(s, -6), to: s } }
+  if (kind === 'month') { const m = o.month ?? 1; return { from: `${year}-${pad(m)}-01`, to: `${year}-${pad(m)}-${pad(daysInMonth(year, m))}` } }
+  if (kind === 'quarter') { const q = o.quarter ?? 1, m1 = q * 3 - 2, m3 = q * 3; return { from: `${year}-${pad(m1)}-01`, to: `${year}-${pad(m3)}-${pad(daysInMonth(year, m3))}` } }
+  return { from: `${year}-01-01`, to: `${year}-12-31` }
+}
+
 export const sumRows = (rs: LRow[]) => ({ cash: rs.reduce((a, r) => a + r.cash.amt, 0), transfer: rs.reduce((a, r) => a + r.transfer.amt, 0), pending: rs.reduce((a, r) => a + (r.pending?.amt ?? 0), 0) })
 
 const NO_BUDGET = '__none' // ต้องตรงกับ Vouchers.tsx
@@ -15,7 +25,8 @@ const NO_BUDGET = '__none' // ต้องตรงกับ Vouchers.tsx
  * รายจ่าย: ใบเบิกที่ "จ่ายแล้ว" + บันทึกตรงในงบ แยกตามหมวดงบ/กองทุน
  */
 export function computeLedger(a: {
-  year: number; sunday: string; scope: 'week' | 'year'
+  /** ช่วงวันที่ของใบสรุป (ดู rangeOf) */
+  range: { from: string; to: string }
   income: IncomeEntry[]; rounds: Round[]; vouchers: Voucher[]; lines: BudgetLine[]; funds: BudgetLine[]; entries: BudgetEntry[]; types: IncomeType[]
   /** หมวดรายจ่าย (ถ้าใส่ ตารางรายจ่ายแยกตามหมวดหลัก 15 หมวด · ไม่ใส่ = แยกตามหมวดงบ) */
   cats?: ExpenseCat[]
@@ -23,8 +34,9 @@ export function computeLedger(a: {
   expenses?: ExpenseEntry[]
 }) {
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)')
-  const ent = a.income.filter((x) => !x.roundId && (a.scope === 'year' || sheetSunday(x.date) === a.sunday))
-  const rds = a.scope === 'year' ? a.rounds : a.rounds.filter((r) => r.date === a.sunday)
+  const inR = (d: string) => inRange(d, a.range.from, a.range.to)
+  const ent = a.income.filter((x) => !x.roundId && inR(x.date))
+  const rds = a.rounds.filter((r) => inR(r.date))
 
   const m = new Map<string, { cash: LSrc; transfer: LSrc }>()
   const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
@@ -34,7 +46,7 @@ export function computeLedger(a: {
   for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
   const incRows: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
 
-  const p: Period = a.scope === 'year' ? { kind: 'year', from: `${a.year}-01-01`, to: `${a.year}-12-31` } : { kind: 'week', from: addDays(a.sunday, -6), to: a.sunday }
+  const p: Period = { kind: 'week', from: a.range.from, to: a.range.to }
   const lineName = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...a.lines, ...a.funds].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
   const cats = a.cats ?? []
   const groups = cats.filter((c) => c.kind === 'group' && c.active).sort((x, y) => x.order - y.order)

@@ -32,7 +32,7 @@ await page.evaluate(([S, Y, d3, d4, d2]) => {
 try {
   await page.goto(`http://localhost:${PORT}/#/settings`); await page.goto(`http://localhost:${PORT}/#/`); await page.reload()
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.getByRole('tab', { name: /สัปดาห์ที่เลือก/ }).click()
+  await page.getByRole('tab', { name: /^1\s*สัปดาห์/ }).click()
   const t = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
   must(/สรุปรับ-จ่ายประจำสัปดาห์/.test(t), 'title')
   must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t), 'income row (6 envelopes + 1 transfer): ' + t)
@@ -45,6 +45,16 @@ try {
   // ปิดยอด: รับ 5,429 − จ่าย 2,550 = 2,879 (เงินสด 5,260−700=4,560 · โอน 169−1,850=−1,681)
   must(/คงเหลือ\s+4,560\.00\s+[-−]1,681\.00\s+0\.00\s+2,879\.00/.test(t), 'closing balance: ' + t)
   await page.screenshot({ path: 'shots/ledger.png', fullPage: true })
+  // 4 ไอคอนช่วงเวลา: สัปดาห์ · เดือน · ไตรมาส · ทั้งปี
+  for (const n of ['สัปดาห์', 'เดือน', 'ไตรมาส', 'ปี 2569']) must(await page.getByRole('tab', { name: new RegExp(n) }).first().isVisible(), 'summary period tab ' + n)
+  await page.getByRole('tab', { name: /^2\s*เดือน/ }).click()
+  must(/ประจำเดือน/.test(await page.locator('.a4page').innerText()), 'monthly summary')
+  await page.getByRole('tab', { name: /^3\s*ไตรมาส/ }).click()
+  must(/ประจำไตรมาส/.test(await page.locator('.a4page').innerText()), 'quarterly summary')
+  await page.getByRole('tab', { name: /^4\s*ปี/ }).click()
+  const yt = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
+  must(/ประจำปี/.test(yt) && /รวมรายรับ\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(yt), 'yearly summary includes everything: ' + yt)
+  await page.getByRole('tab', { name: /^1\s*สัปดาห์/ }).click()
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
   await dl.saveAs('shots/ledger.pdf')
   // ตั้งค่า: หมวดรายจ่าย 15 หมวด 150 รายการ · ใบเบิกเลือกหมวดได้

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
 import { roundTotal } from '../lib/ledger'
-import { computeLedger } from '../lib/weekLedger'
+import { computeLedger, rangeOf } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import { useRole } from '../lib/members'
@@ -109,7 +109,7 @@ export default function Receive({ year }: { year: number }) {
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
   // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
-  const { incRows } = useMemo(() => computeLedger({ year, sunday, scope: repScope, income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list }), [year, sunday, repScope, inc.items, rounds.items, types.list])
+  const { incRows } = useMemo(() => computeLedger({ range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list }), [year, sunday, repScope, inc.items, rounds.items, types.list])
 
   /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
   const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
