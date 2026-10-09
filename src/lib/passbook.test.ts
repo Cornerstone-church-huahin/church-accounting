@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chainGap, checkChain, classify, dedupeLines, normalizeRows, reconcileWeek } from './passbook'
+import { chainGap, checkChain, classify, dedupeLines, dupIndexes, normalizeRows, reconcileWeek } from './passbook'
 import type { IncomeEntry, PassbookLine } from './types'
 
 describe('passbook', () => {
@@ -16,6 +16,27 @@ describe('passbook', () => {
   it('drops overlapping lines already saved', () => {
     const a = { date: '2026-10-11', kind: 'deposit', amount: 5000, balance: 9000 }
     expect(dedupeLines([a], [a, { ...a, amount: 1 }])).toHaveLength(1)
+  })
+  it('re-scanning an old page plus new rows only adds the new rows (even if the kind was classified differently)', () => {
+    const saved = [
+      { date: '2026-10-02', kind: 'in', amount: 3200000, balance: 8738670 },
+      { date: '2026-10-04', kind: 'in', amount: 1000, balance: 8739670 },
+      { date: '2026-10-04', kind: 'deposit', amount: 526000, balance: 9323170 },
+    ]
+    const page = [
+      { date: '2026-10-02', kind: 'deposit', amount: 3200000, balance: 8738670 },
+      { date: '2026-10-04', kind: 'in', amount: 1000, balance: 8739670 },
+      { date: '2026-10-04', kind: 'deposit', amount: 526000, balance: 9323170 },
+      { date: '2026-10-05', kind: 'withdraw', amount: 350000, balance: 8973170 },
+    ]
+    expect(dedupeLines(saved, page).map((r) => r.date + r.amount)).toEqual(['2026-10-05350000'])
+    expect([...dupIndexes(saved, page)]).toEqual([0, 1, 2])
+  })
+  it('keeps two identical real rows with different balances and rows without balance by count', () => {
+    const two = [{ date: '2026-10-01', amount: 200000, balance: 5538670 }, { date: '2026-10-01', amount: 200000, balance: 5738670 }]
+    expect(dedupeLines([], two)).toHaveLength(2)
+    const nb = { date: '2026-10-01', amount: 100 }
+    expect(dedupeLines([nb], [nb, nb])).toHaveLength(1)
   })
   it('reconciles a week: matches transfer to slip, reports closing balance', () => {
     const sun = '2026-10-11'

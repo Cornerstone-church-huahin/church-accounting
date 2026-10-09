@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
+import { usePassbook, useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
+import { CODE_LEGEND, reconcileWeek } from '../lib/passbook'
 import { computeSeries, topRows, type LedgerInput } from '../lib/seriesLedger'
 import { CatBars, CumLine, Donut, GroupedBars, Legend } from '../components/StatCharts'
 import LedgerTable from '../components/LedgerTable'
@@ -19,6 +20,7 @@ export default function Summary({ year }: { year: number }) {
   const funds = useFunds()
   const entries = useBudgetEntries(year)
   const closes = useWeekCloses(year)
+  const passbook = usePassbook(year)
   const types = useIncomeTypes()
   const cats = useExpenseCats()
   const expenses = useExpenses(year)
@@ -51,6 +53,10 @@ export default function Summary({ year }: { year: number }) {
     window.print()
   }
   const idx = sundays.indexOf(sunday)
+  const bank = useMemo(() => (kind === 'week' ? reconcileWeek(sunday, passbook.items, income.items) : null), [kind, sunday, passbook.items, income.items])
+  const bankRows = bank ? ([
+    ['ฝากเงินสด (DEP/NBD)', bank.deposits], ['โอนเข้า (TRD)', bank.transfersIn], ['ถอนเงินสด (W/D)', bank.withdraws], ['โอนออก/ดอกเบี้ย/ค่าธรรมเนียม', bank.others],
+  ] as const).filter(([, l]) => l.length > 0) : []
   const wkClose = kind === 'week' ? closes.items.find((c) => c.sunday === sunday) : undefined
   const range = rangeOf(kind, year, { sunday, month, quarter })
 
@@ -116,6 +122,14 @@ export default function Summary({ year }: { year: number }) {
             </tbody>
             <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending ? -outSum.pending : 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)}</td></tr></tfoot>
           </table>
+          {bankRows.length > 0 && bank && (
+            <table className="tbl tbl--paper paper__close" aria-label="สมุดบัญชีธนาคาร">
+              <thead><tr><th>สมุดบัญชีธนาคาร (เงินเข้า-ออกสัปดาห์นี้)</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
+              <tbody>{bankRows.map(([label, ls]) => <tr key={label}><td>{label}</td><td className="num">{ls.length}</td><td className="num">{fmtBaht(ls.reduce((a, l) => a + l.amount, 0))}</td></tr>)}</tbody>
+              <tfoot><tr><td>ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์</td><td /><td className="num">{bank.closing !== undefined ? fmtBaht(bank.closing) : '—'}</td></tr></tfoot>
+            </table>
+          )}
+          {bankRows.length > 0 && <p className="a4note">รหัสในสมุด: {CODE_LEGEND}</p>}
           {wkClose && <p className="a4note">✓ ตรวจกับสมุดบัญชีธนาคารแล้ว{wkClose.bankBalance !== undefined ? <> · ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์ <b>{fmtBaht(wkClose.bankBalance)}</b> บาท</> : null}</p>}
           {outSum.pending > 0 && <p className="a4note">ยอดค้างจ่ายที่ต้องเตรียมเบิก (วางบิลที่ยังไม่จ่าย + สำรองจ่ายที่ยังไม่คืนเงิน): <b>{fmtBaht(outSum.pending)}</b> บาท</p>}
           <div className="sign" style={{ display: 'grid' }}>

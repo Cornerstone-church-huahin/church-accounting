@@ -58,13 +58,29 @@ export function checkChain(rows: { deposit?: number; withdraw?: number; balance?
   return bad
 }
 
-const sig = (l: { date: string; amount: number; balance?: number; kind: string }) => `${l.date}|${l.kind}|${l.amount}|${l.balance ?? ''}`
-/** ตัดบรรทัดที่ซ้ำกับที่มีอยู่แล้ว (ถ่ายหน้าสมุดทับกัน) */
-export function dedupeLines<T extends { date: string; amount: number; balance?: number; kind: string }>(existing: T[], fresh: T[]): T[] {
-  const have = new Set(existing.map(sig))
-  const out: T[] = []
-  for (const f of fresh) { const s = sig(f); if (!have.has(s)) { have.add(s); out.push(f) } }
-  return out
+/** ลายนิ้วมือของบรรทัด: วันที่ + จำนวนเงิน + ยอดคงเหลือ (ยอดคงเหลือไม่ซ้ำกันในสมุดเดียว จึงแยกบรรทัดฝาก/ถอนจำนวนเท่ากันวันเดียวกันได้) — ไม่ใช้ชนิดรายการ เพราะอ่านรอบหลังอาจจัดชนิดต่างจากรอบแรก */
+const sig = (l: { date: string; amount: number; balance?: number }) => `${l.date}|${l.amount}|${l.balance ?? ''}`
+
+/** ดัชนีของบรรทัดใหม่ที่ซ้ำกับที่มีอยู่แล้ว (ถ่ายหน้าทับกัน) หรือซ้ำกันเองในรูปเดียว · ไม่มียอดคงเหลือ: นับจำนวนครั้งที่เจอ ไม่ตัดบรรทัดจริงที่จำนวนเท่ากัน */
+export function dupIndexes(existing: { date: string; amount: number; balance?: number }[], fresh: { date: string; amount: number; balance?: number }[]): Set<number> {
+  const have = new Map<string, number>()
+  for (const e of existing) have.set(sig(e), (have.get(sig(e)) ?? 0) + 1)
+  const dup = new Set<number>()
+  const seen = new Map<string, number>()
+  fresh.forEach((f, i) => {
+    const k = sig(f)
+    const n = (seen.get(k) ?? 0) + 1
+    seen.set(k, n)
+    // มียอดคงเหลือ = 1 บรรทัดต่อลายนิ้วมือ · ไม่มียอดคงเหลือ = ถือว่าซ้ำเมื่อของเดิมมีจำนวนครบแล้ว
+    const limit = f.balance === undefined ? have.get(k) ?? 0 : (have.get(k) ?? 0) > 0 ? 0 : 1
+    if (n > limit) dup.add(i)
+  })
+  return dup
+}
+/** ตัดบรรทัดที่ซ้ำกับที่มีอยู่แล้ว */
+export function dedupeLines<T extends { date: string; amount: number; balance?: number }>(existing: { date: string; amount: number; balance?: number }[], fresh: T[]): T[] {
+  const d = dupIndexes(existing, fresh)
+  return fresh.filter((_, i) => !d.has(i))
 }
 
 export const lineWeek = (l: Pick<PassbookLine, 'date' | 'week'>) => l.week ?? sheetSunday(l.date)
@@ -103,3 +119,6 @@ export function reconcileWeek(sunday: string, all: PassbookLine[], income: Incom
     closing: upto.length ? upto[upto.length - 1].balance : undefined,
   }
 }
+
+/** คำอธิบายรหัสรายการในสมุด (ธนาคารกรุงเทพ) ไว้แสดงเป็นหมายเหตุ */
+export const CODE_LEGEND = 'DEP/NBD = ฝากเงินสด · TRD = โอนเข้า · W/D = ถอนเงินสด · TRW = โอนออก · INT = ดอกเบี้ย'
