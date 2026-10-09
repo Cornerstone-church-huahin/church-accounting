@@ -206,7 +206,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .a4page .sign { margin-top: auto; font-size: 12px; gap: 1.2rem; }
 .a4page .sign > div { padding-top: 1.4rem; }
 @page a4 { size: A4 portrait; margin: 0; }
-@media print { .a4wrap { height: auto !important; border: 0; overflow: visible; } .a4page { transform: none !important; } }
+@media print { .a4wrap { height: auto !important; border: 0; overflow: visible; break-after: page; } .a4page { transform: none !important; } }
 .ecat { border-top: 1px solid var(--line); padding: 0.4rem 0; }
 .ecat > summary { cursor: pointer; padding: 0.3rem 0; }
 .subtabs--out { grid-template-columns: repeat(4, 1fr); }
@@ -230,3 +230,20 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .subtabs--sum button.on { background: var(--sky); color: #fff; }
 .mode-sum .a4wrap { border: 2px solid var(--sky); }
 .mode-sum .mini { border-color: var(--sky); }
+/* ใบสรุปรายเดือน/ไตรมาส/ปี + ใบสถิติ */
+.a4page .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 4px 0 6px; }
+.a4page .kpis > div { border: 1.5px solid #333; border-radius: 6px; padding: 6px 10px; }
+.a4page .kpis span { display: block; font-size: 11.5px; color: #555; }
+.a4page .kpis b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.a4page .stat-table th { text-align: center; font-size: 11px; padding: 2px 3px; }
+.a4page .stat-table td { padding: 0 5px; height: 22px; font-size: 12px; white-space: nowrap; }
+.a4page .stat-table td.num, .a4page .stat-table th.num { text-align: right; }
+.a4page .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.a4page .mini-table td, .a4page .mini-table th { padding: 2px 5px; font-size: 11.5px; }
+.a4page .mini-table tfoot td { font-weight: 700; background: #f2f2f2; }
+.stat-title { font-weight: 700; font-size: 13.5px; margin: 8px 0 2px; border-bottom: 1.5px solid #222; padding-bottom: 2px; }
+.a4page--land { width: 1123px !important; height: 794px !important; padding: 16px 22px 14px; }
+.a4wrap--land { page: a4l; }
+@page a4l { size: A4 landscape; margin: 0; }
+.a4page--land .land-grid { display: grid; grid-template-columns: 1.85fr 1fr; gap: 18px; flex: 1; min-height: 0; }
+.a4page--land .land-grid > div { min-width: 0; }

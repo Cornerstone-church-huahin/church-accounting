@@ -41,10 +41,9 @@ export function computeLedger(a: {
   const m = new Map<string, { cash: LSrc; transfer: LSrc }>()
   const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
   const order = new Map(a.types.map((t, i) => [t.id, t.order ?? i]))
-  for (const t of [...a.types].filter((x) => x.active).sort((x, y) => x.order - y.order).slice(0, 5)) at(t.id)
   for (const r of rds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
   for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
-  const incRows: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
+  const incRows: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).filter(([, v]) => v.cash.amt > 0 || v.transfer.amt > 0).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
 
   const p: Period = { kind: 'week', from: a.range.from, to: a.range.to }
   const lineName = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...a.lines, ...a.funds].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
