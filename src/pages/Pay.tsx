@@ -3,6 +3,7 @@ import MoneyInput from '../components/MoneyInput'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
+import WeekBar from '../components/WeekBar'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
@@ -50,16 +51,18 @@ export default function Pay({ year }: { year: number }) {
   const [scope, setScope] = useState<'week' | 'year'>('year')
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
-  const idx = sundays.indexOf(sunday)
+  const [allWeeks, setAllWeeks] = useState(true)
   const paperRef = useRef<HTMLDivElement>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
 
   const all = useMemo(() => [...exp.items].sort(byDateDesc), [exp.items])
-  const of = (c: Channel) => all.filter((x) => x.channel === c)
+  const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
+  const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
+  const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
   const catName = (id?: string) => { const c = id ? cats.byId(id) : undefined; return c ? `${c.code} ${c.name}` : 'ยังไม่ระบุหมวด' }
   const L = useMemo(() => computeLedger({ year, sunday, scope, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items }),
     [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
-  const pending = (c: Channel) => of(c).filter((x) => x.status === 'open')
+  const pending = (c: Channel) => ofAll(c).filter((x) => x.status === 'open')
   const sum = (xs: ExpenseEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
 
   /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
@@ -106,8 +109,9 @@ export default function Pay({ year }: { year: number }) {
         <p className="muted small">{CH[c].hint}</p>
         <div className="row row--between" style={{ margin: '0.4rem 0' }}>
           <b>{xs.length} รายการ · รวม {fmtBaht(sum(xs))}</b>
-          {c !== 'manual' && open.length > 0 && <span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span>}
+          {(allWeeks || ofAll(c).length > xs.length) && <button type="button" className="mini" onClick={() => setAllWeeks(!allWeeks)}>{allWeeks ? 'เฉพาะสัปดาห์นี้' : `ดูทุกสัปดาห์ (อีก ${ofAll(c).length - xs.length})`}</button>}
         </div>
+        {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
@@ -118,6 +122,7 @@ export default function Pay({ year }: { year: number }) {
 
   return (
     <>
+      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
         {tab('bill', 2, 'วางบิล', of('bill').length)}
@@ -132,11 +137,6 @@ export default function Pay({ year }: { year: number }) {
       {sub === 'total' && (
         <section className="card" role="tabpanel" aria-label="รวมจ่าย">
           <div className="no-print" style={{ display: 'grid', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <button type="button" className="mini" aria-label="สัปดาห์ก่อน" disabled={scope === 'year' || idx <= 0} onClick={() => setSunday(sundays[idx - 1])}>‹</button>
-              <b style={{ textAlign: 'center' }}>{scope === 'year' ? `ทั้งปี ${year + 543}` : fmtDateLong(sunday)}</b>
-              <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" disabled={scope === 'year' || idx >= sundays.length - 1} onClick={() => setSunday(sundays[idx + 1])}>›</button>
-            </div>
             <div className="seg" role="group" aria-label="ช่วงของใบสรุป">
               <button type="button" className={scope === 'week' ? 'on' : ''} onClick={() => setScope('week')}>สัปดาห์ที่เลือก</button>
               <button type="button" className={scope === 'year' ? 'on' : ''} onClick={() => setScope('year')}>ทั้งปี {year + 543}</button>

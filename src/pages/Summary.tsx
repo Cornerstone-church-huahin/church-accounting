@@ -5,6 +5,7 @@ import { downloadPdf } from '../lib/pdf'
 import { computeLedger } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
+import WeekBar from '../components/WeekBar'
 
 /** แท็บ "สรุป" หน้าแรก: ดึงผลรวมรายรับ + รายจ่าย มาเป็นใบเดียวเต็มหน้า A4 (บนรายรับ ล่างรายจ่าย) แล้วปิดยอดคงเหลือ */
 export default function Summary({ year }: { year: number }) {
@@ -22,7 +23,6 @@ export default function Summary({ year }: { year: number }) {
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const [scope, setScope] = useState<'week' | 'year'>('week')
   const [busy, setBusy] = useState(false)
-  const idx = sundays.indexOf(sunday)
 
   const L = useMemo(() => computeLedger({ year, sunday, scope, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items }),
     [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items])
@@ -36,16 +36,12 @@ export default function Summary({ year }: { year: number }) {
 
   return (
     <div role="tabpanel" aria-label="สรุป">
+      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} label={scope === 'year' ? `ทั้งปี ${year + 543}` : undefined} disabled={scope === 'year'} />
+      <div className="subtabs subtabs--sum no-print" role="tablist" aria-label="ช่วงของใบสรุป">
+        <button type="button" role="tab" aria-selected={scope === 'week'} className={scope === 'week' ? 'on' : ''} onClick={() => setScope('week')}>1<span>สัปดาห์ที่เลือก</span></button>
+        <button type="button" role="tab" aria-selected={scope === 'year'} className={scope === 'year' ? 'on' : ''} onClick={() => setScope('year')}>2<span>ทั้งปี {year + 543}</span></button>
+      </div>
       <div className="no-print" style={{ display: 'grid', gap: 8, margin: '0.6rem 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <button type="button" className="mini" aria-label="สัปดาห์ก่อน" disabled={scope === 'year' || idx <= 0} onClick={() => setSunday(sundays[idx - 1])}>‹</button>
-          <b style={{ textAlign: 'center' }}>{scope === 'year' ? `ทั้งปี ${year + 543}` : fmtDateLong(sunday)}</b>
-          <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" disabled={scope === 'year' || idx >= sundays.length - 1} onClick={() => setSunday(sundays[idx + 1])}>›</button>
-        </div>
-        <div className="seg" role="group" aria-label="ช่วงของใบสรุป">
-          <button type="button" className={scope === 'week' ? 'on' : ''} onClick={() => setScope('week')}>สัปดาห์ที่เลือก</button>
-          <button type="button" className={scope === 'year' ? 'on' : ''} onClick={() => setScope('year')}>ทั้งปี {year + 543}</button>
-        </div>
         <div className="grid2">
           <button type="button" className="btn btn--gold" disabled={busy} onClick={async () => {
             if (!paperRef.current) return
