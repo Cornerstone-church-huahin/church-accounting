@@ -154,3 +154,37 @@ export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value
     </div>
   )
 }
+
+/** แท่งรายจ่ายตามหมวดหลักทุกหมวด (หมวดที่ไม่มีรายการเป็นช่องว่าง) — แกนเป็นเลขหมวด มีคำอธิบายชื่อหมวดใต้กราฟ */
+export function CatBars({ cats, height = 150 }: { cats: { code: string; label: string; value: number }[]; height?: number }) {
+  const hid = `h${useId().replace(/[^a-zA-Z0-9]/g, '')}`
+  const W = 1060, L = 46, R = 8, T = 16, B = 20
+  const plotW = W - L - R, plotH = height - T - B
+  const maxV = Math.max(0, ...cats.map((c) => c.value))
+  const max = niceMax(maxV / 100) * 100
+  const y = (v: number) => T + plotH - (Math.max(0, v) / max) * plotH
+  const gW = plotW / Math.max(1, cats.length), bw = Math.min(30, gW * 0.5)
+  const total = cats.reduce((s, c) => s + c.value, 0)
+  if (maxV <= 0) return <p style={{ color: MUTED, fontSize: 13, margin: '20px 0', textAlign: 'center' }}>ยังไม่มีรายจ่ายในช่วงนี้</p>
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${height}`} width="100%" role="img" aria-label="รายจ่ายแยกตามหมวดหลัก">
+        <defs><Hatch id={hid} /></defs>
+        {[0, 1, 2, 3, 4].map((i) => { const v = (max / 4) * i; return <g key={i}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={GRID} strokeWidth={i === 0 ? 1.2 : 0.8} /><text x={L - 6} y={y(v) + 3.5} fontSize="10" textAnchor="end" fill={MUTED}>{fmtShort(v)}</text></g> })}
+        {cats.map((c, i) => {
+          const cx = L + gW * i + gW / 2, h = plotH - (y(c.value) - T)
+          return (
+            <g key={c.code}>
+              <title>{`${c.code}. ${c.label}: ${fmtBaht(c.value)}${total > 0 ? ` (${((c.value / total) * 100).toFixed(1)}%)` : ''}`}</title>
+              {c.value > 0 && <><path d={barPath(cx - bw / 2, y(c.value), bw, h)} fill={OUT} /><path d={barPath(cx - bw / 2, y(c.value), bw, h)} fill={`url(#${hid})`} /><text x={cx} y={y(c.value) - 4} fontSize="10" fontWeight="700" textAnchor="middle" fill={INK}>{fmtShort(c.value)}</text></>}
+              <text x={cx} y={height - 6} fontSize="11" textAnchor="middle" fill={INK}>{c.code}</text>
+            </g>
+          )
+        })}
+      </svg>
+      <div style={{ columnCount: 5, columnGap: 10, fontSize: 9.5, lineHeight: 1.35, color: MUTED }}>
+        {cats.map((c) => <div key={c.code} style={{ breakInside: 'avoid', color: c.value > 0 ? INK : MUTED }}><b>{c.code}</b> {c.label}</div>)}
+      </div>
+    </div>
+  )
+}
