@@ -1,7 +1,7 @@
 import { addDays, daysInMonth } from './money'
 import { directOut, paidItems, type Period } from './ledger'
 import { fmtDate, inRange } from './money'
-import { BANK_UNKNOWN_LABEL, BANK_UNKNOWN_OUT_LABEL, lineDate, unknownBankIn, unknownBankOut } from './passbook'
+import { BANK_UNKNOWN_LABEL, BANK_UNKNOWN_OUT_LABEL, lineDate, typeFromNote, unknownBankIn, unknownBankOut } from './passbook'
 import { UNSORTED, type PassbookLine, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
@@ -46,6 +46,10 @@ export function computeLedger(a: {
   const order = new Map(a.types.map((t, i) => [t.id, t.order ?? i]))
   for (const r of rds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
   for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
+  // เงินเข้าสมุดที่ไม่มีสลิป: ถ้ามีลายมือ/หมายเหตุระบุประเภทไว้ (เช่น "สิบลด") ให้ลงประเภทนั้น · ไม่ได้ระบุเลย = ไม่ทราบที่มา
+  const bankIn = unknownBankIn(a.passbook ?? [], a.income).filter((l) => inR(lineDate(l)))
+  const bankUnknown: PassbookLine[] = []
+  for (const l of bankIn) { const id = typeFromNote(l.desc, a.types); if (id) { const t = at(id).transfer; t.amt += l.amount; t.n += 1 } else bankUnknown.push(l) }
   const incRows0: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).filter(([, v]) => v.cash.amt > 0 || v.transfer.amt > 0).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
 
   const p: Period = { kind: 'week', from: a.range.from, to: a.range.to }
@@ -84,7 +88,7 @@ export function computeLedger(a: {
   // เงินเข้า/ออกสมุดที่ไม่มีสลิป/บิล: แยกเป็นรายการละบรรทัด (ไม่รวมเป็นยอดเดียว) เรียงตามวันที่
   const bankOut = unknownBankOut(a.passbook ?? [], a.expenses ?? []).filter((l) => inR(lineDate(l))).sort((x, y) => x.date.localeCompare(y.date))
   const bankRow = (l: PassbookLine, tag: string): LRow => ({ key: `__bank:${l.id}`, label: `${tag} · ${fmtDate(l.date)}${l.desc ? ` · ${l.desc}` : ''}`, cash: { n: 0, amt: 0 }, transfer: { n: 1, amt: l.amount }, pending: { n: 0, amt: 0 } })
-  const incRows: LRow[] = [...incRows0, ...unknownBankIn(a.passbook ?? [], a.income).filter((l) => inR(lineDate(l))).sort((x, y) => x.date.localeCompare(y.date)).map((l) => bankRow(l, BANK_UNKNOWN_LABEL))]
+  const incRows: LRow[] = [...incRows0, ...bankUnknown.sort((x, y) => x.date.localeCompare(y.date)).map((l) => bankRow(l, BANK_UNKNOWN_LABEL))]
   const outRows: LRow[] = [...outRows0, ...bankOut.map((l) => bankRow(l, BANK_UNKNOWN_OUT_LABEL))]
   return { incRows, outRows, inSum: sumRows(incRows), outSum: sumRows(outRows) }
 }

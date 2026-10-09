@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { unknownBankIn, chainGap, checkChain, classify, dedupeLines, dupIndexes, normalizeRows, reconcileWeek } from './passbook'
+import { typeFromNote, unknownBankIn, chainGap, checkChain, classify, dedupeLines, dupIndexes, normalizeRows, reconcileWeek } from './passbook'
 import type { IncomeEntry, PassbookLine } from './types'
 
 describe('passbook', () => {
@@ -132,4 +132,22 @@ it('lists each unmatched bank transfer on its own row (five transfers = five row
   const L = computeLedger({ range: { from: '2026-09-28', to: '2026-10-04' }, income: [], rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: [], passbook: pb })
   expect(L.incRows).toHaveLength(5)
   expect(L.incRows.every((r) => r.transfer.n === 1)).toBe(true)
+})
+
+it('a bank transfer with a handwritten type note joins that type; slip-matched ones keep the slip type; only unmarked ones are Unknown', () => {
+  const types = [{ id: 'tt1', name: 'สิบลด', active: true, order: 0 }, { id: 'tt2', name: 'ประจำสัปดาห์', active: true, order: 1 }] as never[]
+  expect(typeFromNote('TRD · สิบลด', types)).toBe('tt1')
+  expect(typeFromNote('TRD · UN', types)).toBeUndefined()
+  const pb = [
+    { id: 'a', updated: 1, date: '2026-09-30', kind: 'in', amount: 200000, desc: 'TRD · สิบลด', balance: 1 },
+    { id: 'b', updated: 1, date: '2026-10-02', kind: 'in', amount: 3200000, desc: 'TRD', balance: 2 },
+    { id: 'c', updated: 1, date: '2026-10-03', kind: 'in', amount: 16900, desc: 'TRD', balance: 3 },
+  ] as PassbookLine[]
+  const inc = [{ id: 'i', updated: 1, date: '2026-10-03', amount: 16900, method: 'transfer', typeId: 'tt2' }] as IncomeEntry[]
+  const L = computeLedger({ range: { from: '2026-09-28', to: '2026-10-04' }, income: inc, rounds: [], vouchers: [], lines: [], funds: [], entries: [], types, passbook: pb })
+  const byLabel = Object.fromEntries(L.incRows.map((r) => [r.label.split(' · ')[0], r.transfer.amt]))
+  expect(byLabel['สิบลด']).toBe(200000)
+  expect(byLabel['ประจำสัปดาห์']).toBe(16900)
+  expect(byLabel['ไม่ทราบที่มา (Unknown)']).toBe(3200000)
+  expect(L.inSum.transfer).toBe(200000 + 16900 + 3200000)
 })
