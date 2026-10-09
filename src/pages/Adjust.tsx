@@ -1,14 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
 import CaptureBar from '../components/CaptureBar'
+import LoansPanel from '../components/LoansPanel'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
-import { useAccounts, useFundMoves, useOpening, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
+import { useLoans, useAccounts, useFundMoves, useOpening, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
-import { fundLedger, suggestMoves } from '../lib/funds'
+import { fundLedger, isFundType, suggestMoves } from '../lib/funds'
 import { CODE_LEGEND, typeFromNote, chainGap, checkChain, classify, dedupeLines, dupIndexes, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
@@ -34,6 +35,7 @@ export default function Adjust({ year }: { year: number }) {
   const cats = useExpenseCats()
   const accounts = useAccounts()
   const moves = useFundMoves(year)
+  const loans = useLoans()
   const openingStore = useOpening()
   const restrictedIds = useMemo(() => accounts.list.filter((a) => a.role === 'restricted').map((a) => a.id), [accounts.list])
   const [acctId, setAcctId] = useState('')
@@ -139,11 +141,31 @@ export default function Adjust({ year }: { year: number }) {
   const cashIn = L.inSum.cash
   const depDiff = rec.depositSum - cashIn
   const tabBtn = (k: Sub, n: number, text: string) => <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}><i className="dot">{n}</i><span>{text}</span></button>
+  const matchedIds = new Set(rec.matchedIn.map((m) => m.line.id))
+  const [loanPick, setLoanPick] = useState<{ lineId: string; loanId: string } | null>(null)
+  const loanOf = (id?: string) => loans.items.find((x) => x.id === id)
+  const confirmLoan = (l: PassbookLine, isOut: boolean) => {
+    const ln = loanOf(loanPick?.loanId)
+    if (!ln) return
+    if (isOut) loans.put([{ ...ln, repayments: [...ln.repayments, { id: newId('rp'), date: l.date, amount: l.amount, note: 'จากสมุดบัญชี' }] }])
+    pb.put([{ ...l, link: { kind: 'loan', id: ln.id } }])
+    setLoanPick(null); setMsg(isOut ? 'บันทึกเป็นการคืนเงินยืมแล้ว' : 'ผูกกับเงินยืมแล้ว (ไม่นับเป็นรายรับ)')
+  }
+  const loanLabel = (id?: string) => { const x = loanOf(id); return x ? `${x.lender.kind === 'fund' ? 'กองทุน' : x.lender.name} · ${x.purpose}` : '' }
   const lineRow = (l: PassbookLine, extra?: React.ReactNode) => (
     <li key={l.id} className="pbline">
       <div><b>{fmtBaht(l.amount)}</b> <span className="badge">{KIND_LABEL[l.kind]}</span> <span className="muted small">{fmtDate(l.date)}{l.desc ? ` · ${l.desc}` : ''}</span></div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {extra}
+        {l.link?.kind === 'loan' && <span className="badge badge--good">เงินยืม: {loanLabel(l.link.id)}</span>}
+        {canWrite && !closed && !l.link && ((l.kind === 'in' && !matchedIds.has(l.id)) || l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')) && (
+          loanPick?.lineId === l.id ? (
+            <span className="row" style={{ gap: 6 }}>
+              <select className="input" aria-label="เลือกเงินยืม" value={loanPick.loanId} onChange={(e) => setLoanPick({ lineId: l.id, loanId: e.target.value })}>{loans.items.map((x) => <option key={x.id} value={x.id}>{loanLabel(x.id)}</option>)}</select>
+              <button type="button" className="mini" onClick={() => confirmLoan(l, l.kind !== 'in')}>ยืนยัน</button>
+            </span>
+          ) : loans.items.length > 0 ? <button type="button" className="mini" onClick={() => setLoanPick({ lineId: l.id, loanId: loans.items[0].id })}>{l.kind === 'in' ? 'เป็นเงินยืม' : 'คืนเงินยืม'}</button> : null
+        )}
         {(l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')) && (l.link?.kind === 'park' ? <span className="badge">พักไว้</span> : <><span className="badge badge--warn">ไม่ทราบรายจ่าย</span>{canWrite && !closed && <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>}</>)}
         {canWrite && !closed && lineWeek(l) === sunday && <button type="button" className="mini" onClick={() => pb.put([{ ...l, week: addDays(sunday, -7) }])}>← ไปสัปดาห์ก่อน</button>}
         {canWrite && !closed && <button type="button" className="mini" aria-label="ลบบรรทัดนี้" onClick={() => { if (confirm('ลบบรรทัดนี้ออกจากสมุดที่บันทึกไว้?')) pb.remove(l.id) }}>🗑</button>}
@@ -186,6 +208,7 @@ export default function Adjust({ year }: { year: number }) {
               <p className="muted small">นับจาก{opening ? `ยอดยกมา ${fmtDate(opening.date)}` : ' 1 ม.ค.'} · ตอนย้ายเงินเข้าบัญชีวัตถุประสงค์ ให้ไปที่ช่อง 3 เพื่อบันทึกการย้าย</p>
             </>
           )}
+          <LoansPanel store={loans} funds={types.list.filter((t) => t.active && isFundType(t))} canWrite={canWrite} />
         </section>
       )}
 
@@ -272,7 +295,7 @@ export default function Adjust({ year }: { year: number }) {
               <ul className="plain">
                 {weekLines.map((l) => lineRow(l, l.kind === 'in' && (rec.matchedIn.find((m) => m.line.id === l.id)
                   ? <span className="badge badge--good">✓ ตรงสลิป</span>
-                  : l.link?.kind === 'park' ? <span className="badge">พักไว้</span>
+                  : l.link ? <span className="badge">{l.link.kind === 'park' ? 'พักไว้' : 'ผูกกับเงินยืมแล้ว'}</span>
                   : canWrite && !closed ? (asIncome?.id === l.id ? (
                     <span className="row" style={{ gap: 6 }}>
                       <select className="input" aria-label="ประเภทถวาย" value={asIncome.typeId} onChange={(e) => setAsIncome({ id: l.id, typeId: e.target.value })}>{types.list.filter((t) => t.active).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>

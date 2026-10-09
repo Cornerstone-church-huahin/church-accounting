@@ -187,7 +187,7 @@ export interface PassbookLine extends SharedItem {
   /** ทิศทางเงิน (เข้า/ออก) — ใช้กับ kind 'other' เช่น ดอกเบี้ย (เข้า) ค่าธรรมเนียม/ภาษี (ออก) */
   dir?: 'in' | 'out'
   /** ผูกกับรายการในแอปแล้ว (income = ลงเป็นรายรับจากสมุด) หรือพักไว้ */
-  link?: { kind: 'income' | 'park' | 'move'; id?: string }
+  link?: { kind: 'income' | 'park' | 'move' | 'loan'; id?: string }
   /** บรรทัดนี้อยู่ในสมุดบัญชีเล่มไหน */
   accountId?: string
 }
@@ -216,4 +216,18 @@ export interface Opening extends SharedItem {
   cash: number
   /** เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน ณ ตั้งต้น (id ประเภทถวาย → สตางค์) */
   unmoved: Record<string, number>
+}
+
+/** เงินยืม (หนี้): ยืมจากบุคคลภายนอก หรือยืมระหว่างกองทุน — ไม่ใช่รายรับ และการคืนไม่ใช่รายจ่าย */
+export interface LoanRepayment { id: string; date: string; amount: number; note?: string }
+export interface Loan extends SharedItem {
+  /** ผู้ให้ยืม: person = บุคคลภายนอก (ใส่ชื่อ) · fund = กองทุนในคริสตจักร (id ประเภทถวายที่เป็นกองทุน) */
+  lender: { kind: 'person' | 'fund'; name?: string; fundId?: string }
+  /** ใช้ทำอะไร เช่น ทำสุสาน สร้างห้องพัก */
+  purpose: string
+  date: string
+  /** เงินต้น (สตางค์) */
+  principal: number
+  repayments: LoanRepayment[]
+  note?: string
 }
