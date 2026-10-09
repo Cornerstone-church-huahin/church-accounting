@@ -8,12 +8,12 @@ import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
-import { checkChain, classify, dedupeLines, lineWeek, reconcileWeek } from '../lib/passbook'
+import { chainGap, checkChain, classify, dedupeLines, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
 type Sub = 'prep' | 'photo' | 'check' | 'close'
-interface Draft { date: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
+interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
 const KIND_LABEL: Record<PassbookLine['kind'], string> = { deposit: 'ฝากเงินสด', in: 'โอนเข้า', withdraw: 'ถอนเงินสด', out: 'โอนออก', other: 'ดอกเบี้ย/ค่าธรรมเนียม' }
 
 /** ขั้น "ปรับ": เตรียมเบิก → ถ่ายรูปสมุด → ตรวจจับคู่ → ปิดยอดสัปดาห์ */
@@ -70,7 +70,7 @@ export default function Adjust({ year }: { year: number }) {
       const r = await readPassbook(file)
       if (token !== readToken.current) return // ผู้ใช้กดปิดระหว่างอ่าน
       if (r.rows.length === 0) setMsg('อ่านไม่เจอรายการในรูป — ลองถ่ายให้เห็นทั้งหน้า ไม่เอียง แล้วถ่ายใหม่')
-      setDrafts(r.rows.map((x) => ({ date: x.date ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null })))
+      setDrafts(normalizeRows(r.rows).map((x) => ({ date: x.date ?? '', code: x.code ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null })))
     } catch (e) { if (token === readToken.current) setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
     if (token === readToken.current) setBusy(false)
   }
@@ -80,7 +80,7 @@ export default function Adjust({ year }: { year: number }) {
     if (!drafts) return
     if (drafts.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d.date))) return setMsg('ใส่วันที่ให้ครบทุกบรรทัด')
     const fresh: PassbookLine[] = drafts.filter((d) => (d.deposit ?? 0) > 0 || (d.withdraw ?? 0) > 0).map((d) => ({
-      id: newId('pb'), updated: 0, date: d.date, kind: classify({ desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }),
+      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }),
       amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw as number), ...(d.balance !== null ? { balance: d.balance } : {}), ...(d.desc ? { desc: d.desc } : {}),
     }))
     const add = dedupeLines(pb.items, fresh)
@@ -160,6 +160,14 @@ export default function Adjust({ year }: { year: number }) {
                     <label className="small">ถอน<MoneyInput value={d.withdraw} onChange={(v) => upd(i, { withdraw: v })} /></label>
                     <label className="small">คงเหลือ<MoneyInput value={d.balance} onChange={(v) => upd(i, { balance: v })} /></label>
                   </div>
+                  {bad.has(i) && (() => {
+                    const gap = chainGap(drafts.map((x) => ({ deposit: x.deposit ?? 0, withdraw: x.withdraw ?? 0, balance: x.balance ?? undefined })), i)
+                    const prev = drafts[i - 1]?.balance
+                    return gap !== 0 && prev !== null && prev !== undefined ? (
+                      <p className="small err">ยอดคงเหลือต่างจากบรรทัดก่อน {fmtBaht(Math.abs(gap))} ({gap > 0 ? 'เงินเข้า' : 'เงินออก'}) — อาจมีบรรทัดตกหล่น หรืออ่านตัวเลขผิด{' '}
+                        <button type="button" className="mini" onClick={() => setDrafts((xs) => xs && [...xs.slice(0, i), { date: d.date, code: '', desc: '', deposit: gap > 0 ? gap : null, withdraw: gap < 0 ? -gap : null, balance: prev + gap }, ...xs.slice(i)])}>＋ เพิ่มบรรทัดที่ตกหล่น</button></p>
+                    ) : null
+                  })()}
                 </div>
               ))}
               {bad.size > 0 && <p className="err" role="alert">มี {bad.size} บรรทัดที่ยอดคงเหลือไม่ลงตัว — ตรวจกับสมุดก่อน (บันทึกต่อได้ถ้าสมุดพิมพ์เป็นอย่างนั้นจริง)</p>}
