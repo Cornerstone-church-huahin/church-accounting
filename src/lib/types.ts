@@ -180,6 +180,8 @@ export interface PassbookLine extends SharedItem {
   desc?: string
   /** ย้ายไปนับในสัปดาห์ (วันอาทิตย์) อื่น เช่น ธนาคารลงวันที่ฝากเป็นวันจันทร์ */
   week?: string
+  /** ทิศทางเงิน (เข้า/ออก) — ใช้กับ kind 'other' เช่น ดอกเบี้ย (เข้า) ค่าธรรมเนียม/ภาษี (ออก) */
+  dir?: 'in' | 'out'
   /** ผูกกับรายการในแอปแล้ว (income = ลงเป็นรายรับจากสมุด) หรือพักไว้ */
   link?: { kind: 'income' | 'park'; id?: string }
 }

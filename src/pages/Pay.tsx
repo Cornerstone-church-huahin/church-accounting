@@ -7,7 +7,7 @@ import WeekBar from '../components/WeekBar'
 import CaptureBar from '../components/CaptureBar'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
-import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
+import { usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
 import { ensureGemini, getGemini, readBill } from '../lib/gemini'
 import { compressImage } from '../lib/image'
 import { readSlip } from '../lib/slipOcr'
@@ -35,6 +35,7 @@ const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b
 export default function Pay({ year }: { year: number }) {
   const role = useRole()
   const exp = useExpenses(year)
+  const passbook = usePassbook(year)
   const cats = useExpenseCats()
   const vouchers = useVouchers(year)
   const lines = useBudgetLines(year)
@@ -61,8 +62,8 @@ export default function Pay({ year }: { year: number }) {
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
   const catName = (id?: string) => { const c = id ? cats.byId(id) : undefined; return c ? `${c.code} ${c.name}` : 'ยังไม่ระบุหมวด' }
-  const L = useMemo(() => computeLedger({ range: rangeOf(scope === 'year' ? 'year' : 'week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items }),
-    [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
+  const L = useMemo(() => computeLedger({ range: rangeOf(scope === 'year' ? 'year' : 'week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }),
+    [year, sunday, scope, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
   const pending = (c: Channel) => ofAll(c).filter((x) => x.status === 'open')
   const sum = (xs: ExpenseEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
 

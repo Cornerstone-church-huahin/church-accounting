@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
+import { usePassbook, useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
 import { roundTotal } from '../lib/ledger'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
@@ -29,6 +29,7 @@ const byDateDesc = (a: IncomeEntry, b: IncomeEntry) => (a.date < b.date ? 1 : a.
 export default function Receive({ year }: { year: number }) {
   const role = useRole()
   const inc = useIncome(year)
+  const passbook = usePassbook(year)
   const rounds = useRounds(year)
   const types = useIncomeTypes()
   const { settings } = useSettings()
@@ -111,7 +112,7 @@ export default function Receive({ year }: { year: number }) {
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
   // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
-  const { incRows } = useMemo(() => computeLedger({ range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list }), [year, sunday, repScope, inc.items, rounds.items, types.list])
+  const { incRows } = useMemo(() => computeLedger({ range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: passbook.items }), [year, sunday, repScope, inc.items, rounds.items, types.list, passbook.items])
 
   /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
   const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
