@@ -15,7 +15,7 @@ import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, 
 import { downloadPdf } from '../lib/pdf'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
 import type { ExpenseEntry } from '../lib/types'
-import { computeLedger } from '../lib/weekLedger'
+import { computeLedger, rangeOf } from '../lib/weekLedger'
 
 type Channel = ExpenseEntry['channel']
 type Sub = Channel | 'total' | null
@@ -60,7 +60,7 @@ export default function Pay({ year }: { year: number }) {
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
   const catName = (id?: string) => { const c = id ? cats.byId(id) : undefined; return c ? `${c.code} ${c.name}` : 'ยังไม่ระบุหมวด' }
-  const L = useMemo(() => computeLedger({ year, sunday, scope, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items }),
+  const L = useMemo(() => computeLedger({ range: rangeOf(scope === 'year' ? 'year' : 'week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items }),
     [year, sunday, scope, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
   const pending = (c: Channel) => ofAll(c).filter((x) => x.status === 'open')
   const sum = (xs: ExpenseEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
