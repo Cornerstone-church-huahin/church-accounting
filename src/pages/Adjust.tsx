@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import CaptureBar from '../components/CaptureBar'
 import MoneyInput from '../components/MoneyInput'
+import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
@@ -35,6 +36,7 @@ export default function Adjust({ year }: { year: number }) {
   const [sub, setSub] = useState<Sub>('prep')
   const [drafts, setDrafts] = useState<Draft[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const readToken = useRef(0)
   const [msg, setMsg] = useState('')
   const [asIncome, setAsIncome] = useState<{ id: string; typeId: string } | null>(null)
 
@@ -46,14 +48,16 @@ export default function Adjust({ year }: { year: number }) {
   const weekLines = pb.items.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
 
   const read = async (file: File) => {
+    const token = ++readToken.current
     setBusy(true); setMsg('')
     try {
-      if (!(await ensureGemini()).key) { setMsg('ยังไม่ได้ใส่รหัส Gemini — ให้แอดมินใส่ที่ ตั้งค่า › ตัวอ่านใบถวาย (Gemini)'); setBusy(false); return }
+      if (!(await ensureGemini()).key) { setMsg('ยังไม่ได้ใส่รหัส Gemini — ให้แอดมินใส่ที่ ตั้งค่า › ตัวอ่านใบถวาย (Gemini)'); if (token === readToken.current) setBusy(false); return }
       const r = await readPassbook(file)
+      if (token !== readToken.current) return // ผู้ใช้กดปิดระหว่างอ่าน
       if (r.rows.length === 0) setMsg('อ่านไม่เจอรายการในรูป — ลองถ่ายให้เห็นทั้งหน้า ไม่เอียง แล้วถ่ายใหม่')
       setDrafts(r.rows.map((x) => ({ date: x.date ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null })))
-    } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
-    setBusy(false)
+    } catch (e) { if (token === readToken.current) setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
+    if (token === readToken.current) setBusy(false)
   }
   const bad = drafts ? new Set(checkChain(drafts.map((d) => ({ deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0, balance: d.balance ?? undefined })))) : new Set<number>()
   const upd = (i: number, patch: Partial<Draft>) => setDrafts((xs) => xs && xs.map((x, j) => (j === i ? { ...x, ...patch } : x)))
@@ -100,6 +104,11 @@ export default function Adjust({ year }: { year: number }) {
       </div>
       {closed && <p className="badge badge--good" role="status">✓ สัปดาห์นี้ปิดยอดแล้ว{closed.bankBalance !== undefined ? ` · คงเหลือตามสมุด ${fmtBaht(closed.bankBalance)}` : ''}</p>}
 
+      {busy && (
+        <Sheet title="แนบรูปหน้าสมุดบัญชี" onClose={() => { readToken.current++; setBusy(false) }}>
+          <div role="status" aria-live="polite"><p><b>กำลังอ่านสมุดบัญชี…</b></p><progress style={{ width: '100%' }} /><p className="muted small">ใช้เวลาประมาณ 5–20 วินาที (ถ้ารูปตะแคงอาจนานขึ้นเล็กน้อย)</p></div>
+        </Sheet>
+      )}
       {sub === 'prep' && (
         <section className="card no-print" role="tabpanel" aria-label="ก่อนไปธนาคาร">
           <h2>1 · ก่อนไปธนาคาร</h2>
@@ -117,7 +126,6 @@ export default function Adjust({ year }: { year: number }) {
           <h2>2 · ถ่ายรูปหน้าสมุดบัญชี</h2>
           <p className="muted small">ปรับสมุดแล้วถ่ายหน้าที่เพิ่งพิมพ์ให้เห็นทั้งหน้า ระบบอ่านให้ แล้วตรวจยอดคงเหลือทีละบรรทัด (ถ่ายแนวตั้งหรือแนวนอนก็ได้) อย่าให้เห็นเลขบัญชีในรูป</p>
           {canWrite && !drafts && <CaptureBar noun="หน้าสมุด" onFile={(f) => void read(f)} busy={busy} />}
-          {busy && <p role="status">กำลังอ่านสมุด… ใช้เวลาประมาณ 5–20 วินาที</p>}
           {msg && <p className="note" role="status">{msg}</p>}
           {drafts && (
             <>
