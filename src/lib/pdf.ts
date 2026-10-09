@@ -36,3 +36,21 @@ export async function downloadPdf(el: HTMLElement, filename: string, opts: { ful
   }
   pdf.save(filename)
 }
+
+/** หลายหน้า: แต่ละ element เป็น 1 หน้า A4 เต็ม (แนวตั้ง 794×1123 px · แนวนอน 1123×794 px) */
+export async function downloadPdfPages(pages: { el: HTMLElement; landscape?: boolean }[], filename: string): Promise<void> {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+  let pdf: InstanceType<typeof jsPDF> | null = null
+  for (const { el, landscape } of pages) {
+    const w = landscape ? 1123 : 794
+    const canvas = await html2canvas(el, {
+      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
+      onclone: (_doc, cloned) => { cloned.style.width = `${w}px`; cloned.style.maxWidth = `${w}px`; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+    })
+    const orient = landscape ? 'landscape' : 'portrait'
+    if (!pdf) pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: orient })
+    else pdf.addPage('a4', orient)
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight())
+  }
+  pdf?.save(filename)
+}
