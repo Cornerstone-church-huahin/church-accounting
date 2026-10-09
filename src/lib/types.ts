@@ -167,3 +167,25 @@ export interface ExpenseEntry extends SharedItem {
   /** รูปบิล/ใบเสร็จ (path ว่าง = โหมดทดลอง ไม่ได้เก็บรูป) */
   file?: { path: string; name: string }
 }
+
+// ---------- สมุดบัญชี (ขั้น "ปรับ") ----------
+export type PbKind = 'deposit' | 'withdraw' | 'in' | 'out' | 'other'
+/** 1 บรรทัดในสมุดบัญชีที่อ่านจากรูป (จำนวนเงินเป็นสตางค์ บวกเสมอ — ฝาก/ถอนดูที่ kind) */
+export interface PassbookLine extends SharedItem {
+  date: string
+  kind: PbKind
+  amount: number
+  /** ยอดคงเหลือหลังรายการนี้ ตามที่พิมพ์ในสมุด */
+  balance?: number
+  desc?: string
+  /** ย้ายไปนับในสัปดาห์ (วันอาทิตย์) อื่น เช่น ธนาคารลงวันที่ฝากเป็นวันจันทร์ */
+  week?: string
+  /** ผูกกับรายการในแอปแล้ว (income = ลงเป็นรายรับจากสมุด) หรือพักไว้ */
+  link?: { kind: 'income' | 'park'; id?: string }
+}
+/** ปิดยอดสัปดาห์ (id = วันอาทิตย์ของสัปดาห์) หลังตรวจกับสมุดบัญชีแล้ว */
+export interface WeekClose extends SharedItem {
+  sunday: string
+  bankBalance?: number
+  note?: string
+}

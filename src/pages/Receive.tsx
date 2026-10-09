@@ -134,10 +134,10 @@ export default function Receive({ year }: { year: number }) {
       <p className="muted small no-print" style={{ textAlign: 'center' }}>{fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
-        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}>1<span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}>2<span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}>3<span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
-              <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}>4<span>รวมรับ</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}><i className="dot">1</i><span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}><i className="dot">2</i><span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
+        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}><i className="dot">3</i><span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
+              <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}><i className="dot">4</i><span>รวมรับ</span></button>
       </div>
 
       {sub === 'manual' && (

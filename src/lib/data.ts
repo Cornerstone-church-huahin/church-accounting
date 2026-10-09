@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -51,3 +51,6 @@ export function useExpenseCats() {
 
 /** รายจ่ายนอกใบเบิก (บันทึกด้วยมือ / วางบิล / สำรองจ่าย) รายปี */
 export const useExpenses = (year: number) => useSharedStore<ExpenseEntry>({ localKey: k(`expenses.${year}`), file: `expenses-${year}.json`, label: `รายจ่าย ${year}`, write: 'voucherPay' })
+
+export const usePassbook = (year: number) => useSharedStore<PassbookLine>({ localKey: k(`passbook.${year}`), file: `passbook-${year}.json`, label: `สมุดบัญชี ${year}`, write: 'statement' })
+export const useWeekCloses = (year: number) => useSharedStore<WeekClose>({ localKey: k(`weekcloses.${year}`), file: `week-closes-${year}.json`, label: `ปิดยอดสัปดาห์ ${year}`, write: 'statement' })
