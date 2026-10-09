@@ -38,9 +38,9 @@ try {
 
   // 2 วางบิล: ถ่าย/เลือกรูปบิล → ระบบอ่าน (วันที่ ยอด ร้าน หมวด) → ตรวจ → ยืนยัน (ยังไม่จ่าย 2,000)
   await page.getByRole('tab', { name: /วางบิล/ }).click()
-  await page.getByRole('button', { name: '＋ วางบิล' }).click()
   must(await page.locator('#e-amt').count() === 0, 'no fields before choosing a bill photo')
-  await page.getByLabel('เลือกรูปบิล').setInputFiles('public/icon-512.png')
+  must((await page.getByLabel('ถ่ายรูปบิล').getAttribute('capture')) === 'environment', 'camera button for bills')
+  await page.getByLabel('แนบไฟล์บิล').setInputFiles('public/icon-512.png')
   await page.locator('#e-amt').waitFor({ timeout: 60000 })
   must((await page.locator('#e-cat').inputValue()) === 'ei-3-3', 'category suggested from the bill: ' + (await page.locator('#e-cat').inputValue()))
   must((await page.locator('#e-desc').inputValue()) === 'ค่าน้ำประปา ก.ย. 69', 'description read from the bill')
@@ -70,8 +70,7 @@ try {
 
   // 3 สำรองจ่าย: ผู้สำรองจ่าย คืนเงินแล้ว 600 เงินสด (หมวด 11.4)
   await page.getByRole('tab', { name: /สำรองจ่าย/ }).click()
-  await page.getByRole('button', { name: '＋ สำรองจ่าย' }).click()
-  await page.getByRole('button', { name: 'กรอกเอง (ไม่มีรูป)' }).click()
+  await page.getByRole('button', { name: /กรอกเอง \(ไม่มีรูป\)/ }).click()
   await page.locator('#e-cat').selectOption('ei-11-4')
   await page.locator('#e-amt').fill('600')
   await page.locator('#e-who').fill('สมเจต')

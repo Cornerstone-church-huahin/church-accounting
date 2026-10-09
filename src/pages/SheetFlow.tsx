@@ -52,7 +52,7 @@ function baseRows(types: IncomeType[]): RowDraft[] {
 }
 
 /** ช่อง 3: แนบรูปใบบันทึกการถวาย → Gemini อ่านแถวเงินสด → ตรวจ/แก้ → ยืนยัน → ใส่ในใบนับวันอาทิตย์ (แสดงในใบสรุปช่อง 4) */
-export default function SheetFlow({ year, sunday, existing, onClose, onSaved }: { year: number; sunday: string; existing: SheetFile | null; onClose: () => void; onSaved?: (date: string) => void }) {
+export default function SheetFlow({ year, sunday, existing, initialFile, onClose, onSaved }: { year: number; sunday: string; existing: SheetFile | null; initialFile?: File; onClose: () => void; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
   const files = useSheetFiles(year)
   const rounds = useRounds(year)
@@ -107,6 +107,9 @@ export default function SheetFlow({ year, sunday, existing, onClose, onSaved }: 
     if (!f) return setErr('ไม่มีรูปให้อ่านซ้ำ')
     void doRead(f)
   }
+
+  const startFile = (f: File) => { setFile(f); if (getGemini().key) void doRead(f); else { setMsg('ยังไม่ได้ใส่รหัส Gemini — กรอกแถวเองได้'); setStage('review') } }
+  useEffect(() => { if (initialFile) startFile(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = useMemo(() => rows.reduce((s, r) => s + (r.amount ?? 0), 0), [rows])
   const upd = (i: number, patch: Partial<RowDraft>) => setRows((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)))
@@ -166,7 +169,7 @@ export default function SheetFlow({ year, sunday, existing, onClose, onSaved }: 
           <p className="muted small">ถ่ายรูปหรือเลือกรูปใบบันทึกการถวายวันอาทิตย์ ระบบจะอ่านแถวเงินสด (รวมแถวที่เขียนมือเพิ่ม) แล้วให้ท่านตรวจและยืนยัน</p>
           <label className="btn btn--gold" style={{ display: 'block', textAlign: 'center' }}>
             📷 เลือกรูปใบบันทึกการถวาย
-            <input type="file" accept="image/*" aria-label="เลือกรูปใบบันทึกการถวาย" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; setFile(f); if (getGemini().key) void doRead(f); else { setMsg('ยังไม่ได้ใส่รหัส Gemini — กรอกแถวเองได้'); setStage('review') } }} />
+            <input type="file" accept="image/*" aria-label="เลือกรูปใบบันทึกการถวาย" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) startFile(f) }} />
           </label>
           <button type="button" className="mini" onClick={() => setStage('key')} style={{ marginTop: 8 }}>🔑 ตั้งค่ารหัส Gemini</button>
         </>
