@@ -28,7 +28,10 @@ export function splitRange(kind: SumKind, range: { from: string; to: string }): 
       const p = String(m).padStart(2, '0')
       out.push({ label: monthShort(m), from: `${y}-${p}-01`, to: `${y}-${p}-${String(daysInMonth(y, m)).padStart(2, '0')}` })
     }
-  } else out.push({ label: 'สัปดาห์', ...range })
+  } else {
+    const dn = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.']
+    for (let i = 0, d = range.from; d <= range.to && i < 7; i++, d = addDays(d, 1)) out.push({ label: dn[i], from: d, to: d })
+  }
   return out
 }
 

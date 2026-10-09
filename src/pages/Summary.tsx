@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
-import { downloadPdf, downloadPdfPages } from '../lib/pdf'
+import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
 import { computeSeries, topRows, type LedgerInput } from '../lib/seriesLedger'
 import { CumLine, GroupedBars, HBars, Legend } from '../components/StatCharts'
@@ -32,8 +32,8 @@ export default function Summary({ year }: { year: number }) {
     <div className="sheetbar no-print">
       <b>{title}</b>
       <span className="grow" />
-      <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={() => downloadSheet(n)}>⬇️ ดาวน์โหลด</button>
-      <button type="button" className="btn btn--ghost btn--sm" onClick={() => printSheet(n)}>🖨️ พิมพ์</button>
+      <button type="button" className="btn btn--ghost btn--sm" disabled={busy} aria-label="ดาวน์โหลดใบนี้เป็น PDF" title="ดาวน์โหลดใบนี้" onClick={() => downloadSheet(n)}>⬇️</button>
+      <button type="button" className="btn btn--ghost btn--sm" aria-label="พิมพ์ใบนี้" title="พิมพ์ใบนี้" onClick={() => printSheet(n)}>🖨️</button>
     </div>
   )
   const downloadSheet = async (n: 1 | 2) => {
@@ -57,7 +57,7 @@ export default function Summary({ year }: { year: number }) {
     [range.from, range.to, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items])
   const L = useMemo(() => computeLedger(input), [input])
   // เดือน/ไตรมาส/ปี: ใบที่ 1 = ใบสรุปแยกช่วงย่อย · ใบที่ 2 = สถิติ (กราฟ)
-  const series = useMemo(() => (kind === 'week' ? [] : computeSeries(input, kind)), [input, kind])
+  const series = useMemo(() => computeSeries(input, kind), [input, kind])
   const active = (b: { inTotal: number; outTotal: number }) => b.inTotal > 0 || b.outTotal > 0
   const tableBuckets = series.filter(active) // ตารางแสดงเฉพาะช่วงที่มีรายการจริง
   const first = series.findIndex(active), lastI = series.length - 1 - [...series].reverse().findIndex(active)
@@ -87,22 +87,34 @@ export default function Summary({ year }: { year: number }) {
       <div className="subtabs subtabs--sum no-print" role="tablist" aria-label="ช่วงของใบสรุป">
         {tabBtn('week', 1, 'สัปดาห์')}{tabBtn('month', 2, 'เดือน')}{tabBtn('quarter', 3, 'ไตรมาส')}{tabBtn("year", 4, `ปี ${be}`)}
       </div>
-      {kind === 'week' && <div className="no-print" style={{ display: 'grid', gap: 8, margin: '0.6rem 0' }}>
-        <div className="grid2">
-          <button type="button" className="btn btn--gold" disabled={busy} onClick={async () => {
-            if (!paperRef.current) return
-            setBusy(true)
-            try { if (kind !== 'week' && paper2Ref.current) await downloadPdfPages([{ el: paperRef.current }, { el: paper2Ref.current, landscape: true }], `summary-${kind}-${fileKey}.pdf`); else await downloadPdf(paperRef.current, `summary-${kind}-${fileKey}.pdf`, { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
-            setBusy(false)
-          }}>{busy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
-          <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
-        </div>
-      </div>}
 
-      {kind !== 'week' && (
+      {(
         <>
           <div className="sheet-1">
           {sheetBar(1, `ใบที่ 1 — ใบสรุปรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}`)}
+          {kind === 'week' ? (
+      <ScaledPage ref={paperRef}>
+        <>
+          <div className="a4head"><b>สรุปรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
+          <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
+          <LedgerTable band="รายจ่าย" labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" minRows={0} pendingCol />
+          <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
+            <thead><tr><th>ปิดยอด{kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">ค้างจ่าย</th><th className="num">รวม</th></tr></thead>
+            <tbody>
+              <tr><td>รวมรายรับ</td><td className="num">{fmtBaht(inSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer)}</td><td className="num">{fmtBaht(0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer)}</td></tr>
+              <tr><td>หัก รวมรายจ่าย</td><td className="num">{fmtBaht(outSum.cash)}</td><td className="num">{fmtBaht(outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending)}</td><td className="num">{fmtBaht(outSum.cash + outSum.transfer + outSum.pending)}</td></tr>
+            </tbody>
+            <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending ? -outSum.pending : 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)}</td></tr></tfoot>
+          </table>
+          {outSum.pending > 0 && <p className="a4note">ยอดค้างจ่ายที่ต้องเตรียมเบิก (วางบิลที่ยังไม่จ่าย + สำรองจ่ายที่ยังไม่คืนเงิน): <b>{fmtBaht(outSum.pending)}</b> บาท</p>}
+          <div className="sign" style={{ display: 'grid' }}>
+            <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br />{dateLine}</div>
+            <div>ผู้ตรวจสอบ<br />{dateLine}</div>
+            <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br />{dateLine}</div>
+          </div>
+        </>
+      </ScaledPage>
+          ) : (
           <ScaledPage ref={paperRef}>
             <>
               <div className="a4head"><b>สรุปรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
@@ -161,6 +173,7 @@ export default function Summary({ year }: { year: number }) {
               </div>
             </>
           </ScaledPage>
+          )}
           </div>
           <div className="sheet-2">
           {sheetBar(2, `ใบที่ 2 — สถิติรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`} (แนวนอน)`)}
@@ -170,7 +183,7 @@ export default function Summary({ year }: { year: number }) {
               <Legend />
               <div className="land-grid">
                 <div>
-                  <div className="stat-title">รายรับ-รายจ่ายแยกตาม{kind === 'month' ? 'สัปดาห์ (วันที่)' : 'เดือน'}</div>
+                  <div className="stat-title">รายรับ-รายจ่ายแยกตาม{kind === 'week' ? 'วัน' : kind === 'month' ? 'สัปดาห์ (วันที่)' : 'เดือน'}</div>
                   <GroupedBars buckets={chartBuckets} height={260} />
                   <div className="stat-title">คงเหลือสะสม (รับ − จ่าย)</div>
                   <CumLine buckets={chartBuckets} height={170} />
@@ -187,29 +200,6 @@ export default function Summary({ year }: { year: number }) {
           </ScaledPage>
           </div>
         </>
-      )}
-      {kind === 'week' && (
-      <ScaledPage ref={paperRef}>
-        <>
-          <div className="a4head"><b>สรุปรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
-          <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
-          <LedgerTable band="รายจ่าย" labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" minRows={0} pendingCol />
-          <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
-            <thead><tr><th>ปิดยอด{kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">ค้างจ่าย</th><th className="num">รวม</th></tr></thead>
-            <tbody>
-              <tr><td>รวมรายรับ</td><td className="num">{fmtBaht(inSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer)}</td><td className="num">{fmtBaht(0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer)}</td></tr>
-              <tr><td>หัก รวมรายจ่าย</td><td className="num">{fmtBaht(outSum.cash)}</td><td className="num">{fmtBaht(outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending)}</td><td className="num">{fmtBaht(outSum.cash + outSum.transfer + outSum.pending)}</td></tr>
-            </tbody>
-            <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending ? -outSum.pending : 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)}</td></tr></tfoot>
-          </table>
-          {outSum.pending > 0 && <p className="a4note">ยอดค้างจ่ายที่ต้องเตรียมเบิก (วางบิลที่ยังไม่จ่าย + สำรองจ่ายที่ยังไม่คืนเงิน): <b>{fmtBaht(outSum.pending)}</b> บาท</p>}
-          <div className="sign" style={{ display: 'grid' }}>
-            <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br />{dateLine}</div>
-            <div>ผู้ตรวจสอบ<br />{dateLine}</div>
-            <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br />{dateLine}</div>
-          </div>
-        </>
-      </ScaledPage>
       )}
       <p className="muted small no-print" style={{ textAlign: 'center' }}>รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกตรงในงบ + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (ที่ยังไม่จ่ายแสดงในช่อง “ค้างจ่าย”) · เงินโอนวันจันทร์–อาทิตย์นับรวมในใบวันอาทิตย์ของสัปดาห์นั้น</p>
     </div>
