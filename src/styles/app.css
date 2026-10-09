@@ -252,3 +252,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 @media print {
   body[data-print-only="1"] .sheet-2, body[data-print-only="2"] .sheet-1 { display: none !important; }
 }
+.pie-legend { border-collapse: collapse; font-size: 11px; width: 100%; }
+.pie-legend td { padding: 2px 4px; border-bottom: 1px solid var(--line, #eee); }
+.pie-legend td.num { text-align: right; white-space: nowrap; }
+.a4page--land .land-grid { grid-template-columns: 1.35fr 1fr; }

@@ -4,7 +4,7 @@ import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundays
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
 import { computeSeries, topRows, type LedgerInput } from '../lib/seriesLedger'
-import { CumLine, GroupedBars, HBars, Legend } from '../components/StatCharts'
+import { CumLine, Donut, GroupedBars, Legend } from '../components/StatCharts'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import PeriodBar from '../components/PeriodBar'
@@ -189,10 +189,10 @@ export default function Summary({ year }: { year: number }) {
                   <CumLine buckets={chartBuckets} height={170} />
                 </div>
                 <div>
-                  <div className="stat-title">รายรับตามประเภทถวาย</div>
-                  <HBars rows={topRows(incRows)} tone="in" />
-                  <div className="stat-title">รายจ่ายตามหมวดหลัก</div>
-                  <HBars rows={topRows(outRows)} tone="out" />
+                  <div className="stat-title">สัดส่วนรายรับตามประเภทถวาย (บาท · %)</div>
+                  <Donut rows={topRows(incRows, 6)} tone="in" />
+                  <div className="stat-title">สัดส่วนรายจ่ายตามหมวดหลัก (บาท · %)</div>
+                  <Donut rows={topRows(outRows, 6)} tone="out" />
                 </div>
               </div>
               <p className="a4note">รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (รวมค้างจ่าย) · ข้อมูลเดียวกับใบที่ 1 ทุกตัวเลข · ชี้ที่แท่งหรือจุดเพื่อดูตัวเลข</p>

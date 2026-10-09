@@ -112,3 +112,45 @@ export function HBars({ rows, tone, width = 372 }: { rows: { label: string; valu
     </svg>
   )
 }
+
+const INC_SHADES = ['#0f5c31', '#1b8a4b', '#3fa86a', '#6cc08c', '#95d3ad', '#b9e3c9', '#d3eedd', '#e6f6ec']
+const OUT_SHADES = ['#7a1a14', '#b3261e', '#cf5a52', '#df8a84', '#ebaea9', '#f3c9c5', '#f8dddb', '#fcecea']
+
+/** วงกลมชิ้นเค้ก (โดนัท) + คำอธิบายชิ้น เรียงมากไปน้อย: ชื่อ · จำนวนเงิน · เปอร์เซ็นต์ */
+export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value: number }[]; tone: 'in' | 'out'; size?: number }) {
+  const total = rows.reduce((s, r) => s + r.value, 0)
+  const shades = tone === 'in' ? INC_SHADES : OUT_SHADES
+  if (total <= 0) return <p className="muted small">ยังไม่มีรายการในช่วงนี้</p>
+  const R = size / 2 - 4, r = R * 0.58, c = size / 2
+  let a0 = -Math.PI / 2
+  const pt = (rad: number, rr: number) => `${(c + rr * Math.cos(rad)).toFixed(2)} ${(c + rr * Math.sin(rad)).toFixed(2)}`
+  const slices = rows.map((row, i) => {
+    const frac = row.value / total
+    const a1 = a0 + Math.min(frac, 0.9999) * 2 * Math.PI
+    const big = a1 - a0 > Math.PI ? 1 : 0
+    const d = `M ${pt(a0, R)} A ${R} ${R} 0 ${big} 1 ${pt(a1, R)} L ${pt(a1, r)} A ${r} ${r} 0 ${big} 0 ${pt(a0, r)} Z`
+    a0 = a1
+    return { ...row, d, frac, fill: shades[Math.min(i, shades.length - 1)] }
+  })
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={tone === 'in' ? 'สัดส่วนรายรับตามประเภท' : 'สัดส่วนรายจ่ายตามหมวด'} style={{ flex: 'none' }}>
+        {slices.map((s) => <path key={s.label} d={s.d} fill={s.fill} stroke="#fff" strokeWidth={2}><title>{`${s.label} ${(s.frac * 100).toFixed(1)}%`}</title></path>)}
+        <text x={c} y={c - 2} textAnchor="middle" fontSize={10} fill={MUTED}>รวม</text>
+        <text x={c} y={c + 12} textAnchor="middle" fontSize={12} fontWeight={700} fill={INK}>{Math.round(total / 100).toLocaleString('en-US')}</text>
+      </svg>
+      <table className="pie-legend">
+        <tbody>
+          {slices.map((s) => (
+            <tr key={s.label}>
+              <td><i style={{ display: 'inline-block', width: 10, height: 10, background: s.fill, borderRadius: 2, border: '1px solid #0002' }} /></td>
+              <td>{s.label}</td>
+              <td className="num">{Math.round(s.value / 100).toLocaleString('en-US')}</td>
+              <td className="num">{(s.frac * 100).toFixed(1)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
