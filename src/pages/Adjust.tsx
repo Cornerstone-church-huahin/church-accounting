@@ -8,7 +8,7 @@ import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
-import { chainGap, checkChain, classify, dedupeLines, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
+import { CODE_LEGEND, chainGap, checkChain, classify, dedupeLines, dupIndexes, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
@@ -75,6 +75,7 @@ export default function Adjust({ year }: { year: number }) {
     if (token === readToken.current) setBusy(false)
   }
   const bad = drafts ? new Set(checkChain(drafts.map((d) => ({ deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0, balance: d.balance ?? undefined })))) : new Set<number>()
+  const dupSet = useMemo(() => drafts ? dupIndexes(pb.items, drafts.map((d) => ({ date: d.date, amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw ?? 0), ...(d.balance !== null ? { balance: d.balance } : {}) }))) : new Set<number>(), [drafts, pb.items])
   const upd = (i: number, patch: Partial<Draft>) => setDrafts((xs) => xs && xs.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   const saveDrafts = () => {
     if (!drafts) return
@@ -84,6 +85,7 @@ export default function Adjust({ year }: { year: number }) {
       amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw as number), ...(d.balance !== null ? { balance: d.balance } : {}), ...(d.desc ? { desc: d.desc } : {}),
     }))
     const add = dedupeLines(pb.items, fresh)
+    if (add.length === 0) { setDrafts(null); return setMsg(`ทุกบรรทัด (${fresh.length}) มีอยู่แล้ว ไม่มีรายการใหม่ ไม่ได้บันทึกซ้ำ`) }
     if (!pb.put(add)) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
     // ทุกบรรทัดเข้าสัปดาห์ตามวันที่ของตัวเอง · เปิดสัปดาห์ล่าสุดที่ได้ข้อมูล แล้วดูสัปดาห์อื่นได้จากแถบสัปดาห์
     const weeks = [...new Set(add.map((l) => lineWeek(l)))].sort()
@@ -147,9 +149,11 @@ export default function Adjust({ year }: { year: number }) {
           {msg && <p className="note" role="status">{msg}</p>}
           {drafts && (
             <>
+              {dupSet.size > 0 && <p className="note" role="status">{dupSet.size} จาก {drafts.length} บรรทัดมีอยู่แล้ว (ถ่ายหน้าเดิมทับกัน) — ระบบจะข้ามให้ บันทึกเฉพาะ {drafts.length - dupSet.size} บรรทัดใหม่</p>}
               <p className="small">ตรวจให้ตรงกับสมุด · บรรทัดสีแดง = ยอดคงเหลือไม่ลงตัวกับบรรทัดก่อนหน้า (น่าจะอ่านผิด) แก้แล้วจึงบันทึก</p>
               {drafts.map((d, i) => (
-                <div key={i} className="pbdraft" style={bad.has(i) ? { borderColor: 'var(--bad)' } : undefined}>
+                <div key={i} className="pbdraft" style={{ ...(bad.has(i) ? { borderColor: 'var(--bad)' } : {}), ...(dupSet.has(i) ? { opacity: 0.55 } : {}) }}>
+                  {dupSet.has(i) && <p className="small"><span className="badge">✓ มีอยู่แล้ว — จะไม่บันทึกซ้ำ</span></p>}
                   <div className="row" style={{ gap: 6 }}>
                     <input className="input" type="date" aria-label={`วันที่ บรรทัด ${i + 1}`} value={d.date} onChange={(e) => upd(i, { date: e.target.value })} />
                     <input className="input" aria-label={`รายการ บรรทัด ${i + 1}`} value={d.desc} placeholder="รายการ" onChange={(e) => upd(i, { desc: e.target.value })} />
@@ -188,6 +192,7 @@ export default function Adjust({ year }: { year: number }) {
                 <p>ถอนเงินสดสัปดาห์นี้ <b>{fmtBaht(rec.withdrawSum)}</b> · รายจ่ายเงินสดที่จ่ายแล้ว <b>{fmtBaht(L.outSum.cash)}</b></p>
                 <p>ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์: <b>{closing !== undefined ? fmtBaht(closing) : '—'}</b></p>
               </div>
+              <p className="muted small">รหัสในสมุด: {CODE_LEGEND}</p>
               <ul className="plain">
                 {weekLines.map((l) => lineRow(l, l.kind === 'in' && (rec.matchedIn.find((m) => m.line.id === l.id)
                   ? <span className="badge badge--good">✓ ตรงสลิป</span>
