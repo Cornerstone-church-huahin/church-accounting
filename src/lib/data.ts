@@ -1,12 +1,12 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
 /** ประเภทตามใบบันทึกการถวายของคริสตจักร */
-export const DEFAULT_INCOME_TYPES: IncomeType[] = ['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'กองทุนเพื่อที่ดินคริสตจักร', 'กองทุนเพื่ออาหาร', 'รายได้อื่น (เช่น ค่าสถานที่สอน)'].map((name, i) => ({ id: `tt${i + 1}`, name, order: i, active: true, updated: 0 }))
+export const DEFAULT_INCOME_TYPES: IncomeType[] = ['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'กองทุนเพื่อที่ดินคริสตจักร', 'กองทุนเพื่ออาหาร', 'รายได้อื่น (เช่น ค่าสถานที่สอน)'].map((name, i) => ({ id: `tt${i + 1}`, name, order: i, active: true, updated: 0, ...(i === 3 || i === 4 ? { fund: true } : {}) }))
 /** ค่าตั้งต้นรุ่นแรกที่ยังไม่มีใครแก้ (updated = 0) ซ่อนไว้ เพื่อไม่ให้ปนกับประเภทจริง */
 const LEGACY_SEED_IDS = new Set(['t1', 't2', 't3', 't4', 't5', 't6'])
 const isLegacySeed = (t: IncomeType) => LEGACY_SEED_IDS.has(t.id) && t.updated === 0
@@ -54,3 +54,11 @@ export const useExpenses = (year: number) => useSharedStore<ExpenseEntry>({ loca
 
 export const usePassbook = (year: number) => useSharedStore<PassbookLine>({ localKey: k(`passbook.${year}`), file: `passbook-${year}.json`, label: `สมุดบัญชี ${year}`, write: 'statement' })
 export const useWeekCloses = (year: number) => useSharedStore<WeekClose>({ localKey: k(`weekcloses.${year}`), file: `week-closes-${year}.json`, label: `ปิดยอดสัปดาห์ ${year}`, write: 'statement' })
+
+export const useFundMoves = (year: number) => useSharedStore<FundMove>({ localKey: k(`fundmoves.${year}`), file: `fund-moves-${year}.json`, label: `ย้ายเงินเข้ากองทุน ${year}`, write: 'statement' })
+/** ยอดยกมา: ไฟล์เดียว ไม่แบ่งปี */
+export function useOpening() {
+  const s = useSharedStore<Opening>({ localKey: k('opening'), file: 'opening.json', label: 'ยอดยกมา', write: 'settings' })
+  const opening = s.items.find((x) => x.id === 'opening')
+  return { ...s, opening, save: (o: Omit<Opening, 'id' | 'updated'>) => s.put([{ ...o, id: 'opening', updated: 0 }]) }
+}

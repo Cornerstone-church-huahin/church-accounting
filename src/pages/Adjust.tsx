@@ -4,10 +4,11 @@ import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
-import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
+import { useAccounts, useFundMoves, useOpening, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import { fundLedger, suggestMoves } from '../lib/funds'
 import { CODE_LEGEND, typeFromNote, chainGap, checkChain, classify, dedupeLines, dupIndexes, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
@@ -31,6 +32,12 @@ export default function Adjust({ year }: { year: number }) {
   const entries = useBudgetEntries(year)
   const types = useIncomeTypes()
   const cats = useExpenseCats()
+  const accounts = useAccounts()
+  const moves = useFundMoves(year)
+  const openingStore = useOpening()
+  const restrictedIds = useMemo(() => accounts.list.filter((a) => a.role === 'restricted').map((a) => a.id), [accounts.list])
+  const [acctId, setAcctId] = useState('')
+  const acctName = (id?: string) => { const a = accounts.list.find((x) => x.id === id); return a ? `${a.name}${a.last4 ? ` …${a.last4}` : ''}` : '' }
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const [sub, setSub] = useState<Sub>('prep')
@@ -42,7 +49,7 @@ export default function Adjust({ year }: { year: number }) {
 
   const pending = exp.items.filter((x) => x.status === 'open')
   const pendingSum = pending.reduce((s, x) => s + x.amount, 0)
-  const rec = useMemo(() => reconcileWeek(sunday, pb.items, income.items), [sunday, pb.items, income.items])
+  const rec = useMemo(() => reconcileWeek(sunday, pb.items, income.items, restrictedIds), [sunday, pb.items, income.items, restrictedIds])
   const L = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: pb.items }), [sunday, year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items, pb.items])
   const byWeek = useMemo(() => {
     const m = new Map<string, number>()
@@ -81,7 +88,7 @@ export default function Adjust({ year }: { year: number }) {
     if (!drafts) return
     if (drafts.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d.date))) return setMsg('ใส่วันที่ให้ครบทุกบรรทัด')
     const fresh: PassbookLine[] = drafts.filter((d) => (d.deposit ?? 0) > 0 || (d.withdraw ?? 0) > 0).map((d) => ({
-      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }), dir: (d.deposit ?? 0) > 0 ? 'in' : 'out',
+      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }), dir: (d.deposit ?? 0) > 0 ? 'in' : 'out', ...(acctId ? { accountId: acctId } : {}),
       amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw as number), ...(d.balance !== null ? { balance: d.balance } : {}), ...(d.desc ? { desc: d.desc } : {}),
     }))
     const add = dedupeLines(pb.items, fresh)
@@ -101,6 +108,34 @@ export default function Adjust({ year }: { year: number }) {
     setAsIncome(null)
   }
   const closing = rec.closing
+  // ---- กองทุนวัตถุประสงค์: ค้างย้าย = ยอดยกมา + รายรับกองทุน (ตั้งแต่วันตัดยอด) − ที่ย้ายเข้าบัญชีวัตถุประสงค์แล้ว ----
+  const opening = openingStore.opening
+  const yStart = `${year}-01-01`
+  const fundFrom = opening?.date && opening.date >= yStart && opening.date <= `${year}-12-31` ? addDays(opening.date, 1) : yStart
+  const fundRecv = useMemo(() => {
+    const Lf = computeLedger({ range: { from: fundFrom, to: `${year}-12-31` }, income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: pb.items })
+    return Object.fromEntries(Lf.incRows.map((r) => [r.key, r.cash.amt + r.transfer.amt])) as Record<string, number>
+  }, [fundFrom, year, income.items, rounds.items, types.list, pb.items])
+  const fundRows = useMemo(() => fundLedger(types.list, fundRecv, moves.items, opening), [types.list, fundRecv, moves.items, opening])
+  const unmovedTotal = fundRows.reduce((s, r) => s + Math.max(0, r.unmoved), 0)
+  const moveSugg = useMemo(() => suggestMoves(pb.items, accounts.list).filter((m) => lineWeek(m.out) === sunday || lineWeek(m.into) === sunday), [pb.items, accounts.list, sunday])
+  const [alloc, setAlloc] = useState<{ outId: string; vals: Record<string, number | null> } | null>(null)
+  const startAlloc = (outId: string, amount: number) => {
+    let left = amount
+    const vals: Record<string, number | null> = {}
+    for (const r of fundRows) { const v = Math.min(Math.max(0, r.unmoved), left); vals[r.id] = v > 0 ? v : null; left -= v }
+    setAlloc({ outId, vals })
+  }
+  const confirmMove = (m: { out: PassbookLine; into: PassbookLine }) => {
+    if (!alloc) return
+    const a = Object.fromEntries(Object.entries(alloc.vals).filter(([, v]) => v && v > 0)) as Record<string, number>
+    const sum = Object.values(a).reduce((x, y) => x + y, 0)
+    if (sum !== m.out.amount) return setMsg(`แบ่งเข้ากองทุนรวม ${fmtBaht(sum)} ต้องเท่ากับยอดย้าย ${fmtBaht(m.out.amount)}`)
+    const id = newId('mv')
+    moves.put([{ id, updated: 0, date: m.into.date, amount: m.out.amount, alloc: a, fromLineId: m.out.id, toLineId: m.into.id }])
+    pb.put([{ ...m.out, link: { kind: 'move', id } }, { ...m.into, link: { kind: 'move', id } }])
+    setAlloc(null); setMsg('บันทึกการย้ายเงินเข้ากองทุนแล้ว')
+  }
   const cashIn = L.inSum.cash
   const depDiff = rec.depositSum - cashIn
   const tabBtn = (k: Sub, n: number, text: string) => <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}><i className="dot">{n}</i><span>{text}</span></button>
@@ -139,6 +174,18 @@ export default function Adjust({ year }: { year: number }) {
             <ul className="plain">{pending.map((x) => <li key={x.id}>{x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย'} · {x.desc}{x.who ? ` · ${x.who}` : ''} · <b>{fmtBaht(x.amount)}</b></li>)}</ul>
           )}
           <p className="small">เงินสดรับสัปดาห์นี้ (ตามใบถวาย) ที่ควรฝาก: <b>{fmtBaht(cashIn)}</b></p>
+          {fundRows.length > 0 && (
+            <>
+              <h3 style={{ marginTop: 14 }}>เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน</h3>
+              <table className="tbl tbl--paper" aria-label="ค้างย้ายเข้ากองทุน">
+                <thead><tr><th>กองทุน</th><th className="num">รับ</th><th className="num">ย้ายแล้ว</th><th className="num">ค้างย้าย</th></tr></thead>
+                <tbody>{fundRows.map((r) => <tr key={r.id}><td>{r.name}</td><td className="num">{fmtBaht(r.received)}</td><td className="num">{fmtBaht(r.moved)}</td><td className="num"><b>{fmtBaht(r.unmoved)}</b></td></tr>)}</tbody>
+                <tfoot><tr><td colSpan={3}>รวมค้างย้าย (ยังไม่ใช่เงินหมุนเวียน)</td><td className="num">{fmtBaht(unmovedTotal)}</td></tr></tfoot>
+              </table>
+              {closing !== undefined && <p className="small">ยอดคงเหลือบัญชีหมุนเวียนตามสมุด {fmtBaht(closing)} − ค้างย้าย {fmtBaht(unmovedTotal)} = <b>เงินหมุนเวียนที่ใช้ได้จริง {fmtBaht(closing - unmovedTotal)}</b></p>}
+              <p className="muted small">นับจาก{opening ? `ยอดยกมา ${fmtDate(opening.date)}` : ' 1 ม.ค.'} · ตอนย้ายเงินเข้าบัญชีวัตถุประสงค์ ให้ไปที่ช่อง 3 เพื่อบันทึกการย้าย</p>
+            </>
+          )}
         </section>
       )}
 
@@ -146,6 +193,16 @@ export default function Adjust({ year }: { year: number }) {
         <section className="card no-print" role="tabpanel" aria-label="ถ่ายรูปสมุด">
           <h2>2 · ถ่ายรูปหน้าสมุดบัญชี</h2>
           <p className="muted small">ปรับสมุดแล้วถ่ายหน้าที่เพิ่งพิมพ์ให้เห็นทั้งหน้า ระบบอ่านให้ แล้วตรวจยอดคงเหลือทีละบรรทัด (ถ่ายแนวตั้งหรือแนวนอนก็ได้) อย่าให้เห็นเลขบัญชีในรูป</p>
+          {canWrite && !drafts && (
+            <div className="field">
+              <label htmlFor="pb-acct">สมุดบัญชีเล่มไหน</label>
+              <select id="pb-acct" className="input" value={acctId} onChange={(e) => setAcctId(e.target.value)}>
+                <option value="">ไม่ระบุ</option>
+                {accounts.list.map((a) => <option key={a.id} value={a.id}>{acctName(a.id)}{a.role === 'operating' ? ' · หมุนเวียน' : a.role === 'restricted' ? ' · วัตถุประสงค์' : ''}</option>)}
+              </select>
+              {accounts.list.length === 0 && <p className="muted small">ยังไม่มีบัญชี — เพิ่มที่ ตั้งค่า › บัญชีธนาคาร (ตั้งประเภท หมุนเวียน/วัตถุประสงค์) เพื่อแยกสมุดแต่ละเล่ม</p>}
+            </div>
+          )}
           {canWrite && !drafts && <CaptureBar noun="หน้าสมุด" onFile={(f) => void read(f)} busy={busy} />}
           {msg && <p className="note" role="status">{msg}</p>}
           {drafts && (
@@ -192,7 +249,25 @@ export default function Adjust({ year }: { year: number }) {
                 <p>โอนเข้า: จับคู่กับสลิปแล้ว <b>{rec.matchedIn.length}</b> · ไม่มีสลิป (นับในใบสรุปเป็น “ไม่ทราบที่มา”) <b className={rec.unmatchedIn.length ? 'err' : ''}>{rec.unmatchedIn.length}</b>{rec.unmatchedSlips.length > 0 && <> · สลิปที่ยังไม่เห็นในสมุด <b>{rec.unmatchedSlips.length}</b> ({fmtBaht(rec.unmatchedSlips.reduce((s, x) => s + x.amount, 0))})</>}</p>
                 <p>ถอนเงินสดสัปดาห์นี้ <b>{fmtBaht(rec.withdrawSum)}</b> · รายจ่ายเงินสดที่จ่ายแล้ว <b>{fmtBaht(L.outSum.cash)}</b></p>
                 <p>ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์: <b>{closing !== undefined ? fmtBaht(closing) : '—'}</b></p>
+                {Object.keys(rec.closingBy).length > 1 || (Object.keys(rec.closingBy)[0] ?? '') !== '' ? <p className="small">{Object.entries(rec.closingBy).map(([id, v]) => `${acctName(id) || 'ไม่ระบุบัญชี'}: ${fmtBaht(v)}`).join(' · ')}</p> : null}
               </div>
+              {moveSugg.length > 0 && (
+                <div className="note" role="region" aria-label="ย้ายเงินเข้ากองทุน">
+                  <b>พบการย้ายเงินระหว่างบัญชี (ถอนจากหมุนเวียน → ฝากเข้าวัตถุประสงค์)</b>
+                  {moveSugg.map((m) => (
+                    <div key={m.out.id} style={{ marginTop: 6 }}>
+                      <p className="small">ถอน {fmtBaht(m.out.amount)} ({acctName(m.out.accountId)} · {fmtDate(m.out.date)}) → ฝาก ({acctName(m.into.accountId)} · {fmtDate(m.into.date)})</p>
+                      {alloc?.outId === m.out.id ? (
+                        <>
+                          {fundRows.map((r) => <div className="field" key={r.id}><label>{r.name} (ค้างย้าย {fmtBaht(r.unmoved)})</label><MoneyInput value={alloc.vals[r.id] ?? null} onChange={(v) => setAlloc({ ...alloc, vals: { ...alloc.vals, [r.id]: v } })} /></div>)}
+                          <div className="row"><button type="button" className="btn btn--gold" onClick={() => confirmMove(m)}>ยืนยันย้ายเข้ากองทุน</button><button type="button" className="btn btn--ghost" onClick={() => setAlloc(null)}>ยกเลิก</button></div>
+                        </>
+                      ) : canWrite && !closed ? <button type="button" className="mini" onClick={() => startAlloc(m.out.id, m.out.amount)}>แบ่งเข้ากองทุน…</button> : null}
+                    </div>
+                  ))}
+                  <p className="muted small">การย้ายไม่นับเป็นรายรับหรือรายจ่าย</p>
+                </div>
+              )}
               <p className="muted small">รหัสในสมุด: {CODE_LEGEND}</p>
               <ul className="plain">
                 {weekLines.map((l) => lineRow(l, l.kind === 'in' && (rec.matchedIn.find((m) => m.line.id === l.id)

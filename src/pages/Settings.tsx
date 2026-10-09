@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import MoneyInput from '../components/MoneyInput'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
-import { useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
+import { isFundType } from '../lib/funds'
+import { useOpening, useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
@@ -37,6 +39,7 @@ export default function Settings() {
       {can(role, 'settings') && <Types />}
       {can(role, 'settings') && <ExpenseCatsCard />}
       {can(role, 'settings') && <Accounts />}
+      {can(role, 'settings') && <OpeningCard />}
       {can(role, 'settings') && <DataClean />}
       <Display />
     </>
@@ -209,11 +212,12 @@ function Types() {
   }
   return (
     <Fold id="h-types" title={<>🙏 ประเภทถวาย</>}>
-      <p className="muted small">เพิ่มได้เองตามต้องการ · ปิดการใช้งานแทนการลบ เพื่อให้รายงานเก่ายังแสดงชื่อเดิมได้</p>
+      <p className="muted small">ติ๊ก “กองทุน” ที่ประเภทที่เป็นเงินวัตถุประสงค์ (ที่ดิน อาหาร ก่อสร้างอาคาร ฯลฯ) ระบบจะติดตามยอดค้างย้ายให้ · เพิ่มได้เองตามต้องการ · ปิดการใช้งานแทนการลบ เพื่อให้รายงานเก่ายังแสดงชื่อเดิมได้</p>
       <ul className="list">
         {t.list.map((x) => (
           <li key={x.id}>
             <span className="grow" style={x.active ? undefined : { opacity: 0.55 }}>{x.name}</span>
+            <label className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={isFundType(x)} onChange={(e) => t.put([{ ...x, fund: e.target.checked }])} />กองทุน</label>
             <button type="button" className="mini" onClick={() => rename(x.id, x.name)}>แก้ชื่อ</button>
             <button type="button" className="mini" onClick={() => t.put([{ ...x, active: !x.active }])}>{x.active ? 'ปิดใช้' : 'เปิดใช้'}</button>
           </li>
@@ -236,7 +240,7 @@ function Accounts() {
     <Fold id="h-acc" title={<>🏦 บัญชีธนาคาร</>}>
       <ul className="list">
         {a.list.length === 0 && <li className="muted small">ยังไม่มีบัญชี — เพิ่มบัญชีที่ใช้รับโอนและฝากเงิน</li>}
-        {a.list.map((x) => <li key={x.id}><span className="grow"><b>{x.name}</b><br /><span className="small muted">{x.bank} {x.last4 && `· เลขท้าย ${x.last4}`}</span></span><button type="button" className="mini" onClick={() => confirm(`ลบบัญชี ${x.name}?`) && a.remove(x.id)}>🗑️</button></li>)}
+        {a.list.map((x) => <li key={x.id}><span className="grow"><b>{x.name}</b><br /><span className="small muted">{x.bank} {x.last4 && `· เลขท้าย ${x.last4}`}</span></span><select className="input" style={{ maxWidth: '9rem' }} aria-label={`ประเภทบัญชี ${x.name}`} value={x.role ?? ''} onChange={(e) => a.put([{ ...x, ...(e.target.value ? { role: e.target.value as 'operating' | 'restricted' } : { role: undefined }) }])}><option value="">ไม่ระบุ</option><option value="operating">หมุนเวียน</option><option value="restricted">วัตถุประสงค์</option></select><button type="button" className="mini" onClick={() => confirm(`ลบบัญชี ${x.name}?`) && a.remove(x.id)}>🗑️</button></li>)}
       </ul>
       <div className="field"><label htmlFor="a-name">ชื่อบัญชี</label><input id="a-name" className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="เช่น บัญชีหลัก" /></div>
       <div className="grid2">
@@ -431,6 +435,40 @@ function ExpenseCatsCard() {
         )
       })}
       <div className="row" style={{ marginTop: 8 }}><input className="input grow" aria-label="ชื่อหมวดหลักใหม่" placeholder="เพิ่มหมวดหลักใหม่" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addGroup()} /><button type="button" className="btn btn--gold" onClick={addGroup}>เพิ่มหมวด</button></div>
+    </Fold>
+  )
+}
+
+/** ยอดยกมา ณ วันตัดยอด: เงินในแต่ละบัญชี · เงินสดในมือ · เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน (ยังไม่ย้ายเข้าบัญชีวัตถุประสงค์) */
+function OpeningCard() {
+  const o = useOpening()
+  const accts = useAccounts()
+  const types = useIncomeTypes()
+  const funds = types.list.filter((t) => t.active && isFundType(t))
+  const cur = o.opening
+  const [date, setDate] = useState(cur?.date ?? '')
+  const [acc, setAcc] = useState<Record<string, number | null>>(() => ({ ...(cur?.accounts ?? {}) }))
+  const [cash, setCash] = useState<number | null>(cur?.cash ?? null)
+  const [unm, setUnm] = useState<Record<string, number | null>>(() => ({ ...(cur?.unmoved ?? {}) }))
+  const [msg, setMsg] = useState('')
+  const clean = (r: Record<string, number | null>) => Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== 0)) as Record<string, number>
+  const save = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setMsg('เลือกวันตัดยอดก่อน')
+    setMsg(o.save({ date, accounts: clean(acc), cash: cash ?? 0, unmoved: clean(unm) }) ? 'บันทึกยอดยกมาแล้ว' : 'สิทธิ์ของท่านบันทึกไม่ได้')
+  }
+  return (
+    <Fold id="h-open" title={<>📌 ยอดยกมา (ตั้งต้น)</>}>
+      <p className="muted small">ใช้ตั้งต้นเมื่อย้ายมาจากระบบเดิม: เลือกวันตัดยอด (ควรเป็นวันอาทิตย์ที่ปรับสมุดแล้ว) แล้วใส่ยอด ณ วันนั้น ข้อมูลก่อนวันนั้นไม่ต้องกรอก ยังไม่มีตัวเลขก็ปล่อยว่างไว้ได้ ใส่ภายหลังได้</p>
+      <div className="field"><label htmlFor="op-date">วันตัดยอด</label><input id="op-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      {accts.list.length === 0 && <p className="small muted">ยังไม่มีบัญชีธนาคาร — เพิ่มที่การ์ด “บัญชีธนาคาร” ด้านบนก่อน</p>}
+      {accts.list.map((a) => (
+        <div className="field" key={a.id}><label>ยอดคงเหลือ {a.name}{a.last4 ? ` (…${a.last4})` : ''}{a.role === 'operating' ? ' · หมุนเวียน' : a.role === 'restricted' ? ' · วัตถุประสงค์' : ''}</label><MoneyInput value={acc[a.id] ?? null} onChange={(v) => setAcc({ ...acc, [a.id]: v })} /></div>
+      ))}
+      <div className="field"><label>เงินสดในมือ</label><MoneyInput value={cash} onChange={setCash} /></div>
+      {funds.length > 0 && <p className="small"><b>เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน (ยังไม่ย้าย)</b></p>}
+      {funds.map((t) => <div className="field" key={t.id}><label>{t.name}</label><MoneyInput value={unm[t.id] ?? null} onChange={(v) => setUnm({ ...unm, [t.id]: v })} /></div>)}
+      <button type="button" className="btn btn--gold" onClick={save}>บันทึกยอดยกมา</button>
+      {msg && <p className={msg.startsWith('บันทึก') ? 'ok' : 'err'} role="status">{msg}</p>}
     </Fold>
   )
 }

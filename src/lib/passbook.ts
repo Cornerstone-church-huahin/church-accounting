@@ -143,11 +143,13 @@ export interface Reconcile {
   unmatchedSlips: IncomeEntry[]
   /** ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์ (บรรทัดสุดท้ายที่นับถึงสัปดาห์นี้) */
   closing?: number
+  /** ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์ แยกตามบัญชี (คีย์ว่าง = ไม่ระบุบัญชี) */
+  closingBy: Record<string, number>
 }
 
-export function reconcileWeek(sunday: string, all: PassbookLine[], income: IncomeEntry[]): Reconcile {
+export function reconcileWeek(sunday: string, all: PassbookLine[], income: IncomeEntry[], restrictedIds: string[] = []): Reconcile {
   all = all.filter((l) => !l.deleted)
-  const mine = all.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date))
+  const mine = all.filter((l) => lineWeek(l) === sunday && !(l.accountId && restrictedIds.includes(l.accountId) && l.kind !== 'in')).sort((a, b) => a.date.localeCompare(b.date))
   const deposits = mine.filter((l) => l.kind === 'deposit')
   const transfersIn = mine.filter((l) => l.kind === 'in')
   const withdraws = mine.filter((l) => l.kind === 'withdraw')
@@ -161,12 +163,16 @@ export function reconcileWeek(sunday: string, all: PassbookLine[], income: Incom
     if (inc) matchedIn.push({ line: l, income: inc }); else unmatchedIn.push(l)
   }
   const used = new Set(matched.values())
-  const upto = all.filter((l) => lineWeek(l) <= sunday && l.balance !== undefined).sort((a, b) => a.date.localeCompare(b.date))
+  const upto0 = all.filter((l) => lineWeek(l) <= sunday && l.balance !== undefined).sort((a, b) => a.date.localeCompare(b.date))
+  const upto = upto0
+  const closingBy: Record<string, number> = {}
+  for (const l of upto) closingBy[l.accountId ?? ''] = l.balance as number
   return {
     deposits, transfersIn, withdraws, others,
     depositSum: deposits.reduce((s, l) => s + l.amount, 0), withdrawSum: withdraws.reduce((s, l) => s + l.amount, 0),
     matchedIn, unmatchedIn, unmatchedSlips: slips.filter((x) => !used.has(x.id) && x.date <= sunday && x.date > addDays(sunday, -7)),
-    closing: upto.length ? upto[upto.length - 1].balance : undefined,
+    closing: (() => { const op = upto.filter((l) => !(l.accountId && restrictedIds.includes(l.accountId))); return op.length ? op[op.length - 1].balance : undefined })(),
+    closingBy,
   }
 }
 
