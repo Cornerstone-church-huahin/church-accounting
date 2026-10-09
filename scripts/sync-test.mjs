@@ -81,6 +81,7 @@ try {
   await B.getByText('1,500.00').first().waitFor({ timeout: 10000 })
   // A ล้างข้อมูลปี (เฉพาะแอดมิน)
   await A.goto(base + '/settings')
+  await A.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
   await A.locator('#cl-word').fill('ล้างข้อมูล')
   await A.getByRole('button', { name: /^ล้างข้อมูลปี/ }).click()
   await A.getByText(/ล้างข้อมูลปี .* เรียบร้อย/).waitFor({ timeout: 10000 })
@@ -113,6 +114,7 @@ try {
   ok((await C.getByRole('link', { name: 'รายรับ', exact: true }).count()) === 0, 'pending user cannot see the app')
   // แอดมินเห็นชื่อ ให้สิทธิ์ แล้วอนุมัติ
   await A.goto(base + '/settings')
+  await A.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
   await A.reload()
   await A.getByText('ภรรยา', { exact: false }).first().waitFor({ timeout: 10000 })
   await A.getByLabel('สิทธิ์ที่จะให้ ภรรยา').selectOption({ label: 'ผู้ตรวจสอบ' })

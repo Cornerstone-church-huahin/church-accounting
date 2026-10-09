@@ -263,3 +263,12 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .act-btn:active { background: #f4f1ea; }
 .act-btn[disabled] { opacity: .5; }
 .capbar__menu { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.fold { padding: 0; }
+.fold > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0.85rem 1rem; cursor: pointer; min-height: 52px; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary h2 { margin: 0; font-size: 1.05rem; }
+.fold__chev { font-size: 1.1rem; transition: transform .15s; color: var(--muted, #666); }
+.fold[open] > summary { border-bottom: 1px solid var(--line, #eee); }
+.fold[open] .fold__chev { transform: rotate(180deg); }
+.fold__body { padding: 0.75rem 1rem 1rem; }
+.fold > summary h2 { margin: 0 !important; line-height: 1.3; }
