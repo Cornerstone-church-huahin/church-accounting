@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkChain, classify, dedupeLines, reconcileWeek } from './passbook'
+import { chainGap, checkChain, classify, dedupeLines, normalizeRows, reconcileWeek } from './passbook'
 import type { IncomeEntry, PassbookLine } from './types'
 
 describe('passbook', () => {
@@ -32,5 +32,34 @@ describe('passbook', () => {
     expect(r.unmatchedIn.map((l) => l.id)).toEqual(['c'])
     expect(r.withdraws).toHaveLength(0) // Monday withdrawal belongs to the next week
     expect(r.closing).toBe(1000000)
+  })
+})
+
+// ข้อมูลจริงจากสมุดคู่ฝากธนาคารกรุงเทพที่ผู้ใช้ถ่ายมา (เลขบัญชีไม่เกี่ยวข้อง)
+const REAL = [
+  { code: 'NBD', amt: 476200, bal: 16068143 }, { code: 'W/D', amt: 9000000, bal: 7068143, wd: true },
+  { code: 'TRD', amt: 5000, bal: 7073143 }, { code: 'TRD', amt: 30000, bal: 7103143 }, { code: 'TRD', amt: 95000, bal: 7198143 },
+  { code: 'TRD', amt: 100027, bal: 7298170 }, { code: 'DEP', amt: 340500, bal: 7638670 }, { code: 'W/D', amt: 2500000, bal: 5138670, wd: true },
+  { code: 'TRD', amt: 200000, bal: 5338670 }, { code: 'TRD', amt: 200000, bal: 5538670 }, { code: 'TRD', amt: 3200000, bal: 8738670 },
+  { code: 'TRD', amt: 1000, bal: 8739670 }, { code: 'TRD', amt: 57500, bal: 8797170 }, { code: 'NBD', amt: 526000, bal: 9323170 }, { code: 'W/D', amt: 350000, bal: 8973170, wd: true },
+]
+describe('real passbook (Bangkok Bank codes)', () => {
+  it('classifies by code', () => {
+    const k = REAL.map((r) => classify({ code: r.code, deposit: r.wd ? 0 : r.amt, withdraw: r.wd ? r.amt : 0 }))
+    expect(k).toEqual(['deposit', 'withdraw', 'in', 'in', 'in', 'in', 'deposit', 'withdraw', 'in', 'in', 'in', 'in', 'in', 'deposit', 'withdraw'])
+  })
+  it('fixes rows put in the wrong column using the balance chain and fills missing amounts', () => {
+    // ผู้อ่านรูปใส่ทุกอย่างช่อง "ถอน" และบางบรรทัดไม่มีจำนวนเงิน
+    const raw = REAL.map((r, i) => ({ withdraw: i % 4 === 3 ? undefined : r.amt, balance: r.bal }))
+    const fixed = normalizeRows(raw)
+    for (let i = 1; i < REAL.length; i++) {
+      const want = REAL[i].wd ? { withdraw: REAL[i].amt } : { deposit: REAL[i].amt }
+      expect(fixed[i]).toMatchObject(want)
+    }
+    expect(checkChain(fixed)).toEqual([])
+  })
+  it('reports the missing amount when a row is skipped', () => {
+    const rows = [{ balance: 1000 }, { deposit: 100, balance: 1600 }]
+    expect(chainGap(rows, 1)).toBe(500)
   })
 })

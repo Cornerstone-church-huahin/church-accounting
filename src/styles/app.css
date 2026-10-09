@@ -304,3 +304,4 @@ ul.plain > li { padding: 0.25rem 0; }
 .home-tab small { display: block; line-height: 1.2; }
 .weekchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0.3rem 0 0.6rem; }
 .weekchips .mini.on { background: var(--gold); color: #1a2b4c; }
+.pbdraft input { font-size: 0.85rem; padding: 0.45rem 0.35rem; min-width: 0; min-height: 2.4rem; }

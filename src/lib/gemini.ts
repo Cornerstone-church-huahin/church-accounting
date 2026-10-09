@@ -226,18 +226,25 @@ export async function testGemini(): Promise<string> {
 }
 
 // ---------- สมุดบัญชีธนาคาร (ขั้น "ปรับ") ----------
-export interface PassbookRead { rows: { date?: string; desc?: string; deposit?: number; withdraw?: number; balance?: number }[] }
+export interface PassbookRead { rows: { date?: string; code?: string; desc?: string; deposit?: number; withdraw?: number; balance?: number }[] }
+
+const WITHDRAW_CODE = /^(W\/?D|WDL|WTD|CSW|TRW|TRC|TRO|PMO)/i
 
 export function parsePassbookJson(text: string): PassbookRead {
   const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '')
   const j = JSON.parse(clean) as { rows?: Record<string, unknown>[] }
   const rows = (Array.isArray(j.rows) ? j.rows : []).flatMap((r) => {
-    const deposit = toSatang(r.deposit), withdraw = toSatang(r.withdraw)
+    const code = typeof r.code === 'string' && r.code.trim() ? r.code.trim().toUpperCase().slice(0, 8) : undefined
+    let deposit = toSatang(r.deposit), withdraw = toSatang(r.withdraw)
+    const amount = toSatang(r.amount)
+    // ใส่เฉพาะ amount (ไม่แยกช่อง): ทิศทางตามรหัสรายการ แล้วให้ยอดคงเหลือชี้ขาดอีกที
+    if (!deposit && !withdraw && amount) { if (code && WITHDRAW_CODE.test(code)) withdraw = amount; else deposit = amount }
     if (!deposit && !withdraw) return []
     const date = typeof r.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : undefined
-    const desc = typeof r.desc === 'string' && r.desc.trim() ? r.desc.trim().slice(0, 80) : undefined
+    const note = typeof r.note === 'string' && r.note.trim() ? r.note.trim().slice(0, 60) : undefined
+    const desc = [code, note, typeof r.desc === 'string' && r.desc.trim() ? r.desc.trim().slice(0, 40) : undefined].filter(Boolean).join(' · ') || undefined
     const balance = toSatang(r.balance)
-    return [{ ...(date ? { date } : {}), ...(desc ? { desc } : {}), ...(deposit ? { deposit } : {}), ...(withdraw ? { withdraw } : {}), ...(balance !== undefined ? { balance } : {}) }]
+    return [{ ...(date ? { date } : {}), ...(code ? { code } : {}), ...(desc ? { desc } : {}), ...(deposit ? { deposit } : {}), ...(withdraw ? { withdraw } : {}), ...(balance !== undefined ? { balance } : {}) }]
   })
   return { rows }
 }
@@ -245,17 +252,19 @@ export function parsePassbookJson(text: string): PassbookRead {
 const PASSBOOK_SCHEMA = {
   type: 'OBJECT',
   properties: { rows: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-    date: { type: 'STRING', nullable: true }, desc: { type: 'STRING', nullable: true },
-    deposit: { type: 'NUMBER', nullable: true }, withdraw: { type: 'NUMBER', nullable: true }, balance: { type: 'NUMBER', nullable: true },
+    date: { type: 'STRING', nullable: true }, code: { type: 'STRING', nullable: true }, note: { type: 'STRING', nullable: true },
+    amount: { type: 'NUMBER', nullable: true }, balance: { type: 'NUMBER', nullable: true },
   } } } },
   required: ['rows'],
 }
-const PASSBOOK_PROMPT = `นี่คือรูปหน้า "สมุดคู่ฝากธนาคาร" (พิมพ์ด้วยเครื่อง) ของคริสตจักร ให้อ่านทุกบรรทัดรายการจากบนลงล่าง แล้วตอบเป็น JSON เท่านั้น
-- date: วันที่ของรายการ แปลงปี พ.ศ. เป็น ค.ศ. (ลบ 543) รูปแบบ YYYY-MM-DD (ปีในสมุดอาจย่อเป็น 2 หลัก เช่น 69 = พ.ศ. 2569 = ค.ศ. 2026) ถ้าอ่านไม่ได้ให้เว้น อย่าเดา
-- desc: คำอธิบายรายการตามที่พิมพ์ เช่น ฝากเงินสด / ถอนเงินสด / โอน / ดอกเบี้ย (ย่อได้ ไม่เกิน 40 ตัวอักษร)
-- deposit: จำนวนเงินในช่อง "ฝาก/เงินเข้า" (บาท ไม่ใช้คอมมา) · withdraw: จำนวนเงินในช่อง "ถอน/เงินออก" · ใส่เพียงช่องเดียวต่อบรรทัด
-- balance: ยอด "คงเหลือ" ท้ายบรรทัดนั้น
-- ข้ามบรรทัดที่ไม่ใช่รายการ (หัวตาราง ยอดยกมา เลขหน้า) และไม่ต้องใส่เลขบัญชีหรือชื่อบุคคล`
+const PASSBOOK_PROMPT = `นี่คือรูปหน้า "สมุดคู่ฝากธนาคาร" ที่พิมพ์ด้วยเครื่อง (เช่นธนาคารกรุงเทพ: คอลัมน์ วัน/เดือน/ปี · ลำดับ · รหัสรายการ · ถอน · ฝาก · คงเหลือ · หมายเลขเครื่อง) ให้อ่าน "ทุกบรรทัดรายการที่พิมพ์" จากบนลงล่าง ไม่ข้ามบรรทัดใด (ที่ขอบขวามีเลขลำดับบรรทัด 1, 2, 3 … ใช้นับว่าไม่ตกหล่น) แล้วตอบเป็น JSON เท่านั้น
+แต่ละบรรทัดให้ 1 รายการใน rows:
+- date: วัน/เดือน/ปีที่พิมพ์ เช่น "27/09/26" ปี 2 หลักอาจเป็น ค.ศ. (26 = 2026) หรือ พ.ศ. (69 = 2569) ให้ตอบเป็น ค.ศ. YYYY-MM-DD ที่ใกล้ปี 2024–2028 (ถ้าอ่านไม่ได้ให้เว้น อย่าเดา)
+- code: รหัสรายการ 3 ตัวอักษรที่พิมพ์ในคอลัมน์รหัส เช่น DEP, NBD, TRD, W/D, TRW, INT (ตอบตามที่เห็น)
+- amount: จำนวนเงินของรายการนั้น (ตัวเลขเดียว ไม่ว่าอยู่ช่องถอนหรือฝาก) เป็นบาทมีทศนิยม ไม่ใช้คอมมา ตัวเลขมักมีดอกจัน ******** นำหน้าให้ตัดดอกจันทิ้ง
+- balance: ยอด "คงเหลือ" ท้ายบรรทัดนั้น (ตัดดอกจันทิ้งเช่นกัน) ต้องอ่านให้ได้ทุกบรรทัด
+- note: ลายมือที่เขียนกำกับไว้ข้างบรรทัดนั้น (เช่น "สิบลด") ถ้าไม่มีให้เว้น
+ข้ามเฉพาะหัวตาราง ยอดยกมา และเลขหน้า · ไม่ต้องใส่เลขบัญชีหรือชื่อบุคคล`
 export async function readPassbook(file: Blob & { name?: string }): Promise<PassbookRead> {
   const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
   return readWithRotations(f, async (x) => parsePassbookJson(await geminiJson(x, PASSBOOK_PROMPT + ROTATE_NOTE, PASSBOOK_SCHEMA)), (r) => r.rows.length === 0)

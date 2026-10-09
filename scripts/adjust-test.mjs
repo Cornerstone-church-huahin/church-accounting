@@ -27,10 +27,10 @@ await page.evaluate(([S, Y, d3]) => {
 await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({
   status: 200, contentType: 'application/json',
   body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows: [
-    { date: day(9), desc: 'ฝากเงินสด', deposit: 3000, balance: 4000 },
-    { date: day(3), desc: 'รับโอน', deposit: 169, balance: 4169 },
-    { date: day(2), desc: 'รับโอน', deposit: 555, balance: 4724 },
-    { date: S, desc: 'ฝากเงินสด', deposit: 5260, balance: 10000 },
+    { date: day(9), code: 'DEP', amount: 3000, balance: 4000 },
+    { date: day(3), code: 'TRD', amount: 169, balance: 4169 },
+    { date: day(2), code: 'TRD', amount: 555, balance: 4724 },
+    { date: S, code: 'NBD', amount: 5260, balance: 10000 },
   ] }) }] } }] }),
 }))
 try {
@@ -44,7 +44,7 @@ try {
   await page.getByLabel('แนบไฟล์หน้าสมุด').setInputFiles('public/icon-512.png')
   await page.getByLabel('รายการ บรรทัด 4').waitFor({ timeout: 20000 })
   must(await page.getByRole('alert').filter({ hasText: /ไม่ลงตัว/ }).count() === 1, 'chain check flags the broken balance row (4724 + 5260 ≠ 10000)')
-  await page.getByLabel('รายการ บรรทัด 4').fill('ฝากเงินสด')
+  must(await page.getByRole('button', { name: /เพิ่มบรรทัดที่ตกหล่น/ }).count() === 1, 'gap helper offered for the broken row')
   // แก้ยอดคงเหลือให้ลงตัว (5724 + 5260 = 10984)
   await page.locator('.pbdraft').nth(3).locator('input').nth(4).fill('9984')
   await page.getByRole('button', { name: 'บันทึกและไปตรวจจับคู่' }).click()
