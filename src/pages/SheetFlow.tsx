@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import { whoAmI } from '../lib/access'
-import { getGemini, readSheet, saveGemini, type SheetRead } from '../lib/gemini'
+import { ensureGemini, getGemini, readSheet, saveGemini, type SheetRead } from '../lib/gemini'
 import { compressImage } from '../lib/image'
 import { entriesFromRound, roundId } from '../lib/ledger'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, todayISO, yearOf } from '../lib/money'
@@ -108,7 +108,7 @@ export default function SheetFlow({ year, sunday, existing, initialFile, onClose
     void doRead(f)
   }
 
-  const startFile = (f: File) => { setFile(f); if (getGemini().key) void doRead(f); else { setMsg('ยังไม่ได้ใส่รหัส Gemini — กรอกแถวเองได้'); setStage('review') } }
+  const startFile = async (f: File) => { setFile(f); if ((await ensureGemini()).key) void doRead(f); else { setMsg('ยังไม่ได้ใส่รหัส Gemini — กรอกแถวเองได้'); setStage('review') } }
   useEffect(() => { if (initialFile) startFile(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = useMemo(() => rows.reduce((s, r) => s + (r.amount ?? 0), 0), [rows])
