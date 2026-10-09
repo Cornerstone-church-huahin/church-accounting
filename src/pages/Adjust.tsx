@@ -44,6 +44,21 @@ export default function Adjust({ year }: { year: number }) {
   const pendingSum = pending.reduce((s, x) => s + x.amount, 0)
   const rec = useMemo(() => reconcileWeek(sunday, pb.items, income.items), [sunday, pb.items, income.items])
   const L = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items }), [sunday, year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
+  const byWeek = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const l of pb.items) { const w = lineWeek(l); m.set(w, (m.get(w) ?? 0) + 1) }
+    return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  }, [pb.items])
+  const weeksNav = byWeek.length > 0 && (
+    <div className="weekchips" aria-label="สัปดาห์ที่มีรายการจากสมุด">
+      <span className="muted small">สัปดาห์ที่มีรายการจากสมุด:</span>
+      {byWeek.map(([w, n]) => (
+        <button key={w} type="button" className={`mini${w === sunday ? ' on' : ''}`} onClick={() => { if (sundays.includes(w)) { setSunday(w); setSub('check') } }}>
+          {fmtDate(w)} · {n} บรรทัด{closes.items.some((c) => c.sunday === w) ? ' ✓' : ''}
+        </button>
+      ))}
+    </div>
+  )
   const closed = closes.items.find((c) => c.sunday === sunday)
   const weekLines = pb.items.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
 
@@ -70,9 +85,11 @@ export default function Adjust({ year }: { year: number }) {
     }))
     const add = dedupeLines(pb.items, fresh)
     if (!pb.put(add)) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
-    const first = add.find((l) => l.kind === 'deposit') ?? add[0]
-    if (first && sundays.includes(sheetSunday(first.date))) setSunday(sheetSunday(first.date))
-    setDrafts(null); setMsg(`บันทึก ${add.length} บรรทัดแล้ว${fresh.length - add.length ? ` (ข้าม ${fresh.length - add.length} บรรทัดที่มีอยู่แล้ว)` : ''}`)
+    // ทุกบรรทัดเข้าสัปดาห์ตามวันที่ของตัวเอง · เปิดสัปดาห์ล่าสุดที่ได้ข้อมูล แล้วดูสัปดาห์อื่นได้จากแถบสัปดาห์
+    const weeks = [...new Set(add.map((l) => lineWeek(l)))].sort()
+    const newest = [...weeks].reverse().find((w) => sundays.includes(w))
+    if (newest) setSunday(newest)
+    setDrafts(null); setMsg(`บันทึก ${add.length} บรรทัด แยกเข้า ${weeks.length} สัปดาห์ตามวันที่${fresh.length - add.length ? ` (ข้าม ${fresh.length - add.length} บรรทัดที่มีอยู่แล้ว)` : ''}`)
     setSub('check')
   }
   const toIncome = (l: PassbookLine, typeId: string) => {
@@ -102,6 +119,7 @@ export default function Adjust({ year }: { year: number }) {
       <div className="subtabs subtabs--adj no-print" role="tablist" aria-label="ขั้นตอนปรับสมุดบัญชี">
         {tabBtn('prep', 1, 'ก่อนไปธนาคาร')}{tabBtn('photo', 2, 'ถ่ายรูปสมุด')}{tabBtn('check', 3, 'ตรวจจับคู่')}{tabBtn('close', 4, 'ปิดสัปดาห์')}
       </div>
+      {weeksNav}
       {closed && <p className="badge badge--good" role="status">✓ สัปดาห์นี้ปิดยอดแล้ว{closed.bankBalance !== undefined ? ` · คงเหลือตามสมุด ${fmtBaht(closed.bankBalance)}` : ''}</p>}
 
       {busy && (

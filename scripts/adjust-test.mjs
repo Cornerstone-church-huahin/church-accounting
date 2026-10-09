@@ -27,8 +27,9 @@ await page.evaluate(([S, Y, d3]) => {
 await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({
   status: 200, contentType: 'application/json',
   body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows: [
-    { date: day(3), desc: 'รับโอน', deposit: 169, balance: 5169 },
-    { date: day(2), desc: 'รับโอน', deposit: 555, balance: 5724 },
+    { date: day(9), desc: 'ฝากเงินสด', deposit: 3000, balance: 4000 },
+    { date: day(3), desc: 'รับโอน', deposit: 169, balance: 4169 },
+    { date: day(2), desc: 'รับโอน', deposit: 555, balance: 4724 },
     { date: S, desc: 'ฝากเงินสด', deposit: 5260, balance: 10000 },
   ] }) }] } }] }),
 }))
@@ -41,15 +42,19 @@ try {
   await page.getByRole('tab', { name: /ถ่ายรูปสมุด/ }).click()
   must((await page.getByLabel('ถ่ายรูปหน้าสมุด').getAttribute('capture')) === 'environment', 'camera button for passbook')
   await page.getByLabel('แนบไฟล์หน้าสมุด').setInputFiles('public/icon-512.png')
-  await page.getByLabel('รายการ บรรทัด 3').waitFor({ timeout: 20000 })
-  must(await page.getByRole('alert').filter({ hasText: /ไม่ลงตัว/ }).count() === 1, 'chain check flags the broken balance row (5724 + 5260 ≠ 10000)')
-  await page.getByLabel('รายการ บรรทัด 3').fill('ฝากเงินสด')
+  await page.getByLabel('รายการ บรรทัด 4').waitFor({ timeout: 20000 })
+  must(await page.getByRole('alert').filter({ hasText: /ไม่ลงตัว/ }).count() === 1, 'chain check flags the broken balance row (4724 + 5260 ≠ 10000)')
+  await page.getByLabel('รายการ บรรทัด 4').fill('ฝากเงินสด')
   // แก้ยอดคงเหลือให้ลงตัว (5724 + 5260 = 10984)
-  await page.locator('.pbdraft').nth(2).locator('input').nth(4).fill('10984')
+  await page.locator('.pbdraft').nth(3).locator('input').nth(4).fill('9984')
   await page.getByRole('button', { name: 'บันทึกและไปตรวจจับคู่' }).click()
+  must(await page.locator('.weekchips .mini').count() === 2, 'lines split into two weeks by date (' + await page.locator('.weekchips .mini').count() + ')')
   await page.getByText(/ตรงกันทั้งหมด|ตรงกัน ✓/).first().waitFor({ timeout: 10000 })
   must(await page.getByText(/ตรงสลิป/).count() === 1, 'one transfer matched a slip')
   must(await page.getByText(/ไม่มีสลิป/).first().isVisible() || await page.getByRole('button', { name: 'ลงเป็นรายรับ' }).count() === 1, 'one transfer has no slip')
+  await page.locator('.weekchips .mini').nth(1).click()
+  must(await page.getByText(/3,000\.00/).first().isVisible(), 'previous week shows its own deposit line')
+  await page.locator('.weekchips .mini').nth(0).click()
   await page.getByRole('button', { name: 'ลงเป็นรายรับ' }).click()
   await page.getByRole('button', { name: 'ลงรายรับ', exact: true }).click()
   await page.getByText(/ตรงสลิป/).nth(1).waitFor({ timeout: 10000 })
@@ -59,7 +64,7 @@ try {
   await page.screenshot({ path: 'shots/adjust-close.png', fullPage: true })
   await page.getByRole('tab', { name: /สรุป/ }).first().click()
   must(await page.getByText('✓ ตรวจกับสมุดบัญชีแล้ว').first().isVisible(), 'summary shows the week was checked against the passbook')
-  must(/ตรวจกับสมุดบัญชีธนาคารแล้ว.*10,984/.test((await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')), 'paper note shows the bank balance: ' + (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ').slice(-400))
+  must(/ตรวจกับสมุดบัญชีธนาคารแล้ว.*9,984/.test((await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')), 'paper note shows the bank balance: ' + (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ').slice(-400))
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('ADJUST OK')
 } catch (e) { await page.screenshot({ path: 'shots/adjust-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
