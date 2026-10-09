@@ -8,7 +8,7 @@ import CaptureBar from '../components/CaptureBar'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
-import { getGemini, readBill } from '../lib/gemini'
+import { ensureGemini, getGemini, readBill } from '../lib/gemini'
 import { compressImage } from '../lib/image'
 import { readSlip } from '../lib/slipOcr'
 import { useRole } from '../lib/members'
@@ -305,9 +305,9 @@ function ExpenseFlow({ year, channel, initialFile, exp, onClose }: { year: numbe
   const [stage, setStage] = useState<'pick' | 'read' | 'form'>(initialFile ? 'read' : 'form')
   const [init, setInit] = useState<ExpInit | null>(null)
   const [msg, setMsg] = useState('')
-  const hasKey = !!getGemini().key
   const choose = async (file: File) => {
     setStage('read'); setMsg('')
+    const hasKey = !!(await ensureGemini()).key
     const out: ExpInit = { file }
     try {
       if (hasKey) {
@@ -338,7 +338,7 @@ function ExpenseFlow({ year, channel, initialFile, exp, onClose }: { year: numbe
     <Sheet title={c.title} onClose={onClose}>
       {stage === 'pick' ? (
         <>
-          <p className="muted small">{channel === 'bill' ? 'เลือกรูปบิลหรือใบแจ้งหนี้ (บิลซื้อของ ค่าไฟ ค่าน้ำ ฯลฯ)' : 'เลือกรูปใบเสร็จหรือสลิปโอนที่ผู้สำรองจ่ายจ่ายไปก่อน'} ระบบจะอ่านวันที่ ยอดเงิน ร้านค้า และเสนอหมวดรายจ่ายให้ ท่านตรวจแล้วกดยืนยัน{hasKey ? '' : ' (ยังไม่ได้ใส่รหัส Gemini: อ่านได้เฉพาะสลิปโอน)'}</p>
+          <p className="muted small">{channel === 'bill' ? 'เลือกรูปบิลหรือใบแจ้งหนี้ (บิลซื้อของ ค่าไฟ ค่าน้ำ ฯลฯ)' : 'เลือกรูปใบเสร็จหรือสลิปโอนที่ผู้สำรองจ่ายจ่ายไปก่อน'} ระบบจะอ่านวันที่ ยอดเงิน ร้านค้า และเสนอหมวดรายจ่ายให้ ท่านตรวจแล้วกดยืนยัน{getGemini().key ? '' : ' (ยังไม่ได้ใส่รหัส Gemini: อ่านได้เฉพาะสลิปโอน)'}</p>
           <label className="btn btn--gold" style={{ display: 'block', textAlign: 'center' }}>
             📷 เลือกรูป{channel === 'bill' ? 'บิล' : 'ใบเสร็จ/สลิป'}
             <input type="file" accept="image/*" aria-label={`เลือกรูป${channel === 'bill' ? 'บิล' : 'ใบเสร็จหรือสลิป'}`} style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void choose(f) }} />

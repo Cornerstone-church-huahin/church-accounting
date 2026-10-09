@@ -40,6 +40,11 @@ export async function refreshSharedGemini(): Promise<boolean> {
     return !!(it && !it.deleted && it.key)
   } catch { return hasSharedGemini() }
 }
+/** ถ้าเครื่องนี้ยังไม่มีรหัส ลองดึงรหัสร่วมจากแอดมินก่อน (กรณีเพิ่งเปิดแอป) แล้วคืนรหัสที่ใช้ได้ */
+export async function ensureGemini(): Promise<{ key: string; model: string; shared: boolean }> {
+  if (!getGemini().key) await refreshSharedGemini()
+  return getGemini()
+}
 /** แอดมินแชร์รหัสให้ทุกคนที่ใช้ร่วม (key ว่าง = เลิกแชร์) */
 export async function publishSharedGemini(key: string, model = DEFAULT_MODEL): Promise<void> {
   const cfg = getSync()
