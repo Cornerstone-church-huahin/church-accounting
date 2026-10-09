@@ -272,3 +272,33 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .fold[open] .fold__chev { transform: rotate(180deg); }
 .fold__body { padding: 0.75rem 1rem 1rem; }
 .fold > summary h2 { margin: 0 !important; line-height: 1.3; }
+
+/* ปุ่มด้านบน (ขั้นตอนหลัก) = แท่งสี่เหลี่ยมใหญ่มีแถบสีใต้ · ปุ่มด้านล่าง (ช่องย่อย) = วงกลมมีเลข ชื่ออยู่ใต้วงกลม — ต่างรูปทรงกันชัดเจน */
+.home-tabs { grid-template-columns: repeat(4, 1fr); gap: 0.35rem; }
+.home-tab { border-radius: 0.5rem 0.5rem 0 0; border-width: 0 0 5px 0; border-bottom-style: solid; background: var(--surface-2); min-height: 3.4rem; font-size: 1rem; padding: 0 0.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1.15; }
+.home-tab small { font-size: 0.65rem; font-weight: 500; opacity: 0.8; }
+.home-tab--adj { border-color: var(--gold); }
+.home-tab--adj.on { background: var(--gold); color: #1a2b4c; }
+.home-tab--in { border-color: var(--series-1); } .home-tab--out { border-color: var(--series-2); } .home-tab--sum { border-color: var(--sky); }
+.home-tab.on { border-bottom-color: transparent; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
+.subtabs button { border: 0 !important; background: transparent !important; color: var(--ink) !important; min-height: 0; padding: 0.1rem; gap: 0.25rem; font-weight: 500; }
+.subtabs button .dot { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 2px solid var(--series-1); background: var(--surface); font-style: normal; font-size: 1.15rem; font-weight: 700; }
+.subtabs--out button .dot { border-color: var(--series-2); }
+.subtabs--sum button .dot { border-color: var(--sky); }
+.subtabs--adj button .dot { border-color: var(--gold); }
+.subtabs button.on .dot { background: var(--series-1); color: #fff; }
+.subtabs--out button.on .dot { background: var(--series-2); }
+.subtabs--sum button.on .dot { background: var(--sky); }
+.subtabs--adj button.on .dot { background: var(--gold); color: #1a2b4c; }
+.subtabs button.on span { font-weight: 700; }
+.subtabs button span { text-align: center; line-height: 1.2; }
+
+.pbline { display: flex; flex-direction: column; gap: 4px; padding: 0.55rem 0; border-top: 1px solid var(--line); }
+.pbdraft { border: 1.5px solid var(--line); border-radius: 0.7rem; padding: 0.5rem; margin: 0.5rem 0; display: grid; gap: 6px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+ul.plain { list-style: none; padding: 0; margin: 0.5rem 0; }
+ul.plain > li { padding: 0.25rem 0; }
+.stats p { margin: 0.35rem 0; }
+.ok { color: var(--good); } .err { color: var(--bad); }
+.home-tab { min-height: 4rem; line-height: 1.3; gap: 3px; padding: 0.35rem 0.1rem 0.45rem; }
+.home-tab small { display: block; line-height: 1.2; }

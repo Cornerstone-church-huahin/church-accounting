@@ -224,3 +224,39 @@ export async function testGemini(): Promise<string> {
     return `ทดสอบไม่สำเร็จ (${r.status})`
   } catch { return 'ไม่มีอินเทอร์เน็ต' }
 }
+
+// ---------- สมุดบัญชีธนาคาร (ขั้น "ปรับ") ----------
+export interface PassbookRead { rows: { date?: string; desc?: string; deposit?: number; withdraw?: number; balance?: number }[] }
+
+export function parsePassbookJson(text: string): PassbookRead {
+  const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '')
+  const j = JSON.parse(clean) as { rows?: Record<string, unknown>[] }
+  const rows = (Array.isArray(j.rows) ? j.rows : []).flatMap((r) => {
+    const deposit = toSatang(r.deposit), withdraw = toSatang(r.withdraw)
+    if (!deposit && !withdraw) return []
+    const date = typeof r.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : undefined
+    const desc = typeof r.desc === 'string' && r.desc.trim() ? r.desc.trim().slice(0, 80) : undefined
+    const balance = toSatang(r.balance)
+    return [{ ...(date ? { date } : {}), ...(desc ? { desc } : {}), ...(deposit ? { deposit } : {}), ...(withdraw ? { withdraw } : {}), ...(balance !== undefined ? { balance } : {}) }]
+  })
+  return { rows }
+}
+
+const PASSBOOK_SCHEMA = {
+  type: 'OBJECT',
+  properties: { rows: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    date: { type: 'STRING', nullable: true }, desc: { type: 'STRING', nullable: true },
+    deposit: { type: 'NUMBER', nullable: true }, withdraw: { type: 'NUMBER', nullable: true }, balance: { type: 'NUMBER', nullable: true },
+  } } } },
+  required: ['rows'],
+}
+const PASSBOOK_PROMPT = `นี่คือรูปหน้า "สมุดคู่ฝากธนาคาร" (พิมพ์ด้วยเครื่อง) ของคริสตจักร ให้อ่านทุกบรรทัดรายการจากบนลงล่าง แล้วตอบเป็น JSON เท่านั้น
+- date: วันที่ของรายการ แปลงปี พ.ศ. เป็น ค.ศ. (ลบ 543) รูปแบบ YYYY-MM-DD (ปีในสมุดอาจย่อเป็น 2 หลัก เช่น 69 = พ.ศ. 2569 = ค.ศ. 2026) ถ้าอ่านไม่ได้ให้เว้น อย่าเดา
+- desc: คำอธิบายรายการตามที่พิมพ์ เช่น ฝากเงินสด / ถอนเงินสด / โอน / ดอกเบี้ย (ย่อได้ ไม่เกิน 40 ตัวอักษร)
+- deposit: จำนวนเงินในช่อง "ฝาก/เงินเข้า" (บาท ไม่ใช้คอมมา) · withdraw: จำนวนเงินในช่อง "ถอน/เงินออก" · ใส่เพียงช่องเดียวต่อบรรทัด
+- balance: ยอด "คงเหลือ" ท้ายบรรทัดนั้น
+- ข้ามบรรทัดที่ไม่ใช่รายการ (หัวตาราง ยอดยกมา เลขหน้า) และไม่ต้องใส่เลขบัญชีหรือชื่อบุคคล`
+export async function readPassbook(file: Blob & { name?: string }): Promise<PassbookRead> {
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
+  return readWithRotations(f, async (x) => parsePassbookJson(await geminiJson(x, PASSBOOK_PROMPT + ROTATE_NOTE, PASSBOOK_SCHEMA)), (r) => r.rows.length === 0)
+}

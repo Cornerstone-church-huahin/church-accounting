@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
@@ -18,6 +18,7 @@ export default function Summary({ year }: { year: number }) {
   const lines = useBudgetLines(year)
   const funds = useFunds()
   const entries = useBudgetEntries(year)
+  const closes = useWeekCloses(year)
   const types = useIncomeTypes()
   const cats = useExpenseCats()
   const expenses = useExpenses(year)
@@ -50,6 +51,7 @@ export default function Summary({ year }: { year: number }) {
     window.print()
   }
   const idx = sundays.indexOf(sunday)
+  const wkClose = kind === 'week' ? closes.items.find((c) => c.sunday === sunday) : undefined
   const range = rangeOf(kind, year, { sunday, month, quarter })
 
   const input = useMemo<LedgerInput>(() => ({ range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items }),
@@ -83,7 +85,7 @@ export default function Summary({ year }: { year: number }) {
     : { onPrev: () => undefined, onNext: () => undefined, canPrev: false, canNext: false }
   const period = kind === 'week' ? `ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')} (${rangeText})` : kind === 'month' ? `ประจำเดือน${monthName(month)} ${be} (${rangeText})` : kind === 'quarter' ? `ประจำไตรมาส ${quarter} ปี ${be} (${rangeText})` : `ประจำปี ${be}`
   const fileKey = kind === 'week' ? sunday : kind === 'month' ? `${year}-${String(month).padStart(2, '0')}` : kind === 'quarter' ? `${year}-Q${quarter}` : String(be)
-  const tabBtn = (k: SumKind, n: number, text: string) => <button type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{n}<span>{text}</span></button>
+  const tabBtn = (k: SumKind, n: number, text: string) => <button type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}><i className="dot">{n}</i><span>{text}</span></button>
 
   const church = settings.churchName
   const dateLine = <span>วันที่ ........../........../..........</span>
@@ -98,6 +100,7 @@ export default function Summary({ year }: { year: number }) {
       {(
         <>
           <div className="sheet-1">
+          {kind === 'week' && <p className={`badge ${wkClose ? 'badge--good' : ''} no-print`} role="status">{wkClose ? '✓ ตรวจกับสมุดบัญชีแล้ว' : 'ยังไม่ได้ตรวจกับสมุดบัญชี (ขั้น 3 ปรับ) — พิมพ์ไปแปะได้ แต่ควรปรับสมุดก่อน'}</p>}
           {sheetBar(1, `ใบที่ 1 — ใบสรุปรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}`)}
           {kind === 'week' ? (
       <ScaledPage ref={paperRef}>
@@ -113,6 +116,7 @@ export default function Summary({ year }: { year: number }) {
             </tbody>
             <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending ? -outSum.pending : 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)}</td></tr></tfoot>
           </table>
+          {wkClose && <p className="a4note">✓ ตรวจกับสมุดบัญชีธนาคารแล้ว{wkClose.bankBalance !== undefined ? <> · ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์ <b>{fmtBaht(wkClose.bankBalance)}</b> บาท</> : null}</p>}
           {outSum.pending > 0 && <p className="a4note">ยอดค้างจ่ายที่ต้องเตรียมเบิก (วางบิลที่ยังไม่จ่าย + สำรองจ่ายที่ยังไม่คืนเงิน): <b>{fmtBaht(outSum.pending)}</b> บาท</p>}
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br />{dateLine}</div>

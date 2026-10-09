@@ -121,7 +121,7 @@ export default function Pay({ year }: { year: number }) {
     )
   }
   const tab = (k: Exclude<Sub, null>, n: number, label: string, badge?: number) => (
-    <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{n}<span>{label}{badge ? ` (${badge})` : ''}</span></button>
+    <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}><i className="dot">{n}</i><span>{label}{badge ? ` (${badge})` : ''}</span></button>
   )
 
   return (
