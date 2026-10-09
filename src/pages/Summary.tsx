@@ -202,8 +202,8 @@ export default function Summary({ year }: { year: number }) {
                   <Donut rows={topRows(outRows, 6)} tone="out" />
                 </div>
               </div>
-              <div className="stat-title" style={{ marginTop: 6 }}>รายจ่ายแยกตามหมวดหลัก — ทุกหมวด (บาท · แท่งสูง = จ่ายมาก)</div>
-              <CatBars height={140} cats={catBars} />
+              <div className="stat-title" style={{ marginTop: 6 }}>รายจ่ายแยกตามหมวดหลัก — ทุกหมวด (บาท · แท่งสูง = จ่ายมาก · แต่ละหมวดคนละสี)</div>
+              <CatBars height={150} cats={catBars} />
               <p className="a4note">รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (รวมค้างจ่าย) · ข้อมูลเดียวกับใบที่ 1 ทุกตัวเลข · ชี้ที่แท่งหรือจุดเพื่อดูตัวเลข</p>
             </>
           </ScaledPage>

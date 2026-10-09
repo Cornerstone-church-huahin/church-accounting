@@ -155,35 +155,43 @@ export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value
   )
 }
 
-/** แท่งรายจ่ายตามหมวดหลักทุกหมวด (หมวดที่ไม่มีรายการเป็นช่องว่าง) — แกนเป็นเลขหมวด มีคำอธิบายชื่อหมวดใต้กราฟ */
+const CAT_COLORS = ['#b3261e', '#0072b2', '#e69f00', '#009e73', '#7b3fa0', '#d55e00', '#2a9d8f', '#c2185b', '#6d4c41', '#3949ab', '#7cb342', '#f4511e', '#00838f', '#8e8e00', '#546e7a']
+
+/** แท่งรายจ่ายตามหมวดหลักทุกหมวด: แต่ละหมวดคนละสี + ชื่อหมวดใต้แท่ง (หมวดที่ไม่มีรายการเป็นช่องว่าง) + คำอธิบายสี */
 export function CatBars({ cats, height = 150 }: { cats: { code: string; label: string; value: number }[]; height?: number }) {
-  const hid = `h${useId().replace(/[^a-zA-Z0-9]/g, '')}`
-  const W = 1060, L = 46, R = 8, T = 16, B = 20
+  const W = 1060, L = 46, R = 8, T = 16, B = 40
   const plotW = W - L - R, plotH = height - T - B
   const maxV = Math.max(0, ...cats.map((c) => c.value))
   const max = niceMax(maxV / 100) * 100
   const y = (v: number) => T + plotH - (Math.max(0, v) / max) * plotH
-  const gW = plotW / Math.max(1, cats.length), bw = Math.min(30, gW * 0.5)
+  const gW = plotW / Math.max(1, cats.length), bw = Math.min(34, gW * 0.55)
   const total = cats.reduce((s, c) => s + c.value, 0)
+  const color = (i: number) => (cats[i].code === '—' ? '#777' : CAT_COLORS[i % CAT_COLORS.length])
+  const short = (t: string) => { const c = [...t]; return c.length <= 11 ? [t] : [c.slice(0, 11).join(''), c.slice(11, 21).join('') + (c.length > 21 ? '…' : '')] }
   if (maxV <= 0) return <p style={{ color: MUTED, fontSize: 13, margin: '20px 0', textAlign: 'center' }}>ยังไม่มีรายจ่ายในช่วงนี้</p>
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${height}`} width="100%" role="img" aria-label="รายจ่ายแยกตามหมวดหลัก">
-        <defs><Hatch id={hid} /></defs>
         {[0, 1, 2, 3, 4].map((i) => { const v = (max / 4) * i; return <g key={i}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={GRID} strokeWidth={i === 0 ? 1.2 : 0.8} /><text x={L - 6} y={y(v) + 3.5} fontSize="10" textAnchor="end" fill={MUTED}>{fmtShort(v)}</text></g> })}
         {cats.map((c, i) => {
           const cx = L + gW * i + gW / 2, h = plotH - (y(c.value) - T)
           return (
             <g key={c.code}>
               <title>{`${c.code}. ${c.label}: ${fmtBaht(c.value)}${total > 0 ? ` (${((c.value / total) * 100).toFixed(1)}%)` : ''}`}</title>
-              {c.value > 0 && <><path d={barPath(cx - bw / 2, y(c.value), bw, h)} fill={OUT} /><path d={barPath(cx - bw / 2, y(c.value), bw, h)} fill={`url(#${hid})`} /><text x={cx} y={y(c.value) - 4} fontSize="10" fontWeight="700" textAnchor="middle" fill={INK}>{fmtShort(c.value)}</text></>}
-              <text x={cx} y={height - 6} fontSize="11" textAnchor="middle" fill={INK}>{c.code}</text>
+              {c.value > 0 && <><path d={barPath(cx - bw / 2, y(c.value), bw, h)} fill={color(i)} /><text x={cx} y={y(c.value) - 4} fontSize="10" fontWeight="700" textAnchor="middle" fill={INK}>{fmtShort(c.value)}</text></>}
+              <text x={cx} y={plotH + T + 11} fontSize="10" fontWeight={c.value > 0 ? 700 : 400} textAnchor="middle" fill={c.value > 0 ? INK : MUTED}>{c.code}</text>
+              {c.value > 0 && short(c.label).map((ln, k) => <text key={k} x={cx} y={plotH + T + 22 + k * 10} fontSize="8.5" textAnchor="middle" fill={INK}>{ln}</text>)}
             </g>
           )
         })}
       </svg>
-      <div style={{ columnCount: 5, columnGap: 10, fontSize: 9.5, lineHeight: 1.35, color: MUTED }}>
-        {cats.map((c) => <div key={c.code} style={{ breakInside: 'avoid', color: c.value > 0 ? INK : MUTED }}><b>{c.code}</b> {c.label}</div>)}
+      <div style={{ columnCount: 3, columnGap: 14, fontSize: 9.5, lineHeight: 1.4 }}>
+        {cats.map((c, i) => (
+          <div key={c.code} style={{ breakInside: 'avoid', color: c.value > 0 ? INK : MUTED }}>
+            <i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: color(i), opacity: c.value > 0 ? 1 : 0.35, marginRight: 4 }} />
+            <b>{c.code}</b> {c.label}{c.value > 0 && total > 0 ? ` — ${fmtShort(c.value)} (${((c.value / total) * 100).toFixed(0)}%)` : ''}
+          </div>
+        ))}
       </div>
     </div>
   )
