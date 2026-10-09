@@ -2,8 +2,12 @@ import type { SharedItem } from './sync'
 
 /** ทุกจำนวนเงินเป็นสตางค์ (จำนวนเต็ม) · ทุกวันที่เป็น YYYY-MM-DD (ค.ศ.) */
 
-export interface IncomeType extends SharedItem { name: string; order: number; active: boolean }
-export interface BankAccount extends SharedItem { name: string; bank: string; last4: string }
+export interface IncomeType extends SharedItem { name: string; order: number; active: boolean
+  /** เป็นกองทุนวัตถุประสงค์ (ไม่ตั้ง = เดาจากชื่อ เช่น "กองทุน…" "สร้างอาคาร") */
+  fund?: boolean }
+export interface BankAccount extends SharedItem { name: string; bank: string; last4: string
+  /** operating = บัญชีหมุนเวียน · restricted = บัญชีเงินวัตถุประสงค์ */
+  role?: 'operating' | 'restricted' }
 export interface Settings extends SharedItem {
   churchName: string
   /** ใบเบิกที่เกินจำนวนนี้ต้องอนุมัติ 2 ขั้น (ผู้ตรวจสอบ + แอดมิน) · ต่ำกว่าอนุมัติ 1 ขั้น */
@@ -183,11 +187,33 @@ export interface PassbookLine extends SharedItem {
   /** ทิศทางเงิน (เข้า/ออก) — ใช้กับ kind 'other' เช่น ดอกเบี้ย (เข้า) ค่าธรรมเนียม/ภาษี (ออก) */
   dir?: 'in' | 'out'
   /** ผูกกับรายการในแอปแล้ว (income = ลงเป็นรายรับจากสมุด) หรือพักไว้ */
-  link?: { kind: 'income' | 'park'; id?: string }
+  link?: { kind: 'income' | 'park' | 'move'; id?: string }
+  /** บรรทัดนี้อยู่ในสมุดบัญชีเล่มไหน */
+  accountId?: string
 }
 /** ปิดยอดสัปดาห์ (id = วันอาทิตย์ของสัปดาห์) หลังตรวจกับสมุดบัญชีแล้ว */
 export interface WeekClose extends SharedItem {
   sunday: string
   bankBalance?: number
   note?: string
+}
+
+/** ย้ายเงินเข้ากองทุนวัตถุประสงค์ (เช่น ถอนเงินสดจากบัญชีหมุนเวียนแล้วฝากเข้าบัญชีวัตถุประสงค์) — ไม่ใช่รายรับ/รายจ่าย */
+export interface FundMove extends SharedItem {
+  date: string
+  amount: number
+  /** แบ่งเข้ากองทุนละเท่าไร (id ประเภทถวาย → สตางค์) */
+  alloc: Record<string, number>
+  fromLineId?: string
+  toLineId?: string
+  note?: string
+}
+/** ยอดยกมา ณ วันตัดยอด (id = 'opening') */
+export interface Opening extends SharedItem {
+  date: string
+  /** ยอดเงินในแต่ละบัญชีธนาคาร (id บัญชี → สตางค์) */
+  accounts: Record<string, number>
+  cash: number
+  /** เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน ณ ตั้งต้น (id ประเภทถวาย → สตางค์) */
+  unmoved: Record<string, number>
 }
