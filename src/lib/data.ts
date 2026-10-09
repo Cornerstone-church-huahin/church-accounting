@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -62,3 +62,6 @@ export function useOpening() {
   const opening = s.items.find((x) => x.id === 'opening')
   return { ...s, opening, save: (o: Omit<Opening, 'id' | 'updated'>) => s.put([{ ...o, id: 'opening', updated: 0 }]) }
 }
+
+/** เงินยืม: ไฟล์เดียว ข้ามปี */
+export const useLoans = () => useSharedStore<Loan>({ localKey: k('loans'), file: 'loans.json', label: 'เงินยืม', write: 'statement' })

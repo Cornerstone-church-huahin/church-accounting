@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
-import { usePassbook, useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useLoans, usePassbook, useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
 import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
 import { CODE_LEGEND, reconcileWeek } from '../lib/passbook'
+import { loanBalance, lenderLabel } from '../lib/loans'
 import { computeSeries, topRows, type LedgerInput } from '../lib/seriesLedger'
 import { CatBars, CumLine, Donut, GroupedBars, Legend } from '../components/StatCharts'
 import LedgerTable from '../components/LedgerTable'
@@ -21,6 +22,7 @@ export default function Summary({ year }: { year: number }) {
   const entries = useBudgetEntries(year)
   const closes = useWeekCloses(year)
   const passbook = usePassbook(year)
+  const loans = useLoans()
   const types = useIncomeTypes()
   const cats = useExpenseCats()
   const expenses = useExpenses(year)
@@ -54,6 +56,7 @@ export default function Summary({ year }: { year: number }) {
   }
   const idx = sundays.indexOf(sunday)
   const bank = useMemo(() => (kind === 'week' ? reconcileWeek(sunday, passbook.items, income.items) : null), [kind, sunday, passbook.items, income.items])
+  const loanRows = kind === 'week' ? loans.items.map((l) => ({ l, bal: loanBalance(l, sunday) })).filter((x) => x.bal > 0) : []
   const wkClose = kind === 'week' ? closes.items.find((c) => c.sunday === sunday) : undefined
   const range = rangeOf(kind, year, { sunday, month, quarter })
 
@@ -119,6 +122,13 @@ export default function Summary({ year }: { year: number }) {
             </tbody>
             <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending ? -outSum.pending : 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)}</td></tr></tfoot>
           </table>
+          {loanRows.length > 0 && (
+            <table className="tbl tbl--paper paper__close" aria-label="เงินยืมค้างคืน">
+              <thead><tr><th>เงินยืมที่ยังค้างคืน (ไม่นับเป็นรายรับ-รายจ่าย)</th><th>ใช้ทำ</th><th className="num">ค้างคืน</th></tr></thead>
+              <tbody>{loanRows.map(({ l, bal }) => <tr key={l.id}><td>{lenderLabel(l, (id) => types.list.find((t) => t.id === id)?.name ?? '')}{l.lender.kind === 'fund' ? ' (ยืมจากกองทุน)' : ''}</td><td>{l.purpose}</td><td className="num">{fmtBaht(bal)}</td></tr>)}</tbody>
+              <tfoot><tr><td colSpan={2}>รวมค้างคืน</td><td className="num">{fmtBaht(loanRows.reduce((a, x) => a + x.bal, 0))}</td></tr></tfoot>
+            </table>
+          )}
           {bank && (bank.deposits.length > 0 || bank.withdraws.length > 0) && (
             <p className="a4note">สมุดบัญชีสัปดาห์นี้: {bank.deposits.length > 0 && <>ฝากเงินสด {fmtBaht(bank.depositSum)} (นับแล้วในใบถวาย) </>}{bank.withdraws.length > 0 && <>· ถอนเงินสด {fmtBaht(bank.withdrawSum)} (ย้ายเงินสดมาจ่าย รายจ่ายนับตามบิลที่จ่ายจริง ไม่นับซ้ำ) </>}· เงินโอนเข้า-ออกที่ไม่มีสลิป/บิลอยู่ในตารางรายรับ-รายจ่ายด้านบนแล้ว (บรรทัด “ไม่ทราบที่มา/ไม่ทราบรายจ่าย”) · รหัสในสมุด: {CODE_LEGEND}</p>
           )}
