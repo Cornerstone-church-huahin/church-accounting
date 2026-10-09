@@ -247,3 +247,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 @page a4l { size: A4 landscape; margin: 0; }
 .a4page--land .land-grid { display: grid; grid-template-columns: 1.85fr 1fr; gap: 18px; flex: 1; min-height: 0; }
 .a4page--land .land-grid > div { min-width: 0; }
+.sheetbar { display: flex; align-items: center; gap: 6px; margin: 0.6rem 0 0.3rem; font-size: 0.85rem; }
+.sheetbar .btn--sm { padding: 0.25rem 0.6rem; min-height: 0; font-size: 0.8rem; }
+@media print {
+  body[data-print-only="1"] .sheet-2, body[data-print-only="2"] .sheet-1 { display: none !important; }
+}

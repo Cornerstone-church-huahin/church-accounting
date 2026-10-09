@@ -28,6 +28,27 @@ export default function Summary({ year }: { year: number }) {
   const [month, setMonth] = useState(nowM)
   const [quarter, setQuarter] = useState(Math.ceil(nowM / 3))
   const [busy, setBusy] = useState(false)
+  const sheetBar = (n: 1 | 2, title: string) => (
+    <div className="sheetbar no-print">
+      <b>{title}</b>
+      <span className="grow" />
+      <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={() => downloadSheet(n)}>⬇️ ดาวน์โหลด</button>
+      <button type="button" className="btn btn--ghost btn--sm" onClick={() => printSheet(n)}>🖨️ พิมพ์</button>
+    </div>
+  )
+  const downloadSheet = async (n: 1 | 2) => {
+    const el = n === 1 ? paperRef.current : paper2Ref.current
+    if (!el) return
+    setBusy(true)
+    try { await downloadPdfPages([{ el, landscape: n === 2 }], `summary-${kind}-${fileKey}-sheet${n}.pdf`) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF') }
+    setBusy(false)
+  }
+  const printSheet = (n: 1 | 2) => {
+    document.body.dataset.printOnly = String(n)
+    const done = () => { delete document.body.dataset.printOnly; window.removeEventListener('afterprint', done) }
+    window.addEventListener('afterprint', done)
+    window.print()
+  }
   const idx = sundays.indexOf(sunday)
   const range = rangeOf(kind, year, { sunday, month, quarter })
 
@@ -66,21 +87,22 @@ export default function Summary({ year }: { year: number }) {
       <div className="subtabs subtabs--sum no-print" role="tablist" aria-label="ช่วงของใบสรุป">
         {tabBtn('week', 1, 'สัปดาห์')}{tabBtn('month', 2, 'เดือน')}{tabBtn('quarter', 3, 'ไตรมาส')}{tabBtn("year", 4, `ปี ${be}`)}
       </div>
-      <div className="no-print" style={{ display: 'grid', gap: 8, margin: '0.6rem 0' }}>
+      {kind === 'week' && <div className="no-print" style={{ display: 'grid', gap: 8, margin: '0.6rem 0' }}>
         <div className="grid2">
           <button type="button" className="btn btn--gold" disabled={busy} onClick={async () => {
             if (!paperRef.current) return
             setBusy(true)
             try { if (kind !== 'week' && paper2Ref.current) await downloadPdfPages([{ el: paperRef.current }, { el: paper2Ref.current, landscape: true }], `summary-${kind}-${fileKey}.pdf`); else await downloadPdf(paperRef.current, `summary-${kind}-${fileKey}.pdf`, { fullPage: true }) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
             setBusy(false)
-          }}>{busy ? 'กำลังสร้าง PDF…' : kind === 'week' ? '⬇️ ดาวน์โหลด PDF' : '⬇️ ดาวน์โหลด PDF (2 ใบ)'}</button>
+          }}>{busy ? 'กำลังสร้าง PDF…' : '⬇️ ดาวน์โหลด PDF'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
         </div>
-      </div>
+      </div>}
 
       {kind !== 'week' && (
         <>
-          <p className="muted small no-print" style={{ margin: '0.4rem 0 0' }}><b>ใบที่ 1 — ใบสรุปรับ-จ่าย{kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}</b></p>
+          <div className="sheet-1">
+          {sheetBar(1, `ใบที่ 1 — ใบสรุปรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}`)}
           <ScaledPage ref={paperRef}>
             <>
               <div className="a4head"><b>สรุปรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
@@ -139,7 +161,9 @@ export default function Summary({ year }: { year: number }) {
               </div>
             </>
           </ScaledPage>
-          <p className="muted small no-print" style={{ margin: '0.8rem 0 0' }}><b>ใบที่ 2 — สถิติรับ-จ่าย{kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`} (แนวนอน)</b></p>
+          </div>
+          <div className="sheet-2">
+          {sheetBar(2, `ใบที่ 2 — สถิติรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`} (แนวนอน)`)}
           <ScaledPage ref={paper2Ref} landscape>
             <>
               <div className="a4head"><b>สถิติรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
@@ -161,6 +185,7 @@ export default function Summary({ year }: { year: number }) {
               <p className="a4note">รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (รวมค้างจ่าย) · ข้อมูลเดียวกับใบที่ 1 ทุกตัวเลข · ชี้ที่แท่งหรือจุดเพื่อดูตัวเลข</p>
             </>
           </ScaledPage>
+          </div>
         </>
       )}
       {kind === 'week' && (
