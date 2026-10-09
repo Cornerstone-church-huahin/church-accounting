@@ -5,7 +5,7 @@ import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
-import { DEFAULT_MODEL, getGemini, saveGemini, testGemini } from '../lib/gemini'
+import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
 import { useYear } from '../lib/year'
 
@@ -332,11 +332,27 @@ function Reader() {
   const [model, setModel] = useState(cur.model)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  const save = () => {
+  const role = useRole()
+  const isAdmin = role === 'admin'
+  const online = !!getSync()
+  const [share, setShare] = useState(true)
+  useEffect(() => { void refreshSharedGemini().then(() => setCur(getGemini())) }, [])
+  const save = async () => {
     if (!key.trim()) return setMsg({ ok: false, text: 'วางรหัส Gemini API ก่อน' })
     saveGemini(key, model)
+    if (isAdmin && online && share) {
+      setBusy(true)
+      try { await publishSharedGemini(key, model); setMsg({ ok: true, text: 'บันทึกแล้ว และแชร์ให้ผู้ใช้ร่วมทุกคนใช้รหัสนี้อัตโนมัติ — กด “ทดสอบรหัส” เพื่อเช็กว่าใช้ได้' }) }
+      catch (e) { setMsg({ ok: false, text: `บันทึกในเครื่องแล้ว แต่แชร์ไม่สำเร็จ: ${e instanceof Error ? e.message : e}` }) }
+      setBusy(false)
+    } else setMsg({ ok: true, text: 'บันทึกรหัสแล้ว (เก็บในเครื่องนี้เท่านั้น) — กด “ทดสอบรหัส” เพื่อเช็กว่าใช้ได้' })
     setCur(getGemini()); setKey('')
-    setMsg({ ok: true, text: 'บันทึกรหัสแล้ว (เก็บในเครื่องนี้เท่านั้น) — กด “ทดสอบรหัส” เพื่อเช็กว่าใช้ได้' })
+  }
+  const unshare = async () => {
+    if (!confirm('เลิกแชร์รหัส Gemini? ผู้ใช้ร่วมคนอื่นจะอ่านรูปไม่ได้จนกว่าจะใส่รหัสของตัวเอง')) return
+    setBusy(true)
+    try { await publishSharedGemini(''); setMsg({ ok: true, text: 'เลิกแชร์รหัสแล้ว' }) } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : 'เลิกแชร์ไม่สำเร็จ' }) }
+    setBusy(false); setCur(getGemini())
   }
   const test = async () => {
     setBusy(true)
@@ -346,14 +362,17 @@ function Reader() {
   }
   return (
     <Fold id="h-gem" title={<>🤖 ตัวอ่านใบถวาย (Gemini)</>}>
-      <p className="muted small">ใส่รหัส API ที่ขอจาก aistudio.google.com/apikey เพื่อให้ระบบอ่านรูปใบบันทึกการถวาย (ช่อง 3 ในหน้าแรก › รับ) · เก็บในเครื่องนี้เครื่องเดียว ไม่ส่งขึ้น GitHub · แต่ละเครื่อง/แต่ละคนใส่รหัสของตัวเอง</p>
-      <p className="small">สถานะ: {cur.key ? <b className="ok">มีรหัสแล้ว (…{cur.key.slice(-4)})</b> : <b>ยังไม่ได้ใส่รหัส</b>}</p>
+      <p className="muted small">รหัส API ขอจาก aistudio.google.com/apikey ใช้อ่านรูปใบถวาย สลิป และบิล · <b>แอดมินใส่รหัสครั้งเดียว แล้วแชร์ให้ผู้ใช้ร่วมที่ได้รับอนุมัติใช้ได้เลย</b> ไม่ต้องให้แต่ละคนขอรหัสเอง</p>
+      <p className="small">สถานะ: {cur.key ? <b className="ok">มีรหัสแล้ว (…{cur.key.slice(-4)}){cur.shared ? ' · ใช้รหัสร่วมจากแอดมิน' : ''}</b> : <b>ยังไม่ได้ใส่รหัส{!isAdmin ? ' — ให้แอดมินใส่และแชร์ไว้ในเครื่องของแอดมิน' : ''}</b>}</p>
+      {isAdmin && online && <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '0.4rem 0' }}><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />แชร์รหัสนี้ให้ผู้ใช้ร่วมทุกคนใช้ด้วย</label>}
+      {isAdmin && online && share && <p className="muted small">⚠️ รหัสจะถูกเก็บในไฟล์ใน repo ข้อมูล (Private) ผู้ที่ถือรหัสเข้าใช้ร่วมอ่านไฟล์นี้ได้ — แจกให้เฉพาะคนที่ไว้ใจ และถ้ามีคนออกให้สร้างรหัส Gemini ใหม่แล้วบันทึกที่นี่อีกครั้ง</p>}
       <div className="field"><label htmlFor="gem-key">รหัส Gemini API</label><input id="gem-key" className="input" type="password" autoComplete="off" placeholder={cur.key ? 'วางรหัสใหม่เพื่อเปลี่ยน' : 'วางรหัสที่นี่'} value={key} onChange={(e) => setKey(e.target.value)} /></div>
       <div className="field"><label htmlFor="gem-model">รุ่น (ปกติไม่ต้องแก้)</label><input id="gem-model" className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder={DEFAULT_MODEL} /></div>
       <div className="row">
-        <button type="button" className="btn btn--gold grow" onClick={save}>บันทึกรหัส</button>
+        <button type="button" className="btn btn--gold grow" disabled={busy} onClick={() => void save()}>บันทึกรหัส</button>
         {cur.key && <button type="button" className="btn btn--ghost" disabled={busy} onClick={test}>{busy ? 'กำลังทดสอบ…' : 'ทดสอบรหัส'}</button>}
-        {cur.key && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบรหัส Gemini ออกจากเครื่องนี้?')) { saveGemini(''); setCur(getGemini()); setMsg({ ok: true, text: 'ลบรหัสออกจากเครื่องนี้แล้ว' }) } }}>ลบรหัส</button>}
+        {isAdmin && online && <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void unshare()}>เลิกแชร์</button>}
+        {cur.key && !cur.shared && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบรหัส Gemini ออกจากเครื่องนี้?')) { saveGemini(''); setCur(getGemini()); setMsg({ ok: true, text: 'ลบรหัสออกจากเครื่องนี้แล้ว' }) } }}>ลบรหัส</button>}
       </div>
       {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
     </Fold>
