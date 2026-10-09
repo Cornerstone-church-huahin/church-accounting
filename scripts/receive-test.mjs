@@ -70,6 +70,7 @@ try {
   must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleted entry leaves the report')
   // ตั้งค่า: ใส่รหัส Gemini ที่หน้าตั้งค่า
   await page.goto(`http://localhost:${PORT}/#/settings`)
+  await page.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
   await page.getByLabel('รหัส Gemini API').fill('TEST-KEY-1234')
   await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
   must(await page.getByText('…1234').isVisible(), 'settings shows saved gemini key (last 4)')

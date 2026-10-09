@@ -67,6 +67,7 @@ try {
   must((await page.locator('.a4page--land svg').count()) >= 3, 'week also has statistics sheet 2')
   // ตั้งค่า: หมวดรายจ่าย 15 หมวด 150 รายการ · ใบเบิกเลือกหมวดได้
   await page.goto(`http://localhost:${PORT}/#/settings`)
+  await page.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
   must(await page.getByText('🧾 หมวดรายจ่าย (15 หมวด · 150 รายการ)').isVisible(), 'settings shows 15 groups / 150 items')
   await page.goto(`http://localhost:${PORT}/#/vouchers`)
   await page.getByRole('button', { name: /ทำใบเบิก/ }).click()

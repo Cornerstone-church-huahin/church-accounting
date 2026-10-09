@@ -16,6 +16,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
   // ตั้งรหัส Gemini (จำลอง) แล้วให้ระบบอ่านบิล
   await page.goto(`http://localhost:${PORT}/#/settings`)
+  await page.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
   await page.getByLabel('รหัส Gemini API').fill('TEST-KEY-1234')
   await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
   await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ kind: 'invoice', vendor: 'การประปา', date: today, total: 2000, summary: 'ค่าน้ำประปา ก.ย. 69', category: '3.3', ref: 'INV-77' }) }] } }] }) }))

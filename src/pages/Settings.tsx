@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
 import { useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
@@ -11,13 +11,25 @@ import { useYear } from '../lib/year'
 
 const fmtJoined = (t: number) => (t ? new Date(t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '')
 
+/** การ์ดพับได้: แตะหัวข้อเพื่อเปิด/ปิด (เปิดค้างไว้ตามที่ผู้ใช้ตั้ง ไม่ถูกปิดเมื่อข้อมูลเปลี่ยน) */
+function Fold({ id, title, open, children }: { id: string; title: ReactNode; open?: boolean; children: ReactNode }) {
+  const [isOpen, setOpen] = useState(!!open)
+  useEffect(() => { if (open) setOpen(true) }, [open]) // มีเรื่องรอท่านอยู่ (เช่น คำขอเข้าร่วม) → เปิดให้เห็นเอง
+  return (
+    <details className="card fold" open={isOpen} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)} aria-labelledby={id}>
+      <summary><h2 id={id}>{title}</h2><span className="fold__chev" aria-hidden="true">▾</span></summary>
+      <div className="fold__body">{children}</div>
+    </details>
+  )
+}
+
 export default function Settings() {
   const role = useRole()
   const cfg = getSync()
   return (
     <>
       <div className="page-head"><h1>ตั้งค่า</h1></div>
-      <section className="card" aria-labelledby="h-inst"><h2 id="h-inst">📲 ติดตั้งเป็นแอป</h2><InstallApp /></section>
+      <Fold id="h-inst" title="📲 ติดตั้งเป็นแอป"><InstallApp /></Fold>
       <Connect />
       {cfg && <Members />}
       {can(role, 'income') && <Reader />}
@@ -51,8 +63,7 @@ function Connect() {
     setMsg({ ok: true, text: 'เชื่อมต่อแล้ว ✓' })
   }
   return (
-    <section className="card" aria-labelledby="h-conn">
-      <h2 id="h-conn">☁️ เชื่อมต่อออนไลน์</h2>
+    <Fold id="h-conn" title={<>☁️ เชื่อมต่อออนไลน์</>}>
       {cfg ? (
         <>
           <p>เชื่อมต่อแล้ว · <b>{cfg.name}</b> · <span className="muted small">{cfg.repo}</span></p>
@@ -69,7 +80,7 @@ function Connect() {
         </>
       )}
       {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
-    </section>
+    </Fold>
   )
 }
 
@@ -92,8 +103,7 @@ function Members() {
     } catch { /* ผู้ใช้ปิดหน้าต่างแชร์ */ }
   }
   return (
-    <section className="card" aria-labelledby="h-mem">
-      <h2 id="h-mem">👤 ผู้ใช้ร่วมและสิทธิ์ {m.isAdmin && m.pending.length > 0 && <span className="badge badge--gold">รออนุมัติ {m.pending.length}</span>}</h2>
+    <Fold id="h-mem" open={m.isAdmin && m.pending.length > 0} title={<>👤 ผู้ใช้ร่วมและสิทธิ์ {m.isAdmin && m.pending.length > 0 && <span className="badge badge--gold">รออนุมัติ {m.pending.length}</span>}</>}>
       {m.isAdmin && (
         <div className="stack">
           <h3>① ส่งลิงก์เชิญ</h3>
@@ -157,7 +167,7 @@ function Members() {
         <ul>{ROLES.map((r) => <li key={r}><b>{ROLE_LABEL[r]}</b> — {ROLE_HELP[r]}</li>)}</ul>
       </details>
       <p className="foot-note">สิทธิ์เป็นการกันในแอป ไม่ใช่การล็อกระดับ GitHub — ใครมีรหัสเข้าใช้ร่วมก็อ่าน repo ข้อมูลได้ตรง ๆ จึงควรแจกรหัสเฉพาะคนที่ไว้ใจ และเปลี่ยนรหัสใหม่เมื่อมีคนออก</p>
-    </section>
+    </Fold>
   )
 }
 
@@ -173,14 +183,13 @@ function General() {
     if (save({ churchName: name.trim() || settings.churchName, twoStepOver: t, matchDays: d })) setMsg('บันทึกแล้ว ✓')
   }
   return (
-    <section className="card" aria-labelledby="h-gen">
-      <h2 id="h-gen">⚙️ ค่าทั่วไป</h2>
+    <Fold id="h-gen" title={<>⚙️ ค่าทั่วไป</>}>
       <div className="field"><label htmlFor="g-name">ชื่อคริสตจักร (หัวรายงาน)</label><input id="g-name" className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
       <div className="field"><label htmlFor="g-two">ใบเบิกเกินกี่บาทต้องอนุมัติ 2 ขั้น</label><input id="g-two" className="input input--money" inputMode="decimal" value={two} onChange={(e) => setTwo(e.target.value)} /><span className="foot-note">ไม่เกินจำนวนนี้: ผู้ตรวจสอบหรือแอดมิน 1 คนอนุมัติ · เกิน: ต้อง 2 คนต่างกัน และมีแอดมินอย่างน้อย 1 คน (ขณะนี้ {fmtBaht(settings.twoStepOver, { dec: false })} บาท)</span></div>
       <div className="field"><label htmlFor="g-days">เทียบสเตตเมนต์: ยอมให้วันที่ห่างกันกี่วัน</label><input id="g-days" className="input" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} /></div>
       <button type="button" className="btn btn--gold" onClick={apply}>บันทึก</button>
       {msg && <p className="ok" role="status">{msg}</p>}
-    </section>
+    </Fold>
   )
 }
 
@@ -199,8 +208,7 @@ function Types() {
     if (n && x) t.put([{ ...x, name: n }])
   }
   return (
-    <section className="card" aria-labelledby="h-types">
-      <h2 id="h-types">🙏 ประเภทถวาย</h2>
+    <Fold id="h-types" title={<>🙏 ประเภทถวาย</>}>
       <p className="muted small">เพิ่มได้เองตามต้องการ · ปิดการใช้งานแทนการลบ เพื่อให้รายงานเก่ายังแสดงชื่อเดิมได้</p>
       <ul className="list">
         {t.list.map((x) => (
@@ -212,7 +220,7 @@ function Types() {
         ))}
       </ul>
       <div className="row"><input className="input grow" aria-label="ชื่อประเภทถวายใหม่" placeholder="ชื่อประเภทใหม่ เช่น ถวายค่าไฟ" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} /><button type="button" className="btn btn--gold" onClick={add}>เพิ่ม</button></div>
-    </section>
+    </Fold>
   )
 }
 
@@ -225,8 +233,7 @@ function Accounts() {
     setF({ name: '', bank: '', last4: '' })
   }
   return (
-    <section className="card" aria-labelledby="h-acc">
-      <h2 id="h-acc">🏦 บัญชีธนาคาร</h2>
+    <Fold id="h-acc" title={<>🏦 บัญชีธนาคาร</>}>
       <ul className="list">
         {a.list.length === 0 && <li className="muted small">ยังไม่มีบัญชี — เพิ่มบัญชีที่ใช้รับโอนและฝากเงิน</li>}
         {a.list.map((x) => <li key={x.id}><span className="grow"><b>{x.name}</b><br /><span className="small muted">{x.bank} {x.last4 && `· เลขท้าย ${x.last4}`}</span></span><button type="button" className="mini" onClick={() => confirm(`ลบบัญชี ${x.name}?`) && a.remove(x.id)}>🗑️</button></li>)}
@@ -237,7 +244,7 @@ function Accounts() {
         <div className="field"><label htmlFor="a-4">เลขท้าย 4 ตัว</label><input id="a-4" className="input" inputMode="numeric" maxLength={4} value={f.last4} onChange={(e) => setF({ ...f, last4: e.target.value })} /></div>
       </div>
       <button type="button" className="btn btn--gold" onClick={add}>เพิ่มบัญชี</button>
-    </section>
+    </Fold>
   )
 }
 
@@ -246,12 +253,11 @@ function Display() {
   const [scale, setScale] = useState(cur)
   const set = (s: string) => { setScale(s); document.documentElement.dataset.scale = s; try { localStorage.setItem('acct.scale', s) } catch { /* ignore */ } }
   return (
-    <section className="card" aria-labelledby="h-disp">
-      <h2 id="h-disp">🔠 ขนาดตัวอักษร</h2>
+    <Fold id="h-disp" title={<>🔠 ขนาดตัวอักษร</>}>
       <div className="seg" role="group" aria-label="ขนาดตัวอักษร">
         {['85', '100', '125', '150'].map((s) => <button key={s} type="button" className={scale === s ? 'on' : ''} aria-pressed={scale === s} onClick={() => set(s)}>{s}%</button>)}
       </div>
-    </section>
+    </Fold>
   )
 }
 
@@ -294,8 +300,7 @@ function DataClean() {
     setMsg(rs.every(Boolean) ? { ok: true, text: `ล้างข้อมูลปี ${be(year)} เรียบร้อย ✓${removed ? ` (ลบไฟล์แนบ ${removed} ไฟล์)` : ''}` } : { ok: false, text: 'ทำไม่สำเร็จบางส่วน ตรวจการเชื่อมต่อแล้วลองใหม่' })
   }
   return (
-    <section className="card" aria-labelledby="h-clean">
-      <h2 id="h-clean">🧹 ล้างข้อมูล (ลบถาวร)</h2>
+    <Fold id="h-clean" title={<>🧹 ล้างข้อมูล (ลบถาวร)</>}>
       <p className="muted small">ปกติเมื่อกด “ลบ” ข้อมูลแค่ถูกซ่อน (กู้คืนได้ และใช้ให้เครื่องอื่นรับรู้การลบ) ส่วนนี้ใช้เอาออกจากไฟล์จริงเมื่อต้องการให้สะอาด เฉพาะแอดมิน</p>
       <div className="stack">
         <h3>1) ลบถาวรรายการที่ลบแล้ว ({pending})</h3>
@@ -316,7 +321,7 @@ function DataClean() {
           <li>เปลี่ยนปีบัญชีที่มุมขวาบนเพื่อล้างปีอื่น</li>
         </ul>
       </details>
-    </section>
+    </Fold>
   )
 }
 
@@ -340,8 +345,7 @@ function Reader() {
     setMsg(err ? { ok: false, text: err } : { ok: true, text: '✓ รหัสใช้ได้ — พร้อมอ่านใบบันทึกการถวาย' })
   }
   return (
-    <section className="card" aria-labelledby="h-gem">
-      <h2 id="h-gem">🤖 ตัวอ่านใบถวาย (Gemini)</h2>
+    <Fold id="h-gem" title={<>🤖 ตัวอ่านใบถวาย (Gemini)</>}>
       <p className="muted small">ใส่รหัส API ที่ขอจาก aistudio.google.com/apikey เพื่อให้ระบบอ่านรูปใบบันทึกการถวาย (ช่อง 3 ในหน้าแรก › รับ) · เก็บในเครื่องนี้เครื่องเดียว ไม่ส่งขึ้น GitHub · แต่ละเครื่อง/แต่ละคนใส่รหัสของตัวเอง</p>
       <p className="small">สถานะ: {cur.key ? <b className="ok">มีรหัสแล้ว (…{cur.key.slice(-4)})</b> : <b>ยังไม่ได้ใส่รหัส</b>}</p>
       <div className="field"><label htmlFor="gem-key">รหัส Gemini API</label><input id="gem-key" className="input" type="password" autoComplete="off" placeholder={cur.key ? 'วางรหัสใหม่เพื่อเปลี่ยน' : 'วางรหัสที่นี่'} value={key} onChange={(e) => setKey(e.target.value)} /></div>
@@ -352,7 +356,7 @@ function Reader() {
         {cur.key && <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ลบรหัส Gemini ออกจากเครื่องนี้?')) { saveGemini(''); setCur(getGemini()); setMsg({ ok: true, text: 'ลบรหัสออกจากเครื่องนี้แล้ว' }) } }}>ลบรหัส</button>}
       </div>
       {msg && <p className={msg.ok ? 'ok' : 'err'} role="status">{msg.text}</p>}
-    </section>
+    </Fold>
   )
 }
 
@@ -382,8 +386,7 @@ function ExpenseCatsCard() {
     setNewGroup('')
   }
   return (
-    <section className="card" aria-labelledby="h-ecat">
-      <h2 id="h-ecat">🧾 หมวดรายจ่าย ({c.groups.length} หมวด · {c.list.filter((x) => x.kind === 'item').length} รายการ)</h2>
+    <Fold id="h-ecat" title={<>🧾 หมวดรายจ่าย ({c.groups.length} หมวด · {c.list.filter((x) => x.kind === 'item').length} รายการ)</>}>
       <p className="muted small">ใช้เลือกในใบเบิก และเป็นแถวของตารางรายจ่ายในใบสรุป (แถวละหมวดหลัก) · แก้ชื่อ ซ่อน (ไม่ให้เลือก) หรือลบได้ เพิ่มรายการ/หมวดใหม่ได้</p>
       {c.groups.map((g) => {
         const items = c.itemsOf(g.id)
@@ -409,6 +412,6 @@ function ExpenseCatsCard() {
         )
       })}
       <div className="row" style={{ marginTop: 8 }}><input className="input grow" aria-label="ชื่อหมวดหลักใหม่" placeholder="เพิ่มหมวดหลักใหม่" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addGroup()} /><button type="button" className="btn btn--gold" onClick={addGroup}>เพิ่มหมวด</button></div>
-    </section>
+    </Fold>
   )
 }
