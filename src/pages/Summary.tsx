@@ -54,15 +54,12 @@ export default function Summary({ year }: { year: number }) {
   }
   const idx = sundays.indexOf(sunday)
   const bank = useMemo(() => (kind === 'week' ? reconcileWeek(sunday, passbook.items, income.items) : null), [kind, sunday, passbook.items, income.items])
-  const bankRows = bank ? ([
-    ['ฝากเงินสด (DEP/NBD)', bank.deposits], ['โอนเข้า (TRD)', bank.transfersIn], ['ถอนเงินสด (W/D)', bank.withdraws], ['โอนออก/ดอกเบี้ย/ค่าธรรมเนียม', bank.others],
-  ] as const).filter(([, l]) => l.length > 0) : []
   const wkClose = kind === 'week' ? closes.items.find((c) => c.sunday === sunday) : undefined
   const range = rangeOf(kind, year, { sunday, month, quarter })
 
-  const input = useMemo<LedgerInput>(() => ({ range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items }),
+  const input = useMemo<LedgerInput>(() => ({ range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items, passbook: passbook.items }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [range.from, range.to, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items])
+    [range.from, range.to, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items, passbook.items])
   const L = useMemo(() => computeLedger(input), [input])
   // เดือน/ไตรมาส/ปี: ใบที่ 1 = ใบสรุปแยกช่วงย่อย · ใบที่ 2 = สถิติ (กราฟ)
   const series = useMemo(() => computeSeries(input, kind), [input, kind])
@@ -122,14 +119,9 @@ export default function Summary({ year }: { year: number }) {
             </tbody>
             <tfoot><tr><td>คงเหลือ</td><td className="num">{fmtBaht(inSum.cash - outSum.cash)}</td><td className="num">{fmtBaht(inSum.transfer - outSum.transfer)}</td><td className="num">{fmtBaht(outSum.pending ? -outSum.pending : 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)}</td></tr></tfoot>
           </table>
-          {bankRows.length > 0 && bank && (
-            <table className="tbl tbl--paper paper__close" aria-label="สมุดบัญชีธนาคาร">
-              <thead><tr><th>สมุดบัญชีธนาคาร (เงินเข้า-ออกสัปดาห์นี้)</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
-              <tbody>{bankRows.map(([label, ls]) => <tr key={label}><td>{label}</td><td className="num">{ls.length}</td><td className="num">{fmtBaht(ls.reduce((a, l) => a + l.amount, 0))}</td></tr>)}</tbody>
-              <tfoot><tr><td>ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์</td><td /><td className="num">{bank.closing !== undefined ? fmtBaht(bank.closing) : '—'}</td></tr></tfoot>
-            </table>
+          {bank && (bank.deposits.length > 0 || bank.withdraws.length > 0) && (
+            <p className="a4note">สมุดบัญชีสัปดาห์นี้: {bank.deposits.length > 0 && <>ฝากเงินสด {fmtBaht(bank.depositSum)} (นับแล้วในใบถวาย) </>}{bank.withdraws.length > 0 && <>· ถอนเงินสด {fmtBaht(bank.withdrawSum)} (ย้ายเงินสดมาจ่าย รายจ่ายนับตามบิลที่จ่ายจริง ไม่นับซ้ำ) </>}· เงินโอนเข้า-ออกที่ไม่มีสลิป/บิลอยู่ในตารางรายรับ-รายจ่ายด้านบนแล้ว (บรรทัด “ไม่ทราบที่มา/ไม่ทราบรายจ่าย”) · รหัสในสมุด: {CODE_LEGEND}</p>
           )}
-          {bankRows.length > 0 && <p className="a4note">รหัสในสมุด: {CODE_LEGEND}</p>}
           {wkClose && <p className="a4note">✓ ตรวจกับสมุดบัญชีธนาคารแล้ว{wkClose.bankBalance !== undefined ? <> · ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์ <b>{fmtBaht(wkClose.bankBalance)}</b> บาท</> : null}</p>}
           {outSum.pending > 0 && <p className="a4note">ยอดค้างจ่ายที่ต้องเตรียมเบิก (วางบิลที่ยังไม่จ่าย + สำรองจ่ายที่ยังไม่คืนเงิน): <b>{fmtBaht(outSum.pending)}</b> บาท</p>}
           <div className="sign" style={{ display: 'grid' }}>

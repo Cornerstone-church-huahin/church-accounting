@@ -85,6 +85,55 @@ export function dedupeLines<T extends { date: string; amount: number; balance?: 
 
 export const lineWeek = (l: Pick<PassbookLine, 'date' | 'week'>) => l.week ?? sheetSunday(l.date)
 
+export const BANK_UNKNOWN = '__bank_unknown'
+export const BANK_UNKNOWN_LABEL = 'ไม่ทราบที่มา (Unknown)'
+export const BANK_UNKNOWN_OUT = '__bank_unknown_out'
+export const BANK_UNKNOWN_OUT_LABEL = 'ไม่ทราบรายจ่าย (Unknown)'
+
+/** วันที่ที่ใช้นับบรรทัดสมุดเข้าสัปดาห์/ช่วง: ถ้าผู้ใช้ย้ายสัปดาห์ ใช้วันอาทิตย์ของสัปดาห์นั้น */
+export const lineDate = (l: Pick<PassbookLine, 'date' | 'week'>) => l.week ?? l.date
+
+/** จับคู่บรรทัด "โอนเข้า" ในสมุดกับสลิป/รายรับโอนตามยอดเท่ากัน (± 3 วัน) หรือที่ผู้ใช้ผูกไว้ → แผนที่ id บรรทัด → id รายรับ */
+export function matchBankIn(all: PassbookLine[], income: IncomeEntry[]): Map<string, string> {
+  const live = income.filter((x) => !x.deleted)
+  const out = new Map<string, string>()
+  const used = new Set<string>()
+  const ins = all.filter((l) => !l.deleted && l.kind === 'in').sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
+  for (const l of ins) if (l.link?.kind === 'income' && l.link.id && live.some((x) => x.id === l.link?.id)) { out.set(l.id, l.link.id); used.add(l.link.id) }
+  for (const l of ins) {
+    if (out.has(l.id) || l.link) continue
+    const hit = live.find((x) => x.method === 'transfer' && !used.has(x.id) && x.amount === l.amount && Math.abs((Date.parse(x.date) - Date.parse(l.date)) / 864e5) <= 3)
+    if (hit) { out.set(l.id, hit.id); used.add(hit.id) }
+  }
+  return out
+}
+
+const isIn = (l: PassbookLine) => l.kind === 'in' || (l.kind === 'other' && l.dir === 'in')
+const isOut = (l: PassbookLine) => l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')
+
+/** เงินเข้าสมุด (โอนเข้า/ดอกเบี้ย) ที่ไม่มีสลิปและยังไม่ได้ลงเป็นรายรับหรือพักไว้ → นับในใบสรุปเป็นรายรับ "ไม่ทราบที่มา (Unknown)" */
+export function unknownBankIn(all: PassbookLine[], income: IncomeEntry[]): PassbookLine[] {
+  const m = matchBankIn(all, income)
+  return all.filter((l) => !l.deleted && isIn(l) && !l.link && !m.has(l.id))
+}
+
+/**
+ * เงินออกสมุด (โอนออก/ค่าธรรมเนียม/ภาษี) ที่ไม่มีรายจ่ายแบบโอนตรงกัน (ยอดเท่ากัน ± 3 วัน) → นับเป็นรายจ่าย "ไม่ทราบรายจ่าย (Unknown)"
+ * — การถอนเงินสด (W/D) ไม่นับ เพราะเป็นแค่ย้ายเงินออกมาจ่าย รายจ่ายนับตามบิลที่จ่ายจริงอยู่แล้ว
+ */
+export function unknownBankOut(all: PassbookLine[], expenses: { id: string; deleted?: boolean; amount: number; method?: 'cash' | 'transfer'; status: 'open' | 'paid'; date: string; paidDate?: string }[]): PassbookLine[] {
+  const live = expenses.filter((x) => !x.deleted && x.status === 'paid' && x.method === 'transfer')
+  const used = new Set<string>()
+  const outs = all.filter((l) => !l.deleted && isOut(l)).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
+  const res: PassbookLine[] = []
+  for (const l of outs) {
+    if (l.link) continue
+    const hit = live.find((x) => !used.has(x.id) && x.amount === l.amount && Math.abs((Date.parse(x.paidDate ?? x.date) - Date.parse(l.date)) / 864e5) <= 3)
+    if (hit) used.add(hit.id); else res.push(l)
+  }
+  return res
+}
+
 export interface Reconcile {
   deposits: PassbookLine[]; transfersIn: PassbookLine[]; withdraws: PassbookLine[]; others: PassbookLine[]
   depositSum: number; withdrawSum: number
@@ -97,20 +146,21 @@ export interface Reconcile {
 }
 
 export function reconcileWeek(sunday: string, all: PassbookLine[], income: IncomeEntry[]): Reconcile {
+  all = all.filter((l) => !l.deleted)
   const mine = all.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date))
   const deposits = mine.filter((l) => l.kind === 'deposit')
   const transfersIn = mine.filter((l) => l.kind === 'in')
   const withdraws = mine.filter((l) => l.kind === 'withdraw')
   const others = mine.filter((l) => l.kind === 'out' || l.kind === 'other')
+  const matched = matchBankIn(all, income)
   const slips = income.filter((x) => !x.deleted && x.method === 'transfer' && x.date > addDays(sunday, -10) && x.date <= addDays(sunday, 3))
-  const used = new Set<string>()
   const matchedIn: Reconcile['matchedIn'] = []
   const unmatchedIn: PassbookLine[] = []
   for (const l of transfersIn) {
-    if (l.link?.kind === 'income' && l.link.id) { const inc = income.find((x) => x.id === l.link?.id); if (inc) { used.add(inc.id); matchedIn.push({ line: l, income: inc }); continue } }
-    const hit = slips.find((x) => !used.has(x.id) && x.amount === l.amount && Math.abs((Date.parse(x.date) - Date.parse(l.date)) / 864e5) <= 3)
-    if (hit) { used.add(hit.id); matchedIn.push({ line: l, income: hit }) } else unmatchedIn.push(l)
+    const inc = income.find((x) => x.id === matched.get(l.id))
+    if (inc) matchedIn.push({ line: l, income: inc }); else unmatchedIn.push(l)
   }
+  const used = new Set(matched.values())
   const upto = all.filter((l) => lineWeek(l) <= sunday && l.balance !== undefined).sort((a, b) => a.date.localeCompare(b.date))
   return {
     deposits, transfersIn, withdraws, others,

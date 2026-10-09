@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chainGap, checkChain, classify, dedupeLines, dupIndexes, normalizeRows, reconcileWeek } from './passbook'
+import { unknownBankIn, chainGap, checkChain, classify, dedupeLines, dupIndexes, normalizeRows, reconcileWeek } from './passbook'
 import type { IncomeEntry, PassbookLine } from './types'
 
 describe('passbook', () => {
@@ -83,4 +83,53 @@ describe('real passbook (Bangkok Bank codes)', () => {
     const rows = [{ balance: 1000 }, { deposit: 100, balance: 1600 }]
     expect(chainGap(rows, 1)).toBe(500)
   })
+})
+
+describe('unknown bank income', () => {
+  it('counts transfer-ins without a slip (not parked, not linked) as unknown', () => {
+    const lines = [
+      { id: 'a', updated: 1, date: '2026-10-01', kind: 'in', amount: 200000, balance: 1 },
+      { id: 'b', updated: 1, date: '2026-10-02', kind: 'in', amount: 3200000, balance: 2 },
+      { id: 'c', updated: 1, date: '2026-10-04', kind: 'in', amount: 57500, balance: 3, link: { kind: 'park' } },
+      { id: 'd', updated: 1, date: '2026-10-04', kind: 'deposit', amount: 526000, balance: 4 },
+    ] as PassbookLine[]
+    const inc = [{ id: 'i', updated: 1, date: '2026-10-01', amount: 200000, method: 'transfer', typeId: 't' }] as IncomeEntry[]
+    expect(unknownBankIn(lines, inc).map((l) => l.id)).toEqual(['b'])
+  })
+})
+
+import { computeLedger } from './weekLedger'
+describe('bank lines flow into income and expense rows', () => {
+  const base = { range: { from: '2026-09-28', to: '2026-10-04' }, income: [] as IncomeEntry[], rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: [] }
+  it('unmatched transfer-ins become an Unknown income row; unmatched transfer-outs an Unknown expense row; W/D and deposits are not double counted', () => {
+    const pb = [
+      { id: 'a', updated: 1, date: '2026-10-02', kind: 'in', amount: 3200000, balance: 1 },
+      { id: 'b', updated: 1, date: '2026-10-03', kind: 'out', amount: 50000, balance: 2 },
+      { id: 'c', updated: 1, date: '2026-10-04', kind: 'withdraw', amount: 350000, balance: 3 },
+      { id: 'd', updated: 1, date: '2026-10-04', kind: 'deposit', amount: 526000, balance: 4 },
+      { id: 'e', updated: 1, date: '2026-09-20', kind: 'in', amount: 999, balance: 5 }, // outside the week
+    ] as PassbookLine[]
+    const L = computeLedger({ ...base, passbook: pb })
+    expect(L.inSum.transfer).toBe(3200000)
+    expect(L.incRows).toHaveLength(1)
+    expect(L.incRows[0].label).toContain('ไม่ทราบที่มา (Unknown)')
+    expect(L.outSum.transfer).toBe(50000)
+    expect(L.outRows).toHaveLength(1)
+    expect(L.outRows[0].label).toContain('ไม่ทราบรายจ่าย (Unknown)')
+    expect(L.inSum.cash + L.outSum.cash).toBe(0)
+  })
+  it('a transfer-out matching a paid transfer expense is not counted twice', () => {
+    const pb = [{ id: 'b', updated: 1, date: '2026-10-03', kind: 'out', amount: 50000 }] as PassbookLine[]
+    const exp = [{ id: 'x', updated: 1, channel: 'manual', date: '2026-10-03', amount: 50000, desc: 'ค่าไฟ', status: 'paid', method: 'transfer' }] as never[]
+    const L = computeLedger({ ...base, passbook: pb, expenses: exp })
+    expect(L.outSum.transfer).toBe(50000)
+    expect(L.outRows.some((r) => r.key.startsWith('__bank:'))).toBe(false)
+  })
+})
+
+it('lists each unmatched bank transfer on its own row (five transfers = five rows)', () => {
+  const pb = [30, 1, 2, 4, 4].map((d, i) => ({ id: `t${i}`, updated: 1, date: i < 1 ? '2026-09-30' : `2026-10-0${d}`, kind: 'in', amount: (i + 1) * 100000, balance: i })) as PassbookLine[]
+  const L = computeLedger({ range: { from: '2026-09-28', to: '2026-10-04' }, income: [], rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: [], passbook: pb })
+  expect(L.incRows).toHaveLength(5)
+  expect(L.incRows.every((r) => r.transfer.n === 1)).toBe(true)
 })

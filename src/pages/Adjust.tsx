@@ -43,7 +43,7 @@ export default function Adjust({ year }: { year: number }) {
   const pending = exp.items.filter((x) => x.status === 'open')
   const pendingSum = pending.reduce((s, x) => s + x.amount, 0)
   const rec = useMemo(() => reconcileWeek(sunday, pb.items, income.items), [sunday, pb.items, income.items])
-  const L = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items }), [sunday, year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
+  const L = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: pb.items }), [sunday, year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items, pb.items])
   const byWeek = useMemo(() => {
     const m = new Map<string, number>()
     for (const l of pb.items) { const w = lineWeek(l); m.set(w, (m.get(w) ?? 0) + 1) }
@@ -81,7 +81,7 @@ export default function Adjust({ year }: { year: number }) {
     if (!drafts) return
     if (drafts.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d.date))) return setMsg('ใส่วันที่ให้ครบทุกบรรทัด')
     const fresh: PassbookLine[] = drafts.filter((d) => (d.deposit ?? 0) > 0 || (d.withdraw ?? 0) > 0).map((d) => ({
-      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }),
+      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }), dir: (d.deposit ?? 0) > 0 ? 'in' : 'out',
       amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw as number), ...(d.balance !== null ? { balance: d.balance } : {}), ...(d.desc ? { desc: d.desc } : {}),
     }))
     const add = dedupeLines(pb.items, fresh)
@@ -109,6 +109,7 @@ export default function Adjust({ year }: { year: number }) {
       <div><b>{fmtBaht(l.amount)}</b> <span className="badge">{KIND_LABEL[l.kind]}</span> <span className="muted small">{fmtDate(l.date)}{l.desc ? ` · ${l.desc}` : ''}</span></div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {extra}
+        {(l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')) && (l.link?.kind === 'park' ? <span className="badge">พักไว้</span> : <><span className="badge badge--warn">ไม่ทราบรายจ่าย</span>{canWrite && !closed && <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>}</>)}
         {canWrite && !closed && lineWeek(l) === sunday && <button type="button" className="mini" onClick={() => pb.put([{ ...l, week: addDays(sunday, -7) }])}>← ไปสัปดาห์ก่อน</button>}
         {canWrite && !closed && <button type="button" className="mini" aria-label="ลบบรรทัดนี้" onClick={() => { if (confirm('ลบบรรทัดนี้ออกจากสมุดที่บันทึกไว้?')) pb.remove(l.id) }}>🗑</button>}
       </div>
@@ -188,7 +189,7 @@ export default function Adjust({ year }: { year: number }) {
             <>
               <div className="stats">
                 <p>ฝากเงินสดในสมุด <b>{fmtBaht(rec.depositSum)}</b> · เงินสดตามใบถวาย <b>{fmtBaht(cashIn)}</b> · {depDiff === 0 ? <span className="ok">ตรงกัน ✓</span> : <span className="err">ต่างกัน {fmtBaht(Math.abs(depDiff))} ({depDiff > 0 ? 'ฝากมากกว่า' : 'ฝากน้อยกว่า'}ใบถวาย)</span>}</p>
-                <p>โอนเข้า: จับคู่กับสลิปแล้ว <b>{rec.matchedIn.length}</b> · ไม่มีสลิป <b className={rec.unmatchedIn.length ? 'err' : ''}>{rec.unmatchedIn.length}</b>{rec.unmatchedSlips.length > 0 && <> · สลิปที่ยังไม่เห็นในสมุด <b>{rec.unmatchedSlips.length}</b> ({fmtBaht(rec.unmatchedSlips.reduce((s, x) => s + x.amount, 0))})</>}</p>
+                <p>โอนเข้า: จับคู่กับสลิปแล้ว <b>{rec.matchedIn.length}</b> · ไม่มีสลิป (นับในใบสรุปเป็น “ไม่ทราบที่มา”) <b className={rec.unmatchedIn.length ? 'err' : ''}>{rec.unmatchedIn.length}</b>{rec.unmatchedSlips.length > 0 && <> · สลิปที่ยังไม่เห็นในสมุด <b>{rec.unmatchedSlips.length}</b> ({fmtBaht(rec.unmatchedSlips.reduce((s, x) => s + x.amount, 0))})</>}</p>
                 <p>ถอนเงินสดสัปดาห์นี้ <b>{fmtBaht(rec.withdrawSum)}</b> · รายจ่ายเงินสดที่จ่ายแล้ว <b>{fmtBaht(L.outSum.cash)}</b></p>
                 <p>ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์: <b>{closing !== undefined ? fmtBaht(closing) : '—'}</b></p>
               </div>
@@ -203,6 +204,7 @@ export default function Adjust({ year }: { year: number }) {
                       <button type="button" className="mini" onClick={() => toIncome(l, asIncome.typeId)}>ลงรายรับ</button>
                     </span>
                   ) : <>
+                    <span className="badge badge--warn">ไม่ทราบที่มา</span>
                     <button type="button" className="mini" onClick={() => setAsIncome({ id: l.id, typeId: types.list.find((t) => t.active)?.id ?? '' })}>ลงเป็นรายรับ</button>
                     <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>
                   </>) : <span className="badge">ไม่มีสลิป</span>)))}

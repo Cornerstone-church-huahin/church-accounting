@@ -1,7 +1,8 @@
 import { addDays, daysInMonth } from './money'
 import { directOut, paidItems, type Period } from './ledger'
-import { inRange } from './money'
-import { UNSORTED, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
+import { fmtDate, inRange } from './money'
+import { BANK_UNKNOWN_LABEL, BANK_UNKNOWN_OUT_LABEL, lineDate, unknownBankIn, unknownBankOut } from './passbook'
+import { UNSORTED, type PassbookLine, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
 export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc; /** ค้างจ่าย: วางบิลที่ยังไม่จ่าย / สำรองจ่ายที่ยังไม่คืนเงิน (นับเป็นรายจ่ายแล้ว แต่เงินยังไม่ออก) */ pending?: LSrc }
@@ -32,6 +33,8 @@ export function computeLedger(a: {
   cats?: ExpenseCat[]
   /** รายจ่ายนอกใบเบิก (นับเมื่อจ่ายแล้ว ตามวันที่จ่าย) */
   expenses?: ExpenseEntry[]
+  /** บรรทัดสมุดบัญชี: เงินโอนเข้าที่ไม่มีสลิปนับเป็นรายรับ "ไม่ทราบที่มา (Unknown)" */
+  passbook?: PassbookLine[]
 }) {
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)')
   const inR = (d: string) => inRange(d, a.range.from, a.range.to)
@@ -43,7 +46,7 @@ export function computeLedger(a: {
   const order = new Map(a.types.map((t, i) => [t.id, t.order ?? i]))
   for (const r of rds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
   for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
-  const incRows: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).filter(([, v]) => v.cash.amt > 0 || v.transfer.amt > 0).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
+  const incRows0: LRow[] = [...m.entries()].sort((x, y) => (order.get(x[0]) ?? 999) - (order.get(y[0]) ?? 999)).filter(([, v]) => v.cash.amt > 0 || v.transfer.amt > 0).map(([id, v]) => ({ key: id, label: typeName(id), ...v }))
 
   const p: Period = { kind: 'week', from: a.range.from, to: a.range.to }
   const lineName = (id: string) => (id === NO_BUDGET || !id ? 'ไม่ผูกงบ' : [...a.lines, ...a.funds].find((l) => l.id === id)?.name ?? '(หมวดที่ถูกลบ)')
@@ -73,9 +76,15 @@ export function computeLedger(a: {
   const outAll = [...o.values()]
   const hasAmt = (r: LRow) => r.cash.amt > 0 || r.transfer.amt > 0 || (r.pending?.amt ?? 0) > 0
   // รายจ่ายแสดงเฉพาะหมวดที่เกิดรายการจริง เรียงตามลำดับหมวดหลัก (ยังไม่ระบุหมวดไว้ท้าย)
-  const outRows = groups.length > 0
+  const outRows0 = groups.length > 0
     ? [...groups.map((g) => o.get(g.id)).filter((r): r is LRow => !!r && hasAmt(r)), ...(o.get(UNCAT) && hasAmt(o.get(UNCAT)!) ? [o.get(UNCAT)!] : [])]
     : outAll.sort((x, y) => y.cash.amt + y.transfer.amt + (y.pending?.amt ?? 0) - x.cash.amt - x.transfer.amt - (x.pending?.amt ?? 0))
 
+
+  // เงินเข้า/ออกสมุดที่ไม่มีสลิป/บิล: แยกเป็นรายการละบรรทัด (ไม่รวมเป็นยอดเดียว) เรียงตามวันที่
+  const bankOut = unknownBankOut(a.passbook ?? [], a.expenses ?? []).filter((l) => inR(lineDate(l))).sort((x, y) => x.date.localeCompare(y.date))
+  const bankRow = (l: PassbookLine, tag: string): LRow => ({ key: `__bank:${l.id}`, label: `${tag} · ${fmtDate(l.date)}${l.desc ? ` · ${l.desc}` : ''}`, cash: { n: 0, amt: 0 }, transfer: { n: 1, amt: l.amount }, pending: { n: 0, amt: 0 } })
+  const incRows: LRow[] = [...incRows0, ...unknownBankIn(a.passbook ?? [], a.income).filter((l) => inR(lineDate(l))).sort((x, y) => x.date.localeCompare(y.date)).map((l) => bankRow(l, BANK_UNKNOWN_LABEL))]
+  const outRows: LRow[] = [...outRows0, ...bankOut.map((l) => bankRow(l, BANK_UNKNOWN_OUT_LABEL))]
   return { incRows, outRows, inSum: sumRows(incRows), outSum: sumRows(outRows) }
 }
