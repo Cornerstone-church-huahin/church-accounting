@@ -23,6 +23,7 @@ type Sub = Channel | 'total' | null
 /** ค่าที่ระบบอ่านจากรูปมาใส่ในฟอร์มล่วงหน้า (ผู้ใช้ตรวจแล้วกดบันทึก) */
 interface ExpInit { file: File; date?: string; amount?: number; desc?: string; who?: string; catId?: string; method?: 'cash' | 'transfer'; ref?: string; due?: string; note?: string }
 
+const FORM_HREF = `${import.meta.env.BASE_URL}forms/cash-voucher-blank.pdf`
 const CH: Record<Channel, { n: number; title: string; dateLabel: string; whoLabel: string; add: string; hint: string; openLabel: string; doneLabel: string }> = {
   manual: { n: 1, title: 'บันทึกด้วยมือ', dateLabel: 'วันที่จ่าย', whoLabel: 'ผู้รับเงิน/ร้านค้า', add: '＋ บันทึก', hint: 'รายจ่ายที่จ่ายไปแล้ว บันทึกได้ทุกวัน ระบุวันที่ หมวดรายจ่าย และจ่ายด้วยเงินสดหรือโอน', openLabel: '', doneLabel: '' },
   bill: { n: 2, title: 'วางบิล', dateLabel: 'วันที่ในบิล', whoLabel: 'ผู้ออกบิล/ร้านค้า', add: '＋ วางบิล', hint: 'บิลที่ได้รับแต่ยังไม่จ่าย (เช่น ค่าไฟ ค่าน้ำ) แนบรูปบิลได้ — กด “จ่ายแล้ว” เมื่อจ่าย (ยอดนับเป็นรายจ่ายทันที ช่อง “ค้างจ่าย” จนกว่าจะจ่าย)', openLabel: 'ค้างจ่าย', doneLabel: '✓ จ่ายแล้ว' },
@@ -108,9 +109,15 @@ export default function Pay({ year }: { year: number }) {
     return (
       <section className="card no-print" role="tabpanel" aria-label={CH[c].title}>
         <h2>{CH[c].n} · {CH[c].title}</h2>
+        {c === 'manual' && (
+          <div className="capbar"><div className="capbar__row">
+            <a className="act-btn" href={FORM_HREF} download="cash-voucher-blank.pdf" aria-label="ดาวน์โหลดใบเบิก-จ่ายเงินสด (เปล่า)"><span className="act-btn__ico" aria-hidden="true">⬇️</span><span>ดาวน์โหลดใบเบิก</span></a>
+            {canWrite && <button type="button" className="act-btn" onClick={() => setForm({ entry: null, channel: c })}><span className="act-btn__ico" aria-hidden="true">✍️</span><span>{CH[c].add}</span></button>}
+          </div></div>
+        )}
         {canWrite && (c === 'manual'
-          ? <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, channel: c })}>{CH[c].add}</button>
-          : <CaptureBar noun={c === 'bill' ? 'บิล' : 'ใบเสร็จ'} onFile={(file) => setFlow({ channel: c, file })}><button type="button" className="mini" onClick={() => setFlow({ channel: c })} style={{ marginTop: 6 }}>✍️ กรอกเอง (ไม่มีรูป)</button></CaptureBar>)}
+          ? null
+          : <CaptureBar noun={c === 'bill' ? 'บิล' : 'ใบเสร็จ'} fileDownload={c === 'advance' ? { href: FORM_HREF, filename: 'cash-voucher-blank.pdf', label: 'ดาวน์โหลดใบเบิก-จ่ายเงินสด (เปล่า)' } : undefined} onFile={(file) => setFlow({ channel: c, file })}><button type="button" className="mini" onClick={() => setFlow({ channel: c })} style={{ marginTop: 6 }}>✍️ กรอกเอง (ไม่มีรูป)</button></CaptureBar>)}
         <p className="muted small">{CH[c].hint}</p>
         <div className="row row--between" style={{ margin: '0.4rem 0' }}>
           <b>{xs.length} รายการ · รวม {fmtBaht(sum(xs))}</b>

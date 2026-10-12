@@ -6,17 +6,24 @@ interface Props {
   onFile: (file: File) => void
   /** ปุ่มดาวน์โหลด (ถ้ามี): ตัวเลือกหลายแบบจะขึ้นเมนูเล็ก ๆ */
   downloads?: { label: string; run: () => void | Promise<void> }[]
+  /** ดาวน์โหลดไฟล์ใบเปล่าที่เก็บไว้กับแอป (ปุ่มแรก) */
+  fileDownload?: { href: string; filename: string; label?: string }
   busy?: boolean
   children?: ReactNode
 }
 
 /** แถวไอคอน 3 ปุ่มรูปแบบเดียวกัน: ⬇️ ดาวน์โหลด · 📎 แนบไฟล์ · 📷 ถ่ายรูป */
-export default function CaptureBar({ noun, onFile, downloads, busy, children }: Props) {
+export default function CaptureBar({ noun, onFile, downloads, fileDownload, busy, children }: Props) {
   const [menu, setMenu] = useState(false)
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }
   return (
     <div className="capbar">
       <div className="capbar__row">
+        {fileDownload && (
+          <a className="act-btn" href={fileDownload.href} download={fileDownload.filename} aria-label={fileDownload.label ?? 'ดาวน์โหลดใบเปล่า'}>
+            <span className="act-btn__ico" aria-hidden="true">⬇️</span><span>ดาวน์โหลด</span>
+          </a>
+        )}
         {downloads && downloads.length > 0 && (
           <button type="button" className="act-btn" disabled={busy} aria-expanded={menu} aria-label="ดาวน์โหลดใบเปล่า" onClick={() => (downloads.length === 1 ? void downloads[0].run() : setMenu(!menu))}>
             <span className="act-btn__ico" aria-hidden="true">{busy ? '…' : '⬇️'}</span><span>ดาวน์โหลด</span>

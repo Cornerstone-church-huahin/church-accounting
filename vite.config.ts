@@ -28,7 +28,7 @@ export default defineConfig({
       },
       // cache เฉพาะตัวแอป ห้าม cache ข้อมูลบัญชี/รูปใบเสร็จ (ต้องมาจาก repo ข้อมูลเท่านั้น)
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,pdf}'],
         // ไฟล์อ่านสลิป (OCR) ใหญ่ ไม่ใส่ในชุดโหลดแรก — เก็บแคชเมื่อใช้ครั้งแรก
         globIgnores: ['ocr/**'],
         navigateFallback: 'index.html',
