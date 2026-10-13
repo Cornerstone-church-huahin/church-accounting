@@ -60,6 +60,18 @@ try {
   page.once('dialog', (d) => d.accept('ประจำสัปดาห์ใหม่'))
   await page.getByRole('button', { name: 'แก้ชื่อ ประจำสัปดาห์' }).click()
   await page.waitForFunction(() => [...document.querySelectorAll('#mi-type option')].some((o) => o.textContent === 'ประจำสัปดาห์ใหม่'))
+  // รายการที่บันทึกต่างสัปดาห์: มีปุ่มลัดไปสัปดาห์นั้น
+  const old = new Date(); old.setDate(old.getDate() - 14)
+  const oldISO = `${old.getFullYear()}-${String(old.getMonth() + 1).padStart(2, '0')}-${String(old.getDate()).padStart(2, '0')}`
+  await page.locator('#mi-date').fill(oldISO)
+  await page.locator('.entryrow .field', { hasText: 'เงินสด (บาท)' }).locator('input').fill('100')
+  await page.getByRole('button', { name: /เพิ่มลงตาราง/ }).click()
+  await page.getByRole('group', { name: 'สัปดาห์ที่มีรายการบันทึก' }).waitFor()
+  await page.getByLabel('สัปดาห์ถัดไป').click(); await page.getByLabel('สัปดาห์ถัดไป').click()
+  const chip = page.getByRole('group', { name: 'สัปดาห์ที่มีรายการบันทึก' }).getByRole('button').first()
+  must(/\(1\)/.test(await chip.innerText()), 'week chip shows the entry count')
+  await chip.click()
+  must((await chip.getAttribute('aria-pressed')) === 'true', 'chip jumps to the week with the entry')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('FUNDS OK')
 } finally { await browser.close(); server.kill() }

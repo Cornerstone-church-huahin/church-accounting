@@ -6,6 +6,7 @@ import { roundTotal } from '../lib/ledger'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
+import WeekBar from '../components/WeekBar'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir } from '../lib/sync'
@@ -47,7 +48,6 @@ export default function Receive({ year }: { year: number }) {
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: IncomeEntry | null; preset: 'manual' | 'slip' } | null>(null)
   const canWrite = can(role, 'income')
-  const idx = sundays.indexOf(sunday)
 
   const paperRef = useRef<HTMLDivElement>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
@@ -109,6 +109,7 @@ export default function Receive({ year }: { year: number }) {
   )
 
   // บันทึกแล้วสลับไปดูสัปดาห์ของรายการนั้นเลย (เห็นว่าเข้าใบสรุปไหน)
+  const weekMarks = useMemo(() => { const m: Record<string, number> = {}; for (const x of allEnt) { const w = sheetSunday(x.date); m[w] = (m[w] ?? 0) + 1 } return m }, [allEnt])
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
   // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
@@ -127,12 +128,7 @@ export default function Receive({ year }: { year: number }) {
 
   return (
     <>
-      <div className="no-print" style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <button type="button" className="mini" aria-label="สัปดาห์ก่อน" disabled={idx <= 0} onClick={() => setSunday(sundays[idx - 1])}>‹</button>
-        <b style={{ textAlign: 'center' }}>{fmtDateLong(sunday)}</b>
-        <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" disabled={idx >= sundays.length - 1} onClick={() => setSunday(sundays[idx + 1])}>›</button>
-      </div>
-      <p className="muted small no-print" style={{ textAlign: 'center' }}>{fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>
+      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} marks={weekMarks} />
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
         <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}><i className="dot">1</i><span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>

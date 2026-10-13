@@ -7,8 +7,8 @@ import { CODE_LEGEND, reconcileWeek } from '../lib/passbook'
 import { loanBalance, lenderLabel } from '../lib/loans'
 import { computeSeries, topRows, type LedgerInput } from '../lib/seriesLedger'
 import { CatBars, CumLine, Donut, GroupedBars, Legend } from '../components/StatCharts'
-import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
+import { ExpenseSummaryPaper, IncomeSummaryPaper, weekHeading } from '../components/PaperSheets'
 import PeriodBar from '../components/PeriodBar'
 
 /** แท็บ "สรุป" หน้าแรก: ดึงผลรวมรายรับ + รายจ่าย มาเป็นใบเดียวเต็มหน้า A4 (บนรายรับ ล่างรายจ่าย) แล้วปิดยอดคงเหลือ */
@@ -33,7 +33,7 @@ export default function Summary({ year }: { year: number }) {
   const [month, setMonth] = useState(nowM)
   const [quarter, setQuarter] = useState(Math.ceil(nowM / 3))
   const [busy, setBusy] = useState(false)
-  const sheetBar = (n: 1 | 2, title: string) => (
+  const sheetBar = (n: 1 | 2 | 3, title: string) => (
     <div className="sheetbar no-print">
       <b>{title}</b>
       <span className="grow" />
@@ -41,14 +41,16 @@ export default function Summary({ year }: { year: number }) {
       <button type="button" className="btn btn--ghost btn--sm" aria-label="พิมพ์ใบนี้" title="พิมพ์ใบนี้" onClick={() => printSheet(n)}>🖨️</button>
     </div>
   )
-  const downloadSheet = async (n: 1 | 2) => {
-    const el = n === 1 ? paperRef.current : paper2Ref.current
-    if (!el) return
+  const downloadSheet = async (n: 1 | 2 | 3) => {
+    const pages: { el: HTMLElement; landscape?: boolean }[] = kind === 'week'
+      ? n === 1 ? incPages.current.map((el) => ({ el, landscape: true })) : n === 2 ? expPages.current.map((el) => ({ el })) : paper2Ref.current ? [{ el: paper2Ref.current, landscape: true }] : []
+      : (n === 1 ? paperRef.current : paper2Ref.current) ? [{ el: (n === 1 ? paperRef.current : paper2Ref.current) as HTMLElement, landscape: n === 2 }] : []
+    if (pages.length === 0) return
     setBusy(true)
-    try { await downloadPdfPages([{ el, landscape: n === 2 }], `summary-${kind}-${fileKey}-sheet${n}.pdf`) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF') }
+    try { await downloadPdfPages(pages, `summary-${kind}-${fileKey}-sheet${n}.pdf`) } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF') }
     setBusy(false)
   }
-  const printSheet = (n: 1 | 2) => {
+  const printSheet = (n: 1 | 2 | 3) => {
     document.body.dataset.printOnly = String(n)
     const done = () => { delete document.body.dataset.printOnly; window.removeEventListener('afterprint', done) }
     window.addEventListener('afterprint', done)
@@ -80,6 +82,8 @@ export default function Summary({ year }: { year: number }) {
   const { incRows, outRows, inSum, outSum } = L
   const paperRef = useRef<HTMLDivElement>(null)
   const paper2Ref = useRef<HTMLDivElement>(null)
+  const incPages = useRef<HTMLDivElement[]>([])
+  const expPages = useRef<HTMLDivElement[]>([])
 
   const be = year + 543
   const kindWord = { week: 'สัปดาห์', month: 'เดือน', quarter: 'ไตรมาส', year: 'ปี' }[kind]
@@ -105,15 +109,16 @@ export default function Summary({ year }: { year: number }) {
 
       {(
         <>
-          <div className="sheet-1">
-          {kind === 'week' && <p className={`badge ${wkClose ? 'badge--good' : ''} no-print`} role="status">{wkClose ? '✓ ตรวจกับสมุดบัญชีแล้ว' : 'ยังไม่ได้ตรวจกับสมุดบัญชี (ขั้น 3 ปรับ) — พิมพ์ไปแปะได้ แต่ควรปรับสมุดก่อน'}</p>}
-          {sheetBar(1, `ใบที่ 1 — ใบสรุปรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}`)}
           {kind === 'week' ? (
-      <ScaledPage ref={paperRef}>
-        <>
-          <div className="a4head"><b>สรุปรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
-          <LedgerTable band="รายรับ — ได้รับการถวายประจำสัปดาห์" labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมรายรับ" tone="in" />
-          <LedgerTable band="รายจ่าย" labels={['หมวดรายจ่าย', 'รายการ', 'จำนวนโอน']} rows={outRows} total="รวมรายจ่าย" tone="out" minRows={0} pendingCol />
+          <>
+          <div className="sheet-1">
+          <p className={`badge ${wkClose ? 'badge--good' : ''} no-print`} role="status">{wkClose ? '✓ ตรวจกับสมุดบัญชีแล้ว' : 'ยังไม่ได้ตรวจกับสมุดบัญชี (ขั้น 3 ปรับ) — พิมพ์ไปแปะได้ แต่ควรปรับสมุดก่อน'}</p>
+          {sheetBar(1, 'ใบที่ 1 — รายรับประจำสัปดาห์ (แนวนอน)')}
+          <IncomeSummaryPaper church={church.split(' ')[0]} rows={incRows} heading={weekHeading(sunday)} pagesRef={incPages} />
+          </div>
+          <div className="sheet-2">
+          {sheetBar(2, 'ใบที่ 2 — รายจ่ายและสรุปยอดประจำสัปดาห์')}
+          <ExpenseSummaryPaper church={church.split(' ')[0]} rows={outRows} heading={weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์')} pagesRef={expPages}>
           <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
             <thead><tr><th>ปิดยอด{kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">ค้างจ่าย</th><th className="num">รวม</th></tr></thead>
             <tbody>
@@ -132,16 +137,49 @@ export default function Summary({ year }: { year: number }) {
           {bank && (bank.deposits.length > 0 || bank.withdraws.length > 0) && (
             <p className="a4note">สมุดบัญชีสัปดาห์นี้: {bank.deposits.length > 0 && <>ฝากเงินสด {fmtBaht(bank.depositSum)} (นับแล้วในใบถวาย) </>}{bank.withdraws.length > 0 && <>· ถอนเงินสด {fmtBaht(bank.withdrawSum)} (ย้ายเงินสดมาจ่าย รายจ่ายนับตามบิลที่จ่ายจริง ไม่นับซ้ำ) </>}· เงินโอนเข้า-ออกที่ไม่มีสลิป/บิลอยู่ในตารางรายรับ-รายจ่ายด้านบนแล้ว (บรรทัด “ไม่ทราบที่มา/ไม่ทราบรายจ่าย”) · รหัสในสมุด: {CODE_LEGEND}</p>
           )}
-          {wkClose && <p className="a4note">✓ ตรวจกับสมุดบัญชีธนาคารแล้ว{wkClose.bankBalance !== undefined ? <> · ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์ <b>{fmtBaht(wkClose.bankBalance)}</b> บาท</> : null}</p>}
+          {wkClose && <p className="a4note">✓ ตรวจกับสมุดบัญชีธนาคารแล้ว</p>}
           {outSum.pending > 0 && <p className="a4note">ยอดค้างจ่ายที่ต้องเตรียมเบิก (วางบิลที่ยังไม่จ่าย + สำรองจ่ายที่ยังไม่คืนเงิน): <b>{fmtBaht(outSum.pending)}</b> บาท</p>}
+          <p className="a4note" style={{ fontSize: 15 }}>{wkClose && wkClose.bankBalance !== undefined
+            ? <>💰 <b>เงินในบัญชีธนาคารคงเหลือตามสมุด ณ สิ้นสัปดาห์: {fmtBaht(wkClose.bankBalance)} บาท</b></>
+            : <>💰 ยังไม่ได้ปิดสัปดาห์กับสมุดบัญชี (ขั้น 3 ปรับ) — เงินคงเหลือจากรับ−จ่ายสัปดาห์นี้ <b>{fmtBaht(inSum.cash + inSum.transfer - outSum.cash - outSum.transfer - outSum.pending)} บาท</b></>}</p>
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br />{dateLine}</div>
             <div>ผู้ตรวจสอบ<br />{dateLine}</div>
             <div>ผู้รับรอง (ผู้ปกครอง/ประธาน)<br />{dateLine}</div>
           </div>
-        </>
-      </ScaledPage>
+          </ExpenseSummaryPaper>
+          </div>
+          <div className="sheet-3">
+          {sheetBar(3, 'ใบที่ 3 — สถิติรับ-จ่ายรายสัปดาห์ (แนวนอน)')}
+          <ScaledPage ref={paper2Ref} landscape>
+            <>
+              <div className="a4head"><b>สถิติรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
+              <Legend />
+              <div className="land-grid">
+                <div>
+                  <div className="stat-title">รายรับ-รายจ่ายแยกตาม{(kind as SumKind) === 'week' ? 'วัน' : (kind as SumKind) === 'month' ? 'สัปดาห์ (วันที่)' : 'เดือน'}</div>
+                  <GroupedBars buckets={chartBuckets} height={190} />
+                  <div className="stat-title">คงเหลือสะสม (รับ − จ่าย)</div>
+                  <CumLine buckets={chartBuckets} height={120} />
+                </div>
+                <div>
+                  <div className="stat-title">สัดส่วนรายรับตามประเภทถวาย (บาท · %)</div>
+                  <Donut rows={topRows(incRows, 6)} tone="in" />
+                  <div className="stat-title">สัดส่วนรายจ่ายตามหมวดหลัก (บาท · %)</div>
+                  <Donut rows={topRows(outRows, 6)} tone="out" />
+                </div>
+              </div>
+              <div className="stat-title" style={{ marginTop: 6 }}>รายจ่ายแยกตามหมวดหลัก — ทุกหมวด (บาท · แท่งสูง = จ่ายมาก · แต่ละหมวดคนละสี)</div>
+              <CatBars height={150} cats={catBars} />
+              <p className="a4note">รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (รวมค้างจ่าย) · ข้อมูลเดียวกับใบที่ 1 ทุกตัวเลข · ชี้ที่แท่งหรือจุดเพื่อดูตัวเลข</p>
+            </>
+          </ScaledPage>
+          </div>
+          </>
           ) : (
+          <>
+          <div className="sheet-1">
+          {sheetBar(1, `ใบที่ 1 — ใบสรุปรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}`)}
           <ScaledPage ref={paperRef}>
             <>
               <div className="a4head"><b>สรุปรับ-จ่ายประจำ{kindWord} · {church}</b><span>{period}</span></div>
@@ -200,7 +238,6 @@ export default function Summary({ year }: { year: number }) {
               </div>
             </>
           </ScaledPage>
-          )}
           </div>
           <div className="sheet-2">
           {sheetBar(2, `ใบที่ 2 — สถิติรับ-จ่าย${kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`} (แนวนอน)`)}
@@ -210,7 +247,7 @@ export default function Summary({ year }: { year: number }) {
               <Legend />
               <div className="land-grid">
                 <div>
-                  <div className="stat-title">รายรับ-รายจ่ายแยกตาม{kind === 'week' ? 'วัน' : kind === 'month' ? 'สัปดาห์ (วันที่)' : 'เดือน'}</div>
+                  <div className="stat-title">รายรับ-รายจ่ายแยกตาม{(kind as SumKind) === 'week' ? 'วัน' : kind === 'month' ? 'สัปดาห์ (วันที่)' : 'เดือน'}</div>
                   <GroupedBars buckets={chartBuckets} height={190} />
                   <div className="stat-title">คงเหลือสะสม (รับ − จ่าย)</div>
                   <CumLine buckets={chartBuckets} height={120} />
@@ -228,6 +265,8 @@ export default function Summary({ year }: { year: number }) {
             </>
           </ScaledPage>
           </div>
+          </>
+          )}
         </>
       )}
       <p className="muted small no-print" style={{ textAlign: 'center' }}>รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกตรงในงบ + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (ที่ยังไม่จ่ายแสดงในช่อง “ค้างจ่าย”) · เงินโอนวันจันทร์–อาทิตย์นับรวมในใบวันอาทิตย์ของสัปดาห์นั้น</p>

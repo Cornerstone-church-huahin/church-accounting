@@ -250,7 +250,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .sheetbar { display: flex; align-items: center; gap: 6px; margin: 0.6rem 0 0.3rem; font-size: 0.85rem; }
 .sheetbar .btn--sm { padding: 0.25rem 0.6rem; min-height: 0; font-size: 0.8rem; }
 @media print {
-  body[data-print-only="1"] .sheet-2, body[data-print-only="2"] .sheet-1 { display: none !important; }
+  body[data-print-only="1"] .sheet-2, body[data-print-only="1"] .sheet-3, body[data-print-only="2"] .sheet-1, body[data-print-only="2"] .sheet-3, body[data-print-only="3"] .sheet-1, body[data-print-only="3"] .sheet-2 { display: none !important; }
 }
 .pie-legend { border-collapse: collapse; font-size: 11px; width: 100%; }
 .pie-legend td { padding: 2px 4px; border-bottom: 1px solid var(--line, #eee); }
@@ -341,3 +341,6 @@ ul.plain > li { padding: 0.25rem 0; }
 .a4page--sheet { padding: 18px 28px 16px; }
 .sheetpaper--land td { height: 28px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sheetpaper--land th { font-size: 13px; padding: 4px 4px; }
+
+.weekchips { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 6px; align-items: center; white-space: nowrap; }
+.weekchips .mini.on { background: var(--sky, #2a6fdb); color: #fff; border-color: transparent; }
