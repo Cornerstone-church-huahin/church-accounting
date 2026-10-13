@@ -382,3 +382,10 @@ ul.plain > li { padding: 0.25rem 0; }
 
 .debtbanner { background: #fdeceb; border: 1.5px solid #b3261e; border-radius: 0.6rem; padding: 0.4rem 0.7rem; margin: 6px 0; color: #7a1a14; }
 .debtbanner p { margin: 3px 0; font-size: 0.92rem; }
+
+.balance-tiles { grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+.btile b { font-size: 1.02rem; }
+.btile small { font-size: 0.78rem; }
+.btile--indebt { background: #1b6b6b; }
+.btile--spare { background: #7a7f8a; }
+.btile--debt { order: 0; }
