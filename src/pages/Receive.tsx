@@ -16,6 +16,7 @@ import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
 import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
+import { downloadBlankSheet } from '../lib/blankSheet'
 import { readSlip } from '../lib/slipOcr'
 
 type Sub = 'manual' | 'slip' | 'sheet' | 'total' | null
@@ -162,7 +163,7 @@ export default function Receive({ year }: { year: number }) {
         <section className="card no-print" role="tabpanel" aria-label="ใบบันทึกการถวาย">
           <h2>3 · ใบบันทึกการถวาย</h2>
           {canWrite ? (
-            <CaptureBar noun="ใบถวาย" onFile={setNewSheetFile} fileDownload={{ href: `${import.meta.env.BASE_URL}forms/offering-sheet-blank.pdf`, filename: 'offering-sheet-blank.pdf', label: 'ดาวน์โหลดใบบันทึกการถวาย (เปล่า)' }} />
+            <CaptureBar noun="ใบถวาย" onFile={setNewSheetFile} downloads={[{ label: 'ใบบันทึกการถวาย (เปล่า)', run: () => downloadBlankSheet('offering', settings.churchName.split(' ')[0], sunday) }]} />
           ) : null}
           <p className="muted small">ถ่ายรูปใบบันทึกการถวายวันอาทิตย์แล้วแนบ — ระบบอ่านแถวเงินสดให้ ท่านตรวจแล้วกดยืนยัน ยอดจะเข้าใบสรุปช่อง 4</p>
           {scopeBar('sheet', lstFiles.length, lstFiles.reduce((a, f) => a + (f.read?.rows.reduce((q, r) => q + r.amount, 0) ?? 0), 0))}

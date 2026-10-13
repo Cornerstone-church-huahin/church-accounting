@@ -29,7 +29,7 @@ try {
   // 1 บันทึกด้วยมือ: ค่าไฟฟ้า 1,850 โอน (หมวด 3.1)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   {
-    const [d1] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.getByRole('link', { name: /ดาวน์โหลดใบเบิก-จ่ายเงินสด/ }).click()])
+    const [d1] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.getByRole('button', { name: /ดาวน์โหลดใบเบิก-จ่ายเงินสด/ }).click()])
     must((await import('node:fs')).default.readFileSync(await d1.path()).subarray(0, 5).toString() === '%PDF-', 'blank cash voucher PDF downloads from tab 1')
   }
   await page.getByRole('button', { name: /บันทึกแบบละเอียด/ }).click()
@@ -76,7 +76,7 @@ try {
   // 3 สำรองจ่าย: ผู้สำรองจ่าย คืนเงินแล้ว 600 เงินสด (หมวด 11.4)
   await page.getByRole('tab', { name: /สำรองจ่าย/ }).click()
   must((await page.locator('.capbar__row .act-btn').count()) === 3, 'advance tab has three buttons: download, attach, camera')
-  must(await page.getByRole('link', { name: /ดาวน์โหลดใบเบิก-จ่ายเงินสด/ }).isVisible(), 'advance tab offers the blank voucher')
+  must(await page.getByRole('button', { name: /ดาวน์โหลดใบเปล่า/ }).isVisible(), 'advance tab offers the blank voucher')
   await page.getByRole('button', { name: /กรอกเอง \(ไม่มีรูป\)/ }).click()
   await page.locator('#e-cat').selectOption('xq-6')
   await page.locator('#e-amt').fill('600')
