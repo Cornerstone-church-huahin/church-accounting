@@ -107,7 +107,7 @@ export function VoucherPaper({ church, entries, sunday }: { church: string; entr
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
               <colgroup><col style={{ width: '11%' }} /><col style={{ width: '7%' }} /><col style={{ width: '33%' }} /><col style={{ width: '14%' }} /><col style={{ width: '17%' }} /><col style={{ width: '18%' }} /></colgroup>
-              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>ผู้เบิกเงิน</th><th>ผู้รับเงิน</th></tr></thead>
+              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th>ผู้รับเงิน</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
@@ -117,7 +117,7 @@ export function VoucherPaper({ church, entries, sunday }: { church: string; entr
                       <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td>{x?.desc ?? ''}</td>
                       <td className="num">{x ? m(x.amount) : ''}</td>
-                      <td>{x?.requester ?? ''}</td>
+                      <td>{x?.requester || x?.note || ''}</td>
                       <td>{x?.who ?? ''}</td>
                     </tr>
                   )

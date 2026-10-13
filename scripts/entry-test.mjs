@@ -67,7 +67,7 @@ try {
   const et = page.getByRole('table', { name: /ใบเบิก-จ่ายเงินสด \(A4\)/ })
   await et.waitFor()
   const e = (await et.innerText()).replace(/\s+/g, ' ')
-  must(/1 ค่าไฟ 1,850 สมเจต การไฟฟ้า/.test(e) && /รวมจ่ายเป็นเงินทั้งสิ้น 1,850/.test(e), 'expense A4 sheet row: ' + e)
+  must(/ผู้รับเงิน/.test(e) && /หมายเหตุ/.test(e) && !/ผู้เบิกเงิน/.test(e) && /1 ค่าไฟ 1,850 สมเจต การไฟฟ้า/.test(e) && /รวมจ่ายเป็นเงินทั้งสิ้น 1,850/.test(e), 'expense A4 sheet row: ' + e)
   must((await et.locator('tbody tr').count()) === 25, 'voucher sheet keeps 25 locked rows')
   await page.screenshot({ path: 'shots/entry-expense.png', fullPage: true })
   await page.getByRole('tab', { name: /รวมจ่าย/ }).click()
