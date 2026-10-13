@@ -44,7 +44,7 @@ export default function ManualExpense({ cats, types, onManage, entries, church, 
           <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
           <FundPicker id="me-fund" types={types} value={fundId} onChange={setFundId} />
           <div className="entryrow__pair">
-            <div className="field"><label htmlFor="me-req">ผู้เบิกเงิน</label><input id="me-req" className="input" value={requester} onChange={(e) => setRequester(e.target.value)} /></div>
+            <div className="field"><label htmlFor="me-req">หมายเหตุ</label><input id="me-req" className="input" value={requester} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setRequester(e.target.value)} /></div>
             <div className="field"><label htmlFor="me-pay">ผู้รับเงิน</label><input id="me-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
           </div>
           {err && <p className="err" role="alert">{err}</p>}
@@ -62,7 +62,7 @@ export default function ManualExpense({ cats, types, onManage, entries, church, 
           <ul className="list">
             {rows.map((x) => (
               <li key={x.id}>
-                <span className="grow"><b>{x.desc}</b><br /><span className="small muted">{fmtDate(x.date)}{x.fundId ? ` · จ่ายจาก ${types.find((t) => t.id === x.fundId)?.name ?? 'กองทุน'}` : ''}{x.requester ? ` · เบิก ${x.requester}` : ''}{x.who ? ` · รับ ${x.who}` : ''}</span></span>
+                <span className="grow"><b>{x.desc}</b><br /><span className="small muted">{fmtDate(x.date)}{x.fundId ? ` · จ่ายจาก ${types.find((t) => t.id === x.fundId)?.name ?? 'กองทุน'}` : ''}{x.requester ? ` · หมายเหตุ ${x.requester}` : ''}{x.who ? ` · รับ ${x.who}` : ''}</span></span>
                 <b className="num">{m(x.amount)}</b>
                 <button type="button" className="mini" aria-label="แก้ไขรายการนี้" onClick={() => onEdit(x)}>✎</button>
                 <button type="button" className="mini" aria-label="ลบรายการนี้" onClick={() => onDelete(x)}>🗑</button>

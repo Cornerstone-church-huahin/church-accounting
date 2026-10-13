@@ -174,7 +174,7 @@ export interface ExpenseEntry extends SharedItem {
   note?: string
   /** รูปบิล/ใบเสร็จ (path ว่าง = โหมดทดลอง ไม่ได้เก็บรูป) */
   file?: { path: string; name: string }
-  /** ผู้เบิกเงิน (ตามใบเบิก-จ่ายเงินสด) */
+  /** หมายเหตุที่พิมพ์ในแถวใบเบิก-จ่ายเงินสด (พิมพ์อะไรก็ได้ เช่น ชื่อผู้สำรองจ่าย) — เดิมคือ "ผู้เบิกเงิน" */
   requester?: string
 }
 
