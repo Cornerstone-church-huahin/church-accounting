@@ -36,11 +36,11 @@ export default function Settings() {
       <Connect />
       {cfg && <Members />}
       {can(role, 'income') && <Reader />}
+      {can(role, 'settings') && <Accounts />}
       {can(role, 'settings') && <General />}
+      {can(role, 'settings') && <OpeningCard />}
       {can(role, 'settings') && <Types />}
       {can(role, 'settings') && <ExpenseCatsCard />}
-      {can(role, 'settings') && <Accounts />}
-      {can(role, 'settings') && <OpeningCard />}
       {can(role, 'settings') && <DataClean />}
       <Display />
     </>
