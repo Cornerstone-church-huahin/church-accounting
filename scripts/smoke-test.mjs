@@ -43,7 +43,7 @@ await shot('01-home-empty')
 
 // ตั้งค่า: บัญชี + ประเภทถวาย
 await go('/settings')
-await page.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
+await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true }))
 await page.getByLabel('ชื่อบัญชี').fill('บัญชีหลัก')
 await page.getByLabel('ธนาคาร', { exact: true }).fill('กสิกรไทย')
 await page.getByLabel('เลขท้าย 4 ตัว').fill('1234')
