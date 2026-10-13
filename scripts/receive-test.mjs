@@ -86,7 +86,7 @@ try {
   }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   {
-    const [d] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.getByRole('link', { name: /ดาวน์โหลดใบบันทึกการถวาย/ }).click()])
+    const [d] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.getByRole('button', { name: /ดาวน์โหลดใบเปล่า/ }).click()])
     const buf = (await import('node:fs')).default.readFileSync(await d.path())
     must(buf.subarray(0, 5).toString() === '%PDF-', 'new blank offering sheet PDF downloads')
     await d.saveAs('shots/blank-sheet.pdf')
