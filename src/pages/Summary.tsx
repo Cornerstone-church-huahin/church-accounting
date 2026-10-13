@@ -158,7 +158,7 @@ export default function Summary({ year }: { year: number }) {
           {loanRows.length > 0 && (
             <table className="tbl tbl--paper paper__close" aria-label="เงินยืมค้างคืน">
               <thead><tr><th>เงินยืมที่ยังค้างคืน (ไม่นับเป็นรายรับ-รายจ่าย)</th><th>ใช้ทำ</th><th className="num">ค้างคืน</th></tr></thead>
-              <tbody>{loanRows.map(({ l, bal }) => <tr key={l.id}><td>{lenderLabel(l, (id) => types.list.find((t) => t.id === id)?.name ?? '')}{l.lender.kind === 'fund' ? ' (ยืมจากกองทุน)' : ''}</td><td>{l.purpose}</td><td className="num">{fmtBaht(bal)}</td></tr>)}</tbody>
+              <tbody>{loanRows.map(({ l, bal }) => <tr key={l.id}><td>{lenderLabel(l, (id) => types.list.find((t) => t.id === id)?.name ?? '')}{l.lender.kind === 'fund' ? ' (ยืมจากกองทุน)' : ''}</td><td>{l.purpose || '—'}</td><td className="num">{fmtBaht(bal)}</td></tr>)}</tbody>
               <tfoot><tr><td colSpan={2}>รวมค้างคืน</td><td className="num">{fmtBaht(loanRows.reduce((a, x) => a + x.bal, 0))}</td></tr></tfoot>
             </table>
           )}

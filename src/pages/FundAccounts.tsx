@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useExpenses, useIncome, useIncomeTypes, useOpening, usePassbook, useRounds } from '../lib/data'
+import DebtBanner from '../components/DebtBanner'
+import { useLoans, useExpenses, useIncome, useIncomeTypes, useOpening, usePassbook, useRounds } from '../lib/data'
 import { fundAccounts, withRunning } from '../lib/fundAccounts'
 import { fmtBaht, fmtDate } from '../lib/money'
 import { useYear } from '../lib/year'
@@ -9,6 +10,7 @@ export default function FundAccountsPage() {
   const { year } = useYear()
   const types = useIncomeTypes()
   const opening = useOpening()
+  const loans = useLoans()
   const ys = [year - 2, year - 1, year] // จำนวน hook คงที่
   const incs = ys.map((y) => useIncome(y)) // eslint-disable-line react-hooks/rules-of-hooks
   const rds = ys.map((y) => useRounds(y)) // eslint-disable-line react-hooks/rules-of-hooks
@@ -27,8 +29,10 @@ export default function FundAccountsPage() {
       {rows.length === 0 && <p className="empty">ยังไม่มีกองทุน — ตั้งกองทุนที่ <Link to="/settings">ตั้งค่า › ยอดยกมา</Link></p>}
       {rows.map((f) => (
         <details key={f.id} className="card fundcard">
-          <summary style={{ cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <b>{f.name}</b><b className="num" style={{ fontSize: '1.2rem' }}>{fmtBaht(f.balance)}</b>
+          <summary style={{ cursor: 'pointer' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}><b>{f.name}</b><b className="num" style={{ fontSize: '1.2rem' }}>{fmtBaht(f.balance)}</b></div>
+            <DebtBanner loans={loans.items.filter((l) => l.borrower === f.id)} types={types.list} />
+            <DebtBanner loans={loans.items.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent />
           </summary>
           <p className="small muted" style={{ margin: '4px 0' }}>ตั้งต้น {fmtBaht(f.opening)} + รับเข้า {fmtBaht(f.moneyIn)} − จ่ายออก {fmtBaht(f.moneyOut)}</p>
           <table className="tbl tbl--paper" aria-label={`ความเคลื่อนไหว ${f.name}`}>

@@ -25,8 +25,8 @@ export default function Home() {
       <nav className="balance-tiles no-print" aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
         <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>
         <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal, { dec: false })}</b></Link>
-        <Link to="/balance/total" className="btile btile--total"><small>🧮 รวม</small><b>{fmtBaht(b.total, { dec: false })}</b></Link>
-        <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้สินภายนอก</small><b>{fmtBaht(debt, { dec: false })}</b></Link>
+        <Link to="/balance/total" className="btile btile--total"><small>🧮 รวมเงินสด</small><b>{fmtBaht(b.total, { dec: false })}</b></Link>
+        <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(debt, { dec: false })}</b></Link>
       </nav>
       <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์</p>
       <div className="home-tabs no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">

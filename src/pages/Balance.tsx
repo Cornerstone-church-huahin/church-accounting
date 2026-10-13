@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import LoansPanel from '../components/LoansPanel'
+import DebtBanner from '../components/DebtBanner'
 import { can } from '../lib/access'
 import { useLoans } from '../lib/data'
 import { loanBalance, repaidOf, summarizeLoans } from '../lib/loans'
@@ -14,7 +15,7 @@ import { useYear } from '../lib/year'
 
 export type BalanceKind = 'own' | 'fund' | 'total' | 'debt'
 const KINDS: { k: BalanceKind; icon: string; title: string }[] = [
-  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวม' }, { k: 'debt', icon: '🧾', title: 'หนี้สินภายนอก' },
+  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวมเงินสด' }, { k: 'debt', icon: '🧾', title: 'หนี้ภายนอก' },
 ]
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
@@ -56,6 +57,7 @@ export default function BalancePage() {
         <section className="card" aria-label="เงินหมุนเวียน">
           <h2>🏠 เงินหมุนเวียนของคริสตจักร</h2>
           <p className="muted small" style={{ margin: 0 }}>เงินที่ใช้บริหารงานประจำสัปดาห์/เดือน — ไม่รวมกองทุน ไม่รวมเงินยืม</p>
+          <DebtBanner loans={loans.items.filter((l) => l.borrower === 'own')} types={types} />
           <p className="bigfig">{fmtBaht(b.own.balance)} บาท</p>
           <table className="tbl tbl--paper" aria-label="ที่มาของเงินหมุนเวียน">
             <tbody>
@@ -108,19 +110,19 @@ export default function BalancePage() {
       )}
 
       {kind === 'debt' && (
-        <section className="card" aria-label="หนี้สินภายนอก">
-          <h2>🧾 หนี้สินภายนอก</h2>
+        <section className="card" aria-label="หนี้ภายนอก">
+          <h2>🧾 หนี้ภายนอก</h2>
           <p className="muted small" style={{ margin: 0 }}>เงินที่ยืมจากบุคคลภายนอกและยังต้องคืน (ไม่รวมการยืมระหว่างกองทุนภายใน) — นับทุกปี ไม่ใช่เฉพาะปีนี้</p>
           <p className="bigfig">{fmtBaht(debt)} บาท</p>
           {ext.length === 0 ? <p className="muted">ยังไม่มีหนี้สินภายนอก</p> : (
             <table className="tbl tbl--paper" aria-label="รายการหนี้สินภายนอก">
-              <thead><tr><th>วันที่ยืม</th><th>ผู้ให้ยืม</th><th className="num">ยืม</th><th className="num">คืนแล้ว</th><th className="num">ค้างคืน</th></tr></thead>
-              <tbody>{[...ext].sort((x, y) => x.date.localeCompare(y.date)).map((l) => <tr key={l.id}><td>{fmtDate(l.date)}</td><td>{l.lender.name || 'บุคคลภายนอก'}<br /><span className="muted small">{l.purpose}</span></td><td className="num">{m(l.principal)}</td><td className="num">{m(repaidOf(l))}</td><td className="num"><b>{m(loanBalance(l))}</b></td></tr>)}</tbody>
+              <thead><tr><th>วันที่ยืม</th><th>ผู้ให้ยืม → ผู้ยืม</th><th className="num">ยืม</th><th className="num">คืนแล้ว</th><th className="num">ค้างคืน</th></tr></thead>
+              <tbody>{[...ext].sort((x, y) => x.date.localeCompare(y.date)).map((l) => <tr key={l.id}><td>{fmtDate(l.date)}</td><td>{l.lender.name || 'บุคคลภายนอก'}{l.borrower ? <> → <b>{l.borrower === 'own' ? 'เงินหมุนเวียน' : types.find((t) => t.id === l.borrower)?.name ?? '(ถูกลบ)'}</b></> : null}<br /><span className="muted small">{l.purpose}</span></td><td className="num">{m(l.principal)}</td><td className="num">{m(repaidOf(l))}</td><td className="num"><b>{m(loanBalance(l))}</b></td></tr>)}</tbody>
               <tfoot><tr><td colSpan={4}>รวมค้างคืน</td><td className="num">{m(debt)}</td></tr></tfoot>
             </table>
           )}
-          {ext.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={ext.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${l.lender.name || 'บุคคลภายนอก'} · ${l.purpose}`, value: loanBalance(l) }))} tone="out" /></>}
-          <LoansPanel store={loans} funds={types.filter((t) => t.active)} canWrite={can(role, 'statement')} only="person" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
+          {ext.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={ext.filter((l) => loanBalance(l) > 0).map((l) => ({ label: [l.lender.name || "บุคคลภายนอก", l.purpose].filter(Boolean).join(" · "), value: loanBalance(l) }))} tone="out" /></>}
+          <LoansPanel store={loans} funds={types.filter((t) => t.active)} types={types} canWrite={can(role, 'statement')} only="person" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
         </section>
       )}
     </>

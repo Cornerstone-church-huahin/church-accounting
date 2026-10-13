@@ -164,7 +164,7 @@ export default function Adjust({ year }: { year: number }) {
     pb.put([{ ...l, link: { kind: 'loan', id: ln.id } }])
     setLoanPick(null); setMsg(isOut ? 'บันทึกเป็นการคืนเงินยืมแล้ว' : 'ผูกกับเงินยืมแล้ว (ไม่นับเป็นรายรับ)')
   }
-  const loanLabel = (id?: string) => { const x = loanOf(id); return x ? `${x.lender.kind === 'fund' ? 'กองทุน' : x.lender.name} · ${x.purpose}` : '' }
+  const loanLabel = (id?: string) => { const x = loanOf(id); return x ? `${x.lender.kind === 'fund' ? 'กองทุน' : x.lender.name}${x.purpose ? ` · ${x.purpose}` : ""}` : '' }
   const lineRow = (l: PassbookLine, extra?: React.ReactNode) => (
     <li key={l.id} className="pbline">
       <div>{manage && canWrite && <input type="checkbox" aria-label={`เลือก ${fmtBaht(l.amount)} ${fmtDate(l.date)}`} checked={sel.has(l.id)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(l.id); else n.delete(l.id); setSel(n) }} style={{ marginRight: 8, width: 20, height: 20, verticalAlign: -4 }} />}<b>{fmtBaht(l.amount)}</b> <span className="badge">{KIND_LABEL[l.kind]}</span> <span className="muted small">{fmtDate(l.date)}{l.desc ? ` · ${l.desc}` : ''}</span></div>
@@ -223,7 +223,7 @@ export default function Adjust({ year }: { year: number }) {
               <p className="muted small">นับจาก{opening ? `ยอดยกมา ${fmtDate(opening.date)}` : ' 1 ม.ค.'} · ตอนย้ายเงินเข้าบัญชีวัตถุประสงค์ ให้ไปที่ช่อง 3 เพื่อบันทึกการย้าย</p>
             </>
           )}
-          <LoansPanel store={loans} funds={types.list.filter((t) => t.active && isFundType(t))} canWrite={canWrite} />
+          <LoansPanel store={loans} funds={types.list.filter((t) => t.active && isFundType(t))} types={types.list} canWrite={canWrite} />
         </section>
       )}
 

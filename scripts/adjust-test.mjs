@@ -42,8 +42,9 @@ try {
   // เงินยืม: เพิ่ม → คืนบางส่วน → ใบสรุปแสดงค้างคืน
   await page.getByRole('button', { name: '＋ บันทึกเงินยืม' }).click()
   await page.getByLabel('ชื่อผู้ให้ยืม').fill('พี่ก')
-  await page.getByLabel('ยืมไปใช้ทำอะไร').fill('ทำสุสาน')
-  await page.getByLabel('ยืมไปใช้ทำอะไร').locator('xpath=ancestor::div[contains(@class,"pbdraft")]').locator('input[inputmode="decimal"], input[inputmode="numeric"]').last().fill('100000')
+  await page.locator('#ln-borrower').selectOption({ label: '💰 กองทุนสุสาน' })
+  await page.getByLabel(/ใช้ทำอะไร/).fill('ทำสุสาน')
+  await page.getByLabel(/ใช้ทำอะไร/).locator('xpath=ancestor::div[contains(@class,"pbdraft")]').locator('input[inputmode="decimal"], input[inputmode="numeric"]').last().fill('100000')
   await page.getByRole('button', { name: 'บันทึกเงินยืม' }).click()
   must(await page.getByText(/ค้างคืน 100,000\.00/).first().isVisible(), 'loan recorded with outstanding balance')
   await page.getByRole('button', { name: '＋ บันทึกการคืน' }).click()
