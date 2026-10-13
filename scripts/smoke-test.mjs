@@ -49,7 +49,7 @@ await page.getByLabel('ธนาคาร', { exact: true }).fill('กสิก�
 await page.getByLabel('เลขท้าย 4 ตัว').fill('1234')
 await page.getByRole('button', { name: 'เพิ่มบัญชี' }).click()
 await page.getByLabel('ชื่อประเภทถวายใหม่').fill('ถวายค่าไฟ')
-await page.getByRole('button', { name: 'เพิ่ม', exact: true }).click()
+await page.getByLabel('ชื่อประเภทถวายใหม่').locator('xpath=following-sibling::button').click()
 await must(await page.getByText('ถวายค่าไฟ').first().isVisible(), 'custom income type')
 await shot('02-settings')
 

@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EXPENSE_CATS } from './expenseCats'
+import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
 
-describe('หมวดรายจ่ายตั้งต้น', () => {
-  it('15 หมวดหลัก 150 รายการ', () => {
-    expect(DEFAULT_EXPENSE_CATS.filter((c) => c.kind === 'group')).toHaveLength(15)
-    expect(DEFAULT_EXPENSE_CATS.filter((c) => c.kind === 'item')).toHaveLength(150)
+describe('รายการจ่ายตั้งต้น (ตามใบเบิก-จ่ายเงินสด)', () => {
+  it('11 รายการตามใบ เรียงตามลำดับในใบ', () => {
+    expect(DEFAULT_EXPENSE_CATS.map((c) => c.name)).toEqual(['ค่าน้ำมันออกเยี่ยม อ.กฤต', 'ค่าน้ำมันออกเยี่ยม อ.พิชิต', 'เงินเดือน อ.กฤต', 'เงินเดือน อ.พิชิต', 'เงินเดือน อ.สายฝน', 'ค่าอาหารวันอาทิตย์', 'ค่าอาหารคนงาน', 'อุปกรณ์สำนักงาน', 'ค่าอินเตอร์เน็ต', 'ค่าไฟ', 'ค่าน้ำ'])
+    expect(DEFAULT_EXPENSE_CATS.every((c) => c.kind === 'group' && c.active)).toBe(true)
   })
-  it('จำนวนรายการต่อหมวดตรงตามที่กำหนด', () => {
-    const n = (g: number) => DEFAULT_EXPENSE_CATS.filter((c) => c.kind === 'item' && c.group === `eg-${g}`).length
-    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(n)).toEqual([7, 8, 9, 14, 17, 11, 4, 9, 13, 9, 12, 5, 15, 5, 12])
-  })
-  it('id ไม่ซ้ำ และชื่อไม่ว่าง', () => {
+  it('id ไม่ซ้ำ และไม่ชนกับ id ของแคตตาล็อกเก่า', () => {
     const ids = DEFAULT_EXPENSE_CATS.map((c) => c.id)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(DEFAULT_EXPENSE_CATS.every((c) => c.name.length > 0)).toBe(true)
-    expect(DEFAULT_EXPENSE_CATS.find((c) => c.id === 'ei-5-15')?.name).toBe('ค่า พ.ร.บ. รถ')
+    expect(ids.some(isLegacyCatId)).toBe(false)
+    expect(isLegacyCatId('ei-3-1') && isLegacyCatId('eg-12')).toBe(true)
+    expect(isLegacyCatId('eg-k3x9')).toBe(false)
   })
 })

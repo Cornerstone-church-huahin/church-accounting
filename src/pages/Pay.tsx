@@ -4,9 +4,9 @@ import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
+import CatOptions from '../components/CatOptions'
 import CaptureBar from '../components/CaptureBar'
 import ManualExpense from '../components/ManualExpense'
-import { quickExpenseList } from '../lib/quickExpenses'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
 import { usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
@@ -47,7 +47,7 @@ export default function Pay({ year }: { year: number }) {
   const income = useIncome(year)
   const rounds = useRounds(year)
   const types = useIncomeTypes()
-  const { settings, save: saveSettings } = useSettings()
+  const { settings } = useSettings()
   const canWrite = can(role, 'voucherPay')
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: ExpenseEntry | null; channel: Channel } | null>(null)
@@ -128,7 +128,7 @@ export default function Pay({ year }: { year: number }) {
         </div>
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense quick={quickExpenseList(settings)} cats={cats.list} onNewQuick={(q) => saveSettings({ quickExpenses: [...quickExpenseList(settings), q] })} entries={xs} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense cats={cats.list} onNewItem={(name) => { const ex = cats.groups.find((g) => g.name === name); if (ex) return ex; const id = newId('xg'); const g = { id, kind: 'group' as const, group: id, code: String(cats.groups.reduce((m, x) => Math.max(m, Number(x.code) || 0), 0) + 1), name, order: cats.list.reduce((m, x) => Math.max(m, x.order), 0) + 1, active: true, updated: 0 }; return cats.put([g]) ? g : null }} entries={xs} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
@@ -251,7 +251,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
       <div className="field"><label htmlFor="e-cat">หมวดรายจ่าย (เลือกจากรายการ)</label>
         <select id="e-cat" className="input" value={catId} onChange={(e) => { setCatId(e.target.value); const x = cats.byId(e.target.value); if (x && !desc.trim()) setDesc(x.name) }}>
           <option value="">— ยังไม่ระบุหมวด —</option>
-          {cats.groups.filter((g) => g.active).map((g) => <optgroup key={g.id} label={`${g.code}. ${g.name}`}><option value={g.id}>{g.code}. {g.name} (ทั้งหมวด)</option>{cats.itemsOf(g.id).filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.code} {x.name}</option>)}</optgroup>)}
+          <CatOptions groups={cats.groups} itemsOf={cats.itemsOf} />
         </select>
       </div>
       <div className="field"><label htmlFor="e-desc">รายการ</label><input id="e-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="เช่น ค่าไฟฟ้า ก.ย. 69" /></div>
@@ -324,8 +324,8 @@ function ExpenseFlow({ year, channel, initialFile, exp, onClose }: { year: numbe
     const out: ExpInit = { file }
     try {
       if (hasKey) {
-        const r = await readBill(file, cats.list.filter((x) => x.kind === 'item' && x.active).map((x) => ({ code: x.code, name: x.name })))
-        const cat = r.category ? cats.list.find((x) => x.kind === 'item' && x.code === r.category) : undefined
+        const r = await readBill(file, cats.list.filter((x) => x.active && (x.kind === 'item' || cats.itemsOf(x.id).length === 0)).map((x) => ({ code: x.code, name: x.name })))
+        const cat = r.category ? cats.list.find((x) => x.active && x.code === r.category && (x.kind === 'item' || cats.itemsOf(x.id).length === 0)) : undefined
         Object.assign(out, {
           date: r.date, amount: r.total, desc: r.summary ?? cat?.name, catId: cat?.id, method: r.method, ref: r.ref, due: r.due,
           ...(channel === 'bill' ? { who: r.vendor } : r.vendor ? { note: `ร้าน/ผู้รับเงิน: ${r.vendor}` } : {}),

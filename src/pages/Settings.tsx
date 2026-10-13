@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
 import { isFundType } from '../lib/funds'
-import { DEFAULT_QUICK_EXPENSES, quickExpenseList } from '../lib/quickExpenses'
-import { useExpenses, useFundMoves, useLoans, usePassbook, useSheetFiles, useWeekCloses, useOpening, useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
+import { DEFAULT_EXPENSE_CATS } from '../lib/expenseCats'
+import { DEFAULT_INCOME_TYPES, useExpenses, useFundMoves, useLoans, usePassbook, useSheetFiles, useWeekCloses, useOpening, useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht } from '../lib/money'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
@@ -39,7 +39,6 @@ export default function Settings() {
       {can(role, 'settings') && <General />}
       {can(role, 'settings') && <Types />}
       {can(role, 'settings') && <ExpenseCatsCard />}
-      {can(role, 'settings') && <QuickExpensesCard />}
       {can(role, 'settings') && <Accounts />}
       {can(role, 'settings') && <OpeningCard />}
       {can(role, 'settings') && <DataClean />}
@@ -222,9 +221,15 @@ function Types() {
             <label className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={isFundType(x)} onChange={(e) => t.put([{ ...x, fund: e.target.checked }])} />กองทุน</label>
             <button type="button" className="mini" onClick={() => rename(x.id, x.name)}>แก้ชื่อ</button>
             <button type="button" className="mini" onClick={() => t.put([{ ...x, active: !x.active }])}>{x.active ? 'ปิดใช้' : 'เปิดใช้'}</button>
+            <button type="button" className="mini" aria-label={`ลบ ${x.name}`} onClick={() => confirm(`ลบประเภท “${x.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`) && t.remove(x.id)}>🗑️</button>
           </li>
         ))}
       </ul>
+      <div className="row"><button type="button" className="btn btn--ghost" onClick={() => {
+        if (!confirm('คืนเป็นรายการตามใบบันทึกการถวายล่าสุด?\nประเภทที่เพิ่มเองจะถูกลบ และรายการตามใบกลับมาครบ')) return
+        const keep = new Set(DEFAULT_INCOME_TYPES.map((d) => d.id))
+        t.put([...t.list.filter((x) => !keep.has(x.id)).map((x) => ({ ...x, deleted: true })), ...DEFAULT_INCOME_TYPES.map((d) => ({ ...d, updated: 0, deleted: false }))])
+      }}>↺ คืนเป็นรายการตามใบ</button></div>
       <div className="row"><input className="input grow" aria-label="ชื่อประเภทถวายใหม่" placeholder="ชื่อประเภทใหม่ เช่น ถวายค่าไฟ" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} /><button type="button" className="btn btn--gold" onClick={add}>เพิ่ม</button></div>
     </Fold>
   )
@@ -394,55 +399,40 @@ function Reader() {
 /** หมวดรายจ่าย: 15 หมวดหลัก / 150 รายการตั้งต้น — แก้ชื่อ ซ่อน ลบ เพิ่มรายการ/หมวดใหม่ได้ (ใช้ในใบเบิกและตารางรายจ่ายของใบสรุป) */
 function ExpenseCatsCard() {
   const c = useExpenseCats()
-  const [newItem, setNewItem] = useState<Record<string, string>>({})
-  const [newGroup, setNewGroup] = useState('')
+  const [name, setName] = useState('')
   const maxOrder = c.list.reduce((m, x) => Math.max(m, x.order), 0)
   const rename = (id: string) => {
     const x = c.byId(id)
-    const n = prompt('ชื่อ', x?.name)?.trim()
+    const n = prompt('ชื่อรายการ', x?.name)?.trim()
     if (x && n) c.put([{ ...x, name: n }])
   }
-  const addItem = (g: { id: string; code: string }) => {
-    const n = (newItem[g.id] ?? '').trim()
-    if (!n) return
-    const next = c.itemsOf(g.id).reduce((m, x) => Math.max(m, Number(x.code.split('.')[1]) || 0), 0) + 1
-    c.put([{ id: newId('ei'), kind: 'item', group: g.id, code: `${g.code}.${next}`, name: n, order: maxOrder + 1, active: true, updated: 0 }])
-    setNewItem({ ...newItem, [g.id]: '' })
-  }
-  const addGroup = () => {
-    const n = newGroup.trim()
-    if (!n) return
-    const id = newId('eg')
+  const add = () => {
+    const n = name.trim()
+    if (!n || c.groups.some((g) => g.name === n)) return
+    const id = newId('xg')
     c.put([{ id, kind: 'group', group: id, code: String(c.groups.reduce((m, x) => Math.max(m, Number(x.code) || 0), 0) + 1), name: n, order: maxOrder + 1, active: true, updated: 0 }])
-    setNewGroup('')
+    setName('')
+  }
+  const reset = () => {
+    if (!confirm('คืนเป็นรายการตามใบเบิก-จ่ายเงินสดล่าสุด?\nรายการที่เพิ่มเองจะถูกลบ และรายการตามใบกลับมาครบ')) return
+    const keep = new Set(DEFAULT_EXPENSE_CATS.map((d) => d.id))
+    c.put([...c.list.filter((x) => !keep.has(x.id)).map((x) => ({ ...x, deleted: true })), ...DEFAULT_EXPENSE_CATS.map((d) => ({ ...d, updated: 0, deleted: false }))])
   }
   return (
-    <Fold id="h-ecat" title={<>🧾 หมวดรายจ่าย ({c.groups.length} หมวด · {c.list.filter((x) => x.kind === 'item').length} รายการ)</>}>
-      <p className="muted small">ใช้เลือกในใบเบิก และเป็นแถวของตารางรายจ่ายในใบสรุป (แถวละหมวดหลัก) · แก้ชื่อ ซ่อน (ไม่ให้เลือก) หรือลบได้ เพิ่มรายการ/หมวดใหม่ได้</p>
-      {c.groups.map((g) => {
-        const items = c.itemsOf(g.id)
-        return (
-          <details key={g.id} className="ecat">
-            <summary style={g.active ? undefined : { opacity: 0.55 }}><b>{g.code}. {g.name}</b> <span className="muted small">({items.length} รายการ)</span></summary>
-            <div className="row" style={{ gap: 8, margin: '0.3rem 0' }}>
-              <button type="button" className="mini" onClick={() => rename(g.id)}>แก้ชื่อหมวด</button>
-              <button type="button" className="mini" onClick={() => c.put([{ ...g, active: !g.active }])}>{g.active ? 'ซ่อนหมวด' : 'แสดงหมวด'}</button>
-            </div>
-            <ul className="list">
-              {items.map((x) => (
-                <li key={x.id}>
-                  <span className="grow" style={x.active ? undefined : { opacity: 0.55 }}>{x.code} {x.name}</span>
-                  <button type="button" className="mini" onClick={() => rename(x.id)}>แก้ชื่อ</button>
-                  <button type="button" className="mini" onClick={() => c.put([{ ...x, active: !x.active }])}>{x.active ? 'ซ่อน' : 'แสดง'}</button>
-                  <button type="button" className="mini" aria-label={`ลบ ${x.name}`} onClick={() => { if (confirm(`ลบ “${x.name}” ?\n(ใบเบิกเก่าที่ใช้รายการนี้จะไปอยู่ในแถว “ยังไม่ระบุหมวด”)`)) c.put([{ ...x, deleted: true }]) }}>🗑️</button>
-                </li>
-              ))}
-            </ul>
-            <div className="row"><input className="input grow" aria-label={`เพิ่มรายการในหมวด ${g.name}`} placeholder="เพิ่มรายการในหมวดนี้" value={newItem[g.id] ?? ''} onChange={(e) => setNewItem({ ...newItem, [g.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addItem(g)} /><button type="button" className="btn btn--gold" onClick={() => addItem(g)}>เพิ่ม</button></div>
-          </details>
-        )
-      })}
-      <div className="row" style={{ marginTop: 8 }}><input className="input grow" aria-label="ชื่อหมวดหลักใหม่" placeholder="เพิ่มหมวดหลักใหม่" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addGroup()} /><button type="button" className="btn btn--gold" onClick={addGroup}>เพิ่มหมวด</button></div>
+    <Fold id="h-ecat" title={<>🧾 รายการจ่าย ({c.groups.length} รายการ)</>}>
+      <p className="muted small">รายการที่เลือกได้ในแท็บ จ่าย (ตามใบเบิก-จ่ายเงินสด) และเป็นแถวของตารางรายจ่ายในใบสรุป · เพิ่มได้ที่นี่หรือพิมพ์ชื่อใหม่ตอนบันทึกรายจ่าย · ซ่อนหรือลบได้ (รายจ่ายที่บันทึกไว้แล้วไม่หาย)</p>
+      <ul className="list">
+        {c.groups.map((g) => (
+          <li key={g.id}>
+            <span className="grow" style={g.active ? undefined : { opacity: 0.55 }}>{g.name}</span>
+            <button type="button" className="mini" onClick={() => rename(g.id)}>แก้ชื่อ</button>
+            <button type="button" className="mini" onClick={() => c.put([{ ...g, active: !g.active }])}>{g.active ? 'ซ่อน' : 'แสดง'}</button>
+            <button type="button" className="mini" aria-label={`ลบ ${g.name}`} onClick={() => confirm(`ลบ “${g.name}” ออกจากรายการจ่าย?\n(รายจ่ายที่บันทึกไว้แล้วจะแสดงเป็น “ยังไม่ระบุหมวด”)`) && c.remove(g.id)}>🗑️</button>
+          </li>
+        ))}
+      </ul>
+      <div className="row"><input className="input grow" aria-label="ชื่อรายการจ่ายใหม่" placeholder="เพิ่มรายการจ่ายใหม่ เช่น ค่าน้ำมันรถสีขาว" value={name} onChange={(e) => setName(e.target.value)} /><button type="button" className="btn btn--gold" onClick={add}>เพิ่ม</button></div>
+      <div className="row"><button type="button" className="btn btn--ghost" onClick={reset}>↺ คืนเป็นรายการตามใบ</button></div>
     </Fold>
   )
 }
@@ -477,41 +467,6 @@ function OpeningCard() {
       {funds.map((t) => <div className="field" key={t.id}><label>{t.name}</label><MoneyInput value={unm[t.id] ?? null} onChange={(v) => setUnm({ ...unm, [t.id]: v })} /></div>)}
       <button type="button" className="btn btn--gold" onClick={save}>บันทึกยอดยกมา</button>
       {msg && <p className={msg.startsWith('บันทึก') ? 'ok' : 'err'} role="status">{msg}</p>}
-    </Fold>
-  )
-}
-
-/** รายการจ่ายประจำในใบเบิก-จ่ายเงินสด: เลือกจากรายชื่อนี้ในแท็บ จ่าย › บันทึกด้วยมือ (ผูกหมวดรายจ่ายให้อัตโนมัติ) */
-function QuickExpensesCard() {
-  const { settings, save } = useSettings()
-  const cats = useExpenseCats()
-  const list = quickExpenseList(settings)
-  const [name, setName] = useState('')
-  const [catId, setCatId] = useState('')
-  const catLabel = (id?: string) => { const c = id ? cats.byId(id) : undefined; return c ? `${c.code} ${c.name}` : 'ยังไม่ระบุหมวด' }
-  const set = (next: typeof list) => save({ quickExpenses: next })
-  return (
-    <Fold id="h-quick" title={<>📋 รายการจ่ายประจำ (ใบเบิก-จ่ายเงินสด)</>}>
-      <p className="muted small">รายชื่อที่เลือกได้ในแท็บ จ่าย › 1 บันทึกด้วยมือ (ตามใบเบิก-จ่ายเงินสด) แต่ละรายการผูกกับหมวดรายจ่ายเพื่อให้ใบสรุปแยกหมวดถูก · เพิ่ม ลบ แก้หมวดได้</p>
-      <ul className="list">
-        {list.map((q) => (
-          <li key={q.id}>
-            <span className="grow"><b>{q.name}</b><br /><span className="small muted">{catLabel(q.catId)}</span></span>
-            <select className="input" style={{ maxWidth: '9rem' }} aria-label={`หมวดของ ${q.name}`} value={q.catId ?? ''} onChange={(e) => set(list.map((x) => (x.id === q.id ? { ...x, catId: e.target.value || undefined } : x)))}>
-              <option value="">ไม่ระบุหมวด</option>
-              {cats.list.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.kind === 'group' ? `${c.code}. ${c.name} (ทั้งหมวด)` : `${c.code} ${c.name}`}</option>)}
-            </select>
-            <button type="button" className="mini" aria-label={`ลบ ${q.name}`} onClick={() => confirm(`ลบ “${q.name}” ออกจากรายการจ่ายประจำ?`) && set(list.filter((x) => x.id !== q.id))}>🗑️</button>
-          </li>
-        ))}
-      </ul>
-      <div className="field"><label htmlFor="q-name">ชื่อรายการใหม่</label><input id="q-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ค่าน้ำดื่ม" /></div>
-      <div className="field"><label htmlFor="q-cat">หมวดรายจ่าย</label>
-        <select id="q-cat" className="input" value={catId} onChange={(e) => setCatId(e.target.value)}><option value="">ไม่ระบุหมวด</option>{cats.list.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.kind === 'group' ? `${c.code}. ${c.name} (ทั้งหมวด)` : `${c.code} ${c.name}`}</option>)}</select></div>
-      <div className="row">
-        <button type="button" className="btn btn--gold grow" onClick={() => { const n = name.trim(); if (!n) return; set([...list, { id: newId('q'), name: n, ...(catId ? { catId } : {}) }]); setName(''); setCatId('') }}>เพิ่มรายการ</button>
-        <button type="button" className="btn btn--ghost" onClick={() => confirm('คืนรายการจ่ายประจำเป็นค่าตั้งต้นตามใบเบิกล่าสุด?') && set(DEFAULT_QUICK_EXPENSES)}>คืนค่าตั้งต้น</button>
-      </div>
     </Fold>
   )
 }

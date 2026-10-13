@@ -16,10 +16,7 @@ export interface Settings extends SharedItem {
   matchDays: number
   /** จำไว้ว่าไฟล์สเตตเมนต์ของแต่ละบัญชีใช้คอลัมน์ไหน */
   csvMaps: Record<string, CsvMap>
-  /** รายการจ่ายประจำในใบเบิก-จ่ายเงินสด (ไม่ตั้ง = ใช้ค่าตั้งต้น) */
-  quickExpenses?: QuickExpense[]
 }
-export interface QuickExpense { id: string; name: string; catId?: string }
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 
 export type Method = 'cash' | 'transfer'
