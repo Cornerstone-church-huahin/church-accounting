@@ -1,5 +1,10 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import LoansPanel from '../components/LoansPanel'
+import { can } from '../lib/access'
+import { useLoans } from '../lib/data'
+import { loanBalance, repaidOf, summarizeLoans } from '../lib/loans'
+import { useRole } from '../lib/members'
 import { CumLine, Donut, GroupedBars, HBars, Legend } from '../components/StatCharts'
 import { fmtBaht, fmtDate, addDays, todayISO } from '../lib/money'
 import { computeSeries } from '../lib/seriesLedger'
@@ -7,18 +12,23 @@ import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { useYear } from '../lib/year'
 
-export type BalanceKind = 'own' | 'fund' | 'total'
+export type BalanceKind = 'own' | 'fund' | 'total' | 'debt'
 const KINDS: { k: BalanceKind; icon: string; title: string }[] = [
-  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวม' },
+  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวม' }, { k: 'debt', icon: '🧾', title: 'หนี้สินภายนอก' },
 ]
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
 /** รายละเอียดเงินหมุนเวียน / กองทุน / รวม (เปิดจากแถบสามช่องใต้ชื่อบัญชีหน้าแรก) */
 export default function BalancePage() {
   const { kind: raw } = useParams()
-  const kind: BalanceKind = raw === 'fund' || raw === 'total' ? raw : 'own'
+  const kind: BalanceKind = raw === 'fund' || raw === 'total' || raw === 'debt' ? raw : 'own'
   const { year } = useYear()
   const { balances: b, input, opening } = useBalances(year)
+  const loans = useLoans()
+  const role = useRole()
+  const ext = loans.items.filter((l) => l.lender.kind === 'person')
+  const debt = summarizeLoans(loans.items).external
+  const types = input.types
 
   // รายเดือนของปีที่เลือก + ยอดสะสมต่อจากยอดตั้งต้น/ปีก่อน (เฉพาะรายรับ-รายจ่ายปกติ)
   const series = useMemo(() => {
@@ -37,7 +47,7 @@ export default function BalancePage() {
   return (
     <>
       <div className="page-head"><h1>เงินคริสตจักร</h1><Link to="/" className="mini">‹ หน้าแรก</Link></div>
-      <div className="subtabs no-print" role="tablist" aria-label="เงินหมุนเวียน กองทุน รวม" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="subtabs no-print" role="tablist" aria-label="เงินหมุนเวียน กองทุน รวม" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         {KINDS.map((x) => <Link key={x.k} role="tab" aria-selected={kind === x.k} className={`subtab-link${kind === x.k ? ' on' : ''}`} to={`/balance/${x.k}`}>{x.icon} {x.title}</Link>)}
       </div>
       <p className="muted small" style={{ textAlign: 'center' }}>ยอด ณ {fmtDate(today)}{opening ? ` · นับต่อจากยอดตั้งต้น ${fmtDate(opening.date)}` : ' · ยังไม่ได้ตั้งยอดยกมา (ตั้งค่า › ยอดยกมา)'}</p>
@@ -94,6 +104,23 @@ export default function BalancePage() {
           <div className="stat-title">สัดส่วนเงินทั้งหมด (บาท · %)</div>
           <Donut rows={[{ label: 'เงินหมุนเวียน', value: Math.max(0, b.own.balance) }, ...b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance) }))].filter((r) => r.value > 0).sort((x, y) => y.value - x.value)} tone="in" />
           <p className="muted small">ยอดเหล่านี้คำนวณจากยอดตั้งต้น + รายการที่บันทึกในแอป ควรเทียบกับยอดในสมุดบัญชีธนาคารและเงินสดจริงที่ขั้น 3 ปรับ</p>
+        </section>
+      )}
+
+      {kind === 'debt' && (
+        <section className="card" aria-label="หนี้สินภายนอก">
+          <h2>🧾 หนี้สินภายนอก</h2>
+          <p className="muted small" style={{ margin: 0 }}>เงินที่ยืมจากบุคคลภายนอกและยังต้องคืน (ไม่รวมการยืมระหว่างกองทุนภายใน) — นับทุกปี ไม่ใช่เฉพาะปีนี้</p>
+          <p className="bigfig">{fmtBaht(debt)} บาท</p>
+          {ext.length === 0 ? <p className="muted">ยังไม่มีหนี้สินภายนอก</p> : (
+            <table className="tbl tbl--paper" aria-label="รายการหนี้สินภายนอก">
+              <thead><tr><th>วันที่ยืม</th><th>ผู้ให้ยืม</th><th className="num">ยืม</th><th className="num">คืนแล้ว</th><th className="num">ค้างคืน</th></tr></thead>
+              <tbody>{[...ext].sort((x, y) => x.date.localeCompare(y.date)).map((l) => <tr key={l.id}><td>{fmtDate(l.date)}</td><td>{l.lender.name || 'บุคคลภายนอก'}<br /><span className="muted small">{l.purpose}</span></td><td className="num">{m(l.principal)}</td><td className="num">{m(repaidOf(l))}</td><td className="num"><b>{m(loanBalance(l))}</b></td></tr>)}</tbody>
+              <tfoot><tr><td colSpan={4}>รวมค้างคืน</td><td className="num">{m(debt)}</td></tr></tfoot>
+            </table>
+          )}
+          {ext.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={ext.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${l.lender.name || 'บุคคลภายนอก'} · ${l.purpose}`, value: loanBalance(l) }))} tone="out" /></>}
+          <LoansPanel store={loans} funds={types.filter((t) => t.active)} canWrite={can(role, 'statement')} only="person" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
         </section>
       )}
     </>

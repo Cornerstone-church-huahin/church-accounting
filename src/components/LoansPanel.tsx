@@ -9,13 +9,14 @@ interface Draft { id?: string; kind: 'person' | 'fund'; name: string; fundId: st
 const blank = (fundId: string): Draft => ({ kind: 'person', name: '', fundId, purpose: '', date: todayISO(), principal: null, note: '' })
 
 /** ทะเบียนเงินยืม: เพิ่ม/แก้/ลบได้ทุกเมื่อ ไม่ต้องมีตัวเลขตั้งต้น · ยืมจากบุคคลภายนอก หรือจากกองทุนอื่น */
-export default function LoansPanel({ store, funds, canWrite }: { store: Store; funds: IncomeType[]; canWrite: boolean }) {
+export default function LoansPanel({ store, funds, canWrite, only, title }: { store: Store; funds: IncomeType[]; canWrite: boolean; /** แสดง/เพิ่มเฉพาะเงินยืมประเภทนี้ (person = หนี้สินภายนอก) */ only?: 'person' | 'fund'; title?: string }) {
   const [form, setForm] = useState<Draft | null>(null)
   const [pay, setPay] = useState<{ loanId: string; date: string; amount: number | null; note: string } | null>(null)
   const [err, setErr] = useState('')
   const fundName = (id?: string) => funds.find((f) => f.id === id)?.name ?? '(กองทุนที่ถูกลบ)'
-  const sum = summarizeLoans(store.items)
-  const live = [...store.items].sort((a, b) => a.date.localeCompare(b.date))
+  const shown = only ? store.items.filter((l) => l.lender.kind === only) : store.items
+  const sum = summarizeLoans(shown)
+  const live = [...shown].sort((a, b) => a.date.localeCompare(b.date))
 
   const save = () => {
     if (!form) return
@@ -38,7 +39,7 @@ export default function LoansPanel({ store, funds, canWrite }: { store: Store; f
 
   return (
     <section aria-label="เงินยืม">
-      <h3 style={{ marginTop: 14 }}>เงินยืม (หนี้ที่ต้องคืน)</h3>
+      <h3 style={{ marginTop: 14 }}>{title ?? 'เงินยืม (หนี้ที่ต้องคืน)'}</h3>
       <p className="muted small">เงินยืมไม่ใช่รายรับ และการคืนไม่ใช่รายจ่าย · เพิ่มได้ทุกเมื่อ ใส่ยอดที่ไม่แน่ใจไว้ก่อนแล้วแก้ภายหลังได้</p>
       {live.length === 0 && <p className="muted">ยังไม่มีรายการเงินยืม</p>}
       {live.map((l) => {
@@ -69,8 +70,8 @@ export default function LoansPanel({ store, funds, canWrite }: { store: Store; f
       {err && <p className="err" role="alert">{err}</p>}
       {canWrite && (form ? (
         <div className="pbdraft">
-          <div className="field"><label htmlFor="ln-kind">ยืมจาก</label>
-            <select id="ln-kind" className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as 'person' | 'fund' })}><option value="person">บุคคลภายนอก (พี่น้อง)</option><option value="fund">กองทุนในคริสตจักร</option></select></div>
+          {!only && <div className="field"><label htmlFor="ln-kind">ยืมจาก</label>
+            <select id="ln-kind" className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as 'person' | 'fund' })}><option value="person">บุคคลภายนอก (พี่น้อง)</option><option value="fund">กองทุนในคริสตจักร</option></select></div>}
           {form.kind === 'person'
             ? <div className="field"><label htmlFor="ln-name">ชื่อผู้ให้ยืม</label><input id="ln-name" className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             : <div className="field"><label htmlFor="ln-fund">กองทุนที่ให้ยืม</label><select id="ln-fund" className="input" value={form.fundId} onChange={(e) => setForm({ ...form, fundId: e.target.value })}>{funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></div>}
@@ -80,7 +81,7 @@ export default function LoansPanel({ store, funds, canWrite }: { store: Store; f
           <div className="field"><label htmlFor="ln-note">หมายเหตุ (ถ้ามี)</label><input id="ln-note" className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
           <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{form.id ? 'บันทึกการแก้ไข' : 'บันทึกเงินยืม'}</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr('') }}>ยกเลิก</button></div>
         </div>
-      ) : <button type="button" className="btn btn--ghost" onClick={() => setForm(blank(funds[0]?.id ?? ''))}>＋ บันทึกเงินยืม</button>)}
+      ) : <button type="button" className="btn btn--ghost" onClick={() => setForm({ ...blank(funds[0]?.id ?? ''), ...(only ? { kind: only } : {}) })}>{only === 'person' ? '＋ บันทึกหนี้สินใหม่' : '＋ บันทึกเงินยืม'}</button>)}
     </section>
   )
 }
