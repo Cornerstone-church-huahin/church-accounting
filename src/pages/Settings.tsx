@@ -32,16 +32,16 @@ export default function Settings() {
   return (
     <>
       <div className="page-head"><h1>ตั้งค่า</h1></div>
-      <Fold id="h-inst" title="📲 ติดตั้งเป็นแอป"><InstallApp /></Fold>
-      <Connect />
-      {cfg && <Members />}
-      {can(role, 'income') && <Reader />}
-      {can(role, 'settings') && <Accounts />}
       {can(role, 'settings') && <General />}
       {can(role, 'settings') && <OpeningCard />}
       {can(role, 'settings') && <Types />}
       {can(role, 'settings') && <ExpenseCatsCard />}
       {can(role, 'settings') && <DataClean />}
+      <Fold id="h-inst" title="📲 ติดตั้งเป็นแอป"><InstallApp /></Fold>
+      <Connect />
+      {cfg && <Members />}
+      {can(role, 'income') && <Reader />}
+      {can(role, 'settings') && <Accounts />}
       <Display />
     </>
   )
