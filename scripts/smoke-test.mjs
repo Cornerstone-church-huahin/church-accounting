@@ -303,7 +303,7 @@ await must(await page.getByText(/ยังไม่มีกองทุน/).is
 await page.getByRole('button', { name: 'งบประมาณ (รายปี)' }).click()
 await must(await page.getByText(/ยังไม่มีงบประมาณปี/).isVisible(), 'budget cleared')
 await go('/settings')
-await page.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
+await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true }))
 await must(await page.getByText('บัญชีหลัก').first().isVisible(), 'bank accounts kept after clean')
 await go('/')
 await shot('11-home')
