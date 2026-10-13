@@ -213,7 +213,7 @@ function Types() {
   }
   return (
     <Fold id="h-types" title={<>🙏 รายการรับ ({t.list.length} รายการ)</>}>
-      <p className="muted small">ติ๊ก “กองทุน” ที่ประเภทที่เป็นเงินวัตถุประสงค์ (ที่ดิน อาหาร ก่อสร้างอาคาร ฯลฯ) ระบบจะติดตามยอดค้างย้ายให้ · เพิ่มได้เองตามต้องการ · ปิดการใช้งานแทนการลบ เพื่อให้รายงานเก่ายังแสดงชื่อเดิมได้</p>
+      <p className="muted small">ติ๊ก “กองทุน” ที่ประเภทที่เป็นเงินวัตถุประสงค์ (ที่ดิน สร้างอาคาร ศึกษา ฯลฯ) กองทุนที่ติ๊กจะไปอยู่ในการ์ด “ยอดยกมา” ให้กรอกเงินตั้งต้น และระบบติดตามยอดค้างย้ายให้ · เพิ่มได้เองตามต้องการ · ปิดการใช้งานแทนการลบ เพื่อให้รายงานเก่ายังแสดงชื่อเดิมได้</p>
       <ul className="list">
         {t.list.map((x) => (
           <li key={x.id}>
@@ -452,6 +452,14 @@ function OpeningCard() {
   const [unm, setUnm] = useState<Record<string, number | null>>(() => ({ ...(cur?.unmoved ?? {}) }))
   const [newFund, setNewFund] = useState('')
   const [fmsg, setFmsg] = useState('')
+  const others = types.list.filter((t) => t.active && !isFundType(t))
+  const rename = (id: string, cur: string) => {
+    const n = prompt('แก้ชื่อกองทุน', cur)?.trim()
+    const x = types.byId(id)
+    if (!n || !x || n === cur) return
+    if (types.list.some((y) => y.id !== id && y.name === n)) return setFmsg(`มี “${n}” อยู่แล้ว`)
+    setFmsg(types.put([{ ...x, name: n }]) ? `เปลี่ยนชื่อเป็น “${n}” แล้ว (ใช้ชื่อนี้ทุกที่ทั้งใบถวายและยอดยกมา)` : 'สิทธิ์ของท่านแก้ชื่อไม่ได้')
+  }
   const [msg, setMsg] = useState('')
   const clean = (r: Record<string, number | null>) => Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== 0)) as Record<string, number>
   const sumOf = (r: Record<string, number | null>, ids: string[]) => ids.reduce((s, id) => s + (r[id] ?? 0), 0)
@@ -480,11 +488,18 @@ function OpeningCard() {
       {funds.map((t) => (
         <div className="field" key={t.id}>
           <label>{t.name}</label>
-          <div className="row"><div className="grow"><MoneyInput value={fnd[t.id] ?? null} onChange={(v) => setFnd({ ...fnd, [t.id]: v })} /></div><button type="button" className="mini" aria-label={`ลบกองทุน ${t.name}`} onClick={() => { if (!confirm(`ลบกองทุน “${t.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) return; setFnd(({ [t.id]: _drop, ...rest }) => rest); setFmsg(types.remove(t.id) ? `ลบกองทุน “${t.name}” แล้ว` : 'สิทธิ์ของท่านลบกองทุนไม่ได้') }}>🗑️ ลบ</button></div>
+          <div className="row"><div className="grow"><MoneyInput value={fnd[t.id] ?? null} onChange={(v) => setFnd({ ...fnd, [t.id]: v })} /></div><button type="button" className="mini" aria-label={`แก้ชื่อกองทุน ${t.name}`} onClick={() => rename(t.id, t.name)}>✎ แก้ชื่อ</button><button type="button" className="mini" aria-label={`ลบกองทุน ${t.name}`} onClick={() => { if (!confirm(`ลบกองทุน “${t.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) return; setFnd(({ [t.id]: _drop, ...rest }) => rest); setFmsg(types.remove(t.id) ? `ลบกองทุน “${t.name}” แล้ว` : 'สิทธิ์ของท่านลบกองทุนไม่ได้') }}>🗑️ ลบ</button></div>
         </div>
       ))}
       <div className="row"><input className="input grow" aria-label="ชื่อกองทุนใหม่" placeholder="ชื่อกองทุนใหม่" value={newFund} onChange={(e) => setNewFund(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addFund()} /><button type="button" className="btn btn--ghost" onClick={addFund}>＋ เพิ่มกองทุน</button></div>
       {fmsg && <p className="small" role="status">{fmsg}</p>}
+      <p className="muted small">กองทุนชุดเดียวกับ “รายการรับ” — แก้ชื่อ เพิ่ม หรือลบที่ไหนก็ตรงกันทั้งสองที่</p>
+      {others.length > 0 && (
+        <details>
+          <summary className="small">รายการรับที่ยังไม่ใช่กองทุน ({others.length}) — แตะเพื่อตั้งเป็นกองทุน</summary>
+          <ul className="list">{others.map((t) => <li key={t.id}><span className="grow">{t.name}</span><button type="button" className="mini" aria-label={`ตั้ง ${t.name} เป็นกองทุน`} onClick={() => setFmsg(types.put([{ ...t, fund: true }]) ? `ตั้ง “${t.name}” เป็นกองทุนแล้ว` : 'สิทธิ์ของท่านแก้ไม่ได้')}>ตั้งเป็นกองทุน</button></li>)}</ul>
+        </details>
+      )}
       <p className="small"><b>เงินหมุนเวียนของคริสตจักร</b> (ส่วนที่ไม่เข้ากองทุนไหน ใช้บริหารประจำสัปดาห์/เดือน)</p>
       <div className="field"><label>เงินหมุนเวียน</label><MoneyInput value={own} onChange={setOwn} /></div>
       <p className="small" role="status"><b>รวมเงินตั้งต้นทั้งหมด {fmtBaht(total)} บาท</b><span className="muted"> (กองทุน {fmtBaht(fundSum)} + หมุนเวียน {fmtBaht(own ?? 0)})</span></p>
