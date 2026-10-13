@@ -62,6 +62,7 @@ export default function Receive({ year }: { year: number }) {
   // รายการในการ์ดของช่อง 1–3: สัปดาห์ที่เลือก หรือ "ทุกสัปดาห์"
   const lst = allWeeks ? allEnt : week
   const manual = lst.filter((x) => kindOf(x) === 'manual')
+  const weekManual = week.filter((x) => kindOf(x) === 'manual') // ใบบันทึกการถวายเป็นรายสัปดาห์ แสดงเฉพาะสัปดาห์ที่เลือก
   const slips = lst.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown')
   const lstFiles = allWeeks ? allFiles : weekFiles
   const otherWeeks = (k: 'manual' | 'slip' | 'sheet') => (k === 'sheet' ? allFiles.length - weekFiles.length : allEnt.filter((x) => sheetSunday(x.date) !== sunday && (k === 'manual' ? kindOf(x) === 'manual' : kindOf(x) === 'slip' || kindOf(x) === 'unknown')).length)
@@ -143,8 +144,7 @@ export default function Receive({ year }: { year: number }) {
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
-          {scopeBar('manual', manual.length, sum(manual))}
-          <ManualIncome types={types.list} church={settings.churchName.split(' ')[0]} dateText={`ประจำวันอาทิตย์ที่ ${fmtDateLong(sunday).replace('วันอาทิตย์ที่ ', '')}`} entries={manual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+          <ManualIncome types={types.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => setForm({ entry: x, preset: 'manual' })} onDelete={delEntry} />
           {canWrite && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
         </section>

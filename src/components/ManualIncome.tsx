@@ -11,8 +11,8 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 /**
  * ช่อง 1 ของฝั่งรับ: แถวบันทึก 1 บรรทัด (เลือกประเภทจากรายชื่อที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบบันทึกการถวายด้านล่าง พร้อมยอดรวม
  */
-export default function ManualIncome({ types, entries, church, dateText, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
-  types: IncomeType[]; entries: IncomeEntry[]; church: string; dateText: string; defaultDate: string; canWrite: boolean
+export default function ManualIncome({ types, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
+  types: IncomeType[]; entries: IncomeEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
   onAdd: (items: IncomeEntry[]) => boolean; onEdit: (x: IncomeEntry) => void; onDelete: (x: IncomeEntry) => void
 }) {
   const active = types.filter((t) => t.active)
@@ -58,7 +58,7 @@ export default function ManualIncome({ types, entries, church, dateText, default
         </div>
       )}
 
-      <IncomeSheetPaper church={church} entries={entries} types={types} dateText={dateText} />
+      <IncomeSheetPaper church={church} entries={entries} types={types} sunday={sunday} />
 
       {rows.length > 0 && canWrite && (
         <details className="editlist">

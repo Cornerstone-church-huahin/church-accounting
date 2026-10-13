@@ -8,8 +8,8 @@ import type { ExpenseCat, ExpenseEntry } from '../lib/types'
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
 /** ช่อง 1 ของฝั่งจ่าย: แถวบันทึก 1 บรรทัดตามใบเบิก-จ่ายเงินสด (เลือกรายการที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบเบิกด้านล่าง พร้อมยอดรวม */
-export default function ManualExpense({ cats, entries, church, dateText, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
-  cats: ExpenseCat[]; entries: ExpenseEntry[]; church: string; dateText: string; defaultDate: string; canWrite: boolean
+export default function ManualExpense({ cats, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
+  cats: ExpenseCat[]; entries: ExpenseEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
   onAdd: (e: ExpenseEntry) => boolean; onEdit: (x: ExpenseEntry) => void; onDelete: (x: ExpenseEntry) => void
 }) {
   const items = cats.filter((c) => c.active && c.kind === 'group')
@@ -49,7 +49,7 @@ export default function ManualExpense({ cats, entries, church, dateText, default
         </div>
       )}
 
-      <VoucherPaper church={church} entries={entries} dateText={dateText} />
+      <VoucherPaper church={church} entries={entries} sunday={sunday} />
 
       {rows.length > 0 && canWrite && (
         <details className="editlist">

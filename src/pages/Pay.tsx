@@ -122,13 +122,15 @@ export default function Pay({ year }: { year: number }) {
           ? null
           : <CaptureBar noun={c === 'bill' ? 'บิล' : 'ใบเสร็จ'} fileDownload={c === 'advance' ? { href: FORM_HREF, filename: 'cash-voucher-blank.pdf', label: 'ดาวน์โหลดใบเบิก-จ่ายเงินสด (เปล่า)' } : undefined} onFile={(file) => setFlow({ channel: c, file })}><button type="button" className="mini" onClick={() => setFlow({ channel: c })} style={{ marginTop: 6 }}>✍️ กรอกเอง (ไม่มีรูป)</button></CaptureBar>)}
         <p className="muted small">{CH[c].hint}</p>
-        <div className="row row--between" style={{ margin: '0.4rem 0' }}>
+        {c !== 'manual' && (
+          <div className="row row--between" style={{ margin: '0.4rem 0' }}>
           <b>{xs.length} รายการ · รวม {fmtBaht(sum(xs))}</b>
           {(allWeeks || ofAll(c).length > xs.length) && <button type="button" className="mini" onClick={() => setAllWeeks(!allWeeks)}>{allWeeks ? 'เฉพาะสัปดาห์นี้' : `ดูทุกสัปดาห์ (อีก ${ofAll(c).length - xs.length})`}</button>}
         </div>
+        )}
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} church={settings.churchName.split(' ')[0]} dateText={`ประจำสัปดาห์ ${fmtDate(addDays(sunday, -6))} – ${fmtDate(sunday)}`} entries={xs} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense cats={cats.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )

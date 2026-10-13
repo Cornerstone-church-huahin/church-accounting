@@ -54,3 +54,20 @@ export async function downloadPdfPages(pages: { el: HTMLElement; landscape?: boo
   }
   pdf?.save(filename)
 }
+
+/** PDF ขนาดจริงของแผ่นฟอร์ม: landscape = A4 แนวนอน 1 แผ่นต่อหน้า (297×210 มม.) · full = A4 แนวตั้ง 1 แผ่นต่อหน้า — ไม่ยืดไม่หด */
+export async function downloadSheetPdf(els: HTMLElement[], filename: string, mode: 'landscape' | 'full'): Promise<void> {
+  if (els.length === 0) return
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+  const land = mode === 'landscape'
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: land ? 'landscape' : 'portrait' })
+  for (let i = 0; i < els.length; i++) {
+    const canvas = await html2canvas(els[i], {
+      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
+      onclone: (_d, cloned) => { cloned.style.width = land ? '1123px' : '794px'; cloned.style.maxWidth = cloned.style.width; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+    })
+    if (i > 0) pdf.addPage('a4', land ? 'landscape' : 'portrait')
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, land ? 297 : 210, land ? 210 : 297)
+  }
+  pdf.save(filename)
+}
