@@ -3,13 +3,15 @@ import { DEFAULT_INCOME_TYPES } from '../lib/data'
 import { matchType } from './SheetFlow'
 
 describe('จับคู่ชื่อแถวใบถวายกับประเภท', () => {
-  it('แถวพิมพ์ทั้ง 5 ตรงประเภทของตัวเอง ไม่สลับกองทุน', () => {
+  it('แถวพิมพ์ทั้ง 7 ตามใบฉบับล่าสุดตรงประเภทของตัวเอง ไม่สลับกองทุน', () => {
     const t = DEFAULT_INCOME_TYPES
     expect(matchType('สิบลด', t)).toBe('tt1')
     expect(matchType('ประจำสัปดาห์', t)).toBe('tt2')
     expect(matchType('ขอบพระคุณ', t)).toBe('tt3')
     expect(matchType('กองทุนเพื่อที่ดินคริสตจักร', t)).toBe('tt4')
-    expect(matchType('กองทุนเพื่ออาหาร', t)).toBe('tt5')
+    expect(matchType('อาหารวันอาทิตย์', t)).toBe('tt5')
+    expect(matchType('กองทุนสร้างอาคารพันธกิจ', t)).toBe('tt7')
+    expect(matchType('กองทุนสุสาน', t)).toBe('tt8')
   })
   it('ชื่อที่ย่อ/เพี้ยนเล็กน้อยยังจับคู่ได้ ส่วนแถวเขียนมือใหม่ไป "รายได้อื่น"', () => {
     const t = DEFAULT_INCOME_TYPES

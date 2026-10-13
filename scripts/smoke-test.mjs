@@ -190,7 +190,7 @@ await page.getByRole('button', { name: 'ลบกองทุน กองทุ
 await page.locator('svg[aria-label*="กองทุนสร้างอาคาร:"]').waitFor({ state: 'detached' })
 await go('/income')
 await page.getByRole('button', { name: '＋ บันทึกรายรับ' }).click()
-await must((await page.getByLabel(/ประเภทถวาย/).locator('option', { hasText: 'กองทุนสร้างอาคาร' }).count()) === 0, 'deleted fund type is no longer selectable')
+await must((await page.getByLabel(/ประเภทถวาย/).locator('option', { hasText: /^กองทุนสร้างอาคาร$/ }).count()) === 0, 'deleted fund type is no longer selectable')
 await page.getByRole('button', { name: 'ปิด' }).click()
 
 // ใบบันทึกการถวายวันอาทิตย์ (ตู้ถวาย + โอน)

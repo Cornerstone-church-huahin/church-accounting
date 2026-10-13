@@ -5,6 +5,8 @@ import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
 import CaptureBar from '../components/CaptureBar'
+import ManualExpense from '../components/ManualExpense'
+import { quickExpenseList } from '../lib/quickExpenses'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
 import { usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
@@ -45,7 +47,7 @@ export default function Pay({ year }: { year: number }) {
   const income = useIncome(year)
   const rounds = useRounds(year)
   const types = useIncomeTypes()
-  const { settings } = useSettings()
+  const { settings, save: saveSettings } = useSettings()
   const canWrite = can(role, 'voucherPay')
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: ExpenseEntry | null; channel: Channel } | null>(null)
@@ -79,6 +81,7 @@ export default function Pay({ year }: { year: number }) {
   }
   const del = (x: ExpenseEntry) => { if (confirm(`ลบรายการ ${x.desc || catName(x.catId)} ${fmtBaht(x.amount)} ?`) && exp.remove(x.id)) void dropFile(x.file?.path) }
 
+  const weekDefaultDate = (() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()
   const card = (x: ExpenseEntry) => (
     <li key={x.id} style={{ display: 'block', padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -112,7 +115,7 @@ export default function Pay({ year }: { year: number }) {
         {c === 'manual' && (
           <div className="capbar"><div className="capbar__row">
             <a className="act-btn" href={FORM_HREF} download="cash-voucher-blank.pdf" aria-label="ดาวน์โหลดใบเบิก-จ่ายเงินสด (เปล่า)"><span className="act-btn__ico" aria-hidden="true">⬇️</span><span>ดาวน์โหลดใบเบิก</span></a>
-            {canWrite && <button type="button" className="act-btn" onClick={() => setForm({ entry: null, channel: c })}><span className="act-btn__ico" aria-hidden="true">✍️</span><span>{CH[c].add}</span></button>}
+            {canWrite && <button type="button" className="act-btn" onClick={() => setForm({ entry: null, channel: c })}><span className="act-btn__ico" aria-hidden="true">✍️</span><span>บันทึกแบบละเอียด</span></button>}
           </div></div>
         )}
         {canWrite && (c === 'manual'
@@ -124,7 +127,9 @@ export default function Pay({ year }: { year: number }) {
           {(allWeeks || ofAll(c).length > xs.length) && <button type="button" className="mini" onClick={() => setAllWeeks(!allWeeks)}>{allWeeks ? 'เฉพาะสัปดาห์นี้' : `ดูทุกสัปดาห์ (อีก ${ofAll(c).length - xs.length})`}</button>}
         </div>
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
-        {xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
+        {c === 'manual'
+          ? <ManualExpense quick={quickExpenseList(settings)} cats={cats.list} onNewQuick={(q) => saveSettings({ quickExpenses: [...quickExpenseList(settings), q] })} entries={xs} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
   }
@@ -235,7 +240,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
     const rec: ExpenseEntry = {
       id: entry?.id ?? newId('ex'), channel, date, amount, desc: name, status, method,
       ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
-      ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), updated: 0,
+      ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), ...(entry?.requester ? { requester: entry.requester } : {}), updated: 0,
     }
     if (exp.put([rec])) onClose()
   }

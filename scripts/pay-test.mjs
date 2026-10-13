@@ -32,7 +32,7 @@ try {
     const [d1] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.getByRole('link', { name: /ดาวน์โหลดใบเบิก-จ่ายเงินสด/ }).click()])
     must((await import('node:fs')).default.readFileSync(await d1.path()).subarray(0, 5).toString() === '%PDF-', 'blank cash voucher PDF downloads from tab 1')
   }
-  await page.getByRole('button', { name: '＋ บันทึก' }).click()
+  await page.getByRole('button', { name: /บันทึกแบบละเอียด/ }).click()
   must((await page.locator('#e-cat option[value="eg-3"]').count()) === 1, 'whole-group (main category) is selectable')
   await page.locator('#e-cat').selectOption('ei-3-1')
   must((await page.locator('#e-desc').inputValue()) === 'ค่าไฟฟ้าอาคารคริสตจักร', 'desc auto-filled from the category')
@@ -90,13 +90,13 @@ try {
   await page.screenshot({ path: 'shots/pay.png', fullPage: true })
   // แก้ไข / ลบ
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
-  await page.getByRole('button', { name: '✎ แก้ไข' }).first().click()
+  await page.getByRole('button', { name: 'แก้ไขรายการนี้' }).first().click()
   await page.locator('#e-amt').fill('1900')
   await save()
   must(/4,500\.00/.test(await total()), 'edit updates the total')
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   await page.waitForTimeout(300)
   must(/รวมทั้งสิ้น\s+2\s+2,600\.00\s+0\s+0\.00\s+0\.00\s+2,600\.00/.test(await total()), 'delete removes it from the total')
 

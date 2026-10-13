@@ -16,7 +16,10 @@ export interface Settings extends SharedItem {
   matchDays: number
   /** จำไว้ว่าไฟล์สเตตเมนต์ของแต่ละบัญชีใช้คอลัมน์ไหน */
   csvMaps: Record<string, CsvMap>
+  /** รายการจ่ายประจำในใบเบิก-จ่ายเงินสด (ไม่ตั้ง = ใช้ค่าตั้งต้น) */
+  quickExpenses?: QuickExpense[]
 }
+export interface QuickExpense { id: string; name: string; catId?: string }
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 
 export type Method = 'cash' | 'transfer'
@@ -43,6 +46,8 @@ export interface IncomeEntry extends SharedItem {
   source?: 'manual' | 'slip'
   /** เวลาที่โอนตามสลิป (HH:mm) */
   time?: string
+  /** เงินสด: จำนวนซอง · เงินโอน: จำนวนครั้งที่โอน (ไม่ใส่ = 1) */
+  count?: number
 }
 
 export type RoundStatus = 'counting' | 'verified'
@@ -170,6 +175,8 @@ export interface ExpenseEntry extends SharedItem {
   note?: string
   /** รูปบิล/ใบเสร็จ (path ว่าง = โหมดทดลอง ไม่ได้เก็บรูป) */
   file?: { path: string; name: string }
+  /** ผู้เบิกเงิน (ตามใบเบิก-จ่ายเงินสด) */
+  requester?: string
 }
 
 // ---------- สมุดบัญชี (ขั้น "ปรับ") ----------

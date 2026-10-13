@@ -22,9 +22,9 @@ try {
   must(await page.getByRole('tab', { name: /รวมรับ/ }).isVisible(), 'total tab (4) exists')
   // 1 บันทึกด้วยมือ: ค่าเช่า 10,000 เงินสด
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
-  await page.getByRole('button', { name: '＋ บันทึก' }).click()
-  await page.locator('#i-amt').fill('10000')
-  await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (เงินสด)' }).locator('input').fill('10000')
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  must(await page.getByRole('table', { name: 'ตารางบันทึกรายรับ' }).getByText('สิบลด').isVisible(), 'saved row appears in the form-style table')
   // 2 สลิป: เลือกรูป → ระบบอ่านเอง → ฟอร์มถูกใส่ค่าให้ (ใช้สลิปจริงจาก SLIP_FIXTURE ถ้ามี — ไม่เก็บสลิปจริงใน repo)
   await page.getByRole('tab', { name: /บันทึกสลิป/ }).click()
   must(await page.getByRole('button', { name: 'ถ่ายรูปสลิป' }).count() + await page.getByLabel('ถ่ายรูปสลิป').count() >= 1, 'camera button exists for slips')
@@ -59,13 +59,13 @@ try {
   await page.getByRole('button', { name: 'สัปดาห์ที่เลือก' }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   // แก้ไข / ลบ รายการที่บันทึกแล้ว
-  await page.getByRole('button', { name: '✎ แก้ไข' }).first().click()
+  await page.getByRole('button', { name: 'แก้ไขรายการนี้' }).first().click()
   await page.locator('#i-amt').fill('12000')
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   must(/12,000\.00/.test(await readTotal()), 'edited entry updates the report')
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   await page.waitForTimeout(300)
   must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleted entry leaves the report')
   // ตั้งค่า: ใส่รหัส Gemini ที่หน้าตั้งค่า
@@ -80,7 +80,7 @@ try {
   await page.route('**/generativelanguage.googleapis.com/**', (route) => ++gcalls === 1 ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"message":"overloaded"}}' }) : gcalls === 2 ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows: [] }) }] } }] }) }) : route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ date: sunStr, cashTotal: 5260, rows: [
-      { label: 'สิบลด', envelopes: 6, amount: 1150 }, { label: 'ประจำสัปดาห์', envelopes: 7, amount: 2040 }, { label: 'ขอบพระคุณ', envelopes: 10, amount: 1970 }, { label: 'กองทุนเพื่ออาหาร', envelopes: 1, amount: 100 }] }) }] } }] }),
+      { label: 'สิบลด', envelopes: 6, amount: 1150 }, { label: 'ประจำสัปดาห์', envelopes: 7, amount: 2040 }, { label: 'ขอบพระคุณ', envelopes: 10, amount: 1970 }, { label: 'อาหารวันอาทิตย์', envelopes: 1, amount: 100 }] }) }] } }] }),
   }))
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   {
@@ -96,8 +96,8 @@ try {
   must(await page.getByText(/ตรงกับยอด/).isVisible(), 'sum matches written total (after a 503 retry)')
   must(gcalls >= 2, 'retried after 503')
   must((await page.locator('#sf-date').inputValue()) === sunStr && await page.getByText('อ่านจากใบ').first().isVisible(), 'date is read from the sheet automatically')
-  for (let i = 1; i <= 5; i++) must(await page.getByLabel(`ชื่อแถว ${i}`).isVisible(), 'all 5 printed rows are shown: ' + i)
-  must((await page.getByLabel('ชื่อแถว 4').inputValue()).includes('ที่ดิน'), 'blank land-fund row is still shown')
+  for (let i = 1; i <= 7; i++) must(await page.getByLabel(`ชื่อแถว ${i}`).isVisible(), 'all 7 printed rows are shown: ' + i)
+  must((await page.getByLabel('ชื่อแถว 5').inputValue()).includes('ที่ดิน'), 'blank land-fund row is still shown')
   await page.screenshot({ path: 'shots/sheet-review.png', fullPage: true })
   must((await page.getByLabel('ชื่อแถว 3').inputValue()) === 'ขอบพระคุณ', 'rows read')
   await page.getByRole('button', { name: 'ยืนยันและบันทึก' }).click()
@@ -121,7 +121,7 @@ try {
   must(/สิบลด\s+7\s+2,150\.00\s+2,150\.00/.test(t3), 'type row combines sheet envelopes + hand entry (6+1=7): ' + t3)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   // กรณีของผู้ใช้: ใบถวายสิบลด 6 ซอง 1,150 + โอน 1 รายการ 169 → แถวสิบลด: 6 | 1,150.00 | 1 | 169.00 | 1,319.00
   await page.getByRole('button', { name: '＋ บันทึก' }).click()
   await page.getByRole('button', { name: 'โอนเงิน' }).click()
@@ -136,7 +136,7 @@ try {
   }
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: '🗑️ ลบ' }).first().click()
+  await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   // แก้ไขไฟล์ที่แนบ: เปลี่ยนยอดแล้วใบสรุปเปลี่ยนตาม · ลบไฟล์แล้วยอดในใบนับหายไป
   await page.getByRole('button', { name: '✎ แก้ไข' }).first().click()

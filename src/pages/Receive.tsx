@@ -9,11 +9,12 @@ import ScaledPage from '../components/ScaledPage'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir } from '../lib/sync'
-import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
+import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
+import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
 import { readSlip } from '../lib/slipOcr'
 
@@ -140,10 +141,12 @@ export default function Receive({ year }: { year: number }) {
 
       {sub === 'manual' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
-          <div className="row row--between"><h2>1 · บันทึกด้วยมือ</h2>{canWrite && <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึก</button>}</div>
-          <p className="muted small">เงินที่ถวายเข้ามานอกใบถวาย เช่น ค่าเช่า ถวายพิเศษ — บันทึกได้ทุกวัน ระบุวันที่ของแต่ละรายการ</p>
+          <h2>1 · บันทึกด้วยมือ</h2>
+          <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นตารางด้านล่าง และรวมเข้าใบสรุปให้เอง</p>
           {scopeBar('manual', manual.length, sum(manual))}
-          {manual.length === 0 ? <p className="muted small">ยังไม่มีรายการ{allWeeks ? '' : 'ในสัปดาห์นี้'}</p> : <ul className="list">{manual.map((x) => row(x, 'manual'))}</ul>}
+          <ManualIncome types={types.list} onNewType={(name, fund) => { const id = newId('t'); return types.put([{ id, name, order: types.list.length, active: true, updated: 0, ...(fund ? { fund: true } : {}) }]) ? id : null }} entries={manual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+            onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => setForm({ entry: x, preset: 'manual' })} onDelete={delEntry} />
+          {canWrite && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
         </section>
       )}
       {sub === 'slip' && (
