@@ -451,6 +451,7 @@ function OpeningCard() {
   const [cash, setCash] = useState<number | null>(cur?.cash ?? null)
   const [unm, setUnm] = useState<Record<string, number | null>>(() => ({ ...(cur?.unmoved ?? {}) }))
   const [newFund, setNewFund] = useState('')
+  const [fmsg, setFmsg] = useState('')
   const [msg, setMsg] = useState('')
   const clean = (r: Record<string, number | null>) => Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== 0)) as Record<string, number>
   const sumOf = (r: Record<string, number | null>, ids: string[]) => ids.reduce((s, id) => s + (r[id] ?? 0), 0)
@@ -459,8 +460,9 @@ function OpeningCard() {
   const held = (cash ?? 0) + sumOf(acc, accts.list.map((a) => a.id))
   const addFund = () => {
     const n = newFund.trim()
-    if (!n || types.list.some((x) => x.name === n)) return
-    types.put([{ id: newId('t'), name: n, order: types.list.length, active: true, fund: true, updated: 0 }])
+    if (!n) return setFmsg('พิมพ์ชื่อกองทุนก่อน')
+    if (types.list.some((x) => x.name === n)) return setFmsg(`มี “${n}” อยู่แล้ว`)
+    setFmsg(types.put([{ id: newId('t'), name: n, order: types.list.length, active: true, fund: true, updated: 0 }]) ? `เพิ่มกองทุน “${n}” แล้ว — กรอกเงินตั้งต้นของกองนี้ได้เลย` : 'สิทธิ์ของท่านเพิ่มกองทุนไม่ได้')
     setNewFund('')
   }
   const save = () => {
@@ -478,10 +480,11 @@ function OpeningCard() {
       {funds.map((t) => (
         <div className="field" key={t.id}>
           <label>{t.name}</label>
-          <div className="row"><div className="grow"><MoneyInput value={fnd[t.id] ?? null} onChange={(v) => setFnd({ ...fnd, [t.id]: v })} /></div><button type="button" className="mini" aria-label={`ลบกองทุน ${t.name}`} onClick={() => confirm(`ลบกองทุน “${t.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`) && types.remove(t.id)}>🗑️</button></div>
+          <div className="row"><div className="grow"><MoneyInput value={fnd[t.id] ?? null} onChange={(v) => setFnd({ ...fnd, [t.id]: v })} /></div><button type="button" className="mini" aria-label={`ลบกองทุน ${t.name}`} onClick={() => { if (!confirm(`ลบกองทุน “${t.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) return; setFnd(({ [t.id]: _drop, ...rest }) => rest); setFmsg(types.remove(t.id) ? `ลบกองทุน “${t.name}” แล้ว` : 'สิทธิ์ของท่านลบกองทุนไม่ได้') }}>🗑️ ลบ</button></div>
         </div>
       ))}
       <div className="row"><input className="input grow" aria-label="ชื่อกองทุนใหม่" placeholder="ชื่อกองทุนใหม่" value={newFund} onChange={(e) => setNewFund(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addFund()} /><button type="button" className="btn btn--ghost" onClick={addFund}>＋ เพิ่มกองทุน</button></div>
+      {fmsg && <p className="small" role="status">{fmsg}</p>}
       <p className="small"><b>เงินหมุนเวียนของคริสตจักร</b> (ส่วนที่ไม่เข้ากองทุนไหน ใช้บริหารประจำสัปดาห์/เดือน)</p>
       <div className="field"><label>เงินหมุนเวียน</label><MoneyInput value={own} onChange={setOwn} /></div>
       <p className="small" role="status"><b>รวมเงินตั้งต้นทั้งหมด {fmtBaht(total)} บาท</b><span className="muted"> (กองทุน {fmtBaht(fundSum)} + หมุนเวียน {fmtBaht(own ?? 0)})</span></p>
