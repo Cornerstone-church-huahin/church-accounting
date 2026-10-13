@@ -15,7 +15,7 @@ import { useYear } from '../lib/year'
 
 export type BalanceKind = 'own' | 'fund' | 'total' | 'debt'
 const KINDS: { k: BalanceKind; icon: string; title: string }[] = [
-  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวม' }, { k: 'debt', icon: '🧾', title: 'หนี้สินภายนอก' },
+  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวมเงินสด' }, { k: 'debt', icon: '🧾', title: 'หนี้ภายนอก' },
 ]
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
@@ -110,8 +110,8 @@ export default function BalancePage() {
       )}
 
       {kind === 'debt' && (
-        <section className="card" aria-label="หนี้สินภายนอก">
-          <h2>🧾 หนี้สินภายนอก</h2>
+        <section className="card" aria-label="หนี้ภายนอก">
+          <h2>🧾 หนี้ภายนอก</h2>
           <p className="muted small" style={{ margin: 0 }}>เงินที่ยืมจากบุคคลภายนอกและยังต้องคืน (ไม่รวมการยืมระหว่างกองทุนภายใน) — นับทุกปี ไม่ใช่เฉพาะปีนี้</p>
           <p className="bigfig">{fmtBaht(debt)} บาท</p>
           {ext.length === 0 ? <p className="muted">ยังไม่มีหนี้สินภายนอก</p> : (
