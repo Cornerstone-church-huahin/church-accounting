@@ -144,6 +144,18 @@ export default function Adjust({ year }: { year: number }) {
   const tabBtn = (k: Sub, n: number, text: string) => <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}><i className="dot">{n}</i><span>{text}</span></button>
   const matchedIds = new Set(rec.matchedIn.map((m) => m.line.id))
   const [loanPick, setLoanPick] = useState<{ lineId: string; loanId: string } | null>(null)
+  // จัดการ/ลบ/แก้ไขบรรทัดสมุด (ใช้ลบข้อมูลทดลอง หรือแก้ตัวเลขที่อ่านผิด)
+  const [manage, setManage] = useState(false)
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [editLine, setEditLine] = useState<PassbookLine | null>(null)
+  const removeLines = (ids: string[], what: string) => {
+    if (ids.length === 0) return
+    const hasLink = pb.items.some((l) => ids.includes(l.id) && l.link && l.link.kind !== 'park')
+    if (!confirm(`ลบ ${what} (${ids.length} บรรทัด) ออกจากสมุดที่บันทึกไว้?${hasLink ? '\n\nบางบรรทัดเคยลงเป็นรายรับ/ย้ายเงิน/เงินยืมไว้แล้ว — รายการที่สร้างไว้จะยังอยู่ ต้องไปลบแยกต่างหาก' : ''}${closed ? '\n\nสัปดาห์นี้ปิดยอดแล้ว — ลบแล้วระบบจะเปิดสัปดาห์ให้ใหม่ ต้องกดปิดยอดอีกครั้ง' : ''}`)) return
+    if (!pb.put(pb.items.filter((l) => ids.includes(l.id)).map((l) => ({ ...l, deleted: true })))) return setMsg('สิทธิ์ของท่านลบไม่ได้')
+    if (closed) closes.remove(closed.id)
+    setSel(new Set()); setMsg(`ลบแล้ว ${ids.length} บรรทัด`)
+  }
   const loanOf = (id?: string) => loans.items.find((x) => x.id === id)
   const confirmLoan = (l: PassbookLine, isOut: boolean) => {
     const ln = loanOf(loanPick?.loanId)
@@ -155,7 +167,7 @@ export default function Adjust({ year }: { year: number }) {
   const loanLabel = (id?: string) => { const x = loanOf(id); return x ? `${x.lender.kind === 'fund' ? 'กองทุน' : x.lender.name} · ${x.purpose}` : '' }
   const lineRow = (l: PassbookLine, extra?: React.ReactNode) => (
     <li key={l.id} className="pbline">
-      <div><b>{fmtBaht(l.amount)}</b> <span className="badge">{KIND_LABEL[l.kind]}</span> <span className="muted small">{fmtDate(l.date)}{l.desc ? ` · ${l.desc}` : ''}</span></div>
+      <div>{manage && canWrite && <input type="checkbox" aria-label={`เลือก ${fmtBaht(l.amount)} ${fmtDate(l.date)}`} checked={sel.has(l.id)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(l.id); else n.delete(l.id); setSel(n) }} style={{ marginRight: 8, width: 20, height: 20, verticalAlign: -4 }} />}<b>{fmtBaht(l.amount)}</b> <span className="badge">{KIND_LABEL[l.kind]}</span> <span className="muted small">{fmtDate(l.date)}{l.desc ? ` · ${l.desc}` : ''}</span></div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {extra}
         {l.link?.kind === 'loan' && <span className="badge badge--good">เงินยืม: {loanLabel(l.link.id)}</span>}
@@ -169,7 +181,8 @@ export default function Adjust({ year }: { year: number }) {
         )}
         {(l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')) && (l.link?.kind === 'park' ? <span className="badge">พักไว้</span> : <><span className="badge badge--warn">ไม่ทราบรายจ่าย</span>{canWrite && !closed && <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>}</>)}
         {canWrite && !closed && lineWeek(l) === sunday && <button type="button" className="mini" onClick={() => pb.put([{ ...l, week: addDays(sunday, -7) }])}>← ไปสัปดาห์ก่อน</button>}
-        {canWrite && !closed && <button type="button" className="mini" aria-label="ลบบรรทัดนี้" onClick={() => { if (confirm('ลบบรรทัดนี้ออกจากสมุดที่บันทึกไว้?')) pb.remove(l.id) }}>🗑</button>}
+        {canWrite && <button type="button" className="mini" aria-label={`แก้ไขบรรทัด ${fmtBaht(l.amount)}`} onClick={() => setEditLine(l)}>✎ แก้ไข</button>}
+        {canWrite && <button type="button" className="mini" aria-label={`ลบบรรทัด ${fmtBaht(l.amount)}`} onClick={() => removeLines([l.id], 'บรรทัดนี้')}>🗑 ลบ</button>}
       </div>
     </li>
   )
@@ -267,6 +280,7 @@ export default function Adjust({ year }: { year: number }) {
       {sub === 'check' && (
         <section className="card no-print" role="tabpanel" aria-label="ตรวจจับคู่">
           <h2>3 · ตรวจจับคู่ — สัปดาห์นี้</h2>
+          {msg && <p className="note" role="status">{msg}</p>}
           {weekLines.length === 0 ? <p className="muted">ยังไม่มีบรรทัดจากสมุดในสัปดาห์นี้ — ถ่ายรูปสมุดในขั้นที่ 2 ก่อน</p> : (
             <>
               <div className="stats">
@@ -294,6 +308,23 @@ export default function Adjust({ year }: { year: number }) {
                 </div>
               )}
               <p className="muted small">รหัสในสมุด: {CODE_LEGEND}</p>
+              {canWrite && (
+                <div className="pbtools no-print" role="group" aria-label="จัดการรายการสมุด">
+                  <button type="button" className="mini" aria-pressed={manage} onClick={() => { setManage(!manage); setSel(new Set()) }}>{manage ? '✓ เสร็จ' : '☑ เลือกหลายรายการ'}</button>
+                  {manage && (
+                    <>
+                      <button type="button" className="mini" onClick={() => setSel(new Set(weekLines.map((l) => l.id)))}>เลือกทั้งหมด</button>
+                      {[...new Set(weekLines.map((l) => l.date))].map((d) => {
+                        const ids = weekLines.filter((l) => l.date === d).map((l) => l.id)
+                        const all = ids.every((i) => sel.has(i))
+                        return <button key={d} type="button" className="mini" aria-pressed={all} onClick={() => { const n = new Set(sel); ids.forEach((i) => (all ? n.delete(i) : n.add(i))); setSel(n) }}>{all ? '✓ ' : ''}วันที่ {fmtDate(d)} ({ids.length})</button>
+                      })}
+                      <button type="button" className="mini" disabled={sel.size === 0} onClick={() => removeLines([...sel], 'ที่เลือก')}>🗑 ลบที่เลือก ({sel.size})</button>
+                      <button type="button" className="mini" onClick={() => removeLines(weekLines.map((l) => l.id), 'ทั้งสัปดาห์นี้')}>🗑 ลบทั้งสัปดาห์ ({weekLines.length})</button>
+                    </>
+                  )}
+                </div>
+              )}
               <ul className="plain">
                 {weekLines.map((l) => lineRow(l, l.kind === 'in' && (rec.matchedIn.find((m) => m.line.id === l.id)
                   ? <span className="badge badge--good">✓ ตรงสลิป</span>
@@ -330,6 +361,44 @@ export default function Adjust({ year }: { year: number }) {
           <p className="small" style={{ marginTop: 8 }}>เสร็จแล้วไปแท็บ 📊 สรุป เพื่อดาวน์โหลดหรือพิมพ์ใบสรุปไปแปะประกาศ</p>
         </section>
       )}
+      {editLine && <PbEdit line={editLine} closed={!!closed} onClose={() => setEditLine(null)} onSave={(next) => {
+        if (!pb.put([next])) return false
+        if (closed) closes.remove(closed.id)
+        setMsg(closed ? 'แก้ไขแล้ว — สัปดาห์นี้ถูกเปิดใหม่ ตรวจแล้วกดปิดยอดอีกครั้ง' : 'แก้ไขบรรทัดแล้ว'); setEditLine(null); return true
+      }} />}
     </>
+  )
+}
+
+/** แก้ไขบรรทัดสมุดบัญชี: วันที่ · ชนิด · จำนวน · ยอดคงเหลือ · หมายเหตุ */
+function PbEdit({ line, closed, onClose, onSave }: { line: PassbookLine; closed: boolean; onClose: () => void; onSave: (l: PassbookLine) => boolean }) {
+  const [date, setDate] = useState(line.date)
+  const [kind, setKind] = useState<PassbookLine['kind']>(line.kind)
+  const [dir, setDir] = useState<'in' | 'out'>(line.dir ?? 'out')
+  const [amount, setAmount] = useState<number | null>(line.amount)
+  const [balance, setBalance] = useState<number | null>(line.balance ?? null)
+  const [desc, setDesc] = useState(line.desc ?? '')
+  const [err, setErr] = useState('')
+  const save = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
+    if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { week: _w, balance: _b, desc: _d, dir: _r, ...rest } = line
+    const keepWeek = date === line.date && line.week ? { week: line.week } : {} // ย้ายวันที่แล้วให้ตามวันใหม่
+    if (!onSave({ ...rest, ...keepWeek, date, kind, amount, ...(balance !== null ? { balance } : {}), ...(desc.trim() ? { desc: desc.trim() } : {}), ...(kind === 'other' ? { dir } : {}) })) setErr('สิทธิ์ของท่านบันทึกไม่ได้')
+  }
+  return (
+    <Sheet title="แก้ไขบรรทัดสมุดบัญชี" onClose={onClose}>
+      {closed && <p className="note small">สัปดาห์นี้ปิดยอดแล้ว — แก้ไขแล้วระบบจะเปิดสัปดาห์ให้ใหม่ ต้องกดปิดยอดอีกครั้ง</p>}
+      <div className="field"><label htmlFor="pb-date">วันที่</label><input id="pb-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      <div className="field"><label htmlFor="pb-kind">ชนิดรายการ</label>
+        <select id="pb-kind" className="input" value={kind} onChange={(e) => setKind(e.target.value as PassbookLine['kind'])}>{(Object.keys(KIND_LABEL) as PassbookLine['kind'][]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></div>
+      {kind === 'other' && <div className="field"><label htmlFor="pb-dir">ทิศทาง</label><select id="pb-dir" className="input" value={dir} onChange={(e) => setDir(e.target.value as 'in' | 'out')}><option value="in">เงินเข้า (เช่น ดอกเบี้ย)</option><option value="out">เงินออก (เช่น ค่าธรรมเนียม/ภาษี)</option></select></div>}
+      <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
+      <div className="field"><label>ยอดคงเหลือหลังรายการนี้ ตามสมุด (ไม่บังคับ)</label><MoneyInput value={balance} onChange={setBalance} /></div>
+      <div className="field"><label htmlFor="pb-desc">หมายเหตุ / ลายมือในสมุด</label><input id="pb-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
+      {err && <p className="err" role="alert">{err}</p>}
+      <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>บันทึกการแก้ไข</button></div>
+    </Sheet>
   )
 }

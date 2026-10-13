@@ -19,6 +19,10 @@ try {
   await page.evaluate(([T, Y, O]) => {
     const set = (k, v) => localStorage.setItem(`acct.${k}.v1`, JSON.stringify(v))
     set('opening', [{ id: 'opening', updated: 1, date: O, accounts: {}, cash: 0, unmoved: {}, funds: { tt4: 500000, tt9: 20000 }, own: 100000 }])
+    set('loans', [
+      { id: 'l1', lender: { kind: 'person', name: 'พี่ก' }, purpose: 'ทำสุสาน', date: '2026-06-01', principal: 5000000, repayments: [{ id: 'r1', date: '2026-07-01', amount: 1000000 }], updated: 1 },
+      { id: 'l2', lender: { kind: 'fund', fundId: 'tt4' }, purpose: 'รถตู้', date: '2026-06-02', principal: 2000000, repayments: [], updated: 1 },
+    ])
     set(`income.${Y}`, [
       { id: 'i1', date: T, typeId: 'tt4', amount: 100000, method: 'cash', source: 'manual', updated: 1 },
       { id: 'i2', date: T, typeId: 'tt1', amount: 30000, method: 'cash', source: 'manual', updated: 1 },
@@ -33,7 +37,17 @@ try {
   const tiles = page.getByRole('navigation', { name: /เงินคริสตจักร/ })
   const tt = (await tiles.innerText()).replace(/\n/g, ' ')
   must(/หมุนเวียน\s+1,260/.test(tt) && /กองทุน\s+6,050/.test(tt) && /รวม\s+7,310/.test(tt), 'home tiles show own 1,260 · funds 6,050 · total 7,310: ' + tt)
+  must(/หนี้สินภายนอก\s+40,000/.test(tt), 'debt tile counts only outside lenders (50,000 − 10,000 repaid; fund loan excluded): ' + tt)
+  must((await page.locator('.balance-tiles .btile').count()) === 4, 'four tiles')
+  const ys = await page.locator('.balance-tiles .btile').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
+  must(ys[0] === ys[1] && ys[2] === ys[3] && ys[2] > ys[0], '2 x 2 layout: ' + ys)
+  const hy = await page.locator('.home-tab').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
+  must(new Set(hy).size === 1 && hy.length === 4, 'step tabs on one row')
   await page.screenshot({ path: 'shots/home-balance.png' })
+  await tiles.getByRole('link', { name: /หนี้สินภายนอก/ }).click()
+  must(await page.getByText('พี่ก').first().isVisible() && /40,000/.test(await page.locator('.bigfig').first().innerText()), 'debt page lists lender and total')
+  await page.screenshot({ path: 'shots/balance-debt.png', fullPage: true })
+  await page.goto(`http://localhost:${PORT}/#/`)
   await tiles.getByRole('link', { name: /รวม/ }).click()
   must(await page.getByRole('heading', { name: /รวมเงินคริสตจักร/ }).isVisible(), 'total detail page opens')
   await page.getByRole('tab', { name: /หมุนเวียน/ }).click()
