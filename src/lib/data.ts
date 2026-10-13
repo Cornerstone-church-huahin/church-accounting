@@ -1,6 +1,6 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
-import { DEFAULT_EXPENSE_CATS } from './expenseCats'
+import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
 import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
@@ -47,10 +47,10 @@ export const useStatementLines = (year: number) => useSharedStore<StatementLine>
 export const useStatementBatches = () => useSharedStore<StatementBatch>({ localKey: k('stmt-batches'), file: 'statement-batches.json', label: 'ไฟล์สเตตเมนต์', write: 'statement' })
 export const useSheetFiles = (year: number) => useSharedStore<SheetFile>({ localKey: k(`sheetfiles.${year}`), file: `sheet-files-${year}.json`, label: `ไฟล์ใบบันทึกการถวาย ${year}`, write: 'income' })
 
-/** หมวดรายจ่าย: ค่าตั้งต้น 15 หมวด/150 รายการ รวมกับที่แอดมินแก้ (ที่แก้/ซ่อน/ลบมี updated ใหม่กว่าจึงชนะ) */
+/** รายการจ่าย: ค่าตั้งต้นตามใบเบิก-จ่ายเงินสด รวมกับที่แอดมินแก้ (ที่แก้/ซ่อน/ลบมี updated ใหม่กว่าจึงชนะ) */
 export function useExpenseCats() {
   const s = useSharedStore<ExpenseCat>({ localKey: k('expense-cats'), file: 'expense-cats.json', label: 'หมวดรายจ่าย', write: 'settings' })
-  const merged = mergeItems(DEFAULT_EXPENSE_CATS, s.all).filter((c) => !c.deleted).sort((a, b) => a.order - b.order)
+  const merged = mergeItems(DEFAULT_EXPENSE_CATS, s.all).filter((c) => !c.deleted && !isLegacyCatId(c.id)).sort((a, b) => a.order - b.order)
   return { ...s, list: merged, groups: merged.filter((c) => c.kind === 'group'), itemsOf: (g: string) => merged.filter((c) => c.kind === 'item' && c.group === g), byId: (id: string) => merged.find((c) => c.id === id) }
 }
 

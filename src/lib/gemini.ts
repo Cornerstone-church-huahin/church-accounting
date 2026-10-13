@@ -178,7 +178,7 @@ export function parseBillJson(text: string): BillRead {
   return {
     ...(kind ? { kind } : {}), ...(str(j.vendor) ? { vendor: str(j.vendor) } : {}), ...(iso(j.date) ? { date: iso(j.date) } : {}), ...(iso(j.due) ? { due: iso(j.due) } : {}),
     ...(total ? { total } : {}), ...(str(j.summary) ? { summary: str(j.summary) } : {}), ...(str(j.ref) ? { ref: str(j.ref) } : {}),
-    ...(str(j.category) && /^\d{1,2}\.\d{1,2}$/.test(String(j.category).trim()) ? { category: String(j.category).trim() } : {}), ...(method ? { method } : {}),
+    ...(str(j.category) && /^\d{1,3}(\.\d{1,2})?$/.test(String(j.category).trim()) ? { category: String(j.category).trim() } : {}), ...(method ? { method } : {}),
   }
 }
 
