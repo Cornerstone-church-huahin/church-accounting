@@ -31,6 +31,19 @@ try {
   await card.locator('.field', { hasText: 'กองทุนเยาวชน' }).first().locator('input').fill('5000')
   await card.locator('.field', { hasText: 'เงินหมุนเวียน' }).locator('input').fill('2000')
   await page.getByText(/รวมเงินตั้งต้นทั้งหมด 7,000/).waitFor()
+  // แก้ชื่อกองทุน → ใช้ชื่อเดียวกันในการ์ดรายการรับและรายการในฟอร์มรับเงิน
+  page.once('dialog', (d) => d.accept('กองทุนเพื่อการศึกษา'))
+  await page.getByRole('button', { name: 'แก้ชื่อกองทุน กองทุนศึกษา' }).click()
+  await page.getByText(/เปลี่ยนชื่อเป็น “กองทุนเพื่อการศึกษา” แล้ว/).waitFor()
+  must(await card.getByText('กองทุนเพื่อการศึกษา').first().isVisible(), 'renamed fund shown in opening card')
+  // ตั้งประเภทรับธรรมดาเป็นกองทุน → โผล่ในรายการกองทุนทันที
+  await page.getByText(/รายการรับที่ยังไม่ใช่กองทุน/).click()
+  await page.getByRole('button', { name: 'ตั้ง ขอบพระคุณ เป็นกองทุน' }).click()
+  await page.getByRole('button', { name: 'ลบกองทุน ขอบพระคุณ' }).waitFor()
+  page.once('dialog', (d) => d.dismiss())
+  await page.getByRole('button', { name: 'ลบกองทุน ขอบพระคุณ' }).click()
+  await page.getByText(/^🙏 รายการรับ/).click()
+  must(await page.locator('li', { hasText: 'กองทุนเพื่อการศึกษา' }).first().isVisible(), 'renamed fund shown in รายการรับ card')
   // รีโหลดแล้วต้องไม่ผุดกลับ
   await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByText('📌 ยอดยกมา (ตั้งต้น)').click()
