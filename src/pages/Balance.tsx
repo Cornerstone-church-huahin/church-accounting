@@ -88,12 +88,19 @@ export default function BalancePage() {
           <h2>💰 เงินกองทุน</h2>
           <p className="bigfig">{fmtBaht(b.fundTotal)} บาท</p>
           <HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance) }))} tone="in" />
-          <table className="tbl tbl--paper" aria-label="ยอดแต่ละกองทุน">
-            <thead><tr><th>กองทุน</th><th className="num">ตั้งต้น</th><th className="num">รับเข้า</th><th className="num">จ่ายออก</th><th className="num">คงเหลือ</th></tr></thead>
-            <tbody>{b.funds.map((f) => <tr key={f.id}><td>{f.name}</td><td className="num">{m(f.opening)}</td><td className="num">{m(f.moneyIn)}</td><td className="num">{m(f.moneyOut)}</td><td className="num"><b>{m(f.balance)}</b></td></tr>)}</tbody>
-            <tfoot><tr><td>รวมกองทุน</td><td className="num">{m(b.funds.reduce((s, f) => s + f.opening, 0))}</td><td className="num">{m(b.funds.reduce((s, f) => s + f.moneyIn, 0))}</td><td className="num">{m(b.funds.reduce((s, f) => s + f.moneyOut, 0))}</td><td className="num">{m(b.fundTotal)}</td></tr></tfoot>
-          </table>
-          <p className="small"><Link to="/funds">ดูความเคลื่อนไหวของแต่ละกองทุน ›</Link></p>
+          <ul className="fundbars" aria-label="ยอดแต่ละกองทุน">
+            {b.funds.map((f) => (
+              <li key={f.id}>
+                <Link to={`/funds/${f.id}`} className={`fundbar${f.balance < 0 ? ' fundbar--neg' : ''}`} aria-label={`${f.name} คงเหลือ ${m(f.balance)} บาท`}>
+                  <span className="fundbar__top"><b>{f.name}</b><b className="num">{f.balance < 0 ? `−${m(-f.balance)}` : m(f.balance)}</b></span>
+                  <span className="fundbar__sub">ตั้งต้น {m(f.opening)} · รับเข้า {m(f.moneyIn)} · จ่ายออก {m(f.moneyOut)}{f.balance < 0 ? ' · ติดลบ' : ''}</span>
+                  <span className="fundbar__go" aria-hidden="true">›</span>
+                </Link>
+              </li>
+            ))}
+            <li className="fundbar fundbar--total"><span className="fundbar__top"><b>รวมกองทุน</b><b className="num">{b.fundTotal < 0 ? `−${m(-b.fundTotal)}` : m(b.fundTotal)}</b></span><span className="fundbar__sub">ตั้งต้น {m(b.funds.reduce((s, f) => s + f.opening, 0))} · รับเข้า {m(b.funds.reduce((s, f) => s + f.moneyIn, 0))} · จ่ายออก {m(b.funds.reduce((s, f) => s + f.moneyOut, 0))}</span></li>
+          </ul>
+          <p className="small muted">แตะที่แถบกองทุนเพื่อดูรายรับ รายจ่าย บันทึกรายจ่าย และยอดคงเหลือสุดท้าย · <Link to="/funds">ดูทุกกองทุนในหน้าเดียว ›</Link></p>
         </section>
       )}
 
