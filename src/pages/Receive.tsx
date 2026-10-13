@@ -146,6 +146,7 @@ export default function Receive({ year }: { year: number }) {
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
           <ManualIncome types={types.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+            onManage={can(role, 'settings') ? { rename: (t) => { const n = prompt('แก้ชื่อประเภท', t.name)?.trim(); if (n && n !== t.name) types.put([{ ...t, name: n }]) }, remove: (t) => { if (confirm(`ลบประเภท “${t.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) types.remove(t.id) } } : undefined}
             onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => setForm({ entry: x, preset: 'manual' })} onDelete={delEntry} />
           {canWrite && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
         </section>

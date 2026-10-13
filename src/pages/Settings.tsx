@@ -454,7 +454,7 @@ function OpeningCard() {
   const [fmsg, setFmsg] = useState('')
   const others = types.list.filter((t) => t.active && !isFundType(t))
   const rename = (id: string, cur: string) => {
-    const n = prompt('แก้ชื่อกองทุน', cur)?.trim()
+    const n = prompt('แก้ชื่อ', cur)?.trim()
     const x = types.byId(id)
     if (!n || !x || n === cur) return
     if (types.list.some((y) => y.id !== id && y.name === n)) return setFmsg(`มี “${n}” อยู่แล้ว`)
@@ -496,8 +496,8 @@ function OpeningCard() {
       <p className="muted small">กองทุนชุดเดียวกับ “รายการรับ” — แก้ชื่อ เพิ่ม หรือลบที่ไหนก็ตรงกันทั้งสองที่</p>
       {others.length > 0 && (
         <details>
-          <summary className="small">รายการรับที่ยังไม่ใช่กองทุน ({others.length}) — แตะเพื่อตั้งเป็นกองทุน</summary>
-          <ul className="list">{others.map((t) => <li key={t.id}><span className="grow">{t.name}</span><button type="button" className="mini" aria-label={`ตั้ง ${t.name} เป็นกองทุน`} onClick={() => setFmsg(types.put([{ ...t, fund: true }]) ? `ตั้ง “${t.name}” เป็นกองทุนแล้ว` : 'สิทธิ์ของท่านแก้ไม่ได้')}>ตั้งเป็นกองทุน</button></li>)}</ul>
+          <summary className="small">รายการรับที่ยังไม่ใช่กองทุน ({others.length}) — ตั้งเป็นกองทุน / แก้ชื่อ / ลบ</summary>
+          <ul className="list">{others.map((t) => <li key={t.id}><span className="grow">{t.name}</span><button type="button" className="mini" aria-label={`แก้ชื่อ ${t.name}`} onClick={() => rename(t.id, t.name)}>✎</button><button type="button" className="mini" aria-label={`ลบ ${t.name}`} onClick={() => { if (!confirm(`ลบ “${t.name}” ออกจากรายการรับ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) return; setFmsg(types.remove(t.id) ? `ลบ “${t.name}” แล้ว` : 'สิทธิ์ของท่านลบไม่ได้') }}>🗑️</button><button type="button" className="mini" aria-label={`ตั้ง ${t.name} เป็นกองทุน`} onClick={() => setFmsg(types.put([{ ...t, fund: true }]) ? `ตั้ง “${t.name}” เป็นกองทุนแล้ว` : 'สิทธิ์ของท่านแก้ไม่ได้')}>ตั้งเป็นกองทุน</button></li>)}</ul>
         </details>
       )}
       <p className="small"><b>เงินหมุนเวียนของคริสตจักร</b> (ส่วนที่ไม่เข้ากองทุนไหน ใช้บริหารประจำสัปดาห์/เดือน)</p>
