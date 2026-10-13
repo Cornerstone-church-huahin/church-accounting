@@ -235,6 +235,8 @@ export interface Loan extends SharedItem {
   lender: { kind: 'person' | 'fund'; name?: string; fundId?: string }
   /** ใช้ทำอะไร เช่น ทำสุสาน สร้างห้องพัก */
   purpose: string
+  /** ผู้ยืม = เงินนี้ไปอยู่ที่ไหน: 'own' = เงินหมุนเวียนของคริสตจักร · id ประเภทถวาย (เช่น กองทุนสุสาน) · ไม่ใส่ = ไม่ระบุ */
+  borrower?: string
   date: string
   /** เงินต้น (สตางค์) */
   principal: number

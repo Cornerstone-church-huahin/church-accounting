@@ -223,7 +223,7 @@ export default function Adjust({ year }: { year: number }) {
               <p className="muted small">นับจาก{opening ? `ยอดยกมา ${fmtDate(opening.date)}` : ' 1 ม.ค.'} · ตอนย้ายเงินเข้าบัญชีวัตถุประสงค์ ให้ไปที่ช่อง 3 เพื่อบันทึกการย้าย</p>
             </>
           )}
-          <LoansPanel store={loans} funds={types.list.filter((t) => t.active && isFundType(t))} canWrite={canWrite} />
+          <LoansPanel store={loans} funds={types.list.filter((t) => t.active && isFundType(t))} types={types.list} canWrite={canWrite} />
         </section>
       )}
 
