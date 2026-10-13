@@ -22,7 +22,10 @@ export function useIncomeTypes() {
   const s = useSharedStore<IncomeType>({ localKey: k('types'), file: 'income-types.json', label: 'ประเภทถวาย', write: 'settings' })
   // ค่าตั้งต้นรวมกับที่แอดมินแก้เองเสมอ (รายการที่แก้/ปิด/ลบแล้วมี updated ใหม่กว่าจึงชนะ)
   const merged = mergeItems(DEFAULT_INCOME_TYPES, s.all).filter((t) => !isLegacySeed(t))
-  return { ...s, list: merged.filter((t) => !t.deleted).sort((a, b) => a.order - b.order), byId: (id: string) => merged.find((t) => t.id === id) }
+  const byId = (id: string) => merged.find((t) => t.id === id)
+  // ค่าตั้งต้นที่ยังไม่เคยถูกแก้ไม่อยู่ในไฟล์ที่เก็บ — ลบต้องเริ่มจากรายการที่รวมแล้ว ไม่เช่นนั้นลบไม่ติด
+  const remove = (id: string) => { const x = byId(id); return x ? s.put([{ ...x, deleted: true }]) : false }
+  return { ...s, remove, list: merged.filter((t) => !t.deleted).sort((a, b) => a.order - b.order), byId }
 }
 export function useAccounts() {
   const s = useSharedStore<BankAccount>({ localKey: k('accounts'), file: 'accounts.json', label: 'บัญชีธนาคาร', write: 'settings' })
@@ -51,7 +54,8 @@ export const useSheetFiles = (year: number) => useSharedStore<SheetFile>({ local
 export function useExpenseCats() {
   const s = useSharedStore<ExpenseCat>({ localKey: k('expense-cats'), file: 'expense-cats.json', label: 'หมวดรายจ่าย', write: 'settings' })
   const merged = mergeItems(DEFAULT_EXPENSE_CATS, s.all).filter((c) => !c.deleted && !isLegacyCatId(c.id)).sort((a, b) => a.order - b.order)
-  return { ...s, list: merged, groups: merged.filter((c) => c.kind === 'group'), itemsOf: (g: string) => merged.filter((c) => c.kind === 'item' && c.group === g), byId: (id: string) => merged.find((c) => c.id === id) }
+  const remove = (id: string) => { const x = merged.find((c) => c.id === id); return x ? s.put([{ ...x, deleted: true }]) : false }
+  return { ...s, remove, list: merged, groups: merged.filter((c) => c.kind === 'group'), itemsOf: (g: string) => merged.filter((c) => c.kind === 'item' && c.group === g), byId: (id: string) => merged.find((c) => c.id === id) }
 }
 
 /** รายจ่ายนอกใบเบิก (บันทึกด้วยมือ / วางบิล / สำรองจ่าย) รายปี */
