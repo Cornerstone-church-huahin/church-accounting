@@ -22,9 +22,9 @@ try {
   must(await page.getByRole('tab', { name: /รวมรับ/ }).isVisible(), 'total tab (4) exists')
   // 1 บันทึกด้วยมือ: ค่าเช่า 10,000 เงินสด
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
-  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (เงินสด)' }).locator('input').fill('10000')
+  await page.locator('.entryrow .field', { hasText: 'เงินสด (บาท)' }).locator('input').fill('10000')
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
-  must(await page.getByRole('table', { name: 'ตารางบันทึกรายรับ' }).getByText('สิบลด').isVisible(), 'saved row appears in the form-style table')
+  must(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(ตัวอย่างหน้ากระดาษ\)/ }).getByText('สิบลด').isVisible(), 'saved row appears on the A4 sheet')
   // 2 สลิป: เลือกรูป → ระบบอ่านเอง → ฟอร์มถูกใส่ค่าให้ (ใช้สลิปจริงจาก SLIP_FIXTURE ถ้ามี — ไม่เก็บสลิปจริงใน repo)
   await page.getByRole('tab', { name: /บันทึกสลิป/ }).click()
   must(await page.getByRole('button', { name: 'ถ่ายรูปสลิป' }).count() + await page.getByLabel('ถ่ายรูปสลิป').count() >= 1, 'camera button exists for slips')
@@ -59,12 +59,14 @@ try {
   await page.getByRole('button', { name: 'สัปดาห์ที่เลือก' }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   // แก้ไข / ลบ รายการที่บันทึกแล้ว
+  await page.evaluate(() => document.querySelectorAll('details.editlist').forEach((d) => { d.open = true }))
   await page.getByRole('button', { name: 'แก้ไขรายการนี้' }).first().click()
   await page.locator('#i-amt').fill('12000')
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   must(/12,000\.00/.test(await readTotal()), 'edited entry updates the report')
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
+  await page.evaluate(() => document.querySelectorAll('details.editlist').forEach((d) => { d.open = true }))
   await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   await page.waitForTimeout(300)
   must(/รวมทั้งสิ้น\s+0\s+0\.00\s+0\s+0\.00\s+0\.00/.test((await readTotal())), 'deleted entry leaves the report')
@@ -121,6 +123,7 @@ try {
   must(/สิบลด\s+7\s+2,150\.00\s+2,150\.00/.test(t3), 'type row combines sheet envelopes + hand entry (6+1=7): ' + t3)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
+  await page.evaluate(() => document.querySelectorAll('details.editlist').forEach((d) => { d.open = true }))
   await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   // กรณีของผู้ใช้: ใบถวายสิบลด 6 ซอง 1,150 + โอน 1 รายการ 169 → แถวสิบลด: 6 | 1,150.00 | 1 | 169.00 | 1,319.00
   await page.getByRole('button', { name: '＋ บันทึก' }).click()
@@ -136,6 +139,7 @@ try {
   }
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   page.once('dialog', (d) => d.accept())
+  await page.evaluate(() => document.querySelectorAll('details.editlist').forEach((d) => { d.open = true }))
   await page.getByRole('button', { name: 'ลบรายการนี้' }).first().click()
   await page.getByRole('tab', { name: /ใบบันทึกการถวาย/ }).click()
   // แก้ไขไฟล์ที่แนบ: เปลี่ยนยอดแล้วใบสรุปเปลี่ยนตาม · ลบไฟล์แล้วยอดในใบนับหายไป
