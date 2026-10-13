@@ -54,7 +54,7 @@ export default function ManualIncome({ types, entries, church, sunday, defaultDa
           </div>
           {err && <p className="err" role="alert">{err}</p>}
           <button type="button" className="btn btn--gold" onClick={save}>＋ เพิ่มลงตาราง</button>
-          <p className="muted small" style={{ margin: 0 }}>ไม่มีประเภทที่ต้องการ? เพิ่มหรือลบที่ <Link to="/settings">ตั้งค่า › ประเภทถวาย</Link></p>
+          <p className="muted small" style={{ margin: 0 }}>ไม่มีประเภทที่ต้องการ? เพิ่มหรือลบที่ <Link to="/settings">ตั้งค่า › รายการรับ</Link></p>
         </div>
       )}
 
