@@ -437,7 +437,7 @@ function ExpenseCatsCard() {
   )
 }
 
-/** ยอดยกมา ณ วันตัดยอด: เงินในแต่ละบัญชี · เงินสดในมือ · เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน (ยังไม่ย้ายเข้าบัญชีวัตถุประสงค์) */
+/** ยอดยกมา ณ วันตัดยอด: แยกเป็นแต่ละกองทุน + เงินของคริสตจักร แล้วรวมเป็นเงินตั้งต้น · ที่เก็บจริง (บัญชี/เงินสด) ไม่บังคับ ใช้ตรวจยอด */
 function OpeningCard() {
   const o = useOpening()
   const accts = useAccounts()
@@ -445,26 +445,57 @@ function OpeningCard() {
   const funds = types.list.filter((t) => t.active && isFundType(t))
   const cur = o.opening
   const [date, setDate] = useState(cur?.date ?? '')
+  const [fnd, setFnd] = useState<Record<string, number | null>>(() => ({ ...(cur?.funds ?? {}) }))
+  const [own, setOwn] = useState<number | null>(cur?.own ?? null)
   const [acc, setAcc] = useState<Record<string, number | null>>(() => ({ ...(cur?.accounts ?? {}) }))
   const [cash, setCash] = useState<number | null>(cur?.cash ?? null)
   const [unm, setUnm] = useState<Record<string, number | null>>(() => ({ ...(cur?.unmoved ?? {}) }))
+  const [newFund, setNewFund] = useState('')
   const [msg, setMsg] = useState('')
   const clean = (r: Record<string, number | null>) => Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== 0)) as Record<string, number>
+  const sumOf = (r: Record<string, number | null>, ids: string[]) => ids.reduce((s, id) => s + (r[id] ?? 0), 0)
+  const fundSum = sumOf(fnd, funds.map((f) => f.id))
+  const total = fundSum + (own ?? 0)
+  const held = (cash ?? 0) + sumOf(acc, accts.list.map((a) => a.id))
+  const addFund = () => {
+    const n = newFund.trim()
+    if (!n || types.list.some((x) => x.name === n)) return
+    types.put([{ id: newId('t'), name: n, order: types.list.length, active: true, fund: true, updated: 0 }])
+    setNewFund('')
+  }
   const save = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setMsg('เลือกวันตัดยอดก่อน')
-    setMsg(o.save({ date, accounts: clean(acc), cash: cash ?? 0, unmoved: clean(unm) }) ? 'บันทึกยอดยกมาแล้ว' : 'สิทธิ์ของท่านบันทึกไม่ได้')
+    const ids = new Set(funds.map((f) => f.id))
+    const keep = Object.fromEntries(Object.entries(clean(fnd)).filter(([id]) => ids.has(id)))
+    setMsg(o.save({ date, funds: keep, own: own ?? 0, accounts: clean(acc), cash: cash ?? 0, unmoved: clean(unm) }) ? 'บันทึกยอดยกมาแล้ว' : 'สิทธิ์ของท่านบันทึกไม่ได้')
   }
   return (
     <Fold id="h-open" title={<>📌 ยอดยกมา (ตั้งต้น)</>}>
-      <p className="muted small">ใช้ตั้งต้นเมื่อย้ายมาจากระบบเดิม: เลือกวันตัดยอด (ควรเป็นวันอาทิตย์ที่ปรับสมุดแล้ว) แล้วใส่ยอด ณ วันนั้น ข้อมูลก่อนวันนั้นไม่ต้องกรอก ยังไม่มีตัวเลขก็ปล่อยว่างไว้ได้ ใส่ภายหลังได้</p>
-      <div className="field"><label htmlFor="op-date">วันตัดยอด</label><input id="op-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      {accts.list.length === 0 && <p className="small muted">ยังไม่มีบัญชีธนาคาร — เพิ่มที่การ์ด “บัญชีธนาคาร” ด้านบนก่อน</p>}
-      {accts.list.map((a) => (
-        <div className="field" key={a.id}><label>ยอดคงเหลือ {a.name}{a.last4 ? ` (…${a.last4})` : ''}{a.role === 'operating' ? ' · หมุนเวียน' : a.role === 'restricted' ? ' · วัตถุประสงค์' : ''}</label><MoneyInput value={acc[a.id] ?? null} onChange={(v) => setAcc({ ...acc, [a.id]: v })} /></div>
+      <p className="muted small">ใส่เงินตั้งต้นแยกเป็นแต่ละกองทุนและเงินของคริสตจักรก่อน แล้วระบบรวมให้เป็นเงินตั้งต้นทั้งหมด หลังจากนั้นเงินถวายกองทุนไหนจะเข้ากองนั้น เงินที่ไม่เข้ากองทุนไหนจะอยู่เป็นเงินหมุนเวียนของคริสตจักร · ยังไม่มีตัวเลขก็ปล่อยว่างได้ ใส่ภายหลังได้</p>
+      <div className="field"><label htmlFor="op-date">วันตัดยอด (ควรเป็นวันอาทิตย์ที่ปรับสมุดแล้ว)</label><input id="op-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      <p className="small"><b>เงินแต่ละกองทุน</b></p>
+      {funds.length === 0 && <p className="small muted">ยังไม่มีกองทุน — เพิ่มด้านล่าง</p>}
+      {funds.map((t) => (
+        <div className="field" key={t.id}>
+          <label>{t.name}</label>
+          <div className="row"><div className="grow"><MoneyInput value={fnd[t.id] ?? null} onChange={(v) => setFnd({ ...fnd, [t.id]: v })} /></div><button type="button" className="mini" aria-label={`ลบกองทุน ${t.name}`} onClick={() => confirm(`ลบกองทุน “${t.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`) && types.remove(t.id)}>🗑️</button></div>
+        </div>
       ))}
-      <div className="field"><label>เงินสดในมือ</label><MoneyInput value={cash} onChange={setCash} /></div>
-      {funds.length > 0 && <p className="small"><b>เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน (ยังไม่ย้าย)</b></p>}
-      {funds.map((t) => <div className="field" key={t.id}><label>{t.name}</label><MoneyInput value={unm[t.id] ?? null} onChange={(v) => setUnm({ ...unm, [t.id]: v })} /></div>)}
+      <div className="row"><input className="input grow" aria-label="ชื่อกองทุนใหม่" placeholder="ชื่อกองทุนใหม่" value={newFund} onChange={(e) => setNewFund(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addFund()} /><button type="button" className="btn btn--ghost" onClick={addFund}>＋ เพิ่มกองทุน</button></div>
+      <p className="small"><b>เงินหมุนเวียนของคริสตจักร</b> (ส่วนที่ไม่เข้ากองทุนไหน ใช้บริหารประจำสัปดาห์/เดือน)</p>
+      <div className="field"><label>เงินหมุนเวียน</label><MoneyInput value={own} onChange={setOwn} /></div>
+      <p className="small" role="status"><b>รวมเงินตั้งต้นทั้งหมด {fmtBaht(total)} บาท</b><span className="muted"> (กองทุน {fmtBaht(fundSum)} + หมุนเวียน {fmtBaht(own ?? 0)})</span></p>
+      <details>
+        <summary className="small">เงินอยู่ที่ไหน (ไม่บังคับ — ใช้ตรวจว่ายอดตรงกับเงินจริง)</summary>
+        {accts.list.length === 0 && <p className="small muted">ยังไม่มีบัญชีธนาคาร — เพิ่มที่การ์ด “บัญชีธนาคาร” ด้านล่างก่อน</p>}
+        {accts.list.map((a) => (
+          <div className="field" key={a.id}><label>ยอดคงเหลือ {a.name}{a.last4 ? ` (…${a.last4})` : ''}{a.role === 'operating' ? ' · หมุนเวียน' : a.role === 'restricted' ? ' · วัตถุประสงค์' : ''}</label><MoneyInput value={acc[a.id] ?? null} onChange={(v) => setAcc({ ...acc, [a.id]: v })} /></div>
+        ))}
+        <div className="field"><label>เงินสดในมือ</label><MoneyInput value={cash} onChange={setCash} /></div>
+        <p className="small">รวมเงินสด+บัญชี {fmtBaht(held)} บาท{held !== total && (cash !== null || Object.keys(acc).length > 0) ? <span className="err"> · ต่างจากเงินตั้งต้น {fmtBaht(held - total, { sign: true })} บาท</span> : null}</p>
+        {funds.length > 0 && <p className="small"><b>เงินกองทุนที่ยังอยู่ในบัญชีหมุนเวียน (ยังไม่ย้ายเข้าบัญชีวัตถุประสงค์)</b></p>}
+        {funds.map((t) => <div className="field" key={t.id}><label>{t.name}</label><MoneyInput value={unm[t.id] ?? null} onChange={(v) => setUnm({ ...unm, [t.id]: v })} /></div>)}
+      </details>
       <button type="button" className="btn btn--gold" onClick={save}>บันทึกยอดยกมา</button>
       {msg && <p className={msg.startsWith('บันทึก') ? 'ok' : 'err'} role="status">{msg}</p>}
     </Fold>

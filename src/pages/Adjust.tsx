@@ -198,6 +198,11 @@ export default function Adjust({ year }: { year: number }) {
           <p className="small">เงินสดรับสัปดาห์นี้ (ตามใบถวาย) ที่ควรฝาก: <b>{fmtBaht(cashIn)}</b></p>
           {fundRows.length > 0 && (
             <>
+              <h3 style={{ marginTop: 14 }}>ยอดสะสมแต่ละกองทุน</h3>
+              <table className="tbl tbl--paper" aria-label="ยอดสะสมกองทุน">
+                <thead><tr><th>กองทุน</th><th className="num">ตั้งต้น</th><th className="num">รับเพิ่ม</th><th className="num">รวม</th></tr></thead>
+                <tbody>{fundRows.map((r) => { const o0 = opening?.funds?.[r.id] ?? 0, rc = fundRecv[r.id] ?? 0; return <tr key={r.id}><td>{r.name}</td><td className="num">{fmtBaht(o0)}</td><td className="num">{fmtBaht(rc)}</td><td className="num"><b>{fmtBaht(o0 + rc)}</b></td></tr> })}</tbody>
+              </table>
               <h3 style={{ marginTop: 14 }}>เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน</h3>
               <table className="tbl tbl--paper" aria-label="ค้างย้ายเข้ากองทุน">
                 <thead><tr><th>กองทุน</th><th className="num">รับ</th><th className="num">ย้ายแล้ว</th><th className="num">ค้างย้าย</th></tr></thead>
