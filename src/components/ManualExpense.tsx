@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MoneyInput from './MoneyInput'
 import { VoucherPaper } from './PaperSheets'
+import CatalogManager, { type CatalogOps } from './CatalogManager'
 import FundPicker from './FundPicker'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry, IncomeType } from '../lib/types'
@@ -9,8 +10,8 @@ import type { ExpenseCat, ExpenseEntry, IncomeType } from '../lib/types'
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
 /** ช่อง 1 ของฝั่งจ่าย: แถวบันทึก 1 บรรทัดตามใบเบิก-จ่ายเงินสด (เลือกรายการที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบเบิกด้านล่าง พร้อมยอดรวม */
-export default function ManualExpense({ cats, types, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
-  cats: ExpenseCat[]; /** ประเภทรับ (ใช้หากองทุนให้เลือก "จ่ายจาก") */ types: IncomeType[]; entries: ExpenseEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
+export default function ManualExpense({ cats, types, onManage, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
+  cats: ExpenseCat[]; /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายได้จากหน้านี้ */ onManage?: CatalogOps; /** ประเภทรับ (ใช้หากองทุนให้เลือก "จ่ายจาก") */ types: IncomeType[]; entries: ExpenseEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
   onAdd: (e: ExpenseEntry) => boolean; onEdit: (x: ExpenseEntry) => void; onDelete: (x: ExpenseEntry) => void
 }) {
   const items = cats.filter((c) => c.active && c.kind === 'group')
@@ -48,6 +49,7 @@ export default function ManualExpense({ cats, types, entries, church, sunday, de
           </div>
           {err && <p className="err" role="alert">{err}</p>}
           <button type="button" className="btn btn--gold" onClick={save}>＋ เพิ่มลงตาราง</button>
+          {onManage && <CatalogManager noun="รายการจ่าย" items={items} ops={onManage} onAdded={setItem} />}
           <p className="muted small" style={{ margin: 0 }}>ไม่มีรายการที่ต้องการ? เพิ่มหรือลบที่ <Link to="/settings">ตั้งค่า › รายการจ่าย</Link></p>
         </div>
       )}

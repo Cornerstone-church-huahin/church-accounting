@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import CatalogManager, { type CatalogOps } from './CatalogManager'
 import MoneyInput from './MoneyInput'
 import { IncomeSheetPaper } from './PaperSheets'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
@@ -14,7 +15,7 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 export default function ManualIncome({ types, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage }: {
   types: IncomeType[]; entries: IncomeEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
   /** แอดมินเท่านั้น: แก้ชื่อ/ลบประเภทได้จากหน้านี้เลย (ตัวเลือกแบบเลื่อนลงใส่ปุ่มลบไม่ได้) */
-  onManage?: { rename: (t: IncomeType) => void; remove: (t: IncomeType) => void }
+  onManage?: CatalogOps
   onAdd: (items: IncomeEntry[]) => boolean; onEdit: (x: IncomeEntry) => void; onDelete: (x: IncomeEntry) => void
 }) {
   const active = types.filter((t) => t.active)
@@ -56,12 +57,7 @@ export default function ManualIncome({ types, entries, church, sunday, defaultDa
           </div>
           {err && <p className="err" role="alert">{err}</p>}
           <button type="button" className="btn btn--gold" onClick={save}>＋ เพิ่มลงตาราง</button>
-          {onManage && (
-            <details className="editlist">
-              <summary className="small">✎ แก้ชื่อ / 🗑️ ลบ ประเภทที่ไม่ใช้ ({active.length})</summary>
-              <ul className="list">{active.map((t) => <li key={t.id}><span className="grow">{t.name}</span><button type="button" className="mini" aria-label={`แก้ชื่อ ${t.name}`} onClick={() => onManage.rename(t)}>✎ แก้ชื่อ</button><button type="button" className="mini" aria-label={`ลบประเภท ${t.name}`} onClick={() => onManage.remove(t)}>🗑️ ลบ</button></li>)}</ul>
-            </details>
-          )}
+          {onManage && <CatalogManager noun="ประเภท" items={active} ops={onManage} onAdded={setTypeId} />}
           <p className="muted small" style={{ margin: 0 }}>ไม่มีประเภทที่ต้องการ? เพิ่มหรือลบที่ <Link to="/settings">ตั้งค่า › รายการรับ</Link></p>
         </div>
       )}

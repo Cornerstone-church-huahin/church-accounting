@@ -4,6 +4,7 @@ import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
+import { makeExpenseGroup } from '../lib/catalog'
 import FundPicker from '../components/FundPicker'
 import CatOptions from '../components/CatOptions'
 import CaptureBar from '../components/CaptureBar'
@@ -132,7 +133,11 @@ export default function Pay({ year }: { year: number }) {
         )}
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} types={types.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense cats={cats.list} types={types.list} onManage={can(role, 'settings') ? {
+            add: (name) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
+            rename: (id, cur) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const x = cats.byId(id); if (n && x && n !== cur) cats.put([{ ...x, name: n }]) },
+            remove: (id, nm) => { if (confirm(`ลบ “${nm}” ออกจากรายการจ่าย?\n(รายจ่ายที่บันทึกไว้แล้วยังอยู่ แต่จะไม่มีหมวด)`)) cats.remove(id) },
+          } : undefined} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
 import { isFundType } from '../lib/funds'
+import { makeExpenseGroup, makeIncomeType } from '../lib/catalog'
 import { DEFAULT_EXPENSE_CATS } from '../lib/expenseCats'
 import { DEFAULT_INCOME_TYPES, useExpenses, useFundMoves, useLoans, usePassbook, useSheetFiles, useWeekCloses, useOpening, useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
@@ -201,9 +202,9 @@ function Types() {
   const t = useIncomeTypes()
   const [name, setName] = useState('')
   const add = () => {
-    const n = name.trim()
-    if (!n || t.list.some((x) => x.name === n)) return
-    t.put([{ id: newId('t'), name: n, order: t.list.length, active: true, updated: 0 }])
+    const nt = makeIncomeType(t.list, name)
+    if (typeof nt === 'string') return
+    t.put([nt])
     setName('')
   }
   const rename = (id: string, cur: string) => {
@@ -400,17 +401,15 @@ function Reader() {
 function ExpenseCatsCard() {
   const c = useExpenseCats()
   const [name, setName] = useState('')
-  const maxOrder = c.list.reduce((m, x) => Math.max(m, x.order), 0)
   const rename = (id: string) => {
     const x = c.byId(id)
     const n = prompt('ชื่อรายการ', x?.name)?.trim()
     if (x && n) c.put([{ ...x, name: n }])
   }
   const add = () => {
-    const n = name.trim()
-    if (!n || c.groups.some((g) => g.name === n)) return
-    const id = newId('xg')
-    c.put([{ id, kind: 'group', group: id, code: String(c.groups.reduce((m, x) => Math.max(m, Number(x.code) || 0), 0) + 1), name: n, order: maxOrder + 1, active: true, updated: 0 }])
+    const g = makeExpenseGroup(c.list, name)
+    if (typeof g === 'string') return
+    c.put([g])
     setName('')
   }
   const reset = () => {
