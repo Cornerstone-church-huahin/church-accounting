@@ -6,7 +6,12 @@ import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, Bud
 const k = (n: string) => `acct.${n}.v1`
 
 /** ประเภทตามใบบันทึกการถวายของคริสตจักร */
-export const DEFAULT_INCOME_TYPES: IncomeType[] = ['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'กองทุนเพื่อที่ดินคริสตจักร', 'กองทุนเพื่ออาหาร', 'รายได้อื่น (เช่น ค่าสถานที่สอน)'].map((name, i) => ({ id: `tt${i + 1}`, name, order: i, active: true, updated: 0, ...(i === 3 || i === 4 ? { fund: true } : {}) }))
+/** รายการประเภทถวายตามใบบันทึกการถวายฉบับล่าสุด (id เดิม tt1–tt6 คงไว้เพื่อข้อมูลเก่า) */
+export const DEFAULT_INCOME_TYPES: IncomeType[] = [
+  { id: 'tt1', name: 'สิบลด' }, { id: 'tt2', name: 'ประจำสัปดาห์' }, { id: 'tt3', name: 'ขอบพระคุณ' }, { id: 'tt5', name: 'อาหารวันอาทิตย์' },
+  { id: 'tt4', name: 'กองทุนเพื่อที่ดินคริสตจักร', fund: true }, { id: 'tt7', name: 'กองทุนสร้างอาคารพันธกิจ', fund: true }, { id: 'tt8', name: 'กองทุนสุสาน', fund: true },
+  { id: 'tt6', name: 'รายได้อื่น (เช่น ค่าสถานที่สอน)' },
+].map((t, i) => ({ ...t, order: i, active: true, updated: 0 }) as IncomeType)
 /** ค่าตั้งต้นรุ่นแรกที่ยังไม่มีใครแก้ (updated = 0) ซ่อนไว้ เพื่อไม่ให้ปนกับประเภทจริง */
 const LEGACY_SEED_IDS = new Set(['t1', 't2', 't3', 't4', 't5', 't6'])
 const isLegacySeed = (t: IncomeType) => LEGACY_SEED_IDS.has(t.id) && t.updated === 0

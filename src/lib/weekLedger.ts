@@ -45,7 +45,7 @@ export function computeLedger(a: {
   const at = (id: string) => { const c = m.get(id) ?? { cash: { n: 0, amt: 0 }, transfer: { n: 0, amt: 0 } }; m.set(id, c); return c }
   const order = new Map(a.types.map((t, i) => [t.id, t.order ?? i]))
   for (const r of rds) for (const [id, v] of Object.entries(r.lines)) if (v > 0) { const c = at(id).cash; c.amt += v; c.n += r.envelopes?.[id] ?? 1 }
-  for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += 1 }
+  for (const x of ent) { const c = at(x.unknown ? UNSORTED : x.typeId); const t = x.method === 'transfer' ? c.transfer : c.cash; t.amt += x.amount; t.n += x.count ?? 1 }
   // เงินเข้าสมุดที่ไม่มีสลิป: ถ้ามีลายมือ/หมายเหตุระบุประเภทไว้ (เช่น "สิบลด") ให้ลงประเภทนั้น · ไม่ได้ระบุเลย = ไม่ทราบที่มา
   const bankIn = unknownBankIn(a.passbook ?? [], a.income).filter((l) => inR(lineDate(l)))
   const bankUnknown: PassbookLine[] = []

@@ -1,0 +1,75 @@
+// ทดสอบแถวบันทึกแบบตาราง (ช่อง 1 ของ รับ และ จ่าย): เลือกรายการตามใบ → เพิ่มลงตาราง → ขึ้นเป็นตารางด้านล่าง → เข้าใบสรุป
+import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+const PORT = 4179
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' })
+await new Promise((r) => setTimeout(r, 2500))
+const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined
+const browser = await chromium.launch(exe ? { executablePath: exe } : {})
+const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, locale: 'th-TH' })
+const page = await ctx.newPage()
+const errors = []
+page.on('pageerror', (e) => errors.push(String(e)))
+const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
+try {
+  await page.goto(`http://localhost:${PORT}/#/`)
+  // ---- รับ ----
+  await page.getByRole('tab', { name: /💚 รับ/ }).click()
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  const types = await page.locator('#mi-type option').allInnerTexts()
+  must(['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'อาหารวันอาทิตย์', 'กองทุนเพื่อที่ดินคริสตจักร', 'กองทุนสร้างอาคารพันธกิจ', 'กองทุนสุสาน'].every((n, i) => types[i] === n), 'type list follows the printed form: ' + types.join('|'))
+  await page.locator('#mi-type').selectOption({ label: 'ประจำสัปดาห์' })
+  await page.locator('#mi-env').fill('7')
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (เงินสด)' }).locator('input').fill('2040')
+  await page.locator('#mi-tc').fill('1')
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (โอน)' }).locator('input').fill('2000')
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  const tbl = page.getByRole('table', { name: 'ตารางบันทึกรายรับ' })
+  await tbl.waitFor()
+  const t = (await tbl.innerText()).replace(/\s+/g, ' ')
+  must(/1\. ประจำสัปดาห์[^]*7 2,040/.test(t) && /2\. ประจำสัปดาห์[^]*1 2,000/.test(t) && /รวมทั้งสิ้น 7 2,040 1 2,000 4,040/.test(t), 'income table rows + totals: ' + t)
+  await page.screenshot({ path: 'shots/entry-income.png', fullPage: true })
+  await page.getByRole('tab', { name: /รวมรับ/ }).click()
+  const rt = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
+  must(/ประจำสัปดาห์\s+7\s+2,040\.00\s+1\s+2,000\.00\s+4,040\.00/.test(rt), 'summary row from table entries: ' + rt)
+  // ---- จ่าย ----
+  await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  const items = await page.locator('#me-item option').allInnerTexts()
+  must(items.length === 12 && items[0] === 'ค่าน้ำมันออกเยี่ยม อ.กฤต' && items[10] === 'ค่าน้ำ', 'expense list follows the voucher: ' + items.join('|'))
+  await page.locator('#me-item').selectOption({ label: 'ค่าไฟ' })
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน' }).last().locator('input').fill('1850')
+  await page.locator('#me-req').fill('สมเจต')
+  await page.locator('#me-pay').fill('การไฟฟ้า')
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  const et = page.getByRole('table', { name: 'ตารางใบเบิก-จ่ายเงินสด' })
+  await et.waitFor()
+  const e = (await et.innerText()).replace(/\s+/g, ' ')
+  must(/1 ค่าไฟ[^]*1,850 สมเจต การไฟฟ้า/.test(e) && /รวมจ่ายเป็นเงินทั้งสิ้น 1,850/.test(e), 'expense table row: ' + e)
+  await page.screenshot({ path: 'shots/entry-expense.png', fullPage: true })
+  await page.getByRole('tab', { name: /รวมจ่าย/ }).click()
+  const pt = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
+  must(/ค่าสาธารณูปโภคและค่าเช่า[^0-9]*1\s+1,850\.00/.test(pt), 'summary groups the item under its category: ' + pt)
+  // ตัวเลือกใหม่: พิมพ์ "ค่าน้ำมันรถสีขาว" ครั้งแรก → เก็บเป็นตัวเลือกถาวร ครั้งหน้าเลือกจากรายการได้
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  await page.locator('#me-item').selectOption({ label: '＋ เพิ่มรายการใหม่ (พิมพ์เอง)' })
+  await page.locator('#me-custom').fill('ค่าน้ำมันรถสีขาว')
+  await page.locator('#me-ccat').selectOption('ei-5-1')
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน' }).last().locator('input').fill('500')
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  await page.getByRole('table', { name: 'ตารางใบเบิก-จ่ายเงินสด' }).getByText('ค่าน้ำมันรถสีขาว').waitFor()
+  must((await page.locator('#me-item option').allInnerTexts()).includes('ค่าน้ำมันรถสีขาว'), 'new expense option is kept for next time')
+  await page.reload()
+  await page.getByRole('tab', { name: /🔴 จ่าย/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  must((await page.locator('#me-item option').allInnerTexts()).includes('ค่าน้ำมันรถสีขาว'), 'new expense option survives a reload')
+  // ประเภทถวายใหม่
+  await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  await page.locator('#mi-type').selectOption({ label: '＋ เพิ่มประเภทใหม่ (พิมพ์เอง)' })
+  await page.locator('#mi-new').fill('ถวายพิเศษ')
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (เงินสด)' }).locator('input').fill('300')
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  must((await page.locator('#mi-type option').allInnerTexts()).includes('ถวายพิเศษ'), 'new income type is kept for next time')
+  must(errors.length === 0, 'page errors: ' + errors.join('|'))
+  console.log('ENTRY OK')
+} catch (e) { await page.screenshot({ path: 'shots/entry-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

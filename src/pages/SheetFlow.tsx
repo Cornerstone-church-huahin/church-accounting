@@ -47,8 +47,9 @@ function mergeRows(base: RowDraft[], read: RowDraft[]): RowDraft[] {
 /** แถวที่พิมพ์ไว้ในใบ (5 ประเภทแรก) — แสดงครบเสมอ แม้ยังอ่านไม่ได้/ไม่มียอด */
 function baseRows(types: IncomeType[]): RowDraft[] {
   const act = types.filter((t) => t.active && t.id !== 'tt6')
-  const fixed = ['tt1', 'tt2', 'tt3', 'tt4', 'tt5'].map((id) => act.find((t) => t.id === id)).filter((t): t is IncomeType => !!t)
-  return (fixed.length >= 5 ? fixed : act.slice(0, 5)).map((t) => ({ label: t.name, typeId: t.id, envelopes: null, amount: null }))
+  // แถวพิมพ์ในใบบันทึกการถวายฉบับล่าสุด (7 ประเภท) ตามลำดับในใบ
+  const fixed = ['tt1', 'tt2', 'tt3', 'tt5', 'tt4', 'tt7', 'tt8'].map((id) => act.find((t) => t.id === id)).filter((t): t is IncomeType => !!t)
+  return (fixed.length >= 7 ? fixed : act.slice(0, 7)).map((t) => ({ label: t.name, typeId: t.id, envelopes: null, amount: null }))
 }
 
 /** ช่อง 3: แนบรูปใบบันทึกการถวาย → Gemini อ่านแถวเงินสด → ตรวจ/แก้ → ยืนยัน → ใส่ในใบนับวันอาทิตย์ (แสดงในใบสรุปช่อง 4) */
