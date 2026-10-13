@@ -61,6 +61,7 @@ export default function Pay({ year }: { year: number }) {
   const [pdfBusy, setPdfBusy] = useState(false)
 
   const all = useMemo(() => [...exp.items].sort(byDateDesc), [exp.items])
+  const weekMarks = useMemo(() => { const m: Record<string, number> = {}; for (const x of exp.items) { const w = sheetSunday(effDate(x)); m[w] = (m[w] ?? 0) + 1 } return m }, [exp.items])
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
@@ -141,7 +142,7 @@ export default function Pay({ year }: { year: number }) {
 
   return (
     <>
-      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} marks={weekMarks} />
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
         {tab('bill', 2, 'วางบิล', of('bill').length)}

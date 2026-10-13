@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useRef, type MutableRefObject, type ReactNode } from 'react'
 import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/money'
 import { downloadSheetPdf } from '../lib/pdf'
 import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
+import type { LRow } from '../lib/weekLedger'
 import ScaledPage from './ScaledPage'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
@@ -135,5 +136,86 @@ export function VoucherPaper({ church, entries, sunday }: { church: string; entr
         <button type="button" className="btn btn--ghost" onClick={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')}>⬇️ {DOWNLOAD_NOTE} (A4)</button>
       </div>
     </div>
+  )
+}
+
+/** หน้าสรุปรายสัปดาห์ (สีขาวเหมือนใบในแท็บรับ/จ่าย): ใบที่ 1 = รายรับ เรียงตามประเภท · A4 แนวนอน · เติมแถวว่างให้ครบ 20 แถว */
+export function IncomeSummaryPaper({ church, rows, heading, pagesRef }: { church: string; rows: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
+  const ROWS = 20
+  const pages = chunk(rows, ROWS)
+  pagesRef.current = []
+  const sum = (xs: LRow[], f: (r: LRow) => number) => xs.reduce((a, r) => a + f(r), 0)
+  const cash = (xs: LRow[]) => sum(xs, (r) => r.cash.amt), tr = (xs: LRow[]) => sum(xs, (r) => r.transfer.amt)
+  return (
+    <>
+      {pages.map((rs, pi) => (
+        <ScaledPage key={pi} landscape className="a4page a4page--sheet" ref={(el) => { if (el) pagesRef.current[pi] = el }}>
+          <>
+            <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact />
+            <table className="sheetpaper sheetpaper--land" aria-label="สรุปรายรับ (ใบบันทึกการถวาย)">
+              <colgroup><col style={{ width: '6%' }} /><col style={{ width: '34%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} /></colgroup>
+              <thead><tr><th>No.</th><th>ประเภท</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
+              <tbody>
+                {Array.from({ length: ROWS }, (_, i) => {
+                  const r = rs[i]
+                  return (
+                    <tr key={i}>
+                      <td>{pi * ROWS + i + 1}.</td><td>{r?.label ?? ''}</td>
+                      <td className="num">{r?.cash.n || ''}</td><td className="num">{r?.cash.amt ? m(r.cash.amt) : ''}</td>
+                      <td className="num">{r?.transfer.n || ''}</td><td className="num">{r?.transfer.amt ? m(r.transfer.amt) : ''}</td>
+                      <td className="num"><b>{r && r.cash.amt + r.transfer.amt ? m(r.cash.amt + r.transfer.amt) : ''}</b></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot><tr><td colSpan={2}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n)}</td><td className="num">{m(cash(rs))}</td><td className="num">{sum(rs, (r) => r.transfer.n)}</td><td className="num">{m(tr(rs))}</td><td className="num">{m(cash(rs) + tr(rs))}</td></tr></tfoot>
+            </table>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 'auto' }}>
+              <div>รวมจากตู้ถวาย {m(cash(rs))} บาท<br />รวมจากการโอน {m(tr(rs))} บาท{pages.length > 1 && pi === pages.length - 1 ? <><br />ยอดรวมทุกแผ่น {m(cash(rows) + tr(rows))} บาท</> : null}</div>
+              <div>ลงชื่อผู้ตรวจนับ 1 ................................................<br />ลงชื่อผู้ตรวจนับ 2 ................................................</div>
+            </div>
+          </>
+        </ScaledPage>
+      ))}
+    </>
+  )
+}
+
+/** ใบที่ 2 = รายจ่ายตามหมวด + สรุปปิดยอดสัปดาห์ (children = ส่วนสรุปท้ายใบ แสดงในแผ่นสุดท้าย) · A4 แนวตั้ง */
+export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children }: { church: string; rows: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]>; children?: ReactNode }) {
+  const ROWS = 14
+  const pages = chunk(rows, ROWS)
+  pagesRef.current = []
+  const tot = (r: LRow) => r.cash.amt + r.transfer.amt + (r.pending?.amt ?? 0)
+  const sum = (xs: LRow[], f: (r: LRow) => number) => xs.reduce((a, r) => a + f(r), 0)
+  return (
+    <>
+      {pages.map((rs, pi) => (
+        <ScaledPage key={pi} ref={(el) => { if (el) pagesRef.current[pi] = el }}>
+          <>
+            <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด (สรุปรายจ่าย)" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
+            <table className="sheetpaper sheetpaper--full" aria-label="สรุปรายจ่าย (ใบเบิก-จ่ายเงินสด)">
+              <colgroup><col style={{ width: '7%' }} /><col style={{ width: '31%' }} /><col style={{ width: '9%' }} /><col style={{ width: '15%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /></colgroup>
+              <thead><tr><th>ลำดับที่</th><th>หมวดรายจ่าย</th><th>รายการ</th><th>จ่ายเงินสด</th><th>จ่ายโอน</th><th>ค้างจ่าย</th><th>รวม</th></tr></thead>
+              <tbody>
+                {Array.from({ length: ROWS }, (_, i) => {
+                  const r = rs[i]
+                  return (
+                    <tr key={i}>
+                      <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td><td>{r?.label ?? ''}</td>
+                      <td className="num">{r ? r.cash.n + r.transfer.n + (r.pending?.n ?? 0) || '' : ''}</td>
+                      <td className="num">{r?.cash.amt ? m(r.cash.amt) : ''}</td><td className="num">{r?.transfer.amt ? m(r.transfer.amt) : ''}</td><td className="num">{r?.pending?.amt ? m(r.pending.amt) : ''}</td>
+                      <td className="num"><b>{r && tot(r) ? m(tot(r)) : ''}</b></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot><tr><td colSpan={2} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n + r.transfer.n + (r.pending?.n ?? 0))}</td><td className="num">{m(sum(rs, (r) => r.cash.amt))}</td><td className="num">{m(sum(rs, (r) => r.transfer.amt))}</td><td className="num">{m(sum(rs, (r) => r.pending?.amt ?? 0))}</td><td className="num">{m(sum(rs, tot))}</td></tr></tfoot>
+            </table>
+            {pi === pages.length - 1 && children}
+          </>
+        </ScaledPage>
+      ))}
+    </>
   )
 }
