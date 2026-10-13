@@ -39,7 +39,7 @@ try {
   await page.locator('#e-amt').fill('1850')
   await page.getByRole('button', { name: 'โอนเงิน' }).click()
   await save()
-  must(await page.getByText('1 รายการ · รวม 1,850.00').isVisible(), 'manual card header')
+  must(/รวมจ่ายเป็นเงินทั้งสิ้น\s+1,850/.test((await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')), 'voucher sheet total shows the saved amount')
 
   // 2 วางบิล: ถ่าย/เลือกรูปบิล → ระบบอ่าน (วันที่ ยอด ร้าน หมวด) → ตรวจ → ยืนยัน (ยังไม่จ่าย 2,000)
   await page.getByRole('tab', { name: /วางบิล/ }).click()

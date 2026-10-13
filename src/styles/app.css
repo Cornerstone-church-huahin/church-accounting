@@ -324,3 +324,20 @@ ul.plain > li { padding: 0.25rem 0; }
 @media (max-width: 340px) { .entryrow__pair { grid-template-columns: 1fr; } }
 .editlist { margin: 0.6rem 0; border: 1px solid var(--line); border-radius: 0.7rem; padding: 0.4rem 0.7rem; }
 .editlist > summary { cursor: pointer; font-weight: 600; padding: 0.3rem 0; }
+
+/* ครึ่งแผ่น A4 (210 × 148.5 มม.) ขนาดจริง ไม่ยืดไม่หด: 794 × 561.5 px ที่ 96 dpi */
+.a4page--half { height: 561.5px !important; padding: 8px 16px 6px; gap: 3px; font-size: 11px; }
+.a4wrap--half { }
+.sheetpaper { table-layout: fixed; width: 100%; border-collapse: collapse; }
+.sheetpaper th, .sheetpaper td { border: 1px solid #1a2b4c; padding: 0 4px; }
+.sheetpaper th { background: #eef1f7; font-size: 11px; line-height: 1.2; padding: 2px 3px; }
+.sheetpaper td { font-size: 11px; }
+.sheetpaper--half td { height: 16.2px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheetpaper--full td { height: 26px; font-size: 13px; }
+.sheetpaper th { font-size: 12px; }
+.sheetpaper tfoot td { background: #eef1f7; font-weight: 700; }
+@media print { .a4wrap--half { height: 148.5mm !important; } }
+
+.a4page--sheet { padding: 18px 28px 16px; }
+.sheetpaper--land td { height: 28px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheetpaper--land th { font-size: 13px; padding: 4px 4px; }

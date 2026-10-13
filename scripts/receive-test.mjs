@@ -24,7 +24,7 @@ try {
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   await page.locator('.entryrow .field', { hasText: 'เงินสด (บาท)' }).locator('input').fill('10000')
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
-  must(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(ตัวอย่างหน้ากระดาษ\)/ }).getByText('สิบลด').isVisible(), 'saved row appears on the A4 sheet')
+  must(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).getByText('สิบลด').isVisible(), 'saved row appears on the A4 sheet')
   // 2 สลิป: เลือกรูป → ระบบอ่านเอง → ฟอร์มถูกใส่ค่าให้ (ใช้สลิปจริงจาก SLIP_FIXTURE ถ้ามี — ไม่เก็บสลิปจริงใน repo)
   await page.getByRole('tab', { name: /บันทึกสลิป/ }).click()
   must(await page.getByRole('button', { name: 'ถ่ายรูปสลิป' }).count() + await page.getByLabel('ถ่ายรูปสลิป').count() >= 1, 'camera button exists for slips')
@@ -52,7 +52,7 @@ try {
   must(/ผู้ตรวจสอบ/.test(txt), 'signature block shown')
   // การ์ดแสดงจำนวนรายการ + รวม · ใบสรุปสลับ ทั้งปี ได้ · ทุกสัปดาห์
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
-  must(await page.getByText('1 รายการ · รวม 10,000.00').isVisible(), 'card header shows count and sum')
+  must(/รวมทั้งสิ้น.*10,000/.test((await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')), 'landscape A4 sheet total shows the saved amount')
   await readTotal()
   await page.getByRole('button', { name: /^ทั้งปี/ }).click()
   must(/ประจำปี[\s\S]*10,000\.00/.test(await readTotal()), 'year scope includes the entry')
