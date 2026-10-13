@@ -352,3 +352,18 @@ ul.plain > li { padding: 0.25rem 0; }
 .weekacc__head { width: 100%; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; padding: 10px 12px; background: transparent; border: 0; cursor: pointer; font: inherit; color: inherit; }
 .weekacc--open > .weekacc__head { background: #eef4ff; }
 .weekacc__body { padding: 4px 8px 12px; }
+
+/* แถบเงินคริสตจักรใต้ชื่อบัญชี: หมุนเวียน · กองทุน · รวม — พื้นทึบ ตัวเลขใหญ่ ต่างจากแท็บขั้นตอน (พื้นอ่อน ตัวอักษรใหญ่) */
+.home-label { margin: 0.8rem 0 0.3rem; font-weight: 700; font-size: 0.95rem; color: var(--ink); }
+.home-label span { font-weight: 400; color: var(--muted, #666); font-size: 0.8rem; }
+.home-label--steps { margin-top: 1.5rem; padding-top: 0.9rem; border-top: 2px dashed var(--line); }
+.balance-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0 0 0.4rem; }
+.btile { display: flex; flex-direction: column; gap: 3px; padding: 0.7rem 0.4rem 0.75rem; border-radius: 0.6rem; border: 0; color: #fff; text-decoration: none; text-align: center; box-shadow: 0 2px 0 rgba(0,0,0,0.18); }
+.btile small { font-size: 0.82rem; font-weight: 600; opacity: 0.92; }
+.btile b { font-size: 1.2rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.btile--own { background: #1a2b4c; }
+.btile--fund { background: #8a6410; }
+.btile--total { background: #1f5fbf; }
+.bigfig { font-size: 1.9rem; font-weight: 700; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+.subtab-link { display: block; text-align: center; padding: 0.55rem 0.3rem; border: 2px solid var(--line); border-radius: 0.6rem; font-weight: 700; color: var(--ink); text-decoration: none; background: var(--surface); }
+.subtab-link.on { background: #1a2b4c; color: #fff; border-color: #1a2b4c; }

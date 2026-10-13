@@ -9,6 +9,7 @@ import Vouchers from './pages/Vouchers'
 import VoucherDetail from './pages/VoucherDetail'
 import Budget from './pages/Budget'
 import FundAccountsPage from './pages/FundAccounts'
+import BalancePage from './pages/Balance'
 import Reports from './pages/Reports'
 import More from './pages/More'
 import Settings from './pages/Settings'
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="vouchers/:id" element={<VoucherDetail />} />
           <Route path="budget" element={<Budget />} />
           <Route path="funds" element={<FundAccountsPage />} />
+          <Route path="balance/:kind" element={<BalancePage />} />
           <Route path="reports" element={<Reports />} />
           <Route path="more" element={<More />} />
           <Route path="settings" element={<Settings />} />
