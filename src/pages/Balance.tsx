@@ -121,7 +121,7 @@ export default function BalancePage() {
               <tfoot><tr><td colSpan={4}>รวมค้างคืน</td><td className="num">{m(debt)}</td></tr></tfoot>
             </table>
           )}
-          {ext.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={ext.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${l.lender.name || 'บุคคลภายนอก'} · ${l.purpose}`, value: loanBalance(l) }))} tone="out" /></>}
+          {ext.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={ext.filter((l) => loanBalance(l) > 0).map((l) => ({ label: [l.lender.name || "บุคคลภายนอก", l.purpose].filter(Boolean).join(" · "), value: loanBalance(l) }))} tone="out" /></>}
           <LoansPanel store={loans} funds={types.filter((t) => t.active)} types={types} canWrite={can(role, 'statement')} only="person" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
         </section>
       )}

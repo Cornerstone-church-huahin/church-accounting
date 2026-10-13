@@ -23,12 +23,12 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types 
 
   const save = () => {
     if (!form) return
-    if (!form.purpose.trim()) return setErr('ใส่ว่ายืมไปใช้ทำอะไร')
+    if (!form.borrower) return setErr('เลือกผู้ที่ยืม')
     if (form.kind === 'person' && !form.name.trim()) return setErr('ใส่ชื่อผู้ให้ยืม')
     if (form.kind === 'fund' && !form.fundId) return setErr('เลือกกองทุนที่ให้ยืม')
     if (!form.principal || form.principal <= 0) return setErr('ใส่จำนวนเงินที่ยืม')
     const old = form.id ? store.items.find((x) => x.id === form.id) : undefined
-    store.put([{ id: form.id ?? newId('ln'), updated: 0, lender: form.kind === 'fund' ? { kind: 'fund', fundId: form.fundId } : { kind: 'person', name: form.name.trim() }, purpose: form.purpose.trim(), ...(form.borrower ? { borrower: form.borrower } : {}), date: form.date, principal: form.principal, repayments: old?.repayments ?? [], ...(form.note.trim() ? { note: form.note.trim() } : {}) }])
+    store.put([{ id: form.id ?? newId('ln'), updated: 0, lender: form.kind === 'fund' ? { kind: 'fund', fundId: form.fundId } : { kind: 'person', name: form.name.trim() }, purpose: form.purpose.trim(), ...(form.borrower ? { borrower: form.borrower } : {}), date: form.date, principal: form.principal, repayments: old?.repayments ?? [], ...(old?.note ? { note: old.note } : {}) }])
     setForm(null); setErr('')
   }
   const edit = (l: Loan) => setForm({ id: l.id, borrower: l.borrower ?? '', kind: l.lender.kind, name: l.lender.name ?? '', fundId: l.lender.fundId ?? funds[0]?.id ?? '', purpose: l.purpose, date: l.date, principal: l.principal, note: l.note ?? '' })
@@ -49,7 +49,7 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types 
         const bal = loanBalance(l)
         return (
           <div key={l.id} className="pbdraft" style={bal === 0 ? { opacity: 0.6 } : undefined}>
-            <div><b>{lenderLabel(l, fundName)}</b> · {l.purpose} <span className="muted small">({fmtDate(l.date)}){l.lender.kind === 'fund' ? ' · ยืมจากกองทุน' : ' · ภายนอก'}</span></div>
+            <div><b>{lenderLabel(l, fundName)}</b> · {l.purpose || ''} <span className="muted small">({fmtDate(l.date)}){l.lender.kind === 'fund' ? ' · ยืมจากกองทุน' : ' · ภายนอก'}</span></div>
             {l.borrower && <div className="small">ผู้ยืม: <b>{borrowerName(l.borrower)}</b></div>}
             <div className="small">ยืม {fmtBaht(l.principal)} · คืนแล้ว {fmtBaht(repaidOf(l))} · <b className={bal > 0 ? 'err' : 'ok'}>{bal > 0 ? `ค้างคืน ${fmtBaht(bal)}` : 'คืนครบแล้ว ✓'}</b></div>
             {l.repayments.length > 0 && <ul className="plain small">{l.repayments.map((r) => <li key={r.id}>คืน {fmtBaht(r.amount)} · {fmtDate(r.date)}{r.note ? ` · ${r.note}` : ''}{canWrite && <button type="button" className="mini" aria-label="ลบการคืนนี้" onClick={() => store.put([{ ...l, repayments: l.repayments.filter((x) => x.id !== r.id) }])}>×</button>}</li>)}</ul>}
@@ -79,16 +79,15 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types 
           {form.kind === 'person'
             ? <div className="field"><label htmlFor="ln-name">ชื่อผู้ให้ยืม</label><input id="ln-name" className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             : <div className="field"><label htmlFor="ln-fund">กองทุนที่ให้ยืม</label><select id="ln-fund" className="input" value={form.fundId} onChange={(e) => setForm({ ...form, fundId: e.target.value })}>{funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></div>}
-          <div className="field"><label htmlFor="ln-borrower">ผู้ยืม (เงินนี้เข้าไปอยู่ที่ไหน)</label>
+          <div className="field"><label htmlFor="ln-borrower">ผู้ที่ยืม (เลือกจากรายการในระบบ)</label>
             <select id="ln-borrower" className="input" value={form.borrower} onChange={(e) => setForm({ ...form, borrower: e.target.value })}>
-              <option value="">— ไม่ระบุ —</option>
+              <option value="">— เลือกผู้ที่ยืม —</option>
               <option value="own">🏠 เงินหมุนเวียนของคริสตจักร</option>
               {borrowers.map((t) => <option key={t.id} value={t.id}>{isFundType(t) ? '💰 ' : ''}{t.name}</option>)}
             </select></div>
-          <div className="field"><label htmlFor="ln-purpose">ยืมไปใช้ทำอะไร</label><input id="ln-purpose" className="input" value={form.purpose} placeholder="เช่น ทำสุสาน · สร้างห้องพัก" onChange={(e) => setForm({ ...form, purpose: e.target.value })} /></div>
           <div className="grid2"><div className="field"><label htmlFor="ln-date">วันที่ยืม (ประมาณได้)</label><input id="ln-date" className="input" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
             <div className="field"><label>จำนวนเงินที่ยืม</label><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></div></div>
-          <div className="field"><label htmlFor="ln-note">หมายเหตุ (ถ้ามี)</label><input id="ln-note" className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
+          <div className="field"><label htmlFor="ln-purpose">ใช้ทำอะไร / หมายเหตุ (ไม่บังคับ)</label><input id="ln-purpose" className="input" value={form.purpose} placeholder="เช่น ทำหลุมสุสาน" onChange={(e) => setForm({ ...form, purpose: e.target.value })} /></div>
           <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{form.id ? 'บันทึกการแก้ไข' : 'บันทึกเงินยืม'}</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr('') }}>ยกเลิก</button></div>
         </div>
       ) : <button type="button" className="btn btn--ghost" onClick={() => setForm({ ...blank(funds[0]?.id ?? ''), ...(only ? { kind: only } : {}) })}>{only === 'person' ? '＋ บันทึกหนี้สินใหม่' : '＋ บันทึกเงินยืม'}</button>)}
