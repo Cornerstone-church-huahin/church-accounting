@@ -4,6 +4,7 @@ import LedgerTable from '../components/LedgerTable'
 import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
+import FundPicker from '../components/FundPicker'
 import CatOptions from '../components/CatOptions'
 import CaptureBar from '../components/CaptureBar'
 import ManualExpense from '../components/ManualExpense'
@@ -131,7 +132,7 @@ export default function Pay({ year }: { year: number }) {
         )}
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense cats={cats.list} types={types.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
@@ -204,6 +205,8 @@ export default function Pay({ year }: { year: number }) {
 /** ฟอร์มรายจ่าย: ใช้ร่วมกัน 3 ช่องทาง (ต่างกันที่ป้ายชื่อ/ช่องวันครบกำหนด/สถานะ/รูปแนบ) */
 function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: number; entry: ExpenseEntry | null; channel: Channel; exp: ReturnType<typeof useExpenses>; onClose: () => void; init?: ExpInit }) {
   const cats = useExpenseCats()
+  const incTypes = useIncomeTypes()
+  const [fundId, setFundId] = useState(entry?.fundId ?? '')
   const c = CH[channel]
   const today = yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`
   const [date, setDate] = useState(entry?.date ?? init?.date ?? today)
@@ -242,7 +245,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
     }
     const rec: ExpenseEntry = {
       id: entry?.id ?? newId('ex'), channel, date, amount, desc: name, status, method,
-      ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
+      ...(catId ? { catId } : {}), ...(fundId ? { fundId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
       ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), ...(entry?.requester ? { requester: entry.requester } : {}), updated: 0,
     }
     if (exp.put([rec])) onClose()
@@ -257,6 +260,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
           <CatOptions groups={cats.groups} itemsOf={cats.itemsOf} />
         </select>
       </div>
+      <FundPicker id="e-fund" types={incTypes.list} value={fundId} onChange={setFundId} />
       <div className="field"><label htmlFor="e-desc">รายการ</label><input id="e-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="เช่น ค่าไฟฟ้า ก.ย. 69" /></div>
       <div className="field"><label htmlFor="e-amt">จำนวนเงิน (บาท)</label><MoneyInput id="e-amt" value={amount} onChange={setAmount} /></div>
       {channel === 'manual' ? (

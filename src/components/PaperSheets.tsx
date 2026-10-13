@@ -140,7 +140,7 @@ export function VoucherPaper({ church, entries, sunday }: { church: string; entr
 }
 
 /** หน้าสรุปรายสัปดาห์ (สีขาวเหมือนใบในแท็บรับ/จ่าย): ใบที่ 1 = รายรับ เรียงตามประเภท · A4 แนวนอน · เติมแถวว่างให้ครบ 20 แถว */
-export function IncomeSummaryPaper({ church, rows, heading, pagesRef }: { church: string; rows: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
+export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note }: { church: string; rows: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]>; /** หมายเหตุท้ายตาราง (เช่น เงินถวายกองทุนที่แยกไว้) */ note?: string }) {
   const ROWS = 20
   const pages = chunk(rows, ROWS)
   pagesRef.current = []
@@ -170,6 +170,7 @@ export function IncomeSummaryPaper({ church, rows, heading, pagesRef }: { church
               </tbody>
               <tfoot><tr><td colSpan={2}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n)}</td><td className="num">{m(cash(rs))}</td><td className="num">{sum(rs, (r) => r.transfer.n)}</td><td className="num">{m(tr(rs))}</td><td className="num">{m(cash(rs) + tr(rs))}</td></tr></tfoot>
             </table>
+            {note && pi === pages.length - 1 && <p style={{ margin: '4px 0 0', fontSize: 12.5 }}>{note}</p>}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 'auto' }}>
               <div>รวมจากตู้ถวาย {m(cash(rs))} บาท<br />รวมจากการโอน {m(tr(rs))} บาท{pages.length > 1 && pi === pages.length - 1 ? <><br />ยอดรวมทุกแผ่น {m(cash(rows) + tr(rows))} บาท</> : null}</div>
               <div>ลงชื่อผู้ตรวจนับ 1 ................................................<br />ลงชื่อผู้ตรวจนับ 2 ................................................</div>

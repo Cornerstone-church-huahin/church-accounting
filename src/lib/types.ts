@@ -160,6 +160,8 @@ export interface ExpenseEntry extends SharedItem {
   amount: number
   desc: string
   catId?: string
+  /** จ่ายจากกองทุน (id ประเภทถวายที่เป็นกองทุน) — ไม่ใส่ = จ่ายจากเงินหมุนเวียนตามปกติ */
+  fundId?: string
   /** bill: ผู้ออกบิล/ร้าน · advance: ผู้สำรองจ่าย · manual: ผู้รับเงิน */
   who?: string
   /** bill: วันครบกำหนด */

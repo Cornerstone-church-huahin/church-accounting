@@ -3,6 +3,7 @@ import CaptureBar from '../components/CaptureBar'
 import LoansPanel from '../components/LoansPanel'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
+import { Link } from 'react-router-dom'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
 import { useLoans, useAccounts, useFundMoves, useOpening, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
@@ -115,7 +116,7 @@ export default function Adjust({ year }: { year: number }) {
   const yStart = `${year}-01-01`
   const fundFrom = opening?.date && opening.date >= yStart && opening.date <= `${year}-12-31` ? addDays(opening.date, 1) : yStart
   const fundRecv = useMemo(() => {
-    const Lf = computeLedger({ range: { from: fundFrom, to: `${year}-12-31` }, income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: pb.items })
+    const Lf = computeLedger({ range: { from: fundFrom, to: `${year}-12-31` }, income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: pb.items, withFunds: true })
     return Object.fromEntries(Lf.incRows.map((r) => [r.key, r.cash.amt + r.transfer.amt])) as Record<string, number>
   }, [fundFrom, year, income.items, rounds.items, types.list, pb.items])
   const fundRows = useMemo(() => fundLedger(types.list, fundRecv, moves.items, opening), [types.list, fundRecv, moves.items, opening])
@@ -198,11 +199,7 @@ export default function Adjust({ year }: { year: number }) {
           <p className="small">เงินสดรับสัปดาห์นี้ (ตามใบถวาย) ที่ควรฝาก: <b>{fmtBaht(cashIn)}</b></p>
           {fundRows.length > 0 && (
             <>
-              <h3 style={{ marginTop: 14 }}>ยอดสะสมแต่ละกองทุน</h3>
-              <table className="tbl tbl--paper" aria-label="ยอดสะสมกองทุน">
-                <thead><tr><th>กองทุน</th><th className="num">ตั้งต้น</th><th className="num">รับเพิ่ม</th><th className="num">รวม</th></tr></thead>
-                <tbody>{fundRows.map((r) => { const o0 = opening?.funds?.[r.id] ?? 0, rc = fundRecv[r.id] ?? 0; return <tr key={r.id}><td>{r.name}</td><td className="num">{fmtBaht(o0)}</td><td className="num">{fmtBaht(rc)}</td><td className="num"><b>{fmtBaht(o0 + rc)}</b></td></tr> })}</tbody>
-              </table>
+              <p className="small" style={{ marginTop: 14 }}>💰 ดูยอดและความเคลื่อนไหวของแต่ละกองทุนที่ <Link to="/funds">เพิ่มเติม › กองทุน</Link></p>
               <h3 style={{ marginTop: 14 }}>เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน</h3>
               <table className="tbl tbl--paper" aria-label="ค้างย้ายเข้ากองทุน">
                 <thead><tr><th>กองทุน</th><th className="num">รับ</th><th className="num">ย้ายแล้ว</th><th className="num">ค้างย้าย</th></tr></thead>
