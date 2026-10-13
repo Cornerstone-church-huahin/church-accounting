@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fundAccounts, withRunning } from './fundAccounts'
-import type { ExpenseEntry, IncomeEntry, IncomeType, Round } from './types'
+import type { ExpenseEntry, IncomeEntry, IncomeType, Loan, Round } from './types'
 
 const types = [{ id: 'tt1', name: 'สิบลด' }, { id: 'tt4', name: 'กองทุนที่ดิน', fund: true }, { id: 'tt9', name: 'กองทุนศึกษา', fund: true }].map((t, i) => ({ ...t, order: i, active: true, updated: 0 }) as IncomeType)
 const inc = (o: Partial<IncomeEntry>) => ({ id: 'i' + Math.random(), updated: 1, date: '2026-10-11', typeId: 'tt4', amount: 100000, method: 'cash', source: 'manual', ...o }) as IncomeEntry
@@ -17,5 +17,15 @@ describe('fundAccounts', () => {
     expect(study).toMatchObject({ opening: 20000, moneyIn: 0, moneyOut: 15000, balance: 5000 })
     expect(withRunning(land)[0].balance).toBe(630000)
     expect(withRunning(study)[0]).toMatchObject({ amount: -15000, balance: 5000 })
+  })
+
+  it('internal loans: lender is debited, borrower gets real cash, repayment moves it back', () => {
+    const loan = { id: 'l1', updated: 1, lender: { kind: 'fund', fundId: 'tt4' }, borrower: 'tt9', purpose: 'หนังสือ', date: '2026-10-10', principal: 50000, repayments: [{ id: 'r1', date: '2026-10-12', amount: 20000 }] } as Loan
+    const before = fundAccounts({ types, opening, rounds: [], expenses: [], income: [], loans: [{ ...loan, date: '2026-10-01' }] }) // ก่อนวันตัดยอด: ไม่หักซ้ำ
+    expect(before.map((r) => r.balance)).toEqual([500000, 20000])
+    const rows = fundAccounts({ types, opening, rounds: [], expenses: [], income: [], loans: [loan] })
+    expect(rows[0]).toMatchObject({ balance: 500000 - 50000 + 20000 })
+    expect(rows[1]).toMatchObject({ balance: 20000 + 50000 - 20000 })
+    expect(rows[0].balance + rows[1].balance).toBe(520000) // รวมเงินสดไม่เปลี่ยน
   })
 })

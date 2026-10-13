@@ -4,6 +4,7 @@ import LoansPanel from '../components/LoansPanel'
 import DebtBanner from '../components/DebtBanner'
 import { can } from '../lib/access'
 import { useLoans } from '../lib/data'
+import { isFundType } from '../lib/funds'
 import { loanBalance, repaidOf, summarizeLoans } from '../lib/loans'
 import { useRole } from '../lib/members'
 import { CumLine, Donut, GroupedBars, HBars, Legend } from '../components/StatCharts'
@@ -13,22 +14,26 @@ import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { useYear } from '../lib/year'
 
-export type BalanceKind = 'own' | 'fund' | 'total' | 'debt'
+export type BalanceKind = 'own' | 'fund' | 'total' | 'indebt' | 'debt' | 'spare'
 const KINDS: { k: BalanceKind; icon: string; title: string }[] = [
-  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวมเงินสด' }, { k: 'debt', icon: '🧾', title: 'หนี้ภายนอก' },
+  { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวมเงินสด' },
+  { k: 'indebt', icon: '🔁', title: 'หนี้ภายใน' }, { k: 'debt', icon: '🧾', title: 'หนี้ภายนอก' }, { k: 'spare', icon: '⬜', title: 'ไอคอน' },
 ]
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
 /** รายละเอียดเงินหมุนเวียน / กองทุน / รวม (เปิดจากแถบสามช่องใต้ชื่อบัญชีหน้าแรก) */
 export default function BalancePage() {
   const { kind: raw } = useParams()
-  const kind: BalanceKind = raw === 'fund' || raw === 'total' || raw === 'debt' ? raw : 'own'
+  const kind: BalanceKind = raw === 'fund' || raw === 'total' || raw === 'indebt' || raw === 'debt' || raw === 'spare' ? raw : 'own'
   const { year } = useYear()
   const { balances: b, input, opening } = useBalances(year)
   const loans = useLoans()
   const role = useRole()
   const ext = loans.items.filter((l) => l.lender.kind === 'person')
-  const debt = summarizeLoans(loans.items).external
+  const inn = loans.items.filter((l) => l.lender.kind === 'fund')
+  const sums = summarizeLoans(loans.items)
+  const debt = sums.external
+  const fundNm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.find((t) => t.id === id)?.name ?? '(ถูกลบ)')
   const types = input.types
 
   // รายเดือนของปีที่เลือก + ยอดสะสมต่อจากยอดตั้งต้น/ปีก่อน (เฉพาะรายรับ-รายจ่ายปกติ)
@@ -48,7 +53,7 @@ export default function BalancePage() {
   return (
     <>
       <div className="page-head"><h1>เงินคริสตจักร</h1><Link to="/" className="mini">‹ หน้าแรก</Link></div>
-      <div className="subtabs no-print" role="tablist" aria-label="เงินหมุนเวียน กองทุน รวม" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+      <div className="subtabs no-print" role="tablist" aria-label="เงินหมุนเวียน กองทุน รวม" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {KINDS.map((x) => <Link key={x.k} role="tab" aria-selected={kind === x.k} className={`subtab-link${kind === x.k ? ' on' : ''}`} to={`/balance/${x.k}`}>{x.icon} {x.title}</Link>)}
       </div>
       <p className="muted small" style={{ textAlign: 'center' }}>ยอด ณ {fmtDate(today)}{opening ? ` · นับต่อจากยอดตั้งต้น ${fmtDate(opening.date)}` : ' · ยังไม่ได้ตั้งยอดยกมา (ตั้งค่า › ยอดยกมา)'}</p>
@@ -64,6 +69,7 @@ export default function BalancePage() {
               <tr><td>ยอดตั้งต้น</td><td className="num">{m(b.own.opening)}</td></tr>
               <tr><td>+ รายรับปกติ (ไม่รวมกองทุน)</td><td className="num">{m(b.own.moneyIn)}</td></tr>
               <tr><td>− รายจ่ายปกติ (จ่ายแล้ว)</td><td className="num">{m(b.own.moneyOut)}</td></tr>
+              {b.own.borrowed > 0 && <tr><td>+ ยืมจากกองทุน (เงินสดที่มีจริง · ยังเป็นหนี้อยู่)</td><td className="num">{m(b.own.borrowed)}</td></tr>}
             </tbody>
             <tfoot><tr><td>เงินหมุนเวียนคงเหลือ</td><td className="num">{m(b.own.balance)}</td></tr></tfoot>
           </table>
@@ -109,6 +115,24 @@ export default function BalancePage() {
         </section>
       )}
 
+
+      {kind === 'indebt' && (
+        <section className="card" aria-label="หนี้ภายใน">
+          <h2>🔁 หนี้ภายใน</h2>
+          <p className="muted small" style={{ margin: 0 }}>เงินที่กองทุนให้ยืมกันเอง หรือให้เงินหมุนเวียนยืม — กองทุนที่ให้ยืมถูกหักเงินออก กองทุนที่ยืมมาได้เงินสดเข้ามาจริง และมีแถบแดงเตือนว่าเป็นหนี้อยู่ ไม่หักลบกับหนี้จนกว่าจะบันทึกการคืน</p>
+          <p className="bigfig">{fmtBaht(sums.fromFunds)} บาท</p>
+          {inn.length === 0 ? <p className="muted">ยังไม่มีหนี้ภายใน</p> : (
+            <table className="tbl tbl--paper" aria-label="รายการหนี้ภายใน">
+              <thead><tr><th>วันที่ยืม</th><th>ผู้ให้ยืม → ผู้ยืม</th><th className="num">ยืม</th><th className="num">คืนแล้ว</th><th className="num">ค้างคืน</th></tr></thead>
+              <tbody>{[...inn].sort((x, y) => x.date.localeCompare(y.date)).map((l) => <tr key={l.id}><td>{fmtDate(l.date)}</td><td>{fundNm(l.lender.fundId)} → <b>{l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}</b>{l.purpose ? <><br /><span className="muted small">{l.purpose}</span></> : null}</td><td className="num">{m(l.principal)}</td><td className="num">{m(repaidOf(l))}</td><td className="num"><b>{m(loanBalance(l))}</b></td></tr>)}</tbody>
+              <tfoot><tr><td colSpan={4}>รวมค้างคืน</td><td className="num">{m(sums.fromFunds)}</td></tr></tfoot>
+            </table>
+          )}
+          {inn.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={inn.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${fundNm(l.lender.fundId)} → ${l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}`, value: loanBalance(l) }))} tone="out" /></>}
+          <LoansPanel store={loans} funds={types.filter((t) => t.active && isFundType(t))} types={types} canWrite={can(role, 'statement')} only="fund" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
+        </section>
+      )}
+      {kind === 'spare' && <section className="card" aria-label="ไอคอน"><h2>⬜ ไอคอน</h2><p className="muted">ยังไม่มีเนื้อหา — สำรองไว้สำหรับใช้ภายหลัง</p></section>}
       {kind === 'debt' && (
         <section className="card" aria-label="หนี้ภายนอก">
           <h2>🧾 หนี้ภายนอก</h2>

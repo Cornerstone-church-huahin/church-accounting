@@ -17,7 +17,7 @@ export default function Home() {
   const { year } = useYear()
   const [tab, setTab] = useState<Tab>(null)
   const { balances: b } = useBalances(year)
-  const debt = summarizeLoans(useLoans().items).external
+  const ls = summarizeLoans(useLoans().items)
   return (
     <>
       <div className="page-head no-print"><h1>บัญชีคริสตจักรศิลาเอก</h1></div>
@@ -26,7 +26,9 @@ export default function Home() {
         <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>
         <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal, { dec: false })}</b></Link>
         <Link to="/balance/total" className="btile btile--total"><small>🧮 รวมเงินสด</small><b>{fmtBaht(b.total, { dec: false })}</b></Link>
-        <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(debt, { dec: false })}</b></Link>
+        <Link to="/balance/indebt" className="btile btile--indebt"><small>🔁 หนี้ภายใน</small><b>{fmtBaht(ls.fromFunds, { dec: false })}</b></Link>
+        <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
+        <Link to="/balance/spare" className="btile btile--spare"><small>⬜ ไอคอน</small><b>—</b></Link>
       </nav>
       <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์</p>
       <div className="home-tabs no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">

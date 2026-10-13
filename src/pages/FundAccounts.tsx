@@ -16,7 +16,7 @@ export default function FundAccountsPage() {
   const rds = ys.map((y) => useRounds(y)) // eslint-disable-line react-hooks/rules-of-hooks
   const exps = ys.map((y) => useExpenses(y)) // eslint-disable-line react-hooks/rules-of-hooks
   const pbs = ys.map((y) => usePassbook(y)) // eslint-disable-line react-hooks/rules-of-hooks
-  const rows = fundAccounts({ types: types.list.filter((t) => t.active), opening: opening.opening, income: incs.flatMap((s) => s.items), rounds: rds.flatMap((s) => s.items), expenses: exps.flatMap((s) => s.items), passbook: pbs.flatMap((s) => s.items) })
+  const rows = fundAccounts({ types: types.list.filter((t) => t.active), opening: opening.opening, income: incs.flatMap((s) => s.items), rounds: rds.flatMap((s) => s.items), expenses: exps.flatMap((s) => s.items), passbook: pbs.flatMap((s) => s.items), loans: loans.items })
   const total = rows.reduce((s, r) => s + r.balance, 0)
   return (
     <>
@@ -32,7 +32,7 @@ export default function FundAccountsPage() {
           <summary style={{ cursor: 'pointer' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}><b>{f.name}</b><b className="num" style={{ fontSize: '1.2rem' }}>{fmtBaht(f.balance)}</b></div>
             <DebtBanner loans={loans.items.filter((l) => l.borrower === f.id)} types={types.list} />
-            <DebtBanner loans={loans.items.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent />
+            <DebtBanner loans={loans.items.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent openingDate={opening.opening?.date} />
           </summary>
           <p className="small muted" style={{ margin: '4px 0' }}>ตั้งต้น {fmtBaht(f.opening)} + รับเข้า {fmtBaht(f.moneyIn)} − จ่ายออก {fmtBaht(f.moneyOut)}</p>
           <table className="tbl tbl--paper" aria-label={`ความเคลื่อนไหว ${f.name}`}>

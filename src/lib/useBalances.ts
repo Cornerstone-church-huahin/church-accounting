@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useOpening, usePassbook, useRounds, useVouchers } from './data'
+import { useLoans, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useOpening, usePassbook, useRounds, useVouchers } from './data'
 import { computeBalances } from './balances'
 import { todayISO } from './money'
 
@@ -17,11 +17,12 @@ export function useBalances(year: number) {
   const types = useIncomeTypes()
   const cats = useExpenseCats()
   const opening = useOpening()
+  const loans = useLoans()
   const input = useMemo(() => ({
     income: income.flatMap((s) => s.items), rounds: rounds.flatMap((s) => s.items), vouchers: vouchers.flatMap((s) => s.items), lines: lines.flatMap((s) => s.items),
     funds: funds.items, entries: entries.flatMap((s) => s.items), types: types.list, cats: cats.list, expenses: expenses.flatMap((s) => s.items), passbook: passbook.flatMap((s) => s.items),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [...income.map((s) => s.items), ...rounds.map((s) => s.items), ...vouchers.map((s) => s.items), ...lines.map((s) => s.items), funds.items, ...entries.map((s) => s.items), types.list, cats.list, ...expenses.map((s) => s.items), ...passbook.map((s) => s.items)])
-  const balances = useMemo(() => computeBalances({ ...input, opening: opening.opening, today: todayISO() }), [input, opening.opening])
+  const balances = useMemo(() => computeBalances({ ...input, opening: opening.opening, today: todayISO(), loans: loans.items }), [input, opening.opening, loans.items])
   return { balances, input, opening: opening.opening }
 }
