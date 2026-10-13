@@ -28,4 +28,12 @@ describe('fundAccounts', () => {
     expect(rows[1]).toMatchObject({ balance: 20000 + 50000 - 20000 })
     expect(rows[0].balance + rows[1].balance).toBe(520000) // รวมเงินสดไม่เปลี่ยน
   })
+
+  it('outside loans add real cash to the borrowing fund too, and repayment takes it back', () => {
+    const loan = { id: 'l9', updated: 1, lender: { kind: 'person', name: 'พี่ก' }, borrower: 'tt9', purpose: 'ก่อสร้าง', date: '2026-10-10', principal: 30000, repayments: [{ id: 'r9', date: '2026-10-12', amount: 10000 }] } as Loan
+    const expenses = [{ id: 'e9', updated: 1, channel: 'manual', date: '2026-10-11', amount: 30000, desc: 'ค่าปูน', fundId: 'tt9', status: 'paid' }] as ExpenseEntry[]
+    const rows = fundAccounts({ types, opening, rounds: [], expenses, income: [], loans: [loan] })
+    expect(rows[1].balance).toBe(20000 + 30000 - 30000 - 10000)
+    expect(rows[1].moves.map((m) => m.label)).toEqual(['ยืมจาก พี่ก · ก่อสร้าง', 'จ่าย · ค่าปูน', 'คืนเงินยืมให้ พี่ก'])
+  })
 })
