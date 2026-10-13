@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useLoans, usePassbook, useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
-import { fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
+import { addDays, fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
 import { CODE_LEGEND, reconcileWeek } from '../lib/passbook'
@@ -30,6 +30,7 @@ export default function Summary({ year }: { year: number }) {
   const nowM = yearOf(todayISO()) === year ? monthOf(todayISO()) : 12
   const [kind, setKind] = useState<SumKind>('week')
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
+  const [weekOpen, setWeekOpen] = useState(true)
   const [month, setMonth] = useState(nowM)
   const [quarter, setQuarter] = useState(Math.ceil(nowM / 3))
   const [busy, setBusy] = useState(false)
@@ -66,6 +67,20 @@ export default function Summary({ year }: { year: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [range.from, range.to, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items, passbook.items])
   const L = useMemo(() => computeLedger(input), [input])
+  // รายการสัปดาห์สำหรับเมนูพับ (ล่าสุดอยู่บนสุด): สัปดาห์ที่มีรายการ + สัปดาห์ปัจจุบัน/ที่เลือกอยู่
+  const weekList = useMemo(() => {
+    const has = new Set<string>()
+    const add = (d?: string) => { if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && yearOf(d) === year) has.add(sheetSunday(d)) }
+    income.items.forEach((x) => add(x.date)); rounds.items.forEach((x) => add(x.date)); expenses.items.forEach((x) => add(x.date)); passbook.items.forEach((x) => add(x.date))
+    vouchers.items.forEach((x) => add(x.paid?.date ?? x.date)); entries.items.forEach((x) => add(x.date))
+    const cur = sheetSunday(todayISO()); if (sundays.includes(cur)) has.add(cur)
+    has.add(sunday)
+    return sundays.filter((d) => has.has(d)).reverse()
+  }, [sundays, income.items, rounds.items, expenses.items, passbook.items, vouchers.items, entries.items, year, sunday])
+  const weekTotals = useMemo(() => {
+    if (kind !== 'week') return new Map<string, { inn: number; out: number }>()
+    return new Map(weekList.map((w) => { const r = computeLedger({ ...input, range: rangeOf('week', year, { sunday: w }) }); return [w, { inn: r.inSum.cash + r.inSum.transfer, out: r.outSum.cash + r.outSum.transfer + r.outSum.pending }] as const }))
+  }, [kind, weekList, input, year])
   // เดือน/ไตรมาส/ปี: ใบที่ 1 = ใบสรุปแยกช่วงย่อย · ใบที่ 2 = สถิติ (กราฟ)
   const series = useMemo(() => computeSeries(input, kind), [input, kind])
   const active = (b: { inTotal: number; outTotal: number }) => b.inTotal > 0 || b.outTotal > 0
@@ -102,7 +117,7 @@ export default function Summary({ year }: { year: number }) {
 
   return (
     <div role="tabpanel" aria-label="สรุป" className="mode-sum">
-      <PeriodBar label={label} rangeText={rangeText} {...nav} />
+      {kind !== 'week' && <PeriodBar label={label} rangeText={rangeText} {...nav} />}
       <div className="subtabs subtabs--sum no-print" role="tablist" aria-label="ช่วงของใบสรุป">
         {tabBtn('week', 1, 'สัปดาห์')}{tabBtn('month', 2, 'เดือน')}{tabBtn('quarter', 3, 'ไตรมาส')}{tabBtn("year", 4, `ปี ${be}`)}
       </div>
@@ -111,10 +126,23 @@ export default function Summary({ year }: { year: number }) {
         <>
           {kind === 'week' ? (
           <>
+          <div className="weeklist" role="list" aria-label="สัปดาห์ (ล่าสุดอยู่บนสุด)">
+            {weekList.map((w) => {
+              const open = weekOpen && w === sunday
+              const tot = weekTotals.get(w)
+              const bal = tot ? tot.inn - tot.out : 0
+              return (
+                <section key={w} className={`weekacc${open ? ' weekacc--open' : ''}`} role="listitem">
+                  <button type="button" className="weekacc__head no-print" aria-expanded={open} onClick={() => { if (open) setWeekOpen(false); else { setSunday(w); setWeekOpen(true) } }}>
+                    <span className="weekacc__t"><i aria-hidden="true">{open ? '▾' : '▸'}</i> <b>{fmtDate(addDays(w, -6))} – {fmtDate(w)}</b><span className="muted small"> · {fmtDateLong(w)}</span></span>
+                    <span className="weekacc__n small">รับ {fmtBaht(tot?.inn ?? 0, { dec: false })} · จ่าย {fmtBaht(tot?.out ?? 0, { dec: false })} · <b>คงเหลือ {fmtBaht(bal, { dec: false })}</b></span>
+                  </button>
+                  {open && (
+                    <div className="weekacc__body">
           <div className="sheet-1">
           <p className={`badge ${wkClose ? 'badge--good' : ''} no-print`} role="status">{wkClose ? '✓ ตรวจกับสมุดบัญชีแล้ว' : 'ยังไม่ได้ตรวจกับสมุดบัญชี (ขั้น 3 ปรับ) — พิมพ์ไปแปะได้ แต่ควรปรับสมุดก่อน'}</p>
           {sheetBar(1, 'ใบที่ 1 — รายรับประจำสัปดาห์ (แนวนอน)')}
-          <IncomeSummaryPaper church={church.split(' ')[0]} rows={incRows} heading={weekHeading(sunday)} pagesRef={incPages} />
+          <IncomeSummaryPaper church={church.split(' ')[0]} rows={incRows} heading={weekHeading(sunday)} pagesRef={incPages} note={L.fundIn.cash + L.fundIn.transfer > 0 ? `* ไม่รวมเงินถวายกองทุน ${fmtBaht(L.fundIn.cash + L.fundIn.transfer)} บาท (${L.fundRows.map((r) => r.label).join(', ')}) — แยกไว้ที่หน้ากองทุน` : undefined} />
           </div>
           <div className="sheet-2">
           {sheetBar(2, 'ใบที่ 2 — รายจ่ายและสรุปยอดประจำสัปดาห์')}
@@ -174,6 +202,13 @@ export default function Summary({ year }: { year: number }) {
               <p className="a4note">รายรับ: ใบถวาย + สลิป + บันทึกด้วยมือ · รายจ่าย: ใบเบิกที่จ่ายแล้ว + บันทึกด้วยมือ/วางบิล/สำรองจ่าย (รวมค้างจ่าย) · ข้อมูลเดียวกับใบที่ 1 ทุกตัวเลข · ชี้ที่แท่งหรือจุดเพื่อดูตัวเลข</p>
             </>
           </ScaledPage>
+          </div>
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+            {weekList.length === 0 && <p className="empty">ยังไม่มีรายการในปีนี้</p>}
           </div>
           </>
           ) : (
