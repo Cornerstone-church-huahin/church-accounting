@@ -14,7 +14,8 @@ type ExpStore = ReturnType<typeof useExpenses>
 const neg = (x: number) => (x < 0 ? { color: '#b3261e' } : undefined)
 
 /** หน้า "กองทุน": แต่ละกองทุนพับ/ขยายได้ — เห็นรับเข้า (ถวาย/ยืมมา) และจ่ายออก พร้อมยอดคงเหลือ (ติดลบแสดงสีแดง) · บันทึกรายจ่ายของกองทุนได้ที่นี่ ไม่ปนเงินหมุนเวียน */
-export default function FundAccountsPage() {
+/** ข้อมูลกองทุนทั้งหมด (3 ปีล่าสุด) ใช้ร่วมกันทั้งหน้ารวมและหน้าแต่ละกองทุน */
+export function useFundAccounts() {
   const { year } = useYear()
   const role = useRole()
   const types = useIncomeTypes()
@@ -30,11 +31,16 @@ export default function FundAccountsPage() {
   const total = rows.reduce((s, r) => s + r.balance, 0)
   const canPay = can(role, 'voucherPay')
   const storeFor = (y: number): ExpStore | undefined => exps[ys.indexOf(y)]
+  return { rows, total, canPay, storeFor, allExp, types, opening: opening.opening, loans: loans.items }
+}
+
+export default function FundAccountsPage() {
+  const { rows, total, canPay, storeFor, allExp, types, opening, loans } = useFundAccounts()
   return (
     <>
       <div className="page-head"><h1>💰 กองทุน</h1></div>
       <section className="card" aria-label="รวมทุกกองทุน">
-        <p className="muted small" style={{ margin: 0 }}>เงินกองทุนรวมทุกกอง{opening.opening ? ` (นับจากยอดตั้งต้น ${fmtDate(opening.opening.date)})` : ''}</p>
+        <p className="muted small" style={{ margin: 0 }}>เงินกองทุนรวมทุกกอง{opening ? ` (นับจากยอดตั้งต้น ${fmtDate(opening.date)})` : ''}</p>
         <p style={{ fontSize: '1.7rem', fontWeight: 700, margin: '2px 0', ...neg(total) }}>{fmtBaht(total)} บาท</p>
         <p className="muted small" style={{ margin: 0 }}>แต่ละกองทุนแตะเพื่อขยาย: เห็นเงินที่เข้า (ถวาย/ยืมมา) เงินที่จ่ายออก และบันทึกรายจ่ายของกองทุนนั้นได้เลย · แถบแดงเตือนเงินยืม ไม่นำไปหักลบกับยอด</p>
       </section>
@@ -43,10 +49,11 @@ export default function FundAccountsPage() {
         <details key={f.id} className="card fundcard">
           <summary style={{ cursor: 'pointer' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}><b>{f.name}</b><b className="num" style={{ fontSize: '1.2rem', ...neg(f.balance) }}>{fmtBaht(f.balance)}{f.balance < 0 ? ' (ติดลบ)' : ''}</b></div>
-            <DebtBanner loans={loans.items.filter((l) => l.borrower === f.id)} types={types.list} />
-            <DebtBanner loans={loans.items.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent openingDate={opening.opening?.date} />
+            <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
+            <DebtBanner loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent openingDate={opening?.date} />
           </summary>
-          <FundBody f={f} openingDate={opening.opening?.date} canPay={canPay} allExp={allExp} storeFor={storeFor} />
+          <p className="small" style={{ margin: '4px 0' }}><Link to={`/funds/${f.id}`}>เปิดหน้ากองทุนนี้เต็มหน้า ›</Link></p>
+          <FundBody f={f} openingDate={opening?.date} canPay={canPay} allExp={allExp} storeFor={storeFor} />
         </details>
       ))}
       <p className="muted small">ตั้งต้นกองทุน เพิ่มกองใหม่ หรือแก้ชื่อ ที่ <Link to="/settings">ตั้งค่า › ยอดยกมา</Link> — ใช้เฉพาะตอนเริ่มระบบหรือเริ่มกองทุนใหม่เท่านั้น</p>
@@ -54,7 +61,7 @@ export default function FundAccountsPage() {
   )
 }
 
-function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: FundAccount; openingDate?: string; canPay: boolean; allExp: ExpenseEntry[]; storeFor: (y: number) => ExpStore | undefined }) {
+export function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: FundAccount; openingDate?: string; canPay: boolean; allExp: ExpenseEntry[]; storeFor: (y: number) => ExpStore | undefined }) {
   const [form, setForm] = useState<{ id?: string; date: string; desc: string; amount: number | null; method: 'cash' | 'transfer'; note: string } | null>(null)
   const [err, setErr] = useState('')
   const run = withRunning(f)
@@ -74,24 +81,25 @@ function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: FundAccount
   }
   const edit = (id: string) => { const x = allExp.find((e) => e.id === id); if (x) setForm({ id: x.id, date: x.date, desc: x.desc, amount: x.amount, method: x.method ?? 'cash', note: x.note ?? '' }) }
   const del = (id: string) => { const x = allExp.find((e) => e.id === id); if (x && confirm(`ลบรายจ่าย “${x.desc}” ออกจากกองทุนนี้?`)) storeFor(yearOf(x.date))?.remove(id) }
-  const rowsOf = (list: typeof run, label: string) => (
+  const rowsOf = (list: typeof run, label: string, sumLabel: string) => (
     <table className="tbl tbl--paper" aria-label={label}>
-      <thead><tr><th>วันที่</th><th>รายการ</th><th className="num">จำนวน</th><th className="num">คงเหลือ</th></tr></thead>
+      <thead><tr><th>วันที่</th><th>รายการ</th><th className="num">จำนวน</th></tr></thead>
       <tbody>{list.map((m) => (
         <tr key={m.key}><td>{fmtDate(m.date)}</td>
           <td>{m.label}{canPay && m.expenseId && <> <button type="button" className="mini" aria-label={`แก้ไข ${m.label}`} onClick={() => edit(m.expenseId as string)}>✎</button><button type="button" className="mini" aria-label={`ลบ ${m.label}`} onClick={() => del(m.expenseId as string)}>🗑</button></>}</td>
-          <td className="num" style={neg(m.amount)}>{fmtBaht(Math.abs(m.amount))}</td><td className="num" style={neg(m.balance)}>{fmtBaht(m.balance)}</td></tr>
+          <td className="num" style={neg(m.amount)}>{fmtBaht(Math.abs(m.amount))}</td></tr>
       ))}
-      {list.length === 0 && <tr><td colSpan={4} className="muted" style={{ textAlign: 'center' }}>ยังไม่มีรายการ</td></tr>}</tbody>
+      {list.length === 0 && <tr><td colSpan={3} className="muted" style={{ textAlign: 'center' }}>ยังไม่มีรายการ</td></tr>}</tbody>
+      <tfoot><tr><td colSpan={2}>{sumLabel}</td><td className="num">{fmtBaht(Math.abs(list.reduce((a, m) => a + m.amount, 0)))}</td></tr></tfoot>
     </table>
   )
   return (
     <>
       <p className="small muted" style={{ margin: '4px 0' }}>ตั้งต้น {fmtBaht(f.opening)}{openingDate ? ` (${fmtDate(openingDate)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b style={neg(f.balance)}>{fmtBaht(f.balance)}</b></p>
       <div className="stat-title">เงินที่เข้า (ถวาย / ยืมมา / รับคืน)</div>
-      {rowsOf(ins, `เงินเข้า ${f.name}`)}
+      {rowsOf(ins, `เงินเข้า ${f.name}`, 'รวมเงินที่เข้า')}
       <div className="stat-title">เงินที่จ่ายออก (รายจ่าย / ให้ยืม / คืนเงินยืม)</div>
-      {rowsOf(outs, `เงินออก ${f.name}`)}
+      {rowsOf(outs, `เงินออก ${f.name}`, 'รวมเงินที่จ่ายออก')}
       {canPay && (form ? (
         <div className="pbdraft" role="group" aria-label={`บันทึกรายจ่าย ${f.name}`}>
           <div className="field"><label htmlFor={`fx-date-${f.id}`}>วันที่จ่าย</label><input id={`fx-date-${f.id}`} className="input" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
@@ -103,7 +111,11 @@ function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: FundAccount
           <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{form.id ? 'บันทึกการแก้ไข' : 'บันทึกรายจ่าย'}</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr('') }}>ยกเลิก</button></div>
         </div>
       ) : <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ date: todayISO(), desc: '', amount: null, method: 'cash', note: '' })}>＋ บันทึกรายจ่ายของกองทุนนี้</button>)}
-      <p className="muted small">รายจ่ายของกองทุนหักเฉพาะกองทุนนี้ ไม่เกี่ยวกับเงินหมุนเวียน</p>
+      <div className="fundfinal" role="status" aria-label={`ยอดคงเหลือสุดท้าย ${f.name}`} style={{ borderColor: f.balance < 0 ? '#b3261e' : '#1b8a4b' }}>
+        <span>ยอดคงเหลือสุดท้ายของกองทุนนี้</span>
+        <b className="num" style={neg(f.balance)}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</b>
+      </div>
+      <p className="muted small">รายจ่ายของกองทุนหักเฉพาะกองทุนนี้ ไม่เกี่ยวกับเงินหมุนเวียน · ยอดนี้ไปแสดงที่ช่องกองทุนหน้าแรก และรวมกับเงินหมุนเวียนเป็น รวมเงินสด</p>
     </>
   )
 }
