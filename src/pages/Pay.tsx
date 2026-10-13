@@ -128,7 +128,7 @@ export default function Pay({ year }: { year: number }) {
         </div>
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} onNewItem={(name) => { const ex = cats.groups.find((g) => g.name === name); if (ex) return ex; const id = newId('xg'); const g = { id, kind: 'group' as const, group: id, code: String(cats.groups.reduce((m, x) => Math.max(m, Number(x.code) || 0), 0) + 1), name, order: cats.list.reduce((m, x) => Math.max(m, x.order), 0) + 1, active: true, updated: 0 }; return cats.put([g]) ? g : null }} entries={xs} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense cats={cats.list} church={settings.churchName.split(' ')[0]} dateText={`ประจำสัปดาห์ ${fmtDate(addDays(sunday, -6))} – ${fmtDate(sunday)}`} entries={xs} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
