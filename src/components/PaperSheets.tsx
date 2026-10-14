@@ -137,6 +137,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: {
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้อนุมัติ / ตรวจสอบ</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้จ่าย / ฝ่ายบัญชี</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
             </div>
+            {pi === pages.length - 1 && <WithdrawNote summary={summary} />}
           </>
         </ScaledPage>
       ))}
@@ -232,7 +233,7 @@ export interface WeekSummary {
   /** เงินเข้ากองทุนในสัปดาห์ (แยกจากเงินหมุนเวียน) — แต่ละกองทุนมีรายจ่ายโอนออกเท่ากันในตารางทันที */
   funds: { name: string; amount: number }[]
   /** บิลที่วางไว้/สำรองจ่ายที่ยังรอจ่ายในสัปดาห์นี้ — รวมกับกองทุนเป็น "จำนวนที่ต้องเบิก" */
-  pending: { name: string; amount: number }[]
+  pending: { desc: string; person: string; kind: 'bill' | 'advance' | 'manual'; amount: number }[]
   out: { cash: number; transfer: number; pending: number }
   /** เงินหมุนเวียนคงเหลือ ณ วันที่ asOf (ไม่รวมกองทุน) */
   balance: number; asOf: string
@@ -246,24 +247,41 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
   const fundSum = summary ? summary.funds.reduce((a, f) => a + f.amount, 0) : undefined
   const circIn = summary ? summary.inn.cash + summary.inn.transfer : undefined
   const circOut = summary ? summary.out.cash + summary.out.transfer + summary.out.pending : undefined
-  const withdraw = summary ? fundSum! + summary.pending.reduce((a, b) => a + b.amount, 0) : undefined
   const inTotal = summary ? circIn! + fundSum! : undefined
   const outTotal = summary ? circOut! + fundSum! : undefined
   const box: React.CSSProperties = { flex: 1, border: '1.5px solid #1a2b4c', borderRadius: 4, padding: '8px 10px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 4 }
   const head: React.CSSProperties = { fontWeight: 700, borderBottom: '1px solid #1a2b4c', paddingBottom: 3, marginBottom: 2 }
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, margin: '8px 0' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', margin: '8px 0' }}>
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
         <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
         <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
         <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น</div><div style={{ fontSize: 11, color: '#444' }}>เงินหมุนเวียน (ไม่รวมกองทุน){summary ? ` ณ ${fmtDate(summary.asOf)}` : ''}</div>{row('คงเหลือ', v(summary?.balance), true)}</div>
       </div>
-      <div style={{ ...box, flex: 'none' }} aria-label="ต้องเบิก">
-        <div style={head}>ต้องเบิก <span style={{ fontWeight: 400, fontSize: 11 }}>(เงินที่ต้องเบิกจริง = กองทุน + รายการที่มีบิลรอจ่าย)</span></div>
-        {summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}
-        {summary?.pending.map((b, i) => row(`รอจ่าย · ${b.name}`, m(b.amount), false, `p${i}`))}
-        {row('รวมต้องเบิก', v(withdraw), true)}
+    </div>
+  )
+}
+
+/** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): 3 คอลัมน์ — กองทุนที่ต้องเบิก · ผู้เบิก/บิลรอจ่าย · ผู้สำรองจ่ายต้องเบิก (ใบเปล่า = เส้นจุดไว้เขียนมือ) */
+function WithdrawNote({ summary }: { summary?: WeekSummary }) {
+  const lines = (xs: { label: string; amt: number }[]) => (summary
+    ? xs.map((x, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span>{x.label}</span><span className="num">{m(x.amt)}</span></div>)
+    : [0, 1, 2].map((i) => <div key={i} style={{ borderBottom: '1px dotted #1a2b4c', height: 16 }} />))
+  const funds = (summary?.funds ?? []).map((f) => ({ label: f.name, amt: f.amount }))
+  const pend = (k: (b: NonNullable<typeof summary>['pending'][number]) => boolean) => (summary?.pending ?? []).filter(k).map((b) => ({ label: [b.person, b.desc].filter(Boolean).join(' — '), amt: b.amount }))
+  const bills = pend((b) => b.kind !== 'advance'), adv = pend((b) => b.kind === 'advance')
+  const total = summary ? funds.reduce((a, x) => a + x.amt, 0) + bills.reduce((a, x) => a + x.amt, 0) + adv.reduce((a, x) => a + x.amt, 0) : undefined
+  const col: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }
+  const h: React.CSSProperties = { fontWeight: 700, fontSize: 12, borderBottom: '1px solid #1a2b4c', paddingBottom: 2 }
+  return (
+    <div style={{ border: '1.5px solid #1a2b4c', borderRadius: 4, padding: '6px 10px', fontSize: 12, marginTop: 8 }} aria-label="หมายเหตุ ต้องเบิก">
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>หมายเหตุ · ต้องเบิก</div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={col}><div style={h}>กองทุนต้องเบิก</div>{lines(funds)}</div>
+        <div style={col}><div style={h}>ผู้เบิก / บิลรอจ่าย</div>{lines(bills)}</div>
+        <div style={col}><div style={h}>ผู้สำรองจ่ายต้องเบิก</div>{lines(adv)}</div>
       </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid #1a2b4c', marginTop: 4, paddingTop: 3 }}><span>รวมต้องเบิก</span><span className="num">{total === undefined ? '..............' : m(total)}</span></div>
     </div>
   )
 }
