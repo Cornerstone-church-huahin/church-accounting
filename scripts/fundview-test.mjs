@@ -101,7 +101,7 @@ try {
   await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.getByRole('tab', { name: /^1\s*สัปดาห์/ }).click()
   const sum = (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')
-  must(/สิบลด/.test(sum) && !/กองทุนเพื่อที่ดิน\S*\s+1,000/.test(sum.split('หมายเหตุ')[0]) && /ไม่รวมเงินถวายกองทุน 1,000/.test(sum), 'main income sheet excludes the fund offering and explains: ' + sum.slice(0, 600))
+  must(/สิบลด/.test(sum) && !/กองทุนเพื่อที่ดิน/.test(sum.split('เงินถวายกองทุน (แยก')[0]) && /เงินถวายกองทุน \(แยก.*กองทุนเพื่อที่ดิน\S*\s+1\s+1,000/.test(sum), 'main income table excludes the fund offering; it is listed separately below: ' + sum.slice(0, 600))
   const exp = (await page.locator('.a4page').nth(1).innerText()).replace(/\n/g, ' ')
   must(!/ค่าหนังสือ|150/.test(exp) && /ค่าไฟ|ยังไม่ระบุ|40/.test(exp), 'main expense sheet excludes the fund payment: ' + exp.slice(0, 500))
   // เมนูพับ: สัปดาห์ล่าสุดอยู่บนสุด เปิดอยู่ · กดพับ/ขยายได้

@@ -147,8 +147,8 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: {
 }
 
 /** หน้าสรุปรายสัปดาห์ (สีขาวเหมือนใบในแท็บรับ/จ่าย): ใบที่ 1 = รายรับ เรียงตามประเภท · A4 แนวนอน · เติมแถวว่างให้ครบ 20 แถว */
-export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note }: { church: string; rows: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]>; /** หมายเหตุท้ายตาราง (เช่น เงินถวายกองทุนที่แยกไว้) */ note?: string }) {
-  const ROWS = 20
+export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note, fundRows = [] }: { church: string; rows: LRow[]; /** เงินถวายกองทุนของช่วงนี้ — แสดงแยกใต้ตารางเงินหมุนเวียน (ไม่รวมในยอดหมุนเวียน) */ fundRows?: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]>; /** หมายเหตุท้ายตาราง (เช่น เงินถวายกองทุนที่แยกไว้) */ note?: string }) {
+  const ROWS = 20 - (fundRows.length > 0 ? Math.min(fundRows.length + 2, 7) : 0)
   const pages = chunk(rows, ROWS)
   pagesRef.current = []
   const sum = (xs: LRow[], f: (r: LRow) => number) => xs.reduce((a, r) => a + f(r), 0)
@@ -177,6 +177,13 @@ export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note }: { 
               </tbody>
               <tfoot><tr><td colSpan={2}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n)}</td><td className="num">{m(cash(rs))}</td><td className="num">{sum(rs, (r) => r.transfer.n)}</td><td className="num">{m(tr(rs))}</td><td className="num">{m(cash(rs) + tr(rs))}</td></tr></tfoot>
             </table>
+            {pi === pages.length - 1 && fundRows.length > 0 && (
+              <table className="sheetpaper sheetpaper--land" style={{ marginTop: 6 }} aria-label="เงินถวายกองทุน (แยกจากเงินหมุนเวียน)">
+                <thead><tr><th colSpan={7} style={{ textAlign: 'left' }}>เงินถวายกองทุน (แยกจากเงินหมุนเวียน — ไม่รวมในยอดข้างบน)</th></tr></thead>
+                <tbody>{fundRows.map((r) => <tr key={r.key}><td style={{ width: '40%' }}>{r.label}</td><td className="num">{r.cash.n || ''}</td><td className="num">{r.cash.amt ? m(r.cash.amt) : ''}</td><td className="num">{r.transfer.n || ''}</td><td className="num">{r.transfer.amt ? m(r.transfer.amt) : ''}</td><td className="num"><b>{m(r.cash.amt + r.transfer.amt)}</b></td></tr>)}</tbody>
+                <tfoot><tr><td>รวมกองทุน</td><td className="num">{sum(fundRows, (r) => r.cash.n)}</td><td className="num">{m(cash(fundRows))}</td><td className="num">{sum(fundRows, (r) => r.transfer.n)}</td><td className="num">{m(tr(fundRows))}</td><td className="num">{m(cash(fundRows) + tr(fundRows))}</td></tr></tfoot>
+              </table>
+            )}
             {note && pi === pages.length - 1 && <p style={{ margin: '4px 0 0', fontSize: 12.5 }}>{note}</p>}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 'auto' }}>
               <div>รวมจากตู้ถวาย {m(cash(rs))} บาท<br />รวมจากการโอน {m(tr(rs))} บาท{pages.length > 1 && pi === pages.length - 1 ? <><br />ยอดรวมทุกแผ่น {m(cash(rows) + tr(rows))} บาท</> : null}</div>
@@ -190,8 +197,8 @@ export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note }: { 
 }
 
 /** ใบที่ 2 = รายจ่ายตามหมวด + สรุปปิดยอดสัปดาห์ (children = ส่วนสรุปท้ายใบ แสดงในแผ่นสุดท้าย) · A4 แนวตั้ง */
-export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children }: { church: string; rows: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]>; children?: ReactNode }) {
-  const ROWS = 14
+export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children, fundRows = [] }: { church: string; rows: LRow[]; /** เงินกองทุนที่เข้ามาในช่วงนี้ = รายจ่ายโอนออกเข้ากองทุนเท่ากัน (ชื่อเดียวกัน) แสดงแยกใต้ตาราง */ fundRows?: LRow[]; heading: string; pagesRef: MutableRefObject<HTMLDivElement[]>; children?: ReactNode }) {
+  const ROWS = 14 - (fundRows.length > 0 ? Math.min(fundRows.length + 2, 5) : 0)
   const pages = chunk(rows, ROWS)
   pagesRef.current = []
   const tot = (r: LRow) => r.cash.amt + r.transfer.amt + (r.pending?.amt ?? 0)
@@ -220,6 +227,13 @@ export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children 
               </tbody>
               <tfoot><tr><td colSpan={2} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n + r.transfer.n + (r.pending?.n ?? 0))}</td><td className="num">{m(sum(rs, (r) => r.cash.amt))}</td><td className="num">{m(sum(rs, (r) => r.transfer.amt))}</td><td className="num">{m(sum(rs, (r) => r.pending?.amt ?? 0))}</td><td className="num">{m(sum(rs, tot))}</td></tr></tfoot>
             </table>
+            {pi === pages.length - 1 && fundRows.length > 0 && (
+              <table className="sheetpaper" style={{ marginTop: 6, width: '100%' }} aria-label="รายจ่ายกองทุน (โอนออกเข้ากองทุน)">
+                <thead><tr><th colSpan={3} style={{ textAlign: 'left' }}>รายจ่ายกองทุน (โอนออกเข้ากองทุน — แยกจากเงินหมุนเวียน)</th></tr></thead>
+                <tbody>{fundRows.map((r) => <tr key={r.key}><td>{r.label}</td><td>เข้ากองทุน · รอเบิก</td><td className="num"><b>{m(r.cash.amt + r.transfer.amt)}</b></td></tr>)}</tbody>
+                <tfoot><tr><td colSpan={2}>รวมโอนออกเข้ากองทุน</td><td className="num">{m(sum(fundRows, (r) => r.cash.amt + r.transfer.amt))}</td></tr></tfoot>
+              </table>
+            )}
             {pi === pages.length - 1 && children}
           </>
         </ScaledPage>
