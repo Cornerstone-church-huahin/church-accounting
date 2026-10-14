@@ -11,6 +11,7 @@ import { CumLine, Donut, GroupedBars, HBars, Legend } from '../components/StatCh
 import { fmtBaht, fmtDate, addDays, todayISO } from '../lib/money'
 import { computeSeries } from '../lib/seriesLedger'
 import { useBalances } from '../lib/useBalances'
+import { ownFrom } from '../lib/balances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { useYear } from '../lib/year'
 
@@ -39,7 +40,7 @@ export default function BalancePage() {
   // รายเดือนของปีที่เลือก + ยอดสะสมต่อจากยอดตั้งต้น/ปีก่อน (เฉพาะรายรับ-รายจ่ายปกติ)
   const series = useMemo(() => {
     const yStart = `${year}-01-01`
-    const from = opening?.date ? addDays(opening.date, 1) : '0000-01-01'
+    const from = ownFrom(opening)
     const before = from < yStart ? computeLedger({ ...input, range: { from, to: addDays(yStart, -1) } }) : null
     const base = (opening?.own ?? 0) + (before ? before.inSum.cash + before.inSum.transfer - before.outSum.cash - before.outSum.transfer - before.outSum.pending : 0)
     const bs = computeSeries({ ...input, range: rangeOf('year', year) }, 'year')
