@@ -16,6 +16,7 @@ import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
+import SheetEntryList from '../components/SheetEntryList'
 import { IncomeRowEditor } from '../components/RowEditors'
 import { IncomeSheetPaper } from '../components/PaperSheets'
 import ManualIncome from '../components/ManualIncome'
@@ -135,6 +136,8 @@ export default function Receive({ year }: { year: number }) {
       <div className="no-print">
         <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={types.list} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
+        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}`, amount: x.amount }))}
+          onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />
       </div>
       {rowEdit && <IncomeRowEditor entry={rowEdit.entry} types={types.list} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!inc.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}

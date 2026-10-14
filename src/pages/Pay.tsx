@@ -8,6 +8,7 @@ import { makeExpenseGroup } from '../lib/catalog'
 import FundPicker from '../components/FundPicker'
 import CatOptions from '../components/CatOptions'
 import CaptureBar from '../components/CaptureBar'
+import SheetEntryList from '../components/SheetEntryList'
 import { ExpenseRowEditor } from '../components/RowEditors'
 import { VoucherPaper } from '../components/PaperSheets'
 import ManualExpense from '../components/ManualExpense'
@@ -154,6 +155,8 @@ export default function Pay({ year }: { year: number }) {
       <div className="no-print">
         <VoucherPaper church={settings.churchName.split(' ')[0]} entries={ofAll('manual').filter(inWeek)} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
+        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={ofAll('manual').filter(inWeek).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.who ? `ผู้รับเงิน ${x.who}` : '', x.fundId ? `จ่ายจากกองทุน` : ''].filter(Boolean).join(' · '), amount: x.amount }))}
+          onEdit={(id) => { const x = ofAll('manual').find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = ofAll('manual').find((e) => e.id === id); if (x) del(x) }} />
       </div>
       {rowEdit && <ExpenseRowEditor entry={rowEdit.entry} cats={cats.list} types={types.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
