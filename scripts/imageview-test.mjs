@@ -59,6 +59,25 @@ try {
   await p2.evaluate(() => { window.print = () => undefined })
   await dlg2.getByRole('button', { name: '🖨 พิมพ์' }).click()
   must(await p2.locator('iframe').count() === 1, 'print prepares a print frame with the picture')
+  // GitHub ปฏิเสธ raw (403) → ต้องมีทางสำรองดึงรูปให้ได้ (contents JSON/base64)
+  const ctx3 = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })
+  await ctx3.route('**/api.github.com/**', (r) => {
+    const req = r.request()
+    if (!req.url().includes('contents/attachments')) return r.fulfill({ status: 404, body: '{}' })
+    if ((req.headers().accept ?? '').includes('raw')) return r.fulfill({ status: 403, body: '{"message":"forbidden"}' })
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sha: 'abc', encoding: 'base64', content: png.toString('base64') }) })
+  })
+  const p3 = await ctx3.newPage()
+  await p3.addInitScript(() => {
+    const d = new Date(); const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'o/r', token: 'x', name: 't' }))
+    localStorage.setItem(`acct.expenses.${d.getFullYear()}.v1`, JSON.stringify([{ id: 'e1', channel: 'manual', date: t, amount: 40000, desc: 'ค่าล้างรถตู้', status: 'paid', method: 'cash', file: { path: 'attachments/2026/exp-a.png', name: 'bill1.png' }, updated: 1 }]))
+  })
+  await p3.goto(`http://localhost:${PORT}/#/`); await p3.waitForLoadState('networkidle')
+  await p3.getByRole('tab', { name: /🔴 จ่าย/ }).click()
+  await p3.getByLabel('ดูรูปแนบ').click()
+  await p3.getByRole('dialog', { name: /ดูรูปแนบ/ }).locator('img').waitFor({ timeout: 10000 })
+  must(true, 'picture still opens when raw download is refused')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('IMAGEVIEW OK')
 } catch (e) { console.error(e instanceof Error ? e.message : e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
