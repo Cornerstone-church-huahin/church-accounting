@@ -72,6 +72,12 @@ export default function Pay({ year }: { year: number }) {
   // สรุป 3 กรอบใต้ใบ: รับ/จ่ายของสัปดาห์ (ทุกช่องทาง เฉพาะเงินหมุนเวียน) + เงินหมุนเวียนคงเหลือ ณ สิ้นสัปดาห์ (ไม่เกินวันนี้)
   const weekL = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }),
     [year, sunday, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
+  // สรุปสุทธิ (รับ − จ่าย เงินหมุนเวียน) ของเดือนและปีที่สัปดาห์นี้อยู่
+  const monthNo = Number(sunday.slice(5, 7))
+  const netOf = (L: typeof weekL) => L.inSum.cash + L.inSum.transfer - L.outSum.cash - L.outSum.transfer - L.outSum.pending
+  const ledgerOf = (range: { from: string; to: string }) => computeLedger({ range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items })
+  const netMonth = useMemo(() => netOf(ledgerOf(rangeOf('month', year, { month: monthNo }))), [year, monthNo, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const netYear = useMemo(() => netOf(ledgerOf(rangeOf('year', year))), [year, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const asOf = sunday <= todayISO() ? sunday : todayISO()
   const { balances: bal } = useBalances(year, asOf)
   // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
@@ -85,7 +91,7 @@ export default function Pay({ year }: { year: number }) {
   const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
   const weekAll = all.filter(inWeek)
   const pendingBills = weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount }))
-  const weekSummary = { inn: weekL.inSum, funds: fundOut, pending: pendingBills, out: weekL.outSum, balance: bal.own.balance, asOf }
+  const weekSummary = { inn: weekL.inSum, funds: fundOut, pending: pendingBills, out: weekL.outSum, balance: bal.own.balance, asOf, net: { week: netOf(weekL), month: netMonth, year: netYear } }
   /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
   const expOps = can(role, 'settings') ? {
     add: (name: string) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },

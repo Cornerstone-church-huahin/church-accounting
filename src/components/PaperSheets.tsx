@@ -251,6 +251,8 @@ export interface WeekSummary {
   out: { cash: number; transfer: number; pending: number }
   /** เงินหมุนเวียนคงเหลือ ณ วันที่ asOf (ไม่รวมกองทุน) */
   balance: number; asOf: string
+  /** ผลสุทธิ (รับ − จ่าย) เงินหมุนเวียนล้วน ไม่รวมกองทุน: สัปดาห์นี้ · เดือนนี้ · ปีนี้ */
+  net: { week: number; month: number; year: number }
 }
 
 /** 3 กรอบใต้ตารางใบเบิก-จ่าย: 1 สรุปรับประจำสัปดาห์ · 2 สรุปจ่ายประจำสัปดาห์ · 3 สรุปยอดเงินในบัญชีทั้งสิ้น (เงินหมุนเวียน) */
@@ -270,7 +272,7 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
         <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
         <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
-        <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น</div><div style={{ fontSize: 11, color: '#444' }}>เงินหมุนเวียน (ไม่รวมกองทุน){summary ? ` ณ ${fmtDate(summary.asOf)}` : ''}</div>{row('คงเหลือ', v(summary?.balance), true)}</div>
+        <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น <span style={{ fontWeight: 400, fontSize: 11 }}>(เงินหมุนเวียน ไม่รวมกองทุน{summary ? ` · ณ ${fmtDate(summary.asOf)}` : ''})</span></div>{row('ยอดในบัญชีทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}</div>
       </div>
     </div>
   )
