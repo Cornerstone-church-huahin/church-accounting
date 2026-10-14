@@ -16,6 +16,8 @@ import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
+import { IncomeRowEditor } from '../components/RowEditors'
+import { IncomeSheetPaper } from '../components/PaperSheets'
 import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
 import { downloadBlankSheet } from '../lib/blankSheet'
@@ -47,6 +49,7 @@ export default function Receive({ year }: { year: number }) {
     return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0])
   })
   const [sub, setSub] = useState<Sub>(null)
+  const [rowEdit, setRowEdit] = useState<{ entry: IncomeEntry | null } | null>(null)
   const [form, setForm] = useState<{ entry: IncomeEntry | null; preset: 'manual' | 'slip' } | null>(null)
   const canWrite = can(role, 'income')
 
@@ -130,6 +133,12 @@ export default function Receive({ year }: { year: number }) {
   return (
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} marks={weekMarks} />
+      <div className="no-print">
+        <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={types.list} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
+        {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
+      </div>
+      {rowEdit && <IncomeRowEditor entry={rowEdit.entry} types={types.list} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
+        onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!inc.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
         <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}><i className="dot">1</i><span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
@@ -142,7 +151,7 @@ export default function Receive({ year }: { year: number }) {
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
-          <ManualIncome types={types.list} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+          <ManualIncome types={types.list} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onManage={can(role, 'settings') ? {
               add: (name) => { const t = makeIncomeType(types.list, name); if (typeof t === 'string') return { error: t }; return types.put([t]) ? { id: t.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
               rename: (id, cur) => { const n = prompt('แก้ชื่อประเภท', cur)?.trim(); const t = types.byId(id); if (n && t && n !== cur) types.put([{ ...t, name: n }]) },

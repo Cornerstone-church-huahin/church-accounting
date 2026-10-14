@@ -40,7 +40,7 @@ try {
   must(/รวมจากตู้ถวาย 2,040 บาท/.test((await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')), 'sheet footer shows cash total')
   await page.screenshot({ path: 'shots/entry-income.png', fullPage: true })
   await page.getByRole('tab', { name: /รวมรับ/ }).click()
-  const rt = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
+  const rt = (await page.locator('.a4page').last().innerText()).replace(/\n/g, ' ')
   must(/ประจำสัปดาห์\s+7\s+2,040\.00\s+1\s+2,000\.00\s+4,040\.00/.test(rt), 'summary row from table entries: ' + rt)
   // บันทึกข้ามวัน/ย้อนวัน: ระบบเรียงวันที่ให้เอง (ต้นสัปดาห์อยู่บน)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
@@ -71,7 +71,7 @@ try {
   must((await et.locator('tbody tr').count()) === 25, 'voucher sheet keeps 25 locked rows')
   await page.screenshot({ path: 'shots/entry-expense.png', fullPage: true })
   await page.getByRole('tab', { name: /รวมจ่าย/ }).click()
-  const pt = (await page.locator('.a4page').innerText()).replace(/\n/g, ' ')
+  const pt = (await page.locator('.a4page').last().innerText()).replace(/\n/g, ' ')
   must(/ค่าไฟ[^0-9]*1\s+1,850\.00/.test(pt), 'summary row per item: ' + pt)
   // เพิ่มรายการที่ ตั้งค่า → โผล่ในตัวเลือกของหน้าบันทึกทันที · ลบที่ ตั้งค่า → หายไป
   await page.goto(`http://localhost:${PORT}/#/settings`)

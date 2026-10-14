@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MoneyInput from './MoneyInput'
-import { VoucherPaper } from './PaperSheets'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import FundPicker from './FundPicker'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
@@ -10,8 +9,8 @@ import type { ExpenseCat, ExpenseEntry, IncomeType } from '../lib/types'
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
 /** ช่อง 1 ของฝั่งจ่าย: แถวบันทึก 1 บรรทัดตามใบเบิก-จ่ายเงินสด (เลือกรายการที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบเบิกด้านล่าง พร้อมยอดรวม */
-export default function ManualExpense({ cats, types, onManage, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
-  cats: ExpenseCat[]; /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายได้จากหน้านี้ */ onManage?: CatalogOps; /** ประเภทรับ (ใช้หากองทุนให้เลือก "จ่ายจาก") */ types: IncomeType[]; entries: ExpenseEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
+export default function ManualExpense({ cats, types, onManage, entries, defaultDate, canWrite, onAdd, onEdit, onDelete }: {
+  cats: ExpenseCat[]; /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายได้จากหน้านี้ */ onManage?: CatalogOps; /** ประเภทรับ (ใช้หากองทุนให้เลือก "จ่ายจาก") */ types: IncomeType[]; entries: ExpenseEntry[]; defaultDate: string; canWrite: boolean
   onAdd: (e: ExpenseEntry) => boolean; onEdit: (x: ExpenseEntry) => void; onDelete: (x: ExpenseEntry) => void
 }) {
   const items = cats.filter((c) => c.active && c.kind === 'group')
@@ -54,7 +53,6 @@ export default function ManualExpense({ cats, types, onManage, entries, church, 
         </div>
       )}
 
-      <VoucherPaper church={church} entries={entries} sunday={sunday} />
 
       {rows.length > 0 && canWrite && (
         <details className="editlist">
