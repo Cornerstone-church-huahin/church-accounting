@@ -23,8 +23,14 @@ try {
   await page.getByLabel('ชื่อประเภทใหม่').fill('ถวายซ่อมรถตู้')
   await page.getByRole('button', { name: '＋ เพิ่ม' }).click()
   must((await page.locator('#ire-type option:checked').innerText()) === 'ถวายซ่อมรถตู้', 'new type from popup is selected')
+  // พิมพ์ชื่อใหม่ในช่อง "รายการ" ของป๊อปอัพ (ไม่มีในตัวเลือก) → สร้างเป็นประเภทปกติ + บันทึกแถว
+  await page.locator('#ire-label').fill('ถวายค่าไฟ')
+  await page.locator('.field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('300')
+  await page.getByRole('button', { name: 'เพิ่มลงใบ' }).click()
+  must((await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).innerText()).includes('ถวายค่าไฟ'), 'typed new item saved as a row on the sheet')
   await page.goto(`http://localhost:${PORT}/#/settings`)
   await page.getByText(/🙏 รายการรับ/).click()
+  must((await page.locator('#h-types').locator('xpath=ancestor::details[1]').innerText()).includes('ถวายค่าไฟ'), 'typed item joins the normal income list in settings')
   must((await page.locator('#h-types').locator('xpath=ancestor::details[1]').innerText()).includes('ถวายซ่อมรถตู้'), 'type from popup appears in settings')
   // ตั้งค่า: ย้ายไปรายจ่าย
   await page.getByRole('button', { name: 'ย้าย ถวายซ่อมรถตู้ ไปรายการจ่าย' }).click()
