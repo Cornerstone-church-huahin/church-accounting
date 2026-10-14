@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import DebtBanner from '../components/DebtBanner'
+import LoansPanel from '../components/LoansPanel'
 import MoneyInput from '../components/MoneyInput'
 import { can } from '../lib/access'
 import { useLoans, useExpenses, useIncome, useIncomeTypes, useOpening, usePassbook, useRounds } from '../lib/data'
 import { fundAccounts, withRunning, type FundAccount } from '../lib/fundAccounts'
+import { isFundType } from '../lib/funds'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import type { ExpenseEntry } from '../lib/types'
+import type { ExpenseEntry, IncomeEntry } from '../lib/types'
 import { useYear } from '../lib/year'
 
 type ExpStore = ReturnType<typeof useExpenses>
+type IncStore = ReturnType<typeof useIncome>
+export type FundCtx = ReturnType<typeof useFundAccounts>
 const neg = (x: number) => (x < 0 ? { color: '#b3261e' } : undefined)
 
 /** หน้า "กองทุน": แต่ละกองทุนพับ/ขยายได้ — เห็นรับเข้า (ถวาย/ยืมมา) และจ่ายออก พร้อมยอดคงเหลือ (ติดลบแสดงสีแดง) · บันทึกรายจ่ายของกองทุนได้ที่นี่ ไม่ปนเงินหมุนเวียน */
@@ -31,18 +35,24 @@ export function useFundAccounts() {
   const total = rows.reduce((s, r) => s + r.balance, 0)
   const canPay = can(role, 'voucherPay')
   const storeFor = (y: number): ExpStore | undefined => exps[ys.indexOf(y)]
-  return { rows, total, canPay, storeFor, allExp, types, opening: opening.opening, loans: loans.items }
+  const canIncome = can(role, 'income'), canLoan = can(role, 'statement')
+  const incStoreFor = (y: number): IncStore | undefined => incs[ys.indexOf(y)]
+  const allInc = incs.flatMap((s) => s.items)
+  const deletedExp = exps.flatMap((s) => s.all.filter((x) => x.deleted && x.fundId))
+  const deletedInc = incs.flatMap((s) => s.all.filter((x) => x.deleted && !x.roundId))
+  return { rows, total, canPay, canIncome, canLoan, storeFor, incStoreFor, allExp, allInc, deletedExp, deletedInc, types, opening: opening.opening, loans: loans.items, loanStore: loans }
 }
 
 export default function FundAccountsPage() {
-  const { rows, total, canPay, storeFor, allExp, types, opening, loans } = useFundAccounts()
+  const ctx = useFundAccounts()
+  const { rows, total, types, opening, loans } = ctx
   return (
     <>
       <div className="page-head"><h1>💰 กองทุน</h1></div>
       <section className="card" aria-label="รวมทุกกองทุน">
         <p className="muted small" style={{ margin: 0 }}>เงินกองทุนรวมทุกกอง{opening ? ` (นับจากยอดตั้งต้น ${fmtDate(opening.date)})` : ''}</p>
         <p style={{ fontSize: '1.7rem', fontWeight: 700, margin: '2px 0', ...neg(total) }}>{fmtBaht(total)} บาท</p>
-        <p className="muted small" style={{ margin: 0 }}>แต่ละกองทุนแตะเพื่อขยาย: เห็นเงินที่เข้า (ถวาย/ยืมมา) เงินที่จ่ายออก และบันทึกรายจ่ายของกองทุนนั้นได้เลย · แถบแดงเตือนเงินยืม ไม่นำไปหักลบกับยอด</p>
+        <p className="muted small" style={{ margin: 0 }}>แต่ละกองทุนแตะเพื่อขยาย: บันทึกเงินเข้า รายจ่าย และเงินยืมของกองทุนนั้นได้เลย — แยกจากเงินหมุนเวียนโดยสิ้นเชิง · แถบแดงเตือนเงินยืม ไม่นำไปหักลบกับยอด</p>
       </section>
       {rows.length === 0 && <p className="empty">ยังไม่มีกองทุน — ตั้งกองทุนที่ <Link to="/settings">ตั้งค่า › ยอดยกมา</Link></p>}
       {rows.map((f) => (
@@ -53,7 +63,7 @@ export default function FundAccountsPage() {
             <DebtBanner loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent openingDate={opening?.date} />
           </summary>
           <p className="small" style={{ margin: '4px 0' }}><Link to={`/funds/${f.id}`}>เปิดหน้ากองทุนนี้เต็มหน้า ›</Link></p>
-          <FundBody f={f} openingDate={opening?.date} canPay={canPay} allExp={allExp} storeFor={storeFor} />
+          <FundBody f={f} ctx={ctx} />
         </details>
       ))}
       <p className="muted small">ตั้งต้นกองทุน เพิ่มกองใหม่ หรือแก้ชื่อ ที่ <Link to="/settings">ตั้งค่า › ยอดยกมา</Link> — ใช้เฉพาะตอนเริ่มระบบหรือเริ่มกองทุนใหม่เท่านั้น</p>
@@ -61,11 +71,18 @@ export default function FundAccountsPage() {
   )
 }
 
-export function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: FundAccount; openingDate?: string; canPay: boolean; allExp: ExpenseEntry[]; storeFor: (y: number) => ExpStore | undefined }) {
+export function FundBody({ f, ctx }: { f: FundAccount; ctx: FundCtx }) {
+  const { opening, canPay, canIncome, canLoan, allExp, allInc, storeFor, incStoreFor, deletedExp, deletedInc, types, loanStore } = ctx
+  const openingDate = opening?.date
   const [form, setForm] = useState<{ id?: string; date: string; desc: string; amount: number | null; method: 'cash' | 'transfer'; note: string } | null>(null)
+  const [inForm, setInForm] = useState<{ id?: string; date: string; amount: number | null; method: 'cash' | 'transfer'; count: string; note: string } | null>(null)
   const [err, setErr] = useState('')
   const run = withRunning(f)
   const ins = run.filter((m) => m.amount > 0), outs = run.filter((m) => m.amount < 0)
+  const mine = (x: { fundId?: string }) => x.fundId === f.id
+  const myDeletedExp = deletedExp.filter(mine)
+  const myDeletedInc = deletedInc.filter((x) => x.typeId === f.id)
+
   const save = () => {
     if (!form) return
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) return setErr('เลือกวันที่')
@@ -79,25 +96,59 @@ export function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: Fund
     if (!st.put([entry])) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
     setForm(null); setErr('')
   }
-  const edit = (id: string) => { const x = allExp.find((e) => e.id === id); if (x) setForm({ id: x.id, date: x.date, desc: x.desc, amount: x.amount, method: x.method ?? 'cash', note: x.note ?? '' }) }
+  const saveIn = () => {
+    if (!inForm) return
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(inForm.date)) return setErr('เลือกวันที่')
+    if (!inForm.amount || inForm.amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    const old = inForm.id ? allInc.find((x) => x.id === inForm.id) : undefined
+    const n = parseInt(inForm.count.replace(/\D/g, ''), 10)
+    const { count: _c, note: _n, ...rest } = old ?? ({} as IncomeEntry)
+    void _c; void _n
+    const entry = { ...rest, id: inForm.id ?? newId('in'), updated: 0, date: inForm.date, typeId: f.id, amount: inForm.amount, method: inForm.method, source: old?.source ?? 'manual', ...(Number.isFinite(n) && n > 0 ? { count: n } : {}), ...(inForm.note.trim() ? { note: inForm.note.trim() } : {}) } as IncomeEntry
+    const st = incStoreFor(yearOf(inForm.date))
+    if (!st) return setErr('วันที่ต้องอยู่ในช่วง 3 ปีล่าสุด (เปลี่ยนปีบัญชีที่มุมขวาบน)')
+    if (old && yearOf(old.date) !== yearOf(inForm.date)) incStoreFor(yearOf(old.date))?.remove(old.id)
+    if (!st.put([entry])) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
+    setInForm(null); setErr('')
+  }
+  const edit = (id: string) => { const x = allExp.find((e) => e.id === id); if (x) { setInForm(null); setForm({ id: x.id, date: x.date, desc: x.desc, amount: x.amount, method: x.method ?? 'cash', note: x.note ?? '' }) } }
+  const editIn = (id: string) => { const x = allInc.find((e) => e.id === id); if (x) { setForm(null); setInForm({ id: x.id, date: x.date, amount: x.amount, method: x.method, count: x.count ? String(x.count) : '', note: x.note ?? '' }) } }
   const del = (id: string) => { const x = allExp.find((e) => e.id === id); if (x && confirm(`ลบรายจ่าย “${x.desc}” ออกจากกองทุนนี้?`)) storeFor(yearOf(x.date))?.remove(id) }
+  const delIn = (id: string) => { const x = allInc.find((e) => e.id === id); if (x && confirm(`ลบเงินเข้า ${fmtBaht(x.amount)} (${fmtDate(x.date)}) ออกจากกองทุนนี้?`)) incStoreFor(yearOf(x.date))?.remove(id) }
+  const restoreExp = (x: ExpenseEntry) => { storeFor(yearOf(x.date))?.put([{ ...x, deleted: false }]) }
+  const restoreInc = (x: IncomeEntry) => { incStoreFor(yearOf(x.date))?.put([{ ...x, deleted: false }]) }
   const rowsOf = (list: typeof run, label: string, sumLabel: string) => (
     <table className="tbl tbl--paper" aria-label={label}>
       <thead><tr><th>วันที่</th><th>รายการ</th><th className="num">จำนวน</th></tr></thead>
       <tbody>{list.map((m) => (
         <tr key={m.key}><td>{fmtDate(m.date)}</td>
-          <td>{m.label}{canPay && m.expenseId && <> <button type="button" className="mini" aria-label={`แก้ไข ${m.label}`} onClick={() => edit(m.expenseId as string)}>✎</button><button type="button" className="mini" aria-label={`ลบ ${m.label}`} onClick={() => del(m.expenseId as string)}>🗑</button></>}</td>
+          <td>{m.label}{canPay && m.expenseId && <> <button type="button" className="mini" aria-label={`แก้ไข ${m.label}`} onClick={() => edit(m.expenseId as string)}>✎</button><button type="button" className="mini" aria-label={`ลบ ${m.label}`} onClick={() => del(m.expenseId as string)}>🗑</button></>}
+            {canIncome && m.incomeId && <> <button type="button" className="mini" aria-label={`แก้ไข ${m.label}`} onClick={() => editIn(m.incomeId as string)}>✎</button><button type="button" className="mini" aria-label={`ลบ ${m.label}`} onClick={() => delIn(m.incomeId as string)}>🗑</button></>}</td>
           <td className="num" style={neg(m.amount)}>{fmtBaht(Math.abs(m.amount))}</td></tr>
       ))}
       {list.length === 0 && <tr><td colSpan={3} className="muted" style={{ textAlign: 'center' }}>ยังไม่มีรายการ</td></tr>}</tbody>
       <tfoot><tr><td colSpan={2}>{sumLabel}</td><td className="num">{fmtBaht(Math.abs(list.reduce((a, m) => a + m.amount, 0)))}</td></tr></tfoot>
     </table>
   )
+  const seg = (v: 'cash' | 'transfer', set: (m: 'cash' | 'transfer') => void) => (
+    <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={v === 'cash' ? 'on' : ''} onClick={() => set('cash')}>เงินสด</button><button type="button" className={v === 'transfer' ? 'on' : ''} onClick={() => set('transfer')}>โอนเงิน</button></div>
+  )
   return (
     <>
       <p className="small muted" style={{ margin: '4px 0' }}>ตั้งต้น {fmtBaht(f.opening)}{openingDate ? ` (${fmtDate(openingDate)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b style={neg(f.balance)}>{fmtBaht(f.balance)}</b></p>
       <div className="stat-title">เงินที่เข้า (ถวาย / ยืมมา / รับคืน)</div>
       {rowsOf(ins, `เงินเข้า ${f.name}`, 'รวมเงินที่เข้า')}
+      {canIncome && (inForm ? (
+        <div className="pbdraft" role="group" aria-label={`บันทึกเงินเข้า ${f.name}`}>
+          <div className="field"><label htmlFor={`fi-date-${f.id}`}>วันที่รับ</label><input id={`fi-date-${f.id}`} className="input" type="date" value={inForm.date} onChange={(e) => setInForm({ ...inForm, date: e.target.value })} /></div>
+          <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={inForm.amount} onChange={(v) => setInForm({ ...inForm, amount: v })} /></div>
+          {seg(inForm.method, (m) => setInForm({ ...inForm, method: m }))}
+          <div className="field"><label htmlFor={`fi-cnt-${f.id}`}>{inForm.method === 'cash' ? 'จำนวนซอง' : 'จำนวนโอน (ครั้ง)'} (ไม่บังคับ)</label><input id={`fi-cnt-${f.id}`} className="input" inputMode="numeric" value={inForm.count} onChange={(e) => setInForm({ ...inForm, count: e.target.value })} /></div>
+          <div className="field"><label htmlFor={`fi-note-${f.id}`}>หมายเหตุ (ไม่บังคับ)</label><input id={`fi-note-${f.id}`} className="input" value={inForm.note} onChange={(e) => setInForm({ ...inForm, note: e.target.value })} /></div>
+          {err && <p className="err" role="alert">{err}</p>}
+          <div className="row"><button type="button" className="btn btn--gold grow" onClick={saveIn}>{inForm.id ? 'บันทึกการแก้ไข' : 'บันทึกเงินเข้า'}</button><button type="button" className="btn btn--ghost" onClick={() => { setInForm(null); setErr('') }}>ยกเลิก</button></div>
+        </div>
+      ) : <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => { setForm(null); setInForm({ date: todayISO(), amount: null, method: 'cash', count: '', note: '' }) }}>＋ บันทึกเงินเข้ากองทุนนี้</button>)}
       <div className="stat-title">เงินที่จ่ายออก (รายจ่าย / ให้ยืม / คืนเงินยืม)</div>
       {rowsOf(outs, `เงินออก ${f.name}`, 'รวมเงินที่จ่ายออก')}
       {canPay && (form ? (
@@ -105,17 +156,27 @@ export function FundBody({ f, openingDate, canPay, allExp, storeFor }: { f: Fund
           <div className="field"><label htmlFor={`fx-date-${f.id}`}>วันที่จ่าย</label><input id={`fx-date-${f.id}`} className="input" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
           <div className="field"><label htmlFor={`fx-desc-${f.id}`}>รายละเอียดรายจ่าย</label><input id={`fx-desc-${f.id}`} className="input" value={form.desc} placeholder="เช่น ค่าปูนซีเมนต์ · ค่าแรงช่าง" onChange={(e) => setForm({ ...form, desc: e.target.value })} /></div>
           <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></div>
-          <div className="seg" role="group" aria-label="จ่ายด้วย"><button type="button" className={form.method === 'cash' ? 'on' : ''} onClick={() => setForm({ ...form, method: 'cash' })}>เงินสด</button><button type="button" className={form.method === 'transfer' ? 'on' : ''} onClick={() => setForm({ ...form, method: 'transfer' })}>โอนเงิน</button></div>
+          {seg(form.method, (m) => setForm({ ...form, method: m }))}
           <div className="field"><label htmlFor={`fx-note-${f.id}`}>หมายเหตุ (ไม่บังคับ)</label><input id={`fx-note-${f.id}`} className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
           {err && <p className="err" role="alert">{err}</p>}
           <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{form.id ? 'บันทึกการแก้ไข' : 'บันทึกรายจ่าย'}</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr('') }}>ยกเลิก</button></div>
         </div>
-      ) : <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ date: todayISO(), desc: '', amount: null, method: 'cash', note: '' })}>＋ บันทึกรายจ่ายของกองทุนนี้</button>)}
+      ) : <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => { setInForm(null); setForm({ date: todayISO(), desc: '', amount: null, method: 'cash', note: '' }) }}>＋ บันทึกรายจ่ายของกองทุนนี้</button>)}
+      <LoansPanel store={loanStore} funds={types.list.filter((t) => t.active && isFundType(t))} types={types.list} canWrite={canLoan} scope={{ fundId: f.id }} title="เงินยืมของกองทุนนี้ (ยืมเข้า / ให้ยืม / บันทึกการคืน)" />
       <div className="fundfinal" role="status" aria-label={`ยอดคงเหลือสุดท้าย ${f.name}`} style={{ borderColor: f.balance < 0 ? '#b3261e' : '#1b8a4b' }}>
         <span>ยอดคงเหลือสุดท้ายของกองทุนนี้</span>
         <b className="num" style={neg(f.balance)}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</b>
       </div>
-      <p className="muted small">รายจ่ายของกองทุนหักเฉพาะกองทุนนี้ ไม่เกี่ยวกับเงินหมุนเวียน · ยอดนี้ไปแสดงที่ช่องกองทุนหน้าแรก และรวมกับเงินหมุนเวียนเป็น รวมเงินสด</p>
+      {(myDeletedExp.length > 0 || myDeletedInc.length > 0) && (
+        <details className="editlist">
+          <summary className="small">รายการที่ลบไว้ของกองทุนนี้ ({myDeletedExp.length + myDeletedInc.length}) — กู้คืนได้</summary>
+          <ul className="list">
+            {myDeletedExp.map((x) => <li key={x.id}><span className="grow">จ่าย · {x.desc} · {fmtDate(x.date)}</span><b className="num">{fmtBaht(x.amount)}</b><button type="button" className="mini" aria-label={`กู้คืน ${x.desc}`} onClick={() => restoreExp(x)}>↩ กู้คืน</button></li>)}
+            {myDeletedInc.map((x) => <li key={x.id}><span className="grow">เงินเข้า · {fmtDate(x.date)}</span><b className="num">{fmtBaht(x.amount)}</b><button type="button" className="mini" aria-label={`กู้คืนเงินเข้า ${fmtDate(x.date)}`} onClick={() => restoreInc(x)}>↩ กู้คืน</button></li>)}
+          </ul>
+        </details>
+      )}
+      <p className="muted small">รายรับ รายจ่าย และเงินยืมของกองทุน อยู่ที่หน้านี้เท่านั้น ไม่ปนกับเงินหมุนเวียนในแท็บ รับ / จ่าย · ยอดสุทธิไปแสดงที่ช่องกองทุนหน้าแรก และรวมกับเงินหมุนเวียนเป็น รวมเงินสด</p>
     </>
   )
 }

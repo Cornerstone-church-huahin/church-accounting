@@ -98,7 +98,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }:
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -131,6 +131,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick }: { church: 
               </tbody>
               <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{m(sumOf(rows))}</td><td colSpan={2}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
             </table>
+            {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} />}
             <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้อนุมัติ / ตรวจสอบ</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้จ่าย / ฝ่ายบัญชี</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
@@ -222,5 +223,37 @@ export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children 
         </ScaledPage>
       ))}
     </>
+  )
+}
+
+export interface WeekSummary {
+  inn: { cash: number; transfer: number }
+  /** เงินเข้ากองทุนในสัปดาห์ (แยกจากเงินหมุนเวียน) — แต่ละกองทุนมีรายจ่ายโอนออกเท่ากันในตารางทันที */
+  funds: { name: string; amount: number }[]
+  out: { cash: number; transfer: number; pending: number }
+  /** เงินหมุนเวียนคงเหลือ ณ วันที่ asOf (ไม่รวมกองทุน) */
+  balance: number; asOf: string
+}
+
+/** 3 กรอบใต้ตารางใบเบิก-จ่าย: 1 สรุปรับประจำสัปดาห์ · 2 สรุปจ่ายประจำสัปดาห์ · 3 สรุปยอดเงินในบัญชีทั้งสิ้น (เงินหมุนเวียน) */
+function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
+  const dots = '..............'
+  const v = (x: number | undefined) => (x === undefined ? dots : m(x))
+  const row = (label: string, val: string, bold?: boolean) => <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontWeight: bold ? 700 : 400 }}><span>{label}</span><span className="num">{val}</span></div>
+  const fundSum = summary ? summary.funds.reduce((a, f) => a + f.amount, 0) : undefined
+  const circIn = summary ? summary.inn.cash + summary.inn.transfer : undefined
+  const circOut = summary ? summary.out.cash + summary.out.transfer + summary.out.pending : undefined
+  const inTotal = summary ? circIn! + fundSum! : undefined
+  const outTotal = summary ? circOut! + fundSum! : undefined
+  const box: React.CSSProperties = { flex: 1, border: '1.5px solid #1a2b4c', borderRadius: 4, padding: '8px 10px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 4 }
+  const head: React.CSSProperties = { fontWeight: 700, borderBottom: '1px solid #1a2b4c', paddingBottom: 3, marginBottom: 2 }
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', margin: '8px 0' }}>
+      <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
+        <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{row('  เงินสด', v(summary?.inn.cash))}{row('  เงินโอน', v(summary?.inn.transfer))}{row('กองทุน', v(fundSum))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
+        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{row('  ค้างจ่าย (ยังไม่ออกเงิน)', v(summary?.out.pending))}{row('โอนออกกองทุน', v(fundSum))}{summary?.funds.map((f) => <div key={f.name} style={{ fontSize: 11, display: 'flex', justifyContent: 'space-between' }}><span>  · {f.name}</span><span className="num">{m(f.amount)}</span></div>)}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
+        <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น</div><div style={{ fontSize: 11, color: '#444' }}>เงินหมุนเวียน (ไม่รวมกองทุน){summary ? ` ณ ${fmtDate(summary.asOf)}` : ''}</div>{row('คงเหลือ', v(summary?.balance), true)}</div>
+      </div>
+    </div>
   )
 }

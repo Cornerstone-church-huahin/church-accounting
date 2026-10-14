@@ -5,7 +5,6 @@ import ScaledPage from '../components/ScaledPage'
 import Sheet from '../components/Sheet'
 import WeekBar from '../components/WeekBar'
 import { makeExpenseGroup } from '../lib/catalog'
-import FundPicker from '../components/FundPicker'
 import CatOptions from '../components/CatOptions'
 import CaptureBar from '../components/CaptureBar'
 import SheetEntryList from '../components/SheetEntryList'
@@ -21,6 +20,7 @@ import { readSlip } from '../lib/slipOcr'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdf } from '../lib/pdf'
+import { useBalances } from '../lib/useBalances'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
 import type { ExpenseEntry } from '../lib/types'
@@ -66,7 +66,18 @@ export default function Pay({ year }: { year: number }) {
   const paperRef = useRef<HTMLDivElement>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
 
-  const all = useMemo(() => [...exp.items].sort(byDateDesc), [exp.items])
+  // บัญชีหมุนเวียนเท่านั้น: รายจ่ายของกองทุน (จ่ายจากกองทุน) อยู่ที่หน้ากองทุน ไม่แสดง/แก้/ลบที่นี่
+  const all = useMemo(() => [...exp.items].filter((x) => !x.fundId).sort(byDateDesc), [exp.items])
+  // สรุป 3 กรอบใต้ใบ: รับ/จ่ายของสัปดาห์ (ทุกช่องทาง เฉพาะเงินหมุนเวียน) + เงินหมุนเวียนคงเหลือ ณ สิ้นสัปดาห์ (ไม่เกินวันนี้)
+  const weekL = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }),
+    [year, sunday, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
+  const asOf = sunday <= todayISO() ? sunday : todayISO()
+  const { balances: bal } = useBalances(year, asOf)
+  // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
+  const wf = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, cats: cats.list, expenses: [], passbook: passbook.items, withFunds: true }).fundRows, [year, sunday, passbook.items, income.items, rounds.items, types.list, cats.list])
+  const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
+  const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', note: 'โอนเข้ากองทุน (อัตโนมัติ)', updated: 1e15 + i }) as ExpenseEntry)
+  const weekSummary = { inn: weekL.inSum, funds: fundOut, out: weekL.outSum, balance: bal.own.balance, asOf }
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
@@ -136,7 +147,7 @@ export default function Pay({ year }: { year: number }) {
         )}
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} types={types.list} onManage={can(role, 'settings') ? {
+          ? <ManualExpense cats={cats.list} onManage={can(role, 'settings') ? {
             add: (name) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
             rename: (id, cur) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const x = cats.byId(id); if (n && x && n !== cur) cats.put([{ ...x, name: n }]) },
             remove: (id, nm) => { if (confirm(`ลบ “${nm}” ออกจากรายการจ่าย?\n(รายจ่ายที่บันทึกไว้แล้วยังอยู่ แต่จะไม่มีหมวด)`)) cats.remove(id) },
@@ -153,12 +164,12 @@ export default function Pay({ year }: { year: number }) {
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} entries={ofAll('manual').filter(inWeek)} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...ofAll('manual').filter(inWeek), ...fundRowsE]} sunday={sunday} summary={weekSummary} onRowClick={canWrite ? (x) => { if (!x?.id.startsWith('fx:')) setRowEdit({ entry: x }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
-        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={ofAll('manual').filter(inWeek).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.who ? `ผู้รับเงิน ${x.who}` : '', x.fundId ? `จ่ายจากกองทุน` : ''].filter(Boolean).join(' · '), amount: x.amount }))}
+        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={ofAll('manual').filter(inWeek).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.who ? `ผู้รับเงิน ${x.who}` : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = ofAll('manual').find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = ofAll('manual').find((e) => e.id === id); if (x) del(x) }} />
       </div>
-      {rowEdit && <ExpenseRowEditor entry={rowEdit.entry} cats={cats.list} types={types.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
+      {rowEdit && <ExpenseRowEditor entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
@@ -221,8 +232,6 @@ export default function Pay({ year }: { year: number }) {
 /** ฟอร์มรายจ่าย: ใช้ร่วมกัน 3 ช่องทาง (ต่างกันที่ป้ายชื่อ/ช่องวันครบกำหนด/สถานะ/รูปแนบ) */
 function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: number; entry: ExpenseEntry | null; channel: Channel; exp: ReturnType<typeof useExpenses>; onClose: () => void; init?: ExpInit }) {
   const cats = useExpenseCats()
-  const incTypes = useIncomeTypes()
-  const [fundId, setFundId] = useState(entry?.fundId ?? '')
   const c = CH[channel]
   const today = yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`
   const [date, setDate] = useState(entry?.date ?? init?.date ?? today)
@@ -261,7 +270,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
     }
     const rec: ExpenseEntry = {
       id: entry?.id ?? newId('ex'), channel, date, amount, desc: name, status, method,
-      ...(catId ? { catId } : {}), ...(fundId ? { fundId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
+      ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
       ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), ...(entry?.requester ? { requester: entry.requester } : {}), updated: 0,
     }
     if (exp.put([rec])) onClose()
@@ -276,7 +285,6 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
           <CatOptions groups={cats.groups} itemsOf={cats.itemsOf} />
         </select>
       </div>
-      <FundPicker id="e-fund" types={incTypes.list} value={fundId} onChange={setFundId} />
       <div className="field"><label htmlFor="e-desc">รายการ</label><input id="e-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="เช่น ค่าไฟฟ้า ก.ย. 69" /></div>
       <div className="field"><label htmlFor="e-amt">จำนวนเงิน (บาท)</label><MoneyInput id="e-amt" value={amount} onChange={setAmount} /></div>
       {channel === 'manual' ? (
