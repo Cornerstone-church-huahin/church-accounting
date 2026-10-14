@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PersonField from './PersonField'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import { newId } from '../lib/money'
@@ -52,15 +53,16 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
   const [note, setNote] = useState(entry?.requester ?? entry?.note ?? '')
   const [payee, setPayee] = useState(entry?.who ?? '')
+  const [biller, setBiller] = useState(entry?.biller ?? '')
   const [err, setErr] = useState('')
   const save = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!desc.trim()) return setErr('ใส่รายการ')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
-    const { requester: _r, who: _w, catId: _c, ...rest } = entry ?? ({} as ExpenseEntry)
-    void _r; void _w; void _c
+    const { requester: _r, who: _w, catId: _c, biller: _b, ...rest } = entry ?? ({} as ExpenseEntry)
+    void _r; void _w; void _c; void _b
     const e = { ...rest, id: entry?.id ?? newId('ex'), updated: 0, channel: entry?.channel ?? 'manual', date, amount, desc: desc.trim(), status: entry?.status ?? 'paid', paidDate: entry?.paidDate ?? date, method: entry?.method ?? 'cash',
-      ...(catId ? { catId } : {}), ...(note.trim() ? { requester: note.trim() } : {}), ...(payee.trim() ? { who: payee.trim() } : {}) } as ExpenseEntry
+      ...(catId ? { catId } : {}), ...(note.trim() ? { requester: note.trim() } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(biller ? { biller } : {}) } as ExpenseEntry
     const r = onSave(e)
     if (r) setErr(r); else onClose()
   }
@@ -74,6 +76,7 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
       <div className="field"><label htmlFor="ere-desc">รายการ (แก้ข้อความได้)</label><input id="ere-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
       <div className="field"><label htmlFor="ere-note">หมายเหตุ</label><input id="ere-note" className="input" value={note} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setNote(e.target.value)} /></div>
+      <PersonField id="ere-biller" value={biller} onChange={setBiller} />
       <div className="field"><label htmlFor="ere-pay">ผู้รับเงิน</label><input id="ere-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
       {err && <p className="err" role="alert">{err}</p>}
       <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{entry ? 'บันทึกการแก้ไข' : 'เพิ่มลงใบ'}</button>{entry && onDelete && <button type="button" className="btn btn--ghost" onClick={() => { onDelete(entry); onClose() }}>🗑 ลบ</button>}</div>

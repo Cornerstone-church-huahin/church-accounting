@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan, Person } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -74,3 +74,6 @@ export function useOpening() {
 
 /** เงินยืม: ไฟล์เดียว ข้ามปี */
 export const useLoans = () => useSharedStore<Loan>({ localKey: k('loans'), file: 'loans.json', label: 'เงินยืม', write: 'statement' })
+
+/** รายชื่อผู้วางบิล/ผู้สำรองจ่าย: ไฟล์เดียว ข้ามปี */
+export const usePeople = () => useSharedStore<Person>({ localKey: k('people'), file: 'people.json', label: 'รายชื่อผู้วางบิล', write: 'voucherPay' })

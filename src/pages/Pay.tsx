@@ -20,6 +20,7 @@ import { readSlip } from '../lib/slipOcr'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdf } from '../lib/pdf'
+import PersonField from '../components/PersonField'
 import { useBalances } from '../lib/useBalances'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
@@ -81,6 +82,9 @@ export default function Pay({ year }: { year: number }) {
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
+  // แถวในใบเบิก-จ่ายเงินสด: รายการบันทึกด้วยมือ + วางบิล/สำรองจ่าย (หมายเหตุขึ้นว่า วางบิล/สำรองจ่าย · ชื่อผู้นำบิลมาเบิก/ผู้สำรอง · รอเบิก)
+  const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
+  const weekAll = all.filter(inWeek)
   const catName = (id?: string) => { const c = id ? cats.byId(id) : undefined; return c ? `${c.code} ${c.name}` : 'ยังไม่ระบุหมวด' }
   const L = useMemo(() => computeLedger({ range: rangeOf(scope === 'year' ? 'year' : 'week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }),
     [year, sunday, scope, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
@@ -132,6 +136,10 @@ export default function Pay({ year }: { year: number }) {
         {c === 'manual' && (
           <div className="capbar"><div className="capbar__row">
             <button type="button" className="act-btn" aria-label="ดาวน์โหลดใบเบิก-จ่ายเงินสด (เปล่า)" onClick={() => void downloadBlankSheet('voucher', settings.churchName.split(' ')[0], sunday)}><span className="act-btn__ico" aria-hidden="true">⬇️</span><span>ดาวน์โหลดใบเบิก</span></button>
+            {canWrite && <>
+              <label className="act-btn"><span className="act-btn__ico" aria-hidden="true">📎</span><span>แนบสลิป/บิล</span><input type="file" accept="image/*" aria-label="แนบไฟล์สลิปหรือบิล" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setFlow({ channel: 'manual', file: f }) }} /></label>
+              <label className="act-btn"><span className="act-btn__ico" aria-hidden="true">📷</span><span>ถ่ายรูปบิล</span><input type="file" accept="image/*" capture="environment" aria-label="ถ่ายรูปสลิปหรือบิล" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setFlow({ channel: 'manual', file: f }) }} /></label>
+            </>}
             {canWrite && <button type="button" className="act-btn" onClick={() => setForm({ entry: null, channel: c })}><span className="act-btn__ico" aria-hidden="true">✍️</span><span>บันทึกแบบละเอียด</span></button>}
           </div></div>
         )}
@@ -164,10 +172,10 @@ export default function Pay({ year }: { year: number }) {
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...ofAll('manual').filter(inWeek), ...fundRowsE]} sunday={sunday} summary={weekSummary} onRowClick={canWrite ? (x) => { if (!x?.id.startsWith('fx:')) setRowEdit({ entry: x }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...weekAll.map(sheetOf), ...fundRowsE]} sunday={sunday} summary={weekSummary} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('fx:')) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
-        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={ofAll('manual').filter(inWeek).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.who ? `ผู้รับเงิน ${x.who}` : ''].filter(Boolean).join(' · '), amount: x.amount }))}
-          onEdit={(id) => { const x = ofAll('manual').find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = ofAll('manual').find((e) => e.id === id); if (x) del(x) }} />
+        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
+          onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />
       </div>
       {rowEdit && <ExpenseRowEditor entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
@@ -236,6 +244,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
   const today = yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`
   const [date, setDate] = useState(entry?.date ?? init?.date ?? today)
   const [who, setWho] = useState(entry?.who ?? init?.who ?? '')
+  const [biller, setBiller] = useState(entry?.biller ?? '')
   const [catId, setCatId] = useState(entry?.catId ?? init?.catId ?? '')
   const [desc, setDesc] = useState(entry?.desc ?? init?.desc ?? '')
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? init?.amount ?? null)
@@ -270,7 +279,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
     }
     const rec: ExpenseEntry = {
       id: entry?.id ?? newId('ex'), channel, date, amount, desc: name, status, method,
-      ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(due && channel === 'bill' ? { due } : {}),
+      ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(biller ? { biller } : {}), ...(due && channel === 'bill' ? { due } : {}),
       ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), ...(entry?.requester ? { requester: entry.requester } : {}), updated: 0,
     }
     if (exp.put([rec])) onClose()
@@ -312,8 +321,9 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
           )}
         </>
       )}
+      <PersonField id="e-biller" value={biller} onChange={setBiller} label={channel === 'advance' ? 'ผู้สำรองจ่าย (เลือกจากรายชื่อ)' : channel === 'bill' ? 'ผู้วางบิล (เลือกจากรายชื่อ)' : 'ผู้วางบิล / ผู้สำรองจ่าย (ถ้ามี)'} />
       <div className="field"><label htmlFor="e-who">{c.whoLabel}</label><input id="e-who" className="input" value={who} onChange={(e) => setWho(e.target.value)} /></div>
-      {channel !== 'manual' && !init && <div className="field"><label htmlFor="e-file">รูป{channel === 'bill' ? 'บิล' : 'ใบเสร็จ'} {entry?.file ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="e-file" className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>}
+      {!init && <div className="field"><label htmlFor="e-file">รูป{channel === 'bill' ? 'บิล' : 'สลิป/ใบเสร็จ'} {entry?.file ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="e-file" className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>}
       {entry?.file && !file && <StoredImage path={entry.file.path} alt="รูปที่แนบไว้" />}
       <div className="field"><label htmlFor="e-ref">เลขที่บิล/เลขอ้างอิง (ไม่บังคับ)</label><input id="e-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></div>
       <div className="field"><label htmlFor="e-note">หมายเหตุ (ไม่บังคับ)</label><input id="e-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
@@ -359,7 +369,7 @@ function ExpenseFlow({ year, channel, initialFile, exp, onClose }: { year: numbe
         const cat = r.category ? cats.list.find((x) => x.active && x.code === r.category && (x.kind === 'item' || cats.itemsOf(x.id).length === 0)) : undefined
         Object.assign(out, {
           date: r.date, amount: r.total, desc: r.summary ?? cat?.name, catId: cat?.id, method: r.method, ref: r.ref, due: r.due,
-          ...(channel === 'bill' ? { who: r.vendor } : r.vendor ? { note: `ร้าน/ผู้รับเงิน: ${r.vendor}` } : {}),
+          ...(channel !== 'advance' ? { who: r.vendor } : r.vendor ? { note: `ร้าน/ผู้รับเงิน: ${r.vendor}` } : {}),
         })
         const miss = [!r.date && 'วันที่', !r.total && 'ยอดเงิน'].filter(Boolean)
         if (miss.length) setMsg(`อ่าน${miss.join('และ')}ไม่ได้ — กรุณากรอกเอง`)

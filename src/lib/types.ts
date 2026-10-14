@@ -153,7 +153,12 @@ export interface ExpenseCat extends SharedItem {
 }
 
 /** รายจ่ายนอกใบเบิก 3 ช่องทาง: manual = บันทึกด้วยมือ (จ่ายแล้ว) · bill = วางบิล (ค้างจ่ายจนกว่าจะจ่าย) · advance = สำรองจ่าย (ผู้สำรองจ่ายรอรับเงินคืน) */
+/** รายชื่อผู้วางบิล/ผู้สำรองจ่าย ที่เรียกใช้ซ้ำได้ (เพิ่ม/แก้/ลบได้) */
+export interface Person extends SharedItem { name: string }
+
 export interface ExpenseEntry extends SharedItem {
+  /** ผู้วางบิล / ผู้สำรองจ่าย (ชื่อจากรายชื่อที่ตั้งไว้) — แสดงเป็นคอลัมน์หลังหมายเหตุในใบเบิก-จ่าย */
+  biller?: string
   channel: 'manual' | 'bill' | 'advance'
   /** manual: วันที่จ่าย · bill: วันที่ในบิล · advance: วันที่สำรองจ่าย */
   date: string

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MoneyInput from './MoneyInput'
+import PersonField from './PersonField'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry } from '../lib/types'
@@ -18,6 +19,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
   const [amount, setAmount] = useState<number | null>(null)
   const [requester, setRequester] = useState('')
   const [payee, setPayee] = useState('')
+  const [biller, setBiller] = useState('')
   const [err, setErr] = useState('')
 
   const save = () => {
@@ -25,9 +27,9 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
     if (!q) return setErr('เลือกรายการ')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงิน')
-    const ok = onAdd({ id: newId('ex'), updated: 0, channel: 'manual', date, amount, desc: q.name, catId: q.id, ...(payee.trim() ? { who: payee.trim() } : {}), ...(requester.trim() ? { requester: requester.trim() } : {}), status: 'paid', paidDate: date, method: 'cash' })
+    const ok = onAdd({ id: newId('ex'), updated: 0, channel: 'manual', date, amount, desc: q.name, catId: q.id, ...(payee.trim() ? { who: payee.trim() } : {}), ...(requester.trim() ? { requester: requester.trim() } : {}), ...(biller ? { biller } : {}), status: 'paid', paidDate: date, method: 'cash' })
     if (!ok) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
-    setErr(''); setAmount(null)
+    setErr(''); setAmount(null); setBiller('')
   }
   const rows = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
 
@@ -43,6 +45,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
             <div className="field"><label htmlFor="me-req">หมายเหตุ</label><input id="me-req" className="input" value={requester} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setRequester(e.target.value)} /></div>
             <div className="field"><label htmlFor="me-pay">ผู้รับเงิน</label><input id="me-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
           </div>
+          <PersonField id="me-biller" value={biller} onChange={setBiller} />
           {err && <p className="err" role="alert">{err}</p>}
           <button type="button" className="btn btn--gold" onClick={save}>＋ เพิ่มลงตาราง</button>
           {onManage && <CatalogManager noun="รายการจ่าย" items={items} ops={onManage} onAdded={setItem} />}
