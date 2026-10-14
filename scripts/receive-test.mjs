@@ -44,7 +44,7 @@ try {
   }
   await page.keyboard.press('Escape')
   await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
-  const rep = page.locator('.a4page')
+  const rep = page.locator('.a4page').last()
   const readTotal = async () => { await page.getByRole('tab', { name: /รวมรับ/ }).click(); return (await rep.innerText()).replace(/\n/g, ' ') }
   const txt = await readTotal()
   must(/ได้รับการถวายประจำสัปดาห์/.test(txt) && /สิบลด\s+1\s+10,000\.00\s+10,000\.00[\s\S]*รวมทั้งสิ้น\s+1\s+10,000\.00\s+0\s+0\.00\s+10,000\.00/.test(txt), 'summary page shows only the per-type table with totals :: ' + txt)
@@ -114,7 +114,7 @@ try {
   const t3 = (await readTotal())
   await page.screenshot({ path: 'shots/total.png', fullPage: true })
   // ดาวน์โหลด PDF
-  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /^⬇️ ดาวน์โหลด PDF$/ }).click()])
   const pdfPath = await dl.path()
   const head = (await import('node:fs')).default.readFileSync(pdfPath).subarray(0, 5).toString()
   must(head === '%PDF-' && /\.pdf$/.test(dl.suggestedFilename()), 'PDF downloaded: ' + dl.suggestedFilename() + ' ' + head)
@@ -134,7 +134,7 @@ try {
   must(/สิบลด\s+6\s+1,150\.00\s+1\s+169\.00\s+1,319\.00/.test(t4), 'row shows 6 envelopes 1,150 + 1 transfer 169 = 1,319: ' + t4)
   must(/รวมทั้งสิ้น\s+24\s+5,260\.00\s+1\s+169\.00\s+5,429\.00/.test(t4), 'grand total row: ' + t4)
   {
-    const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
+    const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: /^⬇️ ดาวน์โหลด PDF$/ }).click()])
     await d2.saveAs('shots/total-user.pdf')
   }
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()

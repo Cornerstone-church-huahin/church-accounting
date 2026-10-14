@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import MoneyInput from './MoneyInput'
-import { IncomeSheetPaper } from './PaperSheets'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
 import type { IncomeEntry, IncomeType } from '../lib/types'
 
@@ -12,8 +11,8 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 /**
  * ช่อง 1 ของฝั่งรับ: แถวบันทึก 1 บรรทัด (เลือกประเภทจากรายชื่อที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบบันทึกการถวายด้านล่าง พร้อมยอดรวม
  */
-export default function ManualIncome({ types, entries, church, sunday, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage }: {
-  types: IncomeType[]; entries: IncomeEntry[]; church: string; sunday?: string; defaultDate: string; canWrite: boolean
+export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage }: {
+  types: IncomeType[]; entries: IncomeEntry[]; defaultDate: string; canWrite: boolean
   /** แอดมินเท่านั้น: แก้ชื่อ/ลบประเภทได้จากหน้านี้เลย (ตัวเลือกแบบเลื่อนลงใส่ปุ่มลบไม่ได้) */
   onManage?: CatalogOps
   onAdd: (items: IncomeEntry[]) => boolean; onEdit: (x: IncomeEntry) => void; onDelete: (x: IncomeEntry) => void
@@ -62,7 +61,6 @@ export default function ManualIncome({ types, entries, church, sunday, defaultDa
         </div>
       )}
 
-      <IncomeSheetPaper church={church} entries={entries} types={types} sunday={sunday} />
 
       {rows.length > 0 && canWrite && (
         <details className="editlist">

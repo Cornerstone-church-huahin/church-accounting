@@ -40,7 +40,7 @@ function PaperHead({ church, title, sub, compact }: { church: string; title: str
 const DOWNLOAD_NOTE = 'ดาวน์โหลด PDF ขนาดจริง'
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday }: { church: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }: { church: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -62,7 +62,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday }: { church: s
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
                   return (
-                    <tr key={i}>
+                    <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                       <td>{x ? fmtDate(x.date) : ''}</td>
                       <td>{pi * ROWS + i + 1}.</td>
                       <td>{x ? name(x.typeId) : ''}</td>
@@ -92,7 +92,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday }: { church: s
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday }: { church: string; entries: ExpenseEntry[]; sunday?: string }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -112,7 +112,7 @@ export function VoucherPaper({ church, entries, sunday }: { church: string; entr
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
                   return (
-                    <tr key={i}>
+                    <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                       <td>{x ? fmtDate(x.date) : ''}</td>
                       <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td>{x?.desc ?? ''}</td>

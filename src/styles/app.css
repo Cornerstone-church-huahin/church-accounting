@@ -406,3 +406,7 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 .fundfinal { flex-wrap: wrap; }
 .fundfinal span { flex: 1 1 11rem; font-weight: 600; }
 .subtab-link { font-size: 0.88rem; padding: 0.5rem 0.15rem; white-space: nowrap; }
+
+.sheetrow { cursor: pointer; }
+.sheetrow:hover td, .sheetrow:active td { background: #fff4c7; }
+.sheethint { margin: 6px 0 2px; font-size: 0.85rem; }

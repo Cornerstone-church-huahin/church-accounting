@@ -8,6 +8,8 @@ import { makeExpenseGroup } from '../lib/catalog'
 import FundPicker from '../components/FundPicker'
 import CatOptions from '../components/CatOptions'
 import CaptureBar from '../components/CaptureBar'
+import { ExpenseRowEditor } from '../components/RowEditors'
+import { VoucherPaper } from '../components/PaperSheets'
 import ManualExpense from '../components/ManualExpense'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can } from '../lib/access'
@@ -53,6 +55,7 @@ export default function Pay({ year }: { year: number }) {
   const canWrite = can(role, 'voucherPay')
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: ExpenseEntry | null; channel: Channel } | null>(null)
+  const [rowEdit, setRowEdit] = useState<{ entry: ExpenseEntry | null } | null>(null)
   const [flow, setFlow] = useState<{ channel: Channel; file?: File } | null>(null)
   const [payFor, setPayFor] = useState<ExpenseEntry | null>(null)
   const [scope, setScope] = useState<'week' | 'year'>('year')
@@ -137,7 +140,7 @@ export default function Pay({ year }: { year: number }) {
             add: (name) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
             rename: (id, cur) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const x = cats.byId(id); if (n && x && n !== cur) cats.put([{ ...x, name: n }]) },
             remove: (id, nm) => { if (confirm(`ลบ “${nm}” ออกจากรายการจ่าย?\n(รายจ่ายที่บันทึกไว้แล้วยังอยู่ แต่จะไม่มีหมวด)`)) cats.remove(id) },
-          } : undefined} church={settings.churchName.split(' ')[0]} sunday={sunday} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          } : undefined} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
@@ -149,6 +152,12 @@ export default function Pay({ year }: { year: number }) {
   return (
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} marks={weekMarks} />
+      <div className="no-print">
+        <VoucherPaper church={settings.churchName.split(' ')[0]} entries={ofAll('manual').filter(inWeek)} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
+        {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
+      </div>
+      {rowEdit && <ExpenseRowEditor entry={rowEdit.entry} cats={cats.list} types={types.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
+        onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
         {tab('bill', 2, 'วางบิล', of('bill').length)}
