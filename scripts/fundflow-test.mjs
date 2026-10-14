@@ -28,10 +28,19 @@ try {
   const sheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().innerText()).replace(/\s+/g, ' ')
   must(/กองทุนเพื่อที่ดินคริสตจักร 500/.test(sheet), 'fund income shows as an expense row with the same name: ' + sheet.slice(0, 300))
   const box = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
-  must(/เงินหมุนเวียน 2,000/.test(box) && /กองทุน 500/.test(box) && /รวมรับทั้งสิ้น 2,500/.test(box), 'box 1 separates circulating 2,000 from fund 500: ' + box)
-  must(/เงินหมุนเวียน \(คงอยู่ในระบบ\) 2,000/.test(box) && /กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500/.test(box) && /รวมทั้งสิ้น 2,500/.test(box.split('②')[1] ?? ''), 'box 2 shows circulating 2,000 + fund 500 = 2,500: ' + box)
+  must(/เงินหมุนเวียน 2,000 กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500 รวมรับทั้งสิ้น 2,500/.test(box), 'box 1: circulating 2,000 then the fund by name 500, total 2,500: ' + box)
   const wd = (await page.getByLabel('จำนวนที่ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   must(/กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500/.test(wd) && /รวมที่ต้องเบิก 500/.test(wd), 'withdrawal row lists the fund and total 500: ' + wd)
+  // รายจ่ายหมุนเวียน 500 ที่ใส่ชื่อในช่อง รอจ่าย → รวมจ่าย 1,000 (หมุนเวียน 500 + กองทุน 500) · ที่ต้องเบิก 1,000
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('500')
+  await page.locator('summary', { hasText: /ชื่อ \(/ }).click()
+  await page.getByLabel('ชื่อชื่อใหม่').fill('อ.กฤต')
+  await page.getByLabel('ชื่อชื่อใหม่').locator('xpath=ancestor::details[1]').getByRole('button', { name: '＋ เพิ่ม' }).click()
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  const box2 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
+  must(/รายจ่ายหมุนเวียน 500/.test(box2) && /กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500 รวมจ่ายทั้งสิ้น 1,000/.test(box2), 'box 2: circulating expense 500 + fund 500 = 1,000: ' + box2)
+  const wd1 = (await page.getByLabel('จำนวนที่ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
+  must(/รอจ่าย · .* 500/.test(wd1) && /รวมที่ต้องเบิก 1,000/.test(wd1), 'withdraw = fund 500 + waiting 500 = 1,000: ' + wd1)
   // วางบิลที่รอจ่ายรวมเข้ากับกองทุน
   await page.getByRole('tab', { name: /วางบิล/ }).click()
   await page.getByRole('button', { name: '✍️ กรอกเอง (ไม่มีรูป)' }).click()
@@ -40,7 +49,10 @@ try {
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const wd2 = (await page.getByLabel('จำนวนที่ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
-  must(/บิล\/สำรองจ่าย · ค่าไฟ 1,200/.test(wd2) && /รวมที่ต้องเบิก 1,700/.test(wd2), 'pending bill joins the withdrawal total (500 + 1,200): ' + wd2)
+  must(/รอจ่าย · ค่าไฟ 1,200/.test(wd2) && /รวมที่ต้องเบิก 2,200/.test(wd2), 'pending bill joins the withdrawal total (1,000 + 1,200): ' + wd2)
+  // แตะแถวในใบ → แนบรูปบิล/สลิปเป็นหลักฐานได้
+  await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().locator('tbody tr').nth(0).click()
+  must(await page.locator('#ere-file').count() === 1, 'row editor has the evidence image input')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('FUNDFLOW OK')
 } catch (e) { console.error(e instanceof Error ? e.message : e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

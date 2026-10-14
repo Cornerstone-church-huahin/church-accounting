@@ -112,18 +112,18 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: {
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
-              <colgroup><col style={{ width: '8%' }} /><col style={{ width: '5%' }} /><col style={{ width: '27%' }} /><col style={{ width: '11%' }} /><col style={{ width: '15%' }} /><col style={{ width: '16%' }} /><col style={{ width: '18%' }} /></colgroup>
-              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th>รอจ่าย</th><th>ผู้รับเงิน</th></tr></thead>
+              <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '27%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '15%' }} /><col style={{ width: '18%' }} /></colgroup>
+              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ / รูป</th><th>รอจ่าย</th><th>ผู้รับเงิน</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
                   return (
                     <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
-                      <td>{x ? fmtDate(x.date) : ''}</td>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td>
                       <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td>{x?.desc ?? ''}</td>
-                      <td className="num">{x ? m(x.amount) : ''}</td>
-                      <td>{x?.requester || x?.note || ''}</td>
+                      <td className="num" style={{ fontSize: 11.5 }}>{x ? m(x.amount) : ''}</td>
+                      <td style={{ fontSize: 11 }}>{x ? [x.requester || x.note, x.file ? '📎 มีรูป' : ''].filter(Boolean).join(' ') : ''}</td>
                       <td>{x?.biller ?? ''}</td>
                       <td>{x?.who ?? ''}</td>
                     </tr>
@@ -248,20 +248,20 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
   const circOut = summary ? summary.out.cash + summary.out.transfer + summary.out.pending : undefined
   const withdraw = summary ? fundSum! + summary.pending.reduce((a, b) => a + b.amount, 0) : undefined
   const inTotal = summary ? circIn! + fundSum! : undefined
-  const remain = summary ? circIn! - circOut! : undefined
+  const outTotal = summary ? circOut! + fundSum! : undefined
   const box: React.CSSProperties = { flex: 1, border: '1.5px solid #1a2b4c', borderRadius: 4, padding: '8px 10px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 4 }
   const head: React.CSSProperties = { fontWeight: 700, borderBottom: '1px solid #1a2b4c', paddingBottom: 3, marginBottom: 2 }
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, margin: '8px 0' }}>
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
-        <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{row('  เงินสด', v(summary?.inn.cash))}{row('  เงินโอน', v(summary?.inn.transfer))}{row('กองทุน', v(fundSum))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
-        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut))}{row('  ค้างจ่าย (ยังไม่ออกเงิน)', v(summary?.out.pending))}{row('เงินหมุนเวียน (คงอยู่ในระบบ)', v(remain), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{row('รวมทั้งสิ้น', v(inTotal), true)}</div>
+        <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
+        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{row('  ค้างจ่าย (ยังไม่ออกเงิน)', v(summary?.out.pending))}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
         <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น</div><div style={{ fontSize: 11, color: '#444' }}>เงินหมุนเวียน (ไม่รวมกองทุน){summary ? ` ณ ${fmtDate(summary.asOf)}` : ''}</div>{row('คงเหลือ', v(summary?.balance), true)}</div>
       </div>
       <div style={{ ...box, flex: 'none' }} aria-label="จำนวนที่ต้องเบิก">
-        <div style={head}>จำนวนที่ต้องเบิก <span style={{ fontWeight: 400, fontSize: 11 }}>(กองทุน + บิลที่วางไว้/สำรองจ่าย — เตรียมเบิกที่ธนาคาร)</span></div>
+        <div style={head}>จำนวนที่ต้องเบิก <span style={{ fontWeight: 400, fontSize: 11 }}>(กองทุน + รายการรอจ่าย — เตรียมเบิกที่ธนาคาร)</span></div>
         {summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}
-        {summary?.pending.map((b, i) => row(`บิล/สำรองจ่าย · ${b.name}`, m(b.amount), false, `p${i}`))}
+        {summary?.pending.map((b, i) => row(`รอจ่าย · ${b.name}`, m(b.amount), false, `p${i}`))}
         {row('รวมที่ต้องเบิก', v(withdraw), true)}
       </div>
     </div>
