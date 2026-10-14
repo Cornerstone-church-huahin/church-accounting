@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { loanBalance, summarizeLoans } from './loans'
+import { circulatingOnly, type Balances } from './balances'
 import type { Loan } from './types'
 
 const L = (o: Partial<Loan>) => ({ id: 'l', updated: 1, lender: { kind: 'person', name: 'พี่ก' }, purpose: 'สุสาน', date: '2026-08-01', principal: 10000000, repayments: [], ...o }) as Loan
@@ -19,5 +20,12 @@ describe('loans', () => {
       L({ id: 'e', deleted: true, principal: 99 }),
     ])
     expect(s).toEqual({ external: 15000000, fromFunds: 5000000, total: 20000000, lentByFund: { tt9: 5000000 } })
+  })
+  it('circulating-only balance drops money borrowed from funds but keeps outside loans', () => {
+    const b = { own: { balance: 30000000 } } as unknown as Balances
+    const fromFund = L({ borrower: 'own', lender: { kind: 'fund', fundId: 'tt4' }, principal: 5000000 })
+    const outside = L({ id: 'l2', borrower: 'own', principal: 2000000 })
+    expect(circulatingOnly(b, [fromFund, outside])).toBe(25000000)
+    expect(circulatingOnly(b, [{ ...fromFund, deleted: true }])).toBe(30000000)
   })
 })

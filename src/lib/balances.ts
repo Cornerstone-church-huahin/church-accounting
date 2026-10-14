@@ -29,3 +29,9 @@ export function computeBalances(a: Omit<LedgerArgs, 'range' | 'withFunds'> & { o
 }
 
 export type { LRow }
+
+/** ยอดเงินหมุนเวียนล้วน ๆ: ตัดเงินที่ยืมมาจากกองทุนออก (นับเป็นเงินของกองทุน ไม่เกี่ยวกับบัญชีหมุนเวียน) — ยืมจากบุคคลภายนอกยังนับ */
+export function circulatingOnly(b: Balances, loans: Loan[]): number {
+  const fromFunds = loans.filter((l) => !l.deleted && l.borrower === 'own' && l.lender.kind === 'fund').reduce((s, l) => s + loanBalance(l), 0)
+  return b.own.balance - fromFunds
+}
