@@ -10,14 +10,15 @@ interface Draft { id?: string; borrower: string; kind: 'person' | 'fund'; name: 
 const blank = (fundId: string): Draft => ({ borrower: '', kind: 'person', name: '', fundId, purpose: '', date: todayISO(), principal: null, note: '' })
 
 /** ทะเบียนเงินยืม: เพิ่ม/แก้/ลบได้ทุกเมื่อ ไม่ต้องมีตัวเลขตั้งต้น · ยืมจากบุคคลภายนอก หรือจากกองทุนอื่น */
-export default function LoansPanel({ store, funds, canWrite, only, title, types }: { store: Store; funds: IncomeType[]; canWrite: boolean; /** ตัวเลือก "ผู้ยืม" (ประเภทรับทั้งหมดในระบบ) */ types?: IncomeType[]; /** แสดง/เพิ่มเฉพาะเงินยืมประเภทนี้ (person = หนี้สินภายนอก) */ only?: 'person' | 'fund'; title?: string }) {
+export default function LoansPanel({ store, funds, canWrite, only, title, types, scope }: { store: Store; funds: IncomeType[]; canWrite: boolean; /** แสดงเฉพาะเงินยืมที่เกี่ยวกับกองทุนนี้ (ยืมเข้า/ให้ยืม) และมีปุ่มเพิ่มแยกสองแบบ */ scope?: { fundId: string }; /** ตัวเลือก "ผู้ยืม" (ประเภทรับทั้งหมดในระบบ) */ types?: IncomeType[]; /** แสดง/เพิ่มเฉพาะเงินยืมประเภทนี้ (person = หนี้สินภายนอก) */ only?: 'person' | 'fund'; title?: string }) {
   const [form, setForm] = useState<Draft | null>(null)
   const [pay, setPay] = useState<{ loanId: string; date: string; amount: number | null; note: string } | null>(null)
   const [err, setErr] = useState('')
   const borrowers = (types ?? funds).filter((t) => t.active)
   const borrowerName = (id?: string) => (!id ? '' : id === 'own' ? 'เงินหมุนเวียนของคริสตจักร' : (types ?? funds).find((t) => t.id === id)?.name ?? '(ถูกลบ)')
   const fundName = (id?: string) => funds.find((f) => f.id === id)?.name ?? '(กองทุนที่ถูกลบ)'
-  const shown = only ? store.items.filter((l) => l.lender.kind === only) : store.items
+  const base = only ? store.items.filter((l) => l.lender.kind === only) : store.items
+  const shown = scope ? base.filter((l) => !l.deleted && (l.borrower === scope.fundId || (l.lender.kind === 'fund' && l.lender.fundId === scope.fundId))) : base
   const sum = summarizeLoans(shown)
   const live = [...shown].sort((a, b) => a.date.localeCompare(b.date))
 
@@ -89,6 +90,11 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types 
             <div className="field"><label>จำนวนเงินที่ยืม</label><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></div></div>
           <div className="field"><label htmlFor="ln-purpose">ใช้ทำอะไร / หมายเหตุ (ไม่บังคับ)</label><input id="ln-purpose" className="input" value={form.purpose} placeholder="เช่น ทำหลุมสุสาน" onChange={(e) => setForm({ ...form, purpose: e.target.value })} /></div>
           <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{form.id ? 'บันทึกการแก้ไข' : 'บันทึกเงินยืม'}</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr('') }}>ยกเลิก</button></div>
+        </div>
+      ) : scope ? (
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="btn btn--ghost grow" onClick={() => setForm({ ...blank(scope.fundId), borrower: scope.fundId })}>＋ ยืมเข้ากองทุนนี้</button>
+          <button type="button" className="btn btn--ghost grow" onClick={() => setForm({ ...blank(scope.fundId), kind: 'fund', fundId: scope.fundId })}>＋ ให้ยืมจากกองทุนนี้</button>
         </div>
       ) : <button type="button" className="btn btn--ghost" onClick={() => setForm({ ...blank(funds[0]?.id ?? ''), ...(only ? { kind: only } : {}) })}>{only === 'person' ? '＋ บันทึกหนี้สินใหม่' : '＋ บันทึกเงินยืม'}</button>)}
     </section>

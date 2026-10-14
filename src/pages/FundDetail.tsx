@@ -6,7 +6,8 @@ import { FundBody, useFundAccounts } from './FundAccounts'
 /** หน้ากองทุนเดียว: รายรับ/ยืมมา → บันทึกรายจ่ายต่อได้ทันที → ยอดคงเหลือสุดท้าย (ติดลบหรือเหลือเท่าไร) */
 export default function FundDetailPage() {
   const { id } = useParams()
-  const { rows, canPay, storeFor, allExp, types, opening, loans } = useFundAccounts()
+  const ctx = useFundAccounts()
+  const { rows, types, opening, loans } = ctx
   const f = rows.find((r) => r.id === id)
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
   return (
@@ -17,7 +18,7 @@ export default function FundDetailPage() {
         <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
         <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
         <DebtBanner loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent openingDate={opening?.date} />
-        <FundBody f={f} openingDate={opening?.date} canPay={canPay} allExp={allExp} storeFor={storeFor} />
+        <FundBody f={f} ctx={ctx} />
       </section>
     </>
   )

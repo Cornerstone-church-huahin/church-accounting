@@ -102,6 +102,10 @@ try {
   await page.waitForTimeout(300)
   must(/รวมทั้งสิ้น\s+2\s+2,600\.00\s+0\s+0\.00\s+0\.00\s+2,600\.00/.test(await total()), 'delete removes it from the total')
 
+  // 3 กรอบสรุปประจำสัปดาห์ใต้ตารางใบเบิก
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  const box = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\n/g, ' ')
+  must(/สรุปรับประจำสัปดาห์/.test(box) && /สรุปจ่ายประจำสัปดาห์/.test(box) && /สรุปยอดเงินในบัญชีทั้งสิ้น/.test(box) && /โอนออกกองทุน/.test(box) && /กองทุน/.test(box), 'three summary boxes: ' + box)
   // สรุป: หักลบกับรายรับอัตโนมัติ (ไม่มีรายรับ → คงเหลือติดลบเท่ารายจ่าย)
   await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.getByRole('tab', { name: /^4\s*ปี/ }).click()
