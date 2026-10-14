@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fmtBaht } from '../lib/money'
+import { fmtBaht, fmtDate } from '../lib/money'
 import { useLoans } from '../lib/data'
 import { summarizeLoans } from '../lib/loans'
 import { useBalances } from '../lib/useBalances'
+import { incomeBeforeCutoff } from '../lib/balances'
+import { useOpening } from '../lib/data'
+import { can } from '../lib/access'
+import { useRole } from '../lib/members'
 import { useYear } from '../lib/year'
 import Receive from './Receive'
 import Summary from './Summary'
@@ -22,7 +26,10 @@ const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; sub
 export default function Home() {
   const { year } = useYear()
   const [tab, setTab] = useState<Tab>(null)
-  const { balances: b } = useBalances(year)
+  const { balances: b, input, opening } = useBalances(year)
+  const op = useOpening()
+  const role = useRole()
+  const skipped = incomeBeforeCutoff(input, opening)
   const ls = summarizeLoans(useLoans().items)
   const full = tab !== null
   return (
@@ -40,8 +47,15 @@ export default function Home() {
             <Link to="/balance/spare" className="btile btile--spare"><small>⬜ ไอคอน</small><b>—</b></Link>
           </nav>
           <p className="small muted no-print" style={{ margin: '4px 2px 0' }} aria-label="ที่มาของเงินหมุนเวียน">
-            หมุนเวียน = ยอดยกมา {fmtBaht(b.own.opening, { dec: false })} + รับ {fmtBaht(b.own.moneyIn, { dec: false })} − จ่าย {fmtBaht(b.own.moneyOut, { dec: false })}{b.own.pending > 0 ? ` − ค้างจ่าย ${fmtBaht(b.own.pending, { dec: false })}` : ''}{b.own.borrowed > 0 ? ` + ยืม ${fmtBaht(b.own.borrowed, { dec: false })}` : ''} · รุ่นแอป {typeof __BUILD__ === 'string' ? __BUILD__ : 'พรีวิว'}
+            หมุนเวียน = ยอดยกมา {fmtBaht(b.own.opening, { dec: false })} + รับ {fmtBaht(b.own.moneyIn, { dec: false })} − จ่าย {fmtBaht(b.own.moneyOut, { dec: false })}{b.own.pending > 0 ? ` − ค้างจ่าย ${fmtBaht(b.own.pending, { dec: false })}` : ''}{b.own.borrowed > 0 ? ` + ยืม ${fmtBaht(b.own.borrowed, { dec: false })}` : ''} {opening ? ` · นับต่อจากวันตัดยอด ${fmtDate(opening.date)}` : ''} · รุ่นแอป {typeof __BUILD__ === 'string' ? __BUILD__ : 'พรีวิว'}
           </p>
+          {skipped.count > 0 && (opening?.own ?? 0) < skipped.total && (
+            <div className="card no-print" role="alert" style={{ margin: '8px 0', borderColor: '#c0392b' }}>
+              <p className="small" style={{ margin: 0 }}>⚠️ มีรายรับเงินหมุนเวียน <b>{skipped.count} รายการ รวม {fmtBaht(skipped.total)} บาท</b> ลงวันที่ก่อนวันตัดยอดยกมา ({opening ? fmtDate(opening.date) : ''}) จึง<b>ไม่ถูกนับ</b>ในช่อง “หมุนเวียน” (ระบบถือว่าอยู่ในยอดยกมาแล้ว แต่ยอดยกมาเงินหมุนเวียนตอนนี้คือ {fmtBaht(b.own.opening)})</p>
+              {opening && can(role, 'settings') && <button type="button" className="btn btn--gold" style={{ marginTop: 6 }} onClick={() => { if (confirm(`เพิ่ม ${fmtBaht(skipped.total)} บาท เข้ายอดยกมาเงินหมุนเวียน?\n(ยอดยกมาจะเป็น ${fmtBaht((opening.own ?? 0) + skipped.total)} บาท · รายการรับเดิมยังอยู่ในใบ แต่ไม่นับซ้ำ)`)) op.save({ ...opening, own: (opening.own ?? 0) + skipped.total }) }}>ใช้เป็นยอดยกมาเงินหมุนเวียน (+{fmtBaht(skipped.total)})</button>}
+              <p className="muted small" style={{ margin: '6px 0 0' }}>หรือแก้วันที่ของรายการนั้นให้เป็นวันหลังวันตัดยอด · หรือแก้ยอดยกมาเองที่ ตั้งค่า › ยอดยกมา</p>
+            </div>
+          )}
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
             {STEPS.map((x) => (

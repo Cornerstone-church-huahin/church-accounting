@@ -1,7 +1,8 @@
 import { addDays } from './money'
 import { fundAccounts, type FundAccount } from './fundAccounts'
 import { loanBalance } from './loans'
-import type { Loan } from './types'
+import { isFundType } from './funds'
+import type { IncomeEntry, IncomeType, Loan, Opening, Round } from './types'
 import { computeLedger, type LRow } from './weekLedger'
 
 type LedgerArgs = Parameters<typeof computeLedger>[0]
@@ -34,4 +35,18 @@ export type { LRow }
 export function circulatingOnly(b: Balances, loans: Loan[]): number {
   const fromFunds = loans.filter((l) => !l.deleted && l.borrower === 'own' && l.lender.kind === 'fund').reduce((s, l) => s + loanBalance(l), 0)
   return b.own.balance - fromFunds
+}
+
+/**
+ * รายรับเงินหมุนเวียนที่ลงวันที่ "ก่อนวันตัดยอดยกมา" — ระบบไม่นับ (ถือว่าอยู่ในยอดยกมาแล้ว) แต่ถ้ายอดยกมาเงินหมุนเวียนยังเป็น 0
+ * ผู้ใช้มักบันทึกเงินตั้งต้นเป็นรายรับแทน จึงต้องเตือนและเสนอให้เอาไปเป็นยอดยกมา
+ */
+export function incomeBeforeCutoff(a: { income: IncomeEntry[]; rounds: Round[]; types: IncomeType[] }, opening?: Opening): { count: number; total: number } {
+  if (!opening?.date) return { count: 0, total: 0 }
+  const from = addDays(opening.date, 1)
+  const fund = new Set(a.types.filter((t) => isFundType(t)).map((t) => t.id))
+  let count = 0, total = 0
+  for (const x of a.income) if (!x.deleted && !x.roundId && x.date < from && !fund.has(x.typeId)) { count += 1; total += x.amount }
+  for (const r of a.rounds) if (!r.deleted && r.date < from) for (const [id, v] of Object.entries(r.lines)) if (v > 0 && !fund.has(id)) { count += 1; total += v }
+  return { count, total }
 }
