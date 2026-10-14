@@ -410,3 +410,26 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 .sheetrow { cursor: pointer; }
 .sheetrow:hover td, .sheetrow:active td { background: #fff4c7; }
 .sheethint { margin: 6px 0 2px; font-size: 0.85rem; }
+
+/* หน้าแรกส่วนที่ 2: ปุ่มขั้นตอน 2x2 เด่นชัด */
+.stepgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin: 0.4rem 0 1rem; }
+.stepbtn { min-height: 6.4rem; border: 0; border-radius: 1.1rem; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.2); font: inherit; padding: 0.6rem 0.4rem; }
+.stepbtn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+.stepbtn__top { display: flex; align-items: center; gap: 0.5rem; font-size: 1.6rem; font-weight: 800; }
+.stepbtn small { font-size: 0.85rem; opacity: 0.95; }
+.stepbtn .hn { font-style: normal; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: #fff; color: #1a2b4c; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem; font-weight: 800; flex: none; }
+.stepbtn--in { background: #1b8a4b; }
+.stepbtn--out { background: #b3261e; }
+.stepbtn--adj { background: #c99a14; color: #1a2b4c; }
+.stepbtn--sum { background: #1f5fbf; }
+.home-label span { font-weight: 400; }
+/* เต็มจอ: แถบบนบางแถวเดียว + ใบแสดงทันที */
+.fullbar { display: flex; gap: 6px; align-items: center; margin: 0.3rem 0 0.2rem; }
+.fullbar__back { flex: none; border: 2px solid #1a2b4c; background: #fff; color: #1a2b4c; font-weight: 700; border-radius: 0.7rem; padding: 0.45rem 0.6rem; font: inherit; cursor: pointer; white-space: nowrap; }
+.home-tabs--mini { flex: 1; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.2rem; }
+.home-tabs--mini .home-tab { min-height: 2.5rem; font-size: 0.82rem; gap: 0.15rem; padding: 0 0.05rem; }
+.home-tabs--mini .home-tab .hn { width: 1.1rem; height: 1.1rem; font-size: 0.65rem; }
+.fullmode .weekbar { margin-top: 0.3rem !important; }
+.fullmode .weekbar__range { display: none; }
+.fullmode .weekchips { padding: 0 0 4px; }
+.fullmode .sheethint { margin: 2px 0; }
