@@ -112,8 +112,8 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: {
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
-              <colgroup><col style={{ width: '11%' }} /><col style={{ width: '7%' }} /><col style={{ width: '33%' }} /><col style={{ width: '14%' }} /><col style={{ width: '17%' }} /><col style={{ width: '18%' }} /></colgroup>
-              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th>ผู้รับเงิน</th></tr></thead>
+              <colgroup><col style={{ width: '8%' }} /><col style={{ width: '5%' }} /><col style={{ width: '27%' }} /><col style={{ width: '11%' }} /><col style={{ width: '15%' }} /><col style={{ width: '16%' }} /><col style={{ width: '18%' }} /></colgroup>
+              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th>รอจ่าย</th><th>ผู้รับเงิน</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
@@ -124,12 +124,13 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: {
                       <td>{x?.desc ?? ''}</td>
                       <td className="num">{x ? m(x.amount) : ''}</td>
                       <td>{x?.requester || x?.note || ''}</td>
+                      <td>{x?.biller ?? ''}</td>
                       <td>{x?.who ?? ''}</td>
                     </tr>
                   )
                 })}
               </tbody>
-              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{m(sumOf(rows))}</td><td colSpan={2}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
+              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{m(sumOf(rows))}</td><td colSpan={3}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
             </table>
             {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} />}
             <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
