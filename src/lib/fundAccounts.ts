@@ -22,9 +22,9 @@ export function fundAccounts(a: { types: IncomeType[]; opening?: Opening; income
     for (const l of bankIn) if (typeFromNote(l.desc, a.types) === t.id && lineDate(l) >= from) mv.push({ key: `pb:${l.id}`, date: lineDate(l), label: `โอนเข้าบัญชี (สมุด)${l.desc ? ` · ${l.desc}` : ''}`, amount: l.amount })
     for (const x of a.expenses) if (!x.deleted && x.fundId === t.id && x.date >= from) mv.push({ key: `ex:${x.id}`, date: x.date, label: `จ่าย · ${x.desc}${x.status === 'open' ? ' (ค้างจ่าย)' : ''}`, amount: -x.amount, expenseId: x.id })
     // เงินยืม: ผู้ให้ยืมที่เป็นกองทุนถูกหักเงิน · กองทุนผู้ยืมได้เงินสดเข้ามาจริง (ทั้งยืมจากกองทุนอื่นและจากบุคคลภายนอก) — แถบแดงแสดงหนี้แยกต่างหาก ไม่หักลบ
-    // เงินยืมก่อนวันตัดยอดตั้งต้นถือว่านับรวมในยอดตั้งต้นแล้ว
+    // นับเงินยืมทุกรายการตามวันที่ในรายการ (ไม่ตัดตามวันตัดยอดตั้งต้น) — ถ้ายอดตั้งต้นรวมเงินยืมไว้แล้ว ให้ตั้งยอดตั้งต้นโดยไม่รวมเงินยืม
     for (const l of a.loans ?? []) {
-      if (l.deleted || l.date < from) continue
+      if (l.deleted) continue
       const note = l.purpose ? ` · ${l.purpose}` : ''
       const lender = l.lender.kind === 'fund' ? nm(l.lender.fundId) : l.lender.name || 'บุคคลภายนอก'
       if (l.lender.kind === 'fund' && l.lender.fundId === t.id) {
