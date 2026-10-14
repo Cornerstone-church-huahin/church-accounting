@@ -98,7 +98,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }:
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -123,7 +123,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, summary }: {
                       <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td>{x?.desc ?? ''}</td>
                       <td className="num" style={{ fontSize: 11.5 }}>{x ? m(x.amount) : ''}</td>
-                      <td style={{ fontSize: 11 }}>{x ? [x.requester || x.note, x.file ? '📎 มีรูป' : ''].filter(Boolean).join(' ') : ''}</td>
+                      <td style={{ fontSize: 11, ...(x?.file && onFileClick ? { cursor: 'pointer' } : {}) }} onClick={x?.file && onFileClick ? (e) => { e.stopPropagation(); onFileClick(x) } : undefined} role={x?.file && onFileClick ? 'button' : undefined} aria-label={x?.file && onFileClick ? 'ดูรูปแนบ' : undefined} tabIndex={x?.file && onFileClick ? 0 : undefined} onKeyDown={x?.file && onFileClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onFileClick(x) } } : undefined}>{x ? <>{x.requester || x.note || ''}{x.file && <span style={{ marginLeft: 3, textDecoration: onFileClick ? 'underline' : undefined, color: onFileClick ? '#1a5fb4' : undefined }}>📎 มีรูป</span>}</> : ''}</td>
                       <td>{x?.biller ?? ''}</td>
                       <td>{x?.who ?? ''}</td>
                     </tr>
