@@ -142,11 +142,11 @@ export default function Summary({ year }: { year: number }) {
           <div className="sheet-1">
           <p className={`badge ${wkClose ? 'badge--good' : ''} no-print`} role="status">{wkClose ? '✓ ตรวจกับสมุดบัญชีแล้ว' : 'ยังไม่ได้ตรวจกับสมุดบัญชี (ขั้น 3 ปรับ) — พิมพ์ไปแปะได้ แต่ควรปรับสมุดก่อน'}</p>
           {sheetBar(1, 'ใบที่ 1 — รายรับประจำสัปดาห์ (แนวนอน)')}
-          <IncomeSummaryPaper church={church.split(' ')[0]} rows={incRows} heading={weekHeading(sunday)} pagesRef={incPages} note={L.fundIn.cash + L.fundIn.transfer > 0 ? `* ไม่รวมเงินถวายกองทุน ${fmtBaht(L.fundIn.cash + L.fundIn.transfer)} บาท (${L.fundRows.map((r) => r.label).join(', ')}) — แยกไว้ที่หน้ากองทุน` : undefined} />
+          <IncomeSummaryPaper church={church.split(' ')[0]} rows={incRows} heading={weekHeading(sunday)} pagesRef={incPages} fundRows={L.fundRows} />
           </div>
           <div className="sheet-2">
           {sheetBar(2, 'ใบที่ 2 — รายจ่ายและสรุปยอดประจำสัปดาห์')}
-          <ExpenseSummaryPaper church={church.split(' ')[0]} rows={outRows} heading={weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์')} pagesRef={expPages}>
+          <ExpenseSummaryPaper church={church.split(' ')[0]} rows={outRows} heading={weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์')} pagesRef={expPages} fundRows={L.fundRows}>
           <table className="tbl tbl--paper paper__close" aria-label="ปิดยอด">
             <thead><tr><th>ปิดยอด{kindWord === 'ปี' ? 'ทั้งปี' : `ราย${kindWord}`}</th><th className="num">เงินสด</th><th className="num">เงินโอน</th><th className="num">ค้างจ่าย</th><th className="num">รวม</th></tr></thead>
             <tbody>

@@ -57,6 +57,16 @@ try {
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const wd2 = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   must(/ผู้เบิก \/ บิลรอจ่าย .*ค่าไฟ 1,200/.test(wd2) && /รวมต้องเบิก 2,200/.test(wd2), 'pending bill joins the withdrawal total (1,000 + 1,200): ' + wd2)
+  // สรุป: เงินถวายกองทุนอยู่ในบัญชีรับ/จ่ายด้วย แต่แยกไว้ใต้ตาราง ไม่รวมยอดหมุนเวียน
+  await page.getByRole('tab', { name: /สรุป/ }).click()
+  await page.getByRole('tab', { name: /สัปดาห์/ }).click()
+  const incF = page.getByLabel('เงินถวายกองทุน (แยกจากเงินหมุนเวียน)')
+  await incF.first().waitFor({ timeout: 15000 })
+  must(/กองทุนเพื่อที่ดินคริสตจักร/.test(await incF.first().innerText()) && /500/.test(await incF.first().innerText()), 'summary income sheet lists the fund separately')
+  const expF = page.getByLabel('รายจ่ายกองทุน (โอนออกเข้ากองทุน)')
+  must(/กองทุนเพื่อที่ดินคริสตจักร/.test(await expF.first().innerText()), 'summary expense sheet lists the fund transfer-out separately')
+  await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
+  await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   // แตะแถวในใบ → แนบรูปบิล/สลิปเป็นหลักฐานได้
   await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().locator('tbody tr').nth(0).click()
   must(await page.locator('#ere-file').count() === 1, 'row editor has the evidence image input')
