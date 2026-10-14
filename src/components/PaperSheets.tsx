@@ -276,28 +276,27 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
   )
 }
 
-/** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): ตาราง 3 กลุ่มคอลัมน์ (ชื่อ + จำนวน) — กองทุนต้องเบิก · ผู้เบิก/บิลรอจ่าย · ผู้สำรองจ่ายต้องเบิก · ขั้นต่ำ 3 แถวไว้เขียนมือ เกินก็ขยายแถว ข้อความยาวขึ้นบรรทัดใหม่ได้ */
+/** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): ตาราง 4 คอลัมน์ ชื่อรายการ+จำนวนเงินอยู่ช่องเดียวกัน เรียงลงทีละคอลัมน์จนเต็มแล้วขึ้นคอลัมน์ถัดไป (กองทุนก่อน ตามด้วยรายการรอจ่าย — ไม่แยกประเภท) · ขั้นต่ำ 3 แถว เกินขยายแถวเอง */
 function WithdrawNote({ summary }: { summary?: WeekSummary }) {
-  const funds = (summary?.funds ?? []).map((f) => ({ label: f.name, amt: f.amount }))
-  const pend = (k: (b: NonNullable<typeof summary>['pending'][number]) => boolean) => (summary?.pending ?? []).filter(k).map((b) => ({ label: [b.person, b.desc].filter(Boolean).join(' — '), amt: b.amount }))
-  const bills = pend((b) => b.kind !== 'advance'), adv = pend((b) => b.kind === 'advance')
-  const total = summary ? [...funds, ...bills, ...adv].reduce((a, x) => a + x.amt, 0) : undefined
-  const n = Math.max(3, funds.length, bills.length, adv.length)
-  const cell = (xs: { label: string; amt: number }[], i: number) => [
-    <td key="l" style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', minHeight: 18 }}>{xs[i]?.label ?? ''}</td>,
-    <td key="a" className="num">{xs[i] ? m(xs[i].amt) : ''}</td>,
-  ]
+  const items = summary ? [...summary.funds.map((f) => ({ label: f.name, amt: f.amount })), ...summary.pending.map((b) => ({ label: [b.person, b.desc].filter(Boolean).join(' — '), amt: b.amount }))] : []
+  const total = summary ? items.reduce((a, x) => a + x.amt, 0) : undefined
+  const COLS = 4
+  const rows = Math.max(3, Math.ceil(items.length / COLS))
   return (
     <table className="sheetpaper" style={{ marginTop: 8 }} aria-label="หมายเหตุ ต้องเบิก">
-      <colgroup><col style={{ width: '22%' }} /><col style={{ width: '11%' }} /><col style={{ width: '25%' }} /><col style={{ width: '11%' }} /><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /></colgroup>
-      <thead>
-        <tr><th colSpan={6} style={{ textAlign: 'left' }}>หมายเหตุ · ต้องเบิก</th></tr>
-        <tr><th colSpan={2}>กองทุนต้องเบิก</th><th colSpan={2}>ผู้เบิก / บิลรอจ่าย</th><th colSpan={2}>ผู้สำรองจ่ายต้องเบิก</th></tr>
-      </thead>
+      <colgroup>{Array.from({ length: COLS }, (_, c) => <col key={c} style={{ width: `${100 / COLS}%` }} />)}</colgroup>
+      <thead><tr><th colSpan={COLS} style={{ textAlign: 'left' }}>หมายเหตุ · ต้องเบิก</th></tr></thead>
       <tbody>
-        {Array.from({ length: n }, (_, i) => <tr key={i} style={{ height: 20 }}>{cell(funds, i)}{cell(bills, i)}{cell(adv, i)}</tr>)}
+        {Array.from({ length: rows }, (_, r) => (
+          <tr key={r} style={{ height: 22 }}>
+            {Array.from({ length: COLS }, (_, c) => {
+              const x = items[c * rows + r]
+              return <td key={c} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top' }}>{x && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span>{x.label}</span><span className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
+            })}
+          </tr>
+        ))}
       </tbody>
-      <tfoot><tr><td colSpan={5}>รวมต้องเบิก</td><td className="num">{total === undefined ? '.........' : m(total)}</td></tr></tfoot>
+      <tfoot><tr><td colSpan={COLS} style={{ textAlign: 'right' }}>รวมต้องเบิก&nbsp;&nbsp;<span className="num">{total === undefined ? '..............' : m(total)}</span> บาท</td></tr></tfoot>
     </table>
   )
 }
