@@ -23,7 +23,7 @@ export function computeBalances(a: Omit<LedgerArgs, 'range' | 'withFunds'> & { o
   const opening = a.opening?.own ?? 0
   const funds = fundAccounts({ types: a.types.filter((t) => t.active), opening: a.opening, income: a.income, rounds: a.rounds, expenses: a.expenses ?? [], passbook: a.passbook, loans: a.loans })
   const fundTotal = funds.reduce((s, f) => s + f.balance, 0)
-  const borrowed = (a.loans ?? []).filter((l) => !l.deleted && l.borrower === 'own' && l.date >= from).reduce((s, l) => s + loanBalance(l), 0)
+  const borrowed = (a.loans ?? []).filter((l) => !l.deleted && l.borrower === 'own').reduce((s, l) => s + loanBalance(l), 0)
   const own = { opening, moneyIn, moneyOut, pending: L.outSum.pending, borrowed, balance: opening + moneyIn - moneyOut + borrowed }
   return { own, funds, fundTotal, total: own.balance + fundTotal }
 }

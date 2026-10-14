@@ -21,8 +21,8 @@ describe('fundAccounts', () => {
 
   it('internal loans: lender is debited, borrower gets real cash, repayment moves it back', () => {
     const loan = { id: 'l1', updated: 1, lender: { kind: 'fund', fundId: 'tt4' }, borrower: 'tt9', purpose: 'หนังสือ', date: '2026-10-10', principal: 50000, repayments: [{ id: 'r1', date: '2026-10-12', amount: 20000 }] } as Loan
-    const before = fundAccounts({ types, opening, rounds: [], expenses: [], income: [], loans: [{ ...loan, date: '2026-10-01' }] }) // ก่อนวันตัดยอด: ไม่หักซ้ำ
-    expect(before.map((r) => r.balance)).toEqual([500000, 20000])
+    const before = fundAccounts({ types, opening, rounds: [], expenses: [], income: [], loans: [{ ...loan, date: '2026-10-01' }] }) // เงินยืมก่อนวันตัดยอดก็นับตามวันที่ในรายการ
+    expect(before.map((r) => r.balance)).toEqual([500000 - 50000 + 20000, 20000 + 50000 - 20000])
     const rows = fundAccounts({ types, opening, rounds: [], expenses: [], income: [], loans: [loan] })
     expect(rows[0]).toMatchObject({ balance: 500000 - 50000 + 20000 })
     expect(rows[1]).toMatchObject({ balance: 20000 + 50000 - 20000 })

@@ -37,7 +37,7 @@ try {
   // แถบเงินคริสตจักรใต้ชื่อบัญชี: หมุนเวียน · กองทุน · รวม (ต่างจากแท็บขั้นตอน)
   const tiles = page.getByRole('navigation', { name: /เงินคริสตจักร/ })
   const tt = (await tiles.innerText()).replace(/\n/g, ' ')
-  must(/หมุนเวียน\s+1,260/.test(tt) && /กองทุน\s+6,050/.test(tt) && /รวมเงินสด\s+7,310/.test(tt), 'home tiles show own 1,260 · funds 6,050 · total 7,310: ' + tt)
+  must(/หมุนเวียน\s+1,260/.test(tt) && /กองทุน\s+46,050/.test(tt) && /รวมเงินสด\s+47,310/.test(tt), 'home tiles show own 1,260 · funds 46,050 · total 47,310: ' + tt)
   must(/หนี้ภายนอก\s+40,000/.test(tt), 'debt tile counts only outside lenders (50,000 − 10,000 repaid; fund loan excluded): ' + tt)
   must((await page.locator('.balance-tiles .btile').count()) === 6, 'six tiles')
   must(/หนี้ภายใน\s+20,500/.test(tt), 'internal debt tile = 20,000 + 500: ' + tt)
@@ -69,7 +69,7 @@ try {
   await page.getByRole('link', { name: /^กองทุน/ }).click()
   await page.getByRole('heading', { name: /กองทุน/ }).waitFor()
   const body = (await page.locator('main, body').first().innerText()).replace(/\n/g, ' ')
-  must(/กองทุนเพื่อที่ดินคริสตจักร\s+5,500\.00/.test(body), 'land fund = 5,000 opening + 1,000 received − 500 lent to the study fund: ' + body.slice(0, 500))
+  must(/กองทุนเพื่อที่ดินคริสตจักร\s+[−-]14,500\.00/.test(body), 'land fund = 5,000 opening + 1,000 received − 500 − 20,000 lent (even for loans dated before the opening date): ' + body.slice(0, 500))
   must(/กองทุนศึกษา\s+100,550\.00/.test(body), 'study fund = 200 opening − 150 paid + 500 internal loan + 100,000 outside loan, all real cash')
   const cardOf = (n) => page.locator('details.fundcard').filter({ has: page.locator('summary > div > b:first-child', { hasText: new RegExp('^' + n + '$') }) })
   { const st = (await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' '); must(/ยืมมา 500 บาท · ค้างคืน 500 จาก/.test(st), 'borrowing fund shows the real cash + red debt banner: ' + st) }
