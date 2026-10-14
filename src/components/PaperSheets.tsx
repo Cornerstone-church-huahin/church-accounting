@@ -255,14 +255,14 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, margin: '8px 0' }}>
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
         <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
-        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{row('  ค้างจ่าย (ยังไม่ออกเงิน)', v(summary?.out.pending))}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
+        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
         <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น</div><div style={{ fontSize: 11, color: '#444' }}>เงินหมุนเวียน (ไม่รวมกองทุน){summary ? ` ณ ${fmtDate(summary.asOf)}` : ''}</div>{row('คงเหลือ', v(summary?.balance), true)}</div>
       </div>
-      <div style={{ ...box, flex: 'none' }} aria-label="จำนวนที่ต้องเบิก">
-        <div style={head}>จำนวนที่ต้องเบิก <span style={{ fontWeight: 400, fontSize: 11 }}>(กองทุน + รายการรอจ่าย — เตรียมเบิกที่ธนาคาร)</span></div>
+      <div style={{ ...box, flex: 'none' }} aria-label="ต้องเบิก">
+        <div style={head}>ต้องเบิก <span style={{ fontWeight: 400, fontSize: 11 }}>(เงินที่ต้องเบิกจริง = กองทุน + รายการที่มีบิลรอจ่าย)</span></div>
         {summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}
         {summary?.pending.map((b, i) => row(`รอจ่าย · ${b.name}`, m(b.amount), false, `p${i}`))}
-        {row('รวมที่ต้องเบิก', v(withdraw), true)}
+        {row('รวมต้องเบิก', v(withdraw), true)}
       </div>
     </div>
   )
