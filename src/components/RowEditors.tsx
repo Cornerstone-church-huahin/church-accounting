@@ -17,26 +17,42 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   const opts = types.filter((t) => t.active || t.id === entry?.typeId)
   const [date, setDate] = useState(entry?.date ?? defaultDate)
   const [typeId, setTypeId] = useState(entry?.typeId ?? opts[0]?.id ?? '')
+  const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? ''
+  const [label, setLabel] = useState(nameOf(entry?.typeId ?? opts[0]?.id ?? ''))
   const [method, setMethod] = useState<'cash' | 'transfer'>(entry?.method ?? 'cash')
   const [count, setCount] = useState(entry?.count ? String(entry.count) : '')
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
   const [err, setErr] = useState('')
   const save = () => {
-    if (!typeId) return setErr('เลือกประเภท')
+    if (!typeId && !label.trim()) return setErr('เลือกประเภทหรือพิมพ์ชื่อรายการ')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    // พิมพ์ชื่อที่ไม่มีในตัวเลือก (ไม่ได้ใช้บ่อย) → ใช้ประเภทที่ชื่อตรงกัน ไม่มีก็สร้างใหม่ในรายการปกติ (ขึ้นใน ตั้งค่า › รายการรับ ด้วย)
+    let useType = typeId
+    const typed = label.trim()
+    if (typed && typed !== nameOf(typeId)) {
+      const hit = types.find((t) => t.name === typed)
+      if (hit) useType = hit.id
+      else {
+        if (!onManage) return setErr('สิทธิ์ของท่านเพิ่มรายการใหม่ไม่ได้ — เลือกจากตัวเลือกแทน')
+        const r = onManage.add(typed)
+        if ('error' in r) return setErr(r.error)
+        useType = r.id
+      }
+    }
     const n = intOrNull(count)
     const { count: _c, ...rest } = entry ?? ({} as IncomeEntry)
     void _c
-    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId, amount, method, source: entry?.source ?? 'manual', ...(n ? { count: n } : {}) } as IncomeEntry
+    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(n ? { count: n } : {}) } as IncomeEntry
     const r = onSave(e)
     if (r) setErr(r); else onClose()
   }
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบบันทึกการถวาย' : 'เพิ่มรายการในใบบันทึกการถวาย'} onClose={onClose}>
       <div className="field"><label htmlFor="ire-date">วันที่</label><input id="ire-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="ire-type">ประเภท</label><select id="ire-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-        {onManage && <CatalogManager noun="ประเภท" items={opts} ops={onManage} onAdded={setTypeId} />}</div>
+      <div className="field"><label htmlFor="ire-type">ประเภท</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { setTypeId(e.target.value); setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+        {onManage && <CatalogManager noun="ประเภท" items={opts} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setLabel(n.trim()); return r } }} onAdded={setTypeId} />}</div>
+      <div className="field"><label htmlFor="ire-label">รายการ (แก้ข้อความได้ — พิมพ์ชื่อใหม่ถ้าไม่มีในตัวเลือก)</label><input id="ire-label" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="เช่น ถวายค่าไฟ" /></div>
       <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด (ตู้ถวาย)</button><button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอน</button></div>
       <div className="field"><label htmlFor="ire-count">{method === 'cash' ? 'จำนวนซอง' : 'จำนวนโอน (ครั้ง)'}</label><input id="ire-count" className="input" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
