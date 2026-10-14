@@ -22,6 +22,7 @@ import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, 
 import { downloadPdf } from '../lib/pdf'
 import PersonField from '../components/PersonField'
 import ImageViewer from '../components/ImageViewer'
+import { cacheImage } from '../lib/imageCache'
 import { useBalances } from '../lib/useBalances'
 import { circulatingOnly } from '../lib/balances'
 import { downloadBlankSheet } from '../lib/blankSheet'
@@ -124,6 +125,7 @@ export default function Pay({ year }: { year: number }) {
     const { data, ext } = await compressImage(file)
     const path = `attachments/${year}/exp-${Date.now().toString(36)}.${ext}`
     await putBinary(cfg, path, data, 'บิล/ใบเสร็จ')
+    void cacheImage(path, data)
     return { path, name: file.name }
   }
   const del = (x: ExpenseEntry) => { if (confirm(`ลบรายการ ${x.desc || catName(x.catId)} ${fmtBaht(x.amount)} ?`) && exp.remove(x.id)) void dropFile(x.file?.path) }
@@ -295,6 +297,7 @@ function ExpenseForm({ year, entry, channel, exp, onClose, init }: { year: numbe
           const { data, ext } = await compressImage(file)
           const path = `attachments/${year}/exp-${Date.now().toString(36)}.${ext}`
           await putBinary(cfg, path, data, 'บิล/ใบเสร็จ')
+          void cacheImage(path, data)
           f = { path, name: file.name }
         } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบรูปไม่สำเร็จ') }
         setBusy(false)

@@ -148,32 +148,53 @@ export async function putBinary(cfg: SyncConfig, path: string, data: ArrayBuffer
   if (!r.ok) throw new Error(r.status === 422 ? 'มีไฟล์ชื่อนี้อยู่แล้ว ลองอัปโหลดใหม่อีกครั้ง' : explain(r.status))
 }
 
+import { cachedImage } from './imageCache'
 const MIME: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }
 const withType = (b: Blob, path: string) => new Blob([b], { type: MIME[path.split('.').pop()?.toLowerCase() ?? ''] ?? (b.type || 'application/octet-stream') })
 const readFail = (status: number) => (status === 404 ? 'ไม่พบไฟล์นี้ใน repo' : status === 401 ? 'รหัสเข้าใช้ร่วมไม่ถูกต้องหรือหมดอายุ' : `GitHub ไม่ให้ดึงรูปนี้ (${status}) — รหัสอาจไม่มีสิทธิ์อ่านไฟล์ (Contents: Read) หรือเรียกถี่เกินโควต้า ลองใหม่อีกครั้งภายหลัง`)
 
-/** ดึงไฟล์จาก repo ข้อมูลเมื่อกดเปิด · ลองหลายทาง: contents raw → git blob (ตาม sha) → contents JSON (base64) */
+/** ดึงไฟล์จาก repo ข้อมูลเมื่อกดเปิด · ลองหลายทาง: contents raw → รายชื่อโฟลเดอร์หา sha แล้วดึง git blob → contents JSON (base64) · ถ้าไม่ได้บอกสถานะของแต่ละทาง */
 export async function getBinary(cfg: SyncConfig, path: string): Promise<Blob> {
+  const local = await cachedImage(path)
+  if (local) return local
+  const trace: string[] = []
   const raw = await api(cfg, `contents/${encPath(path)}`, { headers: { accept: 'application/vnd.github.raw' } }).catch(() => null)
   if (!raw) throw new Error('ไม่มีอินเทอร์เน็ต — เปิดไฟล์ไม่ได้')
   if (raw.ok) return withType(await raw.blob(), path)
+  trace.push(`raw ${raw.status}`)
   if (raw.status === 404 || raw.status === 401) throw new Error(readFail(raw.status))
-  // ทางสำรอง: หา sha แล้วดึงเป็น git blob
-  const meta = await api(cfg, `contents/${encPath(path)}`).catch(() => null)
-  if (meta?.ok) {
-    const j = (await meta.json()) as { sha?: string; content?: string; encoding?: string }
-    if (j.content && j.encoding === 'base64') {
-      const bin = atob(j.content.replace(/\n/g, ''))
-      const bytes = new Uint8Array(bin.length)
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-      return withType(new Blob([bytes]), path)
-    }
-    if (j.sha) {
-      const bl = await api(cfg, `git/blobs/${j.sha}`, { headers: { accept: 'application/vnd.github.raw' } }).catch(() => null)
-      if (bl?.ok) return withType(await bl.blob(), path)
+  // ทางสำรอง 1: รายชื่อโฟลเดอร์ (ได้ sha แม้ไฟล์ใหญ่) → git blob
+  const dir = path.slice(0, path.lastIndexOf('/'))
+  const ls = await api(cfg, `contents/${encPath(dir)}`).catch(() => null)
+  trace.push(`dir ${ls?.status ?? 'x'}`)
+  if (ls?.ok) {
+    const list = (await ls.json()) as { path: string; sha: string }[]
+    const sha = Array.isArray(list) ? list.find((x) => x.path === path)?.sha : undefined
+    if (sha) {
+      for (const accept of ['application/vnd.github.raw', 'application/vnd.github+json']) {
+        const bl = await api(cfg, `git/blobs/${sha}`, { headers: { accept } }).catch(() => null)
+        trace.push(`blob ${bl?.status ?? 'x'}`)
+        if (!bl?.ok) continue
+        if (accept.endsWith('raw')) return withType(await bl.blob(), path)
+        const j = (await bl.json()) as { content?: string; encoding?: string }
+        if (j.content && j.encoding === 'base64') return withType(fromB64(j.content), path)
+      }
     }
   }
-  throw new Error(readFail(raw.status))
+  // ทางสำรอง 2: contents JSON (ไฟล์ ≤ 1MB มี base64 มาให้)
+  const meta = await api(cfg, `contents/${encPath(path)}`).catch(() => null)
+  trace.push(`json ${meta?.status ?? 'x'}`)
+  if (meta?.ok) {
+    const j = (await meta.json()) as { content?: string; encoding?: string }
+    if (j.content && j.encoding === 'base64') return withType(fromB64(j.content), path)
+  }
+  throw new Error(`${readFail(raw.status)} [${trace.join(' · ')}]`)
+}
+const fromB64 = (b64: string) => {
+  const bin = atob(b64.replace(/\s/g, ''))
+  const bytes = new Uint8Array(bin.length)
+  for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k)
+  return new Blob([bytes])
 }
 
 /** รายชื่อไฟล์ในโฟลเดอร์ของ repo ข้อมูล (ไม่มีโฟลเดอร์ = ว่าง) */
