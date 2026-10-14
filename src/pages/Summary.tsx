@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useLoans, usePassbook, useWeekCloses, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useVouchers } from '../lib/data'
-import { addDays, fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
+import { weekRange, weekTitle, fmtBaht, fmtDate, fmtDateLong, monthName, monthOf, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdfPages } from '../lib/pdf'
 import { computeLedger, rangeOf, type SumKind } from '../lib/weekLedger'
 import { CODE_LEGEND, reconcileWeek } from '../lib/passbook'
@@ -134,7 +134,7 @@ export default function Summary({ year }: { year: number }) {
               return (
                 <section key={w} className={`weekacc${open ? ' weekacc--open' : ''}`} role="listitem">
                   <button type="button" className="weekacc__head no-print" aria-expanded={open} onClick={() => { if (open) setWeekOpen(false); else { setSunday(w); setWeekOpen(true) } }}>
-                    <span className="weekacc__t"><i aria-hidden="true">{open ? '▾' : '▸'}</i> <b>{fmtDate(addDays(w, -6))} – {fmtDate(w)}</b><span className="muted small"> · {fmtDateLong(w)}</span></span>
+                    <span className="weekacc__t"><i aria-hidden="true">{open ? '▾' : '▸'}</i> <b>{weekTitle(w)}</b><span className="muted small"> · ระหว่างวันที่ {weekRange(w)}</span></span>
                     <span className="weekacc__n small">รับ {fmtBaht(tot?.inn ?? 0, { dec: false })} · จ่าย {fmtBaht(tot?.out ?? 0, { dec: false })} · <b>คงเหลือ {fmtBaht(bal, { dec: false })}</b></span>
                   </button>
                   {open && (

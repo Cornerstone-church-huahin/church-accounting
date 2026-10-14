@@ -19,6 +19,8 @@ try {
   const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ })
   await inc.waitFor()
   must(await page.getByLabel('สัปดาห์ถัดไป').isVisible(), 'week bar above the sheet')
+  must(/อาทิตย์ที่ \d ของเดือน\S+ \d{4}\s+ระหว่างวันที่ \d+(–| [^\s]+ – )\d+ \S+ \d{2}/.test((await page.locator('.weekbar').first().innerText()).replace(/\n/g, ' ')), 'week bar reads: อาทิตย์ที่ N ของเดือน … ระหว่างวันที่ …')
+  await page.screenshot({ path: 'shots/weekbar-title.png' })
   // แตะแถวว่างเพื่อเพิ่ม
   await inc.locator('tbody tr').nth(0).click()
   await page.locator('#ire-count').fill('3')

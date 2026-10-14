@@ -85,3 +85,16 @@ export const inRange = (d: string, from: string, to: string) => d >= from && d <
 
 /** ใบบันทึกการถวายของวันอาทิตย์ใด: เงินโอนวันจันทร์–อาทิตย์ นับรวมในใบของวันอาทิตย์ที่ปิดสัปดาห์นั้น */
 export const sheetSunday = (iso: string) => addDays(iso, (7 - dow(iso)) % 7)
+
+/** "อาทิตย์ที่ 3 ของเดือนตุลาคม 2569" — นับวันอาทิตย์ตามวันที่ (อาทิตย์ที่ 1 = วันอาทิตย์ที่ 1–7 ของเดือน ครอบคลุมจันทร์ก่อนหน้า) */
+export function weekTitle(sunday: string): string {
+  const [y, m, d] = sunday.split('-').map(Number)
+  return `อาทิตย์ที่ ${Math.ceil(d / 7)} ของเดือน${MONTHS[m - 1]} ${be(y)}`
+}
+/** "12–18 ต.ค. 69" หรือข้ามเดือน "28 ก.ย. – 4 ต.ค. 69" (จันทร์–อาทิตย์ของใบวันอาทิตย์) */
+export function weekRange(sunday: string): string {
+  const [y, m, d] = sunday.split('-').map(Number)
+  const [, mm, md] = addDays(sunday, -6).split('-').map(Number)
+  const yy = String(be(y)).slice(2)
+  return mm === m ? `${md}–${d} ${MONTHS_SHORT[m - 1]} ${yy}` : `${md} ${MONTHS_SHORT[mm - 1]} – ${d} ${MONTHS_SHORT[m - 1]} ${yy}`
+}
