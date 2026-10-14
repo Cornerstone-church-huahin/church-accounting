@@ -50,9 +50,6 @@ export default function Home() {
             <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
             <Link to="/balance/spare" className="btile btile--spare"><small>⬜ ไอคอน</small><b>—</b></Link>
           </nav>
-          <p className="small muted no-print" style={{ margin: '4px 2px 0' }} aria-label="ที่มาของเงินหมุนเวียน">
-            หมุนเวียน = ยอดยกมา {fmtBaht(b.own.opening, { dec: false })} + รับ {fmtBaht(b.own.moneyIn, { dec: false })} − จ่าย {fmtBaht(b.own.moneyOut, { dec: false })}{b.own.pending > 0 ? ` − ค้างจ่าย ${fmtBaht(b.own.pending, { dec: false })}` : ''}{b.own.borrowed > 0 ? ` + ยืม ${fmtBaht(b.own.borrowed, { dec: false })}` : ''} {opening ? ` · นับต่อจากวันตัดยอด ${fmtDate(opening.date)}` : ''} · รุ่นแอป {typeof __BUILD__ === 'string' ? __BUILD__ : 'พรีวิว'}
-          </p>
           {skipped.count > 0 && dismissed !== String(skipped.total) && (
             <div className="card no-print" role="alert" style={{ margin: '8px 0', borderColor: '#c0392b' }}>
               <p className="small" style={{ margin: 0 }}>⚠️ มีรายรับเงินหมุนเวียน <b>{skipped.count} รายการ รวม {fmtBaht(skipped.total)} บาท</b> ลงวันที่ก่อนวันตัดยอดยกมา ({opening ? fmtDate(opening.date) : ''}) จึง<b>ไม่ถูกนับ</b>ในช่อง “หมุนเวียน” (ระบบถือว่าอยู่ในยอดยกมาแล้ว แต่ยอดยกมาเงินหมุนเวียนตอนนี้คือ {fmtBaht(b.own.opening)})</p>
@@ -63,7 +60,6 @@ export default function Home() {
               <p className="muted small" style={{ margin: '6px 0 0' }}>หรือแก้วันที่ของรายการนั้นให้เป็นวันหลังวันตัดยอด · หรือแก้ยอดยกมาเองที่ ตั้งค่า › ยอดยกมา</p>
             </div>
           )}
-          <p className="small muted no-print" style={{ margin: '2px 2px 0' }} aria-label="ที่มาของรวมเงินสด">รวมเงินสด = หมุนเวียน {fmtBaht(b.own.balance)} + กองทุน {fmtBaht(b.fundTotal)} (กองทุนไม่ปนในช่องหมุนเวียน)</p>
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
             {STEPS.map((x) => (
