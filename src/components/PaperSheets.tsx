@@ -276,26 +276,28 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
   )
 }
 
-/** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): 3 คอลัมน์ — กองทุนที่ต้องเบิก · ผู้เบิก/บิลรอจ่าย · ผู้สำรองจ่ายต้องเบิก (ใบเปล่า = เส้นจุดไว้เขียนมือ) */
+/** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): ตาราง 3 กลุ่มคอลัมน์ (ชื่อ + จำนวน) — กองทุนต้องเบิก · ผู้เบิก/บิลรอจ่าย · ผู้สำรองจ่ายต้องเบิก · ขั้นต่ำ 3 แถวไว้เขียนมือ เกินก็ขยายแถว ข้อความยาวขึ้นบรรทัดใหม่ได้ */
 function WithdrawNote({ summary }: { summary?: WeekSummary }) {
-  const lines = (xs: { label: string; amt: number }[]) => (summary
-    ? xs.map((x, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span>{x.label}</span><span className="num">{m(x.amt)}</span></div>)
-    : [0, 1, 2].map((i) => <div key={i} style={{ borderBottom: '1px dotted #1a2b4c', height: 16 }} />))
   const funds = (summary?.funds ?? []).map((f) => ({ label: f.name, amt: f.amount }))
   const pend = (k: (b: NonNullable<typeof summary>['pending'][number]) => boolean) => (summary?.pending ?? []).filter(k).map((b) => ({ label: [b.person, b.desc].filter(Boolean).join(' — '), amt: b.amount }))
   const bills = pend((b) => b.kind !== 'advance'), adv = pend((b) => b.kind === 'advance')
-  const total = summary ? funds.reduce((a, x) => a + x.amt, 0) + bills.reduce((a, x) => a + x.amt, 0) + adv.reduce((a, x) => a + x.amt, 0) : undefined
-  const col: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }
-  const h: React.CSSProperties = { fontWeight: 700, fontSize: 12, borderBottom: '1px solid #1a2b4c', paddingBottom: 2 }
+  const total = summary ? [...funds, ...bills, ...adv].reduce((a, x) => a + x.amt, 0) : undefined
+  const n = Math.max(3, funds.length, bills.length, adv.length)
+  const cell = (xs: { label: string; amt: number }[], i: number) => [
+    <td key="l" style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', minHeight: 18 }}>{xs[i]?.label ?? ''}</td>,
+    <td key="a" className="num">{xs[i] ? m(xs[i].amt) : ''}</td>,
+  ]
   return (
-    <div style={{ border: '1.5px solid #1a2b4c', borderRadius: 4, padding: '6px 10px', fontSize: 12, marginTop: 8 }} aria-label="หมายเหตุ ต้องเบิก">
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>หมายเหตุ · ต้องเบิก</div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <div style={col}><div style={h}>กองทุนต้องเบิก</div>{lines(funds)}</div>
-        <div style={col}><div style={h}>ผู้เบิก / บิลรอจ่าย</div>{lines(bills)}</div>
-        <div style={col}><div style={h}>ผู้สำรองจ่ายต้องเบิก</div>{lines(adv)}</div>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid #1a2b4c', marginTop: 4, paddingTop: 3 }}><span>รวมต้องเบิก</span><span className="num">{total === undefined ? '..............' : m(total)}</span></div>
-    </div>
+    <table className="sheetpaper" style={{ marginTop: 8 }} aria-label="หมายเหตุ ต้องเบิก">
+      <colgroup><col style={{ width: '22%' }} /><col style={{ width: '11%' }} /><col style={{ width: '25%' }} /><col style={{ width: '11%' }} /><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /></colgroup>
+      <thead>
+        <tr><th colSpan={6} style={{ textAlign: 'left' }}>หมายเหตุ · ต้องเบิก</th></tr>
+        <tr><th colSpan={2}>กองทุนต้องเบิก</th><th colSpan={2}>ผู้เบิก / บิลรอจ่าย</th><th colSpan={2}>ผู้สำรองจ่ายต้องเบิก</th></tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: n }, (_, i) => <tr key={i} style={{ height: 20 }}>{cell(funds, i)}{cell(bills, i)}{cell(adv, i)}</tr>)}
+      </tbody>
+      <tfoot><tr><td colSpan={5}>รวมต้องเบิก</td><td className="num">{total === undefined ? '.........' : m(total)}</td></tr></tfoot>
+    </table>
   )
 }

@@ -30,7 +30,7 @@ try {
   const box = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
   must(/เงินหมุนเวียน 2,000 กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500 รวมรับทั้งสิ้น 2,500/.test(box), 'box 1: circulating 2,000 then the fund by name 500, total 2,500: ' + box)
   const wd = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
-  must(/กองทุนต้องเบิก กองทุนเพื่อที่ดินคริสตจักร 500/.test(wd) && /รวมต้องเบิก 500/.test(wd), 'withdrawal row lists the fund and total 500: ' + wd)
+  must(/กองทุนต้องเบิก.*กองทุนเพื่อที่ดินคริสตจักร 500/.test(wd) && /รวมต้องเบิก 500/.test(wd), 'withdrawal row lists the fund and total 500: ' + wd)
   // รายจ่ายหมุนเวียน 500 ที่ใส่ชื่อในช่อง รอจ่าย → รวมจ่าย 1,000 (หมุนเวียน 500 + กองทุน 500) · ที่ต้องเบิก 1,000
   await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('500')
   await page.locator('summary', { hasText: /ชื่อ \(/ }).click()
@@ -40,7 +40,7 @@ try {
   const box2 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
   must(/รายจ่ายหมุนเวียน 500/.test(box2) && /กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500 รวมจ่ายทั้งสิ้น 1,000/.test(box2), 'box 2: circulating expense 500 + fund 500 = 1,000: ' + box2)
   const wd1 = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
-  must(/ผู้เบิก \/ บิลรอจ่าย อ\.กฤต — .* 500/.test(wd1) && /รวมต้องเบิก 1,000/.test(wd1), 'withdraw = fund 500 + waiting 500 = 1,000: ' + wd1)
+  must(/อ\.กฤต — .* 500/.test(wd1) && /รวมต้องเบิก 1,000/.test(wd1), 'withdraw = fund 500 + waiting 500 = 1,000: ' + wd1)
   // ค่าซ่อม 830 ที่ไม่มีชื่อรอจ่าย/ไม่มีบิล = จ่ายจริงแล้ว ไม่ต้องเบิก → ต้องเบิกยัง 1,000 · รวมจ่าย 1,830
   await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('830')
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
@@ -56,7 +56,7 @@ try {
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const wd2 = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
-  must(/ผู้เบิก \/ บิลรอจ่าย .*ค่าไฟ 1,200/.test(wd2) && /รวมต้องเบิก 2,200/.test(wd2), 'pending bill joins the withdrawal total (1,000 + 1,200): ' + wd2)
+  must(/ค่าไฟ 1,200/.test(wd2) && /รวมต้องเบิก 2,200/.test(wd2), 'pending bill joins the withdrawal total (1,000 + 1,200): ' + wd2)
   // สรุป: เงินถวายกองทุนอยู่ในบัญชีรับ/จ่ายด้วย แต่แยกไว้ใต้ตาราง ไม่รวมยอดหมุนเวียน
   await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.getByRole('tab', { name: /สัปดาห์/ }).click()
