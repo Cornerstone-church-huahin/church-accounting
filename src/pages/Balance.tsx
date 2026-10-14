@@ -69,11 +69,11 @@ export default function BalancePage() {
               <tr><td>ยอดตั้งต้น</td><td className="num">{m(b.own.opening)}</td></tr>
               <tr><td>+ รายรับปกติ (ไม่รวมกองทุน)</td><td className="num">{m(b.own.moneyIn)}</td></tr>
               <tr><td>− รายจ่ายปกติ (จ่ายแล้ว)</td><td className="num">{m(b.own.moneyOut)}</td></tr>
+              {b.own.pending > 0 && <tr><td>− ค้างจ่าย (วางบิล/สำรองจ่ายที่บันทึกไว้ ยังไม่จ่าย)</td><td className="num">{m(b.own.pending)}</td></tr>}
               {b.own.borrowed > 0 && <tr><td>+ ยืมจากกองทุน (เงินสดที่มีจริง · ยังเป็นหนี้อยู่)</td><td className="num">{m(b.own.borrowed)}</td></tr>}
             </tbody>
             <tfoot><tr><td>เงินหมุนเวียนคงเหลือ</td><td className="num">{m(b.own.balance)}</td></tr></tfoot>
           </table>
-          {b.own.pending > 0 && <p className="small">ค้างจ่าย (วางบิล/สำรองจ่ายที่ยังไม่จ่าย) <b>{m(b.own.pending)}</b> บาท — ยังไม่หักจากยอดนี้ · หลังหักค้างจ่ายเหลือ <b>{m(b.own.balance - b.own.pending)}</b></p>}
           <div className="stat-title">รายรับ-รายจ่ายรายเดือน ปี {year + 543}</div>
           <Legend />
           <GroupedBars buckets={series} height={200} />
