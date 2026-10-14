@@ -16,8 +16,11 @@ export interface Balances {
 }
 
 /** ยอดเงินหมุนเวียน กองทุน และรวม ณ วันที่ today — นับต่อจากยอดตั้งต้น (ตั้งในตั้งค่า › ยอดยกมา) */
+/** วันที่เริ่มนับรายรับ-รายจ่ายหมุนเวียน: ถ้ามียอดยกมาเงินหมุนเวียน (> 0) นับต่อจากวันตัดยอด · ถ้ายอดยกมาเป็น 0 ไม่มีอะไรให้นับซ้ำ จึงนับทุกรายการที่บันทึกไว้ */
+export const ownFrom = (o?: Pick<Opening, 'date' | 'own'>) => (o?.date && (o.own ?? 0) > 0 ? addDays(o.date, 1) : '0000-01-01')
+
 export function computeBalances(a: Omit<LedgerArgs, 'range' | 'withFunds'> & { opening?: Parameters<typeof fundAccounts>[0]['opening']; today: string; loans?: Loan[] }): Balances {
-  const from = a.opening?.date ? addDays(a.opening.date, 1) : '0000-01-01'
+  const from = ownFrom(a.opening)
   const L = computeLedger({ ...a, range: { from, to: a.today } })
   const moneyIn = L.inSum.cash + L.inSum.transfer
   const moneyOut = L.outSum.cash + L.outSum.transfer
@@ -42,8 +45,8 @@ export function circulatingOnly(b: Balances, loans: Loan[]): number {
  * ผู้ใช้มักบันทึกเงินตั้งต้นเป็นรายรับแทน จึงต้องเตือนและเสนอให้เอาไปเป็นยอดยกมา
  */
 export function incomeBeforeCutoff(a: { income: IncomeEntry[]; rounds: Round[]; types: IncomeType[] }, opening?: Opening): { count: number; total: number; items: { date: string; label: string; amount: number }[] } {
-  if (!opening?.date) return { count: 0, total: 0, items: [] }
-  const from = addDays(opening.date, 1)
+  const from = ownFrom(opening)
+  if (from === '0000-01-01') return { count: 0, total: 0, items: [] }
   const fund = new Set(a.types.filter((t) => isFundType(t)).map((t) => t.id))
   const name = (id: string) => a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)'
   const items: { date: string; label: string; amount: number }[] = []
