@@ -47,7 +47,7 @@ try {
   const wd1b = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   const box3 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
   must(/รวมต้องเบิก\s+1,000/.test(wd1b) && /รวมจ่ายทั้งสิ้น 1,830/.test(box3) && !/ค้างจ่าย/.test(box3), 'paid expense without bill is not in ต้องเบิก (1,000) while total out is 1,830, no ค้างจ่าย row: ' + wd1b + ' | ' + box3)
-  must(/สรุปสัปดาห์นี้ 670 สรุปเดือนนี้ 670 สรุปปีนี้ 670/.test(box3) && /ยอดในบัญชีทั้งหมดปัจจุบัน/.test(box3), 'box 3 rows: current balance, this week, this month, this year (circulating only): ' + box3)
+  must(/สรุปสัปดาห์นี้ 670 สรุปเดือนนี้ 670 สรุปปีนี้ 670/.test(box3) && /เงินหมุนเวียนทั้งหมดปัจจุบัน/.test(box3), 'box 3 rows: current balance, this week, this month, this year (circulating only): ' + box3)
   await page.screenshot({ path: 'shots/fundflow-sheet.png', fullPage: true })
   // วางบิลที่รอจ่ายรวมเข้ากับกองทุน
   await page.getByRole('tab', { name: /วางบิล/ }).click()
