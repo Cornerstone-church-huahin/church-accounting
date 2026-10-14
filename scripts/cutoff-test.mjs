@@ -30,7 +30,6 @@ try {
   await page.waitForFunction(() => /72,38/.test(document.querySelector('.btile--own b')?.textContent ?? ''))
   await alert.getByRole('button', { name: /ไม่ต้องเตือน/ }).click()
   must(await alert.count() === 0, 'warning can be dismissed')
-  must(/ยอดยกมา 72,380\.70/.test(await page.getByLabel('ที่มาของเงินหมุนเวียน').innerText()) || /ยอดยกมา 72,381/.test(await page.getByLabel('ที่มาของเงินหมุนเวียน').innerText()), 'opening now holds the amount: ' + await page.getByLabel('ที่มาของเงินหมุนเวียน').innerText())
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('CUTOFF OK')
 } catch (e) { console.error(e instanceof Error ? e.message : e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

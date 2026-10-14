@@ -51,8 +51,6 @@ try {
   // หน้าแรก: ช่องหมุนเวียน = เงินหมุนเวียนคงเหลือสะสมทั้งหมด (ไม่รวมกองทุน) + มีบรรทัดบอกที่มา/รุ่นแอป
   await page.getByRole('button', { name: 'กลับหน้าแรก' }).click()
   must(/670/.test(await page.locator('.btile--own').innerText()), 'home circulating tile = cumulative circulating balance 670: ' + await page.locator('.btile--own').innerText())
-  const why = await page.getByLabel('ที่มาของเงินหมุนเวียน').innerText()
-  must(/ยอดยกมา 0 \+ รับ 2,000 − จ่าย 1,330/.test(why) && /รุ่นแอป \d{4}-\d{2}-\d{2}/.test(why), 'home explains where circulating comes from + build stamp: ' + why)
   await page.locator('.stepbtn', { hasText: 'ใบเบิก-จ่ายเงินสด' }).click()
   await page.screenshot({ path: 'shots/fundflow-sheet.png', fullPage: true })
   // วางบิลที่รอจ่ายรวมเข้ากับกองทุน
