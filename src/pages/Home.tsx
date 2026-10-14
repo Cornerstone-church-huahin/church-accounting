@@ -30,6 +30,10 @@ export default function Home() {
   const op = useOpening()
   const role = useRole()
   const skipped = incomeBeforeCutoff(input, opening)
+  const [pick, setPick] = useState<number[]>([]) // รายการก่อนวันตัดยอดที่ผู้ใช้ติ๊กเลือกให้เป็นยอดยกมา (เริ่มต้นไม่เลือกอะไร)
+  const DISMISS = 'acct.cutoff.dismissed'
+  const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem(DISMISS) } catch { return null } })
+  const pickSum = pick.reduce((a, i) => a + (skipped.items[i]?.amount ?? 0), 0)
   const ls = summarizeLoans(useLoans().items)
   const full = tab !== null
   return (
@@ -49,13 +53,17 @@ export default function Home() {
           <p className="small muted no-print" style={{ margin: '4px 2px 0' }} aria-label="ที่มาของเงินหมุนเวียน">
             หมุนเวียน = ยอดยกมา {fmtBaht(b.own.opening, { dec: false })} + รับ {fmtBaht(b.own.moneyIn, { dec: false })} − จ่าย {fmtBaht(b.own.moneyOut, { dec: false })}{b.own.pending > 0 ? ` − ค้างจ่าย ${fmtBaht(b.own.pending, { dec: false })}` : ''}{b.own.borrowed > 0 ? ` + ยืม ${fmtBaht(b.own.borrowed, { dec: false })}` : ''} {opening ? ` · นับต่อจากวันตัดยอด ${fmtDate(opening.date)}` : ''} · รุ่นแอป {typeof __BUILD__ === 'string' ? __BUILD__ : 'พรีวิว'}
           </p>
-          {skipped.count > 0 && (opening?.own ?? 0) < skipped.total && (
+          {skipped.count > 0 && dismissed !== String(skipped.total) && (
             <div className="card no-print" role="alert" style={{ margin: '8px 0', borderColor: '#c0392b' }}>
               <p className="small" style={{ margin: 0 }}>⚠️ มีรายรับเงินหมุนเวียน <b>{skipped.count} รายการ รวม {fmtBaht(skipped.total)} บาท</b> ลงวันที่ก่อนวันตัดยอดยกมา ({opening ? fmtDate(opening.date) : ''}) จึง<b>ไม่ถูกนับ</b>ในช่อง “หมุนเวียน” (ระบบถือว่าอยู่ในยอดยกมาแล้ว แต่ยอดยกมาเงินหมุนเวียนตอนนี้คือ {fmtBaht(b.own.opening)})</p>
-              {opening && can(role, 'settings') && <button type="button" className="btn btn--gold" style={{ marginTop: 6 }} onClick={() => { if (confirm(`เพิ่ม ${fmtBaht(skipped.total)} บาท เข้ายอดยกมาเงินหมุนเวียน?\n(ยอดยกมาจะเป็น ${fmtBaht((opening.own ?? 0) + skipped.total)} บาท · รายการรับเดิมยังอยู่ในใบ แต่ไม่นับซ้ำ)`)) op.save({ ...opening, own: (opening.own ?? 0) + skipped.total }) }}>ใช้เป็นยอดยกมาเงินหมุนเวียน (+{fmtBaht(skipped.total)})</button>}
+              <p className="small" style={{ margin: '6px 0 2px' }}>ติ๊กรายการที่เป็นเงินตั้งต้นจริง ๆ (ไม่ติ๊ก = ไม่ถูกนับ ไม่เปลี่ยนยอดใด ๆ):</p>
+              <div className="small" role="group" aria-label="รายการก่อนวันตัดยอด">{skipped.items.map((x, i) => <label key={i} className="row" style={{ gap: 6, alignItems: 'center' }}><input type="checkbox" checked={pick.includes(i)} onChange={(e) => setPick(e.target.checked ? [...pick, i] : pick.filter((k) => k !== i))} /><span className="grow">{fmtDate(x.date)} · {x.label}</span><b className="num">{fmtBaht(x.amount)}</b></label>)}</div>
+              {opening && can(role, 'settings') && <button type="button" className="btn btn--gold" style={{ marginTop: 6 }} disabled={pickSum <= 0} onClick={() => { if (confirm(`เพิ่ม ${fmtBaht(pickSum)} บาท เข้ายอดยกมาเงินหมุนเวียน?\n(ยอดยกมาจะเป็น ${fmtBaht((opening.own ?? 0) + pickSum)} บาท · แก้กลับได้ที่ ตั้งค่า › ยอดยกมา)`)) { op.save({ ...opening, own: (opening.own ?? 0) + pickSum }); setPick([]) } }}>ใช้ที่เลือกเป็นยอดยกมาเงินหมุนเวียน (+{fmtBaht(pickSum)})</button>}
+              <button type="button" className="mini" style={{ marginTop: 6 }} onClick={() => { try { localStorage.setItem(DISMISS, String(skipped.total)) } catch { /* ignore */ } setDismissed(String(skipped.total)) }}>ไม่ต้องเตือนยอดนี้อีก</button>
               <p className="muted small" style={{ margin: '6px 0 0' }}>หรือแก้วันที่ของรายการนั้นให้เป็นวันหลังวันตัดยอด · หรือแก้ยอดยกมาเองที่ ตั้งค่า › ยอดยกมา</p>
             </div>
           )}
+          <p className="small muted no-print" style={{ margin: '2px 2px 0' }} aria-label="ที่มาของรวมเงินสด">รวมเงินสด = หมุนเวียน {fmtBaht(b.own.balance)} + กองทุน {fmtBaht(b.fundTotal)} (กองทุนไม่ปนในช่องหมุนเวียน)</p>
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
             {STEPS.map((x) => (
