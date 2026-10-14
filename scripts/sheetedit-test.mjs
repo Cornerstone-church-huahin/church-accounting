@@ -43,6 +43,12 @@ try {
   await page.getByRole('button', { name: '🗑 ลบ' }).click()
   await page.waitForFunction(() => !document.querySelector('table[aria-label*="ใบบันทึกการถวาย"]')?.textContent?.includes('2,000'))
 
+  // ปุ่มดาวน์โหลดใต้ใบ: ไฟล์เปล่า + ไฟล์ข้อมูล
+  for (const [name, re] of [['ไฟล์เปล่า', /blank\.pdf$/], ['ข้อมูล', /offering-sheet\.pdf$/]]) {
+    const [d] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: new RegExp('ดาวน์โหลด PDF ' + name) }).click()])
+    must(fs.readFileSync(await d.path()).subarray(0, 5).toString() === '%PDF-' && (name !== 'ข้อมูล' ? /blank/.test(d.suggestedFilename()) : re.test(d.suggestedFilename())), 'income ' + name + ' PDF downloads: ' + d.suggestedFilename())
+  }
+
   // จ่าย: ใบเบิก-จ่ายเงินสดอยู่ใต้แถบสัปดาห์ทันที
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   const exp = page.getByRole('table', { name: /ใบเบิก-จ่ายเงินสด \(A4\)/ })
@@ -57,6 +63,10 @@ try {
   await page.locator('.field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('750')
   await page.getByRole('button', { name: 'บันทึกการแก้ไข' }).click()
   await page.waitForFunction(() => document.querySelector('table[aria-label*="ใบเบิก-จ่ายเงินสด"]')?.textContent?.includes('750'))
+  for (const name of ['ไฟล์เปล่า', 'ข้อมูล']) {
+    const [d] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: new RegExp('ดาวน์โหลด PDF ' + name) }).click()])
+    must(fs.readFileSync(await d.path()).subarray(0, 5).toString() === '%PDF-', 'expense ' + name + ' PDF downloads: ' + d.suggestedFilename())
+  }
   await page.screenshot({ path: 'shots/sheetedit-pay.png' })
   await exp.locator('tbody tr').nth(0).click()
   page.once('dialog', (d) => d.accept())

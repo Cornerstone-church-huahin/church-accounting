@@ -433,3 +433,6 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 .fullmode .weekbar__range { display: none; }
 .fullmode .weekchips { padding: 0 0 4px; }
 .fullmode .sheethint { margin: 2px 0; }
+
+.dlrow { gap: 8px; flex-wrap: nowrap; }
+.dlrow .btn { padding: 0.6rem 0.5rem; font-size: 0.95rem; line-height: 1.25; }
