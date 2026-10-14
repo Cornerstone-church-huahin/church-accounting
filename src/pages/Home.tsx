@@ -39,6 +39,9 @@ export default function Home() {
             <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
             <Link to="/balance/spare" className="btile btile--spare"><small>⬜ ไอคอน</small><b>—</b></Link>
           </nav>
+          <p className="small muted no-print" style={{ margin: '4px 2px 0' }} aria-label="ที่มาของเงินหมุนเวียน">
+            หมุนเวียน = ยอดยกมา {fmtBaht(b.own.opening, { dec: false })} + รับ {fmtBaht(b.own.moneyIn, { dec: false })} − จ่าย {fmtBaht(b.own.moneyOut, { dec: false })}{b.own.pending > 0 ? ` − ค้างจ่าย ${fmtBaht(b.own.pending, { dec: false })}` : ''}{b.own.borrowed > 0 ? ` + ยืม ${fmtBaht(b.own.borrowed, { dec: false })}` : ''} · รุ่นแอป {__BUILD__}
+          </p>
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
             {STEPS.map((x) => (
