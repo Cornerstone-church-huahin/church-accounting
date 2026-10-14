@@ -121,7 +121,7 @@ try {
   must(!/ค่าหนังสือศึกษา/.test(vt) && /ค่าไฟ/.test(vt), 'voucher sheet shows only circulating-money rows: ' + vt.slice(0, 300))
   await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const typeOpts = await page.locator('#mi-type option').allInnerTexts()
-  must(!typeOpts.some((t) => /กองทุน/.test(t)), 'income form lists no fund types: ' + typeOpts.join('|'))
+  must(typeOpts.filter((t) => /กองทุน/.test(t)).length >= 4, 'income form lists the same types as settings (funds included): ' + typeOpts.join('|'))
   // หน้ากองทุน: บันทึกเงินเข้า / แก้ / ลบ / กู้คืน และเงินยืมในกองทุนเอง
   await page.goto(`http://localhost:${PORT}/#/funds/tt9`)
   await page.getByRole('heading', { name: /กองทุนศึกษา/ }).waitFor()

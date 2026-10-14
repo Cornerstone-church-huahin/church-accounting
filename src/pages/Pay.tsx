@@ -85,6 +85,12 @@ export default function Pay({ year }: { year: number }) {
   // แถวในใบเบิก-จ่ายเงินสด: รายการบันทึกด้วยมือ + วางบิล/สำรองจ่าย (หมายเหตุขึ้นว่า วางบิล/สำรองจ่าย · ชื่อผู้นำบิลมาเบิก/ผู้สำรอง · รอเบิก)
   const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
   const weekAll = all.filter(inWeek)
+  /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
+  const expOps = can(role, 'settings') ? {
+    add: (name: string) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
+    rename: (id: string, cur: string) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const x = cats.byId(id); if (n && x && n !== cur) cats.put([{ ...x, name: n }]) },
+    remove: (id: string, nm: string) => { if (confirm(`ลบ “${nm}” ออกจากรายการจ่าย?\n(รายจ่ายที่บันทึกไว้แล้วยังอยู่ แต่จะไม่มีหมวด)`)) cats.remove(id) },
+  } : undefined
   const catName = (id?: string) => { const c = id ? cats.byId(id) : undefined; return c ? `${c.code} ${c.name}` : 'ยังไม่ระบุหมวด' }
   const L = useMemo(() => computeLedger({ range: rangeOf(scope === 'year' ? 'year' : 'week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }),
     [year, sunday, scope, passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items])
@@ -155,11 +161,7 @@ export default function Pay({ year }: { year: number }) {
         )}
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} onManage={can(role, 'settings') ? {
-            add: (name) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
-            rename: (id, cur) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const x = cats.byId(id); if (n && x && n !== cur) cats.put([{ ...x, name: n }]) },
-            remove: (id, nm) => { if (confirm(`ลบ “${nm}” ออกจากรายการจ่าย?\n(รายจ่ายที่บันทึกไว้แล้วยังอยู่ แต่จะไม่มีหมวด)`)) cats.remove(id) },
-          } : undefined} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense cats={cats.list} onManage={expOps} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
@@ -177,7 +179,7 @@ export default function Pay({ year }: { year: number }) {
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />
       </div>
-      {rowEdit && <ExpenseRowEditor entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
+      {rowEdit && <ExpenseRowEditor onManage={expOps} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
