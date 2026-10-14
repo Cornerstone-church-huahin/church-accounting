@@ -36,7 +36,7 @@ try {
   must((await tbl.locator('tbody tr').count()) === 20, 'income sheet keeps 20 locked rows')
   const head = (await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')
   must(/ประจำวันอาทิตย์ที่ \d ของเดือน\S+ · ระหว่างวันที่ \d+(–\d+| \S+ – \d+) \S+ พ\.ศ\. 25\d\d/.test(head), 'sheet heading names the real Sunday and date range: ' + head.slice(0, 160))
-  must((await page.getByRole('button', { name: /ดาวน์โหลด PDF ขนาดจริง/ }).count()) === 1, 'PDF button under the income sheet')
+  must((await page.getByRole('button', { name: /ดาวน์โหลด PDF ข้อมูล/ }).count()) === 1 && (await page.getByRole('button', { name: /ดาวน์โหลด PDF ไฟล์เปล่า/ }).count()) === 1, 'two PDF buttons (blank + data) under the income sheet')
   must(/รวมจากตู้ถวาย 2,040 บาท/.test((await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')), 'sheet footer shows cash total')
   await page.screenshot({ path: 'shots/entry-income.png', fullPage: true })
   await page.getByRole('tab', { name: /รวมรับ/ }).click()

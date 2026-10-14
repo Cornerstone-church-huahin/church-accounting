@@ -5,7 +5,7 @@ export async function downloadPdf(el: HTMLElement, filename: string, opts: { ful
   const canvas = await html2canvas(el, {
     scale: 2,
     backgroundColor: '#ffffff',
-    ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
+    ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(el),
     // จัดหน้าให้กว้างพอสำหรับกระดาษ ไม่ใช่ความกว้างของมือถือ
     onclone: (_doc, cloned) => { cloned.style.width = opts.fullPage ? '794px' : '720px'; cloned.style.maxWidth = cloned.style.width; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
   })
@@ -44,7 +44,7 @@ export async function downloadPdfPages(pages: { el: HTMLElement; landscape?: boo
   for (const { el, landscape } of pages) {
     const w = landscape ? 1123 : 794
     const canvas = await html2canvas(el, {
-      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
+      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(el),
       onclone: (_doc, cloned) => { cloned.style.width = `${w}px`; cloned.style.maxWidth = `${w}px`; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
     })
     const orient = landscape ? 'landscape' : 'portrait'
@@ -63,7 +63,7 @@ export async function downloadSheetPdf(els: HTMLElement[], filename: string, mod
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: land ? 'landscape' : 'portrait' })
   for (let i = 0; i < els.length; i++) {
     const canvas = await html2canvas(els[i], {
-      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => e.classList?.contains('no-print') ?? false,
+      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(els[i]),
       onclone: (_d, cloned) => { cloned.style.width = land ? '1123px' : '794px'; cloned.style.maxWidth = cloned.style.width; cloned.style.boxShadow = 'none'; cloned.style.position = 'static'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
     })
     if (i > 0) pdf.addPage('a4', land ? 'landscape' : 'portrait')

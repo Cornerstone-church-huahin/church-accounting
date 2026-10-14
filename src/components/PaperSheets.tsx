@@ -37,7 +37,15 @@ function PaperHead({ church, title, sub, compact }: { church: string; title: str
   )
 }
 
-const DOWNLOAD_NOTE = 'ดาวน์โหลด PDF ขนาดจริง'
+/** ปุ่มดาวน์โหลดใต้ใบ: ไฟล์เปล่า (ไว้จดมือ) + ไฟล์ข้อมูล (พิมพ์ เซ็นกำกับ เก็บเข้าแฟ้ม) — A4 ขนาดจริงทั้งคู่ */
+function DownloadRow({ onData, kind, church, sunday }: { onData: () => void; kind: 'offering' | 'voucher'; church: string; sunday?: string }) {
+  return (
+    <div className="row no-print dlrow" style={{ margin: '0.4rem 0' }}>
+      <button type="button" className="btn btn--ghost grow" onClick={() => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet(kind, church, sunday))}>⬇️ ดาวน์โหลด PDF ไฟล์เปล่า</button>
+      <button type="button" className="btn btn--gold grow" onClick={onData}>⬇️ ดาวน์โหลด PDF ข้อมูล</button>
+    </div>
+  )
+}
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
 export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }: { church: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
@@ -84,9 +92,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }:
           </>
         </ScaledPage>
       ))}
-      <div className="row no-print" style={{ margin: '0.4rem 0' }}>
-        <button type="button" className="btn btn--ghost" onClick={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')}>⬇️ {DOWNLOAD_NOTE} (A4 แนวนอน)</button>
-      </div>
+      <DownloadRow kind="offering" church={church} sunday={sunday} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />
     </div>
   )
 }
@@ -132,9 +138,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick }: { church: 
           </>
         </ScaledPage>
       ))}
-      <div className="row no-print" style={{ margin: '0.4rem 0' }}>
-        <button type="button" className="btn btn--ghost" onClick={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')}>⬇️ {DOWNLOAD_NOTE} (A4)</button>
-      </div>
+      <DownloadRow kind="voucher" church={church} sunday={sunday} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />
     </div>
   )
 }
