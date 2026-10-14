@@ -48,6 +48,12 @@ try {
   const box3 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
   must(/รวมต้องเบิก\s+1,000/.test(wd1b) && /รวมจ่ายทั้งสิ้น 1,830/.test(box3) && !/ค้างจ่าย/.test(box3), 'paid expense without bill is not in ต้องเบิก (1,000) while total out is 1,830, no ค้างจ่าย row: ' + wd1b + ' | ' + box3)
   must(/สรุปสัปดาห์นี้ 670 สรุปเดือนนี้ 670 สรุปปีนี้ 670/.test(box3) && /เงินหมุนเวียนทั้งหมดปัจจุบัน/.test(box3), 'box 3 rows: current balance, this week, this month, this year (circulating only): ' + box3)
+  // หน้าแรก: ช่องหมุนเวียน = เงินหมุนเวียนคงเหลือสะสมทั้งหมด (ไม่รวมกองทุน) + มีบรรทัดบอกที่มา/รุ่นแอป
+  await page.getByRole('button', { name: 'กลับหน้าแรก' }).click()
+  must(/670/.test(await page.locator('.btile--own').innerText()), 'home circulating tile = cumulative circulating balance 670: ' + await page.locator('.btile--own').innerText())
+  const why = await page.getByLabel('ที่มาของเงินหมุนเวียน').innerText()
+  must(/ยอดยกมา 0 \+ รับ 2,000 − จ่าย 1,330/.test(why) && /รุ่นแอป \d{4}-\d{2}-\d{2}/.test(why), 'home explains where circulating comes from + build stamp: ' + why)
+  await page.locator('.stepbtn', { hasText: 'ใบเบิก-จ่ายเงินสด' }).click()
   await page.screenshot({ path: 'shots/fundflow-sheet.png', fullPage: true })
   // วางบิลที่รอจ่ายรวมเข้ากับกองทุน
   await page.getByRole('tab', { name: /วางบิล/ }).click()
