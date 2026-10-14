@@ -66,7 +66,6 @@ export default function Pay({ year }: { year: number }) {
   const [pdfBusy, setPdfBusy] = useState(false)
 
   const all = useMemo(() => [...exp.items].sort(byDateDesc), [exp.items])
-  const weekMarks = useMemo(() => { const m: Record<string, number> = {}; for (const x of exp.items) { const w = sheetSunday(effDate(x)); m[w] = (m[w] ?? 0) + 1 } return m }, [exp.items])
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
@@ -151,7 +150,7 @@ export default function Pay({ year }: { year: number }) {
 
   return (
     <>
-      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} marks={weekMarks} />
+      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
         <VoucherPaper church={settings.churchName.split(' ')[0]} entries={ofAll('manual').filter(inWeek)} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}

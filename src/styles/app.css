@@ -436,3 +436,6 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 
 .dlrow { gap: 8px; flex-wrap: nowrap; }
 .dlrow .btn { padding: 0.6rem 0.5rem; font-size: 0.95rem; line-height: 1.25; }
+
+.weekpick { position: relative; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+.weekpick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }

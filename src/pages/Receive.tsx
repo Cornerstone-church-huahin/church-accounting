@@ -113,7 +113,6 @@ export default function Receive({ year }: { year: number }) {
   )
 
   // บันทึกแล้วสลับไปดูสัปดาห์ของรายการนั้นเลย (เห็นว่าเข้าใบสรุปไหน)
-  const weekMarks = useMemo(() => { const m: Record<string, number> = {}; for (const x of allEnt) { const w = sheetSunday(x.date); m[w] = (m[w] ?? 0) + 1 } return m }, [allEnt])
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
   // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
@@ -132,7 +131,7 @@ export default function Receive({ year }: { year: number }) {
 
   return (
     <>
-      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} marks={weekMarks} />
+      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
         <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={types.list} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
