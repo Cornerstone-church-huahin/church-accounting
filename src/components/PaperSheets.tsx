@@ -231,6 +231,8 @@ export interface WeekSummary {
   inn: { cash: number; transfer: number }
   /** เงินเข้ากองทุนในสัปดาห์ (แยกจากเงินหมุนเวียน) — แต่ละกองทุนมีรายจ่ายโอนออกเท่ากันในตารางทันที */
   funds: { name: string; amount: number }[]
+  /** บิลที่วางไว้/สำรองจ่ายที่ยังรอจ่ายในสัปดาห์นี้ — รวมกับกองทุนเป็น "จำนวนที่ต้องเบิก" */
+  pending: { name: string; amount: number }[]
   out: { cash: number; transfer: number; pending: number }
   /** เงินหมุนเวียนคงเหลือ ณ วันที่ asOf (ไม่รวมกองทุน) */
   balance: number; asOf: string
@@ -240,20 +242,27 @@ export interface WeekSummary {
 function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
   const dots = '..............'
   const v = (x: number | undefined) => (x === undefined ? dots : m(x))
-  const row = (label: string, val: string, bold?: boolean) => <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontWeight: bold ? 700 : 400 }}><span>{label}</span><span className="num">{val}</span></div>
+  const row = (label: string, val: string, bold?: boolean, key?: string) => <div key={key ?? label} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontWeight: bold ? 700 : 400 }}><span>{label}</span><span className="num">{val}</span></div>
   const fundSum = summary ? summary.funds.reduce((a, f) => a + f.amount, 0) : undefined
   const circIn = summary ? summary.inn.cash + summary.inn.transfer : undefined
   const circOut = summary ? summary.out.cash + summary.out.transfer + summary.out.pending : undefined
+  const withdraw = summary ? fundSum! + summary.pending.reduce((a, b) => a + b.amount, 0) : undefined
   const inTotal = summary ? circIn! + fundSum! : undefined
-  const outTotal = summary ? circOut! + fundSum! : undefined
+  const remain = summary ? circIn! - circOut! : undefined
   const box: React.CSSProperties = { flex: 1, border: '1.5px solid #1a2b4c', borderRadius: 4, padding: '8px 10px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 4 }
   const head: React.CSSProperties = { fontWeight: 700, borderBottom: '1px solid #1a2b4c', paddingBottom: 3, marginBottom: 2 }
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', margin: '8px 0' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, margin: '8px 0' }}>
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
         <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{row('  เงินสด', v(summary?.inn.cash))}{row('  เงินโอน', v(summary?.inn.transfer))}{row('กองทุน', v(fundSum))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
-        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{row('  ค้างจ่าย (ยังไม่ออกเงิน)', v(summary?.out.pending))}{row('โอนออกกองทุน', v(fundSum))}{summary?.funds.map((f) => <div key={f.name} style={{ fontSize: 11, display: 'flex', justifyContent: 'space-between' }}><span>  · {f.name}</span><span className="num">{m(f.amount)}</span></div>)}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
+        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut))}{row('  ค้างจ่าย (ยังไม่ออกเงิน)', v(summary?.out.pending))}{row('เงินหมุนเวียน (คงอยู่ในระบบ)', v(remain), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{row('รวมทั้งสิ้น', v(inTotal), true)}</div>
         <div style={box}><div style={head}>③ สรุปยอดเงินในบัญชีทั้งสิ้น</div><div style={{ fontSize: 11, color: '#444' }}>เงินหมุนเวียน (ไม่รวมกองทุน){summary ? ` ณ ${fmtDate(summary.asOf)}` : ''}</div>{row('คงเหลือ', v(summary?.balance), true)}</div>
+      </div>
+      <div style={{ ...box, flex: 'none' }} aria-label="จำนวนที่ต้องเบิก">
+        <div style={head}>จำนวนที่ต้องเบิก <span style={{ fontWeight: 400, fontSize: 11 }}>(กองทุน + บิลที่วางไว้/สำรองจ่าย — เตรียมเบิกที่ธนาคาร)</span></div>
+        {summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}
+        {summary?.pending.map((b, i) => row(`บิล/สำรองจ่าย · ${b.name}`, m(b.amount), false, `p${i}`))}
+        {row('รวมที่ต้องเบิก', v(withdraw), true)}
       </div>
     </div>
   )

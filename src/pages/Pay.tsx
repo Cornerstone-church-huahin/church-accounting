@@ -77,14 +77,15 @@ export default function Pay({ year }: { year: number }) {
   // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
   const wf = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, cats: cats.list, expenses: [], passbook: passbook.items, withFunds: true }).fundRows, [year, sunday, passbook.items, income.items, rounds.items, types.list, cats.list])
   const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
-  const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', note: 'โอนเข้ากองทุน (อัตโนมัติ)', updated: 1e15 + i }) as ExpenseEntry)
-  const weekSummary = { inn: weekL.inSum, funds: fundOut, out: weekL.outSum, balance: bal.own.balance, asOf }
+  const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', requester: 'กองทุน · รอเบิก', updated: 1e15 + i }) as ExpenseEntry)
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
   // แถวในใบเบิก-จ่ายเงินสด: รายการบันทึกด้วยมือ + วางบิล/สำรองจ่าย (หมายเหตุขึ้นว่า วางบิล/สำรองจ่าย · ชื่อผู้นำบิลมาเบิก/ผู้สำรอง · รอเบิก)
   const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
   const weekAll = all.filter(inWeek)
+  const pendingBills = weekAll.filter((x) => x.status === 'open').map((x) => ({ name: [x.desc, x.biller || x.who].filter(Boolean).join(' · '), amount: x.amount }))
+  const weekSummary = { inn: weekL.inSum, funds: fundOut, pending: pendingBills, out: weekL.outSum, balance: bal.own.balance, asOf }
   /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
   const expOps = can(role, 'settings') ? {
     add: (name: string) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
