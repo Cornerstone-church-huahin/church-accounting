@@ -84,7 +84,7 @@ export default function Pay({ year }: { year: number }) {
   // แถวในใบเบิก-จ่ายเงินสด: รายการบันทึกด้วยมือ + วางบิล/สำรองจ่าย (หมายเหตุขึ้นว่า วางบิล/สำรองจ่าย · ชื่อผู้นำบิลมาเบิก/ผู้สำรอง · รอเบิก)
   const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
   const weekAll = all.filter(inWeek)
-  const pendingBills = weekAll.filter((x) => x.status === 'open').map((x) => ({ name: [x.desc, x.biller || x.who].filter(Boolean).join(' · '), amount: x.amount }))
+  const pendingBills = weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ name: [x.desc, x.biller || x.who].filter(Boolean).join(' · '), amount: x.amount }))
   const weekSummary = { inn: weekL.inSum, funds: fundOut, pending: pendingBills, out: weekL.outSum, balance: bal.own.balance, asOf }
   /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
   const expOps = can(role, 'settings') ? {
@@ -106,6 +106,15 @@ export default function Pay({ year }: { year: number }) {
       const f = (await listDir(cfg, path.slice(0, path.lastIndexOf('/')))).find((x) => x.path === path)
       if (f) await deleteFile(cfg, f.path, f.sha, 'บิล/ใบเสร็จที่ลบ')
     } catch { /* ignore */ }
+  }
+  /** แนบรูปบิล/สลิปเป็นหลักฐาน: อัปโหลดขึ้น repo ข้อมูล (ไม่ได้ซิงก์ = เก็บเฉพาะชื่อไฟล์ ไม่มีรูป) */
+  const uploadPic = async (file: File) => {
+    const cfg = getSync()
+    if (!cfg) return { path: '', name: file.name }
+    const { data, ext } = await compressImage(file)
+    const path = `attachments/${year}/exp-${Date.now().toString(36)}.${ext}`
+    await putBinary(cfg, path, data, 'บิล/ใบเสร็จ')
+    return { path, name: file.name }
   }
   const del = (x: ExpenseEntry) => { if (confirm(`ลบรายการ ${x.desc || catName(x.catId)} ${fmtBaht(x.amount)} ?`) && exp.remove(x.id)) void dropFile(x.file?.path) }
 
@@ -180,7 +189,7 @@ export default function Pay({ year }: { year: number }) {
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />
       </div>
-      {rowEdit && <ExpenseRowEditor onManage={expOps} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
+      {rowEdit && <ExpenseRowEditor onManage={expOps} onUpload={uploadPic} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}

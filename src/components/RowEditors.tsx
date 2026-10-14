@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PersonField from './PersonField'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
+import StoredImage from './StoredImage'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
@@ -46,7 +47,8 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
 }
 
 /** แตะแถวในใบเบิก-จ่ายเงินสดเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) */
-export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage }: {
+export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage, onUpload }: {
+  /** แนบรูปบิล/สลิปเป็นหลักฐาน (อัปโหลดแล้วคืนที่เก็บรูป) */ onUpload?: (f: File) => Promise<{ path: string; name: string }>
   /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
 
   entry: ExpenseEntry | null; cats: ExpenseCat[]; defaultDate: string; onSave: (e: ExpenseEntry) => string | null; onDelete?: (e: ExpenseEntry) => void; onClose: () => void
@@ -59,15 +61,19 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
   const [note, setNote] = useState(entry?.requester ?? entry?.note ?? '')
   const [payee, setPayee] = useState(entry?.who ?? '')
   const [biller, setBiller] = useState(entry?.biller ?? '')
+  const [pic, setPic] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const save = () => {
+  const save = async () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!desc.trim()) return setErr('ใส่รายการ')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    let file = entry?.file
+    if (pic && onUpload) { setBusy(true); try { file = await onUpload(pic) } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบรูปไม่สำเร็จ') } setBusy(false) }
     const { requester: _r, who: _w, catId: _c, biller: _b, ...rest } = entry ?? ({} as ExpenseEntry)
     void _r; void _w; void _c; void _b
     const e = { ...rest, id: entry?.id ?? newId('ex'), updated: 0, channel: entry?.channel ?? 'manual', date, amount, desc: desc.trim(), status: entry?.status ?? 'paid', paidDate: entry?.paidDate ?? date, method: entry?.method ?? 'cash',
-      ...(catId ? { catId } : {}), ...(note.trim() ? { requester: note.trim() } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(biller ? { biller } : {}) } as ExpenseEntry
+      ...(catId ? { catId } : {}), ...(note.trim() ? { requester: note.trim() } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(biller ? { biller } : {}), ...(file ? { file } : {}) } as ExpenseEntry
     const r = onSave(e)
     if (r) setErr(r); else onClose()
   }
@@ -82,10 +88,11 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
       <div className="field"><label htmlFor="ere-desc">รายการ (แก้ข้อความได้)</label><input id="ere-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
       <div className="field"><label htmlFor="ere-note">หมายเหตุ</label><input id="ere-note" className="input" value={note} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setNote(e.target.value)} /></div>
+      {onUpload && <div className="field"><label htmlFor="ere-file">รูปบิล / สลิป / รูปสำรองจ่าย (แนบเป็นหลักฐาน){entry?.file && !pic ? ' — มีแล้ว เลือกใหม่เพื่อแทนที่' : ''}</label><input id="ere-file" className="input" type="file" accept="image/*" onChange={(e) => setPic(e.target.files?.[0] ?? null)} />{entry?.file && !pic && <StoredImage path={entry.file.path} alt="รูปที่แนบไว้" />}</div>}
       <PersonField id="ere-biller" value={biller} onChange={setBiller} />
       <div className="field"><label htmlFor="ere-pay">ผู้รับเงิน</label><input id="ere-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
       {err && <p className="err" role="alert">{err}</p>}
-      <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{entry ? 'บันทึกการแก้ไข' : 'เพิ่มลงใบ'}</button>{entry && onDelete && <button type="button" className="btn btn--ghost" onClick={() => { onDelete(entry); onClose() }}>🗑 ลบ</button>}</div>
+      <div className="row"><button type="button" className="btn btn--gold grow" disabled={busy} onClick={() => void save()}>{busy ? 'กำลังอัปโหลด…' : entry ? 'บันทึกการแก้ไข' : 'เพิ่มลงใบ'}</button>{entry && onDelete && <button type="button" className="btn btn--ghost" onClick={() => { onDelete(entry); onClose() }}>🗑 ลบ</button>}</div>
     </Sheet>
   )
 }
