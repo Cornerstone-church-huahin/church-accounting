@@ -52,10 +52,12 @@ export default function Home() {
           {skipped.count > 0 && (opening?.own ?? 0) < skipped.total && (
             <div className="card no-print" role="alert" style={{ margin: '8px 0', borderColor: '#c0392b' }}>
               <p className="small" style={{ margin: 0 }}>⚠️ มีรายรับเงินหมุนเวียน <b>{skipped.count} รายการ รวม {fmtBaht(skipped.total)} บาท</b> ลงวันที่ก่อนวันตัดยอดยกมา ({opening ? fmtDate(opening.date) : ''}) จึง<b>ไม่ถูกนับ</b>ในช่อง “หมุนเวียน” (ระบบถือว่าอยู่ในยอดยกมาแล้ว แต่ยอดยกมาเงินหมุนเวียนตอนนี้คือ {fmtBaht(b.own.opening)})</p>
+              <ul className="small" style={{ margin: '6px 0 0', paddingLeft: 18 }}>{skipped.items.slice(0, 8).map((x, i) => <li key={i}>{fmtDate(x.date)} · {x.label} · {fmtBaht(x.amount)}</li>)}{skipped.items.length > 8 && <li>… อีก {skipped.items.length - 8} รายการ</li>}</ul>
               {opening && can(role, 'settings') && <button type="button" className="btn btn--gold" style={{ marginTop: 6 }} onClick={() => { if (confirm(`เพิ่ม ${fmtBaht(skipped.total)} บาท เข้ายอดยกมาเงินหมุนเวียน?\n(ยอดยกมาจะเป็น ${fmtBaht((opening.own ?? 0) + skipped.total)} บาท · รายการรับเดิมยังอยู่ในใบ แต่ไม่นับซ้ำ)`)) op.save({ ...opening, own: (opening.own ?? 0) + skipped.total }) }}>ใช้เป็นยอดยกมาเงินหมุนเวียน (+{fmtBaht(skipped.total)})</button>}
               <p className="muted small" style={{ margin: '6px 0 0' }}>หรือแก้วันที่ของรายการนั้นให้เป็นวันหลังวันตัดยอด · หรือแก้ยอดยกมาเองที่ ตั้งค่า › ยอดยกมา</p>
             </div>
           )}
+          <p className="small muted no-print" style={{ margin: '2px 2px 0' }} aria-label="ที่มาของรวมเงินสด">รวมเงินสด = หมุนเวียน {fmtBaht(b.own.balance)} + กองทุน {fmtBaht(b.fundTotal)} (กองทุนไม่ปนในช่องหมุนเวียน)</p>
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
             {STEPS.map((x) => (

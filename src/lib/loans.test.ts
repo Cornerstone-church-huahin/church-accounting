@@ -32,7 +32,7 @@ describe('loans', () => {
     const types = [{ id: 'a', name: 'สิบลด' }, { id: 'f', name: 'กองทุนสุสาน', fund: true }] as never
     const income = [{ id: '1', date: '2026-10-04', typeId: 'a', amount: 7238070 }, { id: '2', date: '2026-10-04', typeId: 'f', amount: 100 }, { id: '3', date: '2026-10-12', typeId: 'a', amount: 500 }, { id: '4', date: '2026-10-03', typeId: 'a', amount: 9, deleted: true }] as never
     const opening = { id: 'opening', date: '2026-10-11', accounts: {}, cash: 0, unmoved: {}, updated: 0 }
-    expect(incomeBeforeCutoff({ income, rounds: [], types }, opening)).toEqual({ count: 1, total: 7238070 })
-    expect(incomeBeforeCutoff({ income, rounds: [], types }, undefined)).toEqual({ count: 0, total: 0 })
+    expect(incomeBeforeCutoff({ income, rounds: [], types }, opening)).toMatchObject({ count: 1, total: 7238070 })
+    expect(incomeBeforeCutoff({ income, rounds: [], types }, undefined)).toMatchObject({ count: 0, total: 0 })
   })
 })
