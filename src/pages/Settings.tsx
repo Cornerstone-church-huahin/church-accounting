@@ -200,6 +200,14 @@ function General() {
 
 function Types() {
   const t = useIncomeTypes()
+  const ec = useExpenseCats()
+  const [mv, setMv] = useState('')
+  /** ย้ายรายการที่ใส่ผิดฝั่ง (เช่น ซ่อมรถตู้) ไปอยู่ รายการจ่าย: สร้างในรายการจ่ายแล้วเอาออกจากรายการรับ */
+  const moveToExpense = (x: { id: string; name: string }) => {
+    if (!confirm(`ย้าย “${x.name}” ไปอยู่ รายการจ่าย?\n(จะเอาออกจากรายการรับ · รายรับที่เคยบันทึกด้วยชื่อนี้ไว้แล้วจะแสดงเป็น “ประเภทที่ถูกลบ” ควรลบ/แก้รายการนั้นด้วย)`)) return
+    if (!ec.groups.some((g) => g.name === x.name)) { const g = makeExpenseGroup(ec.list, x.name); if (typeof g === 'string') return setMv(g); if (!ec.put([g])) return setMv('สิทธิ์ของท่านเพิ่มไม่ได้') }
+    t.remove(x.id); setMv(`ย้าย “${x.name}” ไปรายการจ่ายแล้ว`)
+  }
   const [name, setName] = useState('')
   const add = () => {
     const nt = makeIncomeType(t.list, name)
@@ -222,10 +230,12 @@ function Types() {
             <label className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={isFundType(x)} onChange={(e) => t.put([{ ...x, fund: e.target.checked }])} />กองทุน</label>
             <button type="button" className="mini" onClick={() => rename(x.id, x.name)}>แก้ชื่อ</button>
             <button type="button" className="mini" onClick={() => t.put([{ ...x, active: !x.active }])}>{x.active ? 'ปิดใช้' : 'เปิดใช้'}</button>
+            <button type="button" className="mini" aria-label={`ย้าย ${x.name} ไปรายการจ่าย`} onClick={() => moveToExpense(x)}>→ ไปรายจ่าย</button>
             <button type="button" className="mini" aria-label={`ลบ ${x.name}`} onClick={() => confirm(`ลบประเภท “${x.name}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`) && t.remove(x.id)}>🗑️</button>
           </li>
         ))}
       </ul>
+      {mv && <p className="small" role="status">{mv}</p>}
       <div className="row"><button type="button" className="btn btn--ghost" onClick={() => {
         if (!confirm('คืนเป็นรายการตามใบบันทึกการถวายล่าสุด?\nประเภทที่เพิ่มเองจะถูกลบ และรายการตามใบกลับมาครบ')) return
         const keep = new Set(DEFAULT_INCOME_TYPES.map((d) => d.id))

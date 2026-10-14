@@ -22,7 +22,7 @@ try {
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const types = await page.locator('#mi-type option').allInnerTexts()
-  must(['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'อาหารวันอาทิตย์', 'รายได้อื่น (เช่น ค่าสถานที่สอน)'].every((n, i) => types[i] === n), 'type list follows the printed form: ' + types.join('|'))
+  must(['สิบลด', 'ประจำสัปดาห์', 'ขอบพระคุณ', 'อาหารวันอาทิตย์', 'กองทุนเพื่อที่ดินคริสตจักร', 'กองทุนสร้างอาคารพันธกิจ', 'กองทุนสุสาน', 'กองทุนศึกษา', 'รายได้อื่น (เช่น ค่าสถานที่สอน)'].every((n, i) => types[i] === n) && types.length === 9, 'type list follows the printed form: ' + types.join('|'))
   await page.locator('#mi-type').selectOption({ label: 'ประจำสัปดาห์' })
   await page.locator('#mi-env').fill('7')
   await page.locator('.entryrow .field', { hasText: 'เงินสด (บาท)' }).locator('input').fill('2040')

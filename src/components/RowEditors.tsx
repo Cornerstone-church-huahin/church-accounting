@@ -2,13 +2,15 @@ import { useState } from 'react'
 import PersonField from './PersonField'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
+import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 
 const intOrNull = (s: string) => { const n = parseInt(s.replace(/\D/g, ''), 10); return Number.isFinite(n) && n > 0 ? n : null }
 
 /** แตะแถวในใบบันทึกการถวายเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) — ตารางในใบเปลี่ยนทันทีหลังบันทึก */
-export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose }: {
+export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage }: {
+  /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบประเภทจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
   entry: IncomeEntry | null; types: IncomeType[]; defaultDate: string; onSave: (e: IncomeEntry) => string | null; onDelete?: (e: IncomeEntry) => void; onClose: () => void
 }) {
   const opts = types.filter((t) => t.active || t.id === entry?.typeId)
@@ -32,7 +34,8 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบบันทึกการถวาย' : 'เพิ่มรายการในใบบันทึกการถวาย'} onClose={onClose}>
       <div className="field"><label htmlFor="ire-date">วันที่</label><input id="ire-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="ire-type">ประเภท</label><select id="ire-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+      <div className="field"><label htmlFor="ire-type">ประเภท</label><select id="ire-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+        {onManage && <CatalogManager noun="ประเภท" items={opts} ops={onManage} onAdded={setTypeId} />}</div>
       <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด (ตู้ถวาย)</button><button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอน</button></div>
       <div className="field"><label htmlFor="ire-count">{method === 'cash' ? 'จำนวนซอง' : 'จำนวนโอน (ครั้ง)'}</label><input id="ire-count" className="input" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
@@ -43,7 +46,9 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
 }
 
 /** แตะแถวในใบเบิก-จ่ายเงินสดเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) */
-export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose }: {
+export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage }: {
+  /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
+
   entry: ExpenseEntry | null; cats: ExpenseCat[]; defaultDate: string; onSave: (e: ExpenseEntry) => string | null; onDelete?: (e: ExpenseEntry) => void; onClose: () => void
 }) {
   const items = cats.filter((c) => c.kind === 'group' && (c.active || c.id === entry?.catId))
@@ -72,7 +77,8 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
       <div className="field"><label htmlFor="ere-item">หมวด/รายการที่ตั้งไว้</label>
         <select id="ere-item" className="input" value={catId} onChange={(e) => { setCatId(e.target.value); const c = items.find((x) => x.id === e.target.value); if (c) setDesc(c.name) }}>
           <option value="">— ไม่ระบุหมวด —</option>{items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select></div>
+        </select>
+        {onManage && <CatalogManager noun="รายการจ่าย" items={items} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setDesc(n.trim()); return r } }} onAdded={setCatId} />}</div>
       <div className="field"><label htmlFor="ere-desc">รายการ (แก้ข้อความได้)</label><input id="ere-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
       <div className="field"><label htmlFor="ere-note">หมายเหตุ</label><input id="ere-note" className="input" value={note} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setNote(e.target.value)} /></div>
