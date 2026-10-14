@@ -56,7 +56,7 @@ try {
   must(await page.getByText('ค้างจ่าย').first().isVisible(), 'open bill shows as pending')
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const sheetTxt = (await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().innerText()).replace(/\n/g, ' ')
-  must(/วางบิล · รอจ่าย/.test(sheetTxt) && /การประปา/.test(sheetTxt) && /รอจ่าย/.test(sheetTxt) && /2,000/.test(sheetTxt), 'open bill appears on the voucher sheet (remark + biller column): ' + sheetTxt)
+  must(/วางบิล · รอจ่าย/.test(sheetTxt) && /การประปา/.test(sheetTxt) && /ผู้วางบิล/.test(sheetTxt) && /2,000/.test(sheetTxt), 'open bill appears on the voucher sheet (remark + biller column): ' + sheetTxt)
   // รายชื่อผู้วางบิล: เพิ่มชื่อแล้วเลือกใช้ได้
   await page.locator('summary', { hasText: /เพิ่ม \/ .*ลบ ชื่อ/ }).first().click()
   await page.getByLabel('ชื่อชื่อใหม่').fill('สมชาย ใจดี')
