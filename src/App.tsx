@@ -13,16 +13,19 @@ import FundDetailPage from './pages/FundDetail'
 import BalancePage from './pages/Balance'
 import Reports from './pages/Reports'
 import More from './pages/More'
+import Members from './pages/Members'
 import Settings from './pages/Settings'
 import Join from './pages/Join'
 
 // HashRouter: ใช้ได้บนทุก Static Hosting (GitHub Pages) โดยไม่ต้องตั้งค่า rewrite
 // MemoryRouter: ใช้เฉพาะไฟล์พรีวิว (npm run build:preview) ที่เปิดในกรอบซึ่งไม่มี URL จริง
 const Router = import.meta.env.VITE_EMBED ? MemoryRouter : HashRouter
+// พรีวิวเปิดที่หน้าที่ระบุได้: VITE_START=/members npm run build:preview
+const startAt = (import.meta.env.VITE_START as string | undefined) || '/'
 
 export default function App() {
   return (
-    <Router>
+    <Router {...(import.meta.env.VITE_EMBED ? { initialEntries: [startAt] } : {})}>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Home />} />
@@ -36,6 +39,7 @@ export default function App() {
           <Route path="funds" element={<FundAccountsPage />} />
           <Route path="funds/:id" element={<FundDetailPage />} />
           <Route path="balance/:kind" element={<BalancePage />} />
+          <Route path="members" element={<Members />} />
           <Route path="reports" element={<Reports />} />
           <Route path="more" element={<More />} />
           <Route path="settings" element={<Settings />} />

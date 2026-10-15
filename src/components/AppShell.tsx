@@ -9,13 +9,14 @@ import { refreshSharedGemini } from '../lib/gemini'
 import { SYNC_EVENT } from '../lib/sync'
 import { initialYear, saveYear, YearContext } from '../lib/year'
 import OpenInChrome from './OpenInChrome'
-import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMore, IconReceipt, IconWallet, Logo } from './Icons'
+import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMore, IconPeople, IconReceipt, IconWallet, Logo } from './Icons'
 
 const FULL = [
   { to: '/', label: 'หน้าแรก', Icon: IconHome, end: true },
   { to: '/income', label: 'รายรับ', Icon: IconCoins, end: false },
   { to: '/rounds', label: 'อาทิตย์', Icon: IconCalendar, end: false },
   { to: '/vouchers', label: 'เบิกจ่าย', Icon: IconReceipt, end: false },
+  { to: '/members', label: 'สมาชิก', Icon: IconPeople, end: false },
   { to: '/more', label: 'เพิ่มเติม', Icon: IconMore, end: false },
 ]
 const VIEW = [
@@ -24,7 +25,7 @@ const VIEW = [
   { to: '/reports', label: 'รายงาน', Icon: IconChart, end: false },
   { to: '/more', label: 'เพิ่มเติม', Icon: IconMore, end: false },
 ]
-const ROOTS = ['/', '/income', '/rounds', '/vouchers', '/more', '/budget', '/reports']
+const ROOTS = ['/', '/income', '/rounds', '/vouchers', '/members', '/more', '/budget', '/reports']
 
 export default function AppShell() {
   const { pathname } = useLocation()

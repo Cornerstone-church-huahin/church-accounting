@@ -6,3 +6,4 @@ shots
 .env.*
 preview.html
 dist-preview
+preview-packed.html

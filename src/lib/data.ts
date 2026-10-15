@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan, Person } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -77,3 +77,8 @@ export const useLoans = () => useSharedStore<Loan>({ localKey: k('loans'), file:
 
 /** รายชื่อผู้วางบิล/ผู้สำรองจ่าย: ไฟล์เดียว ข้ามปี */
 export const usePeople = () => useSharedStore<Person>({ localKey: k('people'), file: 'people.json', label: 'รายชื่อผู้วางบิล', write: 'voucherPay' })
+
+/** ทะเบียนสมาชิกคริสตจักร: ไฟล์เดียว ข้ามปี (มีเบอร์โทร จึงให้เฉพาะผู้ที่เห็นรายการรายตัว) */
+export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k('church-members'), file: 'church-members.json', label: 'ทะเบียนสมาชิก', write: 'registry' })
+/** ลงชื่อนมัสการ: รายปี */
+export const useAttendance = (year: number) => useSharedStore<Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'registry' })

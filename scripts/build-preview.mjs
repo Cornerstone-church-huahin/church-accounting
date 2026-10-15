@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 process.env.VITE_EMBED = '1'
+// DEMO_SEED=ไฟล์.js → ฝังสคริปต์ใส่ข้อมูลตัวอย่างก่อนแอปเริ่ม (ใช้ทำพรีวิวหน้าที่ต้องมีข้อมูล)
+const seed = process.env.DEMO_SEED ? fs.readFileSync(process.env.DEMO_SEED, 'utf8') : ''
 const out = 'dist-preview'
 await build({
   configFile: false, base: './', plugins: [react()], logLevel: 'warn',
@@ -21,7 +23,7 @@ const html = `<!doctype html>
 <title>บัญชีคริสตจักร (พรีวิว)</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pridi:wght@500;600&family=Sarabun:wght@400;500;700&display=swap">
 <style>${css}</style></head>
-<body><div id="root"></div><script>${js}</script></body></html>
+<body><div id="root"></div>${seed ? `<script>${seed}</script>` : ''}<script>${js}</script></body></html>
 `
 fs.writeFileSync('preview.html', html)
 console.log('preview.html', (html.length / 1024).toFixed(0), 'KB')
