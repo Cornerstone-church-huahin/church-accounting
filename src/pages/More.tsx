@@ -9,7 +9,7 @@ export default function More() {
     { to: '/budget', icon: '📊', title: 'งบประมาณรายปี', sub: 'แยกหมวด ปรับเพิ่มลด ประวัติ งบฉุกเฉิน', show: true },
     { to: '/reports', icon: '🖨️', title: 'รายงาน (สัปดาห์ · เดือน · ปี)', sub: 'กราฟแท่ง พิมพ์ติดประกาศพร้อมช่องเซ็นชื่อ', show: true },
     { to: '/rounds/statement', icon: '🏦', title: 'เทียบสเตตเมนต์ธนาคาร', sub: 'อัปโหลดไฟล์ จับคู่กับยอดฝากและรายจ่าย', show: can(role, 'detail') },
-    { to: '/members', icon: '👥', title: 'ทะเบียนสมาชิก', sub: 'ตรวจคุณสมบัติสมาชิก ลงชื่อนมัสการ นำเข้ารายชื่อ', show: can(role, 'detail') },
+    { to: '/members', icon: '👥', title: 'สมาชิก', sub: 'ทะเบียนรายชื่อ ข้อมูลรายคน ตรวจคุณสมบัติ ลงชื่อนมัสการ', show: can(role, 'detail') },
     { to: '/settings', icon: '⚙️', title: 'ตั้งค่า', sub: 'เชื่อมออนไลน์ ผู้ใช้ ประเภทถวาย บัญชีธนาคาร', show: true },
   ]
   return (

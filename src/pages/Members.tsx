@@ -1,12 +1,13 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { dow, fmtDate, newId, todayISO, weekStart, yearOf } from '../lib/money'
-import { bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
+import { readXlsxRows } from '../lib/xlsx'
 import type { Attendance, ChurchMember, MemberOverride } from '../lib/types'
 
 type Tab = 'audit' | 'checkin' | 'roster'
@@ -33,7 +34,10 @@ function MembersPage() {
   const criteria = { minYears: settings.memberMinYears ?? DEFAULT_CRITERIA.minYears, absentMonths: settings.memberAbsentMonths ?? DEFAULT_CRITERIA.absentMonths }
   const today = todayISO()
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [tab, setTab] = useState<Tab>('audit')
+  const [tab, setTab] = useState<Tab>(() => (attendance.length === 0 ? 'roster' : 'audit'))
+  const [detail, setDetail] = useState('')
+  const byId = new Map(result.rows.map((r) => [r.member.id, r]))
+  const shownDetail = detail ? byId.get(detail) : undefined
   const putAttendance = (items: Attendance[]) => {
     for (const s of stores) {
       const y = thisYear - (stores.length - 1 - stores.indexOf(s))
@@ -45,20 +49,21 @@ function MembersPage() {
   const existing = (date: string) => stores.flatMap((s) => s.items).find((x) => x.date === date)
   return (
     <>
-      <div className="page-head no-print"><h1>ทะเบียนสมาชิก</h1></div>
+      <div className="page-head no-print"><h1>สมาชิก</h1></div>
       <div className="seg no-print" role="tablist" aria-label="หมวด">
         {([['audit', 'ตรวจสอบ'], ['checkin', 'ลงชื่อนมัสการ'], ['roster', 'ทะเบียน']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
-      {tab === 'audit' && <Audit result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {tab === 'checkin' && (canEdit ? <Checkin members={people.items} existing={existing} put={putAttendance} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
-      {tab === 'roster' && <Roster members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putAttendance={putAttendance} existing={existing} />}
+      {tab === 'roster' && <Roster rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putAttendance={putAttendance} existing={existing} />}
+      {shownDetail && <Detail r={shownDetail} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
 
-function Audit({ result, criteria, canEdit, canTune, today, put, onCriteria }: { result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
+function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const [group, setGroup] = useState('')
@@ -78,6 +83,7 @@ function Audit({ result, criteria, canEdit, canTune, today, put, onCriteria }: {
   if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ไปที่แท็บ “ทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ CSV</p>
   return (
     <>
+      {!result.hasData && <p className="card small" role="note">ยังไม่มีบันทึกลงชื่อนมัสการ จึงยังตัดสินว่า “ขาดการนมัสการ” ไม่ได้ (ผู้ที่ยังมีชีวิตจะอยู่ใน “ยังไม่ครบเกณฑ์” ไปก่อน) — ไปแท็บ “ลงชื่อนมัสการ” หรือนำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน”</p>}
       <div className="kpi">
         <div><span>รายชื่อทั้งหมด</span><b>{sum.total}</b></div>
         <div><span>สมบูรณ์ (1+2)</span><b>{sum.complete}</b></div>
@@ -117,7 +123,7 @@ function Audit({ result, criteria, canEdit, canTune, today, put, onCriteria }: {
             <li key={r.member.id} style={{ position: 'relative' }}>
               <div className="item">
                 <span className="num muted" style={{ minWidth: '1.6rem', marginRight: '0.3rem' }}>{rank.get(r.member.id)}</span>
-                <span className="grow"><b>{r.member.name}</b>
+                <span className="grow"><button type="button" className="linklike" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
                   <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.group, r.member.status].filter(Boolean).join(' · ')}</span>
                   <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
                   {r.tier === 5 && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''}{r.noRecord ? ' (ไม่มีบันทึกลงชื่อ)' : ''}</span></>}
@@ -183,32 +189,54 @@ function Checkin({ members, existing, put }: { members: ChurchMember[]; existing
   )
 }
 
-function Roster({ members, canEdit, put, remove, putAttendance, existing }: { members: ChurchMember[]; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putAttendance: (x: Attendance[]) => boolean; existing: (d: string) => Attendance | undefined }) {
+const statusKey = (st?: string) => (st ?? '').trim() || '(ไม่ระบุ)'
+
+function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, existing }: { rows: Evaluated[]; onOpen: (id: string) => void; members: ChurchMember[]; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putAttendance: (x: Attendance[]) => boolean; existing: (d: string) => Attendance | undefined }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [q, setQ] = useState('')
+  const [st, setSt] = useState('')
+  const [grp, setGrp] = useState('')
   const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
   const memberFile = useRef<HTMLInputElement>(null)
   const attFile = useRef<HTMLInputElement>(null)
-  const t = q.trim().toLowerCase()
-  const list = [...members].sort((a, b) => a.name.localeCompare(b.name, 'th')).filter((m) => !t || `${m.name} ${m.nick ?? ''} ${m.code ?? ''}`.toLowerCase().includes(t))
-  const readCsv = async (f: File | undefined) => (f ? parseCSV(await f.text()) : null)
+  const statuses = [...new Set(members.map((m) => statusKey(m.status)))].sort()
+  const groups = [...new Set(members.map((m) => m.group).filter(Boolean))].sort() as string[]
+  const count = (f: (m: ChurchMember) => boolean) => members.filter(f).length
+  const t = q.trim().toLowerCase().replace(/\s+/g, '')
+  const list = [...members].sort((a, b) => (Number(a.code) || 1e9) - (Number(b.code) || 1e9) || a.name.localeCompare(b.name, 'th'))
+    .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp))
+    .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
+  const tierOf = new Map(rows.map((r) => [r.member.id, r.tier]))
+  const readCsv = async (f: File | undefined): Promise<string[][] | null> => {
+    if (!f) return null
+    try { return /\.xlsx$/i.test(f.name) ? await readXlsxRows(f) : parseCSV(await f.text()) } catch { setMsg('อ่านไฟล์ไม่ได้ — ใช้ไฟล์ .xlsx หรือ CSV'); return null }
+  }
   const importMembers = async (f: File | undefined) => {
-    const rows = await readCsv(f)
-    if (!rows) return
-    const r = parseMemberRows(rows)
-    if (!r) return setMsg('ไม่พบคอลัมน์ “ชื่อ” ในแถวแรกของไฟล์ (แถวแรกต้องเป็นหัวคอลัมน์ เช่น ชื่อ-สกุล, ชื่อเล่น, รหัส, กลุ่ม, สถานะ, เข้าเป็นสมาชิก)')
-    // ชื่อ/รหัสตรงกับคนเดิม = อัปเดตคนเดิม (นำเข้าซ้ำไม่เกิดรายชื่อซ้ำ)
-    const key = (m: { name: string }) => m.name.replace(/\s+/g, '')
-    const byName = new Map(members.map((m) => [key(m), m])), byCode = new Map(members.filter((m) => m.code).map((m) => [m.code, m]))
-    let added = 0, updated = 0
-    const batch = new Map<string, ChurchMember>()
-    for (const n of r.members) {
-      const old = (n.code && byCode.get(n.code)) || byName.get(key(n))
-      if (old) updated++; else added++
-      const id = old?.id ?? newId('cm')
-      batch.set(id, { ...(batch.get(id) ?? old), ...n, id, updated: 0 })
-    }
-    if (put([...batch.values()])) setMsg(`นำเข้าแล้ว: เพิ่มใหม่ ${added} · อัปเดต ${updated}${r.skipped ? ` · ข้าม ${r.skipped} แถวที่ไม่มีชื่อ` : ''}`)
+    setBusy(true)
+    try {
+      const rows = await readCsv(f)
+      if (!rows) return
+      const r = parseMemberRows(rows)
+      if (!r) return setMsg('ไม่พบคอลัมน์ “ชื่อ” ในแถวแรกของไฟล์ (แถวแรกต้องเป็นหัวคอลัมน์ เช่น รหัส, ชื่อ สกุล, ชื่อเล่น, สถานะ, กลุ่ม, โทร, วันเกิด)')
+      // จับคู่คนเดิม: รหัสตรงกัน (ถ้าซ้ำหลายคน เลือกคนที่ชื่อตรงก่อน) · ไม่มีรหัส: ชื่อตรงกัน · คนเดิมหนึ่งคนใช้ได้ครั้งเดียวต่อไฟล์ (ชื่อ/รหัสซ้ำในไฟล์ = คนละคน นำเข้าซ้ำจึงไม่เพิ่มคนซ้ำ)
+      const key = (m: { name: string }) => m.name.replace(/\s+/g, '')
+      const used = new Set<string>()
+      const pick = (n: { name: string; code?: string }) => {
+        const pool = members.filter((m) => !used.has(m.id) && (n.code ? m.code === n.code : key(m) === key(n)))
+        return pool.find((m) => key(m) === key(n)) ?? pool[0]
+      }
+      let added = 0, updated = 0
+      const batch: ChurchMember[] = []
+      const taken = new Set(members.map((m) => m.id))
+      const freshId = () => { let id = newId('cm'); while (taken.has(id)) id = newId('cm'); taken.add(id); return id } // นำเข้าหลายร้อยคนในมิลลิวินาทีเดียว: กัน id ชนกัน (ชนแล้วคนหาย)
+      for (const n of r.members) {
+        const old = pick(n)
+        if (old) { updated++; used.add(old.id) } else added++
+        batch.push({ ...old, ...n, id: old?.id ?? freshId(), updated: 0 })
+      }
+      if (put(batch)) setMsg(`นำเข้าแล้ว ${batch.length} คน: เพิ่มใหม่ ${added} · อัปเดตคนเดิม ${updated}${r.skipped ? ` · ข้าม ${r.skipped} แถวที่ไม่มีชื่อ` : ''}`)
+    } finally { setBusy(false) }
   }
   const importAttendance = async (f: File | undefined) => {
     const rows = await readCsv(f)
@@ -230,35 +258,83 @@ function Roster({ members, canEdit, put, remove, putAttendance, existing }: { me
       {canEdit && (
         <div className="row no-print">
           <button type="button" className="btn btn--gold" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          <button type="button" className="btn btn--ghost" onClick={() => memberFile.current?.click()}>นำเข้ารายชื่อ CSV</button>
-          <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ CSV</button>
-          <input ref={memberFile} hidden type="file" accept=".csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
-          <input ref={attFile} hidden type="file" accept=".csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} />
+          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ (.xlsx / CSV)'}</button>
+          <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ (.xlsx / CSV)</button>
+          <input ref={memberFile} hidden type="file" aria-label="ไฟล์รายชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
+          <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} />
         </div>
       )}
       {msg && <p className="small" role="status">{msg}</p>}
-      <input className="input" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+      {statuses.length > 1 && (
+        <div className="row no-print" aria-label="กรองตามสถานะ">
+          <button type="button" className={`mini${st === '' ? ' on' : ''}`} onClick={() => setSt('')}>ทั้งหมด · {members.length}</button>
+          {statuses.map((x) => <button key={x} type="button" className={`mini${st === x ? ' on' : ''}`} onClick={() => setSt(st === x ? '' : x)}>{x} · {count((m) => statusKey(m.status) === x)}</button>)}
+        </div>
+      )}
+      <div className="row no-print">
+        <input className="input grow" placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+        {groups.length > 0 && <select className="input" style={{ width: 'auto' }} value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
+      </div>
+      <p className="small muted">แสดง {list.length} จาก {members.length} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
       <section className="card">
-        {list.length === 0 ? <p className="empty">ยังไม่มีสมาชิก{canEdit ? ' — เพิ่มทีละคน หรือนำเข้า CSV (หัวคอลัมน์: ชื่อ-สกุล, ชื่อเล่น, รหัส, โทร, กลุ่ม, สถานะ, เข้าเป็นสมาชิก, หมายเหตุ)' : ''}</p> : (
+        {list.length === 0 ? <p className="empty">{members.length ? 'ไม่พบรายชื่อตามที่กรอง' : `ยังไม่มีสมาชิก${canEdit ? ' — เพิ่มทีละคน หรือนำเข้าไฟล์ .xlsx / CSV (หัวคอลัมน์: รหัส, ชื่อ สกุล, ชื่อเล่น, สถานะ, กลุ่ม, โทร, วันเกิด, หมายเหตุ, ว/ด/ป-เข้าร่วม)' : ''}`}</p> : (
           <ul className="list">
             {list.map((m) => (
               <li key={m.id}>
-                <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && setEdit(m)}>
-                  <span className="grow"><b>{m.name}</b><br /><span className="small muted">{[m.code && `#${m.code}`, m.nick, m.group, m.status, m.since && `เข้า ${fmtDate(m.since)}`].filter(Boolean).join(' · ')}</span></span>
+                <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <span className="num muted" style={{ minWidth: '2.6rem' }}>{m.code ? `#${m.code}` : ''}</span>
+                  <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}</span></span>
+                  {tierOf.get(m.id) !== undefined && <span className={`badge ${TIER_BADGE[tierOf.get(m.id)!]}`}>{TIER_LABEL[tierOf.get(m.id)!]}</span>}
                 </button>
               </li>
             ))}
           </ul>
         )}
       </section>
-      <p className="small muted">{members.length} คน · เบอร์โทรและข้อมูลส่วนตัวเก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>
+      <p className="small muted">ข้อมูลส่วนตัว (เบอร์โทร วันเกิด) เก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>
       {edit && <MemberForm member={edit === 'new' ? null : edit} onClose={() => setEdit(null)} put={put} remove={remove} />}
     </>
   )
 }
 
+/** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
+function Detail({ r, today, canEdit, put, remove, onClose }: { r: Evaluated; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+  const m = r.member
+  const [editing, setEditing] = useState(false)
+  if (editing) return <MemberForm member={m} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
+  const age = ageText(m.birth, today)
+  const rows: [string, ReactNode][] = [
+    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ['สถานะในทะเบียน', m.status], ['กลุ่ม', m.group],
+    ['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>],
+    ['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`],
+    ['วันที่เข้าร่วม', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
+    ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['รูป', m.photo && <span className="small muted">{m.photo}</span>], ['หมายเหตุ', m.note],
+  ]
+  return (
+    <Sheet title={m.name} onClose={onClose}>
+      <dl style={{ margin: 0 }}>
+        {rows.map(([k, v]) => (
+          <div key={k} className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.35rem 0', flexWrap: 'nowrap' }}>
+            <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>{k}</dt>
+            <dd style={{ margin: 0, textAlign: 'right', wordBreak: 'break-word' }}>{v || <span className="muted">—</span>}</dd>
+          </div>
+        ))}
+        <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
+          <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>ผลตรวจ</dt>
+          <dd style={{ margin: 0, textAlign: 'right' }}><span className={`badge ${TIER_BADGE[r.tier]}`}>{TIER_LABEL[r.tier]}</span>{m.override ? <span className="small muted"> (กำหนดเอง)</span> : null}</dd>
+        </div>
+        <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
+          <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>การมานมัสการ</dt>
+          <dd style={{ margin: 0, textAlign: 'right' }}>{r.visits ? `${r.visits} ครั้ง · 12 เดือนล่าสุด ${r.recent} · ครั้งแรก ${fmtDate(r.firstAtt)} · ล่าสุด ${fmtDate(r.last)}` : <span className="muted">ยังไม่มีบันทึกลงชื่อ</span>}</dd>
+        </div>
+      </dl>
+      {canEdit && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
+    </Sheet>
+  )
+}
+
 function MemberForm({ member, onClose, put, remove }: { member: ChurchMember | null; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
-  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? 'สมาชิกสมบูรณ์', since: member?.since ?? '', note: member?.note ?? '' })
+  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? 'สมาชิกสมบูรณ์', since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '' })
   const [err, setErr] = useState('')
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const save = () => {
@@ -266,7 +342,7 @@ function MemberForm({ member, onClose, put, remove }: { member: ChurchMember | n
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
     if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
-  const fields: [keyof typeof f, string, string?][] = [['name', 'ชื่อ-สกุล'], ['nick', 'ชื่อเล่น'], ['code', 'รหัสสมาชิก'], ['tel', 'โทรศัพท์', 'tel'], ['group', 'กลุ่ม'], ['status', 'สถานะ (เช่น สมาชิกสมบูรณ์ · เสียชีวิต · สิ้นสภาพ)'], ['since', 'วันที่เข้าเป็นสมาชิก', 'date'], ['note', 'หมายเหตุ']]
+  const fields: [keyof typeof f, string, string?][] = [['name', 'ชื่อ-สกุล'], ['nick', 'ชื่อเล่น'], ['code', 'รหัสสมาชิก'], ['tel', 'โทรศัพท์', 'tel'], ['group', 'กลุ่ม'], ['status', 'สถานะ (เช่น สมาชิกสมบูรณ์ · เสียชีวิต · สิ้นสภาพ)'], ['since', 'วันที่เข้าเป็นสมาชิก', 'date'], ['birth', 'วันเกิด', 'date'], ['note', 'หมายเหตุ']]
   return (
     <Sheet title={member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก'} onClose={onClose}>
       {fields.map(([k, l, type]) => <div className="field" key={k}><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} className="input" type={type ?? 'text'} value={f[k]} onChange={set(k)} /></div>)}

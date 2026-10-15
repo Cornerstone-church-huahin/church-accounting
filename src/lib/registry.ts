@@ -46,12 +46,14 @@ export const cutoffOf = (today: string, months: number): string => {
   return t.toISOString().slice(0, 10)
 }
 
-export function evaluate(members: ChurchMember[], attendance: Attendance[], criteria: Criteria, today: string): { rows: Evaluated[]; services: string[]; cutoff: string } {
+export function evaluate(members: ChurchMember[], attendance: Attendance[], criteria: Criteria, today: string): { rows: Evaluated[]; services: string[]; cutoff: string; hasData: boolean } {
   const live = attendance.filter((a) => !a.deleted && a.ids.length > 0)
   const services = [...new Set(live.map((a) => a.date))].sort()
   const present = new Map<string, string[]>() // memberId → วันที่มา (เรียง)
   for (const a of [...live].sort((x, y) => (x.date < y.date ? -1 : 1))) for (const id of new Set(a.ids)) (present.get(id) ?? present.set(id, []).get(id)!).push(a.date)
   const cutoff = cutoffOf(today, criteria.absentMonths)
+  // ยังไม่มีบันทึกลงชื่อเลย: ตัดสิน "ขาดนมัสการ" ไม่ได้ (ทุกคนจะดูเหมือนขาด) → ยังไม่ครบเกณฑ์จนกว่าจะมีข้อมูล
+  const hasData = services.length > 0
   const rows = members.map((m): Evaluated => {
     const days = present.get(m.id) ?? []
     const visits = days.length
@@ -63,8 +65,8 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
     const tenureY = m.since ? Math.max(0, diffDays(today, m.since)) / YEAR : 0
     const oldEnough = tenureY >= criteria.minYears
     const sinceCutoff = days.filter((d) => d >= cutoff).length
-    const absent = !dead && oldEnough && sinceCutoff === 0
-    const qualified = !dead && oldEnough && sinceCutoff > 0
+    const absent = hasData && !dead && oldEnough && sinceCutoff === 0
+    const qualified = hasData && !dead && oldEnough && sinceCutoff > 0
     const baseTier: Tier = deceased ? 3 : dead ? 2 : qualified ? 0 : absent ? 5 : 6
     const last = days[visits - 1] ?? ''
     const idleFrom = last || (m.since && services[0] && m.since > services[0] ? m.since : services[0] ?? m.since ?? '')
@@ -81,7 +83,7 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
     if (a.tier === 5) return (a.idleDays ?? 1e9) - (b.idleDays ?? 1e9)
     return b.cont * b.possible - a.cont * a.possible
   })
-  return { rows, services, cutoff }
+  return { rows, services, cutoff, hasData }
 }
 
 export interface Summary { total: number; byTier: Record<Tier, number>; complete: number; bands: number[]; records: number }
@@ -98,7 +100,7 @@ const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
 export function parseDateCell(raw: string): string {
   const s = raw.trim()
   let y: number, m: number, d: number
-  const a = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s)
+  const a = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T].*)?$/.exec(s)
   const b = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s)
   if (a) [y, m, d] = [+a[1], +a[2], +a[3]]
   else if (b) [d, m, y] = [+b[1], +b[2], +b[3]]
@@ -113,7 +115,10 @@ const HEAD: Record<string, string[]> = {
   code: ['รหัส', 'เลขสมาชิก', 'code'],
   tel: ['โทร', 'เบอร์โทร', 'โทรศัพท์', 'tel', 'phone'],
   group: ['กลุ่ม', 'group'],
-  note: ['หมายเหตุ', 'note'],
+  note: ['หมายเหตุ', 'หมายเหต*', 'note'],
+  birth: ['วันเกิด', 'birth'],
+  applied: ['สมัคร', 'applied'],
+  photo: ['image', 'รูป', 'รูปภาพ', 'photo'],
   status: ['สถานะ', 'status'],
   since: ['เข้าเป็นสมาชิก', 'วันเป็นสมาชิก', 'วันที่เป็นสมาชิก', 'since'],
 }
@@ -121,7 +126,8 @@ export interface MemberImport { members: Omit<ChurchMember, 'id' | 'updated'>[];
 /** แถวแรกเป็นหัวคอลัมน์ (ต้องมี "ชื่อ") */
 export function parseMemberRows(rows: string[][]): MemberImport | null {
   const head = rows[0]?.map(norm) ?? []
-  const col = (k: string) => head.findIndex((h) => HEAD[k].some((x) => norm(x) === h))
+  // “ว/ด/ป-เข้าร่วมส…” (หัวคอลัมน์ในทะเบียนเดิมถูกตัด) = วันเข้าเป็นสมาชิก
+  const col = (k: string) => head.findIndex((h) => HEAD[k].some((x) => norm(x) === h) || (k === 'since' && h.startsWith('ว/ด/ป')))
   const idx = Object.fromEntries(Object.keys(HEAD).map((k) => [k, col(k)])) as Record<string, number>
   if (idx.name < 0) return null
   const out: MemberImport['members'] = []
@@ -131,9 +137,13 @@ export function parseMemberRows(rows: string[][]): MemberImport | null {
     if (!name) { if (r.some((c) => c.trim())) skipped++; continue }
     const get = (k: string) => (idx[k] >= 0 ? (r[idx[k]] ?? '').trim() : '')
     const since = get('since') ? parseDateCell(get('since')) : ''
-    const m: Omit<ChurchMember, 'id' | 'updated'> = { name }
-    for (const k of ['nick', 'code', 'tel', 'group', 'note', 'status'] as const) if (get(k)) m[k] = get(k)
+    const birth = get('birth') ? parseDateCell(get('birth')) : ''
+    const m: Omit<ChurchMember, 'id' | 'updated'> = { name: name.replace(/[\u200b\u200c\u200d]/g, '').replace(/\s+/g, ' ') }
+    for (const k of ['nick', 'code', 'tel', 'group', 'note', 'status'] as const) if (get(k)) m[k] = get(k).replace(/[\u200b\u200c\u200d]/g, '')
     if (since) m.since = since
+    if (birth) m.birth = birth
+    if (/^(yes|y|ใช่|true|1)$/i.test(get('applied'))) m.applied = true
+    if (get('photo')) m.photo = get('photo')
     out.push(m)
   }
   return { members: out, skipped }
@@ -167,4 +177,14 @@ export function matchNames(names: string[], members: ChurchMember[]): { ids: str
     else ids.add(hit[0].id)
   }
   return { ids: [...ids], unknown, ambiguous }
+}
+
+/** อายุจากวันเกิด เช่น "45 ปี 6 เดือน" */
+export function ageText(birth: string | undefined, today: string): string {
+  if (!birth || birth > today) return ''
+  const [by, bm, bd] = birth.split('-').map(Number)
+  const [ty, tm, td] = today.split('-').map(Number)
+  let months = (ty - by) * 12 + (tm - bm) - (td < bd ? 1 : 0)
+  if (months < 0) months = 0
+  return `${Math.floor(months / 12)} ปี ${months % 12} เดือน`
 }

@@ -265,6 +265,12 @@ export interface ChurchMember extends SharedItem {
   status?: string
   /** วันที่เข้าเป็นสมาชิก YYYY-MM-DD */
   since?: string
+  /** วันเกิด YYYY-MM-DD (ค.ศ.) */
+  birth?: string
+  /** สมัครสมาชิกแล้ว (คอลัมน์ “สมัคร” ในทะเบียนเดิม) */
+  applied?: boolean
+  /** ชื่อไฟล์รูปในทะเบียนเดิม (ยังไม่ได้อัปโหลดรูปเข้าแอป) */
+  photo?: string
   /** ผู้ดูแลกำหนดผลตรวจเอง (ว่าง = ตามการคำนวณ) */
   override?: MemberOverride
 }

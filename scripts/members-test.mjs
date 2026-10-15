@@ -38,7 +38,7 @@ try {
     for (const [y, rows] of Object.entries(att)) localStorage.setItem(`acct.attendance.${y}.v1`, JSON.stringify(rows))
   })
   await page.goto(`http://localhost:${PORT}/#/members`); await page.waitForLoadState('networkidle')
-  await page.getByRole('heading', { name: 'ทะเบียนสมาชิก' }).waitFor()
+  await page.getByRole('heading', { name: 'สมาชิก' }).waitFor()
   const body = () => page.locator('main, body').first().innerText()
   let t = await body()
   must(/สมบูรณ์ 1\s*\n?\s*2/.test(t) || t.includes('สมาชิกสมบูรณ์ 1'), 'audit summary renders')
@@ -68,9 +68,17 @@ try {
   // ทะเบียน + นำเข้า
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   fs.writeFileSync('/tmp/members-demo.csv', 'ชื่อ-สกุล,ชื่อเล่น,รหัส,กลุ่ม,สถานะ,เข้าเป็นสมาชิก\nนางนำเข้า สมมติ,นำ,101,ผู้ใหญ่,สมาชิกสมบูรณ์,1/1/2560\nนายสมชาย ตัวอย่าง,ชาย,001,ผู้ใหญ่,สมาชิกสมบูรณ์,6/3/2548\n')
-  await page.locator('input[type=file]').first().setInputFiles('/tmp/members-demo.csv')
-  await page.getByRole('status').filter({ hasText: 'เพิ่มใหม่ 1 · อัปเดต 1' }).waitFor({ timeout: 5000 })
+  await page.locator('input[aria-label="ไฟล์รายชื่อ"]').setInputFiles('/tmp/members-demo.csv')
+  await page.getByRole('status').filter({ hasText: 'เพิ่มใหม่ 1 · อัปเดตคนเดิม 1' }).waitFor({ timeout: 5000 })
   must(await page.locator('li', { hasText: 'สมชาย' }).count() === 1, 'reimport does not duplicate')
+  // นำเข้าจำนวนมาก (รวมชื่อซ้ำ) ต้องไม่มีใครหายหรือซ้ำเมื่อนำเข้าอีกรอบ
+  const big = ['ชื่อ-สกุล,รหัส'].concat(Array.from({ length: 600 }, (_, i) => `คนทดสอบ ${i % 599},${i < 300 ? 2000 + i : ''}`)).join('\n')
+  fs.writeFileSync('/tmp/members-big.csv', big)
+  for (let k = 0; k < 2; k++) {
+    await page.locator('input[aria-label="ไฟล์รายชื่อ"]').setInputFiles('/tmp/members-big.csv')
+    await page.getByRole('status').filter({ hasText: k ? 'เพิ่มใหม่ 0 · อัปเดตคนเดิม 600' : 'เพิ่มใหม่ 600' }).waitFor({ timeout: 15000 })
+  }
+  must(await page.locator('section.card li').count() === 606, 'bulk import keeps everyone once: ' + await page.locator('section.card li').count())
   await snap('3-roster')
   must(errors.length === 0, 'no page errors: ' + errors.join(' | '))
   console.log('members-test OK')

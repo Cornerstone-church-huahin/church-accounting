@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -49,7 +49,24 @@ describe('evaluate', () => {
   })
 })
 
+describe('no attendance data', () => {
+  it('does not call everyone absent when nothing has been recorded', () => {
+    const r = evaluate([m('a'), m('b', { status: '7.เสียชีวิต' })], [], DEFAULT_CRITERIA, TODAY)
+    expect(r.hasData).toBe(false)
+    expect(Object.fromEntries(r.rows.map((x) => [x.member.id, x.tier]))).toEqual({ a: 6, b: 3 })
+  })
+})
+
 describe('import', () => {
+  it('reads the church roster layout (truncated date header, สถานะ 1–7, BE datetimes, zero-width chars)', () => {
+    const r = parseMemberRows([['ว/ด/ป-เข้าร่วมส', ' Image', 'สมัคร', 'รหัส', 'ชื่อ สกุล', 'ชื่อเล่น', 'สถานะ', 'กลุ่ม', 'โทร', 'หมายเหต*', 'วันเกิด', 'อายุ'],
+      ['2565-12-11 00:01:01', 'Img/a.jpg', 'Yes', '1320', 'สมใจ\u200b  ตัวอย่าง', 'ใจ', '1.สมบูรณ์  ( 1 )', '7.ไม่มีกลุ่ม', '0900000000', 'พี่สาว', '2550-02-23 00:00:00', '17 ปี']])!
+    expect(r.members[0]).toEqual({ name: 'สมใจ ตัวอย่าง', nick: 'ใจ', code: '1320', tel: '0900000000', group: '7.ไม่มีกลุ่ม', note: 'พี่สาว', status: '1.สมบูรณ์  ( 1 )', since: '2022-12-11', birth: '2007-02-23', applied: true, photo: 'Img/a.jpg' })
+  })
+  it('computes age text', () => {
+    expect(ageText('2007-02-23', '2026-10-15')).toBe('19 ปี 7 เดือน')
+    expect(ageText(undefined, '2026-10-15')).toBe('')
+  })
   it('parses date formats incl. พ.ศ. and rejects invalid', () => {
     expect(parseDateCell('2026-10-04')).toBe('2026-10-04')
     expect(parseDateCell('4/10/2569')).toBe('2026-10-04')
