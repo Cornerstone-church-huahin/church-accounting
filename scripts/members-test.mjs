@@ -77,6 +77,15 @@ try {
   await snap('1c-birth')
   await page.getByLabel('เดือนเกิด').selectOption('3')
   must(await page.locator('section[aria-label^="เกิดเดือน"]').count() === 1 && (await page.locator('section[aria-label^="เกิดเดือน"] li').count()) === 2, 'month filter')
+  // เพศ: นับ ชาย/หญิง/ไม่ระบุ + ระบุทีละคน
+  await page.getByRole('tab', { name: 'เพศ', exact: true }).click()
+  const kpi = async () => (await page.locator('.kpi').innerText()).replace(/\s+/g, ' ')
+  must(/ชาย 0 หญิง 0 ยังไม่ระบุเพศ 6 รวมทั้งหมด 6/.test(await kpi()), 'gender counts start unspecified: ' + await kpi())
+  await page.getByRole('button', { name: 'ระบุว่า นายสมชาย ตัวอย่าง เป็นชาย' }).click()
+  await page.getByRole('button', { name: 'ระบุว่า นางสมหญิง ทดสอบ เป็นหญิง' }).click()
+  must(/ชาย 1 หญิง 1 ยังไม่ระบุเพศ 4 รวมทั้งหมด 6/.test(await kpi()), 'gender counts update: ' + await kpi())
+  must(/ผู้ใหญ่/.test(await page.getByRole('region', { name: 'แยกตามกลุ่ม' }).innerText().catch(async () => await page.locator('section[aria-label="แยกตามกลุ่ม"]').innerText())), 'by-group table')
+  await snap('1d-gender')
   await page.getByRole('tab', { name: 'ตรวจสอบ', exact: true }).click()
   // ยอดผู้มา
   await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
@@ -138,7 +147,8 @@ try {
   // ทะเบียน + นำเข้า
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   await page.getByLabel('กรองตามเพศ').selectOption('หญิง')
-  must(await page.locator('section.card li').count() === 1 && (await page.locator('section.card li').innerText()).includes('คนใหม่ ทดสอบ'), 'gender filter lists the woman added at check-in')
+  const women = await page.locator('section.card li').allInnerTexts()
+  must(women.length === 2 && women.some((t) => t.includes('คนใหม่ ทดสอบ')) && women.some((t) => t.includes('สมหญิง')), 'gender filter lists the two women: ' + women.length)
   await page.getByLabel('กรองตามเพศ').selectOption('')
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   fs.writeFileSync('/tmp/members-demo.csv', 'ชื่อ-สกุล,ชื่อเล่น,รหัส,กลุ่ม,สถานะ,เข้าเป็นสมาชิก\nนางนำเข้า สมมติ,นำ,101,ผู้ใหญ่,สมาชิกสมบูรณ์,1/1/2560\nนายสมชาย ตัวอย่าง,ชาย,001,ผู้ใหญ่,สมาชิกสมบูรณ์,6/3/2548\n')

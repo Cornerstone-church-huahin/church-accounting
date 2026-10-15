@@ -14,9 +14,10 @@ import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import CheckinPanel from '../components/CheckinPanel'
 import BirthdayList from '../components/BirthdayList'
+import GenderView from '../components/GenderView'
 import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 export default function Members() {
@@ -56,12 +57,13 @@ function MembersPage() {
   return (
     <>
       <div className="page-head no-print"><h1>สมาชิก</h1></div>
-      <div className="seg seg--5 no-print" role="tablist" aria-label="หมวด">
-        {([['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด']] as const).map(([k, l]) => (
+      <div className="seg seg--6 no-print" role="tablist" aria-label="หมวด">
+        {([['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       {tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canEdit ? <CheckinPanel members={people.items} checkins={checkins} recorders={recorders.items} canManage={can(role, 'settings')} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} putRecorders={recorders.put} removeRecorder={recorders.remove} onOpen={setDetail} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
