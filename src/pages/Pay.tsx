@@ -23,6 +23,7 @@ import { downloadPdf } from '../lib/pdf'
 import PersonField from '../components/PersonField'
 import ImageViewer from '../components/ImageViewer'
 import { cacheImage } from '../lib/imageCache'
+import { borrowedWarnings, loanExpenseRows, loanFlows, type FundScope } from '../lib/fundScope'
 import { useBalances } from '../lib/useBalances'
 import { circulatingOnly } from '../lib/balances'
 import { downloadBlankSheet } from '../lib/blankSheet'
@@ -44,7 +45,7 @@ const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidD
 const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b) ? 1 : effDate(a) > effDate(b) ? -1 : b.updated - a.updated)
 
 /** โหมด "จ่าย": 1 บันทึกด้วยมือ · 2 วางบิล · 3 สำรองจ่าย · 4 รวมจ่าย (หักลบกับรายรับในแท็บสรุป) */
-export default function Pay({ year, fund }: { year: number; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: { id: string; name: string; balance: number } }) {
+export default function Pay({ year, fund }: { year: number; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
   const role = useRole()
   const exp = useExpenses(year)
   const passbook = usePassbook(year)
@@ -83,10 +84,12 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
   const weekL = useMemo(() => computeLedger(ledgerArgs(rangeOf('week', year, { sunday }))), [year, sunday, fid, ...dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // สรุปสุทธิ (รับ − จ่าย เงินหมุนเวียน) ของเดือนและปีที่สัปดาห์นี้อยู่
   const monthNo = Number(sunday.slice(5, 7))
-  const netOf = (L: typeof weekL) => L.inSum.cash + L.inSum.transfer - L.outSum.cash - L.outSum.transfer - L.outSum.pending
+  const weekRange = rangeOf('week', year, { sunday })
+  // เงินยืม/คืนของกองทุนนี้ (ถ้ามี) นับเป็นเงินเข้า/ออกของช่วงนั้นด้วย — ให้ตรงกับแถวในใบและยอดคงเหลือกองทุน
+  const netOf = (L: typeof weekL, r: { from: string; to: string }) => { const lf = loanFlows(fund, r.from, r.to); return L.inSum.cash + L.inSum.transfer - L.outSum.cash - L.outSum.transfer - L.outSum.pending + lf.inn - lf.out }
   const ledgerOf = (range: { from: string; to: string }) => computeLedger(ledgerArgs(range))
-  const netMonth = useMemo(() => netOf(ledgerOf(rangeOf('month', year, { month: monthNo }))), [year, monthNo, fid, ...dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  const netYear = useMemo(() => netOf(ledgerOf(rangeOf('year', year))), [year, fid, ...dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const netMonth = useMemo(() => netOf(ledgerOf(rangeOf('month', year, { month: monthNo })), rangeOf('month', year, { month: monthNo })), [year, monthNo, fid, ...dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const netYear = useMemo(() => netOf(ledgerOf(rangeOf('year', year)), rangeOf('year', year)), [year, fid, ...dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const asOf = sunday <= todayISO() ? sunday : todayISO()
   const { balances: bal } = useBalances(year, asOf)
   const loansAll = useLoans()
@@ -101,7 +104,8 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
   const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
   const weekAll = all.filter(inWeek)
   const pendingBills = weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount }))
-  const weekSummary = { inn: weekL.inSum, funds: fundOut, pending: pendingBills, out: weekL.outSum, balance: fund ? fund.balance : circulatingOnly(bal, loansAll.items), asOf, net: { week: netOf(weekL), month: netMonth, year: netYear }, ...(fund ? { scopeName: fund.name } : {}) }
+  const weekLoan = loanFlows(fund, weekRange.from, weekRange.to)
+  const weekSummary = { inn: { ...weekL.inSum, cash: weekL.inSum.cash + weekLoan.inn }, funds: fundOut, pending: pendingBills, out: { ...weekL.outSum, cash: weekL.outSum.cash + weekLoan.out }, balance: fund ? fund.balance : circulatingOnly(bal, loansAll.items), asOf, net: { week: netOf(weekL, weekRange), month: netMonth, year: netYear }, ...(fund ? { scopeName: fund.name } : {}) }
   /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
   const expOps = can(role, 'settings') ? {
     add: (name: string) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
@@ -200,7 +204,7 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE]} sunday={sunday} summary={weekSummary} onFileClick={(x) => x.file && setViewer({ path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('fx:')) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} warn={borrowedWarnings(fund)} sunday={sunday} summary={weekSummary} onFileClick={(x) => x.file && setViewer({ path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />

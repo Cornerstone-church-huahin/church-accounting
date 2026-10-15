@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fmtBaht, fmtDate } from '../lib/money'
 import { useYear } from '../lib/year'
+import DebtBanner from '../components/DebtBanner'
+import { isLoanMove, type FundScope } from '../lib/fundScope'
+import { lenderLabel, loanBalance } from '../lib/loans'
 import { useFundAccounts } from './FundAccounts'
 import Pay from './Pay'
 import Receive from './Receive'
@@ -13,11 +16,16 @@ import Receive from './Receive'
 export default function FundDetailPage() {
   const { id } = useParams()
   const { year } = useYear()
-  const { rows, opening } = useFundAccounts()
+  const { rows, opening, loans, types } = useFundAccounts()
   const [tab, setTab] = useState<'in' | 'out'>('in')
   const f = rows.find((r) => r.id === id)
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
-  const fund = { id: f.id, name: f.name, balance: f.balance }
+  const nm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.list.find((t) => t.id === id)?.name ?? 'กองทุนอื่น')
+  const fund: FundScope = {
+    id: f.id, name: f.name, balance: f.balance,
+    loanMoves: f.moves.filter(isLoanMove),
+    borrowed: loans.filter((l) => !l.deleted && l.borrower === f.id && loanBalance(l) > 0).map((l) => ({ from: lenderLabel(l, nm), amount: loanBalance(l) })),
+  }
   return (
     <>
       <div className="page-head no-print"><h1>💰 {f.name}</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div>
@@ -26,6 +34,7 @@ export default function FundDetailPage() {
         <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
         <p className="muted small" style={{ margin: 0 }}>ตั้งต้น {fmtBaht(f.opening)}{opening ? ` (${fmtDate(opening.date)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b>{fmtBaht(f.balance)}</b></p>
       </section>
+      <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
       <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: รับ จ่าย" style={{ margin: '6px 0' }}>
         <button type="button" role="tab" aria-selected={tab === 'in'} className={`home-tab home-tab--in${tab === 'in' ? ' on' : ''}`} onClick={() => setTab('in')}><i className="hn">1</i><span>💚 รับ</span></button>
         <button type="button" role="tab" aria-selected={tab === 'out'} className={`home-tab home-tab--out${tab === 'out' ? ' on' : ''}`} onClick={() => setTab('out')}><i className="hn">2</i><span>🔴 จ่าย</span></button>

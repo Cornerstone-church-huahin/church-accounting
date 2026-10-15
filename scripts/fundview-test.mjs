@@ -120,6 +120,9 @@ try {
   must((await page.getByRole('tab', { name: /💚 รับ/ }).count()) === 1 && (await page.getByRole('tab', { name: /🔴 จ่าย/ }).count()) === 1, 'fund page has the two tabs รับ/จ่าย')
   must(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).isVisible(), 'income tab shows the same A4 income sheet')
   must((await page.getByRole('tab', { name: /บันทึกสลิป|ใบบันทึกการถวาย/ }).count()) === 0, 'no extra functions besides รับ/จ่าย (slip/sheet tabs hidden)')
+  // เงินยืมระหว่างกองทุน: กองทุนที่ยืมมา → แถว "ยืมจาก …" ในใบรับ + ตัวหนังสือสีแดงที่หัวใบ
+  const incSheet0 = (await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')
+  must(/กองทุนศึกษา · ยืมจาก กองทุน/.test(incSheet0) && /⚠️ ยืมเงิน .* มา .* ต้องคืน/.test(incSheet0), 'borrower fund income sheet lists the loan received and a red warning at the head: ' + incSheet0.slice(0, 400))
   // รับ: ใส่เงินเข้ากองทุนนี้ (ประเภทคือกองทุนนี้เท่านั้น)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   must((await page.locator('#mi-type option').allInnerTexts()).join('|') === 'กองทุนศึกษา', 'income form offers only this fund')
@@ -129,7 +132,7 @@ try {
   await page.waitForFunction(() => document.querySelector('table[aria-label*="ใบบันทึกการถวาย"]')?.textContent?.includes('1,000'))
   must(/กองทุนศึกษา · ยกยอดมา/.test(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).innerText()), 'typed description shows on the fund income sheet')
   // แตะแถวในใบ → ป๊อปอัพ: พิมพ์รายการเองได้ ไม่ขึ้นข้อความ "สิทธิ์ไม่พอ" และบันทึกเป็นหมายเหตุของแถว
-  await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).locator('tbody tr').first().click()
+  await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).locator('tbody tr', { hasText: 'ยกยอดมา' }).first().click()
   await page.locator('#ire-label').fill('ยกยอดมาจากปีก่อน')
   await page.getByRole('button', { name: 'บันทึกการแก้ไข' }).click()
   await page.waitForFunction(() => document.querySelector('table[aria-label*="ใบบันทึกการถวาย"]')?.textContent?.includes('ยกยอดมาจากปีก่อน'))
@@ -138,13 +141,18 @@ try {
   // จ่าย: ใบเบิก-จ่าย A4 ชุดเดียวกัน + กรอบสรุปของกองทุน + แนบบิลได้
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   const vt0 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
-  must(/เงินรับ กองทุนศึกษา 1,000/.test(vt0) && /เงินกองทุนคงเหลือปัจจุบัน/.test(vt0), 'fund expense sheet summary boxes show this fund only: ' + vt0)
+  must(/เงินรับ กองทุนศึกษา 101,500/.test(vt0) && /เงินกองทุนคงเหลือปัจจุบัน/.test(vt0), 'fund expense sheet summary boxes show this fund only: ' + vt0)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   must((await page.getByLabel('แนบไฟล์สลิปหรือบิล').count()) === 1, 'can attach a bill/slip like the circulating pay tab')
   await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('300')
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
   await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().getByText('300').first().waitFor()
   must(Math.abs((await balNow()) - (base + 700)) < 0.01, 'top total drops by the expense: ' + await topBal.innerText())
+  // กองทุนที่ให้ยืม: แถว "ให้ … ยืม" ในใบเบิก-จ่าย (ยอดคงเหลือหักไปแล้ว)
+  await page.goto(`http://localhost:${PORT}/#/funds/tt4`)
+  await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
+  const lendSheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().innerText()).replace(/\s+/g, ' ')
+  must(/ให้ กองทุนศึกษา ยืม/.test(lendSheet), 'lender fund expense sheet lists the loan given: ' + lendSheet.slice(0, 300))
   // บัญชีหมุนเวียนไม่เห็นรายการของกองทุน
   await page.goto(`http://localhost:${PORT}/#/`)
   await page.locator('.stepbtn', { hasText: 'ใบเบิก-จ่ายเงินสด' }).click()

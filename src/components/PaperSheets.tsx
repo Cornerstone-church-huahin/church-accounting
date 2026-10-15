@@ -26,13 +26,14 @@ export function ChurchMark({ size = 30 }: { size?: number }) {
     </svg>
   )
 }
-function PaperHead({ church, title, sub, compact }: { church: string; title: string; sub: string; compact?: boolean }) {
+function PaperHead({ church, title, sub, compact, warn }: { church: string; title: string; sub: string; compact?: boolean; /** ข้อความเตือนสีแดงใต้หัวใบ (เช่น ยืมเงินกองทุนอื่นมา) */ warn?: string[] }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: compact ? 2 : 6 }}>
       <ChurchMark size={compact ? 22 : 30} />
       <div style={{ fontSize: compact ? 20 : 28, fontWeight: 700, color: '#1a2b4c', lineHeight: 1.1 }}>{church}</div>
       <div style={{ fontSize: compact ? 15 : 20, fontWeight: 700, textDecoration: 'underline', color: '#111', margin: '1px 0' }}>{title}</div>
       <div style={{ fontSize: compact ? 11 : 13, textAlign: 'center' }}>{sub}</div>
+      {warn?.map((w) => <div key={w} role="alert" style={{ color: '#c0392b', fontWeight: 700, fontSize: compact ? 12 : 14, textAlign: 'center', marginTop: 2 }}>{w}</div>)}
     </div>
   )
 }
@@ -48,7 +49,7 @@ function DownloadRow({ onData, kind, church, sunday }: { onData: () => void; kin
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope }: { church: string; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, warn }: { church: string; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; /** ข้อความเตือนสีแดงที่หัวใบ */ warn?: string[]; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -62,7 +63,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
       {pages.map((rows, pi) => (
         <ScaledPage key={pi} landscape className="a4page a4page--sheet" ref={(el) => { refs.current[pi] = el }}>
           <>
-            <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact />
+            <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact warn={warn} />
             <table className="sheetpaper sheetpaper--land" aria-label="ใบบันทึกการถวาย (A4 แนวนอน)">
               <colgroup><col style={{ width: '9%' }} /><col style={{ width: '5%' }} /><col style={{ width: '29%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '15%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
@@ -98,7 +99,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, warn }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; /** ข้อความเตือนสีแดงที่หัวใบ */ warn?: string[] }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -110,7 +111,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
       {pages.map((rows, pi) => (
         <ScaledPage key={pi} ref={(el) => { refs.current[pi] = el }}>
           <>
-            <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
+            <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} warn={warn} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
               <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '27%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '15%' }} /><col style={{ width: '18%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ / รูป</th><th>ผู้วางบิล</th><th>ผู้รับเงิน</th></tr></thead>
