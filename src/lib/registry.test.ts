@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkInId, OFFICIAL_STATUSES, similarNames, statusLabel, statusOptions, toAttendance, regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { parseGender, checkInId, OFFICIAL_STATUSES, similarNames, statusLabel, statusOptions, toAttendance, regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -173,5 +173,13 @@ describe('status options', () => {
     expect(OFFICIAL_STATUSES.every((x) => o.includes(x))).toBe(true)
     expect(o.filter((x) => x.startsWith('1.')).length).toBe(1)
     expect(o).toContain('สถานะพิเศษ')
+  })
+})
+
+describe('gender', () => {
+  it('reads ชาย/หญิง (and male/female) from the เพศ column, never guesses', () => {
+    expect([parseGender('ชาย'), parseGender(' หญิง '), parseGender('Male'), parseGender('F'), parseGender('อื่น'), parseGender('')]).toEqual(['ชาย', 'หญิง', 'ชาย', 'หญิง', undefined, undefined])
+    const r = parseMemberRows([['ชื่อ สกุล', 'เพศ'], ['ก ข', 'ชาย'], ['ค ง', 'หญิง'], ['จ ฉ', '']])!
+    expect(r.members.map((x) => x.gender)).toEqual(['ชาย', 'หญิง', undefined])
   })
 })

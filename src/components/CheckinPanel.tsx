@@ -105,7 +105,7 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
                   <MemberAvatar path={m.photoPath} name={m.name} size={46} />
                   <button type="button" className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
-                    <br /><span className="small muted">{[statusLabel(m.status), m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
+                    <br /><span className="small muted">{[statusLabel(m.status), m.gender, m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
                   </button>
                   {c
                     ? <span className="small" style={{ textAlign: 'right' }}><span style={{ color: 'var(--good)', fontWeight: 700 }}>✓ ลงแล้ว</span><br />{c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}<br /><button type="button" className="mini" onClick={() => cancel(c)}>ยกเลิก</button></span>
@@ -154,7 +154,7 @@ function NewPerson({ members, date, onClose, onSave }: {
   /** mem = สมาชิกใหม่ที่ต้องเพิ่ม (ว่างถ้าเลือกคนเดิม) · fixName = แก้ชื่อคนเดิมเป็นตัวสะกดที่เพิ่งพิมพ์ */
   onSave: (mem: ChurchMember | null, fixName?: { id: string; name: string }) => Promise<void>
 }) {
-  const [f, setF] = useState({ name: '', nick: '', tel: '', birth: '', since: date, note: '' })
+  const [f, setF] = useState({ name: '', nick: '', gender: '', tel: '', birth: '', since: date, note: '' })
   const [photo, setPhoto] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -171,7 +171,7 @@ function NewPerson({ members, date, onClose, onSave }: {
     const id = uniqueId(new Set(members.map((m) => m.id)))
     let photoPath: string | undefined
     try { if (photo) photoPath = await uploadMemberPhoto(id, photo) } catch (e) { setBusy(false); return setErr(`${e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ'} — แก้ปัญหาแล้วลองใหม่ หรือกดบันทึกโดยไม่ใส่รูป (เพิ่มรูปภายหลังได้)`) }
-    const mem: ChurchMember = { id, name, status: NEW_PERSON_STATUS, since: f.since || date, updated: 0, ...(f.nick.trim() ? { nick: f.nick.trim() } : {}), ...(f.tel.trim() ? { tel: f.tel.trim() } : {}), ...(f.birth ? { birth: f.birth } : {}), ...(f.note.trim() ? { note: f.note.trim() } : {}), ...(photoPath ? { photoPath } : {}) }
+    const mem: ChurchMember = { id, name, status: NEW_PERSON_STATUS, since: f.since || date, updated: 0, ...(f.nick.trim() ? { nick: f.nick.trim() } : {}), ...(f.gender === 'ชาย' || f.gender === 'หญิง' ? { gender: f.gender } : {}), ...(f.tel.trim() ? { tel: f.tel.trim() } : {}), ...(f.birth ? { birth: f.birth } : {}), ...(f.note.trim() ? { note: f.note.trim() } : {}), ...(photoPath ? { photoPath } : {}) }
     await onSave(mem)
     setBusy(false)
   }
@@ -201,6 +201,7 @@ function NewPerson({ members, date, onClose, onSave }: {
         </div>
       )}
       <div className="field"><label htmlFor="np-nick">ชื่อเล่น</label><input id="np-nick" className="input" value={f.nick} onChange={set('nick')} /></div>
+      <div className="field"><label htmlFor="np-gender">เพศ</label><select id="np-gender" className="input" value={f.gender} onChange={set('gender')}><option value="">— ไม่ระบุ —</option><option>ชาย</option><option>หญิง</option></select></div>
       <div className="field"><label htmlFor="np-tel">โทรศัพท์</label><input id="np-tel" className="input" type="tel" value={f.tel} onChange={set('tel')} /></div>
       <div className="field"><label htmlFor="np-since">วันที่เริ่มมา (ครั้งแรกที่เข้าร่วม · แก้ภายหลังได้)</label><input id="np-since" className="input" type="date" value={f.since} onChange={set('since')} /></div>
       <div className="field"><label htmlFor="np-birth">วันเกิด (ระบบคำนวณอายุให้ทุกวัน){f.birth ? ` · ตอนนี้อายุ ${ageText(f.birth, todayISO())}` : ''}</label><input id="np-birth" className="input" type="date" value={f.birth} onChange={set('birth')} /></div>

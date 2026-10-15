@@ -152,7 +152,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
               <div className="item">
                 <MemberAvatar path={r.member.photoPath} name={r.member.name} size={44} />
                 <span className="grow"><button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
-                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</span>
+                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</span>
                   <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
                   {r.suggest === 'to2' && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</span></>}
                   {r.suggest === 'to1' && <><br /><span className="small" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว (ล่าสุด {fmtDate(r.last)}) → ควรกลับเป็น สมบูรณ์ 1</span></>}
@@ -185,6 +185,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
   const [grp, setGrp] = useState('')
+  const [gen, setGen] = useState('')
   const [sort, setSort] = useState<'code' | 'name' | 'visits' | 'last'>('code')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
@@ -203,7 +204,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
     last: (a, b) => ((info.get(b.id)?.last ?? '') > (info.get(a.id)?.last ?? '') ? 1 : -1),
   }
   const list = [...members].sort((a, b) => order[sort](a, b) || a.name.localeCompare(b.name, 'th'))
-    .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp))
+    .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp) && (!gen || (gen === 'none' ? !m.gender : m.gender === gen)))
     .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
   const readCsv = async (f: File | undefined): Promise<string[][] | null> => {
     if (!f) return null
@@ -331,6 +332,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
       )}
       <div className="row no-print">
         <input className="input grow" placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+        <select className="input" style={{ width: 'auto' }} value={gen} onChange={(e) => setGen(e.target.value)} aria-label="กรองตามเพศ"><option value="">ทุกเพศ</option><option value="ชาย">ชาย ({count((m) => m.gender === 'ชาย')})</option><option value="หญิง">หญิง ({count((m) => m.gender === 'หญิง')})</option><option value="none">ไม่ระบุเพศ ({count((m) => !m.gender)})</option></select>
         <select className="input" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
         {groups.length > 0 && <select className="input" style={{ width: 'auto' }} value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
       </div>
@@ -342,7 +344,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
               <li key={m.id}>
                 <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                   <MemberAvatar path={m.photoPath} name={m.name} size={48} />
-                  <span className="grow"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[statusLabel(m.status), m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
+                  <span className="grow"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[statusLabel(m.status), m.gender, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
                   {info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับสถานะ</span>}
                 </button>
               </li>
@@ -374,6 +376,7 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
   const rows: [string, ReactNode][] = [
     ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ['สถานะในทะเบียน', m.status], ['กลุ่ม', m.group],
     ['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>],
+    ['เพศ', m.gender],
     ['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`],
     ['วันที่เริ่มมา', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
@@ -404,18 +407,21 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
 }
 
 function MemberForm({ member, statuses, onClose, put, remove }: { member: ChurchMember | null; statuses: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
-  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '' })
+  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const save = () => {
     if (!f.name.trim()) return setErr('ใส่ชื่อ-สกุล')
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
-    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
+    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
   const fields: [keyof typeof f, string, string?][] = [['name', 'ชื่อ-สกุล'], ['nick', 'ชื่อเล่น'], ['code', 'รหัสสมาชิก'], ['tel', 'โทรศัพท์', 'tel'], ['group', 'กลุ่ม'], ['since', 'วันที่เริ่มมา (ครั้งแรกที่เข้าร่วม · แก้ได้ถ้าคลาดเคลื่อน)', 'date'], ['birth', `วันเกิด (ระบบคำนวณอายุให้ทุกวัน)${f.birth ? ` · ตอนนี้อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date'], ['note', 'หมายเหตุ']]
   return (
     <Sheet title={member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก'} onClose={onClose}>
       {fields.slice(0, 5).map(([k, l, type]) => <div className="field" key={k}><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} className="input" type={type ?? 'text'} value={f[k]} onChange={set(k)} /></div>)}
+      <div className="field"><label htmlFor="m-gender">เพศ</label>
+        <select id="m-gender" className="input" value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="">— ไม่ระบุ —</option><option>ชาย</option><option>หญิง</option></select>
+      </div>
       <div className="field"><label htmlFor="m-status">สถานะ</label>
         <select id="m-status" className="input" value={statusLabel(f.status)} onChange={(e) => setF({ ...f, status: e.target.value })}>
           {[...new Set([...statuses, statusLabel(f.status)])].sort((a, b) => a.localeCompare(b, 'th')).map((st) => <option key={st}>{st}</option>)}

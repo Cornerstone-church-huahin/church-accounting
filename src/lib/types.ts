@@ -253,6 +253,7 @@ export interface Loan extends SharedItem {
 }
 
 /** ทะเบียนสมาชิกคริสตจักร (ไม่ใช่ผู้ใช้แอป) · ไฟล์เดียว ข้ามปี */
+export type Gender = 'ชาย' | 'หญิง'
 export type MemberOverride = 'incomplete' | 'resigned' | 'deceased' | 'removed'
 export interface ChurchMember extends SharedItem {
   name: string
@@ -267,6 +268,8 @@ export interface ChurchMember extends SharedItem {
   since?: string
   /** วันเกิด YYYY-MM-DD (ค.ศ.) */
   birth?: string
+  /** เพศ: ชาย / หญิง (ว่าง = ไม่ระบุ) */
+  gender?: Gender
   /** สมัครสมาชิกแล้ว (คอลัมน์ “สมัคร” ในทะเบียนเดิม) */
   applied?: boolean
   /** ชื่อไฟล์รูปในทะเบียนเดิม (ยังไม่ได้อัปโหลดรูปเข้าแอป) */

@@ -102,6 +102,7 @@ try {
   must(await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).count() === 1, 'near-miss offers to confirm the owner and fix the spelling')
   await page.getByLabel('ชื่อ-นามสกุล (สำคัญที่สุด)').fill('คนใหม่ ทดสอบ')
   await page.getByLabel('รูปคนใหม่').setInputFiles({ name: 'new.png', mimeType: 'image/png', buffer: png })
+  await page.getByLabel('เพศ', { exact: true }).selectOption('หญิง')
   await page.getByLabel('วันเกิด', { exact: false }).fill('2000-02-29')
   must(/ตอนนี้อายุ \d+ ปี/.test(await page.locator('[role=dialog]').innerText()), 'age is computed from the birth date')
   await page.getByRole('button', { name: /คนใหม่และลงชื่อ/ }).click()
@@ -117,6 +118,10 @@ try {
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).getByText('✓ ลงแล้ว').waitFor({ timeout: 5000 }) // ยืนยันเป็นคนเดิม: ชื่อถูกแก้และลงชื่อให้
   await snap('2-checkin')
   // ทะเบียน + นำเข้า
+  await page.getByRole('tab', { name: 'ทะเบียน' }).click()
+  await page.getByLabel('กรองตามเพศ').selectOption('หญิง')
+  must(await page.locator('section.card li').count() === 1 && (await page.locator('section.card li').innerText()).includes('คนใหม่ ทดสอบ'), 'gender filter lists the woman added at check-in')
+  await page.getByLabel('กรองตามเพศ').selectOption('')
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   fs.writeFileSync('/tmp/members-demo.csv', 'ชื่อ-สกุล,ชื่อเล่น,รหัส,กลุ่ม,สถานะ,เข้าเป็นสมาชิก\nนางนำเข้า สมมติ,นำ,101,ผู้ใหญ่,สมาชิกสมบูรณ์,1/1/2560\nนายสมชาย ตัวอย่าง,ชาย,001,ผู้ใหญ่,สมาชิกสมบูรณ์,6/3/2548\n')
   await page.locator('input[aria-label="ไฟล์รายชื่อ"]').setInputFiles('/tmp/members-demo.csv')

@@ -1,5 +1,5 @@
 import { diffDays, isISO, newId } from './money'
-import type { Attendance, CheckIn, ChurchMember, MemberOverride } from './types'
+import type { Attendance, CheckIn, ChurchMember, Gender, MemberOverride } from './types'
 
 /**
  * ตรวจคุณสมบัติสมาชิก (ย้ายมาจากหน้า "ตรวจสอบคุณสมบัติสมาชิกและการเข้าร่วมนมัสการ")
@@ -128,12 +128,15 @@ const HEAD: Record<string, string[]> = {
   group: ['กลุ่ม', 'group'],
   note: ['หมายเหตุ', 'หมายเหต*', 'note'],
   birth: ['วันเกิด', 'birth'],
+  gender: ['เพศ', 'gender', 'sex'],
   applied: ['สมัคร', 'applied'],
   rec: ['ผู้บันทึก', 'recorder'],
   photo: ['image', 'รูป', 'รูปภาพ', 'photo'],
   status: ['สถานะ', 'status'],
   since: ['เข้าเป็นสมาชิก', 'วันเป็นสมาชิก', 'วันที่เป็นสมาชิก', 'since'],
 }
+/** อ่านเพศจากไฟล์: ชาย/หญิง (รับ male/female/M/F ด้วย) · อย่างอื่นไม่เดา = ไม่ระบุ */
+export const parseGender = (v: string): Gender | undefined => { const x = v.trim().toLowerCase(); return /^(ชาย|male|m)$/.test(x) ? 'ชาย' : /^(หญิง|female|f)$/.test(x) ? 'หญิง' : undefined }
 export interface MemberImport { members: Omit<ChurchMember, 'id' | 'updated'>[]; skipped: number }
 /** แถวแรกเป็นหัวคอลัมน์ (ต้องมี "ชื่อ") */
 export function parseMemberRows(rows: string[][]): MemberImport | null {
@@ -154,6 +157,8 @@ export function parseMemberRows(rows: string[][]): MemberImport | null {
     for (const k of ['nick', 'code', 'tel', 'group', 'note', 'status'] as const) if (get(k)) m[k] = get(k).replace(/[\u200b\u200c\u200d]/g, '')
     if (since) m.since = since
     if (birth) m.birth = birth
+    const g = parseGender(get('gender'))
+    if (g) m.gender = g
     if (/^(yes|y|ใช่|true|1)$/i.test(get('applied'))) m.applied = true
     if (get('photo')) m.photo = get('photo')
     out.push(m)
