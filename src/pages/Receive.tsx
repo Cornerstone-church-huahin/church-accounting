@@ -146,10 +146,10 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
       <div className="no-print">
         <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} scope={fund?.name} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
-        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}`, amount: x.amount }))}
+        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />
       </div>
-      {rowEdit && <IncomeRowEditor onManage={incomeOps} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
+      {rowEdit && <IncomeRowEditor onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!inc.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
@@ -163,7 +163,7 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
-          <ManualIncome types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+          <ManualIncome withNote={!!fid} types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onManage={incomeOps}
             onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => (fid ? setRowEdit({ entry: x }) : setForm({ entry: x, preset: 'manual' }))} onDelete={delEntry} />
           {canWrite && !fid && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}

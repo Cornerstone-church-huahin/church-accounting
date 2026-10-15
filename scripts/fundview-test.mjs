@@ -123,9 +123,17 @@ try {
   // รับ: ใส่เงินเข้ากองทุนนี้ (ประเภทคือกองทุนนี้เท่านั้น)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   must((await page.locator('#mi-type option').allInnerTexts()).join('|') === 'กองทุนศึกษา', 'income form offers only this fund')
+  await page.locator('#mi-note').fill('ยกยอดมา')
   await page.locator('.entryrow .field', { hasText: 'เงินสด (บาท)' }).locator('input').fill('1000')
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
   await page.waitForFunction(() => document.querySelector('table[aria-label*="ใบบันทึกการถวาย"]')?.textContent?.includes('1,000'))
+  must(/กองทุนศึกษา · ยกยอดมา/.test(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).innerText()), 'typed description shows on the fund income sheet')
+  // แตะแถวในใบ → ป๊อปอัพ: พิมพ์รายการเองได้ ไม่ขึ้นข้อความ "สิทธิ์ไม่พอ" และบันทึกเป็นหมายเหตุของแถว
+  await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).locator('tbody tr').first().click()
+  await page.locator('#ire-label').fill('ยกยอดมาจากปีก่อน')
+  await page.getByRole('button', { name: 'บันทึกการแก้ไข' }).click()
+  await page.waitForFunction(() => document.querySelector('table[aria-label*="ใบบันทึกการถวาย"]')?.textContent?.includes('ยกยอดมาจากปีก่อน'))
+  must(await page.getByRole('alert').filter({ hasText: 'สิทธิ์' }).count() === 0, 'no permission error when typing a description on the fund page')
   must(Math.abs((await balNow()) - (base + 1000)) < 0.01, 'top total rises by the income: ' + await topBal.innerText())
   // จ่าย: ใบเบิก-จ่าย A4 ชุดเดียวกัน + กรอบสรุปของกองทุน + แนบบิลได้
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
