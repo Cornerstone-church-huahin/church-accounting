@@ -11,7 +11,8 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 /**
  * ช่อง 1 ของฝั่งรับ: แถวบันทึก 1 บรรทัด (เลือกประเภทจากรายชื่อที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบบันทึกการถวายด้านล่าง พร้อมยอดรวม
  */
-export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage }: {
+export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage, withNote }: {
+  /** หน้ากองทุน: มีช่อง "รายการ / รายละเอียด" (เก็บเป็นหมายเหตุของแถว) */ withNote?: boolean
   types: IncomeType[]; entries: IncomeEntry[]; defaultDate: string; canWrite: boolean
   /** แอดมินเท่านั้น: แก้ชื่อ/ลบประเภทได้จากหน้านี้เลย (ตัวเลือกแบบเลื่อนลงใส่ปุ่มลบไม่ได้) */
   onManage?: CatalogOps
@@ -24,6 +25,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
   const [cash, setCash] = useState<number | null>(null)
   const [tcount, setTcount] = useState('')
   const [transfer, setTransfer] = useState<number | null>(null)
+  const [note, setNote] = useState('')
   const [err, setErr] = useState('')
   const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกประเภท)' : '(ประเภทที่ถูกลบ)')
 
@@ -32,10 +34,10 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!(cash && cash > 0) && !(transfer && transfer > 0)) return setErr('ใส่จำนวนเงินสดหรือเงินโอนอย่างน้อยหนึ่งช่อง')
     const out: IncomeEntry[] = []
-    if (cash && cash > 0) out.push({ id: newId('in'), updated: 0, date, typeId, amount: cash, method: 'cash', source: 'manual', ...(intOrNull(env) ? { count: intOrNull(env) as number } : {}) })
-    if (transfer && transfer > 0) out.push({ id: newId('in'), updated: 0, date, typeId, amount: transfer, method: 'transfer', source: 'manual', ...(intOrNull(tcount) ? { count: intOrNull(tcount) as number } : {}) })
+    if (cash && cash > 0) out.push({ id: newId('in'), updated: 0, date, typeId, amount: cash, method: 'cash', source: 'manual', ...(note.trim() ? { note: note.trim() } : {}), ...(intOrNull(env) ? { count: intOrNull(env) as number } : {}) })
+    if (transfer && transfer > 0) out.push({ id: newId('in'), updated: 0, date, typeId, amount: transfer, method: 'transfer', source: 'manual', ...(note.trim() ? { note: note.trim() } : {}), ...(intOrNull(tcount) ? { count: intOrNull(tcount) as number } : {}) })
     if (!onAdd(out)) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
-    setErr(''); setEnv(''); setCash(null); setTcount(''); setTransfer(null)
+    setErr(''); setNote(''); setEnv(''); setCash(null); setTcount(''); setTransfer(null)
   }
   const rows = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
 
@@ -46,6 +48,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
           <div className="field"><label htmlFor="mi-date">วันที่</label><input id="mi-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label htmlFor="mi-type">ประเภท</label>
             <select id="mi-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+          {withNote && <div className="field"><label htmlFor="mi-note">รายการ / รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)</label><input id="mi-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
           <div className="entryrow__pair">
             <div className="field"><label htmlFor="mi-env">จำนวนซอง</label><input id="mi-env" className="input" inputMode="numeric" value={env} onChange={(e) => setEnv(e.target.value)} placeholder="0" /></div>
             <div className="field"><label>เงินสด (บาท)</label><MoneyInput value={cash} onChange={setCash} /></div>

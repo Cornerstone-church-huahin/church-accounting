@@ -73,7 +73,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
                     <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                       <td>{x ? fmtDate(x.date) : ''}</td>
                       <td>{pi * ROWS + i + 1}.</td>
-                      <td>{x ? name(x.typeId) : ''}</td>
+                      <td>{x ? name(x.typeId) + (scope && x.note ? ` · ${x.note}` : '') : ''}</td>
                       <td className="num">{x && x.method === 'cash' ? x.count ?? 1 : ''}</td>
                       <td className="num">{x && x.method === 'cash' ? m(x.amount) : ''}</td>
                       <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
