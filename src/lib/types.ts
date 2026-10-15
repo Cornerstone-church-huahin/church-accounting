@@ -16,6 +16,9 @@ export interface Settings extends SharedItem {
   matchDays: number
   /** จำไว้ว่าไฟล์สเตตเมนต์ของแต่ละบัญชีใช้คอลัมน์ไหน */
   csvMaps: Record<string, CsvMap>
+  /** เกณฑ์ตรวจสมาชิก: เป็นสมาชิกครบกี่ปีถึงเป็นสมาชิกสมบูรณ์ · ไม่มานมัสการเกินกี่เดือนถือว่าขาด */
+  memberMinYears?: number
+  memberAbsentMonths?: number
 }
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 
@@ -248,3 +251,22 @@ export interface Loan extends SharedItem {
   repayments: LoanRepayment[]
   note?: string
 }
+
+/** ทะเบียนสมาชิกคริสตจักร (ไม่ใช่ผู้ใช้แอป) · ไฟล์เดียว ข้ามปี */
+export type MemberOverride = 'incomplete' | 'resigned' | 'deceased' | 'removed'
+export interface ChurchMember extends SharedItem {
+  name: string
+  nick?: string
+  code?: string
+  tel?: string
+  group?: string
+  note?: string
+  /** สถานะตามทะเบียน เช่น สมาชิกสมบูรณ์ · เสียชีวิต · สิ้นสภาพ */
+  status?: string
+  /** วันที่เข้าเป็นสมาชิก YYYY-MM-DD */
+  since?: string
+  /** ผู้ดูแลกำหนดผลตรวจเอง (ว่าง = ตามการคำนวณ) */
+  override?: MemberOverride
+}
+/** บันทึกลงชื่อนมัสการ 1 วัน (id = วันที่) · ไฟล์รายปี */
+export interface Attendance extends SharedItem { date: string; ids: string[] }

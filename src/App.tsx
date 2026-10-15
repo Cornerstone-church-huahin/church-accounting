@@ -13,6 +13,7 @@ import FundDetailPage from './pages/FundDetail'
 import BalancePage from './pages/Balance'
 import Reports from './pages/Reports'
 import More from './pages/More'
+import Members from './pages/Members'
 import Settings from './pages/Settings'
 import Join from './pages/Join'
 
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="funds" element={<FundAccountsPage />} />
           <Route path="funds/:id" element={<FundDetailPage />} />
           <Route path="balance/:kind" element={<BalancePage />} />
+          <Route path="members" element={<Members />} />
           <Route path="reports" element={<Reports />} />
           <Route path="more" element={<More />} />
           <Route path="settings" element={<Settings />} />

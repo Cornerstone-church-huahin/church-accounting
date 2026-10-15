@@ -26,11 +26,11 @@ export type Perm =
   | 'members' | 'settings' | 'budget'
   | 'income' | 'count' | 'verifyCount' | 'deposit' | 'statement' | 'signoffRecon'
   | 'voucherCreate' | 'voucherReview' | 'voucherApprove' | 'voucherPay' | 'attach'
-  | 'detail'
+  | 'detail' | 'registry'
 
 const PERMS: Record<Role, Perm[]> = {
-  admin: ['members', 'settings', 'budget', 'income', 'count', 'verifyCount', 'deposit', 'statement', 'signoffRecon', 'voucherCreate', 'voucherReview', 'voucherApprove', 'voucherPay', 'attach', 'detail'],
-  bookkeeper: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail'],
+  admin: ['members', 'settings', 'budget', 'income', 'count', 'verifyCount', 'deposit', 'statement', 'signoffRecon', 'voucherCreate', 'voucherReview', 'voucherApprove', 'voucherPay', 'attach', 'detail', 'registry'],
+  bookkeeper: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry'],
   auditor: ['verifyCount', 'signoffRecon', 'voucherReview', 'detail'],
   viewer: [],
 }
