@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -80,5 +80,10 @@ export const usePeople = () => useSharedStore<Person>({ localKey: k('people'), f
 
 /** ทะเบียนสมาชิกคริสตจักร: ไฟล์เดียว ข้ามปี (มีเบอร์โทร จึงให้เฉพาะผู้ที่เห็นรายการรายตัว) */
 export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k('church-members'), file: 'church-members.json', label: 'ทะเบียนสมาชิก', write: 'registry' })
-/** ลงชื่อนมัสการ: รายปี */
-export const useAttendance = (year: number) => useSharedStore<Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'registry' })
+/**
+ * ลงชื่อนมัสการ: รายปี (1 คน × 1 วัน = 1 รายการ) · ปีเก่าไม่ซิงก์ทุกนาที (ซิงก์ตอนเปิด/กลับมาที่แอป) เพื่อไม่กินเน็ต
+ * ไฟล์เก่าที่เคยเก็บเป็น "1 วัน = รายชื่อทั้งชุด" (Attendance) ยังอ่านได้ ผ่าน toAttendance()
+ */
+export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'registry', poll })
+/** ผู้บันทึกลงชื่อ: ไฟล์เดียว (แอดมินจัดการ) */
+export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('recorders'), file: 'recorders.json', label: 'ผู้บันทึกลงชื่อ', write: 'settings' })

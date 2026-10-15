@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { parseGender, checkInId, OFFICIAL_STATUSES, similarNames, statusLabel, statusOptions, toAttendance, regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -134,5 +134,52 @@ describe('import', () => {
     expect(r.byDate.get('2026-10-04')).toEqual(['ก', 'ข']); expect(r.bad).toBe(1)
     const ms = [m('1', { name: 'ก' }), m('2', { name: 'ข ' }), m('3', { name: 'ข' })]
     expect(matchNames(['ก', 'ข', 'ซ'], ms)).toEqual({ ids: ['1'], unknown: ['ซ'], ambiguous: ['ข'] })
+  })
+})
+
+describe('check-ins per person per day', () => {
+  it('builds the day → people view, once per person, ignoring cancelled and supporting legacy day records', () => {
+    const items = [
+      { id: checkInId('2026-10-04', 'a'), date: '2026-10-04', mid: 'a', updated: 1 },
+      { id: checkInId('2026-10-04', 'b'), date: '2026-10-04', mid: 'b', updated: 1, deleted: true },
+      { id: checkInId('2026-10-11', 'a'), date: '2026-10-11', mid: 'a', updated: 1 },
+      att('2026-09-27', 'a', 'a', 'c'),
+    ]
+    const r = Object.fromEntries(toAttendance(items).map((x) => [x.date, x.ids.sort()]))
+    expect(r).toEqual({ '2026-10-04': ['a'], '2026-10-11': ['a'], '2026-09-27': ['a', 'c'] })
+    expect(checkInId('2026-10-04', 'a')).not.toBe(checkInId('2026-10-11', 'a'))
+  })
+  it('reads recorder and time from the register rows', () => {
+    const r = parseAttendanceRows([['วันที่', 'ชื่อ สกุล', 'ผู้บันทึก'], ['2567-07-07 10:16:22', 'ก ข', 'หนึ่ง  ใจ'], ['2567-07-07', 'ค ง', '']])!
+    expect(r.rows).toEqual([{ date: '2024-07-07', name: 'ก ข', tm: '10:16', rec: 'หนึ่ง ใจ' }, { date: '2024-07-07', name: 'ค ง' }])
+  })
+})
+
+describe('similar names', () => {
+  const ms = [m('1', { name: 'สมชาย ใจดี(ชาย)' }), m('2', { name: 'สมศรี รักเรียน' }), m('3', { name: 'ธนโชติ อาภากิตติเกษม' })]
+  it('finds exact, near-miss and dropped-surname matches but not unrelated names', () => {
+    expect(similarNames('สมชาย ใจดี', ms).map((x) => [x.member.id, x.exact])).toEqual([['1', true]])
+    expect(similarNames('สมชาย ใจดีี', ms).map((x) => [x.member.id, x.exact])).toEqual([['1', false]])
+    expect(similarNames('ธนโชติ', ms).map((x) => x.member.id)).toEqual(['3'])
+    expect(similarNames('ธนโชติ อาภากิตติ', ms).map((x) => x.member.id)).toEqual(['3'])
+    expect(similarNames('วิชัย ไม่เคยมา', ms)).toEqual([])
+  })
+})
+
+describe('status options', () => {
+  it('always offers the 7 official statuses and treats spacing variants as one', () => {
+    expect(statusLabel('1.สมบูรณ์  ( 1 )')).toBe('1.สมบูรณ์ ( 1 )')
+    const o = statusOptions([{ status: '1.สมบูรณ์  ( 1 )' }, { status: 'สถานะพิเศษ' }, {}])
+    expect(OFFICIAL_STATUSES.every((x) => o.includes(x))).toBe(true)
+    expect(o.filter((x) => x.startsWith('1.')).length).toBe(1)
+    expect(o).toContain('สถานะพิเศษ')
+  })
+})
+
+describe('gender', () => {
+  it('reads ชาย/หญิง (and male/female) from the เพศ column, never guesses', () => {
+    expect([parseGender('ชาย'), parseGender(' หญิง '), parseGender('Male'), parseGender('F'), parseGender('อื่น'), parseGender('')]).toEqual(['ชาย', 'หญิง', 'ชาย', 'หญิง', undefined, undefined])
+    const r = parseMemberRows([['ชื่อ สกุล', 'เพศ'], ['ก ข', 'ชาย'], ['ค ง', 'หญิง'], ['จ ฉ', '']])!
+    expect(r.members.map((x) => x.gender)).toEqual(['ชาย', 'หญิง', undefined])
   })
 })

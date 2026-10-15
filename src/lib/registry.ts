@@ -1,5 +1,5 @@
-import { diffDays, isISO } from './money'
-import type { Attendance, ChurchMember, MemberOverride } from './types'
+import { diffDays, isISO, newId } from './money'
+import type { Attendance, CheckIn, ChurchMember, Gender, MemberOverride } from './types'
 
 /**
  * ตรวจคุณสมบัติสมาชิก (ย้ายมาจากหน้า "ตรวจสอบคุณสมบัติสมาชิกและการเข้าร่วมนมัสการ")
@@ -128,11 +128,15 @@ const HEAD: Record<string, string[]> = {
   group: ['กลุ่ม', 'group'],
   note: ['หมายเหตุ', 'หมายเหต*', 'note'],
   birth: ['วันเกิด', 'birth'],
+  gender: ['เพศ', 'gender', 'sex'],
   applied: ['สมัคร', 'applied'],
+  rec: ['ผู้บันทึก', 'recorder'],
   photo: ['image', 'รูป', 'รูปภาพ', 'photo'],
   status: ['สถานะ', 'status'],
   since: ['เข้าเป็นสมาชิก', 'วันเป็นสมาชิก', 'วันที่เป็นสมาชิก', 'since'],
 }
+/** อ่านเพศจากไฟล์: ชาย/หญิง (รับ male/female/M/F ด้วย) · อย่างอื่นไม่เดา = ไม่ระบุ */
+export const parseGender = (v: string): Gender | undefined => { const x = v.trim().toLowerCase(); return /^(ชาย|male|m)$/.test(x) ? 'ชาย' : /^(หญิง|female|f)$/.test(x) ? 'หญิง' : undefined }
 export interface MemberImport { members: Omit<ChurchMember, 'id' | 'updated'>[]; skipped: number }
 /** แถวแรกเป็นหัวคอลัมน์ (ต้องมี "ชื่อ") */
 export function parseMemberRows(rows: string[][]): MemberImport | null {
@@ -153,6 +157,8 @@ export function parseMemberRows(rows: string[][]): MemberImport | null {
     for (const k of ['nick', 'code', 'tel', 'group', 'note', 'status'] as const) if (get(k)) m[k] = get(k).replace(/[\u200b\u200c\u200d]/g, '')
     if (since) m.since = since
     if (birth) m.birth = birth
+    const g = parseGender(get('gender'))
+    if (g) m.gender = g
     if (/^(yes|y|ใช่|true|1)$/i.test(get('applied'))) m.applied = true
     if (get('photo')) m.photo = get('photo')
     out.push(m)
@@ -161,16 +167,18 @@ export function parseMemberRows(rows: string[][]): MemberImport | null {
 }
 /** ไฟล์ลงชื่อ: คอลัมน์ "วันที่" (มีเวลาต่อท้ายได้) + "ชื่อ-สกุล" ต่อแถว (1 แถว = 1 คนที่มา) · ชื่อเล่น/สถานะ/กลุ่ม (ถ้ามี) ใช้ตอนเพิ่มคนที่ยังไม่อยู่ในทะเบียน */
 export interface PersonInfo { name: string; nick?: string; status?: string; group?: string }
-export function parseAttendanceRows(rows: string[][]): { byDate: Map<string, string[]>; bad: number; info: Map<string, PersonInfo> } | null {
+export interface RegisterRow { date: string; name: string; tm?: string; rec?: string }
+export function parseAttendanceRows(rows: string[][]): { byDate: Map<string, string[]>; rows: RegisterRow[]; bad: number; info: Map<string, PersonInfo> } | null {
   const head = rows[0]?.map(norm) ?? []
   const di = head.findIndex((h) => ['วันที่', 'วัน', 'date'].includes(h))
   const ni = head.findIndex((h) => HEAD.name.some((x) => norm(x) === h))
   if (di < 0 || ni < 0) return null
   const col = (k: string) => head.findIndex((h) => HEAD[k].some((x) => norm(x) === h))
-  const [ki, si, gi] = [col('nick'), col('status'), col('group')]
+  const [ki, si, gi, ri] = [col('nick'), col('status'), col('group'), col('rec')]
   const clean = (v: string | undefined) => (v ?? '').replace(/[\u200b\u200c\u200d]/g, '').trim()
   const byDate = new Map<string, string[]>()
   const info = new Map<string, PersonInfo>()
+  const out: RegisterRow[] = []
   let bad = 0
   for (const r of rows.slice(1)) {
     const name = clean(r[ni])
@@ -178,9 +186,11 @@ export function parseAttendanceRows(rows: string[][]): { byDate: Map<string, str
     const date = parseDateCell(r[di] ?? '')
     if (!date || !name) { bad++; continue }
     ;(byDate.get(date) ?? byDate.set(date, []).get(date)!).push(name)
+    const tmm = /(\d{1,2}):(\d{2})/.exec(r[di] ?? '')
+    out.push({ date, name, ...(tmm ? { tm: `${tmm[1].padStart(2, '0')}:${tmm[2]}` } : {}), ...(clean(r[ri]) ? { rec: clean(r[ri]).replace(/\s+/g, ' ') } : {}) })
     if (!info.has(norm(name))) info.set(norm(name), { name: name.replace(/\s+/g, ' '), ...(clean(r[ki]) ? { nick: clean(r[ki]) } : {}), ...(clean(r[si]) ? { status: clean(r[si]) } : {}), ...(clean(r[gi]) ? { group: clean(r[gi]) } : {}) })
   }
-  return { byDate, bad, info }
+  return { byDate, rows: out, bad, info }
 }
 const clean0 = (s: string) => s.replace(/[\u200b\u200c\u200d]/g, '')
 /** ตัดชื่อเล่นในวงเล็บท้ายชื่อ (ไฟล์ลงชื่อบางที่ตัดวงเล็บไม่ครบ) */
@@ -205,7 +215,13 @@ export function matchNames(names: string[], members: ChurchMember[]): { ids: str
 
 // ---------- ยอดผู้เข้าร่วมรายครั้ง ----------
 export interface ServiceStat { date: string; count: number; byStatus: Record<string, number>; names: string[] }
-export const statusLabel = (st?: string) => (st ?? '').trim() || '(ไม่ระบุสถานะ)'
+/** ชื่อสถานะตามทะเบียน (ยุบช่องว่างซ้ำ เพื่อให้ "1.สมบูรณ์  ( 1 )" กับ "1.สมบูรณ์ ( 1 )" นับเป็นอันเดียวกัน) */
+export const statusLabel = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim() || '(ไม่ระบุสถานะ)'
+/** สถานะจริงตามทะเบียนของคริสตจักร — เลือกได้เสมอ แม้ตอนนี้ยังไม่มีใครอยู่ในสถานะนั้น (คณะธรรมกิจ/กรรมการกำหนดเกณฑ์เลื่อนขั้น แอปไม่เลื่อนให้เอง) */
+export const OFFICIAL_STATUSES = ['1.สมบูรณ์ ( 1 )', '2.สมบูรณ์ ( 2 )', '3.สมาชิกสำรอง', '4.ผู้ร่วมนมัสการ', '5.คนใหม่', '6.สิ้นสภาพสมาชิก', '7.เสียชีวิต']
+export const NEW_PERSON_STATUS = '5.คนใหม่'
+/** ตัวเลือกสถานะ = สถานะจริงทั้ง 7 + สถานะอื่นที่มีในข้อมูล (เผื่อมีการตั้งเพิ่ม) */
+export const statusOptions = (members: { status?: string }[]) => [...new Set([...OFFICIAL_STATUSES, ...members.map((m) => statusLabel(m.status)).filter((x) => x !== statusLabel(undefined))])].sort((a, b) => a.localeCompare(b, 'th'))
 /** ยอดผู้มานมัสการแต่ละครั้ง (นับเฉพาะคนที่ยังอยู่ในทะเบียน) พร้อมแยกตามสถานะ · เรียงใหม่ → เก่า */
 export function serviceStats(attendance: Attendance[], members: ChurchMember[]): ServiceStat[] {
   const byId = new Map(members.map((m) => [m.id, m]))
@@ -244,3 +260,47 @@ export function matchPhotoFile(file: string, members: ChurchMember[]): ChurchMem
   if (exact.length) return only(exact)
   return only(members.filter((m) => stripNick(m.name) === stripNick(subj)))
 }
+
+// ---------- ลงชื่อ 1 คน × 1 วัน ----------
+export const checkInId = (date: string, mid: string) => `${date}_${mid}`
+/** แปลงรายการลงชื่อ (รายคน) → รูปแบบ "วัน → รายชื่อ" ที่ตัวตรวจ/ยอดผู้มาใช้ · รองรับไฟล์รุ่นเก่า (1 วัน = รายชื่อทั้งชุด) ด้วย */
+export function toAttendance(items: (CheckIn | Attendance)[]): Attendance[] {
+  const byDate = new Map<string, Set<string>>()
+  const add = (d: string, id: string) => (byDate.get(d) ?? byDate.set(d, new Set()).get(d)!).add(id)
+  for (const x of items) {
+    if (x.deleted) continue
+    if ('ids' in x) x.ids.forEach((id) => add(x.date, id))
+    else if (x.mid) add(x.date, x.mid)
+  }
+  return [...byDate.entries()].map(([date, ids]) => ({ id: date, date, ids: [...ids], updated: 0 }))
+}
+
+// ---------- ชื่อคล้ายกัน ----------
+const lev = (a: string, b: string): number => {
+  const m = a.length, n = b.length
+  let prev = Array.from({ length: n + 1 }, (_, j) => j)
+  for (let i = 1; i <= m; i++) {
+    const cur = [i]
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    prev = cur
+  }
+  return prev[n]
+}
+/** สมาชิกที่ชื่อ–สกุลตรงหรือใกล้เคียงกับชื่อที่พิมพ์ (ตัดชื่อเล่นในวงเล็บ ไม่สนช่องว่าง) · exact = ตรงกันเป๊ะ */
+export function similarNames(name: string, members: ChurchMember[], limit = 5): { member: ChurchMember; exact: boolean }[] {
+  const q = stripNick(name)
+  if (q.length < 3) return []
+  const out: { member: ChurchMember; exact: boolean; d: number }[] = []
+  for (const m of members) {
+    const k = stripNick(m.name)
+    if (!k) continue
+    const d = k === q ? 0 : lev(k, q)
+    // ใกล้เคียง: ต่างกันไม่เกิน ~20% ของความยาว (อย่างน้อย 1–3 ตัวอักษร) หรือชื่อหนึ่งเป็นส่วนต้นของอีกชื่อ (ตกนามสกุล)
+    const tol = Math.max(1, Math.min(3, Math.floor(Math.max(k.length, q.length) * 0.2)))
+    if (d <= tol || (q.length >= 5 && k.length >= 5 && (k.startsWith(q) || q.startsWith(k)))) out.push({ member: m, exact: d === 0, d })
+  }
+  return out.sort((a, b) => a.d - b.d).slice(0, limit).map(({ member, exact }) => ({ member, exact }))
+}
+
+/** id ใหม่ที่ไม่ซ้ำกับที่มีอยู่ (สร้างหลายรายการในมิลลิวินาทีเดียว newId ชนกันได้) */
+export const uniqueId = (taken: Set<string>, prefix = 'cm') => { let id = newId(prefix); while (taken.has(id)) id = newId(prefix); taken.add(id); return id }

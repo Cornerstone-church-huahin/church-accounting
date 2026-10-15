@@ -23,8 +23,9 @@
     if (i < 10) ids.push('m4')
     if (i > 30 && i < 60) ids.push('m3')
     if (i > 70 && i < 90) ids.push('m6')
-    var y = s.slice(0, 4); (att[y] = att[y] || []).push({ id: s, date: s, ids: ids, updated: 1 })
+    var y = s.slice(0, 4); ids.forEach(function (id) { (att[y] = att[y] || []).push({ id: s + '_' + id, date: s, mid: id, tm: '10:00', rec: 'ผู้ช่วย ก', updated: 1 }) })
     d.setDate(d.getDate() - 7)
   }
+  localStorage.setItem('acct.recorders.v1', JSON.stringify([{ id: 'rc1', name: 'ผู้ช่วย ก', updated: 1 }, { id: 'rc2', name: 'ผู้ช่วย ข', updated: 1 }]))
   for (var k in att) localStorage.setItem('acct.attendance.' + k + '.v1', JSON.stringify(att[k]))
 })()
