@@ -1,11 +1,14 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
+import StoredImage from '../components/StoredImage'
+import { uploadMemberPhoto } from '../lib/memberPhoto'
+import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { dow, fmtDate, newId, todayISO, weekStart, yearOf } from '../lib/money'
-import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, nameKey, serviceStats, statusLabel, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, matchPhotoFile, nameKey, serviceStats, statusLabel, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import type { Attendance, ChurchMember, MemberOverride } from '../lib/types'
@@ -204,6 +207,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
   const [busy, setBusy] = useState(false)
   const memberFile = useRef<HTMLInputElement>(null)
   const attFile = useRef<HTMLInputElement>(null)
+  const photoFiles = useRef<HTMLInputElement>(null)
   const statuses = [...new Set(members.map((m) => statusKey(m.status)))].sort()
   const groups = [...new Set(members.map((m) => m.group).filter(Boolean))].sort() as string[]
   const count = (f: (m: ChurchMember) => boolean) => members.filter(f).length
@@ -249,6 +253,35 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
       if (put(batch)) setMsg(`นำเข้าแล้ว ${batch.length} คน: เพิ่มใหม่ ${added} · อัปเดตคนเดิม ${updated}${r.skipped ? ` · ข้าม ${r.skipped} แถวที่ไม่มีชื่อ` : ''}`)
     } finally { setBusy(false) }
   }
+  /** นำเข้ารูปหลายไฟล์: จับคู่กับรายชื่อจากชื่อไฟล์ · ข้ามคนที่มีรูปแล้ว · อัปโหลดทีละรูป (รันซ้ำต่อจากที่ค้างได้) */
+  const importPhotos = async (files: FileList | null) => {
+    const imgs = [...(files ?? [])].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|heic)$/i.test(f.name))
+    if (!imgs.length) return setMsg('ไม่พบไฟล์รูปที่เลือก')
+    if (getSync() === null && !confirm('ยังไม่ได้เชื่อมต่อออนไลน์ — รูปจะเก็บไว้ในเครื่องนี้เท่านั้น (เครื่องอื่นไม่เห็น) ทำต่อไหม?')) return
+    setBusy(true)
+    try {
+      const todo = new Map<string, { m: ChurchMember; f: File }>()
+      const unmatched: string[] = []
+      let had = 0
+      for (const f of imgs) {
+        const m = matchPhotoFile(f.name, members)
+        if (!m) unmatched.push(f.name)
+        else if (m.photoPath || todo.has(m.id)) had++
+        else todo.set(m.id, { m, f })
+      }
+      let done = 0
+      const failed: string[] = []
+      let pending: ChurchMember[] = []
+      const flush = () => { if (pending.length) { put(pending); pending = [] } }
+      for (const { m, f } of todo.values()) {
+        setMsg(`กำลังอัปโหลดรูป ${done + failed.length + 1}/${todo.size} …`)
+        try { pending.push({ ...m, photoPath: await uploadMemberPhoto(m.id, f) }); done++ } catch (e) { failed.push(`${f.name}: ${e instanceof Error ? e.message : 'ไม่สำเร็จ'}`); if (failed.length >= 3 && done === 0) break }
+        if (pending.length >= 10) flush()
+      }
+      flush()
+      setMsg(`รูปที่เลือก ${imgs.length} ไฟล์: ใส่ให้สมาชิกแล้ว ${done} คน${had ? ` · ข้าม ${had} (มีรูปแล้ว/ซ้ำคนเดียวกัน)` : ''}${unmatched.length ? ` · จับคู่ชื่อไม่ได้ ${unmatched.length} ไฟล์ (เช่น ${unmatched.slice(0, 3).join(', ')})` : ''}${failed.length ? ` · อัปโหลดไม่สำเร็จ ${failed.length} (${failed[0]}) — กดนำเข้ารูปอีกครั้งเพื่อทำต่อ` : ''}`)
+    } finally { setBusy(false) }
+  }
   const importAttendance = async (f: File | undefined) => {
     setBusy(true)
     try {
@@ -290,6 +323,8 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
           <button type="button" className="btn btn--gold" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
           <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ (.xlsx / CSV)'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ (.xlsx / CSV)</button>
+          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (เลือกหลายไฟล์)</button>
+          <input ref={photoFiles} hidden multiple type="file" aria-label="ไฟล์รูป" accept="image/*" onChange={(e) => { importPhotos(e.target.files); e.target.value = '' }} />
           <input ref={memberFile} hidden type="file" aria-label="ไฟล์รายชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
           <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} />
         </div>
@@ -306,7 +341,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
         <select className="input" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
         {groups.length > 0 && <select className="input" style={{ width: 'auto' }} value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
       </div>
-      <p className="small muted">แสดง {list.length} จาก {members.length} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
+      <p className="small muted">แสดง {list.length} จาก {members.length} คน · มีรูป {count((m) => !!m.photoPath)} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
       <section className="card">
         {list.length === 0 ? <p className="empty">{members.length ? 'ไม่พบรายชื่อตามที่กรอง' : `ยังไม่มีสมาชิก${canEdit ? ' — เพิ่มทีละคน หรือนำเข้าไฟล์ .xlsx / CSV (หัวคอลัมน์: รหัส, ชื่อ สกุล, ชื่อเล่น, สถานะ, กลุ่ม, โทร, วันเกิด, หมายเหตุ, ว/ด/ป-เข้าร่วม)' : ''}`}</p> : (
           <ul className="list">
@@ -314,7 +349,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
               <li key={m.id}>
                 <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                   <span className="num muted" style={{ minWidth: '2.6rem' }}>{m.code ? `#${m.code}` : ''}</span>
-                  <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}</span></span>
+                  <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
                   {tierOf.get(m.id) !== undefined && <span className={`badge ${TIER_BADGE[tierOf.get(m.id)!]}`}>{TIER_LABEL[tierOf.get(m.id)!]}</span>}
                 </button>
               </li>
@@ -332,6 +367,14 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
 function Detail({ r, today, canEdit, put, remove, onClose }: { r: Evaluated; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const [editing, setEditing] = useState(false)
+  const [photoErr, setPhotoErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const setPhoto = async (f: File | undefined) => {
+    if (!f) return
+    setBusy(true); setPhotoErr('')
+    try { put([{ ...m, photoPath: await uploadMemberPhoto(m.id, f) }]) } catch (e) { setPhotoErr(e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ') } finally { setBusy(false) }
+  }
   if (editing) return <MemberForm member={m} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
   const age = ageText(m.birth, today)
   const rows: [string, ReactNode][] = [
@@ -339,10 +382,12 @@ function Detail({ r, today, canEdit, put, remove, onClose }: { r: Evaluated; tod
     ['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>],
     ['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`],
     ['วันที่เข้าร่วม', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
-    ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['รูป', m.photo && <span className="small muted">{m.photo}</span>], ['หมายเหตุ', m.note],
+    ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
   ]
   return (
     <Sheet title={m.name} onClose={onClose}>
+      {m.photoPath && <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}><StoredImage path={m.photoPath} alt={`รูป ${m.name}`} /></div>}
+      {canEdit && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button><input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
       <dl style={{ margin: 0 }}>
         {rows.map(([k, v]) => (
           <div key={k} className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.35rem 0', flexWrap: 'nowrap' }}>

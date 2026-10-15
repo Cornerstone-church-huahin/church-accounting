@@ -218,3 +218,19 @@ export function ageText(birth: string | undefined, today: string): string {
   if (months < 0) months = 0
   return `${Math.floor(months / 12)} ปี ${months % 12} เดือน`
 }
+
+// ---------- จับคู่ไฟล์รูปกับสมาชิก ----------
+const baseName = (s: string) => clean0(s.normalize('NFC')).split(/[\\/]/).pop() ?? ''
+/** ชื่อในไฟล์รูปรูปแบบทะเบียนเดิม "ชื่อ สกุล(ชื่อเล่น).Image.123456.jpg" → "ชื่อ สกุล(ชื่อเล่น)" */
+const photoSubject = (file: string) => baseName(file).replace(/\.[a-z0-9]+$/i, '').replace(/\.Image\.\d+$/i, '')
+/** หาสมาชิกเจ้าของรูป: ชื่อไฟล์ตรงกับที่ทะเบียนบันทึกไว้ → ชื่อ-สกุลตรงกัน → ตรงเมื่อตัดชื่อเล่น · คลุมเครือ (หลายคน) = ไม่เดา */
+export function matchPhotoFile(file: string, members: ChurchMember[]): ChurchMember | undefined {
+  const only = (xs: ChurchMember[]) => (xs.length === 1 ? xs[0] : undefined)
+  const b = baseName(file).toLowerCase()
+  const byFile = members.filter((m) => m.photo && baseName(m.photo).toLowerCase() === b)
+  if (byFile.length) return only(byFile)
+  const subj = photoSubject(file)
+  const exact = members.filter((m) => nameKey(clean0(m.name)) === nameKey(subj))
+  if (exact.length) return only(exact)
+  return only(members.filter((m) => stripNick(m.name) === stripNick(subj)))
+}

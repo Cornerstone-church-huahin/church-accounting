@@ -271,6 +271,8 @@ export interface ChurchMember extends SharedItem {
   applied?: boolean
   /** ชื่อไฟล์รูปในทะเบียนเดิม (ยังไม่ได้อัปโหลดรูปเข้าแอป) */
   photo?: string
+  /** ที่อยู่รูปที่อัปโหลดแล้ว (ใน repo ข้อมูล) */
+  photoPath?: string
   /** ผู้ดูแลกำหนดผลตรวจเอง (ว่าง = ตามการคำนวณ) */
   override?: MemberOverride
 }

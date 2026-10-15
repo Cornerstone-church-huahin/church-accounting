@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getBinary, getSync } from '../lib/sync'
+import { cachedImage } from '../lib/imageCache'
 
 /** รูปที่เก็บใน repo ข้อมูล (บิล/ใบเสร็จ/สลิป): ดึงมาแสดงเมื่อเปิดดู */
 export default function StoredImage({ path, alt }: { path: string; alt: string }) {
@@ -8,8 +9,11 @@ export default function StoredImage({ path, alt }: { path: string; alt: string }
   useEffect(() => {
     const cfg = getSync()
     if (!path) { setErr('ไม่ได้เก็บรูป (โหมดทดลอง)'); return }
-    if (!cfg) { setErr('ต้องเชื่อมต่อออนไลน์จึงจะเปิดดูรูปได้'); return }
     let u = ''
+    if (!cfg) { // โหมดทดลอง: ดูได้เฉพาะรูปที่เก็บไว้ในเครื่องนี้
+      cachedImage(path).then((b) => { if (b) { u = URL.createObjectURL(b); setUrl(u) } else setErr('ต้องเชื่อมต่อออนไลน์จึงจะเปิดดูรูปได้') })
+      return () => { if (u) URL.revokeObjectURL(u) }
+    }
     getBinary(cfg, path).then((b) => { u = URL.createObjectURL(b); setUrl(u) }).catch((e: Error) => setErr(e.message))
     return () => { if (u) URL.revokeObjectURL(u) }
   }, [path])

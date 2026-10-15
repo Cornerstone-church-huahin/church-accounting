@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -64,6 +64,19 @@ describe('worship register import', () => {
     const st = serviceStats([att('2026-10-04', 'a', 'a', 'b', 'zz'), { ...att('2026-10-04', 'c'), id: 'x' }, att('2026-09-27', 'a')], ms)
     expect(st.map((x) => [x.date, x.count])).toEqual([['2026-10-04', 3], ['2026-09-27', 1]])
     expect(st[0].byStatus).toEqual({ '1.สมบูรณ์': 1, '5.คนใหม่': 1, '(ไม่ระบุสถานะ)': 1 })
+  })
+})
+
+describe('photo matching', () => {
+  const ms = [m('1', { name: 'สมใจ ดี(ใจ)', photo: 'MembersList_Images/สมใจ ดี(ใจ).Image.104233.png' }), m('2', { name: 'สมศรี ดี' }), m('3', { name: 'ซ้ำ ชื่อ' }), m('4', { name: 'ซ้ำ ชื่อ' })]
+  it('matches by recorded file name, then by name, ignoring nickname/extension', () => {
+    expect(matchPhotoFile('สมใจ ดี(ใจ).Image.104233.png', ms)?.id).toBe('1')
+    expect(matchPhotoFile('สมศรี ดี.Image.5.jpg', ms)?.id).toBe('2')
+    expect(matchPhotoFile('สมศรี ดี(ศรี).jpeg', ms)?.id).toBe('2')
+  })
+  it('does not guess ambiguous or unknown names', () => {
+    expect(matchPhotoFile('ซ้ำ ชื่อ.jpg', ms)).toBeUndefined()
+    expect(matchPhotoFile('ไม่มี ใคร.jpg', ms)).toBeUndefined()
   })
 })
 

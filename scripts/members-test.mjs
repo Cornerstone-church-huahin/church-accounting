@@ -85,6 +85,15 @@ try {
     await page.getByRole('status').filter({ hasText: k ? 'เพิ่มใหม่ 0 · อัปเดตคนเดิม 600' : 'เพิ่มใหม่ 600' }).waitFor({ timeout: 15000 })
   }
   must(await page.locator('section.card li').count() === 606, 'bulk import keeps everyone once: ' + await page.locator('section.card li').count())
+  // รูปสมาชิก: จับคู่จากชื่อไฟล์ · ชื่อที่ไม่รู้จักไม่เดา · โหมดทดลองเก็บในเครื่อง
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  await page.locator('input[aria-label="ไฟล์รูป"]').setInputFiles([{ name: 'นายสมชาย ตัวอย่าง.Image.123456.png', mimeType: 'image/png', buffer: png }, { name: 'ไม่มี ใคร.png', mimeType: 'image/png', buffer: png }])
+  await page.getByRole('status').filter({ hasText: 'ใส่ให้สมาชิกแล้ว 1 คน' }).waitFor({ timeout: 10000 })
+  must(/จับคู่ชื่อไม่ได้ 1 ไฟล์/.test(await page.getByRole('status').filter({ hasText: 'ใส่ให้สมาชิกแล้ว' }).innerText()), 'unknown photo file reported, not guessed')
+  await page.locator('li', { hasText: 'สมชาย' }).first().click()
+  await page.locator('[role=dialog] img').waitFor({ timeout: 10000 })
+  await snap('4-photo')
+  await page.keyboard.press('Escape')
   await snap('3-roster')
   must(errors.length === 0, 'no page errors: ' + errors.join(' | '))
   console.log('members-test OK')
