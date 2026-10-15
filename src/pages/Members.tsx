@@ -8,15 +8,13 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { dow, fmtDate, newId, todayISO, weekStart, yearOf } from '../lib/money'
-import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, matchPhotoFile, nameKey, serviceStats, statusLabel, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, nameKey, serviceStats, statusLabel, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
-import type { Attendance, ChurchMember, MemberOverride } from '../lib/types'
+import type { Attendance, ChurchMember } from '../lib/types'
 
 type Tab = 'audit' | 'checkin' | 'roster' | 'stats'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
-const TIER_BADGE: Record<Tier, string> = { 0: 'badge--good', 1: '', 2: '', 3: '', 4: 'badge--bad', 5: 'badge--gold', 6: '' }
-const OVERRIDES: { key: MemberOverride; label: string }[] = [{ key: 'incomplete', label: 'คุณสมบัติไม่ครบ' }, { key: 'resigned', label: 'ลาออก' }, { key: 'deceased', label: 'เสียชีวิต' }, { key: 'removed', label: 'ปรับออก' }]
 const lastSunday = () => { const t = todayISO(); return dow(t) === 0 ? t : weekStart(t) }
 
 export default function Members() {
@@ -67,82 +65,105 @@ function MembersPage() {
   )
 }
 
+/** ปุ่มสถานะ (ตามทะเบียน) ใช้สีตามระดับ */
+const statusBadge = (st?: string) => { const l = regLevel(st); return l === 1 ? 'badge--good' : l === 2 ? 'badge--gold' : /เสียชีวิต|สิ้นสภาพ/.test(st ?? '') ? 'badge--bad' : '' }
+
+/**
+ * หน้าตรวจสอบ: สถานะตามทะเบียนเป็นหลัก (จำนวนตรงกับทะเบียนเดิม) + ใช้การลงชื่อนมัสการเตือนว่าใครควรปรับสถานะ
+ * (ทะเบียนว่า สมบูรณ์ 1 แต่ขาดนมัสการเกินเกณฑ์ → ควรเป็น สมบูรณ์ 2 · และกลับกัน)
+ */
 function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const [group, setGroup] = useState('')
   const [menu, setMenu] = useState('')
-  const rows = result.rows
-  const sum = summarize(rows)
+  const rows = useMemo(() => [...result.rows].sort((a, b) => statusLabel(a.member.status).localeCompare(statusLabel(b.member.status), 'th')), [result.rows])
+  const statuses = useMemo(() => { const m = new Map<string, number>(); for (const r of rows) m.set(statusLabel(r.member.status), (m.get(statusLabel(r.member.status)) ?? 0) + 1); return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'th')) }, [rows])
+  const full = rows.filter((r) => regLevel(r.member.status))
+  const sum = summarize(full)
+  const bands = [0, 0, 0, 0, 0, 0]
+  for (const r of full) if (r.tier === 5) bands[bandOf(r)]++
+  const to2 = rows.filter((r) => r.suggest === 'to2').length, to1 = rows.filter((r) => r.suggest === 'to1').length
   const groups = [...new Set(rows.map((r) => r.member.group).filter(Boolean))].sort() as string[]
   const rank = new Map(rows.map((r, i) => [r.member.id, i + 1]))
   const shown = rows.filter((r) => {
-    if (filter.startsWith('band') ? !(r.tier === 5 && bandOf(r) === Number(filter.slice(4))) : filter !== 'all' && filter !== 'novisit' && r.tier !== Number(filter)) return false
+    if (filter.startsWith('st:') && statusLabel(r.member.status) !== filter.slice(3)) return false
+    if (filter === 'to2' && r.suggest !== 'to2') return false
+    if (filter === 'to1' && r.suggest !== 'to1') return false
+    if (filter.startsWith('band') && !(r.tier === 5 && regLevel(r.member.status) && bandOf(r) === Number(filter.slice(4)))) return false
     if (filter === 'novisit' && !r.noRecord) return false
     if (group && r.member.group !== group) return false
     const t = q.trim().toLowerCase()
     return !t || `${r.member.name} ${r.member.nick ?? ''} ${r.member.code ?? ''} ${r.member.note ?? ''}`.toLowerCase().includes(t)
   })
-  const setOverride = (r: Evaluated, o: MemberOverride | undefined) => { setMenu(''); put([{ ...r.member, override: o }]) }
-  if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ไปที่แท็บ “ทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ CSV</p>
+  const setStatus = (r: Evaluated, st: string) => { setMenu(''); put([{ ...r.member, status: st === '(ไม่ระบุสถานะ)' ? undefined : st, override: undefined }]) }
+  if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ไปที่แท็บ “ทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ .xlsx / CSV</p>
+  const chip = (key: string, label: string, n: number) => <button key={key} type="button" className={`mini${filter === key ? ' on' : ''}`} onClick={() => setFilter(filter === key ? 'all' : key)}>{label} · {n}</button>
   return (
     <>
-      {!result.hasData && <p className="card small" role="note">ยังไม่มีบันทึกลงชื่อนมัสการ จึงยังตัดสินว่า “ขาดการนมัสการ” ไม่ได้ (ผู้ที่ยังมีชีวิตจะอยู่ใน “ยังไม่ครบเกณฑ์” ไปก่อน) — ไปแท็บ “ลงชื่อนมัสการ” หรือนำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน”</p>}
-      <div className="kpi">
-        <div><span>รายชื่อทั้งหมด</span><b>{sum.total}</b></div>
-        <div><span>สมบูรณ์ (1+2)</span><b>{sum.complete}</b></div>
-        <div><span>สมบูรณ์ 1</span><b>{sum.byTier[0]}</b></div>
-        <div><span>สมบูรณ์ 2 · ขาดเกิน {criteria.absentMonths} ด.</span><b>{sum.byTier[5]}</b></div>
-        <div><span>ไม่ครบ / ยังไม่ครบเกณฑ์</span><b>{sum.byTier[1]} / {sum.byTier[6]}</b></div>
-        <div><span>ลาออก · เสียชีวิต · ปรับออก</span><b>{sum.byTier[2]} · {sum.byTier[3]} · {sum.byTier[4]}</b></div>
-      </div>
-      <p className="small muted">เกณฑ์: เป็นสมาชิกครบ <b>{criteria.minYears} ปี</b> = สมาชิกสมบูรณ์ · ไม่มานมัสการเลยตั้งแต่ <b>{fmtDate(result.cutoff)}</b> (ย้อนหลัง {criteria.absentMonths} เดือน) = ขาดการนมัสการ · ข้อมูลลงชื่อ {result.services.length} ครั้ง{result.services.length ? ` (${fmtDate(result.services[0])} – ${fmtDate(result.services[result.services.length - 1])})` : ''}</p>
-      {canTune && (
-        <details className="no-print"><summary className="small">ปรับเกณฑ์ (แอดมิน)</summary>
-          <div className="row">
-            <label className="small">ครบกี่ปี <input className="input" type="number" min={0} max={10} step={0.5} defaultValue={criteria.minYears} onBlur={(e) => onCriteria({ memberMinYears: Math.max(0, Number(e.target.value) || 0), memberAbsentMonths: criteria.absentMonths })} /></label>
-            <label className="small">ขาดเกินกี่เดือน <input className="input" type="number" min={1} max={60} defaultValue={criteria.absentMonths} onBlur={(e) => onCriteria({ memberMinYears: criteria.minYears, memberAbsentMonths: Math.max(1, Math.round(Number(e.target.value)) || 1) })} /></label>
-          </div>
-        </details>
-      )}
-      {sum.byTier[5] > 0 && (
-        <div className="row no-print" aria-label="ระดับสมาชิกสมบูรณ์ 2">
-          {sum.bands.map((n, b) => n > 0 && <button key={b} type="button" className={`mini${filter === `band${b}` ? ' on' : ''}`} onClick={() => setFilter(filter === `band${b}` ? 'all' : `band${b}`)}>{bandLabel(b, criteria.absentMonths).replace('ขาดการนมัสการ', '')} · {n}</button>)}
-        </div>
-      )}
+      <div className="kpi"><div><span>รายชื่อทั้งหมด</span><b>{rows.length}</b></div><div><span>สมาชิกสมบูรณ์ (1+2)</span><b>{full.length}</b></div></div>
+      <p className="small muted" style={{ margin: '0.3rem 0' }}>จำนวนตามสถานะในทะเบียน (แตะเพื่อกรอง)</p>
+      <div className="row no-print" aria-label="จำนวนตามสถานะในทะเบียน">{statuses.map(([st, n]) => chip(`st:${st}`, st, n))}</div>
+      {!result.hasData
+        ? <p className="card small" role="note">ยังไม่มีบันทึกลงชื่อนมัสการ จึงยังตรวจเทียบกับสถานะในทะเบียนไม่ได้ — ไปแท็บ “ลงชื่อ” หรือนำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน”</p>
+        : (
+          <section className="card" aria-label="ตรวจเทียบกับการลงชื่อนมัสการ">
+            <h2>ตรวจเทียบกับการลงชื่อนมัสการ</h2>
+            <p className="small muted" style={{ margin: 0 }}>เฉพาะสมาชิกสมบูรณ์ {full.length} คน · เกณฑ์: เป็นสมาชิกครบ <b>{criteria.minYears} ปี</b> และไม่มานมัสการเลยตั้งแต่ <b>{fmtDate(result.cutoff)}</b> (ย้อนหลัง {criteria.absentMonths} เดือน) = ขาดการนมัสการ · ข้อมูลลงชื่อ {result.services.length} ครั้ง ({fmtDate(result.services[0])} – {fmtDate(result.services[result.services.length - 1])})</p>
+            <div className="kpi">
+              <div><span>มานมัสการใน {criteria.absentMonths} เดือน</span><b>{sum.byTier[0]}</b></div>
+              <div><span>ขาดเกิน {criteria.absentMonths} เดือน</span><b>{sum.byTier[5]}</b></div>
+            </div>
+            <div className="row no-print">
+              {chip('to2', 'ทะเบียน “สมบูรณ์ 1” แต่ขาดนมัสการ → ควรเป็น สมบูรณ์ 2', to2)}
+              {chip('to1', 'ทะเบียน “สมบูรณ์ 2” แต่กลับมานมัสการ → ควรเป็น สมบูรณ์ 1', to1)}
+            </div>
+            {sum.byTier[5] > 0 && <div className="row no-print" aria-label="ระดับที่ขาดนมัสการ">{bands.map((n, bi) => n > 0 && chip(`band${bi}`, bandLabel(bi, criteria.absentMonths).replace('ขาดการนมัสการ', 'ขาด'), n))}</div>}
+            {canTune && (
+              <details className="no-print"><summary className="small">ปรับเกณฑ์ (แอดมิน)</summary>
+                <div className="row">
+                  <label className="small">ครบกี่ปี <input className="input" type="number" min={0} max={10} step={0.5} defaultValue={criteria.minYears} onBlur={(e) => onCriteria({ memberMinYears: Math.max(0, Number(e.target.value) || 0), memberAbsentMonths: criteria.absentMonths })} /></label>
+                  <label className="small">ขาดเกินกี่เดือน <input className="input" type="number" min={1} max={60} defaultValue={criteria.absentMonths} onBlur={(e) => onCriteria({ memberMinYears: criteria.minYears, memberAbsentMonths: Math.max(1, Math.round(Number(e.target.value)) || 1) })} /></label>
+                </div>
+              </details>
+            )}
+          </section>
+        )}
       <div className="row no-print">
         <input className="input" style={{ flex: '1 1 100%' }} placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
-        <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="กรองตามผลตรวจ" style={{ width: 'auto' }}>
-          <option value="all">ทุกผลตรวจ</option>
-          {([0, 5, 1, 6, 2, 3, 4] as Tier[]).map((t) => <option key={t} value={t}>{TIER_LABEL[t]} ({sum.byTier[t]})</option>)}
+        <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="กรอง" style={{ width: 'auto' }}>
+          <option value="all">ทุกสถานะ</option>
+          {statuses.map(([st, n]) => <option key={st} value={`st:${st}`}>{st} ({n})</option>)}
+          <option value="to2">ควรปรับเป็น สมบูรณ์ 2 ({to2})</option>
+          <option value="to1">ควรกลับเป็น สมบูรณ์ 1 ({to1})</option>
           <option value="novisit">ไม่มีบันทึกนมัสการ</option>
         </select>
         {groups.length > 0 && <select className="input" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="กรองตามกลุ่ม" style={{ width: 'auto' }}><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
         <button type="button" className="btn" onClick={() => window.print()}>พิมพ์ / PDF</button>
       </div>
       <p className="small"><b>{shown.length}</b> จาก {rows.length} รายชื่อ · พิมพ์ ณ {fmtDate(today)}</p>
-      <section className="card" aria-label="ผลตรวจสมาชิก">
+      <section className="card" aria-label="รายชื่อตามสถานะ">
         <ul className="list">
           {shown.map((r) => (
             <li key={r.member.id} style={{ position: 'relative' }}>
               <div className="item">
                 <span className="num muted" style={{ minWidth: '1.6rem', marginRight: '0.3rem' }}>{rank.get(r.member.id)}</span>
-                <span className="grow"><button type="button" className="linklike" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
-                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.group, r.member.status].filter(Boolean).join(' · ')}</span>
+                <span className="grow"><button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
+                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.group].filter(Boolean).join(' · ')}</span>
                   <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
-                  {r.tier === 5 && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''}{r.noRecord ? ' (ไม่มีบันทึกลงชื่อ)' : ''}</span></>}
+                  {r.suggest === 'to2' && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</span></>}
+                  {r.suggest === 'to1' && <><br /><span className="small" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว (ล่าสุด {fmtDate(r.last)}) → ควรกลับเป็น สมบูรณ์ 1</span></>}
                 </span>
                 <span>
                   {canEdit
-                    ? <button type="button" className={`badge ${TIER_BADGE[r.tier]}`} style={{ cursor: 'pointer' }} aria-haspopup="menu" aria-expanded={menu === r.member.id} onClick={() => setMenu(menu === r.member.id ? '' : r.member.id)}>{TIER_LABEL[r.tier]} ▾</button>
-                    : <span className={`badge ${TIER_BADGE[r.tier]}`}>{TIER_LABEL[r.tier]}</span>}
-                  {r.member.override && <><br /><span className="small muted">กำหนดเอง</span></>}
+                    ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer' }} aria-haspopup="menu" aria-expanded={menu === r.member.id} onClick={() => setMenu(menu === r.member.id ? '' : r.member.id)}>{statusLabel(r.member.status)} ▾</button>
+                    : <span className={`badge ${statusBadge(r.member.status)}`}>{statusLabel(r.member.status)}</span>}
                 </span>
               </div>
               {menu === r.member.id && (
                 <div className="card no-print" role="menu" style={{ position: 'absolute', right: 0, zIndex: 5 }}>
-                  <button type="button" role="menuitem" className="mini" onClick={() => setOverride(r, undefined)}>ตามการคำนวณ ({TIER_LABEL[r.baseTier]})</button>
-                  {OVERRIDES.filter((o) => OVERRIDE_TIER[o.key] !== r.baseTier || r.member.override).map((o) => <button key={o.key} type="button" role="menuitem" className="mini" onClick={() => setOverride(r, o.key)}>{o.label}</button>)}
+                  <p className="small muted" style={{ margin: 0 }}>เปลี่ยนสถานะในทะเบียนเป็น</p>
+                  {statuses.map(([st]) => <button key={st} type="button" role="menuitem" className="mini" disabled={st === statusLabel(r.member.status)} onClick={() => setStatus(r, st)}>{st}</button>)}
                 </div>
               )}
             </li>
@@ -222,7 +243,6 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
   const list = [...members].sort((a, b) => order[sort](a, b) || a.name.localeCompare(b.name, 'th'))
     .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp))
     .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
-  const tierOf = new Map(rows.map((r) => [r.member.id, r.tier]))
   const readCsv = async (f: File | undefined): Promise<string[][] | null> => {
     if (!f) return null
     try { return /\.xlsx$/i.test(f.name) ? await readXlsxRows(f) : parseCSV(await f.text()) } catch { setMsg('อ่านไฟล์ไม่ได้ — ใช้ไฟล์ .xlsx หรือ CSV'); return null }
@@ -350,7 +370,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
                 <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                   <span className="num muted" style={{ minWidth: '2.6rem' }}>{m.code ? `#${m.code}` : ''}</span>
                   <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
-                  {tierOf.get(m.id) !== undefined && <span className={`badge ${TIER_BADGE[tierOf.get(m.id)!]}`}>{TIER_LABEL[tierOf.get(m.id)!]}</span>}
+                  {info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับสถานะ</span>}
                 </button>
               </li>
             ))}
@@ -396,8 +416,8 @@ function Detail({ r, today, canEdit, put, remove, onClose }: { r: Evaluated; tod
           </div>
         ))}
         <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
-          <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>ผลตรวจ</dt>
-          <dd style={{ margin: 0, textAlign: 'right' }}><span className={`badge ${TIER_BADGE[r.tier]}`}>{TIER_LABEL[r.tier]}</span>{m.override ? <span className="small muted"> (กำหนดเอง)</span> : null}</dd>
+          <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>เทียบกับการลงชื่อ</dt>
+          <dd style={{ margin: 0, textAlign: 'right' }}>{r.suggest === 'to2' ? <span style={{ color: 'var(--bad)' }}>ขาดนมัสการเกินเกณฑ์ → ควรเป็น สมบูรณ์ 2</span> : r.suggest === 'to1' ? <span style={{ color: 'var(--good)' }}>กลับมานมัสการ → ควรเป็น สมบูรณ์ 1</span> : regLevel(m.status) ? 'สอดคล้องกับสถานะในทะเบียน' : <span className="muted">ไม่อยู่ในเกณฑ์ตรวจ</span>}</dd>
         </div>
         <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
           <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>การมานมัสการ</dt>

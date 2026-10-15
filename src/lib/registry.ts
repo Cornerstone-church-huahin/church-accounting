@@ -12,7 +12,13 @@ export const OVERRIDE_TIER: Record<MemberOverride, Tier> = { incomplete: 1, resi
 export interface Criteria { minYears: number; absentMonths: number }
 export const DEFAULT_CRITERIA: Criteria = { minYears: 1, absentMonths: 6 }
 
+/** ระดับสมาชิกสมบูรณ์ตามทะเบียน: "…( 1 )" = 1 · "…( 2 )" = 2 · อื่น ๆ ไม่มี */
+export const regLevel = (st?: string): 1 | 2 | undefined => (/สมบูรณ์\s*\(\s*2\s*\)/.test(st ?? '') ? 2 : /สมบูรณ์\s*\(\s*1\s*\)/.test(st ?? '') ? 1 : undefined)
+/** คำแนะนำจากการลงชื่อ: to2 = ทะเบียนว่า สมบูรณ์ 1 แต่ขาดนมัสการเกินเกณฑ์ · to1 = ทะเบียนว่า สมบูรณ์ 2 แต่กลับมานมัสการแล้ว */
+export type Suggest = 'to2' | 'to1'
+
 export interface Evaluated {
+  suggest?: Suggest
   member: ChurchMember
   tier: Tier
   baseTier: Tier
@@ -72,8 +78,10 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
     const baseTier: Tier = deceased ? 3 : dead ? 2 : qualified ? 0 : absent ? 5 : 6
     const last = days[visits - 1] ?? ''
     const idleFrom = last || (m.since && services[0] && m.since > services[0] ? m.since : services[0] ?? m.since ?? '')
+    const lvl = regLevel(status)
+    const suggest: Suggest | undefined = m.override ? undefined : lvl === 1 && baseTier === 5 ? 'to2' : lvl === 2 && baseTier === 0 ? 'to1' : undefined
     return {
-      member: m, baseTier, tier: m.override ? OVERRIDE_TIER[m.override] : baseTier,
+      member: m, baseTier, suggest, tier: m.override ? OVERRIDE_TIER[m.override] : baseTier,
       visits, recent: days.filter((d) => diffDays(today, d) <= YEAR).length, possible, cont: Math.min(1, visits / possible), tenureY,
       firstAtt: days[0] ?? '', last, idleDays: idleFrom ? diffDays(today, idleFrom) : null, noRecord: visits === 0,
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -86,6 +86,16 @@ describe('registry status gates the check', () => {
     const a = [att('2026-10-04', 's0', 's3', 's4'), att('2026-01-04', 's1')]
     const t = Object.fromEntries(evaluate(members, a, DEFAULT_CRITERIA, TODAY).rows.map((r) => [r.member.id, r.tier]))
     expect(t).toEqual({ s0: 0, s1: 5, s2: 6, s3: 6, s4: 6 })
+  })
+})
+
+describe('suggestions from attendance vs registry status', () => {
+  it('parses the registry level and suggests only when attendance contradicts it', () => {
+    expect([regLevel('1.สมบูรณ์  ( 1 )'), regLevel('2.สมบูรณ์ (2)'), regLevel('5.คนใหม่')]).toEqual([1, 2, undefined])
+    const members = [m('a', { status: '1.สมบูรณ์  ( 1 )' }), m('b', { status: '1.สมบูรณ์  ( 1 )' }), m('c', { status: '2.สมบูรณ์  ( 2 )' }), m('d', { status: '2.สมบูรณ์  ( 2 )' })]
+    const a = [att('2026-10-04', 'b', 'c'), att('2026-01-04', 'a', 'd')]
+    const s = Object.fromEntries(evaluate(members, a, DEFAULT_CRITERIA, TODAY).rows.map((r) => [r.member.id, r.suggest]))
+    expect(s).toEqual({ a: 'to2', b: undefined, c: 'to1', d: undefined })
   })
 })
 
