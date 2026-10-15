@@ -33,7 +33,7 @@ const kindOf = (x: IncomeEntry): 'sheet' | 'slip' | 'unknown' | 'manual' =>
 const byDateDesc = (a: IncomeEntry, b: IncomeEntry) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
 
 /** โหมด "รับ": ช่อง 1 บันทึกด้วยมือ · 2 บันทึกสลิป · 3 ใบบันทึกการถวาย → รวมเป็นใบสรุปรายสัปดาห์ (4) ใบเดียว */
-export default function Receive({ year }: { year: number }) {
+export default function Receive({ year, fund }: { year: number; /** หน้ากองทุน: รับของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) */ fund?: { id: string; name: string; balance: number } }) {
   const role = useRole()
   const inc = useIncome(year)
   const passbook = usePassbook(year)
@@ -58,7 +58,9 @@ export default function Receive({ year }: { year: number }) {
   const [pdfBusy, setPdfBusy] = useState(false)
   const [allWeeks, setAllWeeks] = useState(true)
   const [repScope, setRepScope] = useState<'week' | 'year'>('year')
-  const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId).sort(byDateDesc), [inc.items])
+  const fid = fund?.id
+  const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId && (!fid || x.typeId === fid)).sort(byDateDesc), [inc.items, fid])
+  const scopeTypes = useMemo(() => (fid ? types.list.filter((t) => t.id === fid) : types.list), [types.list, fid])
   const week = useMemo(() => allEnt.filter((x) => sheetSunday(x.date) === sunday), [allEnt, sunday])
   const byDateF = (a: SheetFile, b: SheetFile) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
   const weekFiles = files.items.filter((f) => sheetSunday(f.date) === sunday).sort(byDateF)
@@ -69,7 +71,7 @@ export default function Receive({ year }: { year: number }) {
   const lst = allWeeks ? allEnt : week
   const manual = lst.filter((x) => kindOf(x) === 'manual')
   /** เพิ่ม/แก้ชื่อ/ลบประเภทรับ จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการรับ */
-  const incomeOps = can(role, 'settings') ? {
+  const incomeOps = !fid && can(role, 'settings') ? {
     add: (name: string) => { const t = makeIncomeType(types.list, name); if (typeof t === 'string') return { error: t }; return types.put([t]) ? { id: t.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
     rename: (id: string, cur: string) => { const n = prompt('แก้ชื่อประเภท', cur)?.trim(); const t = types.byId(id); if (n && t && n !== cur) types.put([{ ...t, name: n }]) },
     remove: (id: string, nm: string) => { if (confirm(`ลบประเภท “${nm}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) types.remove(id) },
@@ -123,7 +125,9 @@ export default function Receive({ year }: { year: number }) {
   const goWeek = (d: string) => { const w = sheetSunday(d); if (sundays.includes(w)) setSunday(w) }
 
   // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
-  const { incRows } = useMemo(() => computeLedger({ range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: passbook.items }), [year, sunday, repScope, inc.items, rounds.items, types.list, passbook.items])
+  const { incRows } = useMemo(() => computeLedger(fid
+    ? { range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items.filter((x) => x.typeId === fid), rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: scopeTypes, passbook: [], withFunds: true }
+    : { range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: passbook.items }), [year, sunday, repScope, inc.items, rounds.items, types.list, scopeTypes, passbook.items, fid])
 
   /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
   const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
@@ -140,18 +144,18 @@ export default function Receive({ year }: { year: number }) {
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={types.list} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
+        <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} scope={fund?.name} sunday={sunday} onRowClick={canWrite ? (x) => setRowEdit({ entry: x }) : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />
       </div>
-      {rowEdit && <IncomeRowEditor onManage={incomeOps} entry={rowEdit.entry} types={types.list} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
+      {rowEdit && <IncomeRowEditor onManage={incomeOps} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!inc.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
         <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}><i className="dot">1</i><span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}><i className="dot">2</i><span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>
-        <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}><i className="dot">3</i><span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>
+        {!fid && <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}><i className="dot">2</i><span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>}
+        {!fid && <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}><i className="dot">3</i><span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>}
               <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}><i className="dot">4</i><span>รวมรับ</span></button>
       </div>
 
@@ -159,10 +163,10 @@ export default function Receive({ year }: { year: number }) {
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
-          <ManualIncome types={types.list} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+          <ManualIncome types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onManage={incomeOps}
-            onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => setForm({ entry: x, preset: 'manual' })} onDelete={delEntry} />
-          {canWrite && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
+            onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => (fid ? setRowEdit({ entry: x }) : setForm({ entry: x, preset: 'manual' }))} onDelete={delEntry} />
+          {canWrite && !fid && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
         </section>
       )}
       {sub === 'slip' && (

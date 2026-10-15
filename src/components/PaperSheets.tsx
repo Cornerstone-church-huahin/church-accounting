@@ -48,7 +48,7 @@ function DownloadRow({ onData, kind, church, sunday }: { onData: () => void; kin
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }: { church: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope }: { church: string; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -56,7 +56,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }:
   const name = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกประเภท)' : '(ประเภทที่ถูกลบ)')
   const sum = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + x.amount, 0)
   const cnt = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + (x.count ?? 1), 0)
-  const heading = sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์'
+  const heading = (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์')
   return (
     <div>
       {pages.map((rows, pi) => (
@@ -98,12 +98,12 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick }:
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope }: { church: string; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
   const pages = chunk(all, ROWS)
-  const heading = sunday ? weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : 'รวมทุกสัปดาห์'
+  const heading = (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : 'รวมทุกสัปดาห์')
   const sumOf = (xs: ExpenseEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
   return (
     <div>
@@ -253,6 +253,8 @@ export interface WeekSummary {
   balance: number; asOf: string
   /** ผลสุทธิ (รับ − จ่าย) เงินหมุนเวียนล้วน ไม่รวมกองทุน: สัปดาห์นี้ · เดือนนี้ · ปีนี้ */
   net: { week: number; month: number; year: number }
+  /** หน้ากองทุน: ชื่อกองทุน — กรอบสรุปเป็นของกองทุนนี้ล้วน (ไม่มีแถวหมุนเวียน/กองทุน) */
+  scopeName?: string
 }
 
 /** 3 กรอบใต้ตารางใบเบิก-จ่าย: 1 สรุปรับประจำสัปดาห์ · 2 สรุปจ่ายประจำสัปดาห์ · 3 สรุปยอดเงินในบัญชีทั้งสิ้น (เงินหมุนเวียน) */
@@ -270,9 +272,9 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', margin: '8px 0' }}>
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
-        <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</div>
-        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</div>
-        <div style={{ ...box, justifyContent: 'center' }} aria-label="ยอดเงินหมุนเวียน">{row('เงินหมุนเวียนทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}</div>
+        <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{summary?.scopeName ? row(`เงินรับ ${summary.scopeName}`, v(circIn), true) : <>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</>}</div>
+        <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{summary?.scopeName ? row(`เงินจ่าย ${summary.scopeName}`, v(circOut), true) : <>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</>}</div>
+        <div style={{ ...box, justifyContent: 'center' }} aria-label="ยอดเงินหมุนเวียน">{row(summary?.scopeName ? 'เงินกองทุนคงเหลือปัจจุบัน' : 'เงินหมุนเวียนทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}</div>
       </div>
     </div>
   )

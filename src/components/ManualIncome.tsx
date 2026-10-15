@@ -17,7 +17,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
   onManage?: CatalogOps
   onAdd: (items: IncomeEntry[]) => boolean; onEdit: (x: IncomeEntry) => void; onDelete: (x: IncomeEntry) => void
 }) {
-  const active = types.filter((t) => t.active)
+  const active = types.filter((t) => t.active || types.length === 1)
   const [date, setDate] = useState(defaultDate)
   const [typeId, setTypeId] = useState(active[0]?.id ?? '')
   const [env, setEnv] = useState('')
