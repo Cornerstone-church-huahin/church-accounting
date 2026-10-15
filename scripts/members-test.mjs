@@ -57,8 +57,14 @@ try {
   // กรอง
   await page.getByLabel('กรองตามผลตรวจ').selectOption('0')
   must(await page.locator('li', { hasText: 'สมหญิง' }).count() === 1 && await page.locator('li', { hasText: 'สมศักดิ์' }).count() === 0, 'filter by tier')
+  // ยอดผู้มา
+  await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
+  must(await page.locator('table.tbl tbody tr').count() >= 40, 'stats table lists every service: ' + await page.locator('table.tbl tbody tr').count())
+  await page.locator('table.tbl tbody tr').first().click()
+  must(/สมชาย/.test(await page.locator('table.tbl').innerText()), 'expanding a service lists who came')
+  await snap('1b-stats')
   // ลงชื่อนมัสการ
-  await page.getByRole('tab', { name: 'ลงชื่อนมัสการ' }).click()
+  await page.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
   const cb = page.getByRole('checkbox')
   must(await cb.count() === 3, 'check-in lists living, non-overridden members only: ' + await cb.count())
   await page.getByRole('checkbox').nth(0).check()

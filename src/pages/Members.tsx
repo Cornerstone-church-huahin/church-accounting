@@ -5,12 +5,12 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { dow, fmtDate, newId, todayISO, weekStart, yearOf } from '../lib/money'
-import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, matchNames, nameKey, serviceStats, statusLabel, OVERRIDE_TIER, parseAttendanceRows, parseMemberRows, summarize, TIER_LABEL, type Evaluated, type Tier } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import type { Attendance, ChurchMember, MemberOverride } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 const TIER_BADGE: Record<Tier, string> = { 0: 'badge--good', 1: '', 2: '', 3: '', 4: 'badge--bad', 5: 'badge--gold', 6: '' }
 const OVERRIDES: { key: MemberOverride; label: string }[] = [{ key: 'incomplete', label: 'คุณสมบัติไม่ครบ' }, { key: 'resigned', label: 'ลาออก' }, { key: 'deceased', label: 'เสียชีวิต' }, { key: 'removed', label: 'ปรับออก' }]
@@ -51,11 +51,12 @@ function MembersPage() {
     <>
       <div className="page-head no-print"><h1>สมาชิก</h1></div>
       <div className="seg no-print" role="tablist" aria-label="หมวด">
-        {([['audit', 'ตรวจสอบ'], ['checkin', 'ลงชื่อนมัสการ'], ['roster', 'ทะเบียน']] as const).map(([k, l]) => (
+        {([['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       {tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canEdit ? <Checkin members={people.items} existing={existing} put={putAttendance} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putAttendance={putAttendance} existing={existing} />}
       {shownDetail && <Detail r={shownDetail} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
@@ -189,6 +190,8 @@ function Checkin({ members, existing, put }: { members: ChurchMember[]; existing
   )
 }
 
+/** id ใหม่ที่ไม่ซ้ำกับที่มีอยู่ (นำเข้าหลายร้อยคนในมิลลิวินาทีเดียว newId ชนกันได้) */
+const uniqueId = (taken: Set<string>) => { let id = newId('cm'); while (taken.has(id)) id = newId('cm'); taken.add(id); return id }
 const statusKey = (st?: string) => (st ?? '').trim() || '(ไม่ระบุ)'
 
 function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, existing }: { rows: Evaluated[]; onOpen: (id: string) => void; members: ChurchMember[]; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putAttendance: (x: Attendance[]) => boolean; existing: (d: string) => Attendance | undefined }) {
@@ -196,6 +199,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
   const [grp, setGrp] = useState('')
+  const [sort, setSort] = useState<'code' | 'name' | 'visits' | 'last'>('code')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const memberFile = useRef<HTMLInputElement>(null)
@@ -204,7 +208,14 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
   const groups = [...new Set(members.map((m) => m.group).filter(Boolean))].sort() as string[]
   const count = (f: (m: ChurchMember) => boolean) => members.filter(f).length
   const t = q.trim().toLowerCase().replace(/\s+/g, '')
-  const list = [...members].sort((a, b) => (Number(a.code) || 1e9) - (Number(b.code) || 1e9) || a.name.localeCompare(b.name, 'th'))
+  const info = new Map(rows.map((r) => [r.member.id, r]))
+  const order: Record<typeof sort, (a: ChurchMember, b: ChurchMember) => number> = {
+    code: (a, b) => (Number(a.code) || 1e9) - (Number(b.code) || 1e9),
+    name: () => 0,
+    visits: (a, b) => (info.get(b.id)?.visits ?? 0) - (info.get(a.id)?.visits ?? 0),
+    last: (a, b) => ((info.get(b.id)?.last ?? '') > (info.get(a.id)?.last ?? '') ? 1 : -1),
+  }
+  const list = [...members].sort((a, b) => order[sort](a, b) || a.name.localeCompare(b.name, 'th'))
     .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp))
     .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
   const tierOf = new Map(rows.map((r) => [r.member.id, r.tier]))
@@ -229,7 +240,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
       let added = 0, updated = 0
       const batch: ChurchMember[] = []
       const taken = new Set(members.map((m) => m.id))
-      const freshId = () => { let id = newId('cm'); while (taken.has(id)) id = newId('cm'); taken.add(id); return id } // นำเข้าหลายร้อยคนในมิลลิวินาทีเดียว: กัน id ชนกัน (ชนแล้วคนหาย)
+      const freshId = () => uniqueId(taken)
       for (const n of r.members) {
         const old = pick(n)
         if (old) { updated++; used.add(old.id) } else added++
@@ -239,19 +250,38 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
     } finally { setBusy(false) }
   }
   const importAttendance = async (f: File | undefined) => {
-    const rows = await readCsv(f)
-    if (!rows) return
-    const r = parseAttendanceRows(rows)
-    if (!r) return setMsg('ไฟล์ลงชื่อต้องมีคอลัมน์ “วันที่” และ “ชื่อ-สกุล” (1 แถว = 1 คนที่มา)')
-    const batch: Attendance[] = []
-    const unknown = new Set<string>(), ambiguous = new Set<string>()
-    for (const [date, names] of r.byDate) {
-      const m = matchNames(names, members)
-      m.unknown.forEach((x) => unknown.add(x)); m.ambiguous.forEach((x) => ambiguous.add(x))
-      const old = existing(date)
-      batch.push({ id: date, date, ids: [...new Set([...(old?.ids ?? []), ...m.ids])], updated: 0 }) // รวมกับที่เคยลงชื่อไว้ ไม่ทับ
-    }
-    if (putAttendance(batch)) setMsg(`นำเข้าลงชื่อ ${batch.length} วัน${r.bad ? ` · ข้าม ${r.bad} แถวที่วันที่/ชื่อไม่ถูกต้อง` : ''}${unknown.size ? ` · ไม่พบในทะเบียน ${unknown.size} ชื่อ (เช่น ${[...unknown].slice(0, 3).join(', ')})` : ''}${ambiguous.size ? ` · ชื่อซ้ำหลายคน ไม่ได้เดา ${ambiguous.size} ชื่อ (${[...ambiguous].slice(0, 3).join(', ')})` : ''}`)
+    setBusy(true)
+    try {
+      const rows = await readCsv(f)
+      if (!rows) return
+      const r = parseAttendanceRows(rows)
+      if (!r) return setMsg('ไฟล์ลงชื่อต้องมีคอลัมน์ “วันที่” และ “ชื่อ-สกุล” (1 แถว = 1 คนที่มา)')
+      const thisYear = yearOf(todayISO())
+      const inRange = [...r.byDate].filter(([d]) => yearOf(d) >= thisYear - YEARS_BACK && yearOf(d) <= thisYear)
+      const outOfRange = r.byDate.size - inRange.length
+      // ชื่อที่ยังไม่อยู่ในทะเบียน: ถามก่อนเพิ่ม (ทะเบียนเป็นตัวหลัก ไม่เพิ่มเองเงียบ ๆ)
+      const names = inRange.flatMap(([, n]) => n)
+      const unknown = [...new Map(matchNames([...new Set(names)], members).unknown.map((n) => [nameKey(n), n])).values()]
+      let added: ChurchMember[] = []
+      if (unknown.length && confirm(`พบ ${unknown.length} ชื่อในไฟล์ที่ยังไม่อยู่ในทะเบียน (เช่น ${unknown.slice(0, 3).join(', ')})\n\nตกลง = เพิ่มเป็นสมาชิกใหม่แล้วนับการมาด้วย\nยกเลิก = ข้ามชื่อเหล่านี้`)) {
+        const taken = new Set(members.map((m) => m.id))
+        added = unknown.map((n) => { const i = r.info.get(nameKey(n)); return { id: uniqueId(taken), name: i?.name ?? n, ...(i?.nick ? { nick: i.nick } : {}), status: i?.status ?? '4.ผู้ร่วมนมัสการ', ...(i?.group ? { group: i.group } : {}), updated: 0 } })
+        if (!put(added)) return
+      }
+      const pool = [...members, ...added]
+      const batch: Attendance[] = []
+      const still = new Set<string>(), ambiguous = new Set<string>()
+      let visits = 0
+      for (const [date, ns] of inRange) {
+        const m = matchNames(ns, pool)
+        m.unknown.forEach((x) => still.add(x)); m.ambiguous.forEach((x) => ambiguous.add(x))
+        const old = existing(date)
+        const ids = [...new Set([...(old?.ids ?? []), ...m.ids])] // รวมกับที่เคยลงชื่อไว้ ไม่ทับ
+        visits += m.ids.length
+        batch.push({ id: date, date, ids, updated: 0 })
+      }
+      if (putAttendance(batch)) setMsg(`นำเข้าลงชื่อ ${batch.length} ครั้ง (${visits.toLocaleString('th-TH')} การมา)${added.length ? ` · เพิ่มสมาชิกใหม่ ${added.length} คน` : ''}${outOfRange ? ` · ข้าม ${outOfRange} วันที่อยู่นอกช่วง ${thisYear - YEARS_BACK + 543}–${thisYear + 543}` : ''}${r.bad ? ` · ข้าม ${r.bad} แถวที่วันที่/ชื่อไม่ถูกต้อง` : ''}${still.size ? ` · ไม่ได้จับคู่ ${still.size} ชื่อ (เช่น ${[...still].slice(0, 3).join(', ')})` : ''}${ambiguous.size ? ` · ชื่อซ้ำหลายคน ไม่ได้เดา ${ambiguous.size} ชื่อ (${[...ambiguous].slice(0, 3).join(', ')})` : ''}`)
+    } finally { setBusy(false) }
   }
   return (
     <>
@@ -273,6 +303,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
       )}
       <div className="row no-print">
         <input className="input grow" placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+        <select className="input" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
         {groups.length > 0 && <select className="input" style={{ width: 'auto' }} value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
       </div>
       <p className="small muted">แสดง {list.length} จาก {members.length} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
@@ -283,7 +314,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
               <li key={m.id}>
                 <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                   <span className="num muted" style={{ minWidth: '2.6rem' }}>{m.code ? `#${m.code}` : ''}</span>
-                  <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}</span></span>
+                  <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}</span></span>
                   {tierOf.get(m.id) !== undefined && <span className={`badge ${TIER_BADGE[tierOf.get(m.id)!]}`}>{TIER_LABEL[tierOf.get(m.id)!]}</span>}
                 </button>
               </li>
@@ -352,5 +383,72 @@ function MemberForm({ member, onClose, put, remove }: { member: ChurchMember | n
         <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>
       </div>
     </Sheet>
+  )
+}
+
+const MAX_BARS = 26
+
+/** ยอดผู้เข้าร่วมแต่ละครั้ง: กราฟ + ตาราง (แตะแถวดูรายชื่อคนที่มา) */
+function Stats({ attendance, members, onOpen }: { attendance: Attendance[]; members: ChurchMember[]; onOpen: (id: string) => void }) {
+  const stats = useMemo(() => serviceStats(attendance, members), [attendance, members])
+  const [open, setOpen] = useState('')
+  const byName = useMemo(() => new Map(members.map((m) => [m.name, m.id])), [members])
+  if (stats.length === 0) return <p className="empty">ยังไม่มีบันทึกลงชื่อนมัสการ — นำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน” หรือลงชื่อทีละครั้งที่แท็บ “ลงชื่อ”</p>
+  const total = stats.reduce((a, x) => a + x.count, 0)
+  const recent = stats.slice(0, MAX_BARS).reverse()
+  const max = Math.max(1, ...recent.map((x) => x.count))
+  const peak = stats.reduce((a, x) => (x.count > a.count ? x : a), stats[0])
+  const last12 = stats.filter((x) => x.date >= `${yearOf(stats[0].date) - 1}${stats[0].date.slice(4)}`)
+  const avg = (xs: typeof stats) => (xs.length ? Math.round(xs.reduce((a, x) => a + x.count, 0) / xs.length) : 0)
+  const complete = (x: (typeof stats)[number]) => Object.entries(x.byStatus).filter(([st]) => /สมบูรณ์/.test(st)).reduce((a, [, n]) => a + n, 0)
+  const W = 360, H = 130, bw = W / recent.length
+  return (
+    <>
+      <div className="kpi">
+        <div><span>จำนวนครั้งที่มีบันทึก</span><b>{stats.length}</b></div>
+        <div><span>เฉลี่ยต่อครั้ง (ทั้งหมด)</span><b>{avg(stats)}</b></div>
+        <div><span>เฉลี่ยต่อครั้ง (12 เดือนล่าสุด)</span><b>{avg(last12)}</b></div>
+        <div><span>ล่าสุด {fmtDate(stats[0].date)}</span><b>{stats[0].count}</b></div>
+        <div><span>สูงสุด {fmtDate(peak.date)}</span><b>{peak.count}</b></div>
+        <div><span>รวมการมาทั้งหมด</span><b>{total.toLocaleString('th-TH')}</b></div>
+      </div>
+      <section className="card">
+        <h2>ผู้เข้าร่วมแต่ละครั้ง (ล่าสุด {recent.length} ครั้ง)</h2>
+        <figure className="chart" style={{ margin: 0 }} aria-label="จำนวนผู้เข้าร่วมนมัสการแต่ละครั้ง">
+          <svg viewBox={`0 0 ${W} ${H + 18}`} role="img" aria-label={`จำนวนผู้เข้าร่วม ${recent.map((x) => `${fmtDate(x.date)} ${x.count} คน`).join(', ')}`}>
+            <line className="grid" x1={0} x2={W} y1={H} y2={H} />
+            {recent.map((x, i) => {
+              const h = Math.max(2, (x.count / max) * (H - 16))
+              return (
+                <g key={x.date}>
+                  <rect className="s1" x={i * bw + 1.5} y={H - h} width={Math.max(2, bw - 3)} height={h} rx={2}><title>{`${fmtDate(x.date)} · ${x.count} คน`}</title></rect>
+                  {(recent.length <= 13 || i % 2 === 0) && <text className="val" x={i * bw + bw / 2} y={H - h - 3} textAnchor="middle" fontSize="8">{x.count}</text>}
+                </g>
+              )
+            })}
+            <text x={0} y={H + 13} fontSize="9">{fmtDate(recent[0].date)}</text>
+            <text x={W} y={H + 13} fontSize="9" textAnchor="end">{fmtDate(recent[recent.length - 1].date)}</text>
+          </svg>
+        </figure>
+      </section>
+      <section className="card" aria-label="ตารางผู้เข้าร่วมแต่ละครั้ง">
+        <div style={{ overflowX: 'auto' }}>
+          <table className="tbl" style={{ width: '100%', fontSize: '0.85rem' }}>
+            <thead><tr><th style={{ textAlign: 'left' }}>วันที่ (แตะดูรายชื่อ)</th><th className="num">รวม</th><th className="num">สมาชิกสมบูรณ์</th><th className="num">อื่น ๆ</th></tr></thead>
+            <tbody>
+              {stats.map((x) => (
+                <>
+                  <tr key={x.date} onClick={() => setOpen(open === x.date ? '' : x.date)} style={{ cursor: 'pointer' }} aria-expanded={open === x.date}>
+                    <td>{open === x.date ? '▾' : '▸'} {fmtDate(x.date)}</td><td className="num"><b>{x.count}</b></td>
+                    <td className="num">{complete(x)}</td><td className="num">{x.count - complete(x)}</td>
+                  </tr>
+                  {open === x.date && <tr key={`${x.date}-n`}><td colSpan={4} className="small"><p className="muted" style={{ margin: '0 0 0.3rem' }}>{Object.entries(x.byStatus).sort().map(([st, n]) => `${statusLabel(st)} ${n}`).join(' · ')}</p>{x.names.map((n, i) => <span key={n + i}>{i ? ' · ' : ''}<button type="button" style={{ all: 'unset', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => byName.get(n) && onOpen(byName.get(n)!)}>{n}</button></span>)}</td></tr>}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   )
 }

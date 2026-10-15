@@ -95,6 +95,7 @@ export function summarize(rows: Evaluated[]): Summary {
 }
 
 // ---------- นำเข้า CSV ----------
+export const nameKey = (s: string) => s.replace(/\s+/g, '').toLowerCase()
 const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
 /** แปลงวันที่จากไฟล์: YYYY-MM-DD, D/M/YYYY (รองรับ พ.ศ. ถ้าปี > 2400) · ไม่ใช่วันที่ = '' */
 export function parseDateCell(raw: string): string {
@@ -148,35 +149,64 @@ export function parseMemberRows(rows: string[][]): MemberImport | null {
   }
   return { members: out, skipped }
 }
-/** ไฟล์ลงชื่อ: คอลัมน์ "วันที่" + "ชื่อ" ต่อแถว (1 แถว = 1 คนที่มา) */
-export function parseAttendanceRows(rows: string[][]): { byDate: Map<string, string[]>; bad: number } | null {
+/** ไฟล์ลงชื่อ: คอลัมน์ "วันที่" (มีเวลาต่อท้ายได้) + "ชื่อ-สกุล" ต่อแถว (1 แถว = 1 คนที่มา) · ชื่อเล่น/สถานะ/กลุ่ม (ถ้ามี) ใช้ตอนเพิ่มคนที่ยังไม่อยู่ในทะเบียน */
+export interface PersonInfo { name: string; nick?: string; status?: string; group?: string }
+export function parseAttendanceRows(rows: string[][]): { byDate: Map<string, string[]>; bad: number; info: Map<string, PersonInfo> } | null {
   const head = rows[0]?.map(norm) ?? []
   const di = head.findIndex((h) => ['วันที่', 'วัน', 'date'].includes(h))
   const ni = head.findIndex((h) => HEAD.name.some((x) => norm(x) === h))
   if (di < 0 || ni < 0) return null
+  const col = (k: string) => head.findIndex((h) => HEAD[k].some((x) => norm(x) === h))
+  const [ki, si, gi] = [col('nick'), col('status'), col('group')]
+  const clean = (v: string | undefined) => (v ?? '').replace(/[\u200b\u200c\u200d]/g, '').trim()
   const byDate = new Map<string, string[]>()
+  const info = new Map<string, PersonInfo>()
   let bad = 0
   for (const r of rows.slice(1)) {
-    const name = (r[ni] ?? '').trim()
+    const name = clean(r[ni])
     if (!name && !(r[di] ?? '').trim()) continue
     const date = parseDateCell(r[di] ?? '')
     if (!date || !name) { bad++; continue }
     ;(byDate.get(date) ?? byDate.set(date, []).get(date)!).push(name)
+    if (!info.has(norm(name))) info.set(norm(name), { name: name.replace(/\s+/g, ' '), ...(clean(r[ki]) ? { nick: clean(r[ki]) } : {}), ...(clean(r[si]) ? { status: clean(r[si]) } : {}), ...(clean(r[gi]) ? { group: clean(r[gi]) } : {}) })
   }
-  return { byDate, bad }
+  return { byDate, bad, info }
 }
-/** จับชื่อในไฟล์กับทะเบียน (ชื่อ–สกุลตรงกันเป๊ะหลังตัดช่องว่าง) · ชื่อซ้ำกันหลายคนถือว่าคลุมเครือ ไม่เดา */
+const clean0 = (s: string) => s.replace(/[\u200b\u200c\u200d]/g, '')
+/** ตัดชื่อเล่นในวงเล็บท้ายชื่อ (ไฟล์ลงชื่อบางที่ตัดวงเล็บไม่ครบ) */
+const stripNick = (s: string) => norm(clean0(s).replace(/[(（].*$/, ''))
+/** จับชื่อในไฟล์กับทะเบียน: ชื่อ–สกุลตรงกันเป๊ะ → ไม่ตรงลองตัดชื่อเล่นในวงเล็บ · มีหลายคนชื่อเดียวกันถือว่าคลุมเครือ ไม่เดา */
 export function matchNames(names: string[], members: ChurchMember[]): { ids: string[]; unknown: string[]; ambiguous: string[] } {
-  const by = new Map<string, ChurchMember[]>()
-  for (const m of members) (by.get(norm(m.name)) ?? by.set(norm(m.name), []).get(norm(m.name))!).push(m)
+  const group = (f: (s: string) => string) => {
+    const by = new Map<string, ChurchMember[]>()
+    for (const m of members) (by.get(f(m.name)) ?? by.set(f(m.name), []).get(f(m.name))!).push(m)
+    return by
+  }
+  const exact = group((s) => norm(clean0(s))), loose = group(stripNick)
   const ids = new Set<string>(), unknown: string[] = [], ambiguous: string[] = []
   for (const n of names) {
-    const hit = by.get(norm(n))
+    const hit = exact.get(norm(clean0(n))) ?? loose.get(stripNick(n))
     if (!hit) unknown.push(n)
     else if (hit.length > 1) ambiguous.push(n)
     else ids.add(hit[0].id)
   }
   return { ids: [...ids], unknown, ambiguous }
+}
+
+// ---------- ยอดผู้เข้าร่วมรายครั้ง ----------
+export interface ServiceStat { date: string; count: number; byStatus: Record<string, number>; names: string[] }
+export const statusLabel = (st?: string) => (st ?? '').trim() || '(ไม่ระบุสถานะ)'
+/** ยอดผู้มานมัสการแต่ละครั้ง (นับเฉพาะคนที่ยังอยู่ในทะเบียน) พร้อมแยกตามสถานะ · เรียงใหม่ → เก่า */
+export function serviceStats(attendance: Attendance[], members: ChurchMember[]): ServiceStat[] {
+  const byId = new Map(members.map((m) => [m.id, m]))
+  const merged = new Map<string, Set<string>>()
+  for (const a of attendance) if (!a.deleted) for (const id of a.ids) if (byId.has(id)) (merged.get(a.date) ?? merged.set(a.date, new Set()).get(a.date)!).add(id)
+  return [...merged.entries()].sort((x, y) => (x[0] < y[0] ? 1 : -1)).map(([date, ids]) => {
+    const byStatus: Record<string, number> = {}
+    const names: string[] = []
+    for (const id of ids) { const m = byId.get(id)!; byStatus[statusLabel(m.status)] = (byStatus[statusLabel(m.status)] ?? 0) + 1; names.push(m.name) }
+    return { date, count: ids.size, byStatus, names: names.sort((p, q) => p.localeCompare(q, 'th')) }
+  })
 }
 
 /** อายุจากวันเกิด เช่น "45 ปี 6 เดือน" */

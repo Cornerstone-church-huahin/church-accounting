@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -46,6 +46,24 @@ describe('evaluate', () => {
     expect(s.complete).toBe(3)
     expect(s.bands.reduce((x, y) => x + y, 0)).toBe(2)
     expect(s.records).toBe(2)
+  })
+})
+
+describe('worship register import', () => {
+  it('reads the register layout (timestamp date, nick/status/group) and keeps info for unknown people', () => {
+    const r = parseAttendanceRows([['วันที่', 'ชื่อ สกุล', 'ชื่อเล่น', 'สถานะ', 'กลุ่ม'], ['2567-07-07 10:16:22', 'ก\u200b ข', 'เก', '5.คนใหม่', '7.ไม่มีกลุ่ม'], ['2567-07-07 10:20:00', 'ก ข', '', '', '']])!
+    expect(r.byDate.get('2024-07-07')).toEqual(['ก ข', 'ก ข'])
+    expect(r.info.get('กข')).toEqual({ name: 'ก ข', nick: 'เก', status: '5.คนใหม่', group: '7.ไม่มีกลุ่ม' })
+  })
+  it('matches names ignoring a trailing (nickname) when the exact name is absent', () => {
+    const ms = [m('1', { name: 'สมใจ ดี(ใจ)' }), m('2', { name: 'สมศรี ดี' })]
+    expect(matchNames(['สมใจ ดี', 'สมศรี ดี(ศรี', 'ใคร ก็ไม่รู้'], ms)).toEqual({ ids: ['1', '2'], unknown: ['ใคร ก็ไม่รู้'], ambiguous: [] })
+  })
+  it('counts each person once per service and groups by status', () => {
+    const ms = [m('a', { status: '1.สมบูรณ์' }), m('b', { status: '5.คนใหม่' }), m('c')]
+    const st = serviceStats([att('2026-10-04', 'a', 'a', 'b', 'zz'), { ...att('2026-10-04', 'c'), id: 'x' }, att('2026-09-27', 'a')], ms)
+    expect(st.map((x) => [x.date, x.count])).toEqual([['2026-10-04', 3], ['2026-09-27', 1]])
+    expect(st[0].byStatus).toEqual({ '1.สมบูรณ์': 1, '5.คนใหม่': 1, '(ไม่ระบุสถานะ)': 1 })
   })
 })
 
