@@ -381,7 +381,7 @@ ul.plain > li { padding: 0.25rem 0; }
 .btile b { font-size: 1.3rem; }
 
 .debtbanner { background: #fdeceb; border: 1.5px solid #b3261e; border-radius: 0.5rem; padding: 0.2rem 0.5rem; margin: 4px 0; color: #7a1a14; }
-.debtbanner p { margin: 1px 0; font-size: 0.7rem; line-height: 1.3; }
+.debtbanner p { margin: 1px 0; font-size: 0.62rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* กองทุนที่ให้ยืมไป: แถบเขียว (เตือนว่ามีเงินรอรับคืน) */
 .debtbanner--lent { background: #e9f6ec; border-color: #2e7d32; color: #1b5e20; }
 

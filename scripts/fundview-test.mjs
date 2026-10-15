@@ -77,11 +77,11 @@ try {
   must(/กองทุนเพื่อที่ดินคริสตจักร\s+[−-]14,500\.00/.test(body), 'land fund = 5,000 opening + 1,000 received − 500 − 20,000 lent (even for loans dated before the opening date): ' + body.slice(0, 500))
   must(/กองทุนศึกษา\s+100,550\.00/.test(body), 'study fund = 200 opening − 150 paid + 500 internal loan + 100,000 outside loan, all real cash')
   const cardOf = (n) => page.locator('details.fundcard').filter({ has: page.locator('summary > div > b:first-child', { hasText: new RegExp('^' + n + '$') }) })
-  { const st = (await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' '); must(/ยืมมา 500 บาท · ค้างคืน 500 จาก/.test(st), 'borrowing fund shows the real cash + red debt banner: ' + st) }
-  must(/ให้ยืมไป 500 บาท/.test((await cardOf('กองทุนเพื่อที่ดินคริสตจักร').innerText()).replace(/\n/g, ' ')), 'lending fund shows red lent-out banner')
-  must(/ยืมมา 50,000 บาท · ค้างคืน 40,000 จาก พี่ก.*ทำสุสาน/.test((await cardOf('กองทุนสุสาน').locator('summary').innerText()).replace(/\n/g, ' ')), 'borrowing fund shows the red banner while collapsed')
-  must(/ให้ยืมไป 500 บาท/.test((await cardOf('กองทุนเพื่อที่ดินคริสตจักร').innerText()).replace(/\n/g, ' ')), 'lending fund shows it was lent out')
-  must(/ยืมมา 100,000 บาท.*มน.เสาวคน|ยืมมา 100,000 บาท.*จาก มน\.เสาวคน/.test((await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' ')), 'study fund shows the loan added from the debt page')
+  { const st = (await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' '); must(/ยืมมา 500 · ค้างคืน 500 จาก/.test(st), 'borrowing fund shows the real cash + red debt banner: ' + st) }
+  must(/ให้ยืมไป 500 /.test((await cardOf('กองทุนเพื่อที่ดินคริสตจักร').innerText()).replace(/\n/g, ' ')), 'lending fund shows red lent-out banner')
+  must(/ยืมมา 50,000 · ค้างคืน 40,000 จาก พี่ก.*ทำสุสาน/.test((await cardOf('กองทุนสุสาน').locator('summary').innerText()).replace(/\n/g, ' ')), 'borrowing fund shows the red banner while collapsed')
+  must(/ให้ยืมไป 500 /.test((await cardOf('กองทุนเพื่อที่ดินคริสตจักร').innerText()).replace(/\n/g, ' ')), 'lending fund shows it was lent out')
+  must(/ยืมมา 100,000 .*มน.เสาวคน|ยืมมา 100,000 .*จาก มน\.เสาวคน/.test((await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' ')), 'study fund shows the loan added from the debt page')
   await page.screenshot({ path: 'shots/fundview-funds.png', fullPage: true })
   // เงินกองทุนไม่ปนรายรับปกติ: สรุปสัปดาห์
   await page.goto(`http://localhost:${PORT}/#/`)

@@ -11,8 +11,8 @@ export default function DebtBanner({ loans, types, lent }: { loans: Loan[]; type
     <div className={`debtbanner${lent ? ' debtbanner--lent' : ''}`} role="alert" aria-label={lent ? 'เงินกองทุนนี้ถูกยืมไป' : 'หนี้ที่ต้องคืน'}>
       {open.map((l) => (
         <p key={l.id}>{lent
-          ? <>💚 <b>ให้ยืมไป {fmtBaht(loanBalance(l), { dec: false })} บาท · รอรับคืน</b> โดย {l.borrower === 'own' ? 'เงินหมุนเวียน' : name(l.borrower) || 'ไม่ระบุ'} · {fmtDate(l.date)} {l.purpose ? ` · ${l.purpose}` : ''}</>
-          : <>⚠️ <b>ยืมมา {fmtBaht(l.principal, { dec: false })} บาท · ค้างคืน {fmtBaht(loanBalance(l), { dec: false })}</b> จาก {lenderLabel(l, name)} · เมื่อ {fmtDate(l.date)} {l.purpose ? ` · ${l.purpose}` : ''}</>}</p>
+          ? <>💚 <b>ให้ยืมไป {fmtBaht(loanBalance(l), { dec: false })} · รอรับคืน</b> โดย {l.borrower === 'own' ? 'เงินหมุนเวียน' : name(l.borrower) || 'ไม่ระบุ'} · {fmtDate(l.date)} {l.purpose ? ` · ${l.purpose}` : ''}</>
+          : <>⚠️ <b>ยืมมา {fmtBaht(l.principal, { dec: false })} · ค้างคืน {fmtBaht(loanBalance(l), { dec: false })}</b> จาก {lenderLabel(l, name)} · {fmtDate(l.date)} {l.purpose ? ` · ${l.purpose}` : ''}</>}</p>
       ))}
     </div>
   )
