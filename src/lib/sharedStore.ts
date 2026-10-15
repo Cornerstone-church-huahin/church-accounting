@@ -16,6 +16,8 @@ export function useSharedStore<T extends SharedItem>(opts: {
   scope?: 'shared' | 'members'
   /** สิทธิ์ที่ต้องมีเพื่อเขียน (ค่าเริ่มต้น: ไม่ตรวจ) */
   write?: Perm
+  /** ซิงก์ซ้ำทุกนาที (ค่าเริ่มต้นใช่) · false = ซิงก์เฉพาะตอนเปิดและตอนกลับมาที่แอป (ข้อมูลเก่าที่แทบไม่เปลี่ยน) */
+  poll?: boolean
 }) {
   const { localKey, file, label } = opts
   const epochKey = `${localKey}.epoch`
@@ -95,11 +97,11 @@ export function useSharedStore<T extends SharedItem>(opts: {
     const onVis = () => document.visibilityState === 'visible' && syncNow()
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener(SYNC_EVENT, syncNow)
-    const t = window.setInterval(syncNow, 60_000)
+    const t = opts.poll === false ? undefined : window.setInterval(syncNow, 60_000)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener(SYNC_EVENT, syncNow)
-      window.clearInterval(t)
+      if (t !== undefined) window.clearInterval(t)
     }
   }, [syncNow])
 

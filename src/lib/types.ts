@@ -278,3 +278,18 @@ export interface ChurchMember extends SharedItem {
 }
 /** บันทึกลงชื่อนมัสการ 1 วัน (id = วันที่) · ไฟล์รายปี */
 export interface Attendance extends SharedItem { date: string; ids: string[] }
+
+/** ลงชื่อนมัสการ 1 คน × 1 วัน (id = วัน_รหัสสมาชิก → คนเดียวกันวันเดียวกันซ้ำไม่ได้ และหลายเครื่องไม่ทับกัน) · ไฟล์รายปี */
+export interface CheckIn extends SharedItem {
+  date: string
+  /** รหัสภายในของสมาชิก */
+  mid: string
+  /** เวลาที่ลงชื่อ HH:MM */
+  tm?: string
+  /** ชื่อผู้บันทึก (จากรายชื่อผู้บันทึกที่แอดมินตั้งไว้) */
+  rec?: string
+  /** ชื่อผู้ที่ยกเลิกรายการนี้ (ใช้ตอน deleted) */
+  delBy?: string
+}
+/** ผู้บันทึกลงชื่อ (ผู้ช่วยงาน) — แอดมินเพิ่ม/แก้/ลบได้ ไม่ต้องมีบัญชีในแอป */
+export interface Recorder extends SharedItem { name: string }

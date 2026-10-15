@@ -34,8 +34,9 @@ try {
     function iso(x) { return x.toISOString().slice(0, 10) }
     localStorage.setItem('acct.church-members.v1', JSON.stringify(people))
     const att = {}
-    const add = (date, ...ids) => { const y = date.slice(0, 4); (att[y] ??= []).push({ id: date, date, ids, updated: 1 }) }
+    const add = (date, ...ids) => { const y = date.slice(0, 4); for (const id of ids) (att[y] ??= []).push({ id: `${date}_${id}`, date, mid: id, tm: '10:00', rec: 'ผู้ช่วย ก', updated: 1 }) }
     sundays.forEach((s, i) => { add(s, ...['m1', ...(i % 2 ? ['m2'] : []), ...(i < 10 ? ['m4'] : []), ...(i > 30 ? ['m3'] : []), ...(i < 5 ? ['m6'] : [])]) })
+    localStorage.setItem('acct.recorders.v1', JSON.stringify([{ id: 'rc1', name: 'ผู้ช่วย ก', updated: 1 }, { id: 'rc2', name: 'ผู้ช่วย ข', updated: 1 }]))
     for (const [y, rows] of Object.entries(att)) localStorage.setItem(`acct.attendance.${y}.v1`, JSON.stringify(rows))
   })
   await page.goto(`http://localhost:${PORT}/#/members`); await page.waitForLoadState('networkidle')
@@ -65,21 +66,55 @@ try {
   await page.locator('table.tbl tbody tr').first().click()
   must(/สมชาย/.test(await page.locator('table.tbl').innerText()), 'expanding a service lists who came')
   await snap('1b-stats')
-  // ลงชื่อนมัสการ
+  // ลงชื่อนมัสการหน้างาน
   await page.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
-  const cb = page.getByRole('checkbox')
-  must(await cb.count() === 5, 'check-in lists living members only: ' + await cb.count())
-  await page.getByRole('checkbox').nth(0).check()
-  await page.getByRole('button', { name: 'บันทึกการลงชื่อ' }).click()
-  must(await page.getByRole('status').filter({ hasText: /บันทึกแล้ว/ }).count() === 1, 'check-in saved')
-  // คนใหม่ที่ยังไม่อยู่ในทะเบียน: เพิ่มจากหน้าลงชื่อได้เลย (สถานะ 5.คนใหม่) · ชื่อซ้ำไม่เพิ่มซ้ำ
-  await page.getByLabel('ชื่อคนใหม่', { exact: true }).fill('คนใหม่ ทดสอบ')
-  await page.getByRole('button', { name: /เพิ่มคนใหม่/ }).click()
-  await page.getByRole('status').filter({ hasText: 'เพิ่ม “คนใหม่ ทดสอบ” เป็นคนใหม่แล้ว' }).waitFor({ timeout: 5000 })
-  await page.getByRole('button', { name: 'บันทึกการลงชื่อ' }).click()
-  await page.getByLabel('ชื่อคนใหม่', { exact: true }).fill('คนใหม่  ทดสอบ')
-  await page.getByRole('button', { name: /เพิ่มคนใหม่/ }).click()
-  await page.getByRole('status').filter({ hasText: 'อยู่แล้ว' }).waitFor({ timeout: 5000 })
+  const m2Row = page.locator('li', { hasText: 'นางสมหญิง ทดสอบ' })
+  must(await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).isDisabled(), 'cannot record before choosing a recorder')
+  await page.getByLabel('ผู้บันทึกของเครื่องนี้').selectOption('ผู้ช่วย ก')
+  must((await page.locator('li', { hasText: 'สมชาย' }).innerText()).includes('✓ ลงแล้ว'), 'already-recorded person is marked with who/when')
+  await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).click()
+  await page.getByRole('status').filter({ hasText: 'ลงชื่อ “นางสมหญิง ทดสอบ” แล้ว' }).waitFor({ timeout: 5000 })
+  must(!(await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).count()), 'recorded person has no record button (blocks double entry)')
+  must(/ผู้ช่วย ก/.test(await m2Row.innerText()) && /\d\d:\d\d/.test(await m2Row.innerText()), 'row shows recorder and time')
+  // อีกเครื่อง (โหลดใหม่) เห็นว่าลงแล้วโดยใคร และลงซ้ำไม่ได้
+  const other = await page.context().newPage()
+  await other.goto(`http://localhost:${PORT}/#/members`); await other.waitForLoadState('networkidle')
+  await other.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
+  await other.getByLabel('ผู้บันทึกของเครื่องนี้').selectOption('ผู้ช่วย ข')
+  const o2 = other.locator('li', { hasText: 'นางสมหญิง ทดสอบ' })
+  must((await o2.innerText()).includes('ผู้ช่วย ก') && !(await o2.getByRole('button', { name: /^ลงชื่อ/ }).count()), 'other device sees who recorded and cannot duplicate')
+  await other.close()
+  // ยกเลิก (บันทึกผู้ยกเลิก) แล้วลงใหม่ได้
+  await m2Row.getByRole('button', { name: 'ยกเลิก' }).click()
+  await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).waitFor({ timeout: 5000 })
+  // จัดการผู้บันทึก (แอดมิน)
+  await page.getByRole('button', { name: 'จัดการผู้บันทึก' }).click()
+  await page.getByLabel('ชื่อผู้บันทึกใหม่').fill('ผู้ช่วย ค'); await page.getByRole('button', { name: '＋ เพิ่ม' }).click()
+  await page.getByLabel('ผู้บันทึกของเครื่องนี้').selectOption('ผู้ช่วย ค')
+  await page.getByRole('button', { name: 'จัดการผู้บันทึก' }).click().catch(() => {})
+  // คนใหม่: รูป + ชื่อ-นามสกุล + วันเริ่มมา + วันเกิด · ชื่อคล้ายถามก่อน
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  await page.getByRole('button', { name: '＋ คนใหม่' }).click()
+  await page.getByLabel('ชื่อ-นามสกุล (สำคัญที่สุด)').fill('นางสมหญิง ทดสอบ')
+  must(await page.getByRole('alert', { name: 'ชื่อคล้ายกับที่มีอยู่' }).innerText().then((t) => t.includes('มีชื่อนี้ในทะเบียนแล้ว')), 'exact duplicate name is flagged')
+  must(await page.getByRole('button', { name: /คนใหม่และลงชื่อ/ }).isDisabled(), 'exact duplicate cannot be added as new')
+  await page.getByLabel('ชื่อ-นามสกุล (สำคัญที่สุด)').fill('นางสมหญิง ทดสอบบ')
+  must(await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).count() === 1, 'near-miss offers to confirm the owner and fix the spelling')
+  await page.getByLabel('ชื่อ-นามสกุล (สำคัญที่สุด)').fill('คนใหม่ ทดสอบ')
+  await page.getByLabel('รูปคนใหม่').setInputFiles({ name: 'new.png', mimeType: 'image/png', buffer: png })
+  await page.getByLabel('วันเกิด', { exact: false }).fill('2000-02-29')
+  must(/ตอนนี้อายุ \d+ ปี/.test(await page.locator('[role=dialog]').innerText()), 'age is computed from the birth date')
+  await page.getByRole('button', { name: /คนใหม่และลงชื่อ/ }).click()
+  await page.getByRole('status').filter({ hasText: 'ลงชื่อ “คนใหม่ ทดสอบ” แล้ว' }).waitFor({ timeout: 8000 })
+  const nr = page.locator('li', { hasText: 'คนใหม่ ทดสอบ' })
+  must((await nr.innerText()).includes('5.คนใหม่') && (await nr.innerText()).includes('✓ ลงแล้ว') && (await nr.innerText()).includes('ผู้ช่วย ค'), 'new person registered as 5.คนใหม่ and recorded by the chosen recorder')
+  must(await nr.locator('img').count() === 1, 'new person photo shows')
+  // ชื่อคล้าย: ยืนยันเป็นคนเดิมพร้อมแก้ตัวสะกด
+  await page.getByRole('button', { name: '＋ คนใหม่' }).click()
+  await page.getByLabel('ชื่อ-นามสกุล (สำคัญที่สุด)').fill('นางสมหญิง ทดสอบบ')
+  await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).click()
+  await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).waitFor({ timeout: 5000 })
+  await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).getByText('✓ ลงแล้ว').waitFor({ timeout: 5000 }) // ยืนยันเป็นคนเดิม: ชื่อถูกแก้และลงชื่อให้
   await snap('2-checkin')
   // ทะเบียน + นำเข้า
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
@@ -96,7 +131,6 @@ try {
   }
   must(await page.locator('section.card li').count() === 608, 'bulk import keeps everyone once: ' + await page.locator('section.card li').count())
   // รูปสมาชิก: จับคู่จากชื่อไฟล์ · ชื่อที่ไม่รู้จักไม่เดา · โหมดทดลองเก็บในเครื่อง
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
   await page.locator('input[aria-label="ไฟล์รูป"]').setInputFiles([{ name: 'นายสมชาย ตัวอย่าง.Image.123456.png', mimeType: 'image/png', buffer: png }, { name: 'ไม่มี ใคร.png', mimeType: 'image/png', buffer: png }])
   await page.getByRole('status').filter({ hasText: 'ใส่ให้สมาชิกแล้ว 1 คน' }).waitFor({ timeout: 10000 })
   must(/จับคู่ชื่อไม่ได้ 1 ไฟล์/.test(await page.getByRole('status').filter({ hasText: 'ใส่ให้สมาชิกแล้ว' }).innerText()), 'unknown photo file reported, not guessed')

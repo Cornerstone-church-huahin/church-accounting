@@ -6,7 +6,11 @@ export async function readXlsxRows(file: File): Promise<string[][]> {
   return rows.map((r) => r.map((c) => {
     if (c == null) return ''
     // วันที่ใน Excel: เก็บเป็น วันที่-เวลาในเขตเวลาของเครื่อง · ปี พ.ศ. (> 2400) แปลงตอนวิเคราะห์ที่ parseDateCell
-    if (c instanceof Date) return `${c.getUTCFullYear()}-${pad(c.getUTCMonth() + 1)}-${pad(c.getUTCDate())}`
+    if (c instanceof Date) {
+      const d = `${c.getUTCFullYear()}-${pad(c.getUTCMonth() + 1)}-${pad(c.getUTCDate())}`
+      const t = `${pad(c.getUTCHours())}:${pad(c.getUTCMinutes())}:${pad(c.getUTCSeconds())}`
+      return t === '00:00:00' ? d : `${d} ${t}` // มีเวลา (เช่น เวลาที่ลงชื่อ) เก็บไว้ด้วย
+    }
     return String(c)
   }))
 }
