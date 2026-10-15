@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import MemberAvatar from './MemberAvatar'
-import { genderFromGroup, genderStats, statusLabel, type GenderRow } from '../lib/registry'
+import { guessGender, type Confidence } from '../lib/genderGuess'
+import { genderStats, statusLabel, type GenderRow } from '../lib/registry'
 import type { ChurchMember, Gender } from '../lib/types'
 
 const pct = (n: number, t: number) => (t ? `${Math.round((n / t) * 100)}%` : '—')
@@ -32,12 +33,21 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
   const missing = members.filter((m) => !m.gender)
   const t = q.trim().toLowerCase().replace(/\s+/g, '')
   const list = (t ? missing.filter((m) => `${m.name}${m.nick ?? ''}${m.code ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) : missing).sort((a, b) => (Number(a.code) || 1e9) - (Number(b.code) || 1e9) || a.name.localeCompare(b.name, 'th'))
-  const hinted = missing.filter((m) => genderFromGroup(m.group))
-  const set = (m: ChurchMember, gender: Gender) => put([{ ...m, gender }])
-  const fillByGroup = () => {
-    if (!hinted.length || !confirm(`เติมเพศให้ ${hinted.length} คนที่อยู่ในกลุ่ม “สตรี” (→ หญิง) และ “บรุษ” (→ ชาย) ตามชื่อกลุ่ม?\n\nผลอาจไม่ตรงทุกคน (เช่น ชื่อกลุ่มไม่ได้บอกเพศเสมอไป) แก้รายคนได้ภายหลัง`)) return
-    put(hinted.map((m) => ({ ...m, gender: genderFromGroup(m.group)! })))
+  const [conf, setConf] = useState<'' | Confidence>('')
+  const set = (m: ChurchMember, gender: Gender) => put([{ ...m, gender, genderGuess: undefined }])
+  const confirmGuess = (m: ChurchMember) => put([{ ...m, genderGuess: undefined }])
+  const guesses = missing.map((m) => ({ m, g: guessGender(m) })).filter((x): x is { m: ChurchMember; g: NonNullable<ReturnType<typeof guessGender>> } => !!x.g)
+  const cnt = (c: Confidence) => guesses.filter((x) => x.g.confidence === c).length
+  const guessAll = () => {
+    if (!guesses.length) return
+    if (!confirm(`เดาเพศให้ ${guesses.length} คน จากที่ยังว่าง ${missing.length} คน\n(มั่นใจสูง ${cnt('high')} · กลาง ${cnt('mid')} · ต่ำ ${cnt('low')} · เดาไม่ได้ ${missing.length - guesses.length})\n\nทุกคนที่เดาจะมีเครื่องหมาย “เดา” ให้ตามตรวจ/แก้ภายหลัง ผลอาจผิดได้ โดยเฉพาะชื่อที่ใช้ได้ทั้งสองเพศและชื่อต่างชาติ`)) return
+    put(guesses.map(({ m, g }) => ({ ...m, gender: g.gender, genderGuess: g.confidence })))
   }
+  const guessed = members.filter((m) => m.gender && m.genderGuess)
+  const order: Record<string, number> = { low: 0, mid: 1, high: 2 }
+  const review = guessed.filter((m) => !conf || m.genderGuess === conf).sort((a, b) => order[a.genderGuess!] - order[b.genderGuess!] || a.name.localeCompare(b.name, 'th'))
+  const [rshown, setRshown] = useState(PAGE)
+  const confLabel: Record<Confidence, string> = { high: 'มั่นใจสูง', mid: 'ปานกลาง', low: 'ต่ำ' }
   const bar = (label: string, n: number, cls: string) => (
     <div className="row" style={{ flexWrap: 'nowrap', gap: '0.5rem' }}>
       <span style={{ width: '3.2rem' }}>{label}</span>
@@ -53,6 +63,7 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
         <div><span>ยังไม่ระบุเพศ</span><b>{g.total.ไม่ระบุ}</b></div>
         <div><span>รวมทั้งหมด</span><b>{g.total.total}</b></div>
       </div>
+      {guessed.length > 0 && <p className="small" role="note">ในตัวเลขนี้มี <b>{guessed.length} คน</b>ที่แอปเดาไว้ (ยังไม่ยืนยัน) — ตรวจได้ที่ “ตรวจเพศที่เดา” ด้านล่าง</p>}
       <section className="card" aria-label="สัดส่วนเพศ">
         {bar('ชาย', g.total.ชาย, 'bar-male')}
         {bar('หญิง', g.total.หญิง, 'bar-female')}
@@ -61,12 +72,46 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
       <Table title="แยกตามสถานะ" rows={g.byStatus} />
       <Table title="แยกตามกลุ่ม" rows={g.byGroup} />
       {canEdit && missing.length > 0 && (
+        <section className="card" aria-label="เดาเพศให้ทุกคน">
+          <h2>เดาเพศให้ทุกคน</h2>
+          <p className="small" style={{ margin: 0 }}>เดาจาก คำนำหน้า · หมายเหตุ · ชื่อกลุ่ม (สตรี/บรุษ) · ชื่อต้น/ชื่อเล่น (ไทยและอังกฤษ) ตอนนี้เดาได้ <b>{guesses.length}</b> จาก {missing.length} คนที่ยังว่าง (มั่นใจสูง {cnt('high')} · ปานกลาง {cnt('mid')} · ต่ำ {cnt('low')}) ที่เหลือ {missing.length - guesses.length} คนเดาไม่ได้ ต้องระบุเอง</p>
+          <button type="button" className="btn btn--gold btn--block" onClick={guessAll} disabled={!guesses.length}>เดาเพศให้ {guesses.length} คน</button>
+          <p className="small muted" style={{ margin: 0 }}>เป็นแค่การคาดเดา ผิดได้ ทุกคนที่เดาจะมีเครื่องหมาย “เดา” และแก้ภายหลังได้</p>
+        </section>
+      )}
+      {canEdit && guessed.length > 0 && (
+        <section className="card" aria-label="ตรวจเพศที่เดา">
+          <h2>ตรวจเพศที่เดา ({guessed.length} คน)</h2>
+          <div className="row no-print" aria-label="กรองตามความมั่นใจ">
+            {(['', 'low', 'mid', 'high'] as const).map((c) => <button key={c} type="button" className={`mini${conf === c ? ' on' : ''}`} onClick={() => { setConf(c); setRshown(PAGE) }}>{c ? `${confLabel[c]} · ${guessed.filter((m) => m.genderGuess === c).length}` : `ทั้งหมด · ${guessed.length}`}</button>)}
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>เรียงจากมั่นใจต่ำสุดก่อน · กด “ถูก” เพื่อยืนยัน หรือกด ชาย/หญิง เพื่อแก้</p>
+          <ul className="list">
+            {review.slice(0, rshown).map((m) => (
+              <li key={m.id}>
+                <div className="item">
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+                  <button type="button" className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                    <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+                    <br /><span className="small">เดาว่า <b>{m.gender}</b> · {confLabel[m.genderGuess!]}</span> <span className="small muted">({guessGender(m)?.why ?? ''})</span>
+                  </button>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <button type="button" className="mini" onClick={() => confirmGuess(m)} aria-label={`ยืนยันว่า ${m.name} เป็น${m.gender}`}>ถูก</button>
+                    <button type="button" className="mini" onClick={() => set(m, m.gender === 'ชาย' ? 'หญิง' : 'ชาย')} aria-label={`แก้ ${m.name} เป็น${m.gender === 'ชาย' ? 'หญิง' : 'ชาย'}`}>แก้เป็น{m.gender === 'ชาย' ? 'หญิง' : 'ชาย'}</button>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {review.length > rshown && <button type="button" className="btn btn--ghost btn--block" onClick={() => setRshown(rshown + PAGE)}>แสดงเพิ่ม (เหลือ {review.length - rshown} คน)</button>}
+        </section>
+      )}
+      {canEdit && missing.length > 0 && (
         <section className="card" aria-label="ระบุเพศคนที่ยังว่าง">
           <h2>ระบุเพศ ({missing.length} คนยังว่าง)</h2>
           <p className="small muted" style={{ margin: 0 }}>แตะ “ชาย” หรือ “หญิง” ที่แต่ละคน บันทึกทันทีและซิงก์ให้ทุกเครื่อง</p>
           <div className="row no-print">
             <input className="input grow" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE) }} aria-label="ค้นหาคนที่ยังไม่ระบุเพศ" />
-            {hinted.length > 0 && <button type="button" className="btn btn--ghost" onClick={fillByGroup}>เติมตามกลุ่ม สตรี/บรุษ ({hinted.length})</button>}
           </div>
           <ul className="list">
             {list.slice(0, shown).map((m) => (
