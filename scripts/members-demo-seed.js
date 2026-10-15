@@ -1,6 +1,8 @@
 // ข้อมูลสมมติสำหรับพรีวิวหน้า ทะเบียนสมาชิก (ไม่ใช่รายชื่อจริง) — DEMO_SEED=scripts/members-demo-seed.js VITE_START=/members npm run build:preview
 ;(function () {
-  try { if (localStorage.getItem('demo-members-seeded')) return; localStorage.setItem('demo-members-seeded', '1') } catch (e) { return }
+  // ครั้งแรกของไฟล์พรีวิวนี้: ล้างข้อมูลเก่าที่ค้างจากพรีวิวอื่น (ไม่งั้นตัวเลขปนกัน) แล้วใส่ข้อมูลตัวอย่าง
+  var FLAG = 'demo-members-v2'
+  try { if (localStorage.getItem(FLAG)) return; Object.keys(localStorage).filter(function (k) { return k.indexOf('acct.') === 0 || k.indexOf('demo-') === 0 }).forEach(function (k) { localStorage.removeItem(k) }); localStorage.setItem(FLAG, '1') } catch (e) { return }
   var iso = function (x) { return x.toISOString().slice(0, 10) }
   var mk = function (id, name, extra) { return Object.assign({ id: id, name: name, updated: 1, status: 'สมาชิกสมบูรณ์' }, extra) }
   var recent = iso(new Date(Date.now() - 90 * 864e5))

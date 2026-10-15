@@ -64,9 +64,11 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
     const possible = Math.max(1, startIdx < 0 ? 1 : services.length - startIdx)
     const tenureY = m.since ? Math.max(0, diffDays(today, m.since)) / YEAR : 0
     const oldEnough = tenureY >= criteria.minYears
+    // ตรวจเฉพาะคนที่ทะเบียนระบุว่าเป็นสมาชิกสมบูรณ์ (หรือยังไม่ระบุสถานะ) · คนใหม่/ผู้ร่วมนมัสการ/สมาชิกสำรองไม่นับเป็นสมาชิกสมบูรณ์ แม้มานานแล้ว
+    const eligible = !status.trim() || /สมบูรณ์/.test(status)
     const sinceCutoff = days.filter((d) => d >= cutoff).length
-    const absent = hasData && !dead && oldEnough && sinceCutoff === 0
-    const qualified = hasData && !dead && oldEnough && sinceCutoff > 0
+    const absent = hasData && eligible && !dead && oldEnough && sinceCutoff === 0
+    const qualified = hasData && eligible && !dead && oldEnough && sinceCutoff > 0
     const baseTier: Tier = deceased ? 3 : dead ? 2 : qualified ? 0 : absent ? 5 : 6
     const last = days[visits - 1] ?? ''
     const idleFrom = last || (m.since && services[0] && m.since > services[0] ? m.since : services[0] ?? m.since ?? '')

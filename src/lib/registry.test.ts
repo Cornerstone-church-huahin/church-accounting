@@ -80,6 +80,15 @@ describe('photo matching', () => {
   })
 })
 
+describe('registry status gates the check', () => {
+  it('only people registered as สมบูรณ์ can be complete-1/2 (new/visitor/reserve stay pending)', () => {
+    const members = ['1.สมบูรณ์  ( 1 )', '2.สมบูรณ์  ( 2 )', '3.สมาชิกสำรอง', '4.ผู้ร่วมนมัสการ', '5.คนใหม่'].map((status, i) => m(`s${i}`, { status }))
+    const a = [att('2026-10-04', 's0', 's3', 's4'), att('2026-01-04', 's1')]
+    const t = Object.fromEntries(evaluate(members, a, DEFAULT_CRITERIA, TODAY).rows.map((r) => [r.member.id, r.tier]))
+    expect(t).toEqual({ s0: 0, s1: 5, s2: 6, s3: 6, s4: 6 })
+  })
+})
+
 describe('no attendance data', () => {
   it('does not call everyone absent when nothing has been recorded', () => {
     const r = evaluate([m('a'), m('b', { status: '7.เสียชีวิต' })], [], DEFAULT_CRITERIA, TODAY)
