@@ -3,7 +3,7 @@ import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
 import MemberAvatar from '../components/MemberAvatar'
-import { uploadMemberPhoto } from '../lib/memberPhoto'
+import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
@@ -59,7 +59,7 @@ function MembersPage() {
       </div>
       {tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
-      {tab === 'checkin' && (canEdit ? <Checkin members={people.items} existing={existing} put={putAttendance} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
+      {tab === 'checkin' && (canEdit ? <Checkin members={people.items} existing={existing} put={putAttendance} onAdd={people.put} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putAttendance={putAttendance} existing={existing} />}
       {shownDetail && <Detail r={shownDetail} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
@@ -175,7 +175,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
   )
 }
 
-function Checkin({ members, existing, put }: { members: ChurchMember[]; existing: (d: string) => Attendance | undefined; put: (x: Attendance[]) => boolean }) {
+function Checkin({ members, existing, put, onAdd }: { members: ChurchMember[]; existing: (d: string) => Attendance | undefined; put: (x: Attendance[]) => boolean; onAdd: (x: ChurchMember[]) => boolean }) {
   const [date, setDate] = useState(lastSunday)
   const [q, setQ] = useState('')
   const [picked, setPicked] = useState<Set<string> | null>(null)
@@ -191,6 +191,19 @@ function Checkin({ members, existing, put }: { members: ChurchMember[]; existing
     const ids = [...sel].filter((id) => known.has(id))
     if (put([{ id: date, date, ids, updated: 0, ...(rec ? { deleted: undefined } : {}) }])) { setMsg(`บันทึกแล้ว ${ids.length} คน`); setPicked(null) }
   }
+  const [newName, setNewName] = useState('')
+  const [newNick, setNewNick] = useState('')
+  /** คนใหม่ที่ยังไม่อยู่ในทะเบียน: เพิ่มเข้าทะเบียน (สถานะ 5.คนใหม่) แล้วติ๊กว่ามาครั้งนี้ทันที · ชื่อซ้ำกับที่มีอยู่ = ไม่เพิ่มซ้ำ แค่ติ๊กให้ */
+  const addNew = () => {
+    const name = newName.trim().replace(/\s+/g, ' ')
+    if (!name) return
+    const same = members.find((m) => nameKey(m.name) === nameKey(name))
+    if (same) { const n = new Set(sel); n.add(same.id); setPicked(n); setMsg(`มี “${same.name}” ในทะเบียนอยู่แล้ว — ติ๊กว่ามาให้แล้ว`); setNewName(''); setNewNick(''); return }
+    const id = uniqueId(new Set(members.map((m) => m.id)))
+    if (!onAdd([{ id, name, ...(newNick.trim() ? { nick: newNick.trim() } : {}), status: '5.คนใหม่', since: date, updated: 0 }])) return
+    const n = new Set(sel); n.add(id); setPicked(n)
+    setMsg(`เพิ่ม “${name}” เป็นคนใหม่แล้ว และติ๊กว่ามาครั้งนี้ — อย่าลืมกด “บันทึกการลงชื่อ”`); setNewName(''); setNewNick('')
+  }
   const tooOld = yearOf(date) < yearOf(todayISO()) - YEARS_BACK || yearOf(date) > yearOf(todayISO())
   return (
     <section className="card">
@@ -200,6 +213,11 @@ function Checkin({ members, existing, put }: { members: ChurchMember[]; existing
       </div>
       {dow(date) !== 0 && <p className="small" style={{ color: 'var(--bad)' }}>วันที่นี้ไม่ใช่วันอาทิตย์ — ถ้าเป็นการนมัสการพิเศษก็บันทึกได้</p>}
       {tooOld && <p className="small" style={{ color: 'var(--bad)' }}>บันทึกได้เฉพาะ {yearOf(todayISO()) - YEARS_BACK + 543}–{yearOf(todayISO()) + 543} (ช่วงที่หน้าตรวจสอบอ่าน)</p>}
+      <div className="row" aria-label="เพิ่มคนใหม่">
+        <input className="input grow" placeholder="คนใหม่ที่ยังไม่มีในทะเบียน: ชื่อ-สกุล" value={newName} onChange={(e) => setNewName(e.target.value)} aria-label="ชื่อคนใหม่" onKeyDown={(e) => e.key === 'Enter' && addNew()} />
+        <input className="input" style={{ width: '6.5rem' }} placeholder="ชื่อเล่น" value={newNick} onChange={(e) => setNewNick(e.target.value)} aria-label="ชื่อเล่นคนใหม่" onKeyDown={(e) => e.key === 'Enter' && addNew()} />
+        <button type="button" className="btn btn--ghost" disabled={!newName.trim()} onClick={addNew}>＋ เพิ่มคนใหม่</button>
+      </div>
       {list.length === 0 ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : (
         <ul className="list" style={{ maxHeight: '55vh', overflow: 'auto' }}>
           {shown.map((m) => <li key={m.id}><label className="item"><input type="checkbox" checked={sel.has(m.id)} onChange={() => toggle(m.id)} /><span className="grow"><b>{m.name}</b>{m.nick ? <span className="small muted"> · {m.nick}</span> : null}</span></label></li>)}
@@ -390,6 +408,7 @@ function Detail({ r, today, canEdit, put, remove, onClose }: { r: Evaluated; tod
   const [photoErr, setPhotoErr] = useState('')
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const dropPhoto = () => { if (!m.photoPath || !confirm(`ลบรูปของ ${m.name}?`)) return; const old = m.photoPath; if (put([{ ...m, photoPath: undefined }])) void removeMemberPhotoFile(old) }
   const setPhoto = async (f: File | undefined) => {
     if (!f) return
     setBusy(true); setPhotoErr('')
@@ -407,7 +426,7 @@ function Detail({ r, today, canEdit, put, remove, onClose }: { r: Evaluated; tod
   return (
     <Sheet title={m.name} onClose={onClose}>
       {m.photoPath && <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}><StoredImage path={m.photoPath} alt={`รูป ${m.name}`} /></div>}
-      {canEdit && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button><input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
+      {canEdit && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button>{m.photoPath && <button type="button" className="mini" disabled={busy} onClick={dropPhoto}>ลบรูป</button>}<input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
       <dl style={{ margin: 0 }}>
         {rows.map(([k, v]) => (
           <div key={k} className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.35rem 0', flexWrap: 'nowrap' }}>
@@ -444,7 +463,7 @@ function MemberForm({ member, onClose, put, remove }: { member: ChurchMember | n
       {fields.map(([k, l, type]) => <div className="field" key={k}><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} className="input" type={type ?? 'text'} value={f[k]} onChange={set(k)} /></div>)}
       {err && <p role="alert" style={{ color: 'var(--bad)' }}>{err}</p>}
       <div className="row row--between">
-        {member ? <button type="button" className="btn btn--danger" onClick={() => confirm(`ลบ ${member.name} ออกจากทะเบียน? (กู้คืนไม่ได้จากหน้านี้ แต่ประวัติลงชื่อเดิมไม่หาย)`) && remove(member.id) && onClose()}>ลบ</button> : <span />}
+        {member ? <button type="button" className="btn btn--danger" onClick={() => confirm(`ลบ ${member.name} ออกจากทะเบียน? (รวมรูปด้วย · กู้คืนไม่ได้จากหน้านี้ แต่ประวัติลงชื่อเดิมไม่หาย)`) && remove(member.id) && (member.photoPath && void removeMemberPhotoFile(member.photoPath), onClose())}>ลบ</button> : <span />}
         <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>
       </div>
     </Sheet>

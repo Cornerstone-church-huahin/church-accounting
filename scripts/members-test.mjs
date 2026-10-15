@@ -72,6 +72,14 @@ try {
   await page.getByRole('checkbox').nth(0).check()
   await page.getByRole('button', { name: 'บันทึกการลงชื่อ' }).click()
   must(await page.getByRole('status').filter({ hasText: /บันทึกแล้ว/ }).count() === 1, 'check-in saved')
+  // คนใหม่ที่ยังไม่อยู่ในทะเบียน: เพิ่มจากหน้าลงชื่อได้เลย (สถานะ 5.คนใหม่) · ชื่อซ้ำไม่เพิ่มซ้ำ
+  await page.getByLabel('ชื่อคนใหม่', { exact: true }).fill('คนใหม่ ทดสอบ')
+  await page.getByRole('button', { name: /เพิ่มคนใหม่/ }).click()
+  await page.getByRole('status').filter({ hasText: 'เพิ่ม “คนใหม่ ทดสอบ” เป็นคนใหม่แล้ว' }).waitFor({ timeout: 5000 })
+  await page.getByRole('button', { name: 'บันทึกการลงชื่อ' }).click()
+  await page.getByLabel('ชื่อคนใหม่', { exact: true }).fill('คนใหม่  ทดสอบ')
+  await page.getByRole('button', { name: /เพิ่มคนใหม่/ }).click()
+  await page.getByRole('status').filter({ hasText: 'อยู่แล้ว' }).waitFor({ timeout: 5000 })
   await snap('2-checkin')
   // ทะเบียน + นำเข้า
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
@@ -86,7 +94,7 @@ try {
     await page.locator('input[aria-label="ไฟล์รายชื่อ"]').setInputFiles('/tmp/members-big.csv')
     await page.getByRole('status').filter({ hasText: k ? 'เพิ่มใหม่ 0 · อัปเดตคนเดิม 600' : 'เพิ่มใหม่ 600' }).waitFor({ timeout: 15000 })
   }
-  must(await page.locator('section.card li').count() === 607, 'bulk import keeps everyone once: ' + await page.locator('section.card li').count())
+  must(await page.locator('section.card li').count() === 608, 'bulk import keeps everyone once: ' + await page.locator('section.card li').count())
   // รูปสมาชิก: จับคู่จากชื่อไฟล์ · ชื่อที่ไม่รู้จักไม่เดา · โหมดทดลองเก็บในเครื่อง
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
   await page.locator('input[aria-label="ไฟล์รูป"]').setInputFiles([{ name: 'นายสมชาย ตัวอย่าง.Image.123456.png', mimeType: 'image/png', buffer: png }, { name: 'ไม่มี ใคร.png', mimeType: 'image/png', buffer: png }])
@@ -98,6 +106,12 @@ try {
   await page.locator('li', { hasText: 'สมชาย' }).first().click()
   await page.locator('[role=dialog] img').waitFor({ timeout: 10000 })
   await snap('4-photo')
+  // ลบรูปอย่างเดียว (ชื่อยังอยู่)
+  await page.getByRole('button', { name: 'ลบรูป' }).click()
+  await page.locator('[role=dialog] img').waitFor({ state: 'detached', timeout: 5000 })
+  await page.keyboard.press('Escape')
+  must(!(await page.locator('li', { hasText: 'สมชาย' }).first().innerText()).includes('📷'), 'photo removed, name stays')
+  must((await page.locator('li', { hasText: 'คนใหม่ ทดสอบ' }).first().innerText()).includes('5.คนใหม่'), 'quick-added person is in the registry as new')
   await page.keyboard.press('Escape')
   await snap('3-roster')
   must(errors.length === 0, 'no page errors: ' + errors.join(' | '))
