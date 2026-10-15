@@ -39,7 +39,7 @@ export function computeLedger(a: {
   /** true = นับเงินถวายกองทุน/รายจ่ายจากกองทุนรวมในตารางด้วย (ปกติแยกไปอยู่หน้ากองทุน ไม่ปนรายรับ-รายจ่ายปกติ) */
   withFunds?: boolean
 }) {
-  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)')
+  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : a.types.find((t) => t.id === id)?.name ?? '(รายการที่ถูกลบ)')
   const inR = (d: string) => inRange(d, a.range.from, a.range.to)
   const ent = a.income.filter((x) => !x.roundId && inR(x.date))
   const rds = a.rounds.filter((r) => inR(r.date))

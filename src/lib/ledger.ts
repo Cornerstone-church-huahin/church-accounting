@@ -72,7 +72,7 @@ export interface BudgetRow {
   /** ยังใช้ได้อีกเท่าไร: ถ้าตั้งงบแล้ว = งบ − จ่าย − ค้างเบิก · ถ้ายังไม่ตั้งงบ = เงินที่มี − จ่าย − ค้างเบิก */
   remaining: number
 }
-/** แหล่งที่มาพิเศษของงบ: “คริสตจักร” = รายรับทุกประเภทที่ไม่ได้เป็นของกองทุนใด (รวมเงินโอนที่ยังไม่แยกประเภท) */
+/** แหล่งที่มาพิเศษของงบ: “คริสตจักร” = รายรับทุกประเภทที่ไม่ได้เป็นของกองทุนใด (รวมเงินโอนที่ยังไม่แยกรายการ) */
 export const CHURCH_SOURCE = '__church'
 
 export function budgetRows(lines: BudgetLine[], adjs: BudgetAdj[], vouchers: Voucher[], income: IncomeEntry[] = [], entries: BudgetEntry[] = [], fundTypeIds: string[] = []): BudgetRow[] {

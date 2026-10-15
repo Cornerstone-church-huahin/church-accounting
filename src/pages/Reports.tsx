@@ -56,7 +56,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
     const rows = types.list.filter((t) => t.active || m.has(t.id)).map((t) => ({ name: t.name, value: m.get(t.id) ?? 0 }))
     const unk = inc.filter((x) => x.unknown).reduce((a, x) => a + x.amount, 0)
     const unsorted = (m.get(UNSORTED) ?? 0) - unk
-    return [...rows, ...(unsorted > 0 ? [{ name: 'โอน (ยังไม่แยกประเภท)', value: unsorted }] : []), ...(unk > 0 ? [{ name: 'ไม่ทราบที่มา', value: unk }] : [])]
+    return [...rows, ...(unsorted > 0 ? [{ name: 'โอน (ยังไม่แยกรายการ)', value: unsorted }] : []), ...(unk > 0 ? [{ name: 'ไม่ทราบที่มา', value: unk }] : [])]
   }, [inc, types.list])
   const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id) ?? funds.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
   const outByLine = useMemo(() => {
@@ -105,8 +105,8 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
         </div>
 
         <section className="card" aria-labelledby="r1">
-          <h2 id="r1">รายรับแยกตามประเภทถวาย</h2>
-          <BarChart title="รายรับแยกตามประเภทถวาย" cats={incByType.map((x) => x.name)} series={[{ name: 'รายรับ', values: incByType.map((x) => x.value), cls: 's1' }]} />
+          <h2 id="r1">รายรับแยกตามรายการถวาย</h2>
+          <BarChart title="รายรับแยกตามรายการถวาย" cats={incByType.map((x) => x.name)} series={[{ name: 'รายรับ', values: incByType.map((x) => x.value), cls: 's1' }]} />
           <Table head="รายการ" rows={incByType} total={totalIn} />
         </section>
 
