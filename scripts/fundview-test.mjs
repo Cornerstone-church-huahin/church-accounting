@@ -120,9 +120,10 @@ try {
   must((await page.getByRole('tab', { name: /💚 รับ/ }).count()) === 1 && (await page.getByRole('tab', { name: /🔴 จ่าย/ }).count()) === 1, 'fund page has the two tabs รับ/จ่าย')
   must(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).isVisible(), 'income tab shows the same A4 income sheet')
   must((await page.getByRole('tab', { name: /บันทึกสลิป|ใบบันทึกการถวาย/ }).count()) === 0, 'no extra functions besides รับ/จ่าย (slip/sheet tabs hidden)')
-  // เงินยืมระหว่างกองทุน: กองทุนที่ยืมมา → แถว "ยืมจาก …" ในใบรับ + ตัวหนังสือสีแดงที่หัวใบ
+  // เงินยืมระหว่างกองทุน: กองทุนที่ยืมมา → แถว "ยืมจาก …" ในใบรับ + แถบแดงเล็กด้านบนหน้า
   const incSheet0 = (await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')
-  must(/กองทุนศึกษา · ยืมจาก กองทุน/.test(incSheet0) && /⚠️ ยืมเงิน .* มา .* ต้องคืน/.test(incSheet0), 'borrower fund income sheet lists the loan received and a red warning at the head: ' + incSheet0.slice(0, 400))
+  must(/กองทุนศึกษา · ยืมจาก กองทุน/.test(incSheet0) && !/⚠️/.test(incSheet0), 'borrower fund income sheet lists the loan received (the red warning lives at the top of the page, not on the sheet): ' + incSheet0.slice(0, 400))
+  must(/ยืมมา .* ค้างคืน/.test(await page.getByRole('alert').first().innerText()), 'red debt banner at the top of the fund page')
   // รับ: ใส่เงินเข้ากองทุนนี้ (ประเภทคือกองทุนนี้เท่านั้น)
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   must((await page.locator('#mi-type option').allInnerTexts()).join('|') === 'กองทุนศึกษา', 'income form offers only this fund')
@@ -153,6 +154,7 @@ try {
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   const lendSheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().innerText()).replace(/\s+/g, ' ')
   must(/ให้ กองทุนศึกษา ยืม/.test(lendSheet), 'lender fund expense sheet lists the loan given: ' + lendSheet.slice(0, 300))
+  must(/ให้ยืมไป .* รอรับคืน/.test(await page.getByRole('alert').filter({ hasText: 'ให้ยืมไป' }).first().innerText()) && (await page.locator('.debtbanner--lent').count()) >= 1, 'lender fund page shows a green banner that money is lent out')
   // บัญชีหมุนเวียนไม่เห็นรายการของกองทุน
   await page.goto(`http://localhost:${PORT}/#/`)
   await page.locator('.stepbtn', { hasText: 'ใบเบิก-จ่ายเงินสด' }).click()

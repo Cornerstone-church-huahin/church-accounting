@@ -23,7 +23,7 @@ import { downloadPdf } from '../lib/pdf'
 import PersonField from '../components/PersonField'
 import ImageViewer from '../components/ImageViewer'
 import { cacheImage } from '../lib/imageCache'
-import { borrowedWarnings, loanExpenseRows, loanFlows, type FundScope } from '../lib/fundScope'
+import { loanExpenseRows, loanFlows, type FundScope } from '../lib/fundScope'
 import { useBalances } from '../lib/useBalances'
 import { circulatingOnly } from '../lib/balances'
 import { downloadBlankSheet } from '../lib/blankSheet'
@@ -204,7 +204,7 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} warn={borrowedWarnings(fund)} sunday={sunday} summary={weekSummary} onFileClick={(x) => x.file && setViewer({ path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onFileClick={(x) => x.file && setViewer({ path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />
