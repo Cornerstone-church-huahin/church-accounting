@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
+import MemberAvatar from '../components/MemberAvatar'
 import { uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
@@ -85,7 +86,6 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
   for (const r of full) if (r.tier === 5) bands[bandOf(r)]++
   const to2 = rows.filter((r) => r.suggest === 'to2').length, to1 = rows.filter((r) => r.suggest === 'to1').length
   const groups = [...new Set(rows.map((r) => r.member.group).filter(Boolean))].sort() as string[]
-  const rank = new Map(rows.map((r, i) => [r.member.id, i + 1]))
   const shown = rows.filter((r) => {
     if (filter.startsWith('st:') && statusLabel(r.member.status) !== filter.slice(3)) return false
     if (filter === 'to2' && r.suggest !== 'to2') return false
@@ -147,7 +147,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
           {shown.map((r) => (
             <li key={r.member.id} style={{ position: 'relative' }}>
               <div className="item">
-                <span className="num muted" style={{ minWidth: '1.6rem', marginRight: '0.3rem' }}>{rank.get(r.member.id)}</span>
+                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={44} />
                 <span className="grow"><button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
                   <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.group].filter(Boolean).join(' · ')}</span>
                   <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
@@ -368,8 +368,8 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putAttendance, ex
             {list.map((m) => (
               <li key={m.id}>
                 <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                  <span className="num muted" style={{ minWidth: '2.6rem' }}>{m.code ? `#${m.code}` : ''}</span>
-                  <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+                  <span className="grow"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[m.status, m.group, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
                   {info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับสถานะ</span>}
                 </button>
               </li>
