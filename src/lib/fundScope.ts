@@ -8,8 +8,6 @@ export interface FundScope {
   balance: number
   /** รายการเงินยืม/คืน ของกองทุนนี้ (จาก fundAccounts: key ขึ้นต้น ln: lr: lb: lq:) — + เข้า · − ออก */
   loanMoves?: FundMove[]
-  /** เงินที่กองทุนนี้ยืมมาและยังค้างคืน — ขึ้นตัวหนังสือสีแดงที่หัวใบ */
-  borrowed?: { from: string; amount: number }[]
 }
 
 export const isLoanMove = (m: FundMove) => /^l[nrbq]:/.test(m.key)
@@ -23,5 +21,3 @@ export const loanFlows = (f: FundScope | undefined, from: string, to: string) =>
   const ms = (f?.loanMoves ?? []).filter((m) => m.date >= from && m.date <= to)
   return { inn: ms.filter((m) => m.amount > 0).reduce((s, m) => s + m.amount, 0), out: ms.filter((m) => m.amount < 0).reduce((s, m) => s - m.amount, 0) }
 }
-/** ข้อความเตือนสีแดงที่หัวใบ */
-export const borrowedWarnings = (f?: FundScope) => (f?.borrowed ?? []).map((b) => `⚠️ ยืมเงิน ${b.from} มา ${(b.amount / 100).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท — ต้องคืน`)

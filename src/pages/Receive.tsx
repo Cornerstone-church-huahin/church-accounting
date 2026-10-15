@@ -23,7 +23,7 @@ import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { readSlip } from '../lib/slipOcr'
-import { borrowedWarnings, loanIncomeRows, type FundScope } from '../lib/fundScope'
+import { loanIncomeRows, type FundScope } from '../lib/fundScope'
 
 type Sub = 'manual' | 'slip' | 'sheet' | 'total' | null
 
@@ -146,7 +146,7 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund?.name} warn={borrowedWarnings(fund)} sunday={sunday} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
+        <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund?.name} sunday={sunday} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />
