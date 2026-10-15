@@ -19,8 +19,8 @@ try {
   await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).locator('tbody tr').nth(0).click()
   const opts0 = await page.locator('#ire-type option').allInnerTexts()
   must(opts0.length === 9, 'popup lists every income type like settings: ' + opts0.join('|'))
-  await page.locator('summary', { hasText: /ประเภท \(/ }).click()
-  await page.getByLabel('ชื่อประเภทใหม่').fill('ถวายซ่อมรถตู้')
+  await page.locator('summary', { hasText: /รายการรับ \(/ }).click()
+  await page.getByLabel('ชื่อรายการรับใหม่').fill('ถวายซ่อมรถตู้')
   await page.getByRole('button', { name: '＋ เพิ่ม' }).click()
   must((await page.locator('#ire-type option:checked').innerText()) === 'ถวายซ่อมรถตู้', 'new type from popup is selected')
   // พิมพ์ชื่อใหม่ในช่อง "รายการ" ของป๊อปอัพ (ไม่มีในตัวเลือก) → สร้างเป็นประเภทปกติ + บันทึกแถว

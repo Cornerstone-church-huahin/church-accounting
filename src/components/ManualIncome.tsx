@@ -30,7 +30,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
   const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกประเภท)' : '(ประเภทที่ถูกลบ)')
 
   const save = () => {
-    if (!typeId) return setErr('เลือกประเภท')
+    if (!typeId) return setErr('เลือกรายการ')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!(cash && cash > 0) && !(transfer && transfer > 0)) return setErr('ใส่จำนวนเงินสดหรือเงินโอนอย่างน้อยหนึ่งช่อง')
     const out: IncomeEntry[] = []
@@ -46,9 +46,9 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
       {canWrite && (
         <div className="entryrow" role="group" aria-label="บันทึกรายรับ 1 บรรทัด">
           <div className="field"><label htmlFor="mi-date">วันที่</label><input id="mi-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div className="field"><label htmlFor="mi-type">ประเภท</label>
+          <div className="field"><label htmlFor="mi-type">รายการ</label>
             <select id="mi-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-          {withNote && <div className="field"><label htmlFor="mi-note">รายการ / รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)</label><input id="mi-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
+          {withNote && <div className="field"><label htmlFor="mi-note">รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)</label><input id="mi-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
           <div className="entryrow__pair">
             <div className="field"><label htmlFor="mi-env">จำนวนซอง</label><input id="mi-env" className="input" inputMode="numeric" value={env} onChange={(e) => setEnv(e.target.value)} placeholder="0" /></div>
             <div className="field"><label>เงินสด (บาท)</label><MoneyInput value={cash} onChange={setCash} /></div>
@@ -59,8 +59,8 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
           </div>
           {err && <p className="err" role="alert">{err}</p>}
           <button type="button" className="btn btn--gold" onClick={save}>＋ เพิ่มลงตาราง</button>
-          {onManage && <CatalogManager noun="ประเภท" items={active} ops={onManage} onAdded={setTypeId} />}
-          <p className="muted small" style={{ margin: 0 }}>ไม่มีประเภทที่ต้องการ? เพิ่มหรือลบที่ <Link to="/settings">ตั้งค่า › รายการรับ</Link></p>
+          {onManage && <CatalogManager noun="รายการรับ" items={active} ops={onManage} onAdded={setTypeId} />}
+          <p className="muted small" style={{ margin: 0 }}>ไม่มีรายการที่ต้องการ? เพิ่มหรือลบที่ <Link to="/settings">ตั้งค่า › รายการรับ</Link></p>
         </div>
       )}
 

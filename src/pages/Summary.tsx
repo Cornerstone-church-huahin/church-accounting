@@ -251,7 +251,7 @@ export default function Summary({ year }: { year: number }) {
                 <div>
                   <div className="ledger__band" style={{ background: '#1b8a4b' }}>รายรับตามประเภทถวาย</div>
                   <table className="tbl tbl--paper mini-table" aria-label="รายรับตามประเภท">
-                    <thead><tr><th>ประเภท</th><th className="num">รายการ</th><th className="num">จำนวนเงิน</th></tr></thead>
+                    <thead><tr><th>รายการ</th><th className="num">จำนวนครั้ง</th><th className="num">จำนวนเงิน</th></tr></thead>
                     <tbody>{incRows.filter((r) => r.cash.amt + r.transfer.amt > 0).map((r) => <tr key={r.key}><td>{r.label}</td><td className="num">{r.cash.n + r.transfer.n}</td><td className="num">{fmtBaht(r.cash.amt + r.transfer.amt)}</td></tr>)}</tbody>
                     <tfoot><tr><td>รวม</td><td className="num">{incRows.reduce((a, r) => a + r.cash.n + r.transfer.n, 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer)}</td></tr></tfoot>
                   </table>
