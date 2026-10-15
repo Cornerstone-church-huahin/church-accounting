@@ -158,7 +158,7 @@ await page.locator('svg[aria-label*="กองทุนซื้อที่ด�
 await go('/income')
 await page.getByRole('button', { name: '＋ บันทึกรายรับ' }).click()
 await page.getByLabel('จำนวนเงิน (บาท)').fill('250000')
-await page.getByLabel(/ประเภทถวาย/).selectOption({ label: 'กองทุนซื้อที่ดิน' })
+await page.getByLabel(/รายการถวาย/).selectOption({ label: 'กองทุนซื้อที่ดิน' })
 await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
 await page.getByText('กองทุนซื้อที่ดิน').first().waitFor()
 await go('/budget')
@@ -190,7 +190,7 @@ await page.getByRole('button', { name: 'ลบกองทุน กองทุ
 await page.locator('svg[aria-label*="กองทุนสร้างอาคาร:"]').waitFor({ state: 'detached' })
 await go('/income')
 await page.getByRole('button', { name: '＋ บันทึกรายรับ' }).click()
-await must((await page.getByLabel(/ประเภทถวาย/).locator('option', { hasText: /^กองทุนสร้างอาคาร$/ }).count()) === 0, 'deleted fund type is no longer selectable')
+await must((await page.getByLabel(/รายการถวาย/).locator('option', { hasText: /^กองทุนสร้างอาคาร$/ }).count()) === 0, 'deleted fund type is no longer selectable')
 await page.getByRole('button', { name: 'ปิด' }).click()
 
 // ใบบันทึกการถวายวันอาทิตย์ (ตู้ถวาย + โอน)
@@ -205,7 +205,7 @@ await page.getByText('ยืนยันแล้วโดย').waitFor()
 for (const [i, amt] of ['1500'].entries()) {
   await page.getByRole('button', { name: '＋ บันทึกรายการโอน' }).click()
   await page.getByLabel('จำนวนเงิน (บาท)').fill(amt)
-  await page.getByLabel(/ประเภทถวาย/).selectOption({ label: 'โอน (ยังไม่แยกประเภท)' })
+  await page.getByLabel(/รายการถวาย/).selectOption({ label: 'โอน (ยังไม่แยกประเภท)' })
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByText(`รวมจากการโอน (${i + 1} รายการ)`, { exact: true }).waitFor()
 }

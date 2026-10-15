@@ -65,7 +65,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
             <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact />
             <table className="sheetpaper sheetpaper--land" aria-label="ใบบันทึกการถวาย (A4 แนวนอน)">
               <colgroup><col style={{ width: '9%' }} /><col style={{ width: '5%' }} /><col style={{ width: '29%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '15%' }} /></colgroup>
-              <thead><tr><th>วันที่</th><th>No.</th><th>ประเภท</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
+              <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
@@ -161,7 +161,7 @@ export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note, fund
             <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact />
             <table className="sheetpaper sheetpaper--land" aria-label="สรุปรายรับ (ใบบันทึกการถวาย)">
               <colgroup><col style={{ width: '6%' }} /><col style={{ width: '34%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} /></colgroup>
-              <thead><tr><th>No.</th><th>ประเภท</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
+              <thead><tr><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const r = rs[i]

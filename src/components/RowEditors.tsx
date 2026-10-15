@@ -25,7 +25,7 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
   const [err, setErr] = useState('')
   const save = () => {
-    if (!typeId && !label.trim()) return setErr('เลือกประเภทหรือพิมพ์ชื่อรายการ')
+    if (!typeId && !label.trim()) return setErr('เลือกรายการหรือพิมพ์ชื่อรายการใหม่')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
     // พิมพ์ชื่อที่ไม่มีในตัวเลือก (ไม่ได้ใช้บ่อย) → ใช้ประเภทที่ชื่อตรงกัน ไม่มีก็สร้างใหม่ในรายการปกติ (ขึ้นใน ตั้งค่า › รายการรับ ด้วย)
@@ -51,9 +51,9 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบบันทึกการถวาย' : 'เพิ่มรายการในใบบันทึกการถวาย'} onClose={onClose}>
       <div className="field"><label htmlFor="ire-date">วันที่</label><input id="ire-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="ire-type">ประเภท</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { setTypeId(e.target.value); setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-        {onManage && <CatalogManager noun="ประเภท" items={opts} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setLabel(n.trim()); return r } }} onAdded={setTypeId} />}</div>
-      <div className="field"><label htmlFor="ire-label">{noteMode ? 'รายการ / รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)' : 'รายการ (แก้ข้อความได้ — พิมพ์ชื่อใหม่ถ้าไม่มีในตัวเลือก)'}</label><input id="ire-label" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={noteMode ? 'เช่น ยกยอดมา' : 'เช่น ถวายค่าไฟ'} /></div>
+      <div className="field"><label htmlFor="ire-type">รายการ</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { setTypeId(e.target.value); setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+        {onManage && <CatalogManager noun="รายการรับ" items={opts} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setLabel(n.trim()); return r } }} onAdded={setTypeId} />}</div>
+      <div className="field"><label htmlFor="ire-label">{noteMode ? 'รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)' : 'ชื่อรายการ (แก้ข้อความได้ — พิมพ์ชื่อใหม่ถ้าไม่มีในตัวเลือก)'}</label><input id="ire-label" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={noteMode ? 'เช่น ยกยอดมา' : 'เช่น ถวายค่าไฟ'} /></div>
       <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด (ตู้ถวาย)</button><button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอน</button></div>
       <div className="field"><label htmlFor="ire-count">{method === 'cash' ? 'จำนวนซอง' : 'จำนวนโอน (ครั้ง)'}</label><input id="ire-count" className="input" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>

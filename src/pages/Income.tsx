@@ -115,7 +115,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
   const slipLayout = preset === 'slip' || entry?.source === 'slip'
-  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'ประเภทถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
+  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'รายการถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
   const memField = <div className="field"><label htmlFor="i-mem">ชื่อผู้ถวาย หรือเลขที่สมาชิก (ไม่แสดงในรายงาน)</label><input id="i-mem" className="input" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>

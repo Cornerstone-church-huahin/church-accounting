@@ -198,7 +198,7 @@ function Detail({ date }: { date: string }) {
         <h2 style={{ textAlign: 'center' }}>ใบบันทึกการถวาย {settings.churchName}</h2>
         <p style={{ textAlign: 'center' }}>ประจำวันอาทิตย์ ที่ {Number(date.slice(8))} เดือน {monthName(monthOf(date))} พ.ศ. {be(year)}</p>
         <table className="tbl" style={{ fontSize: '10.5pt' }}>
-          <thead><tr><th>No.</th><th>ประเภท</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num">จำนวนผู้โอน</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr></thead>
+          <thead><tr><th>No.</th><th>รายการ</th><th className="num">จำนวนซอง</th><th className="num">จำนวนเงิน</th><th className="num">จำนวนผู้โอน</th><th className="num">จำนวนเงิน</th><th className="num">รวม</th></tr></thead>
           <tbody>
             {[...types.list.filter((t) => t.active || lines[t.id] || wk.entries.some((x) => x.typeId === t.id)).map((t) => t.id), ...(wk.entries.some((x) => x.typeId === UNSORTED) ? [UNSORTED] : [])].map((tid, n) => {
               const tr = wk.entries.filter((x) => x.typeId === tid)

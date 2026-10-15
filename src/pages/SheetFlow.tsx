@@ -186,7 +186,7 @@ export default function SheetFlow({ year, sunday, existing, initialFile, onClose
       {msg && <p className="note" role="status">{msg}</p>}
       <div className="field"><label htmlFor="sf-date">ประจำวันอาทิตย์ที่</label><input id="sf-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); setDateSrc('') }} />{dateSrc && <span className="small muted">{dateSrc}</span>}</div>
       <table className="tbl" aria-label="แถวเงินสดในใบถวาย">
-        <thead><tr><th>รายการ / ประเภท</th><th className="num">ซอง</th><th className="num">เงิน (บาท)</th><th /></tr></thead>
+        <thead><tr><th>รายการ</th><th className="num">ซอง</th><th className="num">เงิน (บาท)</th><th /></tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i}>

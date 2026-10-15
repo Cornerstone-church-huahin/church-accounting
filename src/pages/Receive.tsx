@@ -73,8 +73,8 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
   /** เพิ่ม/แก้ชื่อ/ลบประเภทรับ จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการรับ */
   const incomeOps = !fid && can(role, 'settings') ? {
     add: (name: string) => { const t = makeIncomeType(types.list, name); if (typeof t === 'string') return { error: t }; return types.put([t]) ? { id: t.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
-    rename: (id: string, cur: string) => { const n = prompt('แก้ชื่อประเภท', cur)?.trim(); const t = types.byId(id); if (n && t && n !== cur) types.put([{ ...t, name: n }]) },
-    remove: (id: string, nm: string) => { if (confirm(`ลบประเภท “${nm}” ออกจากรายการ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) types.remove(id) },
+    rename: (id: string, cur: string) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const t = types.byId(id); if (n && t && n !== cur) types.put([{ ...t, name: n }]) },
+    remove: (id: string, nm: string) => { if (confirm(`ลบรายการ “${nm}” ออกจากรายการรับ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) types.remove(id) },
   } : undefined
   const weekManual = week.filter((x) => kindOf(x) === 'manual') // ใบบันทึกการถวายเป็นรายสัปดาห์ แสดงเฉพาะสัปดาห์ที่เลือก
   const slips = lst.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown')
@@ -162,7 +162,7 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
       {sub === 'manual' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
-          <p className="muted small">เลือกประเภทตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
+          <p className="muted small">เลือกรายการตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
           <ManualIncome withNote={!!fid} types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onManage={incomeOps}
             onAdd={(items) => { const ok = inc.put(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => (fid ? setRowEdit({ entry: x }) : setForm({ entry: x, preset: 'manual' }))} onDelete={delEntry} />
@@ -226,7 +226,7 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
             {repScope === 'week' && <p className="muted small">รับระหว่างวันที่ {fmtDate(addDays(sunday, -6))} – {fmtDate(sunday)}</p>}
           </header>
 
-          <LedgerTable labels={['ประเภท', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมทั้งสิ้น" />
+          <LedgerTable labels={['รายการ', 'จำนวนซอง', 'จำนวนโอน']} rows={incRows} total="รวมทั้งสิ้น" />
 
           <div className="sign" style={{ display: 'grid' }}>
             <div>ผู้จัดทำรายงาน (ผู้บันทึกบัญชี)<br /><span className="small">วันที่ ........../........../..........</span></div>

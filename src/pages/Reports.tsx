@@ -107,7 +107,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
         <section className="card" aria-labelledby="r1">
           <h2 id="r1">รายรับแยกตามประเภทถวาย</h2>
           <BarChart title="รายรับแยกตามประเภทถวาย" cats={incByType.map((x) => x.name)} series={[{ name: 'รายรับ', values: incByType.map((x) => x.value), cls: 's1' }]} />
-          <Table head="ประเภท" rows={incByType} total={totalIn} />
+          <Table head="รายการ" rows={incByType} total={totalIn} />
         </section>
 
         <section className="card" aria-labelledby="r2">
