@@ -94,7 +94,7 @@ export function HBars({ rows, tone, width = 372 }: { rows: { label: string; valu
   if (rows.length === 0) return <p style={{ color: MUTED, fontSize: 13, margin: '14px 0' }}>ยังไม่มีรายการ</p>
   const color = tone === 'in' ? INC : OUT
   return (
-    <svg viewBox={`0 0 ${width} ${H}`} width="100%" role="img" aria-label={tone === 'in' ? 'รายรับตามประเภท' : 'รายจ่ายตามหมวด'}>
+    <svg viewBox={`0 0 ${width} ${H}`} width="100%" role="img" aria-label={tone === 'in' ? 'รายรับตามรายการ' : 'รายจ่ายตามหมวด'}>
       <defs><Hatch id={hid} /></defs>
       {rows.map((r, i) => {
         const w = Math.max(3, (r.value / max) * (width - left - right))
@@ -134,7 +134,7 @@ export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value
   })
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={tone === 'in' ? 'สัดส่วนรายรับตามประเภท' : 'สัดส่วนรายจ่ายตามหมวด'} style={{ flex: 'none' }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={tone === 'in' ? 'สัดส่วนรายรับตามรายการ' : 'สัดส่วนรายจ่ายตามหมวด'} style={{ flex: 'none' }}>
         {slices.map((s) => <path key={s.label} d={s.d} fill={s.fill} stroke="#fff" strokeWidth={2}><title>{`${s.label} ${(s.frac * 100).toFixed(1)}%`}</title></path>)}
         <text x={c} y={c - 2} textAnchor="middle" fontSize={10} fill={MUTED}>รวม</text>
         <text x={c} y={c + 12} textAnchor="middle" fontSize={12} fontWeight={700} fill={INK}>{Math.round(total / 100).toLocaleString('en-US')}</text>

@@ -27,7 +27,7 @@ function IncomeList({ year }: { year: number }) {
   const [edit, setEdit] = useState<IncomeEntry | 'new' | null>(null)
   const rows = inc.items.filter((x) => !month || monthOf(x.date) === month).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated))
   const total = rows.reduce((s, x) => s + x.amount, 0)
-  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(id)?.name ?? '(ประเภทที่ถูกลบ)')
+  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
   const canWrite = can(role, 'income')
   return (
     <>
@@ -91,7 +91,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   const [err, setErr] = useState('')
   const save = async () => {
     if (yearOf(date) !== year) return setErr(`วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`)
-    if (typeId === UNSORTED && method === 'cash') return setErr('เงินสดต้องเลือกประเภทถวาย (เลือก “ยังไม่แยกประเภท” ได้เฉพาะเงินโอน)')
+    if (typeId === UNSORTED && method === 'cash') return setErr('เงินสดต้องเลือกประเภทถวาย (เลือก “ยังไม่แยกรายการ” ได้เฉพาะเงินโอน)')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
     if (method === 'transfer' && ref.trim()) {
       const dup = inc.items.find((x) => x.id !== entry?.id && x.method === 'transfer' && x.ref === ref.trim())
@@ -115,7 +115,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
   const slipLayout = preset === 'slip' || entry?.source === 'slip'
-  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'รายการถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกประเภท)</option>}</select></div>
+  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'รายการถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกรายการ)</option>}</select></div>
   const memField = <div className="field"><label htmlFor="i-mem">ชื่อผู้ถวาย หรือเลขที่สมาชิก (ไม่แสดงในรายงาน)</label><input id="i-mem" className="input" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>

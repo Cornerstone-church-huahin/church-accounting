@@ -27,7 +27,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
   const [transfer, setTransfer] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
-  const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกประเภท)' : '(ประเภทที่ถูกลบ)')
+  const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกรายการ)' : '(รายการที่ถูกลบ)')
 
   const save = () => {
     if (!typeId) return setErr('เลือกรายการ')

@@ -205,7 +205,7 @@ await page.getByText('ยืนยันแล้วโดย').waitFor()
 for (const [i, amt] of ['1500'].entries()) {
   await page.getByRole('button', { name: '＋ บันทึกรายการโอน' }).click()
   await page.getByLabel('จำนวนเงิน (บาท)').fill(amt)
-  await page.getByLabel(/รายการถวาย/).selectOption({ label: 'โอน (ยังไม่แยกประเภท)' })
+  await page.getByLabel(/รายการถวาย/).selectOption({ label: 'โอน (ยังไม่แยกรายการ)' })
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByText(`รวมจากการโอน (${i + 1} รายการ)`, { exact: true }).waitFor()
 }
@@ -282,7 +282,7 @@ await shot('09-vouchers')
 // รายงาน
 await go('/reports')
 await page.getByRole('button', { name: 'รายปี' }).click()
-await page.getByText('รายรับแยกตามประเภทถวาย').first().waitFor()
+await page.getByText('รายรับแยกตามรายการถวาย').first().waitFor()
 await must((await page.locator('figure.chart svg').count()) >= 3, 'charts rendered')
 await shot('10-report-year')
 await page.emulateMedia({ media: 'print' })

@@ -89,7 +89,7 @@ function Detail({ date }: { date: string }) {
   }
   const roundTotalSaved = saved ? roundTotal(saved) : 0
   const variance = saved?.deposit ? saved.deposit.amount - roundTotalSaved : 0
-  const typeName = (t: string) => (t === UNSORTED ? 'โอน (ยังไม่แยกประเภท)' : types.byId(t)?.name ?? '?')
+  const typeName = (t: string) => (t === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : types.byId(t)?.name ?? '?')
 
   return (
     <>

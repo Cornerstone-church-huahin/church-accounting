@@ -20,7 +20,7 @@ export interface Settings extends SharedItem {
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 
 export type Method = 'cash' | 'transfer'
-/** typeId ว่าง = "โอน (ยังไม่แยกประเภท)" — ใบถวายจริงลงเฉพาะยอดโอนรวม ไม่แยกตามประเภท */
+/** typeId ว่าง = "โอน (ยังไม่แยกรายการ)" — ใบถวายจริงลงเฉพาะยอดโอนรวม ไม่แยกตามประเภท */
 export const UNSORTED = ''
 export interface IncomeEntry extends SharedItem {
   date: string

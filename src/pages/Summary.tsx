@@ -191,7 +191,7 @@ export default function Summary({ year }: { year: number }) {
                   <CumLine buckets={chartBuckets} height={120} />
                 </div>
                 <div>
-                  <div className="stat-title">สัดส่วนรายรับตามประเภทถวาย (บาท · %)</div>
+                  <div className="stat-title">สัดส่วนรายรับตามรายการถวาย (บาท · %)</div>
                   <Donut rows={topRows(incRows, 6)} tone="in" />
                   <div className="stat-title">สัดส่วนรายจ่ายตามหมวดหลัก (บาท · %)</div>
                   <Donut rows={topRows(outRows, 6)} tone="out" />
@@ -249,8 +249,8 @@ export default function Summary({ year }: { year: number }) {
               </table>
               <div className="two-col">
                 <div>
-                  <div className="ledger__band" style={{ background: '#1b8a4b' }}>รายรับตามประเภทถวาย</div>
-                  <table className="tbl tbl--paper mini-table" aria-label="รายรับตามประเภท">
+                  <div className="ledger__band" style={{ background: '#1b8a4b' }}>รายรับตามรายการถวาย</div>
+                  <table className="tbl tbl--paper mini-table" aria-label="รายรับตามรายการ">
                     <thead><tr><th>รายการ</th><th className="num">จำนวนครั้ง</th><th className="num">จำนวนเงิน</th></tr></thead>
                     <tbody>{incRows.filter((r) => r.cash.amt + r.transfer.amt > 0).map((r) => <tr key={r.key}><td>{r.label}</td><td className="num">{r.cash.n + r.transfer.n}</td><td className="num">{fmtBaht(r.cash.amt + r.transfer.amt)}</td></tr>)}</tbody>
                     <tfoot><tr><td>รวม</td><td className="num">{incRows.reduce((a, r) => a + r.cash.n + r.transfer.n, 0)}</td><td className="num">{fmtBaht(inSum.cash + inSum.transfer)}</td></tr></tfoot>
@@ -288,7 +288,7 @@ export default function Summary({ year }: { year: number }) {
                   <CumLine buckets={chartBuckets} height={120} />
                 </div>
                 <div>
-                  <div className="stat-title">สัดส่วนรายรับตามประเภทถวาย (บาท · %)</div>
+                  <div className="stat-title">สัดส่วนรายรับตามรายการถวาย (บาท · %)</div>
                   <Donut rows={topRows(incRows, 6)} tone="in" />
                   <div className="stat-title">สัดส่วนรายจ่ายตามหมวดหลัก (บาท · %)</div>
                   <Donut rows={topRows(outRows, 6)} tone="out" />

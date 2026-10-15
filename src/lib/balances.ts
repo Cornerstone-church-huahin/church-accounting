@@ -48,7 +48,7 @@ export function incomeBeforeCutoff(a: { income: IncomeEntry[]; rounds: Round[]; 
   const from = ownFrom(opening)
   if (from === '0000-01-01') return { count: 0, total: 0, items: [] }
   const fund = new Set(a.types.filter((t) => isFundType(t)).map((t) => t.id))
-  const name = (id: string) => a.types.find((t) => t.id === id)?.name ?? '(ประเภทที่ถูกลบ)'
+  const name = (id: string) => a.types.find((t) => t.id === id)?.name ?? '(รายการที่ถูกลบ)'
   const items: { date: string; label: string; amount: number }[] = []
   for (const x of a.income) if (!x.deleted && !x.roundId && x.date < from && !fund.has(x.typeId)) items.push({ date: x.date, label: name(x.typeId), amount: x.amount })
   for (const r of a.rounds) if (!r.deleted && r.date < from) for (const [id, v] of Object.entries(r.lines)) if (v > 0 && !fund.has(id)) items.push({ date: r.date, label: `${name(id)} (นับเงิน)`, amount: v })
