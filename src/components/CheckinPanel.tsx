@@ -102,7 +102,7 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
             return (
               <li key={m.id}>
                 <div className="item">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={46} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={56} />
                   <button type="button" className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small muted">{[statusLabel(m.status), m.gender, m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>

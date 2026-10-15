@@ -24,9 +24,9 @@ try {
     for (let i = 0; i < 40; i++) { sundays.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() - 7) }
     const mk = (id, name, extra) => ({ id, name, updated: 1, status: '1.สมบูรณ์ ( 1 )', ...extra })
     const people = [
-      mk('m1', 'นายสมชาย ตัวอย่าง', { nick: 'ชาย', code: '001', group: 'ผู้ใหญ่', since: '2005-03-06' }),
-      mk('m2', 'นางสมหญิง ทดสอบ', { nick: 'หญิง', code: '002', group: 'ผู้ใหญ่', since: '2010-01-03' }),
-      mk('m3', 'นายสมศักดิ์ ขาดไป', { code: '003', group: 'ผู้ใหญ่', since: '2012-05-06' }),
+      mk('m1', 'นายสมชาย ตัวอย่าง', { nick: 'ชาย', code: '001', group: 'ผู้ใหญ่', since: '2005-03-06', birth: '1980-03-15' }),
+      mk('m2', 'นางสมหญิง ทดสอบ', { nick: 'หญิง', code: '002', group: 'ผู้ใหญ่', since: '2010-01-03', birth: '1975-01-20' }),
+      mk('m3', 'นายสมศักดิ์ ขาดไป', { code: '003', group: 'ผู้ใหญ่', since: '2012-05-06', birth: '1990-03-02' }),
       mk('m4', 'นางสาวใหม่ เพิ่งมา', { status: '5.คนใหม่', code: '004', group: 'เยาวชน', since: iso(new Date(Date.now() - 90 * 864e5)) }),
       mk('m5', 'นายผู้ล่วงลับ ตัวอย่าง', { code: '005', status: '7.เสียชีวิต', since: '1999-01-03' }),
       mk('m6', 'นางสมพร กลับมาแล้ว', { status: '2.สมบูรณ์ ( 2 )', code: '006', since: '2008-02-03' }),
@@ -51,6 +51,14 @@ try {
   must((await row('กลับมาแล้ว').innerText()).includes('ควรกลับเป็น สมบูรณ์ 1'), 'registry says complete-2 but attends again → suggest complete-1')
   must(!(await row('เพิ่งมา').innerText()).includes('ควร'), 'new member is not judged')
   await snap('1-audit')
+  // ป๊อปอัพเปลี่ยนสถานะต้องปิดได้: Escape · แตะนอกกรอบ · ปุ่มปิด
+  const badge = () => row('สมศักดิ์').getByRole('button', { name: /1\.สมบูรณ์/ })
+  await badge().click(); await page.getByRole('dialog').waitFor()
+  await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
+  await badge().click(); await page.getByRole('dialog').waitFor()
+  await page.mouse.click(5, 300); await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
+  await badge().click(); await page.getByRole('dialog').waitFor()
+  await page.getByRole('button', { name: 'ปิด', exact: true }).click(); await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
   // เปลี่ยนสถานะในทะเบียน
   await row('สมศักดิ์').getByRole('button', { name: /1\.สมบูรณ์/ }).click()
   await page.getByRole('menuitem', { name: '2.สมบูรณ์ ( 2 )' }).click()
@@ -60,6 +68,16 @@ try {
   // กรอง
   await page.getByLabel('กรอง', { exact: true }).selectOption('st:1.สมบูรณ์ ( 1 )')
   must(await page.locator('li', { hasText: 'สมหญิง' }).count() === 1 && await page.locator('li', { hasText: 'สมศักดิ์' }).count() === 0, 'filter by registry status')
+  // วันเกิด: เรียง เดือน → วัน → ปี พ.ศ. และคำนวณอายุให้
+  await page.getByRole('tab', { name: 'วันเกิด', exact: true }).click()
+  const bnames = await page.locator('section[aria-label^="เกิดเดือน"] li b').allInnerTexts()
+  must(bnames.join('|') === 'นางสมหญิง ทดสอบ|นายสมศักดิ์ ขาดไป|นายสมชาย ตัวอย่าง', 'birthdays sorted by month, day: ' + bnames.join('|'))
+  must(/20 มกราคม 2518/.test(await page.locator('section[aria-label="เกิดเดือนมกราคม"]').innerText()), 'birth date shown as day month พ.ศ.')
+  must(/อายุ \d+ ปี/.test(await page.locator('section[aria-label="เกิดเดือนมกราคม"]').innerText()), 'age computed')
+  await snap('1c-birth')
+  await page.getByLabel('เดือนเกิด').selectOption('3')
+  must(await page.locator('section[aria-label^="เกิดเดือน"]').count() === 1 && (await page.locator('section[aria-label^="เกิดเดือน"] li').count()) === 2, 'month filter')
+  await page.getByRole('tab', { name: 'ตรวจสอบ', exact: true }).click()
   // ยอดผู้มา
   await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
   must(await page.locator('table.tbl tbody tr').count() >= 40, 'stats table lists every service: ' + await page.locator('table.tbl tbody tr').count())

@@ -446,3 +446,6 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 .sheetlist h3 { margin: 6px 0; font-size: 1rem; }
 .sheetlist .list li { gap: 6px; flex-wrap: wrap; }
 .sheetlist__no { width: 1.5rem; height: 1.5rem; border-radius: 50%; background: #1a2b4c; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; flex: none; }
+
+/* แถบแท็บที่มี 5 ปุ่ม (หน้าสมาชิก): ตัวเล็กลงเล็กน้อยให้พอดีจอมือถือ */
+.seg--5 > button { font-size: 0.82rem; padding-inline: 0.15rem; }

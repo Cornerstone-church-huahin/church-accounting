@@ -48,7 +48,7 @@ export default function MemberAvatar({ path, name, size = 44 }: { path?: string;
     loadUrl(path).then((u) => { if (live) setUrl(u) })
     return () => { live = false }
   }, [path, seen])
-  const style = { width: size, height: size, borderRadius: '50%', flex: 'none', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontWeight: 700, fontSize: size * 0.42 } as const
+  const style = { width: size, height: size, borderRadius: size >= 44 ? 14 : '50%', flex: 'none', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontWeight: 700, fontSize: size * 0.42 } as const
   return (
     <span ref={box} style={style} aria-hidden>
       {url ? <img src={url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (name.trim().charAt(0) || '👤')}
