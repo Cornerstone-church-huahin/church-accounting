@@ -214,7 +214,14 @@ export function matchNames(names: string[], members: ChurchMember[]): { ids: str
 }
 
 // ---------- ยอดผู้เข้าร่วมรายครั้ง ----------
-export interface ServiceStat { date: string; count: number; byStatus: Record<string, number>; names: string[] }
+export interface ServiceStat { date: string; count: number; byStatus: Record<string, number>; names: string[]; /** รายคนที่มา (มีรหัสไว้เปิดดูข้อมูล) · isNew = ลงชื่อครั้งแรกในระบบวันนั้น */ people: { id: string; name: string; isNew: boolean }[] }
+const dayNum = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 864e5)
+/**
+ * คนมาใหม่ = ลงชื่อครั้งแรกในระบบ ณ วันนั้น (ไม่เคยมีบันทึกก่อนวันนั้น) — ไม่ใช่สถานะ "5.คนใหม่" ในทะเบียน
+ * กันกรณีสมาชิกเก่าที่ระบบเพิ่งไม่มีประวัติ: ถ้าวันที่เริ่มมาในทะเบียนเก่ากว่าวันนั้นเกิน 30 วัน ไม่นับเป็นคนใหม่
+ */
+export const isFirstTimer = (m: { since?: string }, date: string, firstDate: string | undefined) =>
+  firstDate === date && !(m.since && dayNum(date) - dayNum(m.since) > 30)
 /** ชื่อสถานะตามทะเบียน (ยุบช่องว่างซ้ำ เพื่อให้ "1.สมบูรณ์  ( 1 )" กับ "1.สมบูรณ์ ( 1 )" นับเป็นอันเดียวกัน) */
 export const statusLabel = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim() || '(ไม่ระบุสถานะ)'
 /** ชื่อสถานะแบบสั้น (ตัดช่องว่างในวงเล็บ) สำหรับป้ายเล็กในรายการ เช่น "1.สมบูรณ์(1)" */
@@ -228,12 +235,14 @@ export const statusOptions = (members: { status?: string }[]) => [...new Set([..
 export function serviceStats(attendance: Attendance[], members: ChurchMember[]): ServiceStat[] {
   const byId = new Map(members.map((m) => [m.id, m]))
   const merged = new Map<string, Set<string>>()
-  for (const a of attendance) if (!a.deleted) for (const id of a.ids) if (byId.has(id)) (merged.get(a.date) ?? merged.set(a.date, new Set()).get(a.date)!).add(id)
+  const first = new Map<string, string>() // วันที่ลงชื่อครั้งแรกของแต่ละคน
+  for (const a of attendance) if (!a.deleted) for (const id of a.ids) { if ((first.get(id) ?? '9999') > a.date) first.set(id, a.date); if (byId.has(id)) (merged.get(a.date) ?? merged.set(a.date, new Set()).get(a.date)!).add(id) }
   return [...merged.entries()].sort((x, y) => (x[0] < y[0] ? 1 : -1)).map(([date, ids]) => {
     const byStatus: Record<string, number> = {}
-    const names: string[] = []
-    for (const id of ids) { const m = byId.get(id)!; byStatus[statusLabel(m.status)] = (byStatus[statusLabel(m.status)] ?? 0) + 1; names.push(m.name) }
-    return { date, count: ids.size, byStatus, names: names.sort((p, q) => p.localeCompare(q, 'th')) }
+    const people: { id: string; name: string; isNew: boolean }[] = []
+    for (const id of ids) { const m = byId.get(id)!; byStatus[statusLabel(m.status)] = (byStatus[statusLabel(m.status)] ?? 0) + 1; people.push({ id, name: m.name, isNew: isFirstTimer(m, date, first.get(id)) }) }
+    people.sort((p, q) => p.name.localeCompare(q.name, 'th'))
+    return { date, count: ids.size, byStatus, names: people.map((p) => p.name), people }
   })
 }
 

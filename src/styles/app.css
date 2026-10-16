@@ -540,3 +540,8 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 /* เลขลำดับ: เป็นป้ายเล็กมุมบนซ้ายของรูป ไม่กินที่ของชื่อ */
 .doneAv { position: relative; display: inline-block; line-height: 0; }
 .doneAv .doneNo { position: absolute; top: -0.3rem; left: -0.3rem; min-width: 1.2rem; height: 1.2rem; font-size: 0.68rem; margin: 0; padding: 0 0.25rem; border: 1.5px solid var(--surface, #fff); line-height: 1; }
+/* คนมาใหม่ในหน้ายอดผู้มา: สีน้ำเงินสว่าง แตะเปิดดูข้อมูล */
+.newcomer { color: #1f6fff; font-weight: 700; }
+button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700; text-decoration: underline; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .newcomer, :root:not([data-theme="light"]) button.newcomer { color: #6aa4ff; } }
+:root[data-theme="dark"] .newcomer, :root[data-theme="dark"] button.newcomer { color: #6aa4ff; }

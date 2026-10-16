@@ -519,7 +519,6 @@ const MAX_BARS = 26
 function Stats({ attendance, members, onOpen }: { attendance: Attendance[]; members: ChurchMember[]; onOpen: (id: string) => void }) {
   const stats = useMemo(() => serviceStats(attendance, members), [attendance, members])
   const [open, setOpen] = useState('')
-  const byName = useMemo(() => new Map(members.map((m) => [m.name, m.id])), [members])
   if (stats.length === 0) return <p className="empty">ยังไม่มีบันทึกลงชื่อนมัสการ — นำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน” หรือลงชื่อทีละครั้งที่แท็บ “ลงชื่อ”</p>
   const total = stats.reduce((a, x) => a + x.count, 0)
   const recent = stats.slice(0, MAX_BARS).reverse()
@@ -561,15 +560,27 @@ function Stats({ attendance, members, onOpen }: { attendance: Attendance[]; memb
       <section className="card" aria-label="ตารางผู้เข้าร่วมแต่ละครั้ง">
         <div style={{ overflowX: 'auto' }}>
           <table className="tbl" style={{ width: '100%', fontSize: '0.85rem' }}>
-            <thead><tr><th style={{ textAlign: 'left' }}>วันที่ (แตะดูรายชื่อ)</th><th className="num">รวม</th><th className="num">สมาชิกสมบูรณ์</th><th className="num">อื่น ๆ</th></tr></thead>
+            <thead><tr><th style={{ textAlign: 'left' }}>วันที่ (แตะดูรายชื่อ)</th><th className="num">รวม</th><th className="num">สมาชิกสมบูรณ์</th><th className="num">อื่น ๆ</th><th className="num">ใหม่</th></tr></thead>
             <tbody>
               {stats.map((x) => (
                 <>
                   <tr key={x.date} onClick={() => setOpen(open === x.date ? '' : x.date)} style={{ cursor: 'pointer' }} aria-expanded={open === x.date}>
                     <td>{open === x.date ? '▾' : '▸'} {fmtDate(x.date)}</td><td className="num"><b>{x.count}</b></td>
-                    <td className="num">{complete(x)}</td><td className="num">{x.count - complete(x)}</td>
+                    <td className="num">{complete(x)}</td><td className="num">{x.count - complete(x)}</td><td className="num">{x.people.some((p) => p.isNew) ? <b className="newcomer">{x.people.filter((p) => p.isNew).length}</b> : <span className="muted">0</span>}</td>
                   </tr>
-                  {open === x.date && <tr key={`${x.date}-n`}><td colSpan={4} className="small"><p className="muted" style={{ margin: '0 0 0.3rem' }}>{Object.entries(x.byStatus).sort().map(([st, n]) => `${statusLabel(st)} ${n}`).join(' · ')}</p>{x.names.map((n, i) => <span key={n + i}>{i ? ' · ' : ''}<button type="button" style={{ all: 'unset', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => byName.get(n) && onOpen(byName.get(n)!)}>{n}</button></span>)}</td></tr>}
+                  {open === x.date && (
+                    <tr key={`${x.date}-n`}>
+                      <td colSpan={5} className="small">
+                        <p className="muted" style={{ margin: '0 0 0.3rem' }}>{Object.entries(x.byStatus).sort().map(([st, n]) => `${statusLabel(st)} ${n}`).join(' · ')}</p>
+                        {x.people.some((p) => p.isNew) && (
+                          <p style={{ margin: '0 0 0.4rem' }}><b>คนมาใหม่ {x.people.filter((p) => p.isNew).length} คน:</b>{' '}
+                            {x.people.filter((p) => p.isNew).map((p, i) => <span key={p.id}>{i ? ' · ' : ''}<button type="button" className="newcomer" onClick={() => onOpen(p.id)}>{p.name}</button></span>)}
+                          </p>
+                        )}
+                        {x.people.filter((p) => !p.isNew).map((p, i) => <span key={p.id}>{i ? ' · ' : ''}<button type="button" style={{ all: 'unset', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => onOpen(p.id)}>{p.name}</button></span>)}
+                      </td>
+                    </tr>
+                  )}
                 </>
               ))}
             </tbody>
