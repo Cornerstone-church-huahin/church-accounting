@@ -197,3 +197,23 @@ describe('gender stats', () => {
     expect([genderFromGroup('4.สตรี'), genderFromGroup('5.บรุษ'), genderFromGroup('3.วัยทำงาน'), genderFromGroup('')]).toEqual(['หญิง', 'ชาย', undefined, undefined])
   })
 })
+
+describe('serviceStats: คนมาใหม่', () => {
+  const ms2 = [
+    { id: 'a', name: 'สมชาย เก่า', status: '1.สมบูรณ์ ( 1 )', since: '2000-01-01', updated: 1 },
+    { id: 'b', name: 'ดารา ใหม่วันนี้', status: '5.คนใหม่', since: '2026-10-18', updated: 1 },
+    { id: 'c', name: 'สมศรี มาแล้ว', status: '5.คนใหม่', since: '2026-10-04', updated: 1 },
+  ] as ChurchMember[]
+  const att2 = [
+    { id: '2026-10-04', date: '2026-10-04', ids: ['a', 'c'], updated: 1 },
+    { id: '2026-10-18', date: '2026-10-18', ids: ['a', 'b', 'c'], updated: 1 },
+  ] as Attendance[]
+  it('คนที่ลงชื่อครั้งแรกวันนั้นเป็นคนมาใหม่ (ไม่ใช่แค่สถานะคนใหม่) และมีรหัสไว้เปิดดู', () => {
+    const st = serviceStats(att2, ms2)
+    const d18 = st.find((x) => x.date === '2026-10-18')!
+    expect(d18.people.filter((p) => p.isNew).map((p) => p.name)).toEqual(['ดารา ใหม่วันนี้'])
+    expect(d18.people.every((p) => p.id)).toBe(true)
+    const d04 = st.find((x) => x.date === '2026-10-04')!
+    expect(d04.people.filter((p) => p.isNew).map((p) => p.name)).toEqual(['สมศรี มาแล้ว']) // ครั้งแรกของสมศรี ส่วนสมชายเป็นสมาชิกเก่า
+  })
+})

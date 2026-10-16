@@ -1,5 +1,5 @@
 import { fmtDateLong } from './money'
-import { regLevel, statusLabel } from './registry'
+import { isFirstTimer, regLevel, statusLabel } from './registry'
 import type { CheckIn, ChurchMember } from './types'
 
 /** สรุปการมานมัสการของวันหนึ่ง ไว้ส่งให้ผู้ประกาศ */
@@ -17,14 +17,6 @@ export interface ServiceReport {
   newcomers: string[]
 }
 
-const dayNum = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 864e5)
-/**
- * คนมาใหม่ = ลงชื่อครั้งแรกในระบบ ณ วันนั้น (ไม่เคยมีบันทึกมาก่อนวันนั้น) — ไม่ใช่สถานะ "5.คนใหม่" ในทะเบียน
- * กันกรณีสมาชิกเก่าที่ระบบเพิ่งไม่มีประวัติ: ถ้าวันที่เริ่มมาในทะเบียนเก่ากว่าวันนั้นเกิน 30 วัน ไม่นับเป็นคนใหม่
- */
-const isNewcomer = (m: ChurchMember, date: string, firstDate: string | undefined) =>
-  firstDate === date && !(m.since && dayNum(date) - dayNum(m.since) > 30)
-
 export function serviceReport(checkins: CheckIn[], members: ChurchMember[], date: string): ServiceReport {
   const byId = new Map(members.map((m) => [m.id, m]))
   const ids = new Set(checkins.filter((c) => c.date === date && !c.deleted).map((c) => c.mid))
@@ -38,7 +30,7 @@ export function serviceReport(checkins: CheckIn[], members: ChurchMember[], date
     if (m.gender === 'ชาย') r.male++
     else if (m.gender === 'หญิง') r.female++
     else r.noGender++
-    if (isNewcomer(m, date, first.get(id))) { r.newcomers.push(m.name); continue }
+    if (isFirstTimer(m, date, first.get(id))) { r.newcomers.push(m.name); continue }
     const st = statusLabel(m.status)
     if (regLevel(m.status)) r.complete++
     else if (/สำรอง/.test(st)) r.reserve++
