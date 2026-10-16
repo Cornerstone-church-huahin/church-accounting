@@ -33,6 +33,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null)
   const [adding, setAdding] = useState(false)
+  const [sharing, setSharing] = useState(false) // ป๊อปอัพตรวจข้อความก่อนแชร์
   const [askDel, setAskDel] = useState<CheckIn | null>(null) // การ์ดที่กำลังจะลบ (รอยืนยันในป๊อปอัพ)
   const latest = useRef(checkins)
   latest.current = checkins
@@ -74,11 +75,17 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
     if (putCheckIns([{ ...c, deleted: true, delBy: recorder }])) setMsg({ text: `ลบการลงชื่อของ “${name}” แล้ว` })
     setAskDel(null)
   }
-  /** แชร์สรุปผู้มาของวันที่เลือกไป LINE/Messenger/Facebook ทันที */
-  const shareNow = async () => {
-    const r = await shareText(`สรุปนมัสการ ${fmtDateLong(date)}`, reportText(serviceReport(latest.current, members, date)))
-    if (r === 'copied') setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' })
+  /** สรุปผู้มาของวันที่เลือก: เปิดป๊อปอัพให้ตรวจข้อความก่อน แล้วค่อยกดแชร์ไป LINE/Messenger/Facebook */
+  const report = serviceReport(checkins, members, date)
+  const reportMsg = reportText(report)
+  const doShare = async () => {
+    const r = await shareText(`สรุปนมัสการ ${fmtDateLong(date)}`, reportMsg)
+    if (r === 'copied') { setSharing(false); setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' }) }
     else if (r === 'failed') setMsg({ text: 'แชร์และคัดลอกไม่ได้ในเครื่องนี้ ลองเปิดแอปด้วย Chrome', bad: true })
+    else if (r === 'shared') setSharing(false)
+  }
+  const doCopy = async () => {
+    try { await navigator.clipboard.writeText(reportMsg); setSharing(false); setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' }) } catch { setMsg({ text: 'คัดลอกไม่ได้ ให้กดค้างที่ข้อความแล้วเลือกคัดลอก', bad: true }) }
   }
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
@@ -142,7 +149,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
       {msg && <p className="small" role="status" style={{ margin: 0, color: msg.bad ? 'var(--bad)' : undefined, fontWeight: 700 }}>{msg.text}</p>}
       <div className="row row--between" style={{ flexWrap: 'nowrap' }}>
         <span>ลงชื่อ{date === today ? 'วันนี้' : ''}แล้ว <b style={{ fontSize: '1.3rem' }}>{doneRows.length}</b> คน</span>
-        <button type="button" className="btn btn--gold" onClick={shareNow} disabled={doneRows.length === 0}>📤 แชร์</button>
+        <button type="button" className="btn btn--gold" onClick={() => setSharing(true)} disabled={doneRows.length === 0}>📤 แชร์</button>
       </div>
       {doneRows.length === 0
         ? <p className="empty">ยังไม่มีใครลงชื่อ{date === today ? 'วันนี้' : 'ในวันนี้'} — พิมพ์ค้นหาชื่อด้านบน แล้วกด “ลงทะเบียน”</p>
@@ -168,6 +175,23 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
             })}
           </ul>
         )}
+      {sharing && (
+        <Sheet title="ตรวจข้อมูลก่อนแชร์" onClose={() => setSharing(false)}>
+          <p className="pagehint" style={{ margin: 0 }}>ข้อความนี้จะถูกส่งไป LINE / Messenger / Facebook ที่คุณเลือก (มีเฉพาะตัวเลขและชื่อคนมาใหม่ ไม่มีเบอร์โทรหรือวันเกิด)</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', textAlign: 'center' }}>
+            {([['ทั้งหมด', report.total], ['ชาย', report.male], ['หญิง', report.female]] as const).map(([k, v]) => (
+              <div key={k} style={{ border: '1.5px solid var(--line)', borderRadius: '0.7rem', padding: '0.35rem 0' }}><div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{v}</div><div className="small muted">{k}</div></div>
+            ))}
+          </div>
+          <pre aria-label="ข้อความที่จะแชร์" style={{ whiteSpace: 'pre-wrap', margin: 0, padding: '0.75rem', borderRadius: '0.8rem', background: 'var(--surface-2)', border: '1px solid var(--line)', fontFamily: 'inherit', userSelect: 'text', maxHeight: '40vh', overflow: 'auto' }}>{reportMsg}</pre>
+          {msg?.bad && <p className="small" role="alert" style={{ margin: 0, color: 'var(--bad)', fontWeight: 700 }}>{msg.text}</p>}
+          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={doShare}>📤 แชร์ข้อความนี้</button>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <button type="button" className="btn btn--ghost bigbtn grow" onClick={doCopy}>คัดลอก</button>
+            <button type="button" className="btn btn--ghost bigbtn grow" onClick={() => setSharing(false)}>ยกเลิก</button>
+          </div>
+        </Sheet>
+      )}
       {askDel && (
         <Sheet title="ลบการลงชื่อนี้?" onClose={() => setAskDel(null)}>
           <p style={{ margin: 0 }}>ลบ <b>{byId.get(askDel.mid)?.name}</b> ออกจากการลงชื่อ{askDel.date === today ? 'วันนี้' : `วันที่ ${fmtDateLong(askDel.date)}`} ใช่ไหม?</p>
