@@ -262,6 +262,8 @@ export interface ChurchMember extends SharedItem {
   tel?: string
   group?: string
   note?: string
+  /** ชื่อเดิมก่อนแอปจัดวงเล็บออกจากชื่อ (ไว้กู้คืน) */
+  nameOrig?: string
   /** สถานะตามทะเบียน เช่น สมาชิกสมบูรณ์ · เสียชีวิต · สิ้นสภาพ */
   status?: string
   /** วันที่เข้าเป็นสมาชิก YYYY-MM-DD */
