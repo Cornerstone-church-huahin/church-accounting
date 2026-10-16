@@ -533,3 +533,7 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 .pick__btns { display: grid; gap: 0.35rem; }
 .pick__edit { min-height: 2.4rem; padding: 0 0.8rem; }
 .pick__btns .pick__del { min-height: 2.4rem; }
+/* ผู้บันทึก + เวลา: ตัวเล็กที่สุด แถวเดียว (ชื่อยาวตัดด้วย … เวลาอยู่ครบ) */
+.doneBy { display: flex; gap: 0.35rem; align-items: baseline; font-size: 0.68rem; line-height: 1.3; color: var(--good, #1d6b3a); white-space: nowrap; min-width: 0; }
+.doneBy__n { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.doneBy__t { flex: none; font-variant-numeric: tabular-nums; font-weight: 700; }
