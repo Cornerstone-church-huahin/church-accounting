@@ -530,3 +530,6 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 .pick--done { grid-template-columns: auto minmax(0, 1fr) auto; padding: 0.35rem 0; }
 .pick__del { min-height: 2.6rem; padding: 0 0.8rem; color: var(--bad); border-color: var(--bad); }
 .doneNo { display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.5rem; border-radius: 999px; background: var(--navy); color: #fff; font-size: 0.78rem; padding: 0 0.3rem; margin-right: 0.15rem; }
+.pick__btns { display: grid; gap: 0.35rem; }
+.pick__edit { min-height: 2.4rem; padding: 0 0.8rem; }
+.pick__btns .pick__del { min-height: 2.4rem; }

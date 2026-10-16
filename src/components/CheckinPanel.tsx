@@ -15,7 +15,7 @@ const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padSt
  * - แตะ "ลงชื่อ" = บันทึกคนนั้นทันที (1 คน × 1 วัน) · ถ้าลงไปแล้วโดยเครื่องอื่น: ขึ้นเตือนว่าใครลง กี่โมง และไม่ลงซ้ำ
  * - คนใหม่: รูป + ชื่อ-นามสกุล (+ กรอบข้อมูลเสริม) · ชื่อคล้ายกับที่มีอยู่ ถามก่อนว่าใช่คนเดิมไหม
  */
-export default function CheckinPanel({ lite, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, minYear }: {
+export default function CheckinPanel({ lite, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, onEdit, minYear }: {
   lite: boolean
   members: ChurchMember[]
   checkins: CheckIn[]
@@ -24,6 +24,8 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   syncNow: () => Promise<void>
   addMember: (x: ChurchMember[]) => boolean
   onOpen: (id: string) => void
+  /** เปิดฟอร์มแก้ไขข้อมูลคนนั้น (แก้ชื่อ รูป เพศ ฯลฯ) */
+  onEdit: (id: string) => void
   minYear: number
 }) {
   const [date, setDate] = useState(todayISO) // เปิดมาเป็นวันนี้ทันที · เลือกวันอื่นได้
@@ -149,7 +151,10 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
                       <span className="mrow__name"><span className="doneNo">{doneRows.indexOf(c) + 1}</span> {m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>
                     </button>
-                    <button type="button" className="mini pick__del" onClick={() => setAskDel(c)} aria-label={`ลบการลงชื่อของ ${m.name}`}>🗑 ลบ</button>
+                    <div className="pick__btns">
+                      <button type="button" className="mini pick__edit" onClick={() => onEdit(m.id)} aria-label={`แก้ไขข้อมูล ${m.name}`}>✎ แก้ไข</button>
+                      <button type="button" className="mini pick__del" onClick={() => setAskDel(c)} aria-label={`ลบการลงชื่อของ ${m.name}`}>🗑 ลบ</button>
+                    </div>
                   </div>
                 </li>
               )
@@ -159,7 +164,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
       {askDel && (
         <Sheet title="ลบการลงชื่อนี้?" onClose={() => setAskDel(null)}>
           <p style={{ margin: 0 }}>ลบ <b>{byId.get(askDel.mid)?.name}</b> ออกจากการลงชื่อ{askDel.date === today ? 'วันนี้' : `วันที่ ${fmtDateLong(askDel.date)}`} ใช่ไหม?</p>
-          <p className="pagehint" style={{ margin: 0 }}>ลงโดย {askDel.rec ?? 'ไม่ระบุ'}{askDel.tm ? ` เวลา ${askDel.tm}` : ''} · ใช้เมื่อลงซ้ำหรือลงผิดคน (ข้อมูลสมาชิกไม่ถูกลบ)</p>
+          <p className="pagehint" style={{ margin: 0 }}>ลงโดย {askDel.rec ?? 'ไม่ระบุ'}{askDel.tm ? ` เวลา ${askDel.tm}` : ''} · ใช้เมื่อลงซ้ำหรือลงผิดคน · ลบเฉพาะการมานมัสการวันนี้ รายชื่อสมาชิกยังอยู่ในฐานข้อมูลเหมือนเดิม</p>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <button type="button" className="btn btn--ghost bigbtn grow" onClick={() => setAskDel(null)}>ไม่ลบ</button>
             <button type="button" className="btn btn--danger bigbtn grow" onClick={() => doDelete(askDel)}>ลบ</button>

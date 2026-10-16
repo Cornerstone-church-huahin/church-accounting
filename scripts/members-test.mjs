@@ -157,6 +157,13 @@ try {
   await other.close()
   // ยกเลิก (บันทึกผู้ยกเลิก) แล้วลงใหม่ได้
   must((await page.locator('.doneList li').first().innerText()).includes('สมหญิง'), 'newest recorded person is listed first at the bottom')
+  // แก้ไขข้อมูลคนจากแถวที่ลงแล้ว (ไม่มีปุ่มลบสมาชิก) · ลบการลงชื่อไม่ลบสมาชิกออกจากทะเบียน
+  await m2Row.getByRole('button', { name: /^แก้ไขข้อมูล/ }).click()
+  must(await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).count() === 0, 'edit from check-in has no delete-member button')
+  await page.getByLabel('ชื่อเล่น').fill('หญิงน้อย')
+  await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
+  await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
+  must((await page.locator('.doneList li', { hasText: 'นางสมหญิง ทดสอบ' }).innerText()).includes('หญิงน้อย'), 'edited nickname shows in the checked-in list')
   await m2Row.getByRole('button', { name: /^ลบการลงชื่อ/ }).click()
   await page.getByRole('dialog', { name: 'ลบการลงชื่อนี้?' }).getByRole('button', { name: 'ไม่ลบ' }).click()
   must(await m2Row.count() === 1, 'declining the delete popup keeps the check-in')
@@ -164,6 +171,7 @@ try {
   await page.getByRole('dialog', { name: 'ลบการลงชื่อนี้?' }).getByRole('button', { name: 'ลบ', exact: true }).click()
   await page.getByRole('status').filter({ hasText: 'ลบการลงชื่อของ' }).waitFor({ timeout: 5000 })
   must(await page.locator('.doneList li', { hasText: 'นางสมหญิง ทดสอบ' }).count() === 0, 'confirmed delete removes the person from the bottom list')
+  await page.getByLabel('ค้นหาชื่อ').fill('สมหญิง'); must(await page.locator('.found li', { hasText: 'นางสมหญิง ทดสอบ' }).count() === 1, 'deleting the check-in keeps the person in the registry'); await page.getByLabel('ค้นหาชื่อ').fill('')
   await page.getByLabel('ค้นหาชื่อ').fill('สมหญิง')
   await m2Row.getByRole('button', { name: /^ลงทะเบียน/ }).waitFor({ timeout: 5000 })
   await page.getByLabel('ค้นหาชื่อ').fill('')
