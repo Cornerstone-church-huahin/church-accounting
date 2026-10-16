@@ -68,7 +68,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
     if (busy.current) return
     if (!cfg) return setSync({ state: 'off' })
     // ยังไม่รู้สิทธิ์ (รายชื่อผู้ใช้ร่วมยังไม่เคยซิงก์) หรือรออนุมัติ: ยังไม่ดึง/ส่งข้อมูลบัญชี
-    if (scope !== 'members' && (localStorage.getItem(MEMBERS_KEY) === null || myRole() === 'pending')) return setSync({ state: 'idle' })
+    if (scope !== 'members' && (localStorage.getItem(MEMBERS_KEY) === null || myRole() === 'pending' || myRole() === 'paused')) return setSync({ state: 'idle' })
     setSync({ state: 'syncing' })
     try {
       const remote = await pullFile<T>(cfg, file)

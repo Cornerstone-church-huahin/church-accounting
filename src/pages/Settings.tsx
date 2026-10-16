@@ -92,7 +92,7 @@ function Connect() {
 function Members() {
   const m = useMembers()
   const cfg = getSync()
-  const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'auditor' | 'viewer'>('bookkeeper')
+  const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'worship' | 'auditor' | 'viewer'>('bookkeeper')
   const [inviteFor, setInviteFor] = useState('')
   const [want, setWant] = useState<Record<string, Role>>({})
   const [delId, setDelId] = useState<string | null>(null)
@@ -116,7 +116,7 @@ function Members() {
           <div className="field">
             <label htmlFor="inv-role">สิทธิ์ที่ตั้งใจให้ (เปลี่ยนได้ตอนอนุมัติ)</label>
             <select id="inv-role" className="input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}>
-              {(['bookkeeper', 'auditor', 'viewer'] as const).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              {(['bookkeeper', 'worship', 'auditor', 'viewer'] as const).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             </select>
           </div>
           <button type="button" className="btn btn--gold" onClick={share}>📤 ส่งลิงก์ทาง Line หรืออื่น ๆ</button>
@@ -151,12 +151,13 @@ function Members() {
           const lastAdmin = x.role === 'admin' && m.adminCount <= 1
           return (
             <li key={x.id} style={{ flexWrap: 'wrap' }}>
-              <span className="grow"><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
+              <span className="grow"><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
               {m.isAdmin ? (
                 <>
                   <select aria-label={`สิทธิ์ของ ${x.name}`} className="input" style={{ width: '10.5rem' }} value={x.role} disabled={lastAdmin} onChange={(e) => { if (!m.setRole(x.id, e.target.value as Role)) flash('ต้องมีแอดมินอย่างน้อย 1 คน') }}>
                     {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                   </select>
+                  {x.role !== 'admin' && <button type="button" className="mini" onClick={() => m.setPaused(x.id, !x.paused)} aria-label={`${x.paused ? 'เปิดสิทธิ์คืน' : 'พักสิทธิ์'} ${x.name}`}>{x.paused ? '▶ เปิดคืน' : '⏸ พัก'}</button>}
                   {delId === x.id ? (
                     <span className="row"><button type="button" className="btn btn--danger" onClick={() => { if (!m.removeMember(x.id)) flash('ลบแอดมินคนสุดท้ายไม่ได้'); setDelId(null) }}>ลบ {x.name}</button><button type="button" className="btn btn--ghost" onClick={() => setDelId(null)}>ไม่ลบ</button></span>
                   ) : <button type="button" className="mini" disabled={lastAdmin} onClick={() => setDelId(x.id)} aria-label={`ลบ ${x.name}`}>🗑️</button>}

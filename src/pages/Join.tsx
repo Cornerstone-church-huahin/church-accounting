@@ -13,7 +13,7 @@ export default function Join() {
   const [token] = useState(params.get('t') ?? '')
   const [repo] = useState(params.get('r') || DEFAULT_REPO)
   const [forName] = useState(params.get('for') ?? '')
-  const [role] = useState(['bookkeeper', 'auditor'].includes(params.get('role') ?? '') ? (params.get('role') as string) : 'viewer')
+  const [role] = useState(['bookkeeper', 'auditor', 'worship'].includes(params.get('role') ?? '') ? (params.get('role') as string) : 'viewer')
   const [name, setName] = useState(getSync()?.name ?? '')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)

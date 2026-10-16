@@ -1,4 +1,4 @@
-import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { can, isSolo, READONLY_EVENT, whoAmI } from '../lib/access'
 import { useMembership, useRole } from '../lib/members'
@@ -19,6 +19,8 @@ const FULL = [
   { to: '/members', label: 'สมาชิก', Icon: IconPeople, end: false },
   { to: '/more', label: 'เพิ่มเติม', Icon: IconMore, end: false },
 ]
+/** ผู้บันทึกการนมัสการ: เห็นเมนูเดียว */
+const WORSHIP = [{ to: '/members', label: 'สมาชิก', Icon: IconPeople, end: false }]
 const VIEW = [
   { to: '/', label: 'หน้าแรก', Icon: IconHome, end: true },
   { to: '/budget', label: 'งบประมาณ', Icon: IconWallet, end: false },
@@ -36,7 +38,7 @@ export default function AppShell() {
   const setYear = (y: number) => { setYearState(y); saveYear(y) }
   const [roToast, setRoToast] = useState(false)
   const full = can(role, 'detail')
-  const TABS = full ? FULL : VIEW
+  const TABS = role === 'worship' ? WORSHIP : full ? FULL : VIEW
 
   useEffect(() => { document.documentElement.dataset.role = role }, [role])
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function AppShell() {
   const years = useMemo(() => { const y = yearOf(todayISO()); return [y + 1, y, y - 1, y - 2, y - 3, y - 4] }, [])
   if (!years.includes(year)) years.push(year)
 
+  if (role === 'worship' && pathname !== '/members' && pathname !== '/join') return <Navigate to="/members" replace />
   return (
     <YearContext.Provider value={{ year, setYear }}>
       <div className="app">
@@ -78,6 +81,7 @@ export default function AppShell() {
 
         <OpenInChrome />
         {isSolo() && <p className="role-bar" role="status">🧪 โหมดทดลองคนเดียว — ข้อมูลอยู่ในเครื่องนี้ และข้ามกฎ “ต้องเป็นคนละคน” ให้ลองครบทุกขั้นตอน</p>}
+        {role === 'worship' && ms.myName && <p className="role-bar" role="status">📝 สิทธิ์ของท่าน: <b>ผู้บันทึกการนมัสการ</b> — ลงชื่อนมัสการและดูยอดผู้มา</p>}
         {role === 'viewer' && ms.myName && <p className="role-bar" role="status">👁️ สิทธิ์ของท่าน: <b>ดูอย่างเดียว</b> — เห็นรายงานและงบประมาณ</p>}
         {ms.needAdmin && (
           <section className="card role-first" role="alertdialog" aria-label="ตั้งแอดมินคนแรก">
@@ -103,7 +107,15 @@ export default function AppShell() {
         {role === 'admin' && ms.pendingCount > 0 && <Link to="/settings" className="role-bar role-bar--req" role="status">🔔 มีผู้ขอร่วมใช้ <b>{ms.pendingCount} คน</b> รอคุณอนุมัติ — กดเพื่อดูชื่อและให้สิทธิ์</Link>}
         {roToast && <p className="role-toast" role="alert">🔒 สิทธิ์ของท่านทำรายการนี้ไม่ได้</p>}
 
-        {role === 'pending' ? (
+        {role === 'paused' ? (
+          <main className="main">
+            <section className="card" role="alert">
+              <h2>⏸ สิทธิ์ของท่านถูกพักไว้ชั่วคราว</h2>
+              <p><b>ติดต่อแอดมิน</b> เพื่อเปิดสิทธิ์ให้ใช้งานอีกครั้ง (แอปตรวจให้อัตโนมัติ หรือกดปุ่มด้านล่าง)</p>
+              <button type="button" className="btn btn--gold" onClick={ms.syncNow}>🔄 ตรวจว่าเปิดสิทธิ์แล้วหรือยัง</button>
+            </section>
+          </main>
+        ) : role === 'pending' ? (
           <main className="main">
             <section className="card" role="status" aria-live="polite">
               <h2>⏳ ส่งคำขอร่วมใช้แล้ว — รอแอดมินอนุมัติ</h2>

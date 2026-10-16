@@ -16,7 +16,8 @@ const getRec = () => { try { return localStorage.getItem(REC_KEY) ?? '' } catch 
  * - แตะ "ลงชื่อ" = บันทึกคนนั้นทันที (1 คน × 1 วัน) · ถ้าลงไปแล้วโดยเครื่องอื่น: ขึ้นเตือนว่าใครลง กี่โมง และไม่ลงซ้ำ
  * - คนใหม่: รูป + ชื่อ-นามสกุล (+ กรอบข้อมูลเสริม) · ชื่อคล้ายกับที่มีอยู่ ถามก่อนว่าใช่คนเดิมไหม
  */
-export default function CheckinPanel({ members, checkins, recorders, canManage, putCheckIns, syncNow, addMember, putRecorders, removeRecorder, onOpen, minYear }: {
+export default function CheckinPanel({ lite, members, checkins, recorders, canManage, putCheckIns, syncNow, addMember, putRecorders, removeRecorder, onOpen, minYear }: {
+  lite: boolean
   members: ChurchMember[]
   checkins: CheckIn[]
   recorders: Recorder[]
@@ -126,7 +127,7 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
                   <MemberAvatar path={m.photoPath} name={m.name} size={48} />
                   <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
-                    <br /><span className="mrow__meta">{[statusLabel(m.status), m.gender, m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
+                    <br /><span className="mrow__meta">{[lite ? undefined : statusLabel(m.status), m.gender, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
                     {c && <><br /><span className="mrow__ok">✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span></>}
                   </button>
                   <div className="mrow__act">
@@ -140,7 +141,7 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
           })}
         </ul>
       )}
-      {adding && <NewPerson members={members} date={date} onClose={() => setAdding(false)} onSave={async (mem, fixName) => {
+      {adding && <NewPerson lite={lite} members={members} date={date} onClose={() => setAdding(false)} onSave={async (mem, fixName) => {
         const ok = mem ? addMember([mem]) : true
         if (!ok) return
         if (fixName) { const m0 = byId.get(fixName.id); if (m0) addMember([{ ...m0, name: fixName.name }]) }
@@ -171,7 +172,8 @@ function RecorderManager({ recorders, put, remove }: { recorders: Recorder[]; pu
 }
 
 /** คนใหม่หน้างาน: รูป + ชื่อ-นามสกุล เป็นหลัก · กรอบข้อมูลเสริม · วันที่เริ่มมา/วันเกิดแก้ภายหลังได้ */
-function NewPerson({ members, date, onClose, onSave }: {
+function NewPerson({ lite, members, date, onClose, onSave }: {
+  lite: boolean
   members: ChurchMember[]
   date: string
   onClose: () => void
@@ -230,8 +232,8 @@ function NewPerson({ members, date, onClose, onSave }: {
         )}
         <div className="field"><label htmlFor="np-nick">ชื่อเล่น</label><input id="np-nick" className="input" value={f.nick} onChange={set('nick')} /></div>
         <div className="field"><label htmlFor="np-gender">เพศ</label><select id="np-gender" className="input" value={f.gender} onChange={set('gender')}><option value="">— ไม่ระบุ —</option><option>ชาย</option><option>หญิง</option></select></div>
-        <div className="field"><label htmlFor="np-tel">โทรศัพท์</label><input id="np-tel" className="input" type="tel" value={f.tel} onChange={set('tel')} /></div>
-        <div className="field"><label htmlFor="np-birth">วันเกิด{f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}</label><input id="np-birth" className="input" type="date" value={f.birth} onChange={set('birth')} /></div>
+        {!lite && <div className="field"><label htmlFor="np-tel">โทรศัพท์</label><input id="np-tel" className="input" type="tel" value={f.tel} onChange={set('tel')} /></div>}
+        {!lite && <div className="field"><label htmlFor="np-birth">วันเกิด{f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}</label><input id="np-birth" className="input" type="date" value={f.birth} onChange={set('birth')} /></div>}
         <div className="field full"><label htmlFor="np-since">วันที่เริ่มมา (ครั้งแรกที่เข้าร่วม · แก้ภายหลังได้)</label><input id="np-since" className="input" type="date" value={f.since} onChange={set('since')} /></div>
         <div className="field full"><label htmlFor="np-note">หมายเหตุ</label><input id="np-note" className="input" value={f.note} onChange={set('note')} /></div>
       </div>
