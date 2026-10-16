@@ -279,6 +279,7 @@ function NewPerson({ lite, members, date, initialName, onClose, onSave }: {
       <div className="formgrid">
         <div className="field"><label htmlFor="np-first">ชื่อ</label><input id="np-first" className="input bigfield" value={f.first} onChange={set('first')} autoComplete="off" /></div>
         <div className="field"><label htmlFor="np-last">นามสกุล</label><input id="np-last" className="input bigfield" value={f.last} onChange={set('last')} autoComplete="off" /></div>
+        <div className="field full"><label htmlFor="np-note">หมายเหตุ <span className="muted">· มาจากไหน / มากับใคร / จำได้อย่างไร (ไว้ติดตามภายหลัง)</span></label><input id="np-note" className="input" value={f.note} onChange={set('note')} autoComplete="off" placeholder="เช่น มากับคุณสมชาย · ญาติของ…" /></div>
         <div className="field full">
           <span id="np-gender-l" style={{ fontSize: '0.85rem' }}>เพศ</span>
           <div className="seg" role="group" aria-labelledby="np-gender-l">
@@ -317,7 +318,6 @@ function NewPerson({ lite, members, date, initialName, onClose, onSave }: {
           <div className="field"><label htmlFor="np-since">วันที่เริ่มมา</label><input id="np-since" className="input" type="date" value={f.since} onChange={set('since')} /></div>
           {!lite && <div className="field"><label htmlFor="np-tel">โทรศัพท์</label><input id="np-tel" className="input" type="tel" value={f.tel} onChange={set('tel')} /></div>}
           {!lite && <div className="field"><label htmlFor="np-birth">วันเกิด{f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}</label><input id="np-birth" className="input" type="date" value={f.birth} onChange={set('birth')} /></div>}
-          <div className="field full"><label htmlFor="np-note">หมายเหตุ</label><input id="np-note" className="input" value={f.note} onChange={set('note')} /></div>
         </div>
       </details>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
