@@ -153,9 +153,9 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
               return (
                 <li key={c.id}>
                   <div className="pick pick--done">
-                    <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                    <span className="doneAv"><MemberAvatar path={m.photoPath} name={m.name} size={52} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                      <span className="mrow__name"><span className="doneNo">{doneRows.indexOf(c) + 1}</span> {m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+                      <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <span className="doneBy"><span className="doneBy__n">ผู้บันทึก {c.rec ?? '—'}</span>{c.tm && <span className="doneBy__t">{c.tm}</span>}</span>
                     </button>
                     <div className="pick__btns">
