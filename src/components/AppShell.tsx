@@ -38,7 +38,8 @@ export default function AppShell() {
   const setYear = (y: number) => { setYearState(y); saveYear(y) }
   const [roToast, setRoToast] = useState(false)
   const full = can(role, 'detail')
-  const TABS = role === 'worship' ? WORSHIP : full ? FULL : VIEW
+  // ผู้ที่มีไอคอนลงชื่อที่หัวแอปอยู่แล้ว (แอดมิน/ผู้บันทึกบัญชี) ไม่ต้องมีเมนูสมาชิกซ้ำที่แถบล่าง
+  const TABS = role === 'worship' ? WORSHIP : full ? (can(role, 'registry') ? FULL.filter((t) => t.to !== '/members') : FULL) : VIEW
 
   useEffect(() => { document.documentElement.dataset.role = role }, [role])
   useEffect(() => {
