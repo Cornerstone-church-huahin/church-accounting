@@ -211,6 +211,12 @@ try {
   // ชื่อคล้าย: ยืนยันเป็นคนเดิมพร้อมแก้ตัวสะกด
   must(await page.getByRole('button', { name: '＋ เพิ่มใหม่' }).count() === 0, 'no permanent add button when not searching')
   must(await page.getByRole('button', { name: /^📤 แชร์/ }).count() === 1, 'share button sits next to the count')
+  await page.getByRole('button', { name: /^📤 แชร์/ }).click()
+  const shareDlg = page.getByRole('dialog', { name: 'ตรวจข้อมูลก่อนแชร์' })
+  const shareTxt = await shareDlg.getByLabel('ข้อความที่จะแชร์').innerText()
+  must(/สรุปนมัสการ/.test(shareTxt) && /ผู้เข้าร่วมทั้งหมด \d+ คน/.test(shareTxt) && /คนมาใหม่/.test(shareTxt), 'share popup previews the message: ' + shareTxt)
+  must(await shareDlg.getByRole('button', { name: /แชร์ข้อความนี้/ }).count() === 1, 'share popup has its own confirm button')
+  await shareDlg.getByRole('button', { name: 'ยกเลิก' }).click()
   await page.getByLabel('ค้นหาชื่อ').fill('ไม่มีชื่อนี้แน่นอน')
   await page.locator('.found').getByRole('button', { name: /^＋ เพิ่มใหม่/ }).click()
   await page.getByLabel('ชื่อ', { exact: true }).fill('นางสมหญิง'); await page.getByLabel('นามสกุล').fill('ทดสอบบ')
