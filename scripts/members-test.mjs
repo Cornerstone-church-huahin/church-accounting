@@ -207,7 +207,10 @@ try {
   must((await nr.innerText()).includes('✓ ลงแล้ว') && (await nr.innerText()).includes('ผู้ช่วย ค'), 'new person recorded by the chosen recorder')
   must(await nr.locator('img').count() === 1, 'new person photo shows')
   // ชื่อคล้าย: ยืนยันเป็นคนเดิมพร้อมแก้ตัวสะกด
-  await page.getByRole('button', { name: '＋ เพิ่มใหม่' }).click()
+  must(await page.getByRole('button', { name: '＋ เพิ่มใหม่' }).count() === 0, 'no permanent add button when not searching')
+  must(await page.getByRole('button', { name: /^📤 แชร์/ }).count() === 1, 'share button sits next to the count')
+  await page.getByLabel('ค้นหาชื่อ').fill('ไม่มีชื่อนี้แน่นอน')
+  await page.locator('.found').getByRole('button', { name: /^＋ เพิ่มใหม่/ }).click()
   await page.getByLabel('ชื่อ', { exact: true }).fill('นางสมหญิง'); await page.getByLabel('นามสกุล').fill('ทดสอบบ')
   await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).click()
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).waitFor({ timeout: 5000 })

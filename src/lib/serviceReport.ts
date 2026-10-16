@@ -49,3 +49,13 @@ export function reportText(r: ServiceReport): string {
   lines.push(r.newcomers.length ? `• คนมาใหม่ ${r.newcomers.length} คน: ${r.newcomers.join(', ')}` : '• คนมาใหม่ 0 คน')
   return lines.join('\n')
 }
+
+/** แชร์ข้อความผ่านเมนูแชร์ของเครื่อง (LINE / Messenger / Facebook) · ไม่มีเมนูแชร์ = คัดลอกไว้ให้วางในแชต */
+export async function shareText(title: string, text: string): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') { await navigator.share({ title, text }); return 'shared' }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
+  }
+  try { await navigator.clipboard.writeText(text); return 'copied' } catch { return 'failed' }
+}
