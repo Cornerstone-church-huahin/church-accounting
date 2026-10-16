@@ -30,7 +30,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null)
   const [adding, setAdding] = useState(false)
-  const [view, setView] = useState<'' | 'done' | 'todo' | 'all'>('') // ว่าง = ค่าเริ่มต้น: เฉพาะคนที่ลงแล้วในวันที่เลือก
+  const [askDel, setAskDel] = useState<CheckIn | null>(null) // การ์ดที่กำลังจะลบ (รอยืนยันในป๊อปอัพ)
   const latest = useRef(checkins)
   latest.current = checkins
   const { picked } = useRecorderPick(recorders)
@@ -43,15 +43,16 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   const living = members.filter((m) => !/เสียชีวิต|สิ้นสภาพ/.test(m.status ?? ''))
   const byId = new Map(members.map((m) => [m.id, m]))
   const doneMembers = [...done.keys()].map((id) => byId.get(id)).filter((m): m is ChurchMember => !!m) // คนที่ลงแล้ว (ไม่ว่าสถานะใด)
-  const count = doneMembers.length
-  const todoMembers = living.filter((m) => !done.has(m.id))
   const t = q.trim().toLowerCase().replace(/\s+/g, '')
-  // พิมพ์ค้นหา = ค้นทั้งทะเบียนทันที (ไว้หาคนที่มาแล้วยังไม่ได้ลง) · ไม่พิมพ์ = ตามตัวเลือกด้านบน (ค่าเริ่มต้น: เฉพาะคนที่ลงแล้ววันนี้)
-  const mode = t ? 'all' : view || 'done'
-  const pool = mode === 'done' ? doneMembers : mode === 'todo' ? todoMembers : [...new Map([...doneMembers, ...living].map((m) => [m.id, m])).values()]
-  const matches = t ? pool.filter((m) => `${m.name}${m.nick ?? ''}${m.code ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) : pool
-  // ชื่อขึ้นต้นตรงกับที่พิมพ์มาก่อน แล้วค่อยตามตัวอักษร
-  const shown = [...matches].sort((a, b) => (t ? Number(b.name.toLowerCase().replace(/\s+/g, '').startsWith(t)) - Number(a.name.toLowerCase().replace(/\s+/g, '').startsWith(t)) : 0) || a.name.localeCompare(b.name, 'th'))
+  // พิมพ์ค้นหา = ค้นทั้งทะเบียนทันที · ชื่อขึ้นต้นตรงกับที่พิมพ์มาก่อน แล้วค่อยตามตัวอักษร
+  const key = (m: ChurchMember) => m.name.toLowerCase().replace(/\s+/g, '')
+  const everyone = [...new Map([...doneMembers, ...living].map((m) => [m.id, m])).values()]
+  const shown = (t ? everyone.filter((m) => `${m.name}${m.nick ?? ''}${m.code ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) : [])
+    .sort((a, b) => Number(key(b).startsWith(t)) - Number(key(a).startsWith(t)) || a.name.localeCompare(b.name, 'th'))
+  // คนที่ลงแล้ววันนี้ เรียงตามลำดับที่ลง (คนล่าสุดอยู่บน) · เลขลำดับ = ลำดับที่มา
+  const stamp = (c: CheckIn) => c.updated || 0
+  const doneRows = [...done.values()].filter((c) => byId.has(c.mid)).sort((a, b) => stamp(a) - stamp(b) || (a.tm ?? '').localeCompare(b.tm ?? ''))
+  const doneNewestFirst = [...doneRows].reverse()
   /** ลงชื่อ 1 คน: ซิงก์ก่อน (เห็นรายการของเครื่องอื่น) แล้วเช็กซ้ำอีกครั้งก่อนเขียน · true = ลงสำเร็จ */
   const record = async (mid: string, who = ''): Promise<boolean> => {
     if (!recorder) { window.dispatchEvent(new Event(OPEN_RECORDER)); setMsg({ text: 'เลือกผู้บันทึกของเครื่องนี้ก่อนลงทะเบียน', bad: true }); return false }
@@ -64,29 +65,31 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
     if (putCheckIns([{ id: checkInId(date, mid), date, mid, tm: nowHM(), rec: recorder, updated: 0 }])) { setMsg({ text: `ลงชื่อ “${name}” แล้ว` }); return true }
     return false
   }
-  const cancel = (c: CheckIn) => {
+  const doDelete = (c: CheckIn) => {
     const name = byId.get(c.mid)?.name ?? ''
-    if (!confirm(`ยกเลิกการลงชื่อของ ${name}?\n(ลงโดย ${c.rec ?? 'ไม่ระบุ'}${c.tm ? ` เวลา ${c.tm}` : ''} · จะบันทึกว่า ${recorder || 'ไม่ระบุ'} เป็นผู้ยกเลิก)`)) return
-    if (putCheckIns([{ ...c, deleted: true, delBy: recorder || undefined }])) setMsg({ text: `ยกเลิกการลงชื่อของ “${name}” แล้ว` })
+    if (!recorder) { setAskDel(null); window.dispatchEvent(new Event(OPEN_RECORDER)); return }
+    if (putCheckIns([{ ...c, deleted: true, delBy: recorder }])) setMsg({ text: `ลบการลงชื่อของ “${name}” แล้ว` })
+    setAskDel(null)
   }
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
-  const row = (m: ChurchMember, card: boolean) => {
+  /** การ์ดผลค้นหา: รูป ชื่อ และปุ่มลงทะเบียน */
+  const row = (m: ChurchMember) => {
     const c = done.get(m.id)
     return (
       <li key={m.id}>
-                <div className={`pick${card ? ' pick--card' : ''}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={card ? 76 : 64} />
-                  <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                    <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
-                    <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
-                    {c && <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>}
-                  </button>
-                  {c
-                    ? <button type="button" className="mini pick__act" onClick={() => cancel(c)}>ยกเลิก</button>
-                    : <button type="button" className="btn btn--gold bigbtn pick__act" disabled={tooOld} onClick={() => registerFrom(m)} aria-label={`ลงทะเบียน ${m.name}`}>ลงทะเบียน</button>}
-                </div>
-              </li>
+        <div className="pick pick--card">
+          <MemberAvatar path={m.photoPath} name={m.name} size={76} />
+          <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+            <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+            <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
+            {c && <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>}
+          </button>
+          {c
+            ? <span className="pick__act mrow__ok" style={{ textAlign: 'center', minHeight: '3rem', display: 'grid', placeItems: 'center' }}>✓ ลงชื่อแล้ววันนี้</span>
+            : <button type="button" className="btn btn--gold bigbtn pick__act" disabled={tooOld} onClick={() => registerFrom(m)} aria-label={`ลงทะเบียน ${m.name}`}>ลงทะเบียน</button>}
+        </div>
+      </li>
     )
   }
 
@@ -102,7 +105,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
           ) : (
             <>
               <p className="pagehint" style={{ margin: 0 }}>พบ {shown.length} คน — เลือกคนที่ใช่ แล้วกด “ลงทะเบียน”</p>
-              <ul className="list list--tight">{shown.slice(0, 20).map((m) => row(m, true))}</ul>
+              <ul className="list list--tight">{shown.slice(0, 20).map((m) => row(m))}</ul>
               <button type="button" className="btn btn--ghost bigbtn btn--block" onClick={() => setAdding(true)}>ไม่ใช่คนข้างบน — ＋ เพิ่มใหม่</button>
             </>
           )}
@@ -111,7 +114,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
       <div className="formgrid">
         <div className="field">
           <label htmlFor="ck-date">วันนมัสการ</label>
-          <input id="ck-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); setMsg(null); setView('') }} />
+          <input id="ck-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); setMsg(null) }} />
         </div>
         <div className="field">
           <label htmlFor="ck-q">ค้นหาชื่อ</label>
@@ -122,29 +125,46 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
 
       <div className="row row--between" style={{ flexWrap: 'nowrap' }}>
         <b style={{ minWidth: 0 }}>{fmtDateLong(date)}</b>
-        {date !== today && <button type="button" className="mini" onClick={() => { setDate(today); setMsg(null); setView('') }}>วันนี้</button>}
+        {date !== today && <button type="button" className="mini" onClick={() => { setDate(today); setMsg(null) }}>วันนี้</button>}
       </div>
       {dow(date) !== 0 && <p className="small" style={{ color: 'var(--bad)', margin: 0 }}>ไม่ใช่วันอาทิตย์ — ถ้าเป็นการนมัสการพิเศษก็บันทึกได้</p>}
       {tooOld && <p className="small" style={{ color: 'var(--bad)', margin: 0 }}>บันทึกได้เฉพาะปี {minYear + 543}–{yearOf(today) + 543}</p>}
 
-      {!t && (
-        <>
-          <div className="row row--between" style={{ flexWrap: 'nowrap' }}>
-            <span>ลงชื่อแล้ว <b style={{ fontSize: '1.3rem' }}>{count}</b> คน</span>
-            <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มใหม่</button>
-          </div>
-          <div className="seg seg--3 no-print" role="group" aria-label="ตัวเลือกรายชื่อ">
-            {([['done', `ที่มา ${count}`, `ที่มาวันนี้ · ${count}`], ['todo', `ยังไม่ลง ${todoMembers.length}`, `ยังไม่ได้ลง · ${todoMembers.length}`], ['all', `ทั้งหมด ${new Set([...doneMembers, ...living].map((m) => m.id)).size}`, `ทั้งหมด · ${new Set([...doneMembers, ...living].map((m) => m.id)).size}`]] as const).map(([k, l, title]) => (
-              <button key={k} type="button" className={mode === k ? 'on' : ''} aria-label={title} aria-pressed={mode === k} onClick={() => setView(k)}>{l}</button>
-            ))}
-          </div>
-        </>
-      )}
       {msg && <p className="small" role="status" style={{ margin: 0, color: msg.bad ? 'var(--bad)' : undefined, fontWeight: 700 }}>{msg.text}</p>}
-      {t ? null : living.length === 0 && count === 0 ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : shown.length === 0 ? <p className="empty">{mode === 'done' ? 'ยังไม่มีใครลงชื่อในวันนี้ — พิมพ์ค้นหาชื่อ หรือกด “ทั้งหมด”' : 'ไม่มีรายชื่อ'}</p> : (
-        <ul className="list list--tight pickList">
-          {shown.slice(0, 400).map((m) => row(m, false))}
-        </ul>
+      <div className="row row--between" style={{ flexWrap: 'nowrap' }}>
+        <span>ลงชื่อ{date === today ? 'วันนี้' : ''}แล้ว <b style={{ fontSize: '1.3rem' }}>{doneRows.length}</b> คน</span>
+        <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มใหม่</button>
+      </div>
+      {doneRows.length === 0
+        ? <p className="empty">ยังไม่มีใครลงชื่อ{date === today ? 'วันนี้' : 'ในวันนี้'} — พิมพ์ค้นหาชื่อด้านบน แล้วกด “ลงทะเบียน”</p>
+        : (
+          <ul className="list list--tight doneList" aria-label="รายชื่อที่ลงแล้ว">
+            {doneNewestFirst.map((c) => {
+              const m = byId.get(c.mid)!
+              return (
+                <li key={c.id}>
+                  <div className="pick pick--done">
+                    <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                    <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                      <span className="mrow__name"><span className="doneNo">{doneRows.indexOf(c) + 1}</span> {m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+                      <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>
+                    </button>
+                    <button type="button" className="mini pick__del" onClick={() => setAskDel(c)} aria-label={`ลบการลงชื่อของ ${m.name}`}>🗑 ลบ</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      {askDel && (
+        <Sheet title="ลบการลงชื่อนี้?" onClose={() => setAskDel(null)}>
+          <p style={{ margin: 0 }}>ลบ <b>{byId.get(askDel.mid)?.name}</b> ออกจากการลงชื่อ{askDel.date === today ? 'วันนี้' : `วันที่ ${fmtDateLong(askDel.date)}`} ใช่ไหม?</p>
+          <p className="pagehint" style={{ margin: 0 }}>ลงโดย {askDel.rec ?? 'ไม่ระบุ'}{askDel.tm ? ` เวลา ${askDel.tm}` : ''} · ใช้เมื่อลงซ้ำหรือลงผิดคน (ข้อมูลสมาชิกไม่ถูกลบ)</p>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <button type="button" className="btn btn--ghost bigbtn grow" onClick={() => setAskDel(null)}>ไม่ลบ</button>
+            <button type="button" className="btn btn--danger bigbtn grow" onClick={() => doDelete(askDel)}>ลบ</button>
+          </div>
+        </Sheet>
       )}
       {adding && <NewPerson lite={lite} members={members} date={date} initialName={q.trim()} onClose={() => setAdding(false)} onSave={async (mem, fixName) => {
         const ok = mem ? addMember([mem]) : true
