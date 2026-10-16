@@ -17,11 +17,19 @@ export interface ServiceReport {
   newcomers: string[]
 }
 
-const isNewcomer = (m: ChurchMember, date: string) => /คนใหม่/.test(m.status ?? '') || m.since === date
+const dayNum = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 864e5)
+/**
+ * คนมาใหม่ = ลงชื่อครั้งแรกในระบบ ณ วันนั้น (ไม่เคยมีบันทึกมาก่อนวันนั้น) — ไม่ใช่สถานะ "5.คนใหม่" ในทะเบียน
+ * กันกรณีสมาชิกเก่าที่ระบบเพิ่งไม่มีประวัติ: ถ้าวันที่เริ่มมาในทะเบียนเก่ากว่าวันนั้นเกิน 30 วัน ไม่นับเป็นคนใหม่
+ */
+const isNewcomer = (m: ChurchMember, date: string, firstDate: string | undefined) =>
+  firstDate === date && !(m.since && dayNum(date) - dayNum(m.since) > 30)
 
 export function serviceReport(checkins: CheckIn[], members: ChurchMember[], date: string): ServiceReport {
   const byId = new Map(members.map((m) => [m.id, m]))
   const ids = new Set(checkins.filter((c) => c.date === date && !c.deleted).map((c) => c.mid))
+  const first = new Map<string, string>() // วันที่ลงชื่อครั้งแรกของแต่ละคน
+  for (const c of checkins) if (!c.deleted && c.mid && (first.get(c.mid) ?? '9999') > c.date) first.set(c.mid, c.date)
   const r: ServiceReport = { date, total: 0, male: 0, female: 0, noGender: 0, complete: 0, reserve: 0, worshiper: 0, other: 0, newcomers: [] }
   for (const id of ids) {
     const m = byId.get(id)
@@ -30,11 +38,11 @@ export function serviceReport(checkins: CheckIn[], members: ChurchMember[], date
     if (m.gender === 'ชาย') r.male++
     else if (m.gender === 'หญิง') r.female++
     else r.noGender++
-    if (isNewcomer(m, date)) { r.newcomers.push(m.name); continue }
+    if (isNewcomer(m, date, first.get(id))) { r.newcomers.push(m.name); continue }
     const st = statusLabel(m.status)
     if (regLevel(m.status)) r.complete++
     else if (/สำรอง/.test(st)) r.reserve++
-    else if (/ผู้ร่วมนมัสการ/.test(st)) r.worshiper++
+    else if (/ผู้ร่วมนมัสการ|คนใหม่/.test(st)) r.worshiper++ // สถานะ คนใหม่ ที่เคยมาแล้ว = มาต่อเนื่อง นับเป็นผู้ร่วมนมัสการ ไม่ใช่คนมาใหม่
     else r.other++
   }
   r.newcomers.sort((a, b) => a.localeCompare(b, 'th'))
