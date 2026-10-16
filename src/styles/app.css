@@ -447,6 +447,12 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 .sheetlist .list li { gap: 6px; flex-wrap: wrap; }
 .sheetlist__no { width: 1.5rem; height: 1.5rem; border-radius: 50%; background: #1a2b4c; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; flex: none; }
 
+/* แถบแท็บที่มี 7 ปุ่ม */
+.seg--7 > button { font-size: 0.68rem; padding-inline: 0; }
+.seg--4 > button { font-size: 0.85rem; }
+.btn--off { opacity: 0.55; pointer-events: none; }
+.topbar__go { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 999px; background: var(--gold); color: #1a2b4c; border: 0; }
+.topbar__go svg { width: 1.5rem; height: 1.5rem; }
 /* แถบแท็บที่มี 5 ปุ่ม (หน้าสมาชิก): ตัวเล็กลงเล็กน้อยให้พอดีจอมือถือ */
 .seg--5 > button, .seg--6 > button { font-size: 0.8rem; padding-inline: 0.1rem; }
 .seg--6 > button { font-size: 0.76rem; }

@@ -197,6 +197,14 @@ try {
   await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).click()
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).waitFor({ timeout: 5000 })
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).getByText('✓ ลงแล้ว').waitFor({ timeout: 5000 }) // ยืนยันเป็นคนเดิม: ชื่อถูกแก้และลงชื่อให้
+  // ไอคอนลัดที่หัวแอปพาไปแท็บลงชื่อ · แท็บแชร์ท้ายแถบสรุปยอดของวันนั้น
+  await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).click()
+  await page.locator('#ck-date').waitFor({ timeout: 3000 })
+  await page.getByRole('tab', { name: 'แชร์', exact: true }).click()
+  await page.locator('#sh-date').fill(sunday)
+  const rep = await page.getByLabel('ข้อความที่จะส่ง').innerText()
+  must(/สรุปนมัสการ/.test(rep) && /ผู้เข้าร่วมทั้งหมด \d+ คน/.test(rep) && /คนมาใหม่/.test(rep) && !/0\d{8}/.test(rep), 'share tab builds the service summary: ' + rep)
+  must(await page.getByRole('link', { name: /ส่งไป LINE/ }).count() + await page.getByRole('button', { name: /แชร์ไป LINE/ }).count() === 1, 'share button exists')
   await snap('2-checkin')
   // ทะเบียน + นำเข้า
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()

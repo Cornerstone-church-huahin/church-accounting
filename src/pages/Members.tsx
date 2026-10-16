@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
@@ -12,12 +12,14 @@ import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
+import { useSearchParams } from 'react-router-dom'
+import ShareReport from '../components/ShareReport'
 import CheckinPanel, { RecorderChip } from '../components/CheckinPanel'
 import BirthdayList from '../components/BirthdayList'
 import GenderView from '../components/GenderView'
 import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender' | 'share'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 export default function Members() {
@@ -30,6 +32,7 @@ function MembersPage() {
   const role = useRole()
   const canEdit = can(role, 'registry')
   const canLog = can(role, 'worship')
+  const startTab = useSearchParams()[0].get('tab') // ไอคอนลัดที่หัวแอปเปิดมาที่แท็บ ลงชื่อ ทันที
   /** ผู้บันทึกการนมัสการ: ไม่เห็นเบอร์โทร วันเกิด สถานะทะเบียน */
   const lite = role === 'worship'
   const thisYear = yearOf(todayISO())
@@ -44,8 +47,9 @@ function MembersPage() {
   const criteria = { minYears: settings.memberMinYears ?? DEFAULT_CRITERIA.minYears, absentMonths: settings.memberAbsentMonths ?? DEFAULT_CRITERIA.absentMonths }
   const today = todayISO()
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [tab, setTab] = useState<Tab>(() => (lite ? 'checkin' : attendance.length === 0 ? 'roster' : 'audit'))
+  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canLog ? 'checkin' : lite ? 'checkin' : attendance.length === 0 ? 'roster' : 'audit'))
   const [detail, setDetail] = useState('')
+  useEffect(() => { if (startTab === 'checkin' && canLog) setTab('checkin') }, [startTab, canLog])
   const byId = new Map(result.rows.map((r) => [r.member.id, r]))
   const shownDetail = detail ? byId.get(detail) : undefined
   /** บันทึกรายการลงชื่อ (แยกไฟล์ตามปีของวันที่) */
@@ -60,14 +64,15 @@ function MembersPage() {
   return (
     <>
       <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
-      <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
-        {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
+      <div className={`seg ${lite ? 'seg--4' : 'seg--7'} no-print`} role="tablist" aria-label="หมวด">
+        {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน'], ['share', 'แชร์']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ'], ['share', 'แชร์']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       {!lite && tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
+      {tab === 'share' && <ShareReport checkins={checkins} members={people.items} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
