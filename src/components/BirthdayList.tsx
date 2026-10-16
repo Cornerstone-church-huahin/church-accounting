@@ -40,14 +40,14 @@ export default function BirthdayList({ members, today, onOpen }: { members: Chur
         <div><span>ยังไม่มีวันเกิด</span><b>{members.length - withBirth.length}</b></div>
         <div><span>วันเกิดภายใน 7 วัน</span><b>{soon}</b></div>
       </div>
-      <div className="row no-print">
-        <input className="input grow" placeholder="ค้นหาชื่อ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาชื่อ" />
-        <select className="input" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="เดือนเกิด">
+      <div className="toolbar no-print">
+        <input className="input" placeholder="ค้นหาชื่อ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาชื่อ" />
+        <select className="input" value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="เดือนเกิด">
           <option value={0}>ทุกเดือน</option>
           {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{monthName(i + 1)} ({counts.get(i + 1) ?? 0})</option>)}
         </select>
       </div>
-      <p className="small muted">เรียงตาม เดือน → วัน → ปีเกิด (พ.ศ.) · แตะชื่อเพื่อดูข้อมูลครบ · เพิ่ม/แก้วันเกิดได้ในข้อมูลรายคน</p>
+      <p className="pagehint">เรียงตาม เดือน → วัน → ปีเกิด (พ.ศ.) · แตะชื่อเพื่อดูข้อมูลครบ · เพิ่ม/แก้วันเกิดได้ในข้อมูลรายคน</p>
       {list.length === 0 && <p className="empty">{withBirth.length ? 'ไม่พบรายชื่อตามที่กรอง' : 'ยังไม่มีใครบันทึกวันเกิด — กรอกในข้อมูลรายคน หรือใส่คอลัมน์ “วันเกิด” ในไฟล์นำเข้า'}</p>}
       {months.map((mo) => (
         <section className="card" key={mo} aria-label={`เกิดเดือน${monthName(mo)}`}>
@@ -57,9 +57,9 @@ export default function BirthdayList({ members, today, onOpen }: { members: Chur
               const until = daysUntilBirthday(m.birth!, today)
               return (
                 <li key={m.id}>
-                  <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <button type="button" className="mrow" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <MemberAvatar path={m.photoPath} name={m.name} size={56} />
-                    <span className="grow"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+                    <span className="mrow__main"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <br /><span style={{ fontWeight: 600 }}>{longDate(m.birth!)}</span>
                       <br /><span className="small muted">อายุ {ageText(m.birth, today)} · {statusLabel(m.status)}</span>
                     </span>
