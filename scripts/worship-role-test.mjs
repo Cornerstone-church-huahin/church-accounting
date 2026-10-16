@@ -50,7 +50,7 @@ try {
   await page.getByRole('dialog', { name: 'ลบการลงชื่อนี้?' }).getByRole('button', { name: 'ลบ', exact: true }).click()
   await page.getByRole('status').filter({ hasText: 'ลบการลงชื่อของ' }).waitFor({ timeout: 5000 })
   const tabs = await page.locator('[role=tab]').allInnerTexts()
-  must(tabs.join(',') === 'ลงชื่อ,ยอดผู้มา,ทะเบียน,แชร์', 'แท็บต้องมี 4 อัน: ' + tabs.join(','))
+  must(tabs.join(',') === 'ลงชื่อ,ยอดผู้มา,ทะเบียน', 'แท็บต้องมี 3 อัน: ' + tabs.join(','))
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   const body = await page.locator('main').innerText()
   must(!body.includes('0812345678') && !body.includes('อายุ') && !body.includes('นำเข้า'), 'ห้ามเห็นเบอร์/อายุ/ปุ่มนำเข้า')

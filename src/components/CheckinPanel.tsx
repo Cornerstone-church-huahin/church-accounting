@@ -78,7 +78,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   const shareNow = async () => {
     const r = await shareText(`สรุปนมัสการ ${fmtDateLong(date)}`, reportText(serviceReport(latest.current, members, date)))
     if (r === 'copied') setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' })
-    else if (r === 'failed') setMsg({ text: 'แชร์ไม่ได้ — ใช้แท็บ “แชร์” แล้วกดคัดลอกข้อความ', bad: true })
+    else if (r === 'failed') setMsg({ text: 'แชร์และคัดลอกไม่ได้ในเครื่องนี้ ลองเปิดแอปด้วย Chrome', bad: true })
   }
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
