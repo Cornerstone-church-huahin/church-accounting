@@ -162,7 +162,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
                       ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer' }} aria-haspopup="dialog" aria-label={`สถานะ ${statusLabel(r.member.status)} — แตะเพื่อเปลี่ยน`} onClick={() => setMenu(r.member.id)}>{statusShort(r.member.status)} ▾</button>
                       : <span className={`badge ${statusBadge(r.member.status)}`}>{statusShort(r.member.status)}</span>}
                   </div>
-                  <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
+                  <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && r.member.gender, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
                   <div className="mrow__meta">มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</div>
                   {r.suggest === 'to2' && <div className="mrow__meta" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</div>}
                   {r.suggest === 'to1' && <div className="mrow__meta" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว → ควรกลับเป็น สมบูรณ์ 1</div>}
@@ -353,7 +353,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
                   <MemberAvatar path={m.photoPath} name={m.name} size={52} />
                   <span className="mrow__main">
                     <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
-                    <span className="mrow__meta" style={{ display: 'block' }}>{[statusShort(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{[statusShort(m.status), m.gender && m.gender, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}</span>
                     <span className="mrow__meta" style={{ display: 'block' }}>{info.get(m.id)?.visits ? `มา ${info.get(m.id)!.visits} ครั้ง` : 'ยังไม่มีบันทึกลงชื่อ'}{m.photoPath ? ' · 📷' : ''}</span>
                   </span>
                 </button>
@@ -386,7 +386,7 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
   const rows: [string, ReactNode][] = [
     ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ['สถานะในทะเบียน', m.status], ['กลุ่ม', m.group],
     ['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>],
-    ['เพศ', m.gender && `${m.gender}${m.genderGuess ? ' (เดา — ยังไม่ยืนยัน)' : ''}`],
+    ['เพศ', m.gender && m.gender],
     ['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`],
     ['วันที่เริ่มมา', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
