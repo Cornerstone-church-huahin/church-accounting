@@ -114,7 +114,7 @@ try {
   const countText = await page.getByText(/^ลงชื่อแล้ว \d+ คน/).innerText()
   const doneN = Number(countText.match(/\d+/)[0])
   must(await page.locator('section.card li').count() === doneN && doneN === 3, `default view lists only people who came (${doneN}): ` + await page.locator('section.card li').count())
-  must(await page.locator('section.card li').filter({ hasText: 'สมหญิง' }).count() === 0 && await page.locator('section.card li').filter({ hasText: '✓ ลงแล้ว' }).count() === doneN, 'people who did not come are not shown as present')
+  must(await page.locator('section.card li').filter({ hasText: 'สมหญิง' }).count() === 0 && await page.locator('section.card li').filter({ hasText: 'ผู้บันทึก' }).count() === doneN, 'people who did not come are not shown as present')
   // วันที่ต่างกัน ได้รายชื่อต่างกัน (อาทิตย์ถัดไปที่ไม่มีใครลง)
   await page.getByLabel('วันนมัสการ').fill('2026-12-27')
   must(await page.getByText(/ยังไม่มีใครลงชื่อในวันนี้/).count() === 1, 'a date nobody checked in shows no attendees')
@@ -135,7 +135,7 @@ try {
   must((await page.locator('.recchip').innerText()).includes('ผู้ช่วย ก'), 'recorder is remembered across reloads')
   must(await page.locator('#ck-date').inputValue() === today, 'date back to today after reload')
   await page.getByLabel('วันนมัสการ').fill(sunday)
-  must((await page.locator('li', { hasText: 'สมชาย' }).innerText()).includes('✓ ลงแล้ว'), 'already-recorded person is marked with who/when')
+  must((await page.locator('li', { hasText: 'สมชาย' }).innerText()).includes('ผู้บันทึก'), 'already-recorded person is marked with who/when')
   // พิมพ์ค้นหา → รายชื่อพร้อมรูปโผล่ทันที แตะ "ลงทะเบียน" ครั้งเดียวลงเลย แล้วล้างช่องค้นหา
   await page.getByLabel('ค้นหาชื่อ').fill('สมหญิง')
   const hit = page.locator('li', { hasText: 'นางสมหญิง ทดสอบ' })
@@ -206,7 +206,7 @@ try {
   await reg.click()
   await page.getByRole('status').filter({ hasText: 'ลงชื่อ “คนใหม่ ทดสอบ” แล้ว' }).waitFor({ timeout: 8000 })
   const nr = page.locator('li', { hasText: 'คนใหม่ ทดสอบ' })
-  must((await nr.innerText()).includes('✓ ลงแล้ว') && (await nr.innerText()).includes('ผู้ช่วย ค'), 'new person recorded by the chosen recorder')
+  must((await nr.innerText()).includes('ผู้บันทึก') && (await nr.innerText()).includes('ผู้ช่วย ค'), 'new person recorded by the chosen recorder')
   must(await nr.locator('img').count() === 1, 'new person photo shows')
   // ชื่อคล้าย: ยืนยันเป็นคนเดิมพร้อมแก้ตัวสะกด
   must(await page.getByRole('button', { name: '＋ เพิ่มใหม่' }).count() === 0, 'no permanent add button when not searching')
@@ -216,7 +216,7 @@ try {
   await page.getByLabel('ชื่อ', { exact: true }).fill('นางสมหญิง'); await page.getByLabel('นามสกุล').fill('ทดสอบบ')
   await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).click()
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).waitFor({ timeout: 5000 })
-  await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).getByText('✓ ลงแล้ว').waitFor({ timeout: 5000 }) // ยืนยันเป็นคนเดิม: ชื่อถูกแก้และลงชื่อให้
+  await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).getByText('ผู้บันทึก').waitFor({ timeout: 5000 }) // ยืนยันเป็นคนเดิม: ชื่อถูกแก้และลงชื่อให้
   // ไอคอนลัดที่หัวแอปพาไปแท็บลงชื่อ · แท็บแชร์ท้ายแถบสรุปยอดของวันนั้น
   await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).click()
   await page.locator('#ck-date').waitFor({ timeout: 3000 })
