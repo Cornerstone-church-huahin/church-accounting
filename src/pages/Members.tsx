@@ -68,7 +68,7 @@ function MembersPage() {
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canEdit ? <CheckinPanel members={people.items} checkins={checkins} recorders={recorders.items} canManage={can(role, 'settings')} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} putRecorders={recorders.put} removeRecorder={recorders.remove} onOpen={setDetail} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
-      {shownDetail && <Detail r={shownDetail} statuses={statusOptions(people.items)} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -363,13 +363,13 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
         )}
       </section>
       <p className="small muted">ข้อมูลส่วนตัว (เบอร์โทร วันเกิด) เก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>
-      {edit && <MemberForm member={edit === 'new' ? null : edit} statuses={statusOptions(members)} onClose={() => setEdit(null)} put={put} remove={remove} />}
+      {edit && <MemberForm member={edit === 'new' ? null : edit} statuses={statusOptions(members)} groups={groupOptions(members)} onClose={() => setEdit(null)} put={put} remove={remove} />}
     </>
   )
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Evaluated; statuses: string[]; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ r, statuses, groups, today, canEdit, put, remove, onClose }: { r: Evaluated; statuses: string[]; groups: string[]; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
@@ -381,7 +381,7 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
     setBusy(true); setPhotoErr('')
     try { put([{ ...m, photoPath: await uploadMemberPhoto(m.id, f) }]) } catch (e) { setPhotoErr(e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ') } finally { setBusy(false) }
   }
-  if (editing) return <MemberForm member={m} statuses={statuses} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
+  if (editing) return <MemberForm member={m} statuses={statuses} groups={groups} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
   const age = ageText(m.birth, today)
   const rows: [string, ReactNode][] = [
     ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ['สถานะในทะเบียน', m.status], ['กลุ่ม', m.group],
@@ -416,7 +416,10 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
   )
 }
 
-function MemberForm({ member, statuses, onClose, put, remove }: { member: ChurchMember | null; statuses: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
+/** กลุ่มที่มีอยู่จริงในทะเบียน (ใช้เป็นตัวเลือก) */
+const groupOptions = (ms: { group?: string }[]) => [...new Set(ms.map((m) => m.group?.trim()).filter(Boolean))] as string[]
+
+function MemberForm({ member, statuses, groups, onClose, put, remove }: { member: ChurchMember | null; statuses: string[]; groups: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
   const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -441,7 +444,12 @@ function MemberForm({ member, statuses, onClose, put, remove }: { member: Church
             {[...new Set([...statuses, statusLabel(f.status)])].sort((a, b) => a.localeCompare(b, 'th')).map((st) => <option key={st}>{st}</option>)}
           </select>
         </div>
-        {text('group', 'กลุ่ม', 'text', true)}
+        <div className="field full"><label htmlFor="m-group">กลุ่ม</label>
+          <select id="m-group" className="input" value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })}>
+            <option value="">— ไม่ระบุ —</option>
+            {[...new Set([...groups, f.group].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th', { numeric: true })).map((g) => <option key={g}>{g}</option>)}
+          </select>
+        </div>
         {text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
         {text('since', 'วันที่เริ่มมา', 'date')}
         {text('note', 'หมายเหตุ', 'text', true)}
