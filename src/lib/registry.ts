@@ -304,3 +304,24 @@ export function similarNames(name: string, members: ChurchMember[], limit = 5): 
 
 /** id ใหม่ที่ไม่ซ้ำกับที่มีอยู่ (สร้างหลายรายการในมิลลิวินาทีเดียว newId ชนกันได้) */
 export const uniqueId = (taken: Set<string>, prefix = 'cm') => { let id = newId(prefix); while (taken.has(id)) id = newId(prefix); taken.add(id); return id }
+
+// ---------- สถิติเพศ ----------
+export interface GenderRow { key: string; ชาย: number; หญิง: number; ไม่ระบุ: number; total: number }
+const gkey = (m: { gender?: string }) => (m.gender === 'ชาย' ? 'ชาย' : m.gender === 'หญิง' ? 'หญิง' : 'ไม่ระบุ')
+/** นับ ชาย/หญิง/ไม่ระบุ ทั้งหมด แยกตามสถานะ และแยกตามกลุ่ม */
+export function genderStats(members: { gender?: string; status?: string; group?: string }[]): { total: GenderRow; byStatus: GenderRow[]; byGroup: GenderRow[] } {
+  const blank = (key: string): GenderRow => ({ key, ชาย: 0, หญิง: 0, ไม่ระบุ: 0, total: 0 })
+  const bump = (r: GenderRow, m: { gender?: string }) => { r[gkey(m) as 'ชาย' | 'หญิง' | 'ไม่ระบุ']++; r.total++ }
+  const total = blank('ทั้งหมด')
+  const st = new Map<string, GenderRow>(), gp = new Map<string, GenderRow>()
+  for (const m of members) {
+    bump(total, m)
+    const a = statusLabel(m.status), b = (m.group ?? '').trim() || '(ไม่มีกลุ่ม)'
+    bump(st.get(a) ?? st.set(a, blank(a)).get(a)!, m)
+    bump(gp.get(b) ?? gp.set(b, blank(b)).get(b)!, m)
+  }
+  const sort = (x: GenderRow[]) => x.sort((p, q) => p.key.localeCompare(q.key, 'th'))
+  return { total, byStatus: sort([...st.values()]), byGroup: sort([...gp.values()]) }
+}
+/** เดาเพศจากกลุ่มที่ชื่อบอกเพศ (สตรี → หญิง · บรุษ/บุรุษ → ชาย) · ใช้เป็นตัวช่วยเติมที่ผู้ใช้กดยืนยันเอง ไม่เติมเงียบ ๆ */
+export const genderFromGroup = (group?: string): 'ชาย' | 'หญิง' | undefined => (/สตรี/.test(group ?? '') ? 'หญิง' : /บรุษ|บุรุษ/.test(group ?? '') ? 'ชาย' : undefined)

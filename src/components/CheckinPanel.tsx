@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
 import Sheet from './Sheet'
-import { dow, fmtDate, todayISO, weekStart, yearOf } from '../lib/money'
+import { dow, fmtDateLong, todayISO, weekStart, yearOf } from '../lib/money'
 import { ageText, checkInId, nameKey, NEW_PERSON_STATUS, similarNames, statusLabel, uniqueId } from '../lib/registry'
 import { uploadMemberPhoto } from '../lib/memberPhoto'
 import type { CheckIn, ChurchMember, Recorder } from '../lib/types'
@@ -35,6 +35,7 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
   const [rec, setRec] = useState(getRec)
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null)
   const [adding, setAdding] = useState(false)
+  const [view, setView] = useState<'' | 'done' | 'todo' | 'all'>('') // ว่าง = ค่าเริ่มต้น: เฉพาะคนที่ลงแล้วในวันที่เลือก
   const [manage, setManage] = useState(false)
   const latest = useRef(checkins)
   latest.current = checkins
@@ -48,11 +49,15 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
   const of = (d: string) => new Map(latest.current.filter((c) => c.date === d && !c.deleted).map((c) => [c.mid, c]))
   const done = of(date)
   const living = members.filter((m) => !/เสียชีวิต|สิ้นสภาพ/.test(m.status ?? ''))
-  const t = q.trim().toLowerCase().replace(/\s+/g, '')
-  const shown = (t ? living.filter((m) => `${m.name}${m.nick ?? ''}${m.code ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) : living).sort((a, b) => a.name.localeCompare(b.name, 'th'))
   const byId = new Map(members.map((m) => [m.id, m]))
-  const count = [...done.keys()].filter((id) => byId.has(id)).length
-
+  const doneMembers = [...done.keys()].map((id) => byId.get(id)).filter((m): m is ChurchMember => !!m) // คนที่ลงแล้ว (ไม่ว่าสถานะใด)
+  const count = doneMembers.length
+  const todoMembers = living.filter((m) => !done.has(m.id))
+  const t = q.trim().toLowerCase().replace(/\s+/g, '')
+  // ค้นหาชื่อ = ค้นทั้งทะเบียน (ไว้หาคนที่มาแล้วยังไม่ได้ลง) · ไม่ค้น = ตามตัวเลือกด้านบน (ค่าเริ่มต้น: แสดงเฉพาะคนที่มาในวันที่เลือก)
+  const mode = t ? 'all' : view || 'done'
+  const pool = mode === 'done' ? doneMembers : mode === 'todo' ? todoMembers : [...new Map([...doneMembers, ...living].map((m) => [m.id, m])).values()]
+  const shown = (t ? pool.filter((m) => `${m.name}${m.nick ?? ''}${m.code ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) : pool).sort((a, b) => a.name.localeCompare(b.name, 'th'))
   /** ลงชื่อ 1 คน: ซิงก์ก่อน (เห็นรายการของเครื่องอื่น) แล้วเช็กซ้ำอีกครั้งก่อนเขียน */
   const record = async (mid: string, who = '') => {
     if (!recorder) return setMsg({ text: 'เลือก “ผู้บันทึกของเครื่องนี้” ก่อนลงชื่อ', bad: true })
@@ -85,24 +90,29 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
       {manage && canManage && <RecorderManager recorders={recorders} put={putRecorders} remove={removeRecorder} />}
 
       <div className="row">
-        <div className="field"><label htmlFor="ck-date">วันนมัสการ</label><input id="ck-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); setMsg(null) }} /></div>
+        <div className="field"><label htmlFor="ck-date">วันนมัสการ</label><input id="ck-date" className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); setMsg(null); setView('') }} /></div>
         <input className="input grow" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาชื่อ" />
       </div>
       {dow(date) !== 0 && <p className="small" style={{ color: 'var(--bad)' }}>วันที่นี้ไม่ใช่วันอาทิตย์ — ถ้าเป็นการนมัสการพิเศษก็บันทึกได้</p>}
       {tooOld && <p className="small" style={{ color: 'var(--bad)' }}>บันทึกได้เฉพาะปี {minYear + 543}–{yearOf(today) + 543}</p>}
+      <p style={{ margin: 0 }}><b>{fmtDateLong(date)}</b></p>
       <div className="row row--between">
-        <span>{fmtDate(date)} · ลงชื่อแล้ว <b>{count}</b> คน</span>
+        <span>ลงชื่อแล้ว <b>{count}</b> คน</span>
         <button type="button" className="btn btn--gold" onClick={() => setAdding(true)} disabled={!recorder}>＋ คนใหม่</button>
       </div>
+      <div className="row no-print" aria-label="ตัวเลือกรายชื่อ">
+        {([['done', `ที่มาวันนี้ · ${count}`], ['todo', `ยังไม่ได้ลง · ${todoMembers.length}`], ['all', `ทั้งหมด · ${new Set([...doneMembers, ...living].map((m) => m.id)).size}`]] as const).map(([k, l]) => <button key={k} type="button" className={`mini${mode === k ? ' on' : ''}`} onClick={() => { setView(k); setQ('') }}>{l}</button>)}
+      </div>
+      {t && <p className="small muted" style={{ margin: 0 }}>กำลังค้นหาทั้งทะเบียน — ล้างช่องค้นหาเพื่อกลับไปดูตามตัวเลือกด้านบน</p>}
       {msg && <p className="small" role="status" style={{ color: msg.bad ? 'var(--bad)' : undefined, fontWeight: msg.bad ? 700 : undefined }}>{msg.text}</p>}
-      {living.length === 0 ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : (
+      {living.length === 0 && count === 0 ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : shown.length === 0 ? <p className="empty">{mode === 'done' ? 'ยังไม่มีใครลงชื่อในวันนี้ — ค้นหาชื่อ หรือกด “ทั้งหมด” เพื่อเริ่มลงชื่อ' : mode === 'todo' ? 'ทุกคนลงชื่อแล้ว' : 'ไม่พบรายชื่อ'}</p> : (
         <ul className="list" style={{ maxHeight: '55vh', overflow: 'auto' }}>
           {shown.map((m) => {
             const c = done.get(m.id)
             return (
               <li key={m.id}>
                 <div className="item">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={46} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={56} />
                   <button type="button" className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small muted">{[statusLabel(m.status), m.gender, m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>

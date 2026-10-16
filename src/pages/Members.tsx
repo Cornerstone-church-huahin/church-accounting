@@ -13,9 +13,11 @@ import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, match
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import CheckinPanel from '../components/CheckinPanel'
+import BirthdayList from '../components/BirthdayList'
+import GenderView from '../components/GenderView'
 import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster' | 'stats'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 export default function Members() {
@@ -55,12 +57,14 @@ function MembersPage() {
   return (
     <>
       <div className="page-head no-print"><h1>สมาชิก</h1></div>
-      <div className="seg no-print" role="tablist" aria-label="หมวด">
-        {([['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน']] as const).map(([k, l]) => (
+      <div className="seg seg--6 no-print" role="tablist" aria-label="หมวด">
+        {([['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       {tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
+      {tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canEdit ? <CheckinPanel members={people.items} checkins={checkins} recorders={recorders.items} canManage={can(role, 'settings')} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} putRecorders={recorders.put} removeRecorder={recorders.remove} onOpen={setDetail} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
@@ -148,26 +152,26 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
       <section className="card" aria-label="รายชื่อตามสถานะ">
         <ul className="list">
           {shown.map((r) => (
-            <li key={r.member.id} style={{ position: 'relative' }}>
-              <div className="item">
-                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={44} />
+            <li key={r.member.id}>
+              <div className="item" style={{ alignItems: 'flex-start' }}>
+                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={60} />
                 <span className="grow"><button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
-                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</span>
+                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</span>
                   <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
                   {r.suggest === 'to2' && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</span></>}
                   {r.suggest === 'to1' && <><br /><span className="small" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว (ล่าสุด {fmtDate(r.last)}) → ควรกลับเป็น สมบูรณ์ 1</span></>}
-                </span>
-                <span>
-                  {canEdit
-                    ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer' }} aria-haspopup="menu" aria-expanded={menu === r.member.id} onClick={() => setMenu(menu === r.member.id ? '' : r.member.id)}>{statusLabel(r.member.status)} ▾</button>
+                  <br />{canEdit
+                    ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer', marginTop: 4 }} aria-haspopup="dialog" onClick={() => setMenu(r.member.id)}>{statusLabel(r.member.status)} ▾</button>
                     : <span className={`badge ${statusBadge(r.member.status)}`}>{statusLabel(r.member.status)}</span>}
                 </span>
               </div>
               {menu === r.member.id && (
-                <div className="card no-print" role="menu" style={{ position: 'absolute', right: 0, zIndex: 5 }}>
-                  <p className="small muted" style={{ margin: 0 }}>เปลี่ยนสถานะในทะเบียนเป็น</p>
-                  {statusOptions(rows.map((x) => x.member)).map((st) => <button key={st} type="button" role="menuitem" className="mini" disabled={st === statusLabel(r.member.status)} onClick={() => setStatus(r, st)}>{st}</button>)}
-                </div>
+                <Sheet title={`เปลี่ยนสถานะ — ${r.member.name}`} onClose={() => setMenu('')}>
+                  <p className="small muted" style={{ margin: 0 }}>เลือกสถานะในทะเบียน (แตะนอกกรอบหรือกด “ปิด” เพื่อยกเลิก)</p>
+                  <div className="row" role="menu">
+                    {statusOptions(rows.map((x) => x.member)).map((st) => <button key={st} type="button" role="menuitem" className="btn btn--ghost btn--block" disabled={st === statusLabel(r.member.status)} onClick={() => setStatus(r, st)}>{st}{st === statusLabel(r.member.status) ? ' (ปัจจุบัน)' : ''}</button>)}
+                  </div>
+                </Sheet>
               )}
             </li>
           ))}
@@ -343,8 +347,8 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
             {list.map((m) => (
               <li key={m.id}>
                 <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
-                  <span className="grow"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[statusLabel(m.status), m.gender, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
+                  <MemberAvatar path={m.photoPath} name={m.name} size={60} />
+                  <span className="grow"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[statusLabel(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
                   {info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับสถานะ</span>}
                 </button>
               </li>
@@ -376,7 +380,7 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
   const rows: [string, ReactNode][] = [
     ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ['สถานะในทะเบียน', m.status], ['กลุ่ม', m.group],
     ['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>],
-    ['เพศ', m.gender],
+    ['เพศ', m.gender && `${m.gender}${m.genderGuess ? ' (เดา — ยังไม่ยืนยัน)' : ''}`],
     ['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`],
     ['วันที่เริ่มมา', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
@@ -413,7 +417,7 @@ function MemberForm({ member, statuses, onClose, put, remove }: { member: Church
   const save = () => {
     if (!f.name.trim()) return setErr('ใส่ชื่อ-สกุล')
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
-    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
+    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
   const fields: [keyof typeof f, string, string?][] = [['name', 'ชื่อ-สกุล'], ['nick', 'ชื่อเล่น'], ['code', 'รหัสสมาชิก'], ['tel', 'โทรศัพท์', 'tel'], ['group', 'กลุ่ม'], ['since', 'วันที่เริ่มมา (ครั้งแรกที่เข้าร่วม · แก้ได้ถ้าคลาดเคลื่อน)', 'date'], ['birth', `วันเกิด (ระบบคำนวณอายุให้ทุกวัน)${f.birth ? ` · ตอนนี้อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date'], ['note', 'หมายเหตุ']]
   return (

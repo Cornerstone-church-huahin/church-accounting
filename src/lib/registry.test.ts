@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseGender, checkInId, OFFICIAL_STATUSES, similarNames, statusLabel, statusOptions, toAttendance, regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
+import { genderFromGroup, genderStats, parseGender, checkInId, OFFICIAL_STATUSES, similarNames, statusLabel, statusOptions, toAttendance, regLevel, matchPhotoFile, serviceStats, ageText, bandOf, cutoffOf, evaluate, matchNames, parseAttendanceRows, parseDateCell, parseMemberRows, summarize, DEFAULT_CRITERIA } from './registry'
 import type { Attendance, ChurchMember } from './types'
 
 const m = (id: string, o: Partial<ChurchMember> = {}): ChurchMember => ({ id, name: id, updated: 1, since: '2015-01-04', ...o })
@@ -181,5 +181,19 @@ describe('gender', () => {
     expect([parseGender('ชาย'), parseGender(' หญิง '), parseGender('Male'), parseGender('F'), parseGender('อื่น'), parseGender('')]).toEqual(['ชาย', 'หญิง', 'ชาย', 'หญิง', undefined, undefined])
     const r = parseMemberRows([['ชื่อ สกุล', 'เพศ'], ['ก ข', 'ชาย'], ['ค ง', 'หญิง'], ['จ ฉ', '']])!
     expect(r.members.map((x) => x.gender)).toEqual(['ชาย', 'หญิง', undefined])
+  })
+})
+
+describe('gender stats', () => {
+  it('counts male/female/unspecified overall, by status and by group', () => {
+    const ms = [{ gender: 'ชาย', status: '1.สมบูรณ์  ( 1 )', group: '5.บรุษ' }, { gender: 'หญิง', status: '1.สมบูรณ์ ( 1 )', group: '4.สตรี' }, { status: '5.คนใหม่' }, { gender: 'หญิง', status: '5.คนใหม่', group: '4.สตรี' }]
+    const g = genderStats(ms)
+    expect([g.total.ชาย, g.total.หญิง, g.total.ไม่ระบุ, g.total.total]).toEqual([1, 2, 1, 4])
+    expect(g.byStatus.map((r) => [r.key, r.ชาย, r.หญิง, r.ไม่ระบุ])).toEqual([['1.สมบูรณ์ ( 1 )', 1, 1, 0], ['5.คนใหม่', 0, 1, 1]])
+    expect(g.byGroup.find((r) => r.key === '4.สตรี')?.total).toBe(2)
+    expect(g.byGroup.find((r) => r.key === '(ไม่มีกลุ่ม)')?.ไม่ระบุ).toBe(1)
+  })
+  it('only hints a gender from groups whose name says it', () => {
+    expect([genderFromGroup('4.สตรี'), genderFromGroup('5.บรุษ'), genderFromGroup('3.วัยทำงาน'), genderFromGroup('')]).toEqual(['หญิง', 'ชาย', undefined, undefined])
   })
 })

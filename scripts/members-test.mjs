@@ -24,9 +24,9 @@ try {
     for (let i = 0; i < 40; i++) { sundays.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() - 7) }
     const mk = (id, name, extra) => ({ id, name, updated: 1, status: '1.สมบูรณ์ ( 1 )', ...extra })
     const people = [
-      mk('m1', 'นายสมชาย ตัวอย่าง', { nick: 'ชาย', code: '001', group: 'ผู้ใหญ่', since: '2005-03-06' }),
-      mk('m2', 'นางสมหญิง ทดสอบ', { nick: 'หญิง', code: '002', group: 'ผู้ใหญ่', since: '2010-01-03' }),
-      mk('m3', 'นายสมศักดิ์ ขาดไป', { code: '003', group: 'ผู้ใหญ่', since: '2012-05-06' }),
+      mk('m1', 'นายสมชาย ตัวอย่าง', { nick: 'ชาย', code: '001', group: 'ผู้ใหญ่', since: '2005-03-06', birth: '1980-03-15' }),
+      mk('m2', 'นางสมหญิง ทดสอบ', { nick: 'หญิง', code: '002', group: 'ผู้ใหญ่', since: '2010-01-03', birth: '1975-01-20' }),
+      mk('m3', 'นายสมศักดิ์ ขาดไป', { code: '003', group: 'ผู้ใหญ่', since: '2012-05-06', birth: '1990-03-02' }),
       mk('m4', 'นางสาวใหม่ เพิ่งมา', { status: '5.คนใหม่', code: '004', group: 'เยาวชน', since: iso(new Date(Date.now() - 90 * 864e5)) }),
       mk('m5', 'นายผู้ล่วงลับ ตัวอย่าง', { code: '005', status: '7.เสียชีวิต', since: '1999-01-03' }),
       mk('m6', 'นางสมพร กลับมาแล้ว', { status: '2.สมบูรณ์ ( 2 )', code: '006', since: '2008-02-03' }),
@@ -51,6 +51,14 @@ try {
   must((await row('กลับมาแล้ว').innerText()).includes('ควรกลับเป็น สมบูรณ์ 1'), 'registry says complete-2 but attends again → suggest complete-1')
   must(!(await row('เพิ่งมา').innerText()).includes('ควร'), 'new member is not judged')
   await snap('1-audit')
+  // ป๊อปอัพเปลี่ยนสถานะต้องปิดได้: Escape · แตะนอกกรอบ · ปุ่มปิด
+  const badge = () => row('สมศักดิ์').getByRole('button', { name: /1\.สมบูรณ์/ })
+  await badge().click(); await page.getByRole('dialog').waitFor()
+  await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
+  await badge().click(); await page.getByRole('dialog').waitFor()
+  await page.mouse.click(5, 300); await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
+  await badge().click(); await page.getByRole('dialog').waitFor()
+  await page.getByRole('button', { name: 'ปิด', exact: true }).click(); await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3000 })
   // เปลี่ยนสถานะในทะเบียน
   await row('สมศักดิ์').getByRole('button', { name: /1\.สมบูรณ์/ }).click()
   await page.getByRole('menuitem', { name: '2.สมบูรณ์ ( 2 )' }).click()
@@ -60,6 +68,35 @@ try {
   // กรอง
   await page.getByLabel('กรอง', { exact: true }).selectOption('st:1.สมบูรณ์ ( 1 )')
   must(await page.locator('li', { hasText: 'สมหญิง' }).count() === 1 && await page.locator('li', { hasText: 'สมศักดิ์' }).count() === 0, 'filter by registry status')
+  // วันเกิด: เรียง เดือน → วัน → ปี พ.ศ. และคำนวณอายุให้
+  await page.getByRole('tab', { name: 'วันเกิด', exact: true }).click()
+  const bnames = await page.locator('section[aria-label^="เกิดเดือน"] li b').allInnerTexts()
+  must(bnames.join('|') === 'นางสมหญิง ทดสอบ|นายสมศักดิ์ ขาดไป|นายสมชาย ตัวอย่าง', 'birthdays sorted by month, day: ' + bnames.join('|'))
+  must(/20 มกราคม 2518/.test(await page.locator('section[aria-label="เกิดเดือนมกราคม"]').innerText()), 'birth date shown as day month พ.ศ.')
+  must(/อายุ \d+ ปี/.test(await page.locator('section[aria-label="เกิดเดือนมกราคม"]').innerText()), 'age computed')
+  await snap('1c-birth')
+  await page.getByLabel('เดือนเกิด').selectOption('3')
+  must(await page.locator('section[aria-label^="เกิดเดือน"]').count() === 1 && (await page.locator('section[aria-label^="เกิดเดือน"] li').count()) === 2, 'month filter')
+  // เพศ: นับ ชาย/หญิง/ไม่ระบุ + ระบุทีละคน
+  await page.getByRole('tab', { name: 'เพศ', exact: true }).click()
+  const kpi = async () => (await page.locator('.kpi').innerText()).replace(/\s+/g, ' ')
+  must(/ชาย 0 หญิง 0 ยังไม่ระบุเพศ 6 รวมทั้งหมด 6/.test(await kpi()), 'gender counts start unspecified: ' + await kpi())
+  await page.getByRole('button', { name: 'ระบุว่า นายสมชาย ตัวอย่าง เป็นชาย' }).click()
+  await page.getByRole('button', { name: 'ระบุว่า นางสมหญิง ทดสอบ เป็นหญิง' }).click()
+  must(/ชาย 1 หญิง 1 ยังไม่ระบุเพศ 4 รวมทั้งหมด 6/.test(await kpi()), 'gender counts update: ' + await kpi())
+  // เดาเพศให้ทุกคนที่เหลือ → มีเครื่องหมาย เดา · ตรวจ/ยืนยัน/แก้ได้
+  await page.getByRole('button', { name: /^เดาเพศให้ \d+ คน$/ }).click()
+  await page.getByRole('region', { name: 'ตรวจเพศที่เดา' }).waitFor({ timeout: 5000 })
+  must(/ชาย 3 หญิง 3 ยังไม่ระบุเพศ 0 รวมทั้งหมด 6/.test(await kpi()), 'guess fills everyone: ' + await kpi())
+  const rv = page.getByRole('region', { name: 'ตรวจเพศที่เดา' })
+  must((await rv.innerText()).includes('4 คน'), 'review lists the 4 guessed people')
+  await page.getByRole('button', { name: 'ยืนยันว่า นายสมศักดิ์ ขาดไป เป็นชาย' }).click()
+  await page.getByRole('button', { name: 'แก้ นายผู้ล่วงลับ ตัวอย่าง เป็นหญิง' }).click()
+  must(/ชาย 2 หญิง 4/.test(await kpi()), 'correcting one guess flips the count: ' + await kpi())
+  must((await rv.innerText()).includes('2 คน'), 'confirmed/corrected people leave the review list')
+  must(/ผู้ใหญ่/.test(await page.getByRole('region', { name: 'แยกตามกลุ่ม' }).innerText().catch(async () => await page.locator('section[aria-label="แยกตามกลุ่ม"]').innerText())), 'by-group table')
+  await snap('1d-gender')
+  await page.getByRole('tab', { name: 'ตรวจสอบ', exact: true }).click()
   // ยอดผู้มา
   await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
   must(await page.locator('table.tbl tbody tr').count() >= 40, 'stats table lists every service: ' + await page.locator('table.tbl tbody tr').count())
@@ -68,12 +105,26 @@ try {
   await snap('1b-stats')
   // ลงชื่อนมัสการหน้างาน
   await page.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
+  // วันที่มีคนลงแล้ว: ค่าเริ่มต้นแสดง "เฉพาะคนที่มาวันนั้น" จำนวนแถวต้องเท่ากับยอด ไม่ปนคนที่ไม่ได้มา
+  const countText = await page.getByText(/^ลงชื่อแล้ว \d+ คน/).innerText()
+  const doneN = Number(countText.match(/\d+/)[0])
+  must(await page.locator('section.card li').count() === doneN && doneN === 3, `default view lists only people who came (${doneN}): ` + await page.locator('section.card li').count())
+  must(await page.locator('section.card li').filter({ hasText: 'สมหญิง' }).count() === 0 && await page.locator('section.card li').filter({ hasText: '✓ ลงแล้ว' }).count() === doneN, 'people who did not come are not shown as present')
+  // วันที่ต่างกัน ได้รายชื่อต่างกัน (อาทิตย์ถัดไปที่ไม่มีใครลง)
+  await page.getByLabel('วันนมัสการ').fill('2026-12-27')
+  must(await page.getByText(/ยังไม่มีใครลงชื่อในวันนี้/).count() === 1, 'a date nobody checked in shows no attendees')
+  const sunday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0, 10) })
+  await page.getByLabel('วันนมัสการ').fill(sunday)
+  await page.getByRole('button', { name: /^ยังไม่ได้ลง ·/ }).click()
   const m2Row = page.locator('li', { hasText: 'นางสมหญิง ทดสอบ' })
   must(await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).isDisabled(), 'cannot record before choosing a recorder')
   await page.getByLabel('ผู้บันทึกของเครื่องนี้').selectOption('ผู้ช่วย ก')
+  await page.getByRole('button', { name: /^ที่มาวันนี้ ·/ }).click()
   must((await page.locator('li', { hasText: 'สมชาย' }).innerText()).includes('✓ ลงแล้ว'), 'already-recorded person is marked with who/when')
+  await page.getByRole('button', { name: /^ยังไม่ได้ลง ·/ }).click()
   await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).click()
   await page.getByRole('status').filter({ hasText: 'ลงชื่อ “นางสมหญิง ทดสอบ” แล้ว' }).waitFor({ timeout: 5000 })
+  await page.getByRole('button', { name: /^ที่มาวันนี้ ·/ }).click()
   must(!(await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).count()), 'recorded person has no record button (blocks double entry)')
   must(/ผู้ช่วย ก/.test(await m2Row.innerText()) && /\d\d:\d\d/.test(await m2Row.innerText()), 'row shows recorder and time')
   // อีกเครื่อง (โหลดใหม่) เห็นว่าลงแล้วโดยใคร และลงซ้ำไม่ได้
@@ -81,11 +132,13 @@ try {
   await other.goto(`http://localhost:${PORT}/#/members`); await other.waitForLoadState('networkidle')
   await other.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
   await other.getByLabel('ผู้บันทึกของเครื่องนี้').selectOption('ผู้ช่วย ข')
+  await other.getByLabel('ค้นหาชื่อ').fill('สมหญิง') // ค้นหา = ค้นทั้งทะเบียน (ค่าเริ่มต้นโชว์เฉพาะคนที่มา)
   const o2 = other.locator('li', { hasText: 'นางสมหญิง ทดสอบ' })
   must((await o2.innerText()).includes('ผู้ช่วย ก') && !(await o2.getByRole('button', { name: /^ลงชื่อ/ }).count()), 'other device sees who recorded and cannot duplicate')
   await other.close()
   // ยกเลิก (บันทึกผู้ยกเลิก) แล้วลงใหม่ได้
   await m2Row.getByRole('button', { name: 'ยกเลิก' }).click()
+  await page.getByRole('button', { name: /^ยังไม่ได้ลง ·/ }).click()
   await m2Row.getByRole('button', { name: /^ลงชื่อ/ }).waitFor({ timeout: 5000 })
   // จัดการผู้บันทึก (แอดมิน)
   await page.getByRole('button', { name: 'จัดการผู้บันทึก' }).click()
@@ -107,6 +160,7 @@ try {
   must(/ตอนนี้อายุ \d+ ปี/.test(await page.locator('[role=dialog]').innerText()), 'age is computed from the birth date')
   await page.getByRole('button', { name: /คนใหม่และลงชื่อ/ }).click()
   await page.getByRole('status').filter({ hasText: 'ลงชื่อ “คนใหม่ ทดสอบ” แล้ว' }).waitFor({ timeout: 8000 })
+  await page.getByRole('button', { name: /^ที่มาวันนี้ ·/ }).click()
   const nr = page.locator('li', { hasText: 'คนใหม่ ทดสอบ' })
   must((await nr.innerText()).includes('5.คนใหม่') && (await nr.innerText()).includes('✓ ลงแล้ว') && (await nr.innerText()).includes('ผู้ช่วย ค'), 'new person registered as 5.คนใหม่ and recorded by the chosen recorder')
   must(await nr.locator('img').count() === 1, 'new person photo shows')
@@ -120,7 +174,8 @@ try {
   // ทะเบียน + นำเข้า
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   await page.getByLabel('กรองตามเพศ').selectOption('หญิง')
-  must(await page.locator('section.card li').count() === 1 && (await page.locator('section.card li').innerText()).includes('คนใหม่ ทดสอบ'), 'gender filter lists the woman added at check-in')
+  const women = await page.locator('section.card li').allInnerTexts()
+  must(women.length === 5 && women.some((t) => t.includes('คนใหม่ ทดสอบ')) && women.some((t) => t.includes('สมหญิง')), 'gender filter lists the women: ' + women.length)
   await page.getByLabel('กรองตามเพศ').selectOption('')
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
   fs.writeFileSync('/tmp/members-demo.csv', 'ชื่อ-สกุล,ชื่อเล่น,รหัส,กลุ่ม,สถานะ,เข้าเป็นสมาชิก\nนางนำเข้า สมมติ,นำ,101,ผู้ใหญ่,สมาชิกสมบูรณ์,1/1/2560\nนายสมชาย ตัวอย่าง,ชาย,001,ผู้ใหญ่,สมาชิกสมบูรณ์,6/3/2548\n')
