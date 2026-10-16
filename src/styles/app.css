@@ -524,3 +524,9 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 .pick--card .pick__main { text-align: left; }
 .pick--card .pick__act { width: 100%; min-width: 0; min-height: 3rem; }
 .found .list { max-height: 46vh; overflow-y: auto; }
+
+/* รายชื่อที่ลงแล้วด้านล่าง: คนล่าสุดอยู่บน มีเลขลำดับ และปุ่มลบ */
+.doneList { max-height: none; }
+.pick--done { grid-template-columns: auto minmax(0, 1fr) auto; padding: 0.35rem 0; }
+.pick__del { min-height: 2.6rem; padding: 0 0.8rem; color: var(--bad); border-color: var(--bad); }
+.doneNo { display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.5rem; border-radius: 999px; background: var(--navy); color: #fff; font-size: 0.78rem; padding: 0 0.3rem; margin-right: 0.15rem; }
