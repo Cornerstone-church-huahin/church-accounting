@@ -1,3 +1,4 @@
+import { cleanName, applyNameFix, planNameClean } from '../lib/nameClean'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
@@ -198,6 +199,8 @@ const statusKey = statusLabel
 
 function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { rows: Evaluated[]; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
+  const [nameClean, setNameClean] = useState(false)
+  const namePlan = useMemo(() => planNameClean(members), [members])
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
   const [grp, setGrp] = useState('')
@@ -244,7 +247,9 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
       const batch: ChurchMember[] = []
       const taken = new Set(members.map((m) => m.id))
       const freshId = () => uniqueId(taken)
-      for (const n of r.members) {
+      for (const n0 of r.members) {
+        const f0 = cleanName(n0) // ชื่อมีวงเล็บ: จัดแบบเดียวกับปุ่ม “จัดชื่อ-ชื่อเล่น” เพื่อให้นำเข้าไฟล์เดิมซ้ำแล้วชื่อไม่กลับไปมีวงเล็บ
+        const n = f0.kind === 'fix' ? { ...n0, name: f0.name, ...(f0.nick !== undefined ? { nick: f0.nick } : {}), ...(f0.note !== undefined ? { note: f0.note } : {}) } : n0
         const old = pick(n)
         if (old) { updated++; used.add(old.id) } else added++
         batch.push({ ...old, ...n, id: old?.id ?? freshId(), updated: 0 })
@@ -334,6 +339,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
           {canEdit && <><button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
           <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
+          {namePlan.fixes.length + namePlan.review.length > 0 && <button type="button" className="btn btn--gold full" onClick={() => setNameClean(true)}>จัดชื่อ-ชื่อเล่น ({namePlan.fixes.length + namePlan.review.length} คน)</button>}
           <input ref={photoFiles} hidden multiple type="file" aria-label="ไฟล์รูป" accept="image/*" onChange={(e) => { importPhotos(e.target.files); e.target.value = '' }} />
           <input ref={memberFile} hidden type="file" aria-label="ไฟล์รายชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
           <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} /></>}
@@ -372,6 +378,38 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
         )}
       </section>
       {!lite && <p className="small muted">ข้อมูลส่วนตัว (เบอร์โทร วันเกิด) เก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>}
+      {nameClean && (
+        <Sheet title="จัดชื่อกับชื่อเล่น" onClose={() => setNameClean(false)}>
+          <p className="pagehint" style={{ margin: 0 }}>ตัดวงเล็บออกจากชื่อ เหลือชื่อ-นามสกุล · วงเล็บที่เป็นชื่อเล่นไปช่องชื่อเล่น · วงเล็บที่เป็นคำอธิบาย (ลูก… เพื่อน… ภรรยา…) ไปช่องหมายเหตุ · เก็บชื่อเดิมไว้ในข้อมูลเผื่อกู้คืน</p>
+          <p style={{ margin: 0 }}><b>จัดให้อัตโนมัติ {namePlan.fixes.length} คน</b> <span className="small muted">(ตัดวงเล็บซ้ำกับชื่อเล่น {namePlan.byHow.strip} · ย้ายไปชื่อเล่น {namePlan.byHow.nick} · ย้ายไปหมายเหตุ {namePlan.byHow.note})</span></p>
+          {namePlan.fixes.length > 0 && (
+            <details>
+              <summary style={{ cursor: 'pointer', minHeight: 'var(--tap)', display: 'flex', alignItems: 'center' }}>ดูตัวอย่างก่อน → หลัง</summary>
+              <ul className="list list--tight" style={{ maxHeight: '38vh', overflow: 'auto' }}>
+                {namePlan.fixes.map(({ member: m, fix }) => (
+                  <li key={m.id} style={{ display: 'block' }}>
+                    <div className="small muted">{m.name}</div>
+                    <div><b>{fix.name}</b>{fix.nick !== undefined && <span> · ชื่อเล่น <b>{fix.nick}</b></span>}{fix.note !== undefined && <span className="small"> · หมายเหตุ: {fix.note}</span>}</div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {namePlan.review.length > 0 && (
+            <>
+              <p style={{ margin: 0 }}><b>ให้ตรวจเอง {namePlan.review.length} คน</b> <span className="small muted">(ระบบไม่แน่ใจ ไม่แตะ · แตะชื่อเพื่อแก้เอง)</span></p>
+              <ul className="list list--tight" style={{ maxHeight: '30vh', overflow: 'auto' }}>
+                {namePlan.review.map(({ member: m, why }) => (
+                  <li key={m.id} style={{ display: 'block' }}>
+                    <button type="button" className="pick__main" onClick={() => { setNameClean(false); onOpen(m.id) }}><b>{m.name}</b>{m.nick ? <span className="muted"> (ชื่อเล่น {m.nick})</span> : null}<span className="mrow__meta" style={{ display: 'block' }}>{why}</span></button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <button type="button" className="btn btn--gold bigbtn btn--block" disabled={namePlan.fixes.length === 0} onClick={() => { if (put(namePlan.fixes.map(({ member, fix }) => applyNameFix(member, fix)))) { setMsg(`จัดชื่อแล้ว ${namePlan.fixes.length} คน${namePlan.review.length ? ` · เหลือให้ตรวจเอง ${namePlan.review.length} คน` : ''}`); setNameClean(false) } }}>จัดให้ {namePlan.fixes.length} คน</button>
+        </Sheet>
+      )}
       {edit && <MemberForm lite={lite} canDelete={canEdit} member={edit === 'new' ? null : edit} statuses={statusOptions(members)} groups={groupOptions(members)} onClose={() => setEdit(null)} put={put} remove={remove} />}
     </>
   )
