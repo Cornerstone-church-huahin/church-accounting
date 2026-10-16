@@ -5,6 +5,7 @@ import { dow, fmtDateLong, todayISO, yearOf } from '../lib/money'
 import { ageText, checkInId, nameKey, NEW_PERSON_STATUS, similarNames, statusLabel, uniqueId } from '../lib/registry'
 import { uploadMemberPhoto } from '../lib/memberPhoto'
 import { OPEN_RECORDER, useRecorderPick } from '../lib/recorderPick'
+import { reportText, serviceReport, shareText } from '../lib/serviceReport'
 import type { CheckIn, ChurchMember, Recorder } from '../lib/types'
 
 const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
@@ -73,6 +74,12 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
     if (putCheckIns([{ ...c, deleted: true, delBy: recorder }])) setMsg({ text: `ลบการลงชื่อของ “${name}” แล้ว` })
     setAskDel(null)
   }
+  /** แชร์สรุปผู้มาของวันที่เลือกไป LINE/Messenger/Facebook ทันที */
+  const shareNow = async () => {
+    const r = await shareText(`สรุปนมัสการ ${fmtDateLong(date)}`, reportText(serviceReport(latest.current, members, date)))
+    if (r === 'copied') setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' })
+    else if (r === 'failed') setMsg({ text: 'แชร์ไม่ได้ — ใช้แท็บ “แชร์” แล้วกดคัดลอกข้อความ', bad: true })
+  }
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
   /** การ์ดผลค้นหา: รูป ชื่อ และปุ่มลงทะเบียน */
@@ -135,7 +142,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
       {msg && <p className="small" role="status" style={{ margin: 0, color: msg.bad ? 'var(--bad)' : undefined, fontWeight: 700 }}>{msg.text}</p>}
       <div className="row row--between" style={{ flexWrap: 'nowrap' }}>
         <span>ลงชื่อ{date === today ? 'วันนี้' : ''}แล้ว <b style={{ fontSize: '1.3rem' }}>{doneRows.length}</b> คน</span>
-        <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มใหม่</button>
+        <button type="button" className="btn btn--gold" onClick={shareNow} disabled={doneRows.length === 0}>📤 แชร์</button>
       </div>
       {doneRows.length === 0
         ? <p className="empty">ยังไม่มีใครลงชื่อ{date === today ? 'วันนี้' : 'ในวันนี้'} — พิมพ์ค้นหาชื่อด้านบน แล้วกด “ลงทะเบียน”</p>
