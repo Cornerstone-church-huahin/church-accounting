@@ -451,3 +451,44 @@ li.fundbar--total { border-style: dashed; background: #f4f1ea; }
 .seg--5 > button, .seg--6 > button { font-size: 0.8rem; padding-inline: 0.1rem; }
 .seg--6 > button { font-size: 0.76rem; }
 .bar-male { background: var(--series-1); } .bar-female { background: var(--series-2); } .bar-none { background: var(--ref, #999); }
+
+/* ---------- หน้าสมาชิก: จัดหน้าให้เป็นระเบียบ ---------- */
+.mini.on { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 700; }
+:root[data-theme='dark'] .mini.on { background: var(--gold); color: #1a2b4c; border-color: var(--gold); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .mini.on { background: var(--gold); color: #1a2b4c; border-color: var(--gold); } }
+/* แถวรายชื่อ: รูป | ข้อความ | ปุ่ม (กริด ไม่ซ้อนเป็นขั้นบันได) */
+.mrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0.7rem; align-items: center; width: 100%; text-align: left; }
+.mrow--top { align-items: start; }
+.mrow__main { min-width: 0; line-height: 1.4; overflow-wrap: anywhere; }
+.mrow__name { font-weight: 700; }
+.mrow__meta { font-size: 0.82rem; color: var(--ink-soft); }
+.mrow__ok { font-size: 0.85rem; color: var(--good); font-weight: 600; }
+.mrow__act { display: flex; flex-direction: column; align-items: stretch; gap: 0.3rem; min-width: 5.2rem; }
+.mrow__act .btn, .mrow__act .mini { width: 100%; }
+button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0.7rem; align-items: center; width: 100%; }
+/* ฟอร์ม 2 คอลัมน์ ช่องเท่ากัน ป้ายชื่ออยู่บนเสมอ */
+.formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem 0.6rem; align-items: start; }
+.formgrid > .full { grid-column: 1 / -1; }
+.formgrid .field { min-width: 0; }
+.formgrid .field > label { min-height: 1.2em; }
+/* แถบเครื่องมือ: ช่องกรอง/เลือกกว้างเท่ากัน สูงเท่ากัน */
+.toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; align-items: stretch; }
+.toolbar > .full { grid-column: 1 / -1; }
+.toolbar .input, .toolbar .btn { width: 100%; }
+.toolbar--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.toolbar--3 .input { padding-inline: 0.5rem; font-size: 0.9rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.seg--3 > button { font-size: 0.85rem; }
+.pagehint { font-size: 0.85rem; color: var(--ink-soft); margin: 0; }
+.avatar-pick { display: flex; align-items: center; gap: 0.8rem; }
+.mrow--stack { grid-template-columns: auto minmax(0, 1fr); row-gap: 0.5rem; }
+.mrow--stack > .mrow__act { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; min-width: 0; }
+.mrow--stack > .mrow__act .mini { width: auto; flex: 1 1 auto; }
+.mrow__act .mini { white-space: normal; line-height: 1.25; padding-block: 0.4rem; min-height: 2.2rem; }
+/* รายชื่อแบบกะทัดรัด: เห็นคนได้มากขึ้นในจอเดียว (รูปซ้าย ข้อความขวา) */
+.list--tight > li { padding: 0.4rem 0; }
+.mrow--tight { column-gap: 0.6rem; }
+.mrow__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
+.mrow__top > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.mrow__top .badge { flex: none; font-size: 0.72rem; padding: 0.05rem 0.5rem; white-space: nowrap; }
+.mrow--tight .mrow__meta { line-height: 1.3; }

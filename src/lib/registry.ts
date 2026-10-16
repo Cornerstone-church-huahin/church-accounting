@@ -217,6 +217,8 @@ export function matchNames(names: string[], members: ChurchMember[]): { ids: str
 export interface ServiceStat { date: string; count: number; byStatus: Record<string, number>; names: string[] }
 /** ชื่อสถานะตามทะเบียน (ยุบช่องว่างซ้ำ เพื่อให้ "1.สมบูรณ์  ( 1 )" กับ "1.สมบูรณ์ ( 1 )" นับเป็นอันเดียวกัน) */
 export const statusLabel = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim() || '(ไม่ระบุสถานะ)'
+/** ชื่อสถานะแบบสั้น (ตัดช่องว่างในวงเล็บ) สำหรับป้ายเล็กในรายการ เช่น "1.สมบูรณ์(1)" */
+export const statusShort = (st?: string) => statusLabel(st).replace(/\s*\(\s*(\d)\s*\)/, '($1)')
 /** สถานะจริงตามทะเบียนของคริสตจักร — เลือกได้เสมอ แม้ตอนนี้ยังไม่มีใครอยู่ในสถานะนั้น (คณะธรรมกิจ/กรรมการกำหนดเกณฑ์เลื่อนขั้น แอปไม่เลื่อนให้เอง) */
 export const OFFICIAL_STATUSES = ['1.สมบูรณ์ ( 1 )', '2.สมบูรณ์ ( 2 )', '3.สมาชิกสำรอง', '4.ผู้ร่วมนมัสการ', '5.คนใหม่', '6.สิ้นสภาพสมาชิก', '7.เสียชีวิต']
 export const NEW_PERSON_STATUS = '5.คนใหม่'

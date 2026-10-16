@@ -10,6 +10,8 @@ const waiting: (() => void)[] = []
 const slot = () => new Promise<void>((res) => { if (active < 4) { active++; res() } else waiting.push(() => { active++; res() }) })
 const release = () => { active--; waiting.shift()?.() }
 
+const toDataUrl = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(b) })
+
 function loadUrl(path: string): Promise<string | null> {
   const hit = urls.get(path)
   if (hit) return Promise.resolve(hit)
@@ -23,7 +25,7 @@ function loadUrl(path: string): Promise<string | null> {
         blob = await getBinary(cfg, path)
         void cacheImage(path, await blob.arrayBuffer(), blob.type || 'image/jpeg')
       }
-      const u = URL.createObjectURL(blob)
+      const u = await toDataUrl(blob) // ใช้ data: แทน blob: (บางกรอบแสดงผล/พรีวิวไม่ยอมโหลดรูปแบบ blob:)
       urls.set(path, u)
       return u
     } catch { return null } finally { release(); pending.delete(path) }

@@ -9,7 +9,7 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import CheckinPanel from '../components/CheckinPanel'
@@ -110,7 +110,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
     <>
       <div className="kpi"><div><span>รายชื่อทั้งหมด</span><b>{rows.length}</b></div><div><span>สมาชิกสมบูรณ์ (1+2)</span><b>{full.length}</b></div></div>
       <p className="small muted" style={{ margin: '0.3rem 0' }}>จำนวนตามสถานะในทะเบียน (แตะเพื่อกรอง)</p>
-      <div className="row no-print" aria-label="จำนวนตามสถานะในทะเบียน">{statuses.map(([st, n]) => chip(`st:${st}`, st, n))}</div>
+      <div className="chips no-print" aria-label="จำนวนตามสถานะในทะเบียน">{statuses.map(([st, n]) => chip(`st:${st}`, st, n))}</div>
       {!result.hasData
         ? <p className="card small" role="note">ยังไม่มีบันทึกลงชื่อนมัสการ จึงยังตรวจเทียบกับสถานะในทะเบียนไม่ได้ — ไปแท็บ “ลงชื่อ” หรือนำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน”</p>
         : (
@@ -125,7 +125,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
               {chip('to2', 'ทะเบียน “สมบูรณ์ 1” แต่ขาดนมัสการ → ควรเป็น สมบูรณ์ 2', to2)}
               {chip('to1', 'ทะเบียน “สมบูรณ์ 2” แต่กลับมานมัสการ → ควรเป็น สมบูรณ์ 1', to1)}
             </div>
-            {sum.byTier[5] > 0 && <div className="row no-print" aria-label="ระดับที่ขาดนมัสการ">{bands.map((n, bi) => n > 0 && chip(`band${bi}`, bandLabel(bi, criteria.absentMonths).replace('ขาดการนมัสการ', 'ขาด'), n))}</div>}
+            {sum.byTier[5] > 0 && <div className="chips no-print" aria-label="ระดับที่ขาดนมัสการ">{bands.map((n, bi) => n > 0 && chip(`band${bi}`, bandLabel(bi, criteria.absentMonths).replace('ขาดการนมัสการ', 'ขาด'), n))}</div>}
             {canTune && (
               <details className="no-print"><summary className="small">ปรับเกณฑ์ (แอดมิน)</summary>
                 <div className="row">
@@ -136,34 +136,37 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
             )}
           </section>
         )}
-      <div className="row no-print">
-        <input className="input" style={{ flex: '1 1 100%' }} placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
-        <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="กรอง" style={{ width: 'auto' }}>
+      <div className="toolbar no-print">
+        <input className="input full" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+        <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="กรอง">
           <option value="all">ทุกสถานะ</option>
           {statuses.map(([st, n]) => <option key={st} value={`st:${st}`}>{st} ({n})</option>)}
           <option value="to2">ควรปรับเป็น สมบูรณ์ 2 ({to2})</option>
           <option value="to1">ควรกลับเป็น สมบูรณ์ 1 ({to1})</option>
           <option value="novisit">ไม่มีบันทึกนมัสการ</option>
         </select>
-        {groups.length > 0 && <select className="input" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="กรองตามกลุ่ม" style={{ width: 'auto' }}><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
-        <button type="button" className="btn" onClick={() => window.print()}>พิมพ์ / PDF</button>
+        {groups.length > 0 && <select className="input" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
+        <button type="button" className="btn btn--ghost full" onClick={() => window.print()}>พิมพ์ / PDF</button>
       </div>
       <p className="small"><b>{shown.length}</b> จาก {rows.length} รายชื่อ · พิมพ์ ณ {fmtDate(today)}</p>
       <section className="card" aria-label="รายชื่อตามสถานะ">
-        <ul className="list">
+        <ul className="list list--tight">
           {shown.map((r) => (
             <li key={r.member.id}>
-              <div className="item" style={{ alignItems: 'flex-start' }}>
-                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={60} />
-                <span className="grow"><button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
-                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</span>
-                  <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
-                  {r.suggest === 'to2' && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</span></>}
-                  {r.suggest === 'to1' && <><br /><span className="small" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว (ล่าสุด {fmtDate(r.last)}) → ควรกลับเป็น สมบูรณ์ 1</span></>}
-                  <br />{canEdit
-                    ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer', marginTop: 4 }} aria-haspopup="dialog" onClick={() => setMenu(r.member.id)}>{statusLabel(r.member.status)} ▾</button>
-                    : <span className={`badge ${statusBadge(r.member.status)}`}>{statusLabel(r.member.status)}</span>}
-                </span>
+              <div className="mrow mrow--tight mrow--top">
+                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={56} />
+                <div className="mrow__main">
+                  <div className="mrow__top">
+                    <button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
+                    {canEdit
+                      ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer' }} aria-haspopup="dialog" aria-label={`สถานะ ${statusLabel(r.member.status)} — แตะเพื่อเปลี่ยน`} onClick={() => setMenu(r.member.id)}>{statusShort(r.member.status)} ▾</button>
+                      : <span className={`badge ${statusBadge(r.member.status)}`}>{statusShort(r.member.status)}</span>}
+                  </div>
+                  <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
+                  <div className="mrow__meta">มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</div>
+                  {r.suggest === 'to2' && <div className="mrow__meta" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</div>}
+                  {r.suggest === 'to1' && <div className="mrow__meta" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว → ควรกลับเป็น สมบูรณ์ 1</div>}
+                </div>
               </div>
               {menu === r.member.id && (
                 <Sheet title={`เปลี่ยนสถานะ — ${r.member.name}`} onClose={() => setMenu('')}>
@@ -317,11 +320,11 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
   return (
     <>
       {canEdit && (
-        <div className="row no-print">
-          <button type="button" className="btn btn--gold" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ (.xlsx / CSV)'}</button>
-          <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ (.xlsx / CSV)</button>
-          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (เลือกหลายไฟล์)</button>
+        <div className="toolbar no-print">
+          <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
+          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
+          <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
+          <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
           <input ref={photoFiles} hidden multiple type="file" aria-label="ไฟล์รูป" accept="image/*" onChange={(e) => { importPhotos(e.target.files); e.target.value = '' }} />
           <input ref={memberFile} hidden type="file" aria-label="ไฟล์รายชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
           <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} />
@@ -329,27 +332,30 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
       )}
       {msg && <p className="small" role="status">{msg}</p>}
       {statuses.length > 1 && (
-        <div className="row no-print" aria-label="กรองตามสถานะ">
+        <div className="chips no-print" aria-label="กรองตามสถานะ">
           <button type="button" className={`mini${st === '' ? ' on' : ''}`} onClick={() => setSt('')}>ทั้งหมด · {members.length}</button>
           {statuses.map((x) => <button key={x} type="button" className={`mini${st === x ? ' on' : ''}`} onClick={() => setSt(st === x ? '' : x)}>{x} · {count((m) => statusKey(m.status) === x)}</button>)}
         </div>
       )}
-      <div className="row no-print">
-        <input className="input grow" placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
-        <select className="input" style={{ width: 'auto' }} value={gen} onChange={(e) => setGen(e.target.value)} aria-label="กรองตามเพศ"><option value="">ทุกเพศ</option><option value="ชาย">ชาย ({count((m) => m.gender === 'ชาย')})</option><option value="หญิง">หญิง ({count((m) => m.gender === 'หญิง')})</option><option value="none">ไม่ระบุเพศ ({count((m) => !m.gender)})</option></select>
-        <select className="input" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
-        {groups.length > 0 && <select className="input" style={{ width: 'auto' }} value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
+      <div className="toolbar toolbar--3 no-print">
+        <input className="input full" placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+        <select className="input" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="กรองตามเพศ"><option value="">ทุกเพศ</option><option value="ชาย">ชาย ({count((m) => m.gender === 'ชาย')})</option><option value="หญิง">หญิง ({count((m) => m.gender === 'หญิง')})</option><option value="none">ไม่ระบุเพศ ({count((m) => !m.gender)})</option></select>
+        <select className="input" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
+        {groups.length > 0 && <select className="input" value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
       </div>
-      <p className="small muted">แสดง {list.length} จาก {members.length} คน · มีรูป {count((m) => !!m.photoPath)} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
+      <p className="pagehint">แสดง {list.length} จาก {members.length} คน · มีรูป {count((m) => !!m.photoPath)} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
       <section className="card">
         {list.length === 0 ? <p className="empty">{members.length ? 'ไม่พบรายชื่อตามที่กรอง' : `ยังไม่มีสมาชิก${canEdit ? ' — เพิ่มทีละคน หรือนำเข้าไฟล์ .xlsx / CSV (หัวคอลัมน์: รหัส, ชื่อ สกุล, ชื่อเล่น, สถานะ, กลุ่ม, โทร, วันเกิด, หมายเหตุ, ว/ด/ป-เข้าร่วม)' : ''}`}</p> : (
-          <ul className="list">
+          <ul className="list list--tight">
             {list.map((m) => (
               <li key={m.id}>
-                <button type="button" className="item" style={{ all: 'unset', display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%', cursor: 'pointer' }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={60} />
-                  <span className="grow"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[statusLabel(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
-                  {info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับสถานะ</span>}
+                <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                  <span className="mrow__main">
+                    <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{[statusShort(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{info.get(m.id)?.visits ? `มา ${info.get(m.id)!.visits} ครั้ง` : 'ยังไม่มีบันทึกลงชื่อ'}{m.photoPath ? ' · 📷' : ''}</span>
+                  </span>
                 </button>
               </li>
             ))}
@@ -419,20 +425,29 @@ function MemberForm({ member, statuses, onClose, put, remove }: { member: Church
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
     if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
-  const fields: [keyof typeof f, string, string?][] = [['name', 'ชื่อ-สกุล'], ['nick', 'ชื่อเล่น'], ['code', 'รหัสสมาชิก'], ['tel', 'โทรศัพท์', 'tel'], ['group', 'กลุ่ม'], ['since', 'วันที่เริ่มมา (ครั้งแรกที่เข้าร่วม · แก้ได้ถ้าคลาดเคลื่อน)', 'date'], ['birth', `วันเกิด (ระบบคำนวณอายุให้ทุกวัน)${f.birth ? ` · ตอนนี้อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date'], ['note', 'หมายเหตุ']]
+  const text = (k: keyof typeof f, label: string, type = 'text', full = false) => <div className={`field${full ? ' full' : ''}`}><label htmlFor={`m-${k}`}>{label}</label><input id={`m-${k}`} className="input" type={type} value={f[k]} onChange={set(k)} /></div>
   return (
     <Sheet title={member ? 'แก้ไขสมาชิก' : 'เพิ่มสมาชิก'} onClose={onClose}>
-      {fields.slice(0, 5).map(([k, l, type]) => <div className="field" key={k}><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} className="input" type={type ?? 'text'} value={f[k]} onChange={set(k)} /></div>)}
-      <div className="field"><label htmlFor="m-gender">เพศ</label>
-        <select id="m-gender" className="input" value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="">— ไม่ระบุ —</option><option>ชาย</option><option>หญิง</option></select>
+      <div className="formgrid">
+        {text('name', 'ชื่อ-สกุล', 'text', true)}
+        {text('nick', 'ชื่อเล่น')}
+        {text('code', 'รหัสสมาชิก')}
+        <div className="field"><label htmlFor="m-gender">เพศ</label>
+          <select id="m-gender" className="input" value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="">— ไม่ระบุ —</option><option>ชาย</option><option>หญิง</option></select>
+        </div>
+        {text('tel', 'โทรศัพท์', 'tel')}
+        <div className="field full"><label htmlFor="m-status">สถานะ</label>
+          <select id="m-status" className="input" value={statusLabel(f.status)} onChange={(e) => setF({ ...f, status: e.target.value })}>
+            {[...new Set([...statuses, statusLabel(f.status)])].sort((a, b) => a.localeCompare(b, 'th')).map((st) => <option key={st}>{st}</option>)}
+          </select>
+        </div>
+        {text('group', 'กลุ่ม', 'text', true)}
+        {text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
+        {text('since', 'วันที่เริ่มมา', 'date')}
+        {text('note', 'หมายเหตุ', 'text', true)}
       </div>
-      <div className="field"><label htmlFor="m-status">สถานะ</label>
-        <select id="m-status" className="input" value={statusLabel(f.status)} onChange={(e) => setF({ ...f, status: e.target.value })}>
-          {[...new Set([...statuses, statusLabel(f.status)])].sort((a, b) => a.localeCompare(b, 'th')).map((st) => <option key={st}>{st}</option>)}
-        </select>
-      </div>
-      {fields.slice(5).map(([k, l, type]) => <div className="field" key={k}><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} className="input" type={type ?? 'text'} value={f[k]} onChange={set(k)} /></div>)}
-      {err && <p role="alert" style={{ color: 'var(--bad)' }}>{err}</p>}
+      <p className="pagehint">วันที่เริ่มมาแก้ได้ถ้าคลาดเคลื่อน · อายุคำนวณจากวันเกิดให้ทุกวัน</p>
+      {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <div className="row row--between">
         {member ? <button type="button" className="btn btn--danger" onClick={() => confirm(`ลบ ${member.name} ออกจากทะเบียน? (รวมรูปด้วย · กู้คืนไม่ได้จากหน้านี้ แต่ประวัติลงชื่อเดิมไม่หาย)`) && remove(member.id) && (member.photoPath && void removeMemberPhotoFile(member.photoPath), onClose())}>ลบ</button> : <span />}
         <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>

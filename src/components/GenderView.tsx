@@ -82,20 +82,20 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
       {canEdit && guessed.length > 0 && (
         <section className="card" aria-label="ตรวจเพศที่เดา">
           <h2>ตรวจเพศที่เดา ({guessed.length} คน)</h2>
-          <div className="row no-print" aria-label="กรองตามความมั่นใจ">
+          <div className="chips no-print" aria-label="กรองตามความมั่นใจ">
             {(['', 'low', 'mid', 'high'] as const).map((c) => <button key={c} type="button" className={`mini${conf === c ? ' on' : ''}`} onClick={() => { setConf(c); setRshown(PAGE) }}>{c ? `${confLabel[c]} · ${guessed.filter((m) => m.genderGuess === c).length}` : `ทั้งหมด · ${guessed.length}`}</button>)}
           </div>
           <p className="small muted" style={{ margin: 0 }}>เรียงจากมั่นใจต่ำสุดก่อน · กด “ถูก” เพื่อยืนยัน หรือกด ชาย/หญิง เพื่อแก้</p>
-          <ul className="list">
+          <ul className="list list--tight">
             {review.slice(0, rshown).map((m) => (
               <li key={m.id}>
-                <div className="item">
+                <div className="mrow mrow--tight">
                   <MemberAvatar path={m.photoPath} name={m.name} size={48} />
-                  <button type="button" className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small">เดาว่า <b>{m.gender}</b> · {confLabel[m.genderGuess!]}</span> <span className="small muted">({guessGender(m)?.why ?? ''})</span>
                   </button>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span className="mrow__act">
                     <button type="button" className="mini" onClick={() => confirmGuess(m)} aria-label={`ยืนยันว่า ${m.name} เป็น${m.gender}`}>ถูก</button>
                     <button type="button" className="mini" onClick={() => set(m, m.gender === 'ชาย' ? 'หญิง' : 'ชาย')} aria-label={`แก้ ${m.name} เป็น${m.gender === 'ชาย' ? 'หญิง' : 'ชาย'}`}>แก้เป็น{m.gender === 'ชาย' ? 'หญิง' : 'ชาย'}</button>
                   </span>
@@ -110,19 +110,19 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
         <section className="card" aria-label="ระบุเพศคนที่ยังว่าง">
           <h2>ระบุเพศ ({missing.length} คนยังว่าง)</h2>
           <p className="small muted" style={{ margin: 0 }}>แตะ “ชาย” หรือ “หญิง” ที่แต่ละคน บันทึกทันทีและซิงก์ให้ทุกเครื่อง</p>
-          <div className="row no-print">
-            <input className="input grow" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE) }} aria-label="ค้นหาคนที่ยังไม่ระบุเพศ" />
+          <div className="toolbar no-print">
+            <input className="input full" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE) }} aria-label="ค้นหาคนที่ยังไม่ระบุเพศ" />
           </div>
-          <ul className="list">
+          <ul className="list list--tight">
             {list.slice(0, shown).map((m) => (
               <li key={m.id}>
-                <div className="item">
+                <div className="mrow mrow--tight">
                   <MemberAvatar path={m.photoPath} name={m.name} size={48} />
-                  <button type="button" className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small muted">{[m.code && `#${m.code}`, statusLabel(m.status), m.group].filter(Boolean).join(' · ')}</span>
                   </button>
-                  <span style={{ display: 'flex', gap: 6 }}>
+                  <span className="mrow__act" style={{ flexDirection: 'row', minWidth: 0 }}>
                     <button type="button" className="mini" onClick={() => set(m, 'ชาย')} aria-label={`ระบุว่า ${m.name} เป็นชาย`}>ชาย</button>
                     <button type="button" className="mini" onClick={() => set(m, 'หญิง')} aria-label={`ระบุว่า ${m.name} เป็นหญิง`}>หญิง</button>
                   </span>
