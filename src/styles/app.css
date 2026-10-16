@@ -511,3 +511,9 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 .pick__main { all: unset; cursor: pointer; min-width: 0; overflow-wrap: anywhere; line-height: 1.4; }
 .pick__act { min-width: 6.8rem; }
 @media (max-width: 380px) { .pick__act { min-width: 5.6rem; padding-inline: 0.6rem; } }
+/* ผลค้นหา: รูปใหญ่อยู่ด้านบน แล้วชื่อ แล้วปุ่มลงทะเบียนเต็มความกว้าง (เห็นหน้าคนชัด ๆ ว่าใช่คนนี้) */
+.pick--card { grid-template-columns: minmax(0, 1fr); justify-items: stretch; text-align: center; gap: 0.5rem; padding: 0.9rem 0.4rem 1rem; }
+.pick--card > :first-child { justify-self: center; }
+.pick--card .pick__main { text-align: center; }
+.pick--card .pick__act { width: 100%; }
+.pickList > li { display: block; } .pick { width: 100%; box-sizing: border-box; }

@@ -113,8 +113,8 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
             const c = done.get(m.id)
             return (
               <li key={m.id}>
-                <div className="pick">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={64} />
+                <div className={`pick${t ? ' pick--card' : ''}`}>
+                  <MemberAvatar path={m.photoPath} name={m.name} size={t ? 112 : 64} />
                   <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
