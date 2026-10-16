@@ -485,3 +485,10 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 .mrow--stack > .mrow__act { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; min-width: 0; }
 .mrow--stack > .mrow__act .mini { width: auto; flex: 1 1 auto; }
 .mrow__act .mini { white-space: normal; line-height: 1.25; padding-block: 0.4rem; min-height: 2.2rem; }
+/* รายชื่อแบบกะทัดรัด: เห็นคนได้มากขึ้นในจอเดียว (รูปซ้าย ข้อความขวา) */
+.list--tight > li { padding: 0.4rem 0; }
+.mrow--tight { column-gap: 0.6rem; }
+.mrow__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
+.mrow__top > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.mrow__top .badge { flex: none; font-size: 0.72rem; padding: 0.05rem 0.5rem; white-space: nowrap; }
+.mrow--tight .mrow__meta { line-height: 1.3; }

@@ -52,13 +52,13 @@ export default function BirthdayList({ members, today, onOpen }: { members: Chur
       {months.map((mo) => (
         <section className="card" key={mo} aria-label={`เกิดเดือน${monthName(mo)}`}>
           <h2>{monthName(mo)} <span className="muted small">({list.filter((m) => Number(m.birth!.slice(5, 7)) === mo).length} คน)</span></h2>
-          <ul className="list">
+          <ul className="list list--tight">
             {list.filter((m) => Number(m.birth!.slice(5, 7)) === mo).map((m) => {
               const until = daysUntilBirthday(m.birth!, today)
               return (
                 <li key={m.id}>
-                  <button type="button" className="mrow" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                    <MemberAvatar path={m.photoPath} name={m.name} size={56} />
+                  <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                    <MemberAvatar path={m.photoPath} name={m.name} size={48} />
                     <span className="mrow__main"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <br /><span style={{ fontWeight: 600 }}>{longDate(m.birth!)}</span>
                       <br /><span className="small muted">อายุ {ageText(m.birth, today)} · {statusLabel(m.status)}</span>

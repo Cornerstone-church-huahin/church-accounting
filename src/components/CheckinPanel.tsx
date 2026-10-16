@@ -117,13 +117,13 @@ export default function CheckinPanel({ members, checkins, recorders, canManage, 
       {t && <p className="pagehint">กำลังค้นหาทั้งทะเบียน — ล้างช่องค้นหาเพื่อกลับไปดูตามตัวเลือกด้านบน</p>}
       {msg && <p className="small" role="status" style={{ margin: 0, color: msg.bad ? 'var(--bad)' : undefined, fontWeight: msg.bad ? 700 : undefined }}>{msg.text}</p>}
       {living.length === 0 && count === 0 ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : shown.length === 0 ? <p className="empty">{mode === 'done' ? 'ยังไม่มีใครลงชื่อในวันนี้ — ค้นหาชื่อ หรือกด “ทั้งหมด” เพื่อเริ่มลงชื่อ' : mode === 'todo' ? 'ทุกคนลงชื่อแล้ว' : 'ไม่พบรายชื่อ'}</p> : (
-        <ul className="list" style={{ maxHeight: '60vh', overflow: 'auto' }}>
+        <ul className="list list--tight" style={{ maxHeight: '60vh', overflow: 'auto' }}>
           {shown.map((m) => {
             const c = done.get(m.id)
             return (
               <li key={m.id}>
-                <div className="mrow">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={56} />
+                <div className="mrow mrow--tight">
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
                   <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="mrow__meta">{[statusLabel(m.status), m.gender, m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>

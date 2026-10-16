@@ -9,7 +9,7 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import CheckinPanel from '../components/CheckinPanel'
@@ -150,20 +150,23 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
       </div>
       <p className="small"><b>{shown.length}</b> จาก {rows.length} รายชื่อ · พิมพ์ ณ {fmtDate(today)}</p>
       <section className="card" aria-label="รายชื่อตามสถานะ">
-        <ul className="list">
+        <ul className="list list--tight">
           {shown.map((r) => (
             <li key={r.member.id}>
-              <div className="mrow mrow--top">
-                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={60} />
-                <span className="mrow__main"><button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
-                  <br /><span className="small muted">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</span>
-                  <br /><span className="small muted">เป็นสมาชิก {r.member.since ? `${fmtDate(r.member.since)} (${r.tenureY.toFixed(1)} ปี)` : '—'} · มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · 12 ด. {r.recent} · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</span>
-                  {r.suggest === 'to2' && <><br /><span className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</span></>}
-                  {r.suggest === 'to1' && <><br /><span className="small" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว (ล่าสุด {fmtDate(r.last)}) → ควรกลับเป็น สมบูรณ์ 1</span></>}
-                  <br />{canEdit
-                    ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer', marginTop: 4 }} aria-haspopup="dialog" onClick={() => setMenu(r.member.id)}>{statusLabel(r.member.status)} ▾</button>
-                    : <span className={`badge ${statusBadge(r.member.status)}`}>{statusLabel(r.member.status)}</span>}
-                </span>
+              <div className="mrow mrow--tight mrow--top">
+                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={56} />
+                <div className="mrow__main">
+                  <div className="mrow__top">
+                    <button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
+                    {canEdit
+                      ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer' }} aria-haspopup="dialog" aria-label={`สถานะ ${statusLabel(r.member.status)} — แตะเพื่อเปลี่ยน`} onClick={() => setMenu(r.member.id)}>{statusShort(r.member.status)} ▾</button>
+                      : <span className={`badge ${statusBadge(r.member.status)}`}>{statusShort(r.member.status)}</span>}
+                  </div>
+                  <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
+                  <div className="mrow__meta">มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</div>
+                  {r.suggest === 'to2' && <div className="mrow__meta" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</div>}
+                  {r.suggest === 'to1' && <div className="mrow__meta" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว → ควรกลับเป็น สมบูรณ์ 1</div>}
+                </div>
               </div>
               {menu === r.member.id && (
                 <Sheet title={`เปลี่ยนสถานะ — ${r.member.name}`} onClose={() => setMenu('')}>
@@ -343,13 +346,16 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
       <p className="pagehint">แสดง {list.length} จาก {members.length} คน · มีรูป {count((m) => !!m.photoPath)} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
       <section className="card">
         {list.length === 0 ? <p className="empty">{members.length ? 'ไม่พบรายชื่อตามที่กรอง' : `ยังไม่มีสมาชิก${canEdit ? ' — เพิ่มทีละคน หรือนำเข้าไฟล์ .xlsx / CSV (หัวคอลัมน์: รหัส, ชื่อ สกุล, ชื่อเล่น, สถานะ, กลุ่ม, โทร, วันเกิด, หมายเหตุ, ว/ด/ป-เข้าร่วม)' : ''}`}</p> : (
-          <ul className="list">
+          <ul className="list list--tight">
             {list.map((m) => (
               <li key={m.id}>
-                <button type="button" className="mrow" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={60} />
-                  <span className="mrow__main"><b>{m.name}</b>{m.code ? <span className="small muted"> #{m.code}</span> : null}{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="small muted">{[statusLabel(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}{info.get(m.id)?.visits ? ` · มา ${info.get(m.id)!.visits} ครั้ง` : ''}{m.photoPath ? ' · 📷' : ''}</span></span>
-                  {info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับสถานะ</span>}
+                <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                  <span className="mrow__main">
+                    <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{[statusShort(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{info.get(m.id)?.visits ? `มา ${info.get(m.id)!.visits} ครั้ง` : 'ยังไม่มีบันทึกลงชื่อ'}{m.photoPath ? ' · 📷' : ''}</span>
+                  </span>
                 </button>
               </li>
             ))}

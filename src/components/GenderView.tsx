@@ -86,11 +86,11 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
             {(['', 'low', 'mid', 'high'] as const).map((c) => <button key={c} type="button" className={`mini${conf === c ? ' on' : ''}`} onClick={() => { setConf(c); setRshown(PAGE) }}>{c ? `${confLabel[c]} · ${guessed.filter((m) => m.genderGuess === c).length}` : `ทั้งหมด · ${guessed.length}`}</button>)}
           </div>
           <p className="small muted" style={{ margin: 0 }}>เรียงจากมั่นใจต่ำสุดก่อน · กด “ถูก” เพื่อยืนยัน หรือกด ชาย/หญิง เพื่อแก้</p>
-          <ul className="list">
+          <ul className="list list--tight">
             {review.slice(0, rshown).map((m) => (
               <li key={m.id}>
-                <div className="mrow">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                <div className="mrow mrow--tight">
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
                   <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small">เดาว่า <b>{m.gender}</b> · {confLabel[m.genderGuess!]}</span> <span className="small muted">({guessGender(m)?.why ?? ''})</span>
@@ -113,11 +113,11 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
           <div className="toolbar no-print">
             <input className="input full" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE) }} aria-label="ค้นหาคนที่ยังไม่ระบุเพศ" />
           </div>
-          <ul className="list">
+          <ul className="list list--tight">
             {list.slice(0, shown).map((m) => (
               <li key={m.id}>
-                <div className="mrow">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                <div className="mrow mrow--tight">
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
                   <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small muted">{[m.code && `#${m.code}`, statusLabel(m.status), m.group].filter(Boolean).join(' · ')}</span>

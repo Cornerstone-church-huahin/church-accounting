@@ -46,7 +46,7 @@ try {
   // จำนวนตามสถานะในทะเบียน (ตรงกับทะเบียนเดิม ไม่ใช่ค่าที่แอปคำนวณเอง)
   const chips = (await page.getByLabel('จำนวนตามสถานะในทะเบียน').innerText()).replace(/\s+/g, ' ')
   must(/1\.สมบูรณ์ \( 1 \) · 3/.test(chips) && /2\.สมบูรณ์ \( 2 \) · 1/.test(chips) && /5\.คนใหม่ · 1/.test(chips) && /7\.เสียชีวิต · 1/.test(chips), 'registry status counts: ' + chips)
-  must((await row('สมชาย').innerText()).includes('1.สมบูรณ์ ( 1 )') && !(await row('สมชาย').innerText()).includes('ควรเป็น'), 'regular attender consistent with registry')
+  must((await row('สมชาย').innerText()).includes('1.สมบูรณ์(1)') && !(await row('สมชาย').innerText()).includes('ควรเป็น'), 'regular attender consistent with registry')
   must((await row('สมศักดิ์').innerText()).includes('ควรเป็น สมบูรณ์ 2'), 'registry says complete-1 but long absent → suggest complete-2')
   must((await row('กลับมาแล้ว').innerText()).includes('ควรกลับเป็น สมบูรณ์ 1'), 'registry says complete-2 but attends again → suggest complete-1')
   must(!(await row('เพิ่งมา').innerText()).includes('ควร'), 'new member is not judged')
@@ -62,9 +62,9 @@ try {
   // เปลี่ยนสถานะในทะเบียน
   await row('สมศักดิ์').getByRole('button', { name: /1\.สมบูรณ์/ }).click()
   await page.getByRole('menuitem', { name: '2.สมบูรณ์ ( 2 )' }).click()
-  must((await row('สมศักดิ์').innerText()).includes('2.สมบูรณ์ ( 2 )') && !(await row('สมศักดิ์').innerText()).includes('ควรเป็น'), 'status change applies and clears the suggestion')
+  must((await row('สมศักดิ์').innerText()).includes('2.สมบูรณ์(2)') && !(await row('สมศักดิ์').innerText()).includes('ควรเป็น'), 'status change applies and clears the suggestion')
   await page.reload(); await page.waitForLoadState('networkidle')
-  must((await row('สมศักดิ์').innerText()).includes('2.สมบูรณ์ ( 2 )'), 'status change persists')
+  must((await row('สมศักดิ์').innerText()).includes('2.สมบูรณ์(2)'), 'status change persists')
   // กรอง
   await page.getByLabel('กรอง', { exact: true }).selectOption('st:1.สมบูรณ์ ( 1 )')
   must(await page.locator('li', { hasText: 'สมหญิง' }).count() === 1 && await page.locator('li', { hasText: 'สมศักดิ์' }).count() === 0, 'filter by registry status')
