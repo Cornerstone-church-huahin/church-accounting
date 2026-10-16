@@ -23,7 +23,7 @@ export function useRole(): AccessRole {
 
 const invitedRole = (): Role => {
   const r = localStorage.getItem(INVITE_ROLE_KEY)
-  return r === 'bookkeeper' || r === 'auditor' ? r : 'viewer' // ลิงก์เชิญให้ได้ไม่เกินผู้บันทึก/ผู้ตรวจสอบ · แอดมินตั้งตอนอนุมัติเท่านั้น
+  return r === 'bookkeeper' || r === 'auditor' || r === 'worship' ? r : 'viewer' // ลิงก์เชิญให้ได้ไม่เกินผู้บันทึก/ผู้ตรวจสอบ · แอดมินตั้งตอนอนุมัติเท่านั้น
 }
 
 /** รายชื่อผู้ใช้ร่วม (members.json) + การจัดการโดยแอดมิน */
@@ -80,6 +80,16 @@ export function useMembers() {
       if (!m) return false
       if (m.role === 'admin' && role !== 'admin' && adminCount <= 1) return false
       store.put([{ ...m, role }])
+      announce()
+      return true
+    },
+    /** แอดมินพักสิทธิ์ (ปิดชั่วคราว) / เปิดคืน โดยไม่ลบคน · พักแอดมินคนสุดท้ายไม่ได้ */
+    setPaused: (id: string, paused: boolean) => {
+      if (!isAdmin) return false
+      const m = active.find((x) => x.id === id)
+      if (!m) return false
+      if (paused && m.role === 'admin') return false
+      store.put([{ ...m, paused: paused ? true : undefined }])
       announce()
       return true
     },

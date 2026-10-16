@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
@@ -12,23 +12,29 @@ import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
-import CheckinPanel from '../components/CheckinPanel'
+import { useSearchParams } from 'react-router-dom'
+import ShareReport from '../components/ShareReport'
+import CheckinPanel, { RecorderChip } from '../components/CheckinPanel'
 import BirthdayList from '../components/BirthdayList'
 import GenderView from '../components/GenderView'
 import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender' | 'share'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 export default function Members() {
   const role = useRole()
-  if (!can(role, 'detail')) return <NoAccess />
+  if (!can(role, 'detail') && !can(role, 'worship')) return <NoAccess />
   return <MembersPage />
 }
 
 function MembersPage() {
   const role = useRole()
   const canEdit = can(role, 'registry')
+  const canLog = can(role, 'worship')
+  const startTab = useSearchParams()[0].get('tab') // ไอคอนลัดที่หัวแอปเปิดมาที่แท็บ ลงชื่อ ทันที
+  /** ผู้บันทึกการนมัสการ: ไม่เห็นเบอร์โทร วันเกิด สถานะทะเบียน */
+  const lite = role === 'worship'
   const thisYear = yearOf(todayISO())
   const people = useChurchMembers()
   const a0 = useAttendance(thisYear), a1 = useAttendance(thisYear - 1, false), a2 = useAttendance(thisYear - 2, false), a3 = useAttendance(thisYear - 3, false)
@@ -41,8 +47,9 @@ function MembersPage() {
   const criteria = { minYears: settings.memberMinYears ?? DEFAULT_CRITERIA.minYears, absentMonths: settings.memberAbsentMonths ?? DEFAULT_CRITERIA.absentMonths }
   const today = todayISO()
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [tab, setTab] = useState<Tab>(() => (attendance.length === 0 ? 'roster' : 'audit'))
+  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canLog ? 'checkin' : lite ? 'checkin' : attendance.length === 0 ? 'roster' : 'audit'))
   const [detail, setDetail] = useState('')
+  useEffect(() => { if (startTab === 'checkin' && canLog) setTab('checkin') }, [startTab, canLog])
   const byId = new Map(result.rows.map((r) => [r.member.id, r]))
   const shownDetail = detail ? byId.get(detail) : undefined
   /** บันทึกรายการลงชื่อ (แยกไฟล์ตามปีของวันที่) */
@@ -56,19 +63,20 @@ function MembersPage() {
   }
   return (
     <>
-      <div className="page-head no-print"><h1>สมาชิก</h1></div>
-      <div className="seg seg--6 no-print" role="tablist" aria-label="หมวด">
-        {([['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
+      <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
+      <div className={`seg ${lite ? 'seg--4' : 'seg--7'} no-print`} role="tablist" aria-label="หมวด">
+        {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน'], ['share', 'แชร์']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ'], ['share', 'แชร์']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
-      {tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
-      {tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
-      {tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
+      {!lite && tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
+      {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
+      {tab === 'share' && <ShareReport checkins={checkins} members={people.items} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
-      {tab === 'checkin' && (canEdit ? <CheckinPanel members={people.items} checkins={checkins} recorders={recorders.items} canManage={can(role, 'settings')} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} putRecorders={recorders.put} removeRecorder={recorders.remove} onOpen={setDetail} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
-      {tab === 'roster' && <Roster rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
-      {shownDetail && <Detail r={shownDetail} statuses={statusOptions(people.items)} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
+      {tab === 'roster' && <Roster lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
+      {shownDetail && <Detail lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -162,7 +170,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
                       ? <button type="button" className={`badge ${statusBadge(r.member.status)}`} style={{ cursor: 'pointer' }} aria-haspopup="dialog" aria-label={`สถานะ ${statusLabel(r.member.status)} — แตะเพื่อเปลี่ยน`} onClick={() => setMenu(r.member.id)}>{statusShort(r.member.status)} ▾</button>
                       : <span className={`badge ${statusBadge(r.member.status)}`}>{statusShort(r.member.status)}</span>}
                   </div>
-                  <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && `${r.member.gender}${r.member.genderGuess ? ' (เดา)' : ''}`, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
+                  <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && r.member.gender, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
                   <div className="mrow__meta">มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</div>
                   {r.suggest === 'to2' && <div className="mrow__meta" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</div>}
                   {r.suggest === 'to1' && <div className="mrow__meta" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว → ควรกลับเป็น สมบูรณ์ 1</div>}
@@ -187,7 +195,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
 
 const statusKey = statusLabel
 
-function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { rows: Evaluated[]; onOpen: (id: string) => void; members: ChurchMember[]; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
+function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { rows: Evaluated[]; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
@@ -212,7 +220,7 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
   }
   const list = [...members].sort((a, b) => order[sort](a, b) || a.name.localeCompare(b.name, 'th'))
     .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp) && (!gen || (gen === 'none' ? !m.gender : m.gender === gen)))
-    .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
+    .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${lite ? '' : m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
   const readCsv = async (f: File | undefined): Promise<string[][] | null> => {
     if (!f) return null
     try { return /\.xlsx$/i.test(f.name) ? await readXlsxRows(f) : parseCSV(await f.text()) } catch { setMsg('อ่านไฟล์ไม่ได้ — ใช้ไฟล์ .xlsx หรือ CSV'); return null }
@@ -319,26 +327,26 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
   }
   return (
     <>
-      {canEdit && (
+      {canLog && (
         <div className="toolbar no-print">
           <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
+          {canEdit && <><button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
           <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
           <input ref={photoFiles} hidden multiple type="file" aria-label="ไฟล์รูป" accept="image/*" onChange={(e) => { importPhotos(e.target.files); e.target.value = '' }} />
           <input ref={memberFile} hidden type="file" aria-label="ไฟล์รายชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
-          <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} />
+          <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} /></>}
         </div>
       )}
       {msg && <p className="small" role="status">{msg}</p>}
-      {statuses.length > 1 && (
+      {!lite && statuses.length > 1 && (
         <div className="chips no-print" aria-label="กรองตามสถานะ">
           <button type="button" className={`mini${st === '' ? ' on' : ''}`} onClick={() => setSt('')}>ทั้งหมด · {members.length}</button>
           {statuses.map((x) => <button key={x} type="button" className={`mini${st === x ? ' on' : ''}`} onClick={() => setSt(st === x ? '' : x)}>{x} · {count((m) => statusKey(m.status) === x)}</button>)}
         </div>
       )}
       <div className="toolbar toolbar--3 no-print">
-        <input className="input full" placeholder="ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
+        <input className="input full" placeholder={lite ? 'ค้นหา ชื่อ / ชื่อเล่น / รหัส / หมายเหตุ' : 'ค้นหา ชื่อ / ชื่อเล่น / รหัส / โทร / หมายเหตุ'} value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
         <select className="input" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="กรองตามเพศ"><option value="">ทุกเพศ</option><option value="ชาย">ชาย ({count((m) => m.gender === 'ชาย')})</option><option value="หญิง">หญิง ({count((m) => m.gender === 'หญิง')})</option><option value="none">ไม่ระบุเพศ ({count((m) => !m.gender)})</option></select>
         <select className="input" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
         {groups.length > 0 && <select className="input" value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
@@ -352,8 +360,8 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
                 <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                   <MemberAvatar path={m.photoPath} name={m.name} size={52} />
                   <span className="mrow__main">
-                    <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
-                    <span className="mrow__meta" style={{ display: 'block' }}>{[statusShort(m.status), m.gender && `${m.gender}${m.genderGuess ? ' (เดา)' : ''}`, m.group, m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, m.tel].filter(Boolean).join(' · ')}</span>
+                    <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{!lite && info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusShort(m.status), m.gender && m.gender, m.group, !lite && m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, !lite && m.tel].filter(Boolean).join(' · ')}</span>
                     <span className="mrow__meta" style={{ display: 'block' }}>{info.get(m.id)?.visits ? `มา ${info.get(m.id)!.visits} ครั้ง` : 'ยังไม่มีบันทึกลงชื่อ'}{m.photoPath ? ' · 📷' : ''}</span>
                   </span>
                 </button>
@@ -362,14 +370,14 @@ function Roster({ rows, onOpen, members, canEdit, put, remove, putCheckIns, chec
           </ul>
         )}
       </section>
-      <p className="small muted">ข้อมูลส่วนตัว (เบอร์โทร วันเกิด) เก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>
-      {edit && <MemberForm member={edit === 'new' ? null : edit} statuses={statusOptions(members)} onClose={() => setEdit(null)} put={put} remove={remove} />}
+      {!lite && <p className="small muted">ข้อมูลส่วนตัว (เบอร์โทร วันเกิด) เก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>}
+      {edit && <MemberForm lite={lite} canDelete={canEdit} member={edit === 'new' ? null : edit} statuses={statusOptions(members)} groups={groupOptions(members)} onClose={() => setEdit(null)} put={put} remove={remove} />}
     </>
   )
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Evaluated; statuses: string[]; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ lite, canLog, r, statuses, groups, today, canEdit, put, remove, onClose }: { r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
@@ -381,20 +389,20 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
     setBusy(true); setPhotoErr('')
     try { put([{ ...m, photoPath: await uploadMemberPhoto(m.id, f) }]) } catch (e) { setPhotoErr(e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ') } finally { setBusy(false) }
   }
-  if (editing) return <MemberForm member={m} statuses={statuses} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
+  if (editing) return <MemberForm lite={lite} canDelete={canEdit} member={m} statuses={statuses} groups={groups} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
   const age = ageText(m.birth, today)
   const rows: [string, ReactNode][] = [
-    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ['สถานะในทะเบียน', m.status], ['กลุ่ม', m.group],
-    ['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>],
-    ['เพศ', m.gender && `${m.gender}${m.genderGuess ? ' (เดา — ยังไม่ยืนยัน)' : ''}`],
-    ['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`],
+    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', m.status] as [string, ReactNode]]), ['กลุ่ม', m.group],
+    ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
+    ['เพศ', m.gender && m.gender],
+    ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
     ['วันที่เริ่มมา', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
   ]
   return (
     <Sheet title={m.name} onClose={onClose}>
       {m.photoPath && <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}><StoredImage path={m.photoPath} alt={`รูป ${m.name}`} /></div>}
-      {canEdit && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button>{m.photoPath && <button type="button" className="mini" disabled={busy} onClick={dropPhoto}>ลบรูป</button>}<input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
+      {canLog && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button>{m.photoPath && <button type="button" className="mini" disabled={busy} onClick={dropPhoto}>ลบรูป</button>}<input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
       <dl style={{ margin: 0 }}>
         {rows.map(([k, v]) => (
           <div key={k} className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.35rem 0', flexWrap: 'nowrap' }}>
@@ -402,21 +410,26 @@ function Detail({ r, statuses, today, canEdit, put, remove, onClose }: { r: Eval
             <dd style={{ margin: 0, textAlign: 'right', wordBreak: 'break-word' }}>{v || <span className="muted">—</span>}</dd>
           </div>
         ))}
+        {!lite && (
         <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
           <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>เทียบกับการลงชื่อ</dt>
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.suggest === 'to2' ? <span style={{ color: 'var(--bad)' }}>ขาดนมัสการเกินเกณฑ์ → ควรเป็น สมบูรณ์ 2</span> : r.suggest === 'to1' ? <span style={{ color: 'var(--good)' }}>กลับมานมัสการ → ควรเป็น สมบูรณ์ 1</span> : regLevel(m.status) ? 'สอดคล้องกับสถานะในทะเบียน' : <span className="muted">ไม่อยู่ในเกณฑ์ตรวจ</span>}</dd>
         </div>
+        )}
         <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
           <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>การมานมัสการ</dt>
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.visits ? `${r.visits} ครั้ง · 12 เดือนล่าสุด ${r.recent} · ครั้งแรก ${fmtDate(r.firstAtt)} · ล่าสุด ${fmtDate(r.last)}` : <span className="muted">ยังไม่มีบันทึกลงชื่อ</span>}</dd>
         </div>
       </dl>
-      {canEdit && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
+      {canLog && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
     </Sheet>
   )
 }
 
-function MemberForm({ member, statuses, onClose, put, remove }: { member: ChurchMember | null; statuses: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
+/** กลุ่มที่มีอยู่จริงในทะเบียน (ใช้เป็นตัวเลือก) */
+const groupOptions = (ms: { group?: string }[]) => [...new Set(ms.map((m) => m.group?.trim()).filter(Boolean))] as string[]
+
+function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, remove }: { lite: boolean; canDelete: boolean; member: ChurchMember | null; statuses: string[]; groups: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
   const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -435,21 +448,26 @@ function MemberForm({ member, statuses, onClose, put, remove }: { member: Church
         <div className="field"><label htmlFor="m-gender">เพศ</label>
           <select id="m-gender" className="input" value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="">— ไม่ระบุ —</option><option>ชาย</option><option>หญิง</option></select>
         </div>
-        {text('tel', 'โทรศัพท์', 'tel')}
-        <div className="field full"><label htmlFor="m-status">สถานะ</label>
+        {!lite && text('tel', 'โทรศัพท์', 'tel')}
+        {!lite && <div className="field full"><label htmlFor="m-status">สถานะ</label>
           <select id="m-status" className="input" value={statusLabel(f.status)} onChange={(e) => setF({ ...f, status: e.target.value })}>
             {[...new Set([...statuses, statusLabel(f.status)])].sort((a, b) => a.localeCompare(b, 'th')).map((st) => <option key={st}>{st}</option>)}
           </select>
+        </div>}
+        <div className="field full"><label htmlFor="m-group">กลุ่ม</label>
+          <select id="m-group" className="input" value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })}>
+            <option value="">— ไม่ระบุ —</option>
+            {[...new Set([...groups, f.group].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th', { numeric: true })).map((g) => <option key={g}>{g}</option>)}
+          </select>
         </div>
-        {text('group', 'กลุ่ม', 'text', true)}
-        {text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
+        {!lite && text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
         {text('since', 'วันที่เริ่มมา', 'date')}
         {text('note', 'หมายเหตุ', 'text', true)}
       </div>
-      <p className="pagehint">วันที่เริ่มมาแก้ได้ถ้าคลาดเคลื่อน · อายุคำนวณจากวันเกิดให้ทุกวัน</p>
+      <p className="pagehint">วันที่เริ่มมาแก้ได้ถ้าคลาดเคลื่อน{lite ? '' : ' · อายุคำนวณจากวันเกิดให้ทุกวัน'}</p>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <div className="row row--between">
-        {member ? <button type="button" className="btn btn--danger" onClick={() => confirm(`ลบ ${member.name} ออกจากทะเบียน? (รวมรูปด้วย · กู้คืนไม่ได้จากหน้านี้ แต่ประวัติลงชื่อเดิมไม่หาย)`) && remove(member.id) && (member.photoPath && void removeMemberPhotoFile(member.photoPath), onClose())}>ลบ</button> : <span />}
+        {member && canDelete ? <button type="button" className="btn btn--danger" onClick={() => confirm(`ลบ ${member.name} ออกจากทะเบียน? (รวมรูปด้วย · กู้คืนไม่ได้จากหน้านี้ แต่ประวัติลงชื่อเดิมไม่หาย)`) && remove(member.id) && (member.photoPath && void removeMemberPhotoFile(member.photoPath), onClose())}>ลบ</button> : <span />}
         <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>
       </div>
     </Sheet>

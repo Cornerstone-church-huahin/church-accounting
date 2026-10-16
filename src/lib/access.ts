@@ -8,33 +8,36 @@ import { getSync, type SharedItem } from './sync'
  * - ดูอย่างเดียว: ดูรายงาน งบประมาณ และภาพรวม (ไม่เห็นรายการรายตัว เลขอ้างอิง ใบเสร็จ)
  * ตัวตน = ชื่อที่ใช้ครั้งแรกบนเครื่องนั้น
  */
-export type Role = 'admin' | 'bookkeeper' | 'auditor' | 'viewer'
-export type AccessRole = Role | 'pending'
-export const ROLES: Role[] = ['admin', 'bookkeeper', 'auditor', 'viewer']
-export const ROLE_LABEL: Record<Role, string> = { admin: 'แอดมิน', bookkeeper: 'ผู้บันทึกบัญชี', auditor: 'ผู้ตรวจสอบ', viewer: 'ดูอย่างเดียว' }
+export type Role = 'admin' | 'bookkeeper' | 'worship' | 'auditor' | 'viewer'
+/** pending = รออนุมัติ · paused = แอดมินพักสิทธิ์ไว้ชั่วคราว */
+export type AccessRole = Role | 'pending' | 'paused'
+export const ROLES: Role[] = ['admin', 'bookkeeper', 'worship', 'auditor', 'viewer']
+export const ROLE_LABEL: Record<Role, string> = { admin: 'แอดมิน', bookkeeper: 'ผู้บันทึกบัญชี', worship: 'ผู้บันทึกการนมัสการ', auditor: 'ผู้ตรวจสอบ', viewer: 'ดูอย่างเดียว' }
 export const ROLE_HELP: Record<Role, string> = {
   admin: 'ทำได้ทุกอย่าง · จัดการผู้ใช้ ประเภทถวาย งบประมาณ · อนุมัติใบเบิกขั้นสุดท้าย',
   bookkeeper: 'บันทึกรายรับ นับเงิน นำฝาก อัปโหลดสเตตเมนต์ ทำใบเบิก แนบใบเสร็จ บันทึกการจ่าย',
+  worship: 'เห็นเฉพาะเมนูสมาชิก: ลงชื่อนมัสการ ดูยอดผู้มา เพิ่มคนใหม่ แก้ชื่อ รูป เพศ · ไม่เห็นบัญชี เบอร์โทร วันเกิด และเปลี่ยนสถานะทะเบียนไม่ได้',
   auditor: 'ดูได้ทุกอย่าง · ยืนยันยอดนับ (คนที่ 2) · รับรองใบเบิก · รับรองการจับคู่ธนาคาร · แก้ข้อมูลไม่ได้',
   viewer: 'ดูรายงาน งบประมาณ และภาพรวมเท่านั้น (ไม่เห็นรายการรายตัวและใบเสร็จ)',
 }
 
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
-export interface Member extends SharedItem { name: string; role: Role; joined: number; status?: 'active' | 'pending'; invitedFor?: string }
+export interface Member extends SharedItem { name: string; role: Role; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'
   | 'income' | 'count' | 'verifyCount' | 'deposit' | 'statement' | 'signoffRecon'
   | 'voucherCreate' | 'voucherReview' | 'voucherApprove' | 'voucherPay' | 'attach'
-  | 'detail' | 'registry'
+  | 'detail' | 'registry' | 'worship'
 
 const PERMS: Record<Role, Perm[]> = {
-  admin: ['members', 'settings', 'budget', 'income', 'count', 'verifyCount', 'deposit', 'statement', 'signoffRecon', 'voucherCreate', 'voucherReview', 'voucherApprove', 'voucherPay', 'attach', 'detail', 'registry'],
-  bookkeeper: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry'],
+  admin: ['members', 'settings', 'budget', 'income', 'count', 'verifyCount', 'deposit', 'statement', 'signoffRecon', 'voucherCreate', 'voucherReview', 'voucherApprove', 'voucherPay', 'attach', 'detail', 'registry', 'worship'],
+  bookkeeper: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry', 'worship'],
+  worship: ['worship'],
   auditor: ['verifyCount', 'signoffRecon', 'voucherReview', 'detail'],
   viewer: [],
 }
-export const can = (role: AccessRole, p: Perm) => role !== 'pending' && PERMS[role].includes(p)
+export const can = (role: AccessRole, p: Perm) => role !== 'pending' && role !== 'paused' && PERMS[role].includes(p)
 
 export const ME_KEY = 'acct.me.v1'
 export const MEMBERS_KEY = 'acct.members.v1'
@@ -90,7 +93,7 @@ export function myRole(): AccessRole {
   if (!getSync()) return 'admin'
   const me = getMe()
   const mine = me && readAllMembers().find((m) => m.id === me.id)
-  if (mine) return mine.deleted ? 'pending' : mine.status === 'pending' ? 'pending' : mine.role
+  if (mine) return mine.deleted ? 'pending' : mine.status === 'pending' ? 'pending' : mine.paused ? 'paused' : mine.role
   return noMembers() ? 'viewer' : 'pending'
 }
 

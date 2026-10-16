@@ -79,11 +79,11 @@ export const useLoans = () => useSharedStore<Loan>({ localKey: k('loans'), file:
 export const usePeople = () => useSharedStore<Person>({ localKey: k('people'), file: 'people.json', label: 'รายชื่อผู้วางบิล', write: 'voucherPay' })
 
 /** ทะเบียนสมาชิกคริสตจักร: ไฟล์เดียว ข้ามปี (มีเบอร์โทร จึงให้เฉพาะผู้ที่เห็นรายการรายตัว) */
-export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k('church-members'), file: 'church-members.json', label: 'ทะเบียนสมาชิก', write: 'registry' })
+export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k('church-members'), file: 'church-members.json', label: 'ทะเบียนสมาชิก', write: 'worship' })
 /**
  * ลงชื่อนมัสการ: รายปี (1 คน × 1 วัน = 1 รายการ) · ปีเก่าไม่ซิงก์ทุกนาที (ซิงก์ตอนเปิด/กลับมาที่แอป) เพื่อไม่กินเน็ต
  * ไฟล์เก่าที่เคยเก็บเป็น "1 วัน = รายชื่อทั้งชุด" (Attendance) ยังอ่านได้ ผ่าน toAttendance()
  */
-export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'registry', poll })
+export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'worship', poll })
 /** ผู้บันทึกลงชื่อ: ไฟล์เดียว (แอดมินจัดการ) */
 export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('recorders'), file: 'recorders.json', label: 'ผู้บันทึกลงชื่อ', write: 'settings' })

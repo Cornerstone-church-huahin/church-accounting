@@ -40,7 +40,7 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
   const cnt = (c: Confidence) => guesses.filter((x) => x.g.confidence === c).length
   const guessAll = () => {
     if (!guesses.length) return
-    if (!confirm(`เดาเพศให้ ${guesses.length} คน จากที่ยังว่าง ${missing.length} คน\n(มั่นใจสูง ${cnt('high')} · กลาง ${cnt('mid')} · ต่ำ ${cnt('low')} · เดาไม่ได้ ${missing.length - guesses.length})\n\nทุกคนที่เดาจะมีเครื่องหมาย “เดา” ให้ตามตรวจ/แก้ภายหลัง ผลอาจผิดได้ โดยเฉพาะชื่อที่ใช้ได้ทั้งสองเพศและชื่อต่างชาติ`)) return
+    if (!confirm(`เดาเพศให้ ${guesses.length} คน จากที่ยังว่าง ${missing.length} คน\n(มั่นใจสูง ${cnt('high')} · กลาง ${cnt('mid')} · ต่ำ ${cnt('low')} · เดาไม่ได้ ${missing.length - guesses.length})\n\nเพศที่เดาจะแสดงเหมือนเพศปกติ ตามตรวจ/แก้ภายหลังได้ที่ “ตรวจเพศที่เดา” ผลอาจผิดได้ โดยเฉพาะชื่อที่ใช้ได้ทั้งสองเพศและชื่อต่างชาติ`)) return
     put(guesses.map(({ m, g }) => ({ ...m, gender: g.gender, genderGuess: g.confidence })))
   }
   const guessed = members.filter((m) => m.gender && m.genderGuess)
@@ -76,7 +76,7 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
           <h2>เดาเพศให้ทุกคน</h2>
           <p className="small" style={{ margin: 0 }}>เดาจาก คำนำหน้า · หมายเหตุ · ชื่อกลุ่ม (สตรี/บรุษ) · ชื่อต้น/ชื่อเล่น (ไทยและอังกฤษ) ตอนนี้เดาได้ <b>{guesses.length}</b> จาก {missing.length} คนที่ยังว่าง (มั่นใจสูง {cnt('high')} · ปานกลาง {cnt('mid')} · ต่ำ {cnt('low')}) ที่เหลือ {missing.length - guesses.length} คนเดาไม่ได้ ต้องระบุเอง</p>
           <button type="button" className="btn btn--gold btn--block" onClick={guessAll} disabled={!guesses.length}>เดาเพศให้ {guesses.length} คน</button>
-          <p className="small muted" style={{ margin: 0 }}>เป็นแค่การคาดเดา ผิดได้ ทุกคนที่เดาจะมีเครื่องหมาย “เดา” และแก้ภายหลังได้</p>
+          <p className="small muted" style={{ margin: 0 }}>เป็นแค่การคาดเดา ผิดได้ เพศที่เดาแสดงเหมือนปกติ ไม่มีป้าย “เดา” ในรายชื่อ แก้ภายหลังได้ที่ “ตรวจเพศที่เดา”</p>
         </section>
       )}
       {canEdit && guessed.length > 0 && (
