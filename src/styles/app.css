@@ -512,8 +512,15 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 .pick__act { min-width: 6.8rem; }
 @media (max-width: 380px) { .pick__act { min-width: 5.6rem; padding-inline: 0.6rem; } }
 /* ผลค้นหา: รูปใหญ่อยู่ด้านบน แล้วชื่อ แล้วปุ่มลงทะเบียนเต็มความกว้าง (เห็นหน้าคนชัด ๆ ว่าใช่คนนี้) */
-.pick--card { grid-template-columns: minmax(0, 1fr); justify-items: stretch; text-align: center; gap: 0.5rem; padding: 0.9rem 0.4rem 1rem; }
-.pick--card > :first-child { justify-self: center; }
-.pick--card .pick__main { text-align: center; }
-.pick--card .pick__act { width: 100%; }
 .pickList > li { display: block; } .pick { width: 100%; box-sizing: border-box; }
+
+/* ผลค้นหาอยู่บนสุดของการ์ด: การ์ดยาวแถวเดียว รูปซ้าย ชื่อ + ปุ่มลงทะเบียนขวา */
+.found { display: grid; gap: 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--line); }
+.found .list { display: grid; gap: 0.5rem; }
+.found .list > li { display: block; border: 1.5px solid var(--line); border-radius: 0.9rem; background: var(--surface); padding: 0.55rem; }
+.found__none { display: grid; gap: 0.6rem; }
+.pick--card { grid-template-columns: auto minmax(0, 1fr); justify-items: stretch; text-align: left; gap: 0.2rem 0.75rem; padding: 0; align-items: center; }
+.pick--card > :first-child { grid-row: span 2; justify-self: start; align-self: start; }
+.pick--card .pick__main { text-align: left; }
+.pick--card .pick__act { width: 100%; min-width: 0; min-height: 3rem; }
+.found .list { max-height: 46vh; overflow-y: auto; }

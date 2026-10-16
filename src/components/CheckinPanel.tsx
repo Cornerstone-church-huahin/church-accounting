@@ -71,8 +71,43 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   }
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
+  const row = (m: ChurchMember, card: boolean) => {
+    const c = done.get(m.id)
+    return (
+      <li key={m.id}>
+                <div className={`pick${card ? ' pick--card' : ''}`}>
+                  <MemberAvatar path={m.photoPath} name={m.name} size={card ? 76 : 64} />
+                  <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                    <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+                    <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
+                    {c && <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>}
+                  </button>
+                  {c
+                    ? <button type="button" className="mini pick__act" onClick={() => cancel(c)}>ยกเลิก</button>
+                    : <button type="button" className="btn btn--gold bigbtn pick__act" disabled={tooOld} onClick={() => registerFrom(m)} aria-label={`ลงทะเบียน ${m.name}`}>ลงทะเบียน</button>}
+                </div>
+              </li>
+    )
+  }
+
   return (
     <section className="card">
+      {t && (
+        <div className="found" role="region" aria-label="ผลค้นหา">
+          {shown.length === 0 ? (
+            <div className="found__none">
+              <p style={{ margin: 0 }}><b>ไม่พบรายชื่อ “{q.trim()}”</b> ในทะเบียน</p>
+              <button type="button" className="btn btn--gold bigbtn btn--block" onClick={() => setAdding(true)}>＋ เพิ่มใหม่ “{q.trim()}”</button>
+            </div>
+          ) : (
+            <>
+              <p className="pagehint" style={{ margin: 0 }}>พบ {shown.length} คน — เลือกคนที่ใช่ แล้วกด “ลงทะเบียน”</p>
+              <ul className="list list--tight">{shown.slice(0, 20).map((m) => row(m, true))}</ul>
+              <button type="button" className="btn btn--ghost bigbtn btn--block" onClick={() => setAdding(true)}>ไม่ใช่คนข้างบน — ＋ เพิ่มใหม่</button>
+            </>
+          )}
+        </div>
+      )}
       <div className="formgrid">
         <div className="field">
           <label htmlFor="ck-date">วันนมัสการ</label>
@@ -105,31 +140,12 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
           </div>
         </>
       )}
-      {t && <p className="pagehint">พบ {shown.length} คนที่ตรงกับ “{q.trim()}” — แตะ “ลงทะเบียน” ที่คนที่ใช่ได้ทันที</p>}
       {msg && <p className="small" role="status" style={{ margin: 0, color: msg.bad ? 'var(--bad)' : undefined, fontWeight: 700 }}>{msg.text}</p>}
-      {living.length === 0 && count === 0 && !t ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : shown.length === 0 ? <p className="empty">{t ? `ไม่พบชื่อ “${q.trim()}” ในทะเบียน — กด “เพิ่มใหม่” ด้านล่าง` : mode === 'done' ? 'ยังไม่มีใครลงชื่อในวันนี้ — พิมพ์ค้นหาชื่อ หรือกด “ทั้งหมด”' : 'ไม่มีรายชื่อ'}</p> : (
+      {t ? null : living.length === 0 && count === 0 ? <p className="empty">ยังไม่มีสมาชิกในทะเบียน</p> : shown.length === 0 ? <p className="empty">{mode === 'done' ? 'ยังไม่มีใครลงชื่อในวันนี้ — พิมพ์ค้นหาชื่อ หรือกด “ทั้งหมด”' : 'ไม่มีรายชื่อ'}</p> : (
         <ul className="list list--tight pickList">
-          {shown.slice(0, t ? 20 : 400).map((m) => {
-            const c = done.get(m.id)
-            return (
-              <li key={m.id}>
-                <div className={`pick${t ? ' pick--card' : ''}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={t ? 112 : 64} />
-                  <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                    <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
-                    <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
-                    {c && <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>}
-                  </button>
-                  {c
-                    ? <button type="button" className="mini pick__act" onClick={() => cancel(c)}>ยกเลิก</button>
-                    : <button type="button" className="btn btn--gold bigbtn pick__act" disabled={tooOld} onClick={() => registerFrom(m)} aria-label={`ลงทะเบียน ${m.name}`}>ลงทะเบียน</button>}
-                </div>
-              </li>
-            )
-          })}
+          {shown.slice(0, 400).map((m) => row(m, false))}
         </ul>
       )}
-      {t && <button type="button" className="btn btn--gold bigbtn btn--block" onClick={() => setAdding(true)}>＋ เพิ่มใหม่{shown.length ? ' (ไม่ใช่คนข้างบน)' : ` “${q.trim()}”`}</button>}
       {adding && <NewPerson lite={lite} members={members} date={date} initialName={q.trim()} onClose={() => setAdding(false)} onSave={async (mem, fixName) => {
         const ok = mem ? addMember([mem]) : true
         if (!ok) return
@@ -273,8 +289,8 @@ function NewPerson({ lite, members, date, initialName, onClose, onSave }: {
         </div>
       </details>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
-      <button type="button" className="btn btn--gold bigbtn btn--block" disabled={busy || !complete || !!exact} onClick={save}>{busy ? 'กำลังบันทึก…' : similar.length ? 'ไม่ใช่ — ลงทะเบียนเป็นคนใหม่' : 'ลงทะเบียน'}</button>
-      {!complete && <p className="pagehint" style={{ margin: 0 }}>กรอก ชื่อ · นามสกุล · เพศ ให้ครบ ปุ่มลงทะเบียนจึงกดได้</p>}
+      <button type="button" className="btn btn--gold bigbtn btn--block" disabled={busy || !complete || !!exact} onClick={save}>{busy ? 'กำลังบันทึก…' : similar.length ? 'ไม่ใช่ — บันทึกเป็นคนใหม่' : 'บันทึก'}</button>
+      {!complete && <p className="pagehint" style={{ margin: 0 }}>กรอก ชื่อ · นามสกุล · เพศ ให้ครบ ปุ่มบันทึกจึงกดได้ · บันทึกแล้วเข้าทะเบียนสมาชิกและลงชื่อนมัสการพร้อมกัน</p>}
     </Sheet>
   )
 }
