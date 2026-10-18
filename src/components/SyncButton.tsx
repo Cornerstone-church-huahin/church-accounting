@@ -33,9 +33,9 @@ export default function SyncButton() {
                 {g.syncing > 0 ? 'กำลังดึงข้อมูล…' : bad ? <b style={{ color: 'var(--bad)' }}>⚠ ซิงก์ไม่สำเร็จ</b> : g.lastOk ? <b style={{ color: 'var(--good)' }}>✓ ข้อมูลเป็นปัจจุบัน ซิงก์ล่าสุด {hm(g.lastOk)} น.</b> : 'ยังไม่เคยซิงก์ในรอบนี้'}
               </p>
               {bad && (
-                <ul className="list" aria-label="สาเหตุ">
-                  {g.errors.map((e) => <li key={e} style={{ display: 'block' }} className="small">{e}</li>)}
-                </ul>
+                <div aria-label="สาเหตุ" style={{ display: 'grid', gap: '0.4rem' }}>
+                  {g.errors.map((e) => <p key={e} role="alert" style={{ margin: 0, padding: '0.6rem 0.75rem', borderRadius: '0.7rem', border: '1.5px solid var(--bad)', color: 'var(--ink)', fontSize: '1rem', lineHeight: 1.45, background: 'var(--surface)' }}>{e}</p>)}
+                </div>
               )}
               {bad && g.lastOk && <p className="pagehint" style={{ margin: 0 }}>ล่าสุดที่ซิงก์สำเร็จ {hm(g.lastOk)} น. ข้อมูลที่แก้ในเครื่องนี้เก็บไว้ จะส่งขึ้นเองเมื่อซิงก์ได้</p>}
               <button type="button" className="btn btn--gold bigbtn btn--block" disabled={g.syncing > 0} onClick={pull}>🔄 ดึงข้อมูลใหม่ตอนนี้</button>

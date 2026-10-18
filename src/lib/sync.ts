@@ -97,16 +97,20 @@ export const remoteWins = (localEpoch: number, remoteEpoch: number | undefined) 
 type Pulled<T extends SharedItem> = { items: T[]; sha?: string; exists: boolean; epoch?: number }
 /** ETag ล่าสุดของแต่ละไฟล์: ถามซ้ำแบบมีเงื่อนไข (If-None-Match) ถ้าไม่มีอะไรเปลี่ยน GitHub ตอบ 304 ซึ่งไม่นับโควตาการเรียก (โควตา 5,000/ชั่วโมงใช้ร่วมกันทุกเครื่องที่ใช้รหัสเดียวกัน) */
 const etags = new Map<string, { etag: string; res: Pulled<SharedItem> }>()
-export const clearEtagCache = () => etags.clear()
+let etagsOff = false
+export const clearEtagCache = () => { etags.clear(); etagsOff = false }
 
 export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<Pulled<T>> {
   let r: Response
   const key = `${cfg.repo}:${file}`
-  const cached = etags.get(key)
+  let cached = etagsOff ? undefined : etags.get(key)
   try {
     r = await api(cfg, `contents/${encPath(file)}`, cached ? { headers: { 'if-none-match': cached.etag } } : {})
   } catch {
-    throw new Error(OFFLINE)
+    if (!cached) throw new Error(OFFLINE)
+    // ส่งหัวแบบมีเงื่อนไขแล้วล้ม (เบราว์เซอร์/เครือข่ายไม่รับ) → เลิกใช้ ETag แล้วลองแบบเดิม ไม่ให้ซิงก์พังเพราะฟีเจอร์ประหยัดโควตา
+    etagsOff = true; etags.clear(); cached = undefined
+    try { r = await api(cfg, `contents/${encPath(file)}`) } catch { throw new Error(OFFLINE) }
   }
   if (r.status === 304 && cached) return { ...(cached.res as Pulled<T>), items: [...(cached.res.items as T[])] }
   if (r.status === 404) {
