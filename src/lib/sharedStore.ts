@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { blocked, MEMBERS_KEY, myRole, STORE_EVENT, whoAmI, type Perm } from './access'
+import { noteSync } from './syncStatus'
 import { getSync, mergeItems, pullFile, pushFile, remoteWins, SYNC_EVENT, type SharedItem, type SyncStatus } from './sync'
 
 /**
@@ -64,19 +65,20 @@ export function useSharedStore<T extends SharedItem>(opts: {
   }, [localKey, me]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncNow = useCallback(async () => {
+    const report = (st: SyncStatus) => { setSync(st); noteSync(localKey, st) }
     const cfg = getSync()
     if (busy.current) return
-    if (!cfg) return setSync({ state: 'off' })
+    if (!cfg) return report({ state: 'off' })
     // ยังไม่รู้สิทธิ์ (รายชื่อผู้ใช้ร่วมยังไม่เคยซิงก์) หรือรออนุมัติ: ยังไม่ดึง/ส่งข้อมูลบัญชี
-    if (scope !== 'members' && (localStorage.getItem(MEMBERS_KEY) === null || myRole() === 'pending' || myRole() === 'paused')) return setSync({ state: 'idle' })
-    setSync({ state: 'syncing' })
+    if (scope !== 'members' && (localStorage.getItem(MEMBERS_KEY) === null || myRole() === 'pending' || myRole() === 'paused')) return report({ state: 'idle' })
+    report({ state: 'syncing' })
     try {
       const remote = await pullFile<T>(cfg, file)
       if (remoteWins(getEpoch(), remote.epoch)) {
         // ไฟล์ออนไลน์ถูกลบถาวร/ล้างข้อมูลหลังซิงก์ครั้งล่าสุดของเครื่องนี้: ใช้ของออนไลน์ ทิ้งของเก่าในเครื่อง (กันข้อมูลที่ลบแล้วผุดกลับ)
         setLocal(remote.items)
         setEpoch(remote.epoch ?? 0)
-        return setSync({ state: 'ok', at: Date.now() })
+        return report({ state: 'ok', at: Date.now() })
       }
       const merged = mergeItems(latest.current, remote.items)
       setLocal(merged)
@@ -85,11 +87,11 @@ export function useSharedStore<T extends SharedItem>(opts: {
         return !r || x.updated > r.updated
       })
       if (localNewer) await pushFile(cfg, file, label, merged, remote.sha, true, remote.epoch)
-      setSync({ state: 'ok', at: Date.now() })
+      report({ state: 'ok', at: Date.now() })
     } catch (e) {
-      setSync({ state: 'error', message: e instanceof Error ? e.message : String(e) })
+      report({ state: 'error', message: e instanceof Error ? e.message : String(e) })
     }
-  }, [file, label, setLocal, scope])
+  }, [file, label, setLocal, scope, localKey])
 
   syncNowRef.current = syncNow
   useEffect(() => {
