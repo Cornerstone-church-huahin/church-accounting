@@ -106,7 +106,11 @@ try {
   // ปุ่มรีเฟรชที่หัวแอป: เครื่องที่ยังไม่เชื่อมต่อออนไลน์ แจ้งให้รู้ว่าข้อมูลเป็นสำเนาในเครื่อง
   await page.getByRole('button', { name: /ยังไม่ได้เชื่อมต่อออนไลน์|รีเฟรชข้อมูล/ }).click()
   must(/ยังไม่ได้เชื่อมต่อออนไลน์/.test(await page.getByRole('dialog', { name: 'สถานะข้อมูลออนไลน์' }).innerText()), 'sync dialog explains the device is not connected')
-  await page.getByRole('dialog', { name: 'สถานะข้อมูลออนไลน์' }).getByRole('button', { name: 'ปิด' }).click()
+  await page.getByLabel(/วางลิงก์เชิญ/).fill('ขอเชิญ… เปิดลิงก์นี้:\nhttps://x.github.io/app/?openExternalBrowser=1#/join?t=fake_token_123&role=bookkeeper&for=%E0%B8%9B%E0%B8%B4%E0%B9%8B%E0%B8%A1')
+  await page.getByRole('button', { name: 'เชื่อมต่อด้วยลิงก์นี้' }).click()
+  await page.getByRole('heading', { name: /ขอร่วมใช้แอปบัญชี/ }).waitFor({ timeout: 3000 })
+  await page.goBack().catch(() => {})
+  await page.goto(`http://localhost:${PORT}/#/members`); await page.waitForLoadState('networkidle')
   // ลงชื่อนมัสการหน้างาน
   await page.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
   // วันที่เริ่มต้น = วันนี้ทันที (เลือกวันอื่นได้) · ผู้บันทึกที่เลือกไว้เครื่องจำให้จนกว่าจะเปลี่ยน

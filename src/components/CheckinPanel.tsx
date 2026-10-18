@@ -4,6 +4,8 @@ import Sheet from './Sheet'
 import { dow, fmtDateLong, todayISO, yearOf } from '../lib/money'
 import { ageText, checkInId, nameKey, NEW_PERSON_STATUS, similarNames, statusLabel, uniqueId } from '../lib/registry'
 import { uploadMemberPhoto } from '../lib/memberPhoto'
+import { clearEtagCache, SYNC_EVENT } from '../lib/sync'
+import { useGlobalSync } from '../lib/syncStatus'
 import { OPEN_RECORDER, useRecorderPick } from '../lib/recorderPick'
 import { reportText, serviceReport, shareText } from '../lib/serviceReport'
 import type { CheckIn, ChurchMember, Recorder } from '../lib/types'
@@ -35,6 +37,8 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
   const [adding, setAdding] = useState(false)
   const [sharing, setSharing] = useState(false) // ป๊อปอัพตรวจข้อความก่อนแชร์
   const [askDel, setAskDel] = useState<CheckIn | null>(null) // การ์ดที่กำลังจะลบ (รอยืนยันในป๊อปอัพ)
+  const g = useGlobalSync()
+  useEffect(() => { void syncNow() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- เปิดหน้าลงชื่อ = ดึงรายชื่อล่าสุดทันที
   const latest = useRef(checkins)
   latest.current = checkins
   const { picked } = useRecorderPick(recorders)
@@ -147,6 +151,12 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
       {dow(date) !== 0 && <p className="small" style={{ color: 'var(--bad)', margin: 0 }}>ไม่ใช่วันอาทิตย์ — ถ้าเป็นการนมัสการพิเศษก็บันทึกได้</p>}
       {tooOld && <p className="small" style={{ color: 'var(--bad)', margin: 0 }}>บันทึกได้เฉพาะปี {minYear + 543}–{yearOf(today) + 543}</p>}
 
+      {(!g.connected || g.errors.length > 0) && (
+        <p role="alert" className="small" style={{ margin: 0, padding: '8px 10px', border: '2px solid var(--bad)', borderRadius: 8, fontWeight: 700 }}>
+          {!g.connected ? 'เครื่องนี้ยังไม่ได้เชื่อมต่อออนไลน์ จึงไม่เห็นรายชื่อที่เครื่องอื่นลงไว้ — กดปุ่มรีเฟรชที่หัวแอปเพื่อเชื่อมต่อ' : `ยังดึงรายชื่อล่าสุดไม่ได้ จึงอาจเห็นผู้มาไม่ครบ: ${g.errors[0]}`}
+          {g.connected && <> <button type="button" className="mini" onClick={() => { clearEtagCache(); window.dispatchEvent(new Event(SYNC_EVENT)) }}>🔄 ลองใหม่</button></>}
+        </p>
+      )}
       {msg && <p className="small" role="status" style={{ margin: 0, color: msg.bad ? 'var(--bad)' : undefined, fontWeight: 700 }}>{msg.text}</p>}
       <div className="row row--between" style={{ flexWrap: 'nowrap' }}>
         <span>ลงชื่อ{date === today ? 'วันนี้' : ''}แล้ว <b style={{ fontSize: '1.3rem' }}>{doneRows.length}</b> คน</span>
