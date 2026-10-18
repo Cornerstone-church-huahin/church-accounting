@@ -55,3 +55,22 @@ describe('pullFile: ถามแบบมีเงื่อนไข (ETag) ป�
     expect((await pullFile(cfg, 'f.json')).items[0].id).toBe('b')
   })
 })
+
+describe('pullFile: ถ้าส่งหัวแบบมีเงื่อนไขไม่ได้ ถอยกลับไปถามแบบเดิม', () => {
+  afterEach(() => { vi.unstubAllGlobals(); clearEtagCache() })
+  it('ล้มครั้งที่สองด้วย network error → ลองใหม่ไม่ใส่ If-None-Match และได้ข้อมูล', async () => {
+    const cfg = { repo: 'o/r', token: 't', name: 'x' }
+    const body = { sha: 's1', encoding: 'base64', content: btoa(JSON.stringify({ items: [{ id: 'a', updated: 1 }] })) }
+    let n = 0
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      n++
+      const h = (init.headers ?? {}) as Record<string, string>
+      if (n === 1) return new Response(JSON.stringify(body), { status: 200, headers: { etag: '"e1"' } })
+      if (h['if-none-match']) throw new TypeError('Failed to fetch') // จำลอง CORS ไม่รับหัวนี้
+      return new Response(JSON.stringify(body), { status: 200 })
+    }))
+    await pullFile(cfg, 'f.json')
+    const again = await pullFile(cfg, 'f.json')
+    expect(again.items[0].id).toBe('a')
+  })
+})
