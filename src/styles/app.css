@@ -545,3 +545,5 @@ button.mrow { all: unset; box-sizing: border-box; cursor: pointer; display: grid
 button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700; text-decoration: underline; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .newcomer, :root:not([data-theme="light"]) button.newcomer { color: #6aa4ff; } }
 :root[data-theme="dark"] .newcomer, :root[data-theme="dark"] button.newcomer { color: #6aa4ff; }
+/* หมายเหตุในการ์ดลงชื่อ: ตัวเล็ก ไม่เกิน 2 บรรทัด */
+.cardNote { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.72rem; line-height: 1.3; color: var(--muted, #5a6478); margin-top: 0.1rem; }

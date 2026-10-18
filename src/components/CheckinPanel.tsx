@@ -100,6 +100,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
             <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
             <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
             {c && <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>}
+            {m.note?.trim() && <span className="cardNote">หมายเหตุ: {m.note.trim()}</span>}
           </button>
           {c
             ? <span className="pick__act mrow__ok" style={{ textAlign: 'center', minHeight: '3rem', display: 'grid', placeItems: 'center' }}>✓ ลงชื่อแล้ววันนี้</span>
@@ -164,6 +165,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                       <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <span className="doneBy"><span className="doneBy__n">ผู้บันทึก {c.rec ?? '—'}</span>{c.tm && <span className="doneBy__t">{c.tm}</span>}</span>
+                      {m.note?.trim() && <span className="cardNote">หมายเหตุ: {m.note.trim()}</span>}
                     </button>
                     <div className="pick__btns">
                       <button type="button" className="mini pick__edit" onClick={() => onEdit(m.id)} aria-label={`แก้ไขข้อมูล ${m.name}`}>✎ แก้ไข</button>
