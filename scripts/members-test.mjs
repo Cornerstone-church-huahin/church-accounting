@@ -103,6 +103,10 @@ try {
   await page.locator('table.tbl tbody tr').first().click()
   must(/สมชาย/.test(await page.locator('table.tbl').innerText()), 'expanding a service lists who came')
   await snap('1b-stats')
+  // ปุ่มรีเฟรชที่หัวแอป: เครื่องที่ยังไม่เชื่อมต่อออนไลน์ แจ้งให้รู้ว่าข้อมูลเป็นสำเนาในเครื่อง
+  await page.getByRole('button', { name: /ยังไม่ได้เชื่อมต่อออนไลน์|รีเฟรชข้อมูล/ }).click()
+  must(/ยังไม่ได้เชื่อมต่อออนไลน์/.test(await page.getByRole('dialog', { name: 'สถานะข้อมูลออนไลน์' }).innerText()), 'sync dialog explains the device is not connected')
+  await page.getByRole('dialog', { name: 'สถานะข้อมูลออนไลน์' }).getByRole('button', { name: 'ปิด' }).click()
   // ลงชื่อนมัสการหน้างาน
   await page.getByRole('tab', { name: 'ลงชื่อ', exact: true }).click()
   // วันที่เริ่มต้น = วันนี้ทันที (เลือกวันอื่นได้) · ผู้บันทึกที่เลือกไว้เครื่องจำให้จนกว่าจะเปลี่ยน

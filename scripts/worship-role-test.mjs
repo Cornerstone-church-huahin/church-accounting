@@ -63,6 +63,11 @@ try {
   const wsh = page.getByRole('dialog', { name: 'ตรวจข้อมูลก่อนแชร์' })
   must(/ผู้เข้าร่วมทั้งหมด/.test(await wsh.getByLabel('ข้อความที่จะแชร์').innerText()), 'worship: share popup previews the message')
   await wsh.getByRole('button', { name: 'ยกเลิก' }).click()
+  // ปุ่มรีเฟรชที่หัวแอป: แตะแล้วเห็นสถานะ + ปุ่มดึงข้อมูลใหม่
+  await page.getByRole('button', { name: /รีเฟรชข้อมูล|ซิงก์ผิดพลาด/ }).click()
+  const syncDlg = page.getByRole('dialog', { name: 'สถานะข้อมูลออนไลน์' })
+  must(await syncDlg.getByRole('button', { name: /ดึงข้อมูลใหม่ตอนนี้/ }).count() === 1, 'sync dialog has the refresh action')
+  await syncDlg.getByRole('button', { name: 'ปิด' }).click()
   const tabs = await page.locator('[role=tab]').allInnerTexts()
   must(tabs.join(',') === 'ลงชื่อ,ยอดผู้มา,ทะเบียน', 'แท็บต้องมี 3 อัน: ' + tabs.join(','))
   await page.getByRole('tab', { name: 'ทะเบียน' }).click()
