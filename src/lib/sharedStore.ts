@@ -97,7 +97,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
     const onVis = () => document.visibilityState === 'visible' && syncNow()
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener(SYNC_EVENT, syncNow)
-    const t = opts.poll === false ? undefined : window.setInterval(syncNow, 60_000)
+    const t = opts.poll === false ? undefined : window.setInterval(() => { if (document.visibilityState === 'visible') syncNow() }, 60_000) // เครื่องที่พับจอ/อยู่เบื้องหลังไม่ดึงทุกนาที ประหยัดโควตา GitHub ที่ทุกเครื่องใช้ร่วมกัน
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener(SYNC_EVENT, syncNow)

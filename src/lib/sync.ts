@@ -63,6 +63,28 @@ function explain(status: number): string {
   if (status === 404) return 'ไม่พบ repo ข้อมูล หรือรหัสนี้ไม่ได้รับสิทธิ์ใน repo นั้น'
   return `เชื่อมต่อไม่สำเร็จ (${status})`
 }
+/**
+ * บอกสาเหตุจริงที่ GitHub ปฏิเสธ (403 มีได้หลายสาเหตุ: โควตาการเรียกเต็ม · รหัสยังไม่ได้รับอนุมัติ/ไม่ได้เลือก repo · สิทธิ์ไม่พอ)
+ * remaining/reset มาจากหัว x-ratelimit-remaining / x-ratelimit-reset (วินาที epoch)
+ */
+export function describeFailure(status: number, ghMessage = '', remaining: string | null = null, reset: string | null = null): string {
+  const msg = ghMessage.trim()
+  if ((status === 403 || status === 429) && (remaining === '0' || /rate limit/i.test(msg))) {
+    const t = reset && Number(reset) ? new Date(Number(reset) * 1000) : null
+    const at = t ? ` ใช้ได้อีกประมาณ ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} น.` : ' รอสักครู่'
+    return `โควตาการเรียก GitHub ของรหัสนี้เต็มชั่วคราว (ทุกเครื่องที่ใช้รหัสเดียวกันใช้โควตาร่วมกัน)${at} แล้วลองใหม่`
+  }
+  if (status === 403 && /not accessible by (personal access token|integration)|resource not accessible/i.test(msg)) {
+    return 'รหัสนี้ยังไม่ได้รับสิทธิ์ใช้ repo ข้อมูล: ตอนสร้างรหัสต้องเลือก repo นี้และตั้ง Contents: Read and write (ถ้า repo อยู่ในองค์กร เจ้าขององค์กรต้องอนุมัติรหัสนี้ก่อน)'
+  }
+  return explain(status) + (msg ? ` · GitHub แจ้งว่า: ${msg}` : '')
+}
+/** อ่านสาเหตุจากคำตอบของ GitHub ที่ไม่สำเร็จ */
+async function explainResponse(r: Response): Promise<string> {
+  let message = ''
+  try { message = ((await r.clone().json()) as { message?: string }).message ?? '' } catch { /* ไม่ใช่ JSON */ }
+  return describeFailure(r.status, message, r.headers.get('x-ratelimit-remaining'), r.headers.get('x-ratelimit-reset'))
+}
 const OFFLINE = 'ไม่มีอินเทอร์เน็ต — บันทึกไว้ในเครื่องก่อน จะส่งขึ้นเมื่อเชื่อมต่อได้'
 const encPath = (p: string) => p.split('/').map(encodeURIComponent).join('/')
 
@@ -72,20 +94,28 @@ const encPath = (p: string) => p.split('/').map(encodeURIComponent).join('/')
  */
 export const remoteWins = (localEpoch: number, remoteEpoch: number | undefined) => (remoteEpoch ?? 0) > localEpoch
 
-export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<{ items: T[]; sha?: string; exists: boolean; epoch?: number }> {
+type Pulled<T extends SharedItem> = { items: T[]; sha?: string; exists: boolean; epoch?: number }
+/** ETag ล่าสุดของแต่ละไฟล์: ถามซ้ำแบบมีเงื่อนไข (If-None-Match) ถ้าไม่มีอะไรเปลี่ยน GitHub ตอบ 304 ซึ่งไม่นับโควตาการเรียก (โควตา 5,000/ชั่วโมงใช้ร่วมกันทุกเครื่องที่ใช้รหัสเดียวกัน) */
+const etags = new Map<string, { etag: string; res: Pulled<SharedItem> }>()
+export const clearEtagCache = () => etags.clear()
+
+export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<Pulled<T>> {
   let r: Response
+  const key = `${cfg.repo}:${file}`
+  const cached = etags.get(key)
   try {
-    r = await api(cfg, `contents/${encPath(file)}`)
+    r = await api(cfg, `contents/${encPath(file)}`, cached ? { headers: { 'if-none-match': cached.etag } } : {})
   } catch {
     throw new Error(OFFLINE)
   }
+  if (r.status === 304 && cached) return { ...(cached.res as Pulled<T>), items: [...(cached.res.items as T[])] }
   if (r.status === 404) {
     // repo มีอยู่แต่ยังไม่มีไฟล์ = ครั้งแรก · repo ไม่มี/ไม่มีสิทธิ์ = ผิดพลาด
     const repo = await api(cfg, '').catch(() => null)
     if (repo?.ok) return { items: [], exists: false }
     throw new Error(explain(repo?.status ?? 404))
   }
-  if (!r.ok) throw new Error(explain(r.status))
+  if (!r.ok) throw new Error(await explainResponse(r))
   const body = (await r.json()) as { content?: string; sha: string; encoding?: string }
   let text = body.content && body.encoding === 'base64' ? b64decode(body.content) : ''
   if (!text) {
@@ -94,7 +124,10 @@ export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: stri
     text = raw.ok ? await raw.text() : ''
   }
   const data = JSON.parse(text || '{"items":[]}') as { items?: T[]; epoch?: number }
-  return { items: (data.items ?? []).filter((x) => x && x.id), sha: body.sha, exists: true, epoch: data.epoch }
+  const res: Pulled<T> = { items: (data.items ?? []).filter((x) => x && x.id), sha: body.sha, exists: true, epoch: data.epoch }
+  const etag = r.headers.get('etag')
+  if (etag) etags.set(key, { etag, res: { ...res, items: [...res.items] } as Pulled<SharedItem> })
+  return res
 }
 
 export function mergeItems<T extends SharedItem>(a: T[], b: T[]): T[] {
@@ -127,7 +160,7 @@ export async function pushFile<T extends SharedItem>(cfg: SyncConfig, file: stri
 export async function testSync(cfg: SyncConfig): Promise<string> {
   try {
     const r = await api(cfg, '')
-    if (!r.ok) return explain(r.status)
+    if (!r.ok) return await explainResponse(r)
     const j = (await r.json()) as { private?: boolean; permissions?: { push?: boolean } }
     if (j.permissions && !j.permissions.push) return 'รหัสนี้อ่านได้อย่างเดียว ต้องให้สิทธิ์ Contents: Read and write'
     if (j.private === false) return 'repo ข้อมูลนี้เป็นสาธารณะ — ต้องตั้งเป็น Private เพื่อไม่ให้คนนอกเห็นบัญชี'
