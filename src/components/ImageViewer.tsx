@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { getBinary, getSync } from '../lib/sync'
 
-/** ดูรูปบิล/สลิปแบบเต็มจอ + พิมพ์ · แชร์ · บันทึก (แตะรูปในช่องหมายเหตุของใบเบิก-จ่าย) */
-export default function ImageViewer({ path, name, title, onClose }: { path: string; name: string; title: string; onClose: () => void }) {
+/** ดูรูปบิล/สลิปแบบเต็มจอ + พิมพ์ · แชร์ · บันทึก · แก้ไข (เปลี่ยนรูป/ลบรูป) (แตะรูปในช่องหมายเหตุของใบเบิก-จ่าย) */
+export default function ImageViewer({ path, name, title, onClose, onReplace, onRemove }: { path: string; name: string; title: string; onClose: () => void; /** ใส่มา = มีปุ่ม แก้ไข > เปลี่ยนรูป */ onReplace?: (f: File) => Promise<void>; /** ใส่มา = มีปุ่ม แก้ไข > ลบรูป */ onRemove?: () => Promise<void> }) {
+  const [menu, setMenu] = useState(false)
+  const [askDel, setAskDel] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [blob, setBlob] = useState<Blob | null>(null)
   const [url, setUrl] = useState('')
   const [err, setErr] = useState('')
@@ -20,6 +23,10 @@ export default function ImageViewer({ path, name, title, onClose }: { path: stri
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
   }, [onClose])
+  const run = async (job: () => Promise<void>, ok: string) => {
+    setBusy(true); setMsg('')
+    try { await job(); setMenu(false); setAskDel(false); if (ok) setMsg(ok) } catch (e) { setMsg(e instanceof Error ? e.message : 'ทำรายการไม่สำเร็จ') } finally { setBusy(false) }
+  }
   const fileName = name || `bill-${Date.now()}.jpg`
   const asFile = () => (blob ? new File([blob], fileName, { type: blob.type || 'image/jpeg' }) : null)
 
@@ -62,7 +69,29 @@ export default function ImageViewer({ path, name, title, onClose }: { path: stri
         <button type="button" className="btn btn--gold grow" disabled={!url} onClick={print}>🖨 พิมพ์</button>
         <button type="button" className="btn btn--gold grow" disabled={!url} onClick={() => void share()}>📤 แชร์</button>
         <button type="button" className="btn btn--gold grow" disabled={!url} onClick={save}>💾 บันทึก</button>
+        {(onReplace || onRemove) && <button type="button" className="btn btn--gold grow" disabled={busy} onClick={() => setMenu(true)} aria-label="แก้ไขรูป">✎ แก้ไข</button>}
       </div>
+      {menu && (
+        <div role="dialog" aria-label="แก้ไขรูป" style={{ position: 'absolute', inset: 0, zIndex: 2, background: 'rgba(8,12,24,.6)', display: 'flex', alignItems: 'flex-end' }} onClick={(e) => e.target === e.currentTarget && !busy && (setMenu(false), setAskDel(false))}>
+          <div className="card" style={{ width: '100%', borderRadius: '1.2rem 1.2rem 0 0', display: 'grid', gap: '0.6rem', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+            <div className="row row--between"><h2 style={{ margin: 0 }}>{askDel ? 'ลบรูปนี้?' : 'แก้ไขรูป'}</h2><button type="button" className="mini" disabled={busy} onClick={() => { setMenu(false); setAskDel(false) }}>ปิด</button></div>
+            {askDel ? (
+              <>
+                <p style={{ margin: 0 }}>ลบรูปของ “{title}” ออกจากรายการนี้ใช่ไหม? (รายการและยอดเงินยังอยู่ ลบเฉพาะรูป)</p>
+                <div className="row" style={{ flexWrap: 'nowrap' }}>
+                  <button type="button" className="btn btn--ghost bigbtn grow" disabled={busy} onClick={() => setAskDel(false)}>ไม่ลบ</button>
+                  <button type="button" className="btn btn--danger bigbtn grow" disabled={busy} onClick={() => onRemove && void run(onRemove, '')}>{busy ? 'กำลังลบ…' : 'ลบรูป'}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {onReplace && <label className="btn btn--gold bigbtn btn--block" style={{ cursor: 'pointer' }}>{busy ? 'กำลังอัปโหลด…' : '📷 เปลี่ยนรูป (ถ่าย / เลือกรูปใหม่)'}<input hidden type="file" accept="image/*" aria-label="รูปใหม่" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void run(() => onReplace(f), 'เปลี่ยนรูปแล้ว ✓') }} /></label>}
+                {onRemove && <button type="button" className="btn btn--danger bigbtn btn--block" disabled={busy} onClick={() => setAskDel(true)}>🗑 ลบรูป</button>}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
