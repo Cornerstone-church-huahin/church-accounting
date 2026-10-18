@@ -554,3 +554,8 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 .topbar__sync--spin svg { animation: syncspin 1s linear infinite; }
 @keyframes syncspin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .topbar__sync--spin svg { animation: none; } }
+/* เลือกสิทธิ์ได้หลายอย่าง */
+.rolepick { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; text-align: left; cursor: pointer; line-height: 1.3; padding-block: 0.4rem; }
+.rolepick__v { min-width: 0; overflow-wrap: anywhere; }
+.rolechk { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start; padding: 0.55rem 0.2rem; cursor: pointer; }
+.rolechk input { width: 1.5rem; height: 1.5rem; margin-top: 0.15rem; accent-color: var(--navy); }

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import MoneyInput from '../components/MoneyInput'
-import { can, ROLE_HELP, ROLE_LABEL, ROLES, type Role } from '../lib/access'
+import { can, normalizeRoles, ROLE_HELP, ROLE_LABEL, ROLES, rolesLabel, rolesOf, type Role } from '../lib/access'
+import RolePicker from '../components/RolePicker'
 import { isFundType } from '../lib/funds'
 import { makeExpenseGroup, makeIncomeType } from '../lib/catalog'
 import { DEFAULT_EXPENSE_CATS } from '../lib/expenseCats'
@@ -94,7 +95,7 @@ function Members() {
   const cfg = getSync()
   const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'worship' | 'auditor' | 'viewer'>('bookkeeper')
   const [inviteFor, setInviteFor] = useState('')
-  const [want, setWant] = useState<Record<string, Role>>({})
+  const [want, setWant] = useState<Record<string, Role[]>>({})
   const [delId, setDelId] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   if (!cfg) return null
@@ -126,16 +127,14 @@ function Members() {
           {m.pending.length === 0 && <p className="muted small">ยังไม่มีคำขอ <button type="button" className="mini" onClick={m.syncNow}>🔄 ตรวจคำขอใหม่</button></p>}
           <ul className="list">
             {m.pending.map((x) => {
-              const w = want[x.id] ?? x.role
+              const w = want[x.id] ?? rolesOf(x)
               const matches = !x.invitedFor || x.invitedFor.trim().toLowerCase() === x.name.trim().toLowerCase()
               return (
                 <li key={x.id} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div><b>{x.name}</b><br /><span className="small muted">{x.invitedFor ? (matches ? `✓ ตรงกับชื่อที่ส่งลิงก์ให้ (${x.invitedFor})` : `⚠️ ลิงก์นี้ส่งให้ “${x.invitedFor}” แต่ผู้ขอใช้ชื่อ “${x.name}” — ตรวจให้แน่ใจก่อนอนุมัติ`) : 'ลิงก์ไม่ได้ระบุชื่อผู้รับ — ตรวจว่าเป็นคนที่ท่านส่งไปหรือไม่'}</span></div>
                   <div className="row">
-                    <select aria-label={`สิทธิ์ที่จะให้ ${x.name}`} className="input grow" value={w} onChange={(e) => setWant({ ...want, [x.id]: e.target.value as Role })}>
-                      {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-                    </select>
-                    <button type="button" className="btn btn--gold" onClick={() => { m.approve(x.id, w); flash(`อนุมัติ ${x.name} แล้ว (${ROLE_LABEL[w]})`) }}>✓ อนุมัติ</button>
+                    <div className="grow" style={{ minWidth: 0 }}><RolePicker label={`สิทธิ์ที่จะให้ ${x.name}`} value={w} onChange={(rs) => setWant({ ...want, [x.id]: rs })} /></div>
+                    <button type="button" className="btn btn--gold" onClick={() => { m.approve(x.id, w); flash(`อนุมัติ ${x.name} แล้ว (${rolesLabel(normalizeRoles(w))})`) }}>✓ อนุมัติ</button>
                     <button type="button" className="btn btn--ghost" onClick={() => { m.reject(x.id); flash(`ไม่อนุมัติ ${x.name}`) }}>✕</button>
                   </div>
                 </li>
@@ -148,21 +147,19 @@ function Members() {
       {m.members.length === 0 && <p className="muted small">ยังไม่มีรายชื่อ — จะขึ้นเมื่อซิงก์ครั้งแรกเสร็จ <button type="button" className="mini" onClick={m.syncNow}>🔄 ซิงก์ตอนนี้</button></p>}
       <ul className="list">
         {m.members.map((x) => {
-          const lastAdmin = x.role === 'admin' && m.adminCount <= 1
+          const lastAdmin = rolesOf(x).includes('admin') && m.adminCount <= 1
           return (
-            <li key={x.id} style={{ flexWrap: 'wrap' }}>
-              <span className="grow"><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
+            <li key={x.id} style={{ flexWrap: 'wrap', gap: '0.4rem 0.5rem' }}>
+              <span className="grow" style={{ flexBasis: '100%' }}><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
               {m.isAdmin ? (
                 <>
-                  <select aria-label={`สิทธิ์ของ ${x.name}`} className="input" style={{ width: '10.5rem' }} value={x.role} disabled={lastAdmin} onChange={(e) => { if (!m.setRole(x.id, e.target.value as Role)) flash('ต้องมีแอดมินอย่างน้อย 1 คน') }}>
-                    {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-                  </select>
-                  {x.role !== 'admin' && <button type="button" className="mini" onClick={() => m.setPaused(x.id, !x.paused)} aria-label={`${x.paused ? 'เปิดสิทธิ์คืน' : 'พักสิทธิ์'} ${x.name}`}>{x.paused ? '▶ เปิดคืน' : '⏸ พัก'}</button>}
+                  <div style={{ width: '12.5rem', maxWidth: '100%' }}><RolePicker label={`สิทธิ์ของ ${x.name}`} value={rolesOf(x)} disabled={lastAdmin} onChange={(rs) => { if (m.setRole(x.id, rs)) flash(`ตั้งสิทธิ์ ${x.name}: ${rolesLabel(rs)}`); else flash('ต้องมีแอดมินอย่างน้อย 1 คน') }} /></div>
+                  {!rolesOf(x).includes('admin') && <button type="button" className="mini" onClick={() => m.setPaused(x.id, !x.paused)} aria-label={`${x.paused ? 'เปิดสิทธิ์คืน' : 'พักสิทธิ์'} ${x.name}`}>{x.paused ? '▶ เปิดคืน' : '⏸ พัก'}</button>}
                   {delId === x.id ? (
                     <span className="row"><button type="button" className="btn btn--danger" onClick={() => { if (!m.removeMember(x.id)) flash('ลบแอดมินคนสุดท้ายไม่ได้'); setDelId(null) }}>ลบ {x.name}</button><button type="button" className="btn btn--ghost" onClick={() => setDelId(null)}>ไม่ลบ</button></span>
                   ) : <button type="button" className="mini" disabled={lastAdmin} onClick={() => setDelId(x.id)} aria-label={`ลบ ${x.name}`}>🗑️</button>}
                 </>
-              ) : <span className="badge">{ROLE_LABEL[x.role]}</span>}
+              ) : <span className="badge">{rolesLabel(rolesOf(x))}</span>}
             </li>
           )
         })}

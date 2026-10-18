@@ -24,3 +24,25 @@ describe('สิทธิ์ผู้บันทึกการนมัสก�
     expect(ROLE_LABEL.worship).toBe('ผู้บันทึกการนมัสการ')
   })
 })
+
+import { normalizeRoles, primaryRole, rolesOf, rolesLabel } from './access'
+describe('หลายสิทธิ์ต่อคน', () => {
+  it('rolesOf: รองรับข้อมูลเก่าที่มีแค่ role และข้อมูลใหม่ที่มี roles', () => {
+    expect(rolesOf({ role: 'bookkeeper' })).toEqual(['bookkeeper'])
+    expect(rolesOf({ role: 'bookkeeper', roles: ['bookkeeper', 'worship'] })).toEqual(['bookkeeper', 'worship'])
+  })
+  it('primaryRole เลือกสิทธิ์สูงสุด', () => {
+    expect(primaryRole(['worship', 'auditor'])).toBe('auditor')
+    expect(primaryRole(['worship', 'bookkeeper'])).toBe('bookkeeper')
+    expect(primaryRole(['worship'])).toBe('worship')
+  })
+  it('normalizeRoles: แอดมินเดี่ยว · ดูอย่างเดียวไม่ร่วมกับอื่น · ไม่ซ้ำ · ไม่ว่าง', () => {
+    expect(normalizeRoles(['admin', 'worship'])).toEqual(['admin'])
+    expect(normalizeRoles(['viewer', 'worship'])).toEqual(['worship'])
+    expect(normalizeRoles(['worship', 'bookkeeper', 'worship'])).toEqual(['bookkeeper', 'worship'])
+    expect(normalizeRoles([])).toEqual(['viewer'])
+  })
+  it('rolesLabel เรียงอ่านง่าย', () => {
+    expect(rolesLabel(['bookkeeper', 'worship'])).toBe('ผู้บันทึกบัญชี + ผู้บันทึกการนมัสการ')
+  })
+})
