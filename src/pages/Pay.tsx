@@ -62,7 +62,7 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
   const [sub, setSub] = useState<Sub>(null)
   const [form, setForm] = useState<{ entry: ExpenseEntry | null; channel: Channel } | null>(null)
   const [rowEdit, setRowEdit] = useState<{ entry: ExpenseEntry | null } | null>(null)
-  const [viewer, setViewer] = useState<{ path: string; name: string; title: string } | null>(null)
+  const [viewer, setViewer] = useState<{ id: string; path: string; name: string; title: string } | null>(null)
   const [flow, setFlow] = useState<{ channel: Channel; file?: File } | null>(null)
   const [payFor, setPayFor] = useState<ExpenseEntry | null>(null)
   const [scope, setScope] = useState<'week' | 'year'>('year')
@@ -204,12 +204,30 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onFileClick={(x) => x.file && setViewer({ path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />
       </div>
-      {viewer && <ImageViewer path={viewer.path} name={viewer.name} title={viewer.title} onClose={() => setViewer(null)} />}
+      {viewer && <ImageViewer path={viewer.path} name={viewer.name} title={viewer.title} onClose={() => setViewer(null)}
+        {...(canWrite && all.some((e) => e.id === viewer.id) ? {
+          onReplace: async (f: File) => {
+            const cur = all.find((e) => e.id === viewer.id)
+            if (!cur) throw new Error('ไม่พบรายการนี้แล้ว')
+            const pic = await uploadPic(f)
+            if (!pic.path) throw new Error('ต้องเชื่อมต่อออนไลน์ก่อนจึงเปลี่ยนรูปได้')
+            if (!exp.put([{ ...cur, file: pic, updated: 0 }])) throw new Error('สิทธิ์ของท่านเปลี่ยนรูปไม่ได้')
+            void dropFile(cur.file?.path)
+            setViewer({ ...viewer, path: pic.path, name: pic.name })
+          },
+          onRemove: async () => {
+            const cur = all.find((e) => e.id === viewer.id)
+            if (!cur) throw new Error('ไม่พบรายการนี้แล้ว')
+            if (!exp.put([{ ...cur, file: undefined, updated: 0 }])) throw new Error('สิทธิ์ของท่านลบรูปไม่ได้')
+            void dropFile(cur.file?.path)
+            setViewer(null)
+          },
+        } : {})} />}
       {rowEdit && <ExpenseRowEditor onManage={expOps} onUpload={uploadPic} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([fid ? { ...e, fundId: fid } : e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
