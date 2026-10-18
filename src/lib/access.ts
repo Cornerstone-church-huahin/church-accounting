@@ -22,7 +22,8 @@ export const ROLE_HELP: Record<Role, string> = {
 }
 
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
-export interface Member extends SharedItem { name: string; role: Role; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean }
+/** role = สิทธิ์หลัก (สูงสุดในรายการ) · roles = สิทธิ์ทั้งหมดถ้ามีมากกว่า 1 (เครื่องรุ่นเก่าอ่านแค่ role ได้ จึงไม่พัง) */
+export interface Member extends SharedItem { name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'
@@ -37,7 +38,30 @@ const PERMS: Record<Role, Perm[]> = {
   auditor: ['verifyCount', 'signoffRecon', 'voucherReview', 'detail'],
   viewer: [],
 }
-export const can = (role: AccessRole, p: Perm) => role !== 'pending' && role !== 'paused' && PERMS[role].includes(p)
+/** ลำดับความสูงของสิทธิ์ ใช้เลือกสิทธิ์หลักเมื่อมีหลายสิทธิ์ */
+const RANK: Role[] = ['admin', 'bookkeeper', 'auditor', 'worship', 'viewer']
+export const rolesOf = (m: { role: Role; roles?: Role[] }): Role[] => {
+  const all = [...new Set([m.role, ...(m.roles ?? [])])].filter((r) => RANK.includes(r))
+  return all.length ? all : [m.role]
+}
+/** สิทธิ์หลัก = สูงสุดตามลำดับ (ใช้แสดง/เปรียบเทียบเดิม) */
+export const primaryRole = (roles: Role[]): Role => RANK.find((r) => roles.includes(r)) ?? roles[0] ?? 'viewer'
+/** จัดรายการสิทธิ์ให้ถูกต้อง: แอดมินรวมทุกอย่างอยู่แล้ว (เดี่ยว) · ดูอย่างเดียวไม่มีสิทธิ์อื่นร่วม · ไม่ซ้ำ · อย่างน้อย 1 */
+export const normalizeRoles = (rs: Role[]): Role[] => {
+  const u = [...new Set(rs)].filter((r) => RANK.includes(r))
+  if (u.includes('admin')) return ['admin']
+  const others: Role[] = u.filter((r) => r !== 'viewer')
+  return others.length ? RANK.filter((r) => others.includes(r)) : ['viewer']
+}
+export const rolesLabel = (rs: Role[]) => rs.map((r) => ROLE_LABEL[r]).join(' + ')
+/** สิทธิ์ของเครื่องนี้ (หลายสิทธิ์ได้) — can() รวมสิทธิ์ทุกอันของเครื่องนี้ */
+let MY_ROLES: Role[] = []
+/** ผู้ใช้ที่มีสิทธิ์หลายอย่าง: can() ของสิทธิ์หลักรวมสิทธิ์ที่เหลือด้วย (can ใช้กับเครื่องนี้เสมอ) */
+export const can = (role: AccessRole, p: Perm) => {
+  if (role === 'pending' || role === 'paused') return false
+  if (PERMS[role].includes(p)) return true
+  return MY_ROLES.length > 1 && primaryRole(MY_ROLES) === role && MY_ROLES.some((r) => PERMS[r].includes(p))
+}
 
 export const ME_KEY = 'acct.me.v1'
 export const MEMBERS_KEY = 'acct.members.v1'
@@ -90,10 +114,16 @@ const noMembers = () => readAllMembers().filter((m) => !m.deleted).length === 0
 
 /** สิทธิ์ของเครื่องนี้ · ยังไม่เชื่อมออนไลน์ = ใช้คนเดียว (ทำได้ทุกอย่าง) · ยังไม่มีแอดมิน = ดูอย่างเดียวชั่วคราว */
 export function myRole(): AccessRole {
-  if (!getSync()) return 'admin'
+  if (!getSync()) { MY_ROLES = []; return 'admin' }
   const me = getMe()
   const mine = me && readAllMembers().find((m) => m.id === me.id)
-  if (mine) return mine.deleted ? 'pending' : mine.status === 'pending' ? 'pending' : mine.paused ? 'paused' : mine.role
+  if (mine) {
+    if (mine.deleted || mine.status === 'pending') { MY_ROLES = []; return 'pending' }
+    if (mine.paused) { MY_ROLES = []; return 'paused' }
+    MY_ROLES = rolesOf(mine)
+    return primaryRole(MY_ROLES)
+  }
+  MY_ROLES = []
   return noMembers() ? 'viewer' : 'pending'
 }
 

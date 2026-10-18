@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMe, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type Member, type Role } from './access'
+import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type Member, type Role } from './access'
 import { useSharedStore } from './sharedStore'
 import { getSync, saveSync, SYNC_EVENT } from './sync'
 
@@ -46,11 +46,12 @@ export function useMembers() {
     meId: me?.id ?? '',
     isAdmin,
     adminCount,
-    approve: (id: string, role: Role) => {
+    approve: (id: string, roles: Role | Role[]) => {
       if (!isAdmin) return false
       const m = pending.find((x) => x.id === id)
       if (!m) return false
-      store.put([{ ...m, status: 'active', role }])
+      const rs = normalizeRoles(Array.isArray(roles) ? roles : [roles])
+      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined }])
       announce()
       return true
     },
@@ -74,12 +75,13 @@ export function useMembers() {
       if (mine && mine.name !== name) store.put([{ ...mine, name }])
     },
     /** แอดมินเปลี่ยนสิทธิ์: ห้ามลดแอดมินคนสุดท้าย */
-    setRole: (id: string, role: Role) => {
+    setRole: (id: string, roles: Role | Role[]) => {
       if (!isAdmin) return false
       const m = active.find((x) => x.id === id)
       if (!m) return false
-      if (m.role === 'admin' && role !== 'admin' && adminCount <= 1) return false
-      store.put([{ ...m, role }])
+      const rs = normalizeRoles(Array.isArray(roles) ? roles : [roles])
+      if (rolesOf(m).includes('admin') && !rs.includes('admin') && adminCount <= 1) return false
+      store.put([{ ...m, role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined }])
       announce()
       return true
     },
