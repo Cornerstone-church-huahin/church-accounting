@@ -111,7 +111,7 @@ try {
   const sunday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   await page.getByLabel('วันนมัสการ').fill(sunday)
   // วันที่มีคนลงแล้ว: ค่าเริ่มต้นแสดง "เฉพาะคนที่มาวันนั้น" จำนวนแถวต้องเท่ากับยอด ไม่ปนคนที่ไม่ได้มา
-  const countText = await page.getByText(/^ลงชื่อแล้ว \d+ คน/).innerText()
+  const countText = await page.getByText(/^ลงชื่อ(วันนี้)?แล้ว \d+ คน/).innerText()
   const doneN = Number(countText.match(/\d+/)[0])
   must(await page.locator('section.card li').count() === doneN && doneN === 3, `default view lists only people who came (${doneN}): ` + await page.locator('section.card li').count())
   must(await page.locator('section.card li').filter({ hasText: 'สมหญิง' }).count() === 0 && await page.locator('section.card li').filter({ hasText: 'ผู้บันทึก' }).count() === doneN, 'people who did not come are not shown as present')
@@ -208,6 +208,7 @@ try {
   const nr = page.locator('li', { hasText: 'คนใหม่ ทดสอบ' })
   must((await nr.innerText()).includes('ผู้บันทึก') && (await nr.innerText()).includes('ผู้ช่วย ค'), 'new person recorded by the chosen recorder')
   must(await nr.locator('img').count() === 1, 'new person photo shows')
+  must((await nr.innerText()).includes('หมายเหตุ: มากับคุณสมชาย'), 'the note typed for a new person shows on the checked-in card')
   // ชื่อคล้าย: ยืนยันเป็นคนเดิมพร้อมแก้ตัวสะกด
   must(await page.getByRole('button', { name: '＋ เพิ่มใหม่' }).count() === 0, 'no permanent add button when not searching')
   must(await page.getByRole('button', { name: /^📤 แชร์/ }).count() === 1, 'share button sits next to the count')
