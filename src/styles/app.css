@@ -566,3 +566,5 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 .adjsum__ok { background: #e6f4ea; border-color: #1f8a4c !important; }
 .adjsum__unk { background: #fff4d6; border-color: #c99a14 !important; }
 .adjsum__miss { background: #fde8e6; border-color: var(--bad) !important; }
+.adjverdict { margin: 0.5rem 0; padding: 8px 10px; border-radius: 10px; font-weight: 800; background: #fff4d6; border: 2px solid #c99a14; }
+.adjverdict--ok { background: #e6f4ea; border-color: #1f8a4c; }

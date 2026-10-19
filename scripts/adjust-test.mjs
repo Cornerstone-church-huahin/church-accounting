@@ -46,6 +46,7 @@ try {
   must(await page.getByText(/ตรงกัน 2 รายการ/).first().isVisible(), 'two 300 transfers matched')
   must(await page.getByText(/ไม่ทราบที่มา 1 รายการ/).first().isVisible(), 'one unknown deposit')
   must(await page.getByText(/ไม่เจอในสมุด 1 รายการ/).first().isVisible(), 'recorded 777 not in passbook')
+  must(await page.getByText(/ผลตรวจ: มีรายการที่ต้องตรวจ/).first().isVisible() && await page.getByRole('button', { name: /แชร์รายงาน/ }).isVisible(), 'report verdict + share button')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('adjust-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
