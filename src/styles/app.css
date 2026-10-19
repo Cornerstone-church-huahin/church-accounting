@@ -559,3 +559,10 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 .rolepick__v { min-width: 0; overflow-wrap: anywhere; }
 .rolechk { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start; padding: 0.55rem 0.2rem; cursor: pointer; }
 .rolechk input { width: 1.5rem; height: 1.5rem; margin-top: 0.15rem; accent-color: var(--navy); }
+
+/* ขั้น "ปรับ": สรุปผลจับคู่ */
+.adjsum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 0.6rem; }
+.adjsum > div { padding: 8px; border-radius: 10px; font-size: 0.85rem; text-align: center; border: 2px solid transparent; }
+.adjsum__ok { background: #e6f4ea; border-color: #1f8a4c !important; }
+.adjsum__unk { background: #fff4d6; border-color: #c99a14 !important; }
+.adjsum__miss { background: #fde8e6; border-color: var(--bad) !important; }

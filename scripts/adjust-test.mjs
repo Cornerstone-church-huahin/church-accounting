@@ -1,4 +1,4 @@
-// ทดสอบแท็บ ปรับ: ถ่ายรูปสมุด (จำลอง Gemini) → ตรวจยอดคงเหลือ → จับคู่สลิป → ลงรายรับที่ไม่มีสลิป → ปิดสัปดาห์ → ใบสรุปแสดงตรวจแล้ว
+// ทดสอบแท็บ ปรับ (ใหม่): เลือกสัปดาห์ → แนบ 2 รูป (จำลอง Gemini) รวมเป็นการสแกนเดียว → จับคู่รายรับโอน 2×300 → เงินเข้าที่ไม่ทราบที่มา
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -18,83 +18,35 @@ const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7))
 const S = iso(sun), Y = sun.getFullYear()
 const day = (n) => { const d = new Date(sun); d.setDate(d.getDate() - n); return iso(d) }
 await page.goto(`http://localhost:${PORT}/#/`)
-await page.evaluate(([S, Y, d3]) => {
+await page.evaluate(([Y, d3, d2]) => {
   const set = (k, v) => localStorage.setItem(`acct.${k}.v1`, JSON.stringify(v))
-  set(`rounds.${Y}`, [{ id: `rd-${S}`, date: S, lines: { tt1: 115000, tt2: 204000, tt3: 197000, tt5: 10000 }, envelopes: { tt1: 6, tt2: 7, tt3: 10, tt5: 1 }, denoms: {}, status: 'verified', counter: { id: 'a', name: 'ก' }, updated: 1 }])
-  set(`income.${Y}`, [{ id: 'in1', date: d3, typeId: 'tt1', amount: 16900, method: 'transfer', source: 'slip', ref: 'X', updated: 1 }])
+  set(`income.${Y}`, [
+    { id: 'in1', date: d3, typeId: 'tt1', amount: 30000, method: 'transfer', source: 'slip', updated: 1 },
+    { id: 'in2', date: d3, typeId: 'tt1', amount: 30000, method: 'transfer', source: 'slip', updated: 1 },
+    { id: 'in3', date: d2, typeId: 'tt1', amount: 77700, method: 'transfer', source: 'slip', updated: 1 },
+  ])
   localStorage.setItem('acct.gemini.v1', JSON.stringify({ key: 'TEST', model: 'gemini-flash-latest' }))
-}, [S, Y, day(3)])
-await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({
-  status: 200, contentType: 'application/json',
-  body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows: [
-    { date: day(9), code: 'DEP', amount: 3000, balance: 4000 },
-    { date: day(3), code: 'TRD', amount: 169, balance: 4169 },
-    { date: day(2), code: 'TRD', amount: 555, balance: 4724 },
-    { date: S, code: 'NBD', amount: 5260, balance: 10000 },
-  ] }) }] } }] }),
-}))
+}, [Y, day(3), day(2)])
+let call = 0
+await page.route('**/generativelanguage.googleapis.com/**', (route) => {
+  const rows = call++ === 0
+    ? [{ date: day(3), code: 'TRD', amount: 300, balance: 1300 }, { date: day(3), code: 'TRD', amount: 300, balance: 1600 }]
+    : [{ date: day(3), code: 'TRD', amount: 300, balance: 1600 }, { date: day(1), code: 'TRD', amount: 1234, balance: 2834 }, { date: day(20), code: 'DEP', amount: 5, balance: 9 }]
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows }) }] } }] }) })
+})
 try {
   await page.goto(`http://localhost:${PORT}/#/settings`); await page.goto(`http://localhost:${PORT}/#/`); await page.reload()
-  const names = await page.getByRole('tab').allInnerTexts()
-  must(['รับ', 'จ่าย', 'ปรับ', 'สรุป'].every((n) => names.some((t) => t.includes(n))), 'four home tabs: ' + names.join('|'))
   await page.getByRole('tab', { name: /ปรับ/ }).first().click()
-  must(await page.getByText(/ต้องเตรียมเบิก/).first().isVisible(), 'step 1 shows amount to prepare for withdrawal')
-  // เงินยืม: เพิ่ม → คืนบางส่วน → ใบสรุปแสดงค้างคืน
-  await page.getByRole('button', { name: '＋ บันทึกเงินยืม' }).click()
-  await page.getByLabel('ชื่อผู้ให้ยืม').fill('พี่ก')
-  await page.locator('#ln-borrower').selectOption({ label: '💰 กองทุนสุสาน' })
-  await page.getByLabel(/ใช้ทำอะไร/).fill('ทำสุสาน')
-  await page.getByLabel(/ใช้ทำอะไร/).locator('xpath=ancestor::div[contains(@class,"pbdraft")]').locator('input[inputmode="decimal"], input[inputmode="numeric"]').last().fill('100000')
-  await page.getByRole('button', { name: 'บันทึกเงินยืม' }).click()
-  must(await page.getByText(/ค้างคืน 100,000\.00/).first().isVisible(), 'loan recorded with outstanding balance')
-  await page.getByRole('button', { name: '＋ บันทึกการคืน' }).click()
-  await page.locator('.pbdraft').first().locator('input').nth(1).fill('40000')
-  await page.getByRole('button', { name: 'บันทึกการคืน' }).click()
-  must(await page.getByText(/ค้างคืน 60,000\.00/).first().isVisible(), 'repayment reduces the balance')
-  await page.getByRole('tab', { name: /ถ่ายรูปสมุด/ }).click()
-  must((await page.getByLabel('ถ่ายรูปหน้าสมุด').getAttribute('capture')) === 'environment', 'camera button for passbook')
-  await page.getByLabel('แนบไฟล์หน้าสมุด').setInputFiles('public/icon-512.png')
-  await page.getByLabel('รายการ บรรทัด 4').waitFor({ timeout: 20000 })
-  must(await page.getByRole('alert').filter({ hasText: /ไม่ลงตัว/ }).count() === 1, 'chain check flags the broken balance row (4724 + 5260 ≠ 10000)')
-  must(await page.getByRole('button', { name: /เพิ่มบรรทัดที่ตกหล่น/ }).count() === 1, 'gap helper offered for the broken row')
-  // แก้ยอดคงเหลือให้ลงตัว (5724 + 5260 = 10984)
-  await page.locator('.pbdraft').nth(3).locator('input').nth(4).fill('9984')
-  await page.getByRole('button', { name: 'บันทึกและไปตรวจจับคู่' }).click()
-  must(await page.locator('.weekchips .mini').count() === 2, 'lines split into two weeks by date (' + await page.locator('.weekchips .mini').count() + ')')
-  await page.getByText(/ตรงกันทั้งหมด|ตรงกัน ✓/).first().waitFor({ timeout: 10000 })
-  must(await page.getByText(/ตรงสลิป/).count() === 1, 'one transfer matched a slip')
-  must(await page.getByText(/ไม่มีสลิป/).first().isVisible() || await page.getByRole('button', { name: 'ลงเป็นรายรับ' }).count() === 1, 'one transfer has no slip')
-  await page.locator('.weekchips .mini').nth(1).click()
-  must(await page.getByText(/3,000\.00/).first().isVisible(), 'previous week shows its own deposit line')
-  await page.locator('.weekchips .mini').nth(0).click()
-  // เงินเข้าสมุดที่ไม่มีสลิปต้องเข้าใบสรุปเป็น "ไม่ทราบที่มา" ทันที (ยังไม่ต้องลงเป็นรายรับเอง)
-  await page.getByRole('tab', { name: /สรุป/ }).first().click()
-  const unk = ((await page.locator('.a4page').nth(0).innerText()) + ' ' + (await page.locator('.a4page').nth(1).innerText())).replace(/\n/g, ' ')
-  must(/ไม่ทราบที่มา \(Unknown\)[^0-9]*1\s+555/.test(unk) || /ไม่ทราบที่มา \(Unknown\)[^0-9]*1\s+0\s+0\.00\s+1\s+555/.test(unk) || /ไม่ทราบที่มา \(Unknown\)/.test(unk) && /555/.test(unk), 'unknown bank income shows in the weekly summary: ' + unk.slice(0, 400))
-  await page.getByRole('tab', { name: /ปรับ/ }).first().click()
-  await page.getByRole('tab', { name: /ตรวจจับคู่/ }).click()
-  await page.getByRole('button', { name: 'ลงเป็นรายรับ' }).click()
-  await page.getByRole('button', { name: 'ลงรายรับ', exact: true }).click()
-  await page.getByText(/ตรงสลิป/).nth(1).waitFor({ timeout: 10000 })
-  // ถ่ายหน้าเดิมซ้ำ: ทุกบรรทัดซ้ำ ไม่ถูกบันทึกซ้ำ
-  await page.getByRole('tab', { name: /ถ่ายรูปสมุด/ }).click()
-  await page.getByLabel('แนบไฟล์หน้าสมุด').setInputFiles('public/icon-512.png')
-  await page.getByText(/มีอยู่แล้ว \(ถ่ายหน้าเดิมทับกัน\)/).waitFor({ timeout: 20000 })
-  await page.locator('.pbdraft').nth(3).locator('input').nth(4).fill('9984')
-  must(await page.getByText('✓ มีอยู่แล้ว — จะไม่บันทึกซ้ำ').count() === 4, 'all four rows flagged as duplicates')
-  await page.getByRole('button', { name: 'บันทึกและไปตรวจจับคู่' }).click()
-  must(await page.getByText(/ไม่ได้บันทึกซ้ำ/).isVisible(), 'duplicate-only scan saves nothing')
-  must(await page.locator('.weekchips .mini').count() === 2, 'still exactly two weeks of lines')
-  await page.getByRole('tab', { name: /ปิดสัปดาห์/ }).click()
-  await page.getByRole('button', { name: /ยืนยันปิดสัปดาห์/ }).click()
-  must(await page.getByText(/สัปดาห์นี้ปิดยอดแล้ว/).isVisible(), 'week closed')
-  await page.screenshot({ path: 'shots/adjust-close.png', fullPage: true })
-  await page.getByRole('tab', { name: /สรุป/ }).first().click()
-  must(await page.getByText('✓ ตรวจกับสมุดบัญชีแล้ว').first().isVisible(), 'summary shows the week was checked against the passbook')
-  must(/เงินยืมที่ยังค้างคืน[\s\S]*พี่ก\s+ทำสุสาน\s+60,000\.00/.test(((await page.locator('.a4page').nth(0).innerText()) + ' ' + (await page.locator('.a4page').nth(1).innerText())).replace(/\n/g, ' ').replace(/\t/g, ' ')) || /พี่ก/.test((await page.locator('.a4page').nth(0).innerText()) + ' ' + (await page.locator('.a4page').nth(1).innerText())), 'summary lists the outstanding loan')
-  const paperTxt = ((await page.locator('.a4page').nth(0).innerText()) + ' ' + (await page.locator('.a4page').nth(1).innerText())).replace(/\n/g, ' ')
-  must(!/สมุดบัญชีธนาคาร \(เงินเข้า-ออกสัปดาห์นี้\)/.test(paperTxt) && /ฝากเงินสด 5,260\.00 \(นับแล้วในใบถวาย\)/.test(paperTxt) && /รหัสในสมุด: DEP\/NBD = ฝากเงินสด/.test(paperTxt), 'bank movements are a footnote, not a separate table: ' + paperTxt.slice(-500))
-  must(/ตรวจกับสมุดบัญชีธนาคารแล้ว.*9,984/.test(((await page.locator('.a4page').nth(0).innerText()) + ' ' + (await page.locator('.a4page').nth(1).innerText())).replace(/\n/g, ' ')), 'paper note shows the bank balance: ' + ((await page.locator('.a4page').nth(0).innerText()) + ' ' + (await page.locator('.a4page').nth(1).innerText())).replace(/\n/g, ' ').slice(-400))
-  must(errors.length === 0, 'page errors: ' + errors.join('|'))
-  console.log('ADJUST OK')
-} catch (e) { await page.screenshot({ path: 'shots/adjust-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
+  must(!(await page.getByText(/ต้องเตรียมเบิก/).count()), 'old content removed')
+  must(await page.getByText('ระหว่างวันที่').first().isVisible(), 'week picker shown')
+  await page.getByLabel('แนบรูปสมุดบัญชี').setInputFiles(['public/icon-512.png', 'public/icon-512.png'])
+  await page.getByLabel('รายการ บรรทัด 3').waitFor({ timeout: 20000 })
+  must(!(await page.getByLabel('รายการ บรรทัด 4').count()), 'dup row across photos dropped + out-of-week row skipped (3 rows)')
+  await page.getByRole('button', { name: 'บันทึกและจับคู่' }).click()
+  must(await page.getByText(/ตรงกัน 2 รายการ/).first().isVisible(), 'two 300 transfers matched')
+  must(await page.getByText(/ไม่ทราบที่มา 1 รายการ/).first().isVisible(), 'one unknown deposit')
+  must(await page.getByText(/ไม่เจอในสมุด 1 รายการ/).first().isVisible(), 'recorded 777 not in passbook')
+  must(errors.length === 0, 'no page errors: ' + errors.join('|'))
+  console.log('adjust-test OK')
+} catch (e) { console.error(e.message); process.exitCode = 1 }
+await browser.close(); server.kill()
