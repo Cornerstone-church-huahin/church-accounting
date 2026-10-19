@@ -213,6 +213,15 @@ export interface PassbookScan extends SharedItem {
   name: string
   by?: string
 }
+/** เงินกองทุนของสัปดาห์หนึ่งที่นำฝากเข้าบัญชีกองทุนแล้ว (id = `สัปดาห์:กองทุน`) · amount = ยอดที่ฝาก ณ ตอนกดยืนยัน */
+export interface FundDeposit extends SharedItem {
+  /** วันอาทิตย์ของสัปดาห์ */
+  week: string
+  fundId: string
+  amount: number
+  /** วันที่นำฝากจริง */
+  on: string
+}
 /** ปิดยอดสัปดาห์ (id = วันอาทิตย์ของสัปดาห์) หลังตรวจกับสมุดบัญชีแล้ว */
 export interface WeekClose extends SharedItem {
   sunday: string

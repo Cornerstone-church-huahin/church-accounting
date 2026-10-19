@@ -576,3 +576,18 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 .thumb__ph { font-size: 1.6rem; }
 .adjmiss { border-left: 4px solid var(--bad); padding-left: 8px; display: flex; flex-direction: column; gap: 4px; }
 .btn--blue { background: #1f5fc7; color: #fff; border-color: transparent; }
+/* เตรียมนำฝาก (เงินกองทุนที่ยังถืออยู่) */
+.cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cardhead h2 { margin: 0; }
+.fundpend__btn { display: inline-flex; align-items: center; gap: 6px; border: 2px solid #c99a14; background: #fff4d6; color: #5a4300; border-radius: 999px; padding: 6px 12px; font-weight: 800; cursor: pointer; }
+.fundpend__badge { background: #c99a14; color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 0.85rem; }
+.fundpend__total { padding: 8px 10px; border-radius: 10px; background: #fff4d6; border: 2px solid #c99a14; margin: 6px 0; }
+.fundpend__list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-direction: column; gap: 6px; }
+.fundpend__row { display: flex; gap: 8px; align-items: center; padding: 8px; border-radius: 10px; border: 1px solid var(--line, #d9dde6); }
+.fundpend__row--wait { border-left: 5px solid #c99a14; background: #fffaf0; }
+.fundpend__row--done { border-left: 5px solid #1f8a4c; background: #f1faf4; }
+.fundpend__no { width: 26px; height: 26px; border-radius: 50%; background: #1a2b4c; color: #fff; display: grid; place-items: center; font-size: 0.8rem; flex: 0 0 26px; }
+.fundpend__warn { color: #7a5600; font-weight: 700; }
+.fundpend__ok { color: #1f6f3f; font-weight: 700; }
+.fundpend__amt { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.fundpend__done { background: #1f8a4c; color: #fff; }

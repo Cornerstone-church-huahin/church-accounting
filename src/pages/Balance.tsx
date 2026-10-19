@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import FundPendingPanel from '../components/FundPendingPanel'
 import LoansPanel from '../components/LoansPanel'
 import DebtBanner from '../components/DebtBanner'
 import { can } from '../lib/access'
@@ -14,6 +15,7 @@ import { useBalances } from '../lib/useBalances'
 import { ownFrom } from '../lib/balances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { useYear } from '../lib/year'
+import { useFundAccounts } from './FundAccounts'
 
 export type BalanceKind = 'own' | 'fund' | 'total' | 'indebt' | 'debt' | 'spare'
 const KINDS: { k: BalanceKind; icon: string; title: string }[] = [
@@ -33,6 +35,7 @@ export default function BalancePage() {
   const ext = loans.items.filter((l) => l.lender.kind === 'person')
   const inn = loans.items.filter((l) => l.lender.kind === 'fund')
   const sums = summarizeLoans(loans.items)
+  const fundAcc = useFundAccounts()
   const debt = sums.external
   const fundNm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.find((t) => t.id === id)?.name ?? '(ถูกลบ)')
   const types = input.types
@@ -86,7 +89,7 @@ export default function BalancePage() {
 
       {kind === 'fund' && (
         <section className="card" aria-label="เงินกองทุน">
-          <h2>💰 เงินกองทุน</h2>
+          <div className="cardhead"><h2>💰 เงินกองทุน</h2><FundPendingPanel funds={fundAcc.rows} canWrite={can(role, 'statement')} /></div>
           <p className="bigfig">{fmtBaht(b.fundTotal)} บาท</p>
           <HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance) }))} tone="in" />
           <ul className="fundbars" aria-label="ยอดแต่ละกองทุน">

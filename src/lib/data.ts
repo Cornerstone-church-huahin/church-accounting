@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -63,6 +63,7 @@ export const useExpenses = (year: number) => useSharedStore<ExpenseEntry>({ loca
 
 export const usePassbook = (year: number) => useSharedStore<PassbookLine>({ localKey: k(`passbook.${year}`), file: `passbook-${year}.json`, label: `สมุดบัญชี ${year}`, write: 'statement' })
 export const usePassbookScans = (year: number) => useSharedStore<PassbookScan>({ localKey: k(`passbookscans.${year}`), file: `passbook-scans-${year}.json`, label: `รูปสมุดบัญชี ${year}`, write: 'statement' })
+export const useFundDeposits = () => useSharedStore<FundDeposit>({ localKey: k('funddeposits'), file: 'fund-deposits.json', label: 'เงินกองทุนที่นำฝากแล้ว', write: 'statement' })
 export const useWeekCloses = (year: number) => useSharedStore<WeekClose>({ localKey: k(`weekcloses.${year}`), file: `week-closes-${year}.json`, label: `ปิดยอดสัปดาห์ ${year}`, write: 'statement' })
 
 export const useFundMoves = (year: number) => useSharedStore<FundMove>({ localKey: k(`fundmoves.${year}`), file: `fund-moves-${year}.json`, label: `ย้ายเงินเข้ากองทุน ${year}`, write: 'statement' })
