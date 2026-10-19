@@ -1,15 +1,21 @@
 import { useMemo, useRef, useState } from 'react'
+import ImageViewer from '../components/ImageViewer'
 import MoneyInput from '../components/MoneyInput'
+import Thumb from '../components/Thumb'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
-import { useIncome, useIncomeTypes, usePassbook } from '../lib/data'
+import { useIncome, useIncomeTypes, usePassbook, usePassbookScans } from '../lib/data'
+import { compressImage } from '../lib/image'
+import { cacheImage } from '../lib/imageCache'
+import { getSync, putBinary } from '../lib/sync'
+import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
 import { adjReportText, adjOk, type AdjReport } from '../lib/adjustReport'
 import { shareText } from '../lib/serviceReport'
 import { chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
-import type { PassbookLine } from '../lib/types'
+import type { PassbookLine, PassbookScan } from '../lib/types'
 
 interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
 const sameRow = (a: Draft, b: Draft) => a.date === b.date && a.deposit === b.deposit && a.withdraw === b.withdraw && a.balance === b.balance
@@ -21,6 +27,9 @@ export default function Adjust({ year }: { year: number }) {
   const pb = usePassbook(year)
   const income = useIncome(year)
   const types = useIncomeTypes()
+  const scans = usePassbookScans(year)
+  const [shots, setShots] = useState<{ path: string; name: string }[]>([]) // รูปที่อัปโหลดแล้ว รอกดบันทึก
+  const [viewer, setViewer] = useState<PassbookScan | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const from = addDays(sunday, -6)
@@ -42,6 +51,17 @@ export default function Adjust({ year }: { year: number }) {
   const outs = weekLines.filter((l) => l.kind === 'withdraw' || l.kind === 'out' || (l.kind === 'other' && l.dir === 'out'))
   const sum = (xs: { amount: number }[]) => xs.reduce((s, x) => s + x.amount, 0)
 
+  /** เก็บรูปไว้ใน repo ข้อมูล (ย่อให้เล็กลง) — เก็บไม่ได้ก็ไม่ขวางการอ่านรูป */
+  const keepShot = async (f: File) => {
+    try {
+      const { data, ext } = await compressImage(f, 1600, 0.72)
+      const path = `attachments/passbook/${sunday}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}.${ext}`
+      const cfg = getSync()
+      if (cfg) await putBinary(cfg, path, data, 'รูปสมุดบัญชี')
+      await cacheImage(path, data)
+      setShots((xs) => [...xs, { path, name: f.name || `passbook.${ext}` }])
+    } catch { /* ข้ามเงียบ ๆ */ }
+  }
   /** อ่านทุกรูปที่เลือก (ทีละรูป) แล้วต่อเป็นรายการเดียว · รูปที่ซ้อนกันข้ามหน้าจะตัดบรรทัดซ้ำให้ */
   const readAll = async (files: File[]) => {
     const t = ++token.current
@@ -53,6 +73,7 @@ export default function Adjust({ year }: { year: number }) {
       for (let i = 0; i < files.length; i++) {
         setBusy(`กำลังอ่านรูป ${i + 1}/${files.length}…`)
         const r = await readPassbook(files[i])
+        void keepShot(files[i])
         if (t !== token.current) return
         const rows = normalizeRows(r.rows).map((x) => ({ date: x.date ?? '', code: x.code ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null }))
         if (rows.length === 0) empty++
@@ -80,6 +101,8 @@ export default function Adjust({ year }: { year: number }) {
     }))
     const add = dedupeLines(pb.items, fresh)
     if (add.length && !pb.put(add)) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
+    if (shots.length) scans.put(shots.map((x) => ({ id: newId('ps'), updated: 0, week: sunday, path: x.path, name: x.name })))
+    setShots([])
     setDrafts(null); setMsg(add.length ? `บันทึก ${add.length} บรรทัดแล้ว — ดูผลจับคู่ด้านล่าง` : 'ทุกบรรทัดมีอยู่แล้ว ไม่ได้บันทึกซ้ำ')
   }
   const clearWeek = () => {
@@ -142,7 +165,7 @@ export default function Adjust({ year }: { year: number }) {
                 </div>
               ))}
               {bad.size > 0 && <p className="err" role="alert">มี {bad.size} บรรทัดที่ยอดคงเหลือไม่ลงตัว — ตรวจกับสมุดก่อน (บันทึกต่อได้ถ้าสมุดพิมพ์เป็นอย่างนั้นจริง)</p>}
-              <div className="row"><button type="button" className="btn btn--gold grow" onClick={save} disabled={drafts.length === 0}>บันทึกและจับคู่</button><button type="button" className="btn btn--ghost" onClick={() => { setDrafts(null); setMsg('') }}>ยกเลิก</button></div>
+              <div className="row"><button type="button" className="btn btn--gold grow" onClick={save} disabled={drafts.length === 0}>บันทึกและจับคู่</button><button type="button" className="btn btn--ghost" onClick={() => { shots.forEach((x) => void removeMemberPhotoFile(x.path)); setShots([]); setDrafts(null); setMsg('') }}>ยกเลิก</button></div>
             </>
           )}
         </section>
@@ -197,6 +220,22 @@ export default function Adjust({ year }: { year: number }) {
           </>
         )}
       </section>
+      <section className="card no-print" aria-label="รูปสมุดบัญชีที่สแกนแล้ว">
+        <h2>🖼 รูปสมุดบัญชีที่สแกนแล้ว</h2>
+        {scans.items.length === 0 ? <p className="muted small">ยังไม่มีรูป — รูปที่สแกนจะมาเก็บที่นี่ ใหม่สุดอยู่บน เก่าสุดอยู่ล่าง</p> : (
+          <ul className="scanlist">
+            {[...scans.items].sort((a, b) => b.updated - a.updated).map((x) => (
+              <li key={x.id}>
+                <button type="button" className="scancard" onClick={() => setViewer(x)} aria-label={`เปิดรูปสมุด ${weekTitle(x.week)}`}>
+                  <span className="scancard__img"><Thumb path={x.path} alt="รูปหน้าสมุดบัญชี" /></span>
+                  <span className="scancard__txt"><b>{weekTitle(x.week)}</b><br /><span className="small muted">วันที่ {weekRange(x.week)} · สแกน {x.updated ? new Date(x.updated).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : 'เมื่อสักครู่'}</span></span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      {viewer && <ImageViewer path={viewer.path} name={viewer.name} title={`สมุดบัญชี ${weekTitle(viewer.week)}`} onClose={() => setViewer(null)} />}
     </div>
   )
 }

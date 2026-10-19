@@ -47,6 +47,12 @@ try {
   must(await page.getByText(/ไม่ทราบที่มา 1 รายการ/).first().isVisible(), 'one unknown deposit')
   must(await page.getByText(/ไม่เจอในสมุด 1 รายการ/).first().isVisible(), 'recorded 777 not in passbook')
   must(await page.getByText(/ผลตรวจ: มีรายการที่ต้องตรวจ/).first().isVisible() && await page.getByRole('button', { name: /แชร์รายงาน/ }).isVisible(), 'report verdict + share button')
+  await page.getByLabel(/เปิดรูปสมุด/).first().waitFor({ timeout: 10000 })
+  must((await page.getByLabel(/เปิดรูปสมุด/).count()) === 2, 'two scanned photos kept as cards at the bottom')
+  await page.goto(`http://localhost:${PORT}/#/income`)
+  const ul = page.locator('section[aria-label="รายการรายรับ"]')
+  must(/ไม่ทราบที่มา \(Unknown\)/.test(await ul.innerText()) && /1,234\.00/.test(await ul.innerText()), 'income page shows one unknown row with the sum')
+  must(/จำนวนรายการ\s*4/.test(await page.locator('.kpi').innerText()), 'count = 3 entries + 1 unknown row: ' + await page.locator('.kpi').innerText())
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('adjust-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

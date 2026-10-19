@@ -4,7 +4,8 @@ import NoAccess from '../components/NoAccess'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import { can } from '../lib/access'
-import { useAccounts, useIncome, useIncomeTypes } from '../lib/data'
+import { useAccounts, useIncome, useIncomeTypes, usePassbook } from '../lib/data'
+import { BANK_UNKNOWN_LABEL, lineDate, unknownBankIn } from '../lib/passbook'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, monthName, monthOf, newId, todayISO, yearOf } from '../lib/money'
 import { UNSORTED, type IncomeEntry, type Method } from '../lib/types'
@@ -26,7 +27,11 @@ function IncomeList({ year }: { year: number }) {
   const [month, setMonth] = useState(() => (yearOf(todayISO()) === year ? monthOf(todayISO()) : 0))
   const [edit, setEdit] = useState<IncomeEntry | 'new' | null>(null)
   const rows = inc.items.filter((x) => !month || monthOf(x.date) === month).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated))
-  const total = rows.reduce((s, x) => s + x.amount, 0)
+  const pb = usePassbook(year)
+  // เงินเข้าสมุดที่ไม่มีรายรับตรงกัน (จากการสแกนในหน้า ปรับ) → รวมเป็นอีก 1 แถวท้ายรายการ
+  const unk = unknownBankIn(pb.items, inc.items).filter((l) => !month || monthOf(lineDate(l)) === month)
+  const unkSum = unk.reduce((s, l) => s + l.amount, 0)
+  const total = rows.reduce((s, x) => s + x.amount, 0) + unkSum
   const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
   const canWrite = can(role, 'income')
   return (
@@ -42,9 +47,9 @@ function IncomeList({ year }: { year: number }) {
           {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{monthName(i + 1)}</option>)}
         </select>
       </div>
-      <div className="kpi"><div><span>รวม{month ? `เดือน${monthName(month)}` : 'ทั้งปี'}</span><b>{fmtBaht(total)}</b></div><div><span>จำนวนรายการ</span><b>{rows.length}</b></div></div>
+      <div className="kpi"><div><span>รวม{month ? `เดือน${monthName(month)}` : 'ทั้งปี'}</span><b>{fmtBaht(total)}</b></div><div><span>จำนวนรายการ</span><b>{rows.length + (unk.length ? 1 : 0)}</b></div></div>
       <section className="card" aria-label="รายการรายรับ">
-        {rows.length === 0 ? <p className="empty">ยังไม่มีรายรับ{canWrite ? ' — กด “บันทึกรายรับ” เพื่อเริ่ม' : ''}</p> : (
+        {rows.length === 0 && unk.length === 0 ? <p className="empty">ยังไม่มีรายรับ{canWrite ? ' — กด “บันทึกรายรับ” เพื่อเริ่ม' : ''}</p> : (
           <ul className="list">
             {rows.map((x) => {
               const body = (
@@ -62,6 +67,16 @@ function IncomeList({ year }: { year: number }) {
                 </li>
               )
             })}
+            {unk.length > 0 && (
+              <li>
+                <div className="item" style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', width: '100%' }}>
+                  <span className="grow"><b>❓ {BANK_UNKNOWN_LABEL}</b><br />
+                    <span className="small muted">เงินเข้าสมุดบัญชี {unk.length} รายการที่ไม่มีรายรับตรงกัน · {unk.map((l) => `${fmtDate(lineDate(l))} ${fmtBaht(l.amount)}`).join(' · ')} — ระบุที่มาได้ที่ ปรับ</span>
+                  </span>
+                  <span className="num"><b>{fmtBaht(unkSum)}</b></span>
+                </div>
+              </li>
+            )}
           </ul>
         )}
       </section>
