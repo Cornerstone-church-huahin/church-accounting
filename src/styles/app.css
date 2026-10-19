@@ -574,3 +574,4 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 .scancard__img { flex: 0 0 56px; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: #eef1f6; display: grid; place-items: center; }
 .scancard__img img { width: 100%; height: 100%; object-fit: cover; }
 .thumb__ph { font-size: 1.6rem; }
+.adjmiss { border-left: 4px solid var(--bad); padding-left: 8px; display: flex; flex-direction: column; gap: 4px; }

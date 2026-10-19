@@ -186,3 +186,15 @@ export function typeFromNote(text: string | undefined, types: IncomeType[]): str
   const names = types.filter((x) => x.active).map((x) => ({ id: x.id, n: x.name.replace(/\s+/g, '').replace(/\(.*\)/, '') })).filter((x) => x.n.length >= 3).sort((a, b) => b.n.length - a.n.length)
   return names.find((x) => t.includes(x.n))?.id
 }
+
+/**
+ * รายการ "โอน" ที่บันทึกไว้แล้ว แต่ไม่พบเงินเข้าในสมุดบัญชีของสัปดาห์ (จันทร์–อาทิตย์) ที่สแกนแล้ว
+ * → อาจเป็นสลิปที่ไม่มีการโอนจริง หรือบันทึกยอด/วันที่ผิด · ตรวจเฉพาะสัปดาห์ที่มีรายการจากสมุดแล้วเท่านั้น (ไม่เดาสัปดาห์ที่ยังไม่สแกน)
+ */
+export function unseenTransfers(all: PassbookLine[], income: IncomeEntry[]): IncomeEntry[] {
+  const live = all.filter((l) => !l.deleted)
+  const weeks = new Set(live.map((l) => lineWeek(l)))
+  if (weeks.size === 0) return []
+  const used = new Set(matchBankIn(live, income).values())
+  return income.filter((x) => !x.deleted && x.method === 'transfer' && !used.has(x.id) && weeks.has(sheetSunday(x.date)))
+}

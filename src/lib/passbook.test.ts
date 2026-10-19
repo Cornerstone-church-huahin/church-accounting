@@ -151,3 +151,15 @@ it('a bank transfer with a handwritten type note joins that type; slip-matched o
   expect(byLabel['ไม่ทราบที่มา (Unknown)']).toBe(3200000)
   expect(L.inSum.transfer).toBe(200000 + 16900 + 3200000)
 })
+
+import { unseenTransfers } from './passbook'
+describe('unseenTransfers', () => {
+  const inc = (id: string, date: string, amount: number, method: 'transfer' | 'cash' = 'transfer'): IncomeEntry => ({ id, updated: 1, date, typeId: 'tt1', amount, method, source: 'slip' } as IncomeEntry)
+  const line = (id: string, date: string, amount: number): PassbookLine => ({ id, updated: 1, date, kind: 'in', amount, dir: 'in' })
+  it('แจ้งสลิปที่ไม่มีเงินเข้าสมุด เฉพาะสัปดาห์ที่สแกนแล้ว', () => {
+    const pb = [line('p1', '2026-10-15', 30000)]
+    const res = unseenTransfers(pb, [inc('a', '2026-10-15', 30000), inc('b', '2026-10-15', 30000), inc('c', '2026-10-05', 999), inc('d', '2026-10-16', 500, 'cash')])
+    expect(res.map((x) => x.id)).toEqual(['b']) // a จับคู่แล้ว · c สัปดาห์ที่ยังไม่สแกน · d เงินสด
+  })
+  it('ยังไม่สแกนเลย = ไม่แจ้งอะไร', () => { expect(unseenTransfers([], [inc('a', '2026-10-15', 1)])).toEqual([]) })
+})
