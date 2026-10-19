@@ -28,33 +28,41 @@ export default function FundPendingPanel({ funds, canWrite }: { funds: FundAccou
       </button>
       {open && (
         <Sheet title="🧺 เตรียมนำฝาก — เงินกองทุนที่ยังไม่ได้นำเข้าบัญชี" onClose={() => setOpen(false)}>
-          <p className="muted small">เงินกองทุนที่ได้รับในแต่ละสัปดาห์ รวมไว้ที่นี่ต่อเนื่องกันไป (เก่าอยู่บน ใหม่ต่อท้าย) — ถอนมาถือไว้ก่อนได้ เมื่อสะสมพอแล้วนำไปฝากเข้าบัญชีกองทุน แล้วกด “ฝากแล้ว” ที่รายการนั้น</p>
-          <div className="fundpend__total" role="status">
-            {sum.waiting.length === 0 ? '✓ ไม่มีเงินกองทุนค้างรอนำฝาก' : <>⏳ รอนำฝากรวม <b>{fmtBaht(sum.waitingTotal)}</b> บาท · {sum.waiting.length} รายการ</>}
-          </div>
+          <p className="muted small" style={{ margin: '0 0 4px' }}>เงินกองทุนรายสัปดาห์ รวมเป็นตารางเดียวต่อเนื่อง (เก่าอยู่บน ใหม่ต่อท้าย) · นำไปฝากเข้าบัญชีกองทุนแล้วกด “ฝากแล้ว”</p>
           {msg && <p className="note" role="status">{msg}</p>}
-          {sum.rows.length === 0 ? <p className="muted">ยังไม่มีเงินกองทุนที่ได้รับ</p> : (
-            <ol className="fundpend__list">
+          <table className="sheetpaper fundpend__tbl" aria-label="เตรียมนำฝาก (ตาราง)">
+            <colgroup><col style={{ width: '6%' }} /><col style={{ width: '21%' }} /><col style={{ width: '25%' }} /><col style={{ width: '16%' }} /><col style={{ width: '32%' }} /></colgroup>
+            <thead><tr><th>ที่</th><th>สัปดาห์</th><th>กองทุน</th><th>จำนวนเงิน</th><th>สถานะ</th></tr></thead>
+            <tbody>
               {sum.rows.map((r, i) => (
-                <li key={r.key} className={r.pending > 0 ? 'fundpend__row fundpend__row--wait' : 'fundpend__row fundpend__row--done'}>
-                  <span className="fundpend__no">{i + 1}</span>
-                  <div className="grow">
-                    <b>{r.name}</b> <span className="small muted">· สัปดาห์ {weekRange(r.week)}</span>
-                    {r.pending > 0
-                      ? <div className="small fundpend__warn">⏳ รอนำฝาก — เตรียมนำฝากเข้าบัญชีกองทุน{r.deposited > 0 ? ` (ส่วนเพิ่มหลังฝากครั้งก่อน ${fmtBaht(r.pending)})` : ''}</div>
-                      : <div className="small fundpend__ok">✅ ฝากแล้ว{r.depositedOn ? ` เมื่อ ${fmtDate(r.depositedOn)}` : ''}</div>}
-                  </div>
-                  <div className="fundpend__amt"><b>{fmtBaht(r.pending > 0 ? r.pending : r.recorded)}</b>
-                    {canWrite && (r.pending > 0
-                      ? <button type="button" className="mini fundpend__done" onClick={() => mark(r)}>✓ ฝากแล้ว</button>
-                      : <button type="button" className="mini" onClick={() => undo(r.key)} aria-label="ยกเลิกการฝากรายการนี้">↩︎ ยกเลิก</button>)}
-                  </div>
-                </li>
+                <tr key={r.key} className={r.pending > 0 ? 'fundpend__tr--wait' : 'fundpend__tr--done'}>
+                  <td style={{ textAlign: 'center' }}>{i + 1}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{weekRange(r.week)}</td>
+                  <td>{r.name}</td>
+                  <td className="num"><b>{fmtBaht(r.pending > 0 ? r.pending : r.recorded)}</b></td>
+                  <td>
+                    {r.pending > 0 ? (
+                      <div className="fundpend__cell">
+                        <span className="fundpend__warn" title="เตรียมนำฝากเข้าบัญชีกองทุน">⏳ รอนำฝาก</span>
+                        {canWrite && <button type="button" className="fundpend__chk" onClick={() => mark(r)} aria-label={`ฝากแล้ว ${r.name} สัปดาห์ ${weekRange(r.week)}`}>✓ ฝากแล้ว</button>}
+                      </div>
+                    ) : (
+                      <div className="fundpend__cell">
+                        <span className="fundpend__ok">✅ ฝากแล้ว{r.depositedOn ? ` ${fmtDate(r.depositedOn)}` : ''}</span>
+                        {canWrite && <button type="button" className="fundpend__undo" onClick={() => undo(r.key)} aria-label="ยกเลิกการฝากรายการนี้">↩︎</button>}
+                      </div>
+                    )}
+                  </td>
+                </tr>
               ))}
-            </ol>
-          )}
+              {sum.rows.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center' }} className="muted">ยังไม่มีเงินกองทุนที่ได้รับ</td></tr>}
+            </tbody>
+            <tfoot>
+              <tr><td colSpan={3}>{sum.waiting.length === 0 ? '✓ ไม่มีรายการค้างรอนำฝาก' : `รอนำฝากรวม ${sum.waiting.length} รายการ`}</td><td className="num"><b role="status">{fmtBaht(sum.waitingTotal)}</b></td><td>บาท</td></tr>
+            </tfoot>
+          </table>
           {canWrite && sum.waiting.length > 1 && <button type="button" className="btn btn--gold" onClick={markAll}>✓ ฝากแล้วทั้งหมดที่รอ ({fmtBaht(sum.waitingTotal)})</button>}
-          <p className="small muted">“ฝากแล้ว” เป็นแค่บันทึกว่าเงินส่วนนี้ถูกนำเข้าบัญชีแล้ว ไม่ได้เปลี่ยนยอดคงเหลือของกองทุน (ยอดกองทุนนับตั้งแต่ได้รับเงินอยู่แล้ว)</p>
+          <p className="small muted">“ฝากแล้ว” เป็นแค่บันทึกว่านำเงินเข้าบัญชีแล้ว ไม่เปลี่ยนยอดคงเหลือกองทุน · เงินเข้าใหม่จะต่อแถว “รอนำฝาก” ให้เอง</p>
         </Sheet>
       )}
     </>
