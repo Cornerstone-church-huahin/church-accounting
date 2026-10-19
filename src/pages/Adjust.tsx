@@ -5,7 +5,9 @@ import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, usePassbook } from '../lib/data'
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
-import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
+import { adjReportText, adjOk, type AdjReport } from '../lib/adjustReport'
+import { shareText } from '../lib/serviceReport'
 import { chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
 
@@ -92,6 +94,14 @@ export default function Adjust({ year }: { year: number }) {
     income.put([{ id, updated: 0, date: l.date, typeId, amount: l.amount, method: 'transfer', note: 'ลงจากสมุดบัญชี (ไม่มีสลิป)', source: 'manual' }])
     pb.put([{ ...l, link: { kind: 'income', id } }])
   }
+  const report: AdjReport = {
+    title: weekTitle(sunday), range: weekRange(sunday),
+    matched: matched.map(({ line, inc }) => ({ date: line.date, amount: line.amount, label: typeName(inc.typeId) })),
+    unknown: unknown.map((l) => ({ date: l.date, amount: l.amount })),
+    missing: missing.map((x) => ({ date: x.date, amount: x.amount, label: typeName(x.typeId) })),
+    cash: sum(cash), out: sum(outs), ...(weekLines.length ? (() => { const b = [...weekLines].reverse().find((l) => l.balance !== undefined)?.balance; return b !== undefined ? { closing: b } : {} })() : {}),
+  }
+  const share = async () => { const r = await shareText('รายงานตรวจสมุดบัญชี', adjReportText(report)); if (r === 'copied') setMsg('คัดลอกรายงานแล้ว วางในแชต LINE ได้เลย'); else if (r === 'failed') setMsg('แชร์/คัดลอกไม่สำเร็จ') }
   const row = (l: PassbookLine) => `${fmtDate(l.date)} · ${l.desc ?? ''}`
 
   return (
@@ -139,9 +149,11 @@ export default function Adjust({ year }: { year: number }) {
       )}
 
       <section className="card" aria-label="ผลจับคู่สัปดาห์นี้">
-        <h2>ผลตรวจสัปดาห์นี้</h2>
+        <h2>📄 รายงานตรวจสมุดบัญชี</h2>
+        <p className="small" style={{ margin: 0 }}><b>{weekTitle(sunday)}</b> · ระหว่างวันที่ {weekRange(sunday)}</p>
         {weekLines.length === 0 ? <p className="muted">ยังไม่มีรายการจากสมุดในสัปดาห์นี้ — แนบรูปสมุดด้านบน</p> : (
           <>
+            <p className={`adjverdict${adjOk(report) ? ' adjverdict--ok' : ''}`} role="status">{adjOk(report) ? '✅ ผลตรวจ: ตรงกันครบถ้วน' : '⚠️ ผลตรวจ: มีรายการที่ต้องตรวจ'}</p>
             <div className="adjsum">
               <div className="adjsum__ok"><b>✓ ตรงกัน {matched.length} รายการ</b><br />{fmtBaht(sum(matched.map((m) => m.line)))}</div>
               <div className="adjsum__unk"><b>❓ ไม่ทราบที่มา {unknown.length} รายการ</b><br />{fmtBaht(sum(unknown))}</div>
@@ -179,7 +191,9 @@ export default function Adjust({ year }: { year: number }) {
               <summary>รายการอื่นในสมุดสัปดาห์นี้ (ฝากเงินสด {fmtBaht(sum(cash))} · ออก {fmtBaht(sum(outs))})</summary>
               <ul className="list">{[...cash, ...outs].map((l) => <li key={l.id} className="row row--between"><span>{row(l)}</span><b>{l.kind === 'deposit' ? '+' : '−'}{fmtBaht(l.amount)}</b></li>)}</ul>
             </details>
-            {canWrite && <button type="button" className="btn btn--ghost" onClick={clearWeek}>🗑 ลบรายการสมุดสัปดาห์นี้เพื่อสแกนใหม่</button>}
+            {report.closing !== undefined && <p className="small"><b>ยอดคงเหลือท้ายสัปดาห์ (ตามสมุด) {fmtBaht(report.closing)}</b></p>}
+            <div className="row no-print"><button type="button" className="btn btn--gold grow" onClick={() => void share()}>📤 แชร์รายงาน</button><button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨 พิมพ์</button></div>
+            {canWrite && <button type="button" className="btn btn--ghost no-print" onClick={clearWeek}>🗑 ลบรายการสมุดสัปดาห์นี้เพื่อสแกนใหม่</button>}
           </>
         )}
       </section>
