@@ -1,255 +1,120 @@
 import { useMemo, useRef, useState } from 'react'
-import CaptureBar from '../components/CaptureBar'
-import LoansPanel from '../components/LoansPanel'
 import MoneyInput from '../components/MoneyInput'
-import Sheet from '../components/Sheet'
-import { Link } from 'react-router-dom'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
-import { useLoans, useAccounts, useFundMoves, useOpening, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useVouchers, useWeekCloses } from '../lib/data'
+import { useIncome, useIncomeTypes, usePassbook } from '../lib/data'
 import { ensureGemini, readPassbook } from '../lib/gemini'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
-import { fundLedger, isFundType, suggestMoves } from '../lib/funds'
-import { CODE_LEGEND, typeFromNote, chainGap, checkChain, classify, dedupeLines, dupIndexes, lineWeek, normalizeRows, reconcileWeek } from '../lib/passbook'
+import { chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
 import type { PassbookLine } from '../lib/types'
-import { computeLedger, rangeOf } from '../lib/weekLedger'
 
-type Sub = 'prep' | 'photo' | 'check' | 'close'
 interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
-const KIND_LABEL: Record<PassbookLine['kind'], string> = { deposit: 'ฝากเงินสด', in: 'โอนเข้า', withdraw: 'ถอนเงินสด', out: 'โอนออก', other: 'ดอกเบี้ย/ค่าธรรมเนียม' }
+const sameRow = (a: Draft, b: Draft) => a.date === b.date && a.deposit === b.deposit && a.withdraw === b.withdraw && a.balance === b.balance
 
-/** ขั้น "ปรับ": เตรียมเบิก → ถ่ายรูปสมุด → ตรวจจับคู่ → ปิดยอดสัปดาห์ */
+/** ขั้น "ปรับ": เลือกสัปดาห์ → ถ่าย/แนบรูปสมุดบัญชี (กี่รูปก็ได้ นับเป็นการสแกนครั้งเดียว) → จับคู่เงินโอนเข้ากับรายรับที่บันทึกไว้ */
 export default function Adjust({ year }: { year: number }) {
   const role = useRole()
   const canWrite = can(role, 'statement')
   const pb = usePassbook(year)
-  const closes = useWeekCloses(year)
   const income = useIncome(year)
-  const exp = useExpenses(year)
-  const rounds = useRounds(year)
-  const vouchers = useVouchers(year)
-  const lines = useBudgetLines(year)
-  const funds = useFunds()
-  const entries = useBudgetEntries(year)
   const types = useIncomeTypes()
-  const cats = useExpenseCats()
-  const accounts = useAccounts()
-  const moves = useFundMoves(year)
-  const loans = useLoans()
-  const openingStore = useOpening()
-  const restrictedIds = useMemo(() => accounts.list.filter((a) => a.role === 'restricted').map((a) => a.id), [accounts.list])
-  const [acctId, setAcctId] = useState('')
-  const acctName = (id?: string) => { const a = accounts.list.find((x) => x.id === id); return a ? `${a.name}${a.last4 ? ` …${a.last4}` : ''}` : '' }
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
-  const [sub, setSub] = useState<Sub>('prep')
+  const from = addDays(sunday, -6)
   const [drafts, setDrafts] = useState<Draft[] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const readToken = useRef(0)
+  const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
-  const [asIncome, setAsIncome] = useState<{ id: string; typeId: string } | null>(null)
+  const [pickType, setPickType] = useState<Record<string, string>>({})
+  const token = useRef(0)
+  const typeName = (id: string) => types.list.find((t) => t.id === id)?.name ?? 'ไม่ระบุประเภท'
 
-  const pending = exp.items.filter((x) => x.status === 'open')
-  const pendingSum = pending.reduce((s, x) => s + x.amount, 0)
-  const rec = useMemo(() => reconcileWeek(sunday, pb.items, income.items, restrictedIds), [sunday, pb.items, income.items, restrictedIds])
-  const L = useMemo(() => computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: pb.items }), [sunday, year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items, pb.items])
-  const byWeek = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const l of pb.items) { const w = lineWeek(l); m.set(w, (m.get(w) ?? 0) + 1) }
-    return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-  }, [pb.items])
-  const weeksNav = byWeek.length > 0 && (
-    <div className="weekchips" aria-label="สัปดาห์ที่มีรายการจากสมุด">
-      <span className="muted small">สัปดาห์ที่มีรายการจากสมุด:</span>
-      {byWeek.map(([w, n]) => (
-        <button key={w} type="button" className={`mini${w === sunday ? ' on' : ''}`} onClick={() => { if (sundays.includes(w)) { setSunday(w); setSub('check') } }}>
-          {fmtDate(w)} · {n} บรรทัด{closes.items.some((c) => c.sunday === w) ? ' ✓' : ''}
-        </button>
-      ))}
-    </div>
-  )
-  const closed = closes.items.find((c) => c.sunday === sunday)
-  const weekLines = pb.items.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
+  const weekLines = useMemo(() => pb.items.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated), [pb.items, sunday])
+  const match = useMemo(() => matchBankIn(pb.items, income.items), [pb.items, income.items])
+  const transfersIn = weekLines.filter((l) => l.kind === 'in')
+  const matched = transfersIn.flatMap((l) => { const inc = income.items.find((x) => x.id === match.get(l.id)); return inc ? [{ line: l, inc }] : [] })
+  const unknown = [...transfersIn.filter((l) => !match.has(l.id)), ...weekLines.filter((l) => l.kind === 'other' && l.dir === 'in')]
+  const usedIds = new Set(match.values())
+  const missing = income.items.filter((x) => !x.deleted && x.method === 'transfer' && x.date >= from && x.date <= sunday && !usedIds.has(x.id))
+  const cash = weekLines.filter((l) => l.kind === 'deposit')
+  const outs = weekLines.filter((l) => l.kind === 'withdraw' || l.kind === 'out' || (l.kind === 'other' && l.dir === 'out'))
+  const sum = (xs: { amount: number }[]) => xs.reduce((s, x) => s + x.amount, 0)
 
-  const read = async (file: File) => {
-    const token = ++readToken.current
-    setBusy(true); setMsg('')
+  /** อ่านทุกรูปที่เลือก (ทีละรูป) แล้วต่อเป็นรายการเดียว · รูปที่ซ้อนกันข้ามหน้าจะตัดบรรทัดซ้ำให้ */
+  const readAll = async (files: File[]) => {
+    const t = ++token.current
+    setMsg(''); setBusy(`กำลังอ่านรูป 1/${files.length}…`)
     try {
-      if (!(await ensureGemini()).key) { setMsg('ยังไม่ได้ใส่รหัส Gemini — ให้แอดมินใส่ที่ ตั้งค่า › ตัวอ่านใบถวาย (Gemini)'); if (token === readToken.current) setBusy(false); return }
-      const r = await readPassbook(file)
-      if (token !== readToken.current) return // ผู้ใช้กดปิดระหว่างอ่าน
-      if (r.rows.length === 0) setMsg('อ่านไม่เจอรายการในรูป — ลองถ่ายให้เห็นทั้งหน้า ไม่เอียง แล้วถ่ายใหม่')
-      setDrafts(normalizeRows(r.rows).map((x) => ({ date: x.date ?? '', code: x.code ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null })))
-    } catch (e) { if (token === readToken.current) setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
-    if (token === readToken.current) setBusy(false)
+      if (!(await ensureGemini()).key) { setMsg('ยังไม่ได้ใส่รหัส Gemini — ให้แอดมินใส่ที่ ตั้งค่า › ตัวอ่านใบถวาย (Gemini)'); setBusy(''); return }
+      let acc: Draft[] = drafts ? [...drafts] : []
+      let outside = 0, empty = 0
+      for (let i = 0; i < files.length; i++) {
+        setBusy(`กำลังอ่านรูป ${i + 1}/${files.length}…`)
+        const r = await readPassbook(files[i])
+        if (t !== token.current) return
+        const rows = normalizeRows(r.rows).map((x) => ({ date: x.date ?? '', code: x.code ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null }))
+        if (rows.length === 0) empty++
+        for (const d of rows) {
+          if (d.date && (d.date < from || d.date > sunday)) { outside++; continue }
+          if (acc.some((x) => sameRow(x, d))) continue // ซ้ำกับรูปก่อนหน้า
+          acc = [...acc, d]
+        }
+      }
+      setDrafts(acc)
+      setMsg([`อ่านได้ ${acc.length} บรรทัดในสัปดาห์นี้`, outside ? `ข้าม ${outside} บรรทัดที่อยู่นอกช่วง ${fmtDate(from)}–${fmtDate(sunday)}` : '', empty ? `${empty} รูปอ่านไม่เจอรายการ (ถ่ายให้เห็นทั้งหน้า ไม่เอียง)` : ''].filter(Boolean).join(' · '))
+    } catch (e) { if (t === token.current) setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
+    if (t === token.current) setBusy('')
   }
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void readAll(fs) }
+
   const bad = drafts ? new Set(checkChain(drafts.map((d) => ({ deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0, balance: d.balance ?? undefined })))) : new Set<number>()
-  const dupSet = useMemo(() => drafts ? dupIndexes(pb.items, drafts.map((d) => ({ date: d.date, amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw ?? 0), ...(d.balance !== null ? { balance: d.balance } : {}) }))) : new Set<number>(), [drafts, pb.items])
   const upd = (i: number, patch: Partial<Draft>) => setDrafts((xs) => xs && xs.map((x, j) => (j === i ? { ...x, ...patch } : x)))
-  const saveDrafts = () => {
+  const save = () => {
     if (!drafts) return
     if (drafts.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d.date))) return setMsg('ใส่วันที่ให้ครบทุกบรรทัด')
     const fresh: PassbookLine[] = drafts.filter((d) => (d.deposit ?? 0) > 0 || (d.withdraw ?? 0) > 0).map((d) => ({
-      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }), dir: (d.deposit ?? 0) > 0 ? 'in' : 'out', ...(acctId ? { accountId: acctId } : {}),
+      id: newId('pb'), updated: 0, date: d.date, kind: classify({ code: d.code, desc: d.desc, deposit: d.deposit ?? 0, withdraw: d.withdraw ?? 0 }), dir: (d.deposit ?? 0) > 0 ? 'in' : 'out',
       amount: (d.deposit ?? 0) > 0 ? (d.deposit as number) : (d.withdraw as number), ...(d.balance !== null ? { balance: d.balance } : {}), ...(d.desc ? { desc: d.desc } : {}),
     }))
     const add = dedupeLines(pb.items, fresh)
-    if (add.length === 0) { setDrafts(null); return setMsg(`ทุกบรรทัด (${fresh.length}) มีอยู่แล้ว ไม่มีรายการใหม่ ไม่ได้บันทึกซ้ำ`) }
-    if (!pb.put(add)) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
-    // ทุกบรรทัดเข้าสัปดาห์ตามวันที่ของตัวเอง · เปิดสัปดาห์ล่าสุดที่ได้ข้อมูล แล้วดูสัปดาห์อื่นได้จากแถบสัปดาห์
-    const weeks = [...new Set(add.map((l) => lineWeek(l)))].sort()
-    const newest = [...weeks].reverse().find((w) => sundays.includes(w))
-    if (newest) setSunday(newest)
-    setDrafts(null); setMsg(`บันทึก ${add.length} บรรทัด แยกเข้า ${weeks.length} สัปดาห์ตามวันที่${fresh.length - add.length ? ` (ข้าม ${fresh.length - add.length} บรรทัดที่มีอยู่แล้ว)` : ''}`)
-    setSub('check')
+    if (add.length && !pb.put(add)) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
+    setDrafts(null); setMsg(add.length ? `บันทึก ${add.length} บรรทัดแล้ว — ดูผลจับคู่ด้านล่าง` : 'ทุกบรรทัดมีอยู่แล้ว ไม่ได้บันทึกซ้ำ')
   }
-  const toIncome = (l: PassbookLine, typeId: string) => {
+  const clearWeek = () => {
+    if (weekLines.length === 0 || !window.confirm(`ลบรายการสมุดของสัปดาห์นี้ ${weekLines.length} บรรทัด เพื่อสแกนใหม่?`)) return
+    pb.put(weekLines.map((l) => ({ ...l, deleted: true })))
+    setMsg('ลบแล้ว — แนบรูปสมุดใหม่ได้เลย')
+  }
+  const toIncome = (l: PassbookLine) => {
+    const typeId = pickType[l.id]
+    if (!typeId) return setMsg('เลือกประเภทรายรับก่อน')
     const id = newId('in')
     income.put([{ id, updated: 0, date: l.date, typeId, amount: l.amount, method: 'transfer', note: 'ลงจากสมุดบัญชี (ไม่มีสลิป)', source: 'manual' }])
     pb.put([{ ...l, link: { kind: 'income', id } }])
-    setAsIncome(null)
   }
-  const closing = rec.closing
-  // ---- กองทุนวัตถุประสงค์: ค้างย้าย = ยอดยกมา + รายรับกองทุน (ตั้งแต่วันตัดยอด) − ที่ย้ายเข้าบัญชีวัตถุประสงค์แล้ว ----
-  const opening = openingStore.opening
-  const yStart = `${year}-01-01`
-  const fundFrom = opening?.date && opening.date >= yStart && opening.date <= `${year}-12-31` ? addDays(opening.date, 1) : yStart
-  const fundRecv = useMemo(() => {
-    const Lf = computeLedger({ range: { from: fundFrom, to: `${year}-12-31` }, income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: pb.items, withFunds: true })
-    return Object.fromEntries(Lf.incRows.map((r) => [r.key, r.cash.amt + r.transfer.amt])) as Record<string, number>
-  }, [fundFrom, year, income.items, rounds.items, types.list, pb.items])
-  const fundRows = useMemo(() => fundLedger(types.list, fundRecv, moves.items, opening), [types.list, fundRecv, moves.items, opening])
-  const unmovedTotal = fundRows.reduce((s, r) => s + Math.max(0, r.unmoved), 0)
-  const moveSugg = useMemo(() => suggestMoves(pb.items, accounts.list).filter((m) => lineWeek(m.out) === sunday || lineWeek(m.into) === sunday), [pb.items, accounts.list, sunday])
-  const [alloc, setAlloc] = useState<{ outId: string; vals: Record<string, number | null> } | null>(null)
-  const startAlloc = (outId: string, amount: number) => {
-    let left = amount
-    const vals: Record<string, number | null> = {}
-    for (const r of fundRows) { const v = Math.min(Math.max(0, r.unmoved), left); vals[r.id] = v > 0 ? v : null; left -= v }
-    setAlloc({ outId, vals })
-  }
-  const confirmMove = (m: { out: PassbookLine; into: PassbookLine }) => {
-    if (!alloc) return
-    const a = Object.fromEntries(Object.entries(alloc.vals).filter(([, v]) => v && v > 0)) as Record<string, number>
-    const sum = Object.values(a).reduce((x, y) => x + y, 0)
-    if (sum !== m.out.amount) return setMsg(`แบ่งเข้ากองทุนรวม ${fmtBaht(sum)} ต้องเท่ากับยอดย้าย ${fmtBaht(m.out.amount)}`)
-    const id = newId('mv')
-    moves.put([{ id, updated: 0, date: m.into.date, amount: m.out.amount, alloc: a, fromLineId: m.out.id, toLineId: m.into.id }])
-    pb.put([{ ...m.out, link: { kind: 'move', id } }, { ...m.into, link: { kind: 'move', id } }])
-    setAlloc(null); setMsg('บันทึกการย้ายเงินเข้ากองทุนแล้ว')
-  }
-  const cashIn = L.inSum.cash
-  const depDiff = rec.depositSum - cashIn
-  const tabBtn = (k: Sub, n: number, text: string) => <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}><i className="dot">{n}</i><span>{text}</span></button>
-  const matchedIds = new Set(rec.matchedIn.map((m) => m.line.id))
-  const [loanPick, setLoanPick] = useState<{ lineId: string; loanId: string } | null>(null)
-  // จัดการ/ลบ/แก้ไขบรรทัดสมุด (ใช้ลบข้อมูลทดลอง หรือแก้ตัวเลขที่อ่านผิด)
-  const [manage, setManage] = useState(false)
-  const [sel, setSel] = useState<Set<string>>(new Set())
-  const [editLine, setEditLine] = useState<PassbookLine | null>(null)
-  const removeLines = (ids: string[], what: string) => {
-    if (ids.length === 0) return
-    const hasLink = pb.items.some((l) => ids.includes(l.id) && l.link && l.link.kind !== 'park')
-    if (!confirm(`ลบ ${what} (${ids.length} บรรทัด) ออกจากสมุดที่บันทึกไว้?${hasLink ? '\n\nบางบรรทัดเคยลงเป็นรายรับ/ย้ายเงิน/เงินยืมไว้แล้ว — รายการที่สร้างไว้จะยังอยู่ ต้องไปลบแยกต่างหาก' : ''}${closed ? '\n\nสัปดาห์นี้ปิดยอดแล้ว — ลบแล้วระบบจะเปิดสัปดาห์ให้ใหม่ ต้องกดปิดยอดอีกครั้ง' : ''}`)) return
-    if (!pb.put(pb.items.filter((l) => ids.includes(l.id)).map((l) => ({ ...l, deleted: true })))) return setMsg('สิทธิ์ของท่านลบไม่ได้')
-    if (closed) closes.remove(closed.id)
-    setSel(new Set()); setMsg(`ลบแล้ว ${ids.length} บรรทัด`)
-  }
-  const loanOf = (id?: string) => loans.items.find((x) => x.id === id)
-  const confirmLoan = (l: PassbookLine, isOut: boolean) => {
-    const ln = loanOf(loanPick?.loanId)
-    if (!ln) return
-    if (isOut) loans.put([{ ...ln, repayments: [...ln.repayments, { id: newId('rp'), date: l.date, amount: l.amount, note: 'จากสมุดบัญชี' }] }])
-    pb.put([{ ...l, link: { kind: 'loan', id: ln.id } }])
-    setLoanPick(null); setMsg(isOut ? 'บันทึกเป็นการคืนเงินยืมแล้ว' : 'ผูกกับเงินยืมแล้ว (ไม่นับเป็นรายรับ)')
-  }
-  const loanLabel = (id?: string) => { const x = loanOf(id); return x ? `${x.lender.kind === 'fund' ? 'กองทุน' : x.lender.name}${x.purpose ? ` · ${x.purpose}` : ""}` : '' }
-  const lineRow = (l: PassbookLine, extra?: React.ReactNode) => (
-    <li key={l.id} className="pbline">
-      <div>{manage && canWrite && <input type="checkbox" aria-label={`เลือก ${fmtBaht(l.amount)} ${fmtDate(l.date)}`} checked={sel.has(l.id)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(l.id); else n.delete(l.id); setSel(n) }} style={{ marginRight: 8, width: 20, height: 20, verticalAlign: -4 }} />}<b>{fmtBaht(l.amount)}</b> <span className="badge">{KIND_LABEL[l.kind]}</span> <span className="muted small">{fmtDate(l.date)}{l.desc ? ` · ${l.desc}` : ''}</span></div>
-      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-        {extra}
-        {l.link?.kind === 'loan' && <span className="badge badge--good">เงินยืม: {loanLabel(l.link.id)}</span>}
-        {canWrite && !closed && !l.link && ((l.kind === 'in' && !matchedIds.has(l.id)) || l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')) && (
-          loanPick?.lineId === l.id ? (
-            <span className="row" style={{ gap: 6 }}>
-              <select className="input" aria-label="เลือกเงินยืม" value={loanPick.loanId} onChange={(e) => setLoanPick({ lineId: l.id, loanId: e.target.value })}>{loans.items.map((x) => <option key={x.id} value={x.id}>{loanLabel(x.id)}</option>)}</select>
-              <button type="button" className="mini" onClick={() => confirmLoan(l, l.kind !== 'in')}>ยืนยัน</button>
-            </span>
-          ) : loans.items.length > 0 ? <button type="button" className="mini" onClick={() => setLoanPick({ lineId: l.id, loanId: loans.items[0].id })}>{l.kind === 'in' ? 'เป็นเงินยืม' : 'คืนเงินยืม'}</button> : null
-        )}
-        {(l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')) && (l.link?.kind === 'park' ? <span className="badge">พักไว้</span> : <><span className="badge badge--warn">ไม่ทราบรายจ่าย</span>{canWrite && !closed && <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>}</>)}
-        {canWrite && !closed && lineWeek(l) === sunday && <button type="button" className="mini" onClick={() => pb.put([{ ...l, week: addDays(sunday, -7) }])}>← ไปสัปดาห์ก่อน</button>}
-        {canWrite && <button type="button" className="mini" aria-label={`แก้ไขบรรทัด ${fmtBaht(l.amount)}`} onClick={() => setEditLine(l)}>✎ แก้ไข</button>}
-        {canWrite && <button type="button" className="mini" aria-label={`ลบบรรทัด ${fmtBaht(l.amount)}`} onClick={() => removeLines([l.id], 'บรรทัดนี้')}>🗑 ลบ</button>}
-      </div>
-    </li>
-  )
+  const row = (l: PassbookLine) => `${fmtDate(l.date)} · ${l.desc ?? ''}`
 
   return (
-    <>
-      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-      <div className="subtabs subtabs--adj no-print" role="tablist" aria-label="ขั้นตอนปรับสมุดบัญชี">
-        {tabBtn('prep', 1, 'ก่อนไปธนาคาร')}{tabBtn('photo', 2, 'ถ่ายรูปสมุด')}{tabBtn('check', 3, 'ตรวจจับคู่')}{tabBtn('close', 4, 'ปิดสัปดาห์')}
-      </div>
-      {weeksNav}
-      {closed && <p className="badge badge--good" role="status">✓ สัปดาห์นี้ปิดยอดแล้ว{closed.bankBalance !== undefined ? ` · คงเหลือตามสมุด ${fmtBaht(closed.bankBalance)}` : ''}</p>}
+    <div className="stack">
+      <WeekBar sunday={sunday} sundays={sundays} onChange={(s) => { setSunday(s); setDrafts(null); setMsg('') }} />
+      <p className="muted small">เลือกสัปดาห์ แล้วแนบรูปสมุดบัญชีที่ปิดหัวท้ายให้เหลือเฉพาะวันที่ {fmtDate(from)} – {fmtDate(sunday)} (ถ่ายหลายรูปได้ ระบบนับเป็นการสแกนครั้งเดียว)</p>
 
-      {busy && (
-        <Sheet title="แนบรูปหน้าสมุดบัญชี" onClose={() => { readToken.current++; setBusy(false) }}>
-          <div role="status" aria-live="polite"><p><b>กำลังอ่านสมุดบัญชี…</b></p><progress style={{ width: '100%' }} /><p className="muted small">ใช้เวลาประมาณ 5–20 วินาที (ถ้ารูปตะแคงอาจนานขึ้นเล็กน้อย)</p></div>
-        </Sheet>
-      )}
-      {sub === 'prep' && (
-        <section className="card no-print" role="tabpanel" aria-label="ก่อนไปธนาคาร">
-          <h2>1 · ก่อนไปธนาคาร</h2>
-          <p className="muted small">วันอาทิตย์ให้ฝากเงินสดตามยอดใบถวาย · วันจันทร์ถอนเงินตามยอดด้านล่าง แล้วปรับสมุดและถ่ายรูปหน้าสมุดในขั้นที่ 2</p>
-          <p><b>ต้องเตรียมเบิก {fmtBaht(pendingSum)}</b> <span className="muted small">({pending.length} รายการ)</span></p>
-          {pending.length === 0 ? <p className="muted">ไม่มีบิลค้างจ่ายหรือสำรองจ่ายที่รอคืนเงิน</p> : (
-            <ul className="plain">{pending.map((x) => <li key={x.id}>{x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย'} · {x.desc}{x.who ? ` · ${x.who}` : ''} · <b>{fmtBaht(x.amount)}</b></li>)}</ul>
-          )}
-          <p className="small">เงินสดรับสัปดาห์นี้ (ตามใบถวาย) ที่ควรฝาก: <b>{fmtBaht(cashIn)}</b></p>
-          {fundRows.length > 0 && (
-            <>
-              <p className="small" style={{ marginTop: 14 }}>💰 ดูยอดและความเคลื่อนไหวของแต่ละกองทุนที่ <Link to="/funds">เพิ่มเติม › กองทุน</Link></p>
-              <h3 style={{ marginTop: 14 }}>เงินวัตถุประสงค์ที่ยังอยู่ในบัญชีหมุนเวียน</h3>
-              <table className="tbl tbl--paper" aria-label="ค้างย้ายเข้ากองทุน">
-                <thead><tr><th>กองทุน</th><th className="num">รับ</th><th className="num">ย้ายแล้ว</th><th className="num">ค้างย้าย</th></tr></thead>
-                <tbody>{fundRows.map((r) => <tr key={r.id}><td>{r.name}</td><td className="num">{fmtBaht(r.received)}</td><td className="num">{fmtBaht(r.moved)}</td><td className="num"><b>{fmtBaht(r.unmoved)}</b></td></tr>)}</tbody>
-                <tfoot><tr><td colSpan={3}>รวมค้างย้าย (ยังไม่ใช่เงินหมุนเวียน)</td><td className="num">{fmtBaht(unmovedTotal)}</td></tr></tfoot>
-              </table>
-              {closing !== undefined && <p className="small">ยอดคงเหลือบัญชีหมุนเวียนตามสมุด {fmtBaht(closing)} − ค้างย้าย {fmtBaht(unmovedTotal)} = <b>เงินหมุนเวียนที่ใช้ได้จริง {fmtBaht(closing - unmovedTotal)}</b></p>}
-              <p className="muted small">นับจาก{opening ? `ยอดยกมา ${fmtDate(opening.date)}` : ' 1 ม.ค.'} · ตอนย้ายเงินเข้าบัญชีวัตถุประสงค์ ให้ไปที่ช่อง 3 เพื่อบันทึกการย้าย</p>
-            </>
-          )}
-          <LoansPanel store={loans} funds={types.list.filter((t) => t.active && isFundType(t))} types={types.list} canWrite={canWrite} />
-        </section>
-      )}
-
-      {sub === 'photo' && (
-        <section className="card no-print" role="tabpanel" aria-label="ถ่ายรูปสมุด">
-          <h2>2 · ถ่ายรูปหน้าสมุดบัญชี</h2>
-          <p className="muted small">ปรับสมุดแล้วถ่ายหน้าที่เพิ่งพิมพ์ให้เห็นทั้งหน้า ระบบอ่านให้ แล้วตรวจยอดคงเหลือทีละบรรทัด (ถ่ายแนวตั้งหรือแนวนอนก็ได้) อย่าให้เห็นเลขบัญชีในรูป</p>
-          {canWrite && !drafts && (
-            <div className="field">
-              <label htmlFor="pb-acct">สมุดบัญชีเล่มไหน</label>
-              <select id="pb-acct" className="input" value={acctId} onChange={(e) => setAcctId(e.target.value)}>
-                <option value="">ไม่ระบุ</option>
-                {accounts.list.map((a) => <option key={a.id} value={a.id}>{acctName(a.id)}{a.role === 'operating' ? ' · หมุนเวียน' : a.role === 'restricted' ? ' · วัตถุประสงค์' : ''}</option>)}
-              </select>
-              {accounts.list.length === 0 && <p className="muted small">ยังไม่มีบัญชี — เพิ่มที่ ตั้งค่า › บัญชีธนาคาร (ตั้งประเภท หมุนเวียน/วัตถุประสงค์) เพื่อแยกสมุดแต่ละเล่ม</p>}
-            </div>
-          )}
-          {canWrite && !drafts && <CaptureBar noun="หน้าสมุด" onFile={(f) => void read(f)} busy={busy} />}
+      {canWrite && (
+        <section className="card no-print">
+          <h2>📷 สแกนสมุดบัญชี</h2>
+          <div className="capbar__row">
+            <label className="act-btn"><span className="act-btn__ico" aria-hidden="true">📎</span><span>แนบรูป (เลือกได้หลายรูป)</span>
+              <input type="file" accept="image/*" multiple aria-label="แนบรูปสมุดบัญชี" style={{ display: 'none' }} disabled={!!busy} onChange={pick} /></label>
+            <label className="act-btn"><span className="act-btn__ico" aria-hidden="true">📷</span><span>ถ่ายรูปเพิ่ม</span>
+              <input type="file" accept="image/*" capture="environment" aria-label="ถ่ายรูปสมุดบัญชี" style={{ display: 'none' }} disabled={!!busy} onChange={pick} /></label>
+          </div>
+          {busy && <p className="note" role="status">{busy}</p>}
           {msg && <p className="note" role="status">{msg}</p>}
           {drafts && (
             <>
-              {dupSet.size > 0 && <p className="note" role="status">{dupSet.size} จาก {drafts.length} บรรทัดมีอยู่แล้ว (ถ่ายหน้าเดิมทับกัน) — ระบบจะข้ามให้ บันทึกเฉพาะ {drafts.length - dupSet.size} บรรทัดใหม่</p>}
-              <p className="small">ตรวจให้ตรงกับสมุด · บรรทัดสีแดง = ยอดคงเหลือไม่ลงตัวกับบรรทัดก่อนหน้า (น่าจะอ่านผิด) แก้แล้วจึงบันทึก</p>
+              <p className="small">ตรวจให้ตรงกับสมุด · บรรทัดสีแดง = ยอดคงเหลือไม่ลงตัวกับบรรทัดก่อนหน้า (น่าจะอ่านผิดหรือตกหล่น) · จะถ่ายหน้าถัดไปเพิ่มก็ได้ ระบบต่อให้</p>
               {drafts.map((d, i) => (
-                <div key={i} className="pbdraft" style={{ ...(bad.has(i) ? { borderColor: 'var(--bad)' } : {}), ...(dupSet.has(i) ? { opacity: 0.55 } : {}) }}>
-                  {dupSet.has(i) && <p className="small"><span className="badge">✓ มีอยู่แล้ว — จะไม่บันทึกซ้ำ</span></p>}
+                <div key={i} className="pbdraft" style={bad.has(i) ? { borderColor: 'var(--bad)' } : undefined}>
                   <div className="row" style={{ gap: 6 }}>
                     <input className="input" type="date" aria-label={`วันที่ บรรทัด ${i + 1}`} value={d.date} onChange={(e) => upd(i, { date: e.target.value })} />
                     <input className="input" aria-label={`รายการ บรรทัด ${i + 1}`} value={d.desc} placeholder="รายการ" onChange={(e) => upd(i, { desc: e.target.value })} />
@@ -262,143 +127,62 @@ export default function Adjust({ year }: { year: number }) {
                   </div>
                   {bad.has(i) && (() => {
                     const gap = chainGap(drafts.map((x) => ({ deposit: x.deposit ?? 0, withdraw: x.withdraw ?? 0, balance: x.balance ?? undefined })), i)
-                    const prev = drafts[i - 1]?.balance
-                    return gap !== 0 && prev !== null && prev !== undefined ? (
-                      <p className="small err">ยอดคงเหลือต่างจากบรรทัดก่อน {fmtBaht(Math.abs(gap))} ({gap > 0 ? 'เงินเข้า' : 'เงินออก'}) — อาจมีบรรทัดตกหล่น หรืออ่านตัวเลขผิด{' '}
-                        <button type="button" className="mini" onClick={() => setDrafts((xs) => xs && [...xs.slice(0, i), { date: d.date, code: '', desc: '', deposit: gap > 0 ? gap : null, withdraw: gap < 0 ? -gap : null, balance: prev + gap }, ...xs.slice(i)])}>＋ เพิ่มบรรทัดที่ตกหล่น</button></p>
-                    ) : null
+                    return gap !== 0 ? <p className="small err">ยอดคงเหลือต่างจากบรรทัดก่อน {fmtBaht(Math.abs(gap))} — ตรวจกับสมุด</p> : null
                   })()}
                 </div>
               ))}
               {bad.size > 0 && <p className="err" role="alert">มี {bad.size} บรรทัดที่ยอดคงเหลือไม่ลงตัว — ตรวจกับสมุดก่อน (บันทึกต่อได้ถ้าสมุดพิมพ์เป็นอย่างนั้นจริง)</p>}
-              <div className="row"><button type="button" className="btn btn--gold grow" onClick={saveDrafts}>บันทึกและไปตรวจจับคู่</button><button type="button" className="btn btn--ghost" onClick={() => setDrafts(null)}>ยกเลิก</button></div>
+              <div className="row"><button type="button" className="btn btn--gold grow" onClick={save} disabled={drafts.length === 0}>บันทึกและจับคู่</button><button type="button" className="btn btn--ghost" onClick={() => { setDrafts(null); setMsg('') }}>ยกเลิก</button></div>
             </>
           )}
         </section>
       )}
 
-      {sub === 'check' && (
-        <section className="card no-print" role="tabpanel" aria-label="ตรวจจับคู่">
-          <h2>3 · ตรวจจับคู่ — สัปดาห์นี้</h2>
-          {msg && <p className="note" role="status">{msg}</p>}
-          {weekLines.length === 0 ? <p className="muted">ยังไม่มีบรรทัดจากสมุดในสัปดาห์นี้ — ถ่ายรูปสมุดในขั้นที่ 2 ก่อน</p> : (
-            <>
-              <div className="stats">
-                <p>ฝากเงินสดในสมุด <b>{fmtBaht(rec.depositSum)}</b> · เงินสดตามใบถวาย <b>{fmtBaht(cashIn)}</b> · {depDiff === 0 ? <span className="ok">ตรงกัน ✓</span> : <span className="err">ต่างกัน {fmtBaht(Math.abs(depDiff))} ({depDiff > 0 ? 'ฝากมากกว่า' : 'ฝากน้อยกว่า'}ใบถวาย)</span>}</p>
-                <p>โอนเข้า: จับคู่กับสลิปแล้ว <b>{rec.matchedIn.length}</b> · ไม่มีสลิป (นับในใบสรุปเป็น “ไม่ทราบที่มา”) <b className={rec.unmatchedIn.length ? 'err' : ''}>{rec.unmatchedIn.length}</b>{rec.unmatchedSlips.length > 0 && <> · สลิปที่ยังไม่เห็นในสมุด <b>{rec.unmatchedSlips.length}</b> ({fmtBaht(rec.unmatchedSlips.reduce((s, x) => s + x.amount, 0))})</>}</p>
-                <p>ถอนเงินสดสัปดาห์นี้ <b>{fmtBaht(rec.withdrawSum)}</b> · รายจ่ายเงินสดที่จ่ายแล้ว <b>{fmtBaht(L.outSum.cash)}</b></p>
-                <p>ยอดคงเหลือตามสมุด ณ สิ้นสัปดาห์: <b>{closing !== undefined ? fmtBaht(closing) : '—'}</b></p>
-                {Object.keys(rec.closingBy).length > 1 || (Object.keys(rec.closingBy)[0] ?? '') !== '' ? <p className="small">{Object.entries(rec.closingBy).map(([id, v]) => `${acctName(id) || 'ไม่ระบุบัญชี'}: ${fmtBaht(v)}`).join(' · ')}</p> : null}
-              </div>
-              {moveSugg.length > 0 && (
-                <div className="note" role="region" aria-label="ย้ายเงินเข้ากองทุน">
-                  <b>พบการย้ายเงินระหว่างบัญชี (ถอนจากหมุนเวียน → ฝากเข้าวัตถุประสงค์)</b>
-                  {moveSugg.map((m) => (
-                    <div key={m.out.id} style={{ marginTop: 6 }}>
-                      <p className="small">ถอน {fmtBaht(m.out.amount)} ({acctName(m.out.accountId)} · {fmtDate(m.out.date)}) → ฝาก ({acctName(m.into.accountId)} · {fmtDate(m.into.date)})</p>
-                      {alloc?.outId === m.out.id ? (
-                        <>
-                          {fundRows.map((r) => <div className="field" key={r.id}><label>{r.name} (ค้างย้าย {fmtBaht(r.unmoved)})</label><MoneyInput value={alloc.vals[r.id] ?? null} onChange={(v) => setAlloc({ ...alloc, vals: { ...alloc.vals, [r.id]: v } })} /></div>)}
-                          <div className="row"><button type="button" className="btn btn--gold" onClick={() => confirmMove(m)}>ยืนยันย้ายเข้ากองทุน</button><button type="button" className="btn btn--ghost" onClick={() => setAlloc(null)}>ยกเลิก</button></div>
-                        </>
-                      ) : canWrite && !closed ? <button type="button" className="mini" onClick={() => startAlloc(m.out.id, m.out.amount)}>แบ่งเข้ากองทุน…</button> : null}
-                    </div>
-                  ))}
-                  <p className="muted small">การย้ายไม่นับเป็นรายรับหรือรายจ่าย</p>
-                </div>
-              )}
-              <p className="muted small">รหัสในสมุด: {CODE_LEGEND}</p>
-              {canWrite && (
-                <div className="pbtools no-print" role="group" aria-label="จัดการรายการสมุด">
-                  <button type="button" className="mini" aria-pressed={manage} onClick={() => { setManage(!manage); setSel(new Set()) }}>{manage ? '✓ เสร็จ' : '☑ เลือกหลายรายการ'}</button>
-                  {manage && (
-                    <>
-                      <button type="button" className="mini" onClick={() => setSel(new Set(weekLines.map((l) => l.id)))}>เลือกทั้งหมด</button>
-                      {[...new Set(weekLines.map((l) => l.date))].map((d) => {
-                        const ids = weekLines.filter((l) => l.date === d).map((l) => l.id)
-                        const all = ids.every((i) => sel.has(i))
-                        return <button key={d} type="button" className="mini" aria-pressed={all} onClick={() => { const n = new Set(sel); ids.forEach((i) => (all ? n.delete(i) : n.add(i))); setSel(n) }}>{all ? '✓ ' : ''}วันที่ {fmtDate(d)} ({ids.length})</button>
-                      })}
-                      <button type="button" className="mini" disabled={sel.size === 0} onClick={() => removeLines([...sel], 'ที่เลือก')}>🗑 ลบที่เลือก ({sel.size})</button>
-                      <button type="button" className="mini" onClick={() => removeLines(weekLines.map((l) => l.id), 'ทั้งสัปดาห์นี้')}>🗑 ลบทั้งสัปดาห์ ({weekLines.length})</button>
-                    </>
-                  )}
-                </div>
-              )}
-              <ul className="plain">
-                {weekLines.map((l) => lineRow(l, l.kind === 'in' && (rec.matchedIn.find((m) => m.line.id === l.id)
-                  ? <span className="badge badge--good">✓ ตรงสลิป</span>
-                  : l.link ? <span className="badge">{l.link.kind === 'park' ? 'พักไว้' : 'ผูกกับเงินยืมแล้ว'}</span>
-                  : canWrite && !closed ? (asIncome?.id === l.id ? (
-                    <span className="row" style={{ gap: 6 }}>
-                      <select className="input" aria-label="ประเภทถวาย" value={asIncome.typeId} onChange={(e) => setAsIncome({ id: l.id, typeId: e.target.value })}>{types.list.filter((t) => t.active).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-                      <button type="button" className="mini" onClick={() => toIncome(l, asIncome.typeId)}>ลงรายรับ</button>
-                    </span>
-                  ) : <>
-                    {(() => { const tid = typeFromNote(l.desc, types.list); const tn = tid ? types.list.find((t) => t.id === tid)?.name : undefined; return tn ? <span className="badge badge--good">นับเป็น {tn} (ตามหมายเหตุ)</span> : <span className="badge badge--warn">ไม่ทราบที่มา</span> })()}
-                    <button type="button" className="mini" onClick={() => setAsIncome({ id: l.id, typeId: types.list.find((t) => t.active)?.id ?? '' })}>ลงเป็นรายรับ</button>
-                    <button type="button" className="mini" onClick={() => pb.put([{ ...l, link: { kind: 'park' } }])}>พักไว้</button>
-                  </>) : <span className="badge">ไม่มีสลิป</span>)))}
-              </ul>
-            </>
-          )}
-        </section>
-      )}
+      <section className="card" aria-label="ผลจับคู่สัปดาห์นี้">
+        <h2>ผลตรวจสัปดาห์นี้</h2>
+        {weekLines.length === 0 ? <p className="muted">ยังไม่มีรายการจากสมุดในสัปดาห์นี้ — แนบรูปสมุดด้านบน</p> : (
+          <>
+            <div className="adjsum">
+              <div className="adjsum__ok"><b>✓ ตรงกัน {matched.length} รายการ</b><br />{fmtBaht(sum(matched.map((m) => m.line)))}</div>
+              <div className="adjsum__unk"><b>❓ ไม่ทราบที่มา {unknown.length} รายการ</b><br />{fmtBaht(sum(unknown))}</div>
+              <div className="adjsum__miss"><b>⚠ ไม่เจอในสมุด {missing.length} รายการ</b><br />{fmtBaht(sum(missing))}</div>
+            </div>
 
-      {sub === 'close' && (
-        <section className="card no-print" role="tabpanel" aria-label="ปิดสัปดาห์">
-          <h2>4 · ปิดสัปดาห์</h2>
-          <ul className="plain">
-            <li>{weekLines.length > 0 ? '✓' : '✗'} มีบรรทัดจากสมุดในสัปดาห์นี้ ({weekLines.length})</li>
-            <li>{depDiff === 0 && rec.deposits.length > 0 ? '✓' : '△'} ฝากเงินสดตรงกับใบถวาย{rec.deposits.length === 0 ? ' (ยังไม่มีรายการฝาก)' : depDiff === 0 ? '' : ` (ต่างกัน ${fmtBaht(Math.abs(depDiff))})`}</li>
-            <li>{rec.unmatchedIn.filter((l) => !l.link).length === 0 ? '✓' : '△'} โอนเข้าทุกรายการมีสลิปหรือจัดการแล้ว (เหลือ {rec.unmatchedIn.filter((l) => !l.link).length})</li>
-            <li>ยอดคงเหลือตามสมุด: <b>{closing !== undefined ? fmtBaht(closing) : '—'}</b></li>
-          </ul>
-          <p className="muted small">ปิดสัปดาห์ได้แม้ยังมีรายการค้าง (△) — ใบสรุปจะแสดงว่าตรวจกับสมุดแล้ว พร้อมยอดคงเหลือตามสมุด</p>
-          {canWrite && (closed
-            ? <button type="button" className="btn btn--ghost" onClick={() => closes.remove(closed.id)}>เปิดสัปดาห์นี้ใหม่</button>
-            : <button type="button" className="btn btn--gold" disabled={weekLines.length === 0} onClick={() => closes.put([{ id: `wc-${sunday}`, updated: 0, sunday, ...(closing !== undefined ? { bankBalance: closing } : {}) }])}>✓ ยืนยันปิดสัปดาห์</button>)}
-          <p className="small" style={{ marginTop: 8 }}>เสร็จแล้วไปแท็บ 📊 สรุป เพื่อดาวน์โหลดหรือพิมพ์ใบสรุปไปแปะประกาศ</p>
-        </section>
-      )}
-      {editLine && <PbEdit line={editLine} closed={!!closed} onClose={() => setEditLine(null)} onSave={(next) => {
-        if (!pb.put([next])) return false
-        if (closed) closes.remove(closed.id)
-        setMsg(closed ? 'แก้ไขแล้ว — สัปดาห์นี้ถูกเปิดใหม่ ตรวจแล้วกดปิดยอดอีกครั้ง' : 'แก้ไขบรรทัดแล้ว'); setEditLine(null); return true
-      }} />}
-    </>
-  )
-}
+            <h3>✓ ตรงกับที่บันทึกไว้</h3>
+            {matched.length === 0 ? <p className="muted small">ไม่มี</p> : <ul className="list">{matched.map(({ line, inc }) => (
+              <li key={line.id} className="row row--between"><span>{row(line)}<br /><span className="small muted">ตรงกับรายรับ “{typeName(inc.typeId)}” ที่บันทึก {fmtDate(inc.date)}{inc.note ? ` · ${inc.note}` : ''}</span></span><b>{fmtBaht(line.amount)}</b></li>
+            ))}</ul>}
 
-/** แก้ไขบรรทัดสมุดบัญชี: วันที่ · ชนิด · จำนวน · ยอดคงเหลือ · หมายเหตุ */
-function PbEdit({ line, closed, onClose, onSave }: { line: PassbookLine; closed: boolean; onClose: () => void; onSave: (l: PassbookLine) => boolean }) {
-  const [date, setDate] = useState(line.date)
-  const [kind, setKind] = useState<PassbookLine['kind']>(line.kind)
-  const [dir, setDir] = useState<'in' | 'out'>(line.dir ?? 'out')
-  const [amount, setAmount] = useState<number | null>(line.amount)
-  const [balance, setBalance] = useState<number | null>(line.balance ?? null)
-  const [desc, setDesc] = useState(line.desc ?? '')
-  const [err, setErr] = useState('')
-  const save = () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
-    if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { week: _w, balance: _b, desc: _d, dir: _r, ...rest } = line
-    const keepWeek = date === line.date && line.week ? { week: line.week } : {} // ย้ายวันที่แล้วให้ตามวันใหม่
-    if (!onSave({ ...rest, ...keepWeek, date, kind, amount, ...(balance !== null ? { balance } : {}), ...(desc.trim() ? { desc: desc.trim() } : {}), ...(kind === 'other' ? { dir } : {}) })) setErr('สิทธิ์ของท่านบันทึกไม่ได้')
-  }
-  return (
-    <Sheet title="แก้ไขบรรทัดสมุดบัญชี" onClose={onClose}>
-      {closed && <p className="note small">สัปดาห์นี้ปิดยอดแล้ว — แก้ไขแล้วระบบจะเปิดสัปดาห์ให้ใหม่ ต้องกดปิดยอดอีกครั้ง</p>}
-      <div className="field"><label htmlFor="pb-date">วันที่</label><input id="pb-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="pb-kind">ชนิดรายการ</label>
-        <select id="pb-kind" className="input" value={kind} onChange={(e) => setKind(e.target.value as PassbookLine['kind'])}>{(Object.keys(KIND_LABEL) as PassbookLine['kind'][]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></div>
-      {kind === 'other' && <div className="field"><label htmlFor="pb-dir">ทิศทาง</label><select id="pb-dir" className="input" value={dir} onChange={(e) => setDir(e.target.value as 'in' | 'out')}><option value="in">เงินเข้า (เช่น ดอกเบี้ย)</option><option value="out">เงินออก (เช่น ค่าธรรมเนียม/ภาษี)</option></select></div>}
-      <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
-      <div className="field"><label>ยอดคงเหลือหลังรายการนี้ ตามสมุด (ไม่บังคับ)</label><MoneyInput value={balance} onChange={setBalance} /></div>
-      <div className="field"><label htmlFor="pb-desc">หมายเหตุ / ลายมือในสมุด</label><input id="pb-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
-      {err && <p className="err" role="alert">{err}</p>}
-      <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>บันทึกการแก้ไข</button></div>
-    </Sheet>
+            <h3>❓ เงินเข้าที่ไม่ทราบที่มา</h3>
+            <p className="small muted">มีเงินเข้าสมุด แต่ไม่มีรายรับที่บันทึกไว้ตรงกัน — ระบุว่าเป็นรายรับอะไรได้</p>
+            {unknown.length === 0 ? <p className="muted small">ไม่มี</p> : <ul className="list">{unknown.map((l) => (
+              <li key={l.id}>
+                <div className="row row--between"><span>{row(l)}</span><b>{fmtBaht(l.amount)}</b></div>
+                {l.link ? <span className="badge">ลงเป็นรายรับแล้ว</span> : canWrite && (
+                  <div className="row" style={{ gap: 6 }}>
+                    <select className="input" aria-label="ประเภทรายรับ" value={pickType[l.id] ?? ''} onChange={(e) => setPickType({ ...pickType, [l.id]: e.target.value })}>
+                      <option value="">เลือกประเภท…</option>
+                      {types.list.filter((t) => t.active).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button type="button" className="mini" onClick={() => toIncome(l)}>ลงเป็นรายรับ</button>
+                  </div>
+                )}
+              </li>
+            ))}</ul>}
+
+            <h3>⚠ บันทึกว่าโอน แต่ไม่เจอในสมุด</h3>
+            {missing.length === 0 ? <p className="muted small">ไม่มี</p> : <ul className="list">{missing.map((x) => (
+              <li key={x.id} className="row row--between"><span>{fmtDate(x.date)} · {typeName(x.typeId)}{x.note ? ` · ${x.note}` : ''}</span><b>{fmtBaht(x.amount)}</b></li>
+            ))}</ul>}
+
+            <details>
+              <summary>รายการอื่นในสมุดสัปดาห์นี้ (ฝากเงินสด {fmtBaht(sum(cash))} · ออก {fmtBaht(sum(outs))})</summary>
+              <ul className="list">{[...cash, ...outs].map((l) => <li key={l.id} className="row row--between"><span>{row(l)}</span><b>{l.kind === 'deposit' ? '+' : '−'}{fmtBaht(l.amount)}</b></li>)}</ul>
+            </details>
+            {canWrite && <button type="button" className="btn btn--ghost" onClick={clearWeek}>🗑 ลบรายการสมุดสัปดาห์นี้เพื่อสแกนใหม่</button>}
+          </>
+        )}
+      </section>
+    </div>
   )
 }
