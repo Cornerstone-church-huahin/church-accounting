@@ -10,8 +10,8 @@ describe('fundSheets', () => {
   ] }
   it('แยกใบรับ/ใบจ่าย เรียงวันที่ ยอดสะสม และคงเหลือ', () => {
     const s = fundSheets(f)
-    expect(s.inn.map((x) => [x.date, x.amount, x.cum])).toEqual([['2026-10-18', 3000, 3000], ['2026-10-25', 700, 3700]])
-    expect(s.out.map((x) => [x.amount, x.cum])).toEqual([[1500, 1500]])
+    expect(s.inn.map((x) => [x.date, x.amount, x.balance])).toEqual([['2026-10-18', 3000, 13000], ['2026-10-25', 700, 12200]])
+    expect(s.out.map((x) => [x.amount, x.balance])).toEqual([[1500, 11500]])
     expect([s.totalIn, s.totalOut, s.balance]).toEqual([3700, 1500, 12200])
   })
 })
