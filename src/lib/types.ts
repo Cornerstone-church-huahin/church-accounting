@@ -205,6 +205,14 @@ export interface PassbookLine extends SharedItem {
   /** บรรทัดนี้อยู่ในสมุดบัญชีเล่มไหน */
   accountId?: string
 }
+/** รูปหน้าสมุดบัญชีที่สแกนในหน้า ปรับ (เก็บใน attachments/passbook/) */
+export interface PassbookScan extends SharedItem {
+  /** วันอาทิตย์ของสัปดาห์ที่สแกน */
+  week: string
+  path: string
+  name: string
+  by?: string
+}
 /** ปิดยอดสัปดาห์ (id = วันอาทิตย์ของสัปดาห์) หลังตรวจกับสมุดบัญชีแล้ว */
 export interface WeekClose extends SharedItem {
   sunday: string
