@@ -269,3 +269,64 @@ export async function readPassbook(file: Blob & { name?: string }): Promise<Pass
   const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
   return readWithRotations(f, async (x) => parsePassbookJson(await geminiJson(x, PASSBOOK_PROMPT + ROTATE_NOTE, PASSBOOK_SCHEMA)), (r) => r.rows.length === 0)
 }
+
+// ---------- สแกนใบกระดาษที่เขียนมือไว้แล้ว (ใบบันทึกการถวาย · ใบเบิก-จ่ายเงินสด) ----------
+export interface IncomePaperRow { date?: string; label: string; cashCount?: number; cash?: number; transferCount?: number; transfer?: number }
+export interface VoucherPaperRow { date?: string; desc: string; amount: number; note?: string; biller?: string; who?: string }
+
+const isoOrUndef = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined)
+const cnt = (v: unknown): number | undefined => { const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n) : undefined }
+const txt = (v: unknown, max = 80) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined)
+const clean = (t: string) => t.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '')
+
+/** คำตอบ JSON ของใบบันทึกการถวาย → แถว (เงินเป็นสตางค์) · แถวที่ไม่มีเงินเลยตัดทิ้ง */
+export function parseIncomePaperJson(text: string): IncomePaperRow[] {
+  const j = JSON.parse(clean(text)) as { rows?: Record<string, unknown>[] }
+  return (Array.isArray(j.rows) ? j.rows : []).flatMap((r) => {
+    const cash = toSatang(r.cashAmount), transfer = toSatang(r.transferAmount)
+    if (!cash && !transfer) return []
+    const date = isoOrUndef(r.date), cashCount = cnt(r.cashCount), transferCount = cnt(r.transferCount)
+    return [{ label: txt(r.label) ?? '', ...(date ? { date } : {}), ...(cash ? { cash } : {}), ...(cashCount ? { cashCount } : {}), ...(transfer ? { transfer } : {}), ...(transferCount ? { transferCount } : {}) }]
+  })
+}
+/** คำตอบ JSON ของใบเบิก-จ่ายเงินสด → แถว · แถวที่ไม่มียอดตัดทิ้ง */
+export function parseVoucherPaperJson(text: string): VoucherPaperRow[] {
+  const j = JSON.parse(clean(text)) as { rows?: Record<string, unknown>[] }
+  return (Array.isArray(j.rows) ? j.rows : []).flatMap((r) => {
+    const amount = toSatang(r.amount)
+    if (!amount) return []
+    const date = isoOrUndef(r.date), note = txt(r.note), biller = txt(r.biller, 40), who = txt(r.who, 40)
+    return [{ desc: txt(r.desc, 120) ?? '', amount, ...(date ? { date } : {}), ...(note ? { note } : {}), ...(biller ? { biller } : {}), ...(who ? { who } : {}) }]
+  })
+}
+
+const NUM = { type: 'NUMBER', nullable: true }
+const INT = { type: 'INTEGER', nullable: true }
+const STR = { type: 'STRING', nullable: true }
+const INCOME_PAPER_SCHEMA = { type: 'OBJECT', properties: { rows: { type: 'ARRAY', items: { type: 'OBJECT', properties: { date: STR, label: { type: 'STRING' }, cashCount: INT, cashAmount: NUM, transferCount: INT, transferAmount: NUM } } } }, required: ['rows'] }
+const VOUCHER_PAPER_SCHEMA = { type: 'OBJECT', properties: { rows: { type: 'ARRAY', items: { type: 'OBJECT', properties: { date: STR, desc: { type: 'STRING' }, amount: NUM, note: STR, biller: STR, who: STR } } } }, required: ['rows'] }
+
+const dateRule = (from: string, to: string) => `- date: วันที่ในแถว (ลายมือ เช่น "19/10/69" หรือ "19 ต.ค.") ตอบเป็น ค.ศ. YYYY-MM-DD (ปี พ.ศ. ลบ 543) · ใบนี้ของสัปดาห์ ${from} ถึง ${to} ถ้าวันที่ในแถวว่างหรืออ่านไม่ออกให้เว้น อย่าเดา`
+const incomePrompt = (from: string, to: string) => `นี่คือรูป "ใบบันทึกการถวาย" ของคริสตจักร (ตารางพิมพ์ A4 แนวนอน กรอกด้วยลายมือ) คอลัมน์: วันที่ · No. · รายการ · จำนวนซอง · จำนวนเงิน (เงินสด) · จำนวนโอน · จำนวนเงิน (โอน) · รวม
+ให้อ่าน "ทุกแถวที่มีลายมือกรอกตัวเลขเงิน" จากบนลงล่าง แล้วตอบเป็น JSON เท่านั้น แต่ละแถวเป็น 1 รายการใน rows:
+- label: ข้อความในช่อง "รายการ" ตามที่เห็น (เช่น สิบลด, ประจำสัปดาห์, ขอบพระคุณ)
+- cashCount: จำนวนซอง · cashAmount: จำนวนเงินสดของแถวนั้น (บาท ไม่ใช้คอมมา)
+- transferCount: จำนวนโอน · transferAmount: จำนวนเงินโอนของแถวนั้น
+- ถ้าแถวนั้นมีแค่เงินสดหรือแค่เงินโอนให้เว้นอีกฝั่ง · อย่าเอาคอลัมน์ "รวม" มาใส่ซ้ำ
+${dateRule(from, to)}
+- ข้ามแถวว่าง แถว "รวมทั้งสิ้น" และบรรทัดสรุปท้ายใบ (รวมจากตู้ถวาย/รวมจากการโอน/ลงชื่อผู้ตรวจนับ) · ห้ามเดาตัวเลขที่อ่านไม่ออก ให้ข้ามแถวนั้น${ROTATE_NOTE}`
+const voucherPrompt = (from: string, to: string) => `นี่คือรูป "ใบเบิก-จ่ายเงินสด" ของคริสตจักร (ตารางพิมพ์ A4 กรอกด้วยลายมือ) คอลัมน์: วันที่ · ลำดับที่ · รายการ · จำนวนเงิน · หมายเหตุ/รูป · ผู้วางบิล · ผู้รับเงิน
+ให้อ่าน "ทุกแถวที่มียอดเงิน" จากบนลงล่าง แล้วตอบเป็น JSON เท่านั้น แต่ละแถวเป็น 1 รายการใน rows:
+- desc: ข้อความช่อง "รายการ" · amount: จำนวนเงิน (บาท ไม่ใช้คอมมา)
+- note: ช่อง "หมายเหตุ/รูป" · biller: ช่อง "ผู้วางบิล" · who: ช่อง "ผู้รับเงิน" (ว่างให้เว้น)
+${dateRule(from, to)}
+- ข้ามแถวว่าง แถว "รวมจ่ายเป็นเงินทั้งสิ้น" กรอบสรุปท้ายใบ และช่องลงชื่อ · ห้ามเดาตัวเลขที่อ่านไม่ออก ให้ข้ามแถวนั้น${ROTATE_NOTE}`
+
+export async function readIncomePaper(file: Blob & { name?: string }, from: string, to: string): Promise<IncomePaperRow[]> {
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
+  return readWithRotations(f, async (x) => parseIncomePaperJson(await geminiJson(x, incomePrompt(from, to), INCOME_PAPER_SCHEMA)), (r) => r.length === 0)
+}
+export async function readVoucherPaper(file: Blob & { name?: string }, from: string, to: string): Promise<VoucherPaperRow[]> {
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
+  return readWithRotations(f, async (x) => parseVoucherPaperJson(await geminiJson(x, voucherPrompt(from, to), VOUCHER_PAPER_SCHEMA)), (r) => r.length === 0)
+}
