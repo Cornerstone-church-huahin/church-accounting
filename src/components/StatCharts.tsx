@@ -86,7 +86,7 @@ export function CumLine({ buckets, height = 150 }: { buckets: Bucket[]; height?:
 }
 
 /** แท่งแนวนอน: ป้ายหมวดซ้าย ตัวเลขที่ปลายแท่ง (≤ 8 แถว) */
-export function HBars({ rows, tone, width = 372 }: { rows: { label: string; value: number }[]; tone: 'in' | 'out'; width?: number }) {
+export function HBars({ rows, tone, width = 372 }: { rows: { label: string; value: number; /** สีประจำแถว (ไม่ใส่ = สีตามประเภท) */ color?: string }[]; tone: 'in' | 'out'; width?: number }) {
   const hid = `h${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const rowH = 27, left = 150, right = 54
   const H = Math.max(1, rows.length) * rowH + 6
@@ -103,7 +103,7 @@ export function HBars({ rows, tone, width = 372 }: { rows: { label: string; valu
           <g key={r.label}>
             <title>{`${r.label}: ${fmtBaht(r.value)}`}</title>
             <text x={left - 6} y={y0 + 14} fontSize="11" textAnchor="end" fill={INK}>{r.label.length > 24 ? `${r.label.slice(0, 23)}…` : r.label}</text>
-            <path d={`M${left},${y0 + 4} L${left + w - 4},${y0 + 4} Q${left + w},${y0 + 4} ${left + w},${y0 + 8} L${left + w},${y0 + 14} Q${left + w},${y0 + 18} ${left + w - 4},${y0 + 18} L${left},${y0 + 18} Z`} fill={color} />
+            <path d={`M${left},${y0 + 4} L${left + w - 4},${y0 + 4} Q${left + w},${y0 + 4} ${left + w},${y0 + 8} L${left + w},${y0 + 14} Q${left + w},${y0 + 18} ${left + w - 4},${y0 + 18} L${left},${y0 + 18} Z`} fill={r.color ?? color} />
             {tone === 'out' && <path d={`M${left},${y0 + 4} L${left + w - 4},${y0 + 4} Q${left + w},${y0 + 4} ${left + w},${y0 + 8} L${left + w},${y0 + 14} Q${left + w},${y0 + 18} ${left + w - 4},${y0 + 18} L${left},${y0 + 18} Z`} fill={`url(#${hid})`} />}
             <text x={left + w + 5} y={y0 + 14} fontSize="11" fontWeight="700" fill={INK}>{fmtShort(r.value)}</text>
           </g>
@@ -117,7 +117,7 @@ const INC_SHADES = ['#0f5c31', '#1b8a4b', '#3fa86a', '#6cc08c', '#95d3ad', '#b9e
 const OUT_SHADES = ['#7a1a14', '#b3261e', '#cf5a52', '#df8a84', '#ebaea9', '#f3c9c5', '#f8dddb', '#fcecea']
 
 /** วงกลมชิ้นเค้ก (โดนัท) + คำอธิบายชิ้น เรียงมากไปน้อย: ชื่อ · จำนวนเงิน · เปอร์เซ็นต์ */
-export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value: number }[]; tone: 'in' | 'out'; size?: number }) {
+export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value: number; /** สีประจำชิ้น (ไม่ใส่ = เฉดสีตามประเภท) */ color?: string }[]; tone: 'in' | 'out'; size?: number }) {
   const total = rows.reduce((s, r) => s + r.value, 0)
   const shades = tone === 'in' ? INC_SHADES : OUT_SHADES
   if (total <= 0) return <p className="muted small">ยังไม่มีรายการในช่วงนี้</p>
@@ -130,7 +130,7 @@ export function Donut({ rows, tone, size = 150 }: { rows: { label: string; value
     const big = a1 - a0 > Math.PI ? 1 : 0
     const d = `M ${pt(a0, R)} A ${R} ${R} 0 ${big} 1 ${pt(a1, R)} L ${pt(a1, r)} A ${r} ${r} 0 ${big} 0 ${pt(a0, r)} Z`
     a0 = a1
-    return { ...row, d, frac, fill: shades[Math.min(i, shades.length - 1)] }
+    return { ...row, d, frac, fill: row.color ?? shades[Math.min(i, shades.length - 1)] }
   })
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
