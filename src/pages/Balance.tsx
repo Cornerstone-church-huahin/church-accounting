@@ -13,6 +13,7 @@ import { fmtBaht, fmtDate, addDays, todayISO } from '../lib/money'
 import { computeSeries } from '../lib/seriesLedger'
 import { useBalances } from '../lib/useBalances'
 import { ownFrom } from '../lib/balances'
+import { fundColorMap, OWN_COLOR } from '../lib/fundColors'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { useYear } from '../lib/year'
 import { useFundAccounts } from './FundAccounts'
@@ -36,6 +37,8 @@ export default function BalancePage() {
   const inn = loans.items.filter((l) => l.lender.kind === 'fund')
   const sums = summarizeLoans(loans.items)
   const fundAcc = useFundAccounts()
+  const fc = fundColorMap(b.funds.map((f) => f.id))
+  const dot = (c: string) => <i aria-hidden="true" style={{ display: 'inline-block', width: 11, height: 11, borderRadius: 3, background: c, marginRight: 6, verticalAlign: 'baseline' }} />
   const debt = sums.external
   const fundNm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.find((t) => t.id === id)?.name ?? '(ถูกลบ)')
   const types = input.types
@@ -91,12 +94,12 @@ export default function BalancePage() {
         <section className="card" aria-label="เงินกองทุน">
           <div className="cardhead"><h2>💰 เงินกองทุน</h2><FundPendingPanel funds={fundAcc.rows} canWrite={can(role, 'statement')} /></div>
           <p className="bigfig">{fmtBaht(b.fundTotal)} บาท</p>
-          <HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance) }))} tone="in" />
+          <HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))} tone="in" />
           <ul className="fundbars" aria-label="ยอดแต่ละกองทุน">
             {b.funds.map((f) => (
               <li key={f.id}>
-                <Link to={`/funds/${f.id}`} className={`fundbar${f.balance < 0 ? ' fundbar--neg' : ''}`} aria-label={`${f.name} คงเหลือ ${m(f.balance)} บาท`}>
-                  <span className="fundbar__top"><b>{f.name}</b><b className="num">{f.balance < 0 ? `−${m(-f.balance)}` : m(f.balance)}</b></span>
+                <Link to={`/funds/${f.id}`} style={{ borderLeft: `8px solid ${fc[f.id]}` }} className={`fundbar${f.balance < 0 ? ' fundbar--neg' : ''}`} aria-label={`${f.name} คงเหลือ ${m(f.balance)} บาท`}>
+                  <span className="fundbar__top"><b>{dot(fc[f.id])}{f.name}</b><b className="num">{f.balance < 0 ? `−${m(-f.balance)}` : m(f.balance)}</b></span>
                   <span className="fundbar__sub">ตั้งต้น {m(f.opening)} · รับเข้า {m(f.moneyIn)} · จ่ายออก {m(f.moneyOut)}{f.balance < 0 ? ' · ติดลบ' : ''}</span>
                   <span className="fundbar__go" aria-hidden="true">›</span>
                 </Link>
@@ -115,13 +118,13 @@ export default function BalancePage() {
           <p className="bigfig">{fmtBaht(b.total)} บาท</p>
           <table className="tbl tbl--paper" aria-label="รวมเงินทั้งหมด">
             <tbody>
-              <tr><td>🏠 เงินหมุนเวียน</td><td className="num">{m(b.own.balance)}</td></tr>
-              {b.funds.map((f) => <tr key={f.id}><td>💰 {f.name}</td><td className="num">{m(f.balance)}</td></tr>)}
+              <tr><td>{dot(OWN_COLOR)}🏠 เงินหมุนเวียน</td><td className="num">{m(b.own.balance)}</td></tr>
+              {b.funds.map((f) => <tr key={f.id}><td>{dot(fc[f.id])}💰 {f.name}</td><td className="num">{m(f.balance)}</td></tr>)}
             </tbody>
             <tfoot><tr><td>รวมทั้งหมด</td><td className="num">{m(b.total)}</td></tr></tfoot>
           </table>
           <div className="stat-title">สัดส่วนเงินทั้งหมด (บาท · %)</div>
-          <Donut rows={[{ label: 'เงินหมุนเวียน', value: Math.max(0, b.own.balance) }, ...b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance) }))].filter((r) => r.value > 0).sort((x, y) => y.value - x.value)} tone="in" />
+          <Donut rows={[{ label: 'เงินหมุนเวียน', value: Math.max(0, b.own.balance), color: OWN_COLOR }, ...b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))].filter((r) => r.value > 0).sort((x, y) => y.value - x.value)} tone="in" />
           <p className="muted small">ยอดเหล่านี้คำนวณจากยอดตั้งต้น + รายการที่บันทึกในแอป ควรเทียบกับยอดในสมุดบัญชีธนาคารและเงินสดจริงที่ขั้น 3 ปรับ</p>
         </section>
       )}

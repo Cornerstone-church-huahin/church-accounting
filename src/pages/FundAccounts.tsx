@@ -5,6 +5,7 @@ import { useLoans, useExpenses, useIncome, useIncomeTypes, useOpening, usePassbo
 import { fundAccounts } from '../lib/fundAccounts'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate } from '../lib/money'
+import { fundColorMap } from '../lib/fundColors'
 import { useYear } from '../lib/year'
 
 type ExpStore = ReturnType<typeof useExpenses>
@@ -41,6 +42,7 @@ export function useFundAccounts() {
 export default function FundAccountsPage() {
   const ctx = useFundAccounts()
   const { rows, total, types, opening, loans } = ctx
+  const fc = fundColorMap(rows.map((r) => r.id))
   return (
     <>
       <div className="page-head"><h1>💰 กองทุน</h1></div>
@@ -51,9 +53,9 @@ export default function FundAccountsPage() {
       </section>
       {rows.length === 0 && <p className="empty">ยังไม่มีกองทุน — ตั้งกองทุนที่ <Link to="/settings">ตั้งค่า › ยอดยกมา</Link></p>}
       {rows.map((f) => (
-        <details key={f.id} className="card fundcard">
+        <details key={f.id} className="card fundcard" style={{ borderLeft: `8px solid ${fc[f.id]}` }}>
           <summary style={{ cursor: 'pointer' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}><b>{f.name}</b><b className="num" style={{ fontSize: '1.2rem', ...neg(f.balance) }}>{fmtBaht(f.balance)}{f.balance < 0 ? ' (ติดลบ)' : ''}</b></div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'space-between' }}><b><i aria-hidden="true" style={{ display: 'inline-block', width: 11, height: 11, borderRadius: 3, background: fc[f.id], marginRight: 6 }} />{f.name}</b><b className="num" style={{ fontSize: '1.2rem', ...neg(f.balance) }}>{fmtBaht(f.balance)}{f.balance < 0 ? ' (ติดลบ)' : ''}</b></div>
             <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
             <DebtBanner loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} lent openingDate={opening?.date} />
           </summary>
