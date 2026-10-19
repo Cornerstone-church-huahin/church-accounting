@@ -122,7 +122,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
-              <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '27%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '15%' }} /><col style={{ width: '18%' }} /></colgroup>
+              <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '25%' }} /><col style={{ width: '10%' }} /><col style={{ width: '25%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ / รูป</th><th>ผู้วางบิล</th><th>ผู้รับเงิน</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
@@ -133,7 +133,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
                       <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td>{x?.desc ?? ''}</td>
                       <td className="num" style={{ fontSize: 11.5 }}>{x ? m(x.amount) : ''}</td>
-                      <td style={{ fontSize: 11, ...(x?.file && onFileClick ? { cursor: 'pointer' } : {}) }} onClick={x?.file && onFileClick ? (e) => { e.stopPropagation(); onFileClick(x) } : undefined} role={x?.file && onFileClick ? 'button' : undefined} aria-label={x?.file && onFileClick ? 'ดูรูปแนบ' : undefined} tabIndex={x?.file && onFileClick ? 0 : undefined} onKeyDown={x?.file && onFileClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onFileClick(x) } } : undefined}>{x ? <>{x.requester || x.note || ''}{x.file && <span style={{ marginLeft: 3, textDecoration: onFileClick ? 'underline' : undefined, color: onFileClick ? '#1a5fb4' : undefined }}>📎 มีรูป</span>}</> : ''}</td>
+                      <td style={{ fontSize: 11, whiteSpace: 'nowrap', ...(x?.file && onFileClick ? { cursor: 'pointer' } : {}) }} onClick={x?.file && onFileClick ? (e) => { e.stopPropagation(); onFileClick(x) } : undefined} role={x?.file && onFileClick ? 'button' : undefined} aria-label={x?.file && onFileClick ? 'ดูรูปแนบ' : undefined} tabIndex={x?.file && onFileClick ? 0 : undefined} onKeyDown={x?.file && onFileClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onFileClick(x) } } : undefined}>{x ? <>{x.requester || x.note || ''}{x.file && <span style={{ marginLeft: 3, textDecoration: onFileClick ? 'underline' : undefined, color: onFileClick ? '#1a5fb4' : undefined }}>📎 มีรูป</span>}</> : ''}</td>
                       <td>{x?.biller ?? ''}</td>
                       <td>{x?.who ?? ''}</td>
                     </tr>
