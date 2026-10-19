@@ -15,7 +15,7 @@ import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
 import { adjReportText, adjOk, type AdjReport } from '../lib/adjustReport'
 import { shareText } from '../lib/serviceReport'
-import { chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
+import { fixKinds, chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
 import type { PassbookLine, PassbookScan } from '../lib/types'
 
 interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
@@ -41,7 +41,7 @@ export default function Adjust({ year }: { year: number }) {
   const token = useRef(0)
   const typeName = (id: string) => types.list.find((t) => t.id === id)?.name ?? 'ไม่ระบุประเภท'
 
-  const weekLines = useMemo(() => pb.items.filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated), [pb.items, sunday])
+  const weekLines = useMemo(() => fixKinds(pb.items).filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated), [pb.items, sunday])
   const match = useMemo(() => matchBankIn(pb.items, income.items), [pb.items, income.items])
   const transfersIn = weekLines.filter((l) => l.kind === 'in')
   const matched = transfersIn.flatMap((l) => { const inc = income.items.find((x) => x.id === match.get(l.id)); return inc ? [{ line: l, inc }] : [] })

@@ -3,6 +3,8 @@ import type { IncomeEntry, IncomeType, PassbookLine, PbKind } from './types'
 
 export interface RawPbRow { date?: string; code?: string; desc?: string; deposit?: number; withdraw?: number; balance?: number }
 
+/** รหัสโอนทั่วไปที่ไม่บอกทิศทางในตัวรหัส (ธนาคารกรุงเทพ: TRF) */
+const TRANSFER_CODE = /^(TRF|TFR|XFR|ATS|ORFT)/
 const IN_WORDS = /โอน|transfer|promptpay|พร้อมเพย์|k\s?plus|mobile|app|อิเล็ก|ibanking|atm/i
 
 /**
@@ -18,6 +20,7 @@ export function classify(r: RawPbRow): PbKind {
   if (/^(TRD|TRI|PMI|ITR)/.test(code)) return 'in'
   if (/^(W\/?D|WDL|WTD|CSW)/.test(code)) return 'withdraw'
   if (/^(TRW|TRC|TRO|PMO)/.test(code)) return 'out'
+  if (TRANSFER_CODE.test(code)) return dep ? 'in' : 'out' // TRF = โอน: ทิศทางดูจากช่องฝาก/ถอน (ยอดคงเหลือเพิ่ม = โอนเข้า)
   if (dep) return IN_WORDS.test(d) && !/เงินสด|cash|cdm/i.test(d) ? 'in' : 'deposit'
   return IN_WORDS.test(d) && !/เงินสด|cash/i.test(d) ? 'out' : 'withdraw'
 }
@@ -94,7 +97,8 @@ export const BANK_UNKNOWN_OUT_LABEL = 'ไม่ทราบรายจ่า�
 export const lineDate = (l: Pick<PassbookLine, 'date' | 'week'>) => l.week ?? l.date
 
 /** จับคู่บรรทัด "โอนเข้า" ในสมุดกับสลิป/รายรับโอนตามยอดเท่ากัน (± 3 วัน) หรือที่ผู้ใช้ผูกไว้ → แผนที่ id บรรทัด → id รายรับ */
-export function matchBankIn(all: PassbookLine[], income: IncomeEntry[]): Map<string, string> {
+export function matchBankIn(all0: PassbookLine[], income: IncomeEntry[]): Map<string, string> {
+  const all = fixKinds(all0)
   const live = income.filter((x) => !x.deleted)
   const out = new Map<string, string>()
   const used = new Set<string>()
@@ -112,7 +116,8 @@ const isIn = (l: PassbookLine) => l.kind === 'in' || (l.kind === 'other' && l.di
 const isOut = (l: PassbookLine) => l.kind === 'out' || (l.kind === 'other' && l.dir === 'out')
 
 /** เงินเข้าสมุด (โอนเข้า/ดอกเบี้ย) ที่ไม่มีสลิปและยังไม่ได้ลงเป็นรายรับหรือพักไว้ → นับในใบสรุปเป็นรายรับ "ไม่ทราบที่มา (Unknown)" */
-export function unknownBankIn(all: PassbookLine[], income: IncomeEntry[]): PassbookLine[] {
+export function unknownBankIn(all0: PassbookLine[], income: IncomeEntry[]): PassbookLine[] {
+  const all = fixKinds(all0)
   const m = matchBankIn(all, income)
   return all.filter((l) => !l.deleted && isIn(l) && !l.link && !m.has(l.id))
 }
@@ -121,7 +126,8 @@ export function unknownBankIn(all: PassbookLine[], income: IncomeEntry[]): Passb
  * เงินออกสมุด (โอนออก/ค่าธรรมเนียม/ภาษี) ที่ไม่มีรายจ่ายแบบโอนตรงกัน (ยอดเท่ากัน ± 3 วัน) → นับเป็นรายจ่าย "ไม่ทราบรายจ่าย (Unknown)"
  * — การถอนเงินสด (W/D) ไม่นับ เพราะเป็นแค่ย้ายเงินออกมาจ่าย รายจ่ายนับตามบิลที่จ่ายจริงอยู่แล้ว
  */
-export function unknownBankOut(all: PassbookLine[], expenses: { id: string; deleted?: boolean; amount: number; method?: 'cash' | 'transfer'; status: 'open' | 'paid'; date: string; paidDate?: string }[]): PassbookLine[] {
+export function unknownBankOut(all0: PassbookLine[], expenses: { id: string; deleted?: boolean; amount: number; method?: 'cash' | 'transfer'; status: 'open' | 'paid'; date: string; paidDate?: string }[]): PassbookLine[] {
+  const all = fixKinds(all0)
   const live = expenses.filter((x) => !x.deleted && x.status === 'paid' && x.method === 'transfer')
   const used = new Set<string>()
   const outs = all.filter((l) => !l.deleted && isOut(l)).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -147,8 +153,8 @@ export interface Reconcile {
   closingBy: Record<string, number>
 }
 
-export function reconcileWeek(sunday: string, all: PassbookLine[], income: IncomeEntry[], restrictedIds: string[] = []): Reconcile {
-  all = all.filter((l) => !l.deleted)
+export function reconcileWeek(sunday: string, all0: PassbookLine[], income: IncomeEntry[], restrictedIds: string[] = []): Reconcile {
+  const all = fixKinds(all0).filter((l) => !l.deleted)
   const mine = all.filter((l) => lineWeek(l) === sunday && !(l.accountId && restrictedIds.includes(l.accountId) && l.kind !== 'in')).sort((a, b) => a.date.localeCompare(b.date))
   const deposits = mine.filter((l) => l.kind === 'deposit')
   const transfersIn = mine.filter((l) => l.kind === 'in')
@@ -192,9 +198,17 @@ export function typeFromNote(text: string | undefined, types: IncomeType[]): str
  * → อาจเป็นสลิปที่ไม่มีการโอนจริง หรือบันทึกยอด/วันที่ผิด · ตรวจเฉพาะสัปดาห์ที่มีรายการจากสมุดแล้วเท่านั้น (ไม่เดาสัปดาห์ที่ยังไม่สแกน)
  */
 export function unseenTransfers(all: PassbookLine[], income: IncomeEntry[]): IncomeEntry[] {
-  const live = all.filter((l) => !l.deleted)
+  const live = fixKinds(all).filter((l) => !l.deleted)
   const weeks = new Set(live.map((l) => lineWeek(l)))
   if (weeks.size === 0) return []
   const used = new Set(matchBankIn(live, income).values())
   return income.filter((x) => !x.deleted && x.method === 'transfer' && !used.has(x.id) && weeks.has(sheetSunday(x.date)))
+}
+
+/**
+ * แก้บรรทัดที่เคยบันทึกไว้ก่อนรู้จักรหัส TRF: ถูกจัดเป็น "ฝากเงินสด/ถอนเงินสด" ทั้งที่เป็นโอนเข้า/โอนออก
+ * (รหัสอยู่ต้นช่องรายการ เช่น "TRF") — ใช้กับทุกที่ที่อ่านบรรทัดสมุดเพื่อไม่ต้องสแกนใหม่
+ */
+export function fixKinds(lines: PassbookLine[]): PassbookLine[] {
+  return lines.map((l) => (/^\s*(TRF|TFR|XFR|ATS|ORFT)\b/i.test(l.desc ?? '') ? (l.kind === 'deposit' ? { ...l, kind: 'in' as const } : l.kind === 'withdraw' ? { ...l, kind: 'out' as const } : l) : l))
 }

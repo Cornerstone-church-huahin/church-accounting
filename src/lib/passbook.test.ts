@@ -163,3 +163,18 @@ describe('unseenTransfers', () => {
   })
   it('ยังไม่สแกนเลย = ไม่แจ้งอะไร', () => { expect(unseenTransfers([], [inc('a', '2026-10-15', 1)])).toEqual([]) })
 })
+
+import { fixKinds } from './passbook'
+describe('รหัส TRF (โอน)', () => {
+  it('ฝากด้วยรหัส TRF = โอนเข้า · ถอน = โอนออก (ไม่ใช่ฝากเงินสด)', () => {
+    expect(classify({ code: 'TRF', deposit: 100000 })).toBe('in')
+    expect(classify({ code: 'TRF', withdraw: 100000 })).toBe('out')
+  })
+  it('บรรทัดเก่าที่เคยบันทึกเป็นฝากเงินสดทั้งที่เป็น TRF ถูกแก้และนับเป็นเงินเข้าไม่ทราบที่มา', () => {
+    const old: PassbookLine = { id: 'p1', updated: 1, date: '2026-10-18', kind: 'deposit', dir: 'in', amount: 100000, desc: 'TRF' }
+    expect(fixKinds([old])[0].kind).toBe('in')
+    expect(unknownBankIn([old], []).map((l) => l.id)).toEqual(['p1'])
+    const cash: PassbookLine = { ...old, id: 'p2', desc: 'DEP' }
+    expect(fixKinds([cash])[0].kind).toBe('deposit')
+  })
+})
