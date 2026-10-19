@@ -40,18 +40,15 @@ export default function FundPendingPanel({ funds, canWrite }: { funds: FundAccou
                   <td style={{ whiteSpace: 'nowrap' }}>{weekRange(r.week)}</td>
                   <td>{r.name}</td>
                   <td className="num"><b>{fmtBaht(r.pending > 0 ? r.pending : r.recorded)}</b></td>
-                  <td>
-                    {r.pending > 0 ? (
-                      <div className="fundpend__cell">
-                        <span className="fundpend__warn" title="เตรียมนำฝากเข้าบัญชีกองทุน">⏳ รอนำฝาก</span>
-                        {canWrite && <button type="button" className="fundpend__chk" onClick={() => mark(r)} aria-label={`ฝากแล้ว ${r.name} สัปดาห์ ${weekRange(r.week)}`}>✓ ฝากแล้ว</button>}
-                      </div>
-                    ) : (
-                      <div className="fundpend__cell">
-                        <span className="fundpend__ok">✅ ฝากแล้ว{r.depositedOn ? ` ${fmtDate(r.depositedOn)}` : ''}</span>
-                        {canWrite && <button type="button" className="fundpend__undo" onClick={() => undo(r.key)} aria-label="ยกเลิกการฝากรายการนี้">↩︎</button>}
-                      </div>
-                    )}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {(() => {
+                      const wait = r.pending > 0
+                      const label = wait ? '⏳ รอนำฝาก' : '✅ ฝากแล้ว'
+                      const cls = `fundpend__tog ${wait ? 'fundpend__tog--wait' : 'fundpend__tog--done'}`
+                      return canWrite
+                        ? <button type="button" className={cls} onClick={() => (wait ? mark(r) : undo(r.key))} aria-label={wait ? `รอนำฝาก ${r.name} สัปดาห์ ${weekRange(r.week)} — กดเมื่อฝากแล้ว` : `ฝากแล้ว ${r.name} สัปดาห์ ${weekRange(r.week)} — กดเพื่อยกเลิก`} title={wait ? 'กดเมื่อนำเงินไปฝากแล้ว' : `ฝากแล้ว${r.depositedOn ? ` เมื่อ ${fmtDate(r.depositedOn)}` : ''} — กดเพื่อยกเลิก`}>{label}</button>
+                        : <span className={cls}>{label}</span>
+                    })()}
                   </td>
                 </tr>
               ))}
