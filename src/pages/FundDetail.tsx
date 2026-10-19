@@ -5,6 +5,9 @@ import { useYear } from '../lib/year'
 import DebtBanner from '../components/DebtBanner'
 import { isLoanMove, type FundScope } from '../lib/fundScope'
 import { useFundAccounts } from './FundAccounts'
+import { FundSheetPaper } from '../components/PaperSheets'
+import { fundSheetRows } from '../lib/fundSheet'
+import { useSettings } from '../lib/data'
 import Pay from './Pay'
 import Receive from './Receive'
 
@@ -16,7 +19,8 @@ export default function FundDetailPage() {
   const { id } = useParams()
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
-  const [tab, setTab] = useState<'in' | 'out'>('in')
+  const [tab, setTab] = useState<'sheet' | 'in' | 'out'>('sheet')
+  const { settings } = useSettings()
   const f = rows.find((r) => r.id === id)
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
   const fund: FundScope = {
@@ -33,12 +37,13 @@ export default function FundDetailPage() {
       </section>
       <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
       <DebtBanner lent loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} />
-      <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: รับ จ่าย" style={{ margin: '6px 0' }}>
+      <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: ใบกองทุน รับ จ่าย" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <button type="button" role="tab" aria-selected={tab === 'sheet'} className={`home-tab home-tab--sum${tab === 'sheet' ? ' on' : ''}`} onClick={() => setTab('sheet')}><i className="hn">📄</i><span>ใบกองทุน</span></button>
         <button type="button" role="tab" aria-selected={tab === 'in'} className={`home-tab home-tab--in${tab === 'in' ? ' on' : ''}`} onClick={() => setTab('in')}><i className="hn">1</i><span>💚 รับ</span></button>
         <button type="button" role="tab" aria-selected={tab === 'out'} className={`home-tab home-tab--out${tab === 'out' ? ' on' : ''}`} onClick={() => setTab('out')}><i className="hn">2</i><span>🔴 จ่าย</span></button>
       </div>
       <div className="fullmode">
-        {tab === 'in' ? <Receive key={`${year}-${f.id}-in`} year={year} fund={fund} /> : <Pay key={`${year}-${f.id}-out`} year={year} fund={fund} />}
+        {tab === 'sheet' ? <FundSheetPaper church={settings.churchName.split(' ')[0]} fundName={f.name} rows={fundSheetRows(f)} /> : tab === 'in' ? <Receive key={`${year}-${f.id}-in`} year={year} fund={fund} /> : <Pay key={`${year}-${f.id}-out`} year={year} fund={fund} />}
       </div>
     </>
   )

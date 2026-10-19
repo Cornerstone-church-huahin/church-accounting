@@ -3,6 +3,7 @@ import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/mon
 import { downloadSheetPdf } from '../lib/pdf'
 import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 import type { LRow } from '../lib/weekLedger'
+import type { FundSheetRow } from '../lib/fundSheet'
 import ScaledPage from './ScaledPage'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
@@ -311,5 +312,59 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
       </tbody>
       <tfoot><tr><td colSpan={COLS} style={{ textAlign: 'right' }}>รวมต้องเบิก&nbsp;&nbsp;<span className="num">{total === undefined ? '..............' : m(total)}</span> บาท</td></tr></tfoot>
     </table>
+  )
+}
+
+/** ใบกองทุน: กระดาษต่อเนื่องใบเดียวของกองทุนหนึ่ง (A4 แนวตั้ง) — ยอดตั้งต้น แล้วเติมเงินถวายเป็นแถวต่อไปทีละสัปดาห์ ไม่แยกใบรายสัปดาห์ · เกินแผ่นขึ้นแผ่นถัดไปพร้อมยอดยกมา */
+export function FundSheetPaper({ church, fundName, rows }: { church: string; fundName: string; rows: FundSheetRow[] }) {
+  const ROWS = 22
+  const refs = useRef<(HTMLDivElement | null)[]>([])
+  const pages = chunk(rows, ROWS)
+  const inn = rows.reduce((s, r) => s + r.inn, 0), out = rows.reduce((s, r) => s + r.out, 0)
+  const last = rows[rows.length - 1]
+  const dated = rows.filter((r) => r.date)
+  const span = dated.length ? `ตั้งแต่ ${fmtDate(dated[0].date)} ถึง ${fmtDate(dated[dated.length - 1].date)}` : 'ยังไม่มีรายการ'
+  return (
+    <div>
+      {pages.map((rs, pi) => {
+        const carry = pi > 0 ? pages[pi - 1][pages[pi - 1].length - 1].balance : undefined
+        const fill = ROWS - rs.length - (carry !== undefined ? 1 : 0)
+        return (
+          <ScaledPage key={pi} ref={(el) => { refs.current[pi] = el }}>
+            <>
+              <PaperHead church={church} title={`ใบกองทุน · ${fundName}`} sub={`ใบต่อเนื่อง ไม่แยกรายสัปดาห์ · ${span}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
+              <table className="sheetpaper sheetpaper--full" aria-label={`ใบกองทุน ${fundName} (A4)`}>
+                <colgroup><col style={{ width: '13%' }} /><col style={{ width: '6%' }} /><col style={{ width: '37%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} /><col style={{ width: '16%' }} /></colgroup>
+                <thead><tr><th>วันที่</th><th>ลำดับ</th><th>รายการ</th><th>เงินเข้า</th><th>เงินออก</th><th>คงเหลือ</th></tr></thead>
+                <tbody>
+                  {carry !== undefined && <tr style={{ background: '#eef2fb' }}><td /><td /><td>ยอดยกมาจากแผ่นก่อน</td><td /><td /><td className="num"><b>{m(carry)}</b></td></tr>}
+                  {rs.map((r) => (
+                    <tr key={r.key} style={r.kind === 'open' ? { background: '#eef2fb' } : undefined}>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: 11 }}>{r.date ? fmtDate(r.date) : ''}</td>
+                      <td style={{ textAlign: 'center' }}>{r.kind === 'open' ? '' : rows.indexOf(r)}</td>
+                      <td style={{ fontSize: 12 }}>{r.label}</td>
+                      <td className="num">{r.inn ? m(r.inn) : ''}</td>
+                      <td className="num">{r.out ? m(r.out) : ''}</td>
+                      <td className="num"><b>{m(r.balance)}</b></td>
+                    </tr>
+                  ))}
+                  {Array.from({ length: Math.max(0, fill) }, (_, i) => <tr key={`e${i}`}><td>&nbsp;</td><td /><td /><td /><td /><td /></tr>)}
+                </tbody>
+                {pi === pages.length - 1 && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมทั้งสิ้น</td><td className="num">{m(inn)}</td><td className="num">{m(out)}</td><td className="num">{m(last.balance)}</td></tr></tfoot>}
+              </table>
+              <p style={{ margin: '6px 0 0', fontSize: 12.5 }}>เงินคงเหลือกองทุน <b>{m(rs[rs.length - 1].balance)}</b> บาท</p>
+              <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
+                <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้บันทึกบัญชี</b><br /><br />ลงชื่อ.................................................<br />วันที่........../........../..........</div>
+                <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้ตรวจสอบ</b><br /><br />ลงชื่อ.................................................<br />วันที่........../........../..........</div>
+              </div>
+            </>
+          </ScaledPage>
+        )
+      })}
+      <div className="row no-print dlrow" style={{ margin: '0.4rem 0' }}>
+        <button type="button" className="btn btn--gold grow" onClick={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), `fund-${fundName}.pdf`, 'full')}>⬇️ ดาวน์โหลด PDF ใบกองทุน</button>
+        <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
+      </div>
+    </div>
   )
 }
