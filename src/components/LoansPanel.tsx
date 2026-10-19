@@ -6,12 +6,15 @@ import { isFundType } from '../lib/funds'
 import type { IncomeType, Loan } from '../lib/types'
 
 type Store = { items: Loan[]; put: (x: Loan[]) => boolean; remove: (id: string) => boolean }
+interface Repay { lender: string; borrower: string; date: string; amount: number | null; note: string }
 interface Draft { id?: string; borrower: string; kind: 'person' | 'fund'; name: string; fundId: string; purpose: string; date: string; principal: number | null; note: string }
 const blank = (fundId: string): Draft => ({ borrower: '', kind: 'person', name: '', fundId, purpose: '', date: todayISO(), principal: null, note: '' })
 
 /** ทะเบียนเงินยืม: เพิ่ม/แก้/ลบได้ทุกเมื่อ ไม่ต้องมีตัวเลขตั้งต้น · ยืมจากบุคคลภายนอก หรือจากกองทุนอื่น */
 export default function LoansPanel({ store, funds, canWrite, only, title, types, scope }: { store: Store; funds: IncomeType[]; canWrite: boolean; /** แสดงเฉพาะเงินยืมที่เกี่ยวกับกองทุนนี้ (ยืมเข้า/ให้ยืม) และมีปุ่มเพิ่มแยกสองแบบ */ scope?: { fundId: string }; /** ตัวเลือก "ผู้ยืม" (ประเภทรับทั้งหมดในระบบ) */ types?: IncomeType[]; /** แสดง/เพิ่มเฉพาะเงินยืมประเภทนี้ (person = หนี้สินภายนอก) */ only?: 'person' | 'fund'; title?: string }) {
   const [form, setForm] = useState<Draft | null>(null)
+  const [mode, setMode] = useState<'borrow' | 'repay'>('borrow') // โหมดของฟอร์มเพิ่ม: ยืมเพิ่ม / ใช้คืน
+  const [rp, setRp] = useState<Repay>({ lender: '', borrower: '', date: todayISO(), amount: null, note: '' })
   const [pay, setPay] = useState<{ loanId: string; date: string; amount: number | null; note: string } | null>(null)
   const [err, setErr] = useState('')
   const borrowers = (types ?? funds).filter((t) => t.active)
@@ -21,6 +24,32 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types,
   const shown = scope ? base.filter((l) => !l.deleted && (l.borrower === scope.fundId || (l.lender.kind === 'fund' && l.lender.fundId === scope.fundId))) : base
   const sum = summarizeLoans(shown)
   const live = [...shown].sort((a, b) => a.date.localeCompare(b.date))
+  // ---- โหมดใช้คืน: เลือกจากชื่อที่ยังมียอดค้างคืนเท่านั้น ----
+  const open = live.filter((l) => !l.deleted && loanBalance(l) > 0)
+  const keyOf = (l: Loan) => (l.lender.kind === 'fund' ? `f:${l.lender.fundId ?? ''}` : `p:${(l.lender.name ?? '').trim()}`)
+  const lenders = [...new Map(open.map((l) => [keyOf(l), lenderLabel(l, fundName)])).entries()]
+  const ofLender = open.filter((l) => keyOf(l) === rp.lender)
+  const borrowersOf = [...new Set(ofLender.map((l) => l.borrower ?? ''))]
+  const pair = ofLender.filter((l) => (l.borrower ?? '') === rp.borrower)
+  const pairBal = pair.reduce((a, l) => a + loanBalance(l), 0)
+  const pickLender = (k: string) => { const bs = [...new Set(open.filter((l) => keyOf(l) === k).map((l) => l.borrower ?? ''))]; const b = bs.length === 1 ? bs[0] : ''; const bal = open.filter((l) => keyOf(l) === k && (l.borrower ?? '') === b).reduce((a, l) => a + loanBalance(l), 0); setRp({ ...rp, lender: k, borrower: b, amount: b ? bal : null }) }
+  const pickBorrower = (b: string) => setRp({ ...rp, borrower: b, amount: ofLender.filter((l) => (l.borrower ?? '') === b).reduce((a, l) => a + loanBalance(l), 0) || null })
+  const saveRepay = () => {
+    if (!rp.lender) return setErr(only === 'fund' ? 'เลือกกองทุนที่ได้รับเงินคืน' : 'เลือกชื่อผู้ที่เรายืมมา')
+    if (pair.length === 0) return setErr(only === 'fund' ? 'เลือกกองทุนที่เป็นผู้คืน' : 'เลือกผู้ที่ยืม')
+    if (!rp.amount || rp.amount <= 0) return setErr('ใส่จำนวนเงินที่คืน')
+    if (rp.amount > pairBal) return setErr(`คืนเกินยอดค้าง — ค้างอยู่ ${fmtBaht(pairBal)}`)
+    let left = rp.amount
+    const out: Loan[] = []
+    for (const l of [...pair].sort((a, b) => a.date.localeCompare(b.date))) { // หักจากรายการที่ยืมเก่าสุดก่อน
+      if (left <= 0) break
+      const take = Math.min(left, loanBalance(l))
+      left -= take
+      out.push({ ...l, repayments: [...l.repayments, { id: newId('rp'), date: rp.date, amount: take, ...(rp.note.trim() ? { note: rp.note.trim() } : {}) }] })
+    }
+    store.put(out)
+    setForm(null); setErr(''); setMode('borrow'); setRp({ lender: '', borrower: '', date: todayISO(), amount: null, note: '' })
+  }
 
   const save = () => {
     if (!form) return
@@ -75,6 +104,37 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types,
       {err && <p className="err" role="alert">{err}</p>}
       {canWrite && (form ? (
         <div className="pbdraft">
+          {!form.id && (
+            <div className="seg" role="group" aria-label="ประเภทรายการ" style={{ marginBottom: 8 }}>
+              <button type="button" className={mode === 'borrow' ? 'on' : ''} onClick={() => { setMode('borrow'); setErr('') }}>💸 ยืมเงิน</button>
+              <button type="button" className={mode === 'repay' ? 'on' : ''} onClick={() => { setMode('repay'); setErr('') }}>↩️ ใช้คืน</button>
+            </div>
+          )}
+          {!form.id && mode === 'repay' ? (
+            <>
+              {open.length === 0 ? <p className="muted">ไม่มีรายการที่ค้างคืน</p> : (
+                <>
+                  <div className="field"><label htmlFor="rp-lender">{only === 'fund' ? 'กองทุนที่ได้รับเงินคืน' : 'คืนให้ใคร (ผู้ให้ยืม)'}</label>
+                    <select id="rp-lender" className="input" value={rp.lender} onChange={(e) => pickLender(e.target.value)}>
+                      <option value="">— เลือก —</option>
+                      {lenders.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                    </select></div>
+                  {rp.lender && (
+                    <div className="field"><label htmlFor="rp-borrower">{only === 'fund' ? 'กองทุน/ส่วนที่เป็นผู้คืน' : 'ผู้ที่ยืม (ผู้คืนเงิน)'}</label>
+                      <select id="rp-borrower" className="input" value={rp.borrower} onChange={(e) => pickBorrower(e.target.value)}>
+                        <option value="">— เลือก —</option>
+                        {borrowersOf.map((b) => <option key={b} value={b}>{b ? borrowerName(b) : 'ไม่ระบุผู้ยืม'} · ค้าง {fmtBaht(ofLender.filter((l) => (l.borrower ?? '') === b).reduce((a, l) => a + loanBalance(l), 0))}</option>)}
+                      </select></div>
+                  )}
+                  {pair.length > 0 && <p className="small">ค้างคืน <b>{fmtBaht(pairBal)}</b>{rp.amount ? <> → หลังคืนเหลือ <b>{fmtBaht(Math.max(0, pairBal - rp.amount))}</b></> : null}</p>}
+                  <div className="grid2"><div className="field"><label htmlFor="rp-date">วันที่คืน</label><input id="rp-date" className="input" type="date" value={rp.date} onChange={(e) => setRp({ ...rp, date: e.target.value })} /></div>
+                    <div className="field"><label>จำนวนเงินที่คืน</label><MoneyInput value={rp.amount} onChange={(v) => setRp({ ...rp, amount: v })} /></div></div>
+                  <div className="field"><label htmlFor="rp-note">หมายเหตุ (ไม่บังคับ)</label><input id="rp-note" className="input" value={rp.note} onChange={(e) => setRp({ ...rp, note: e.target.value })} /></div>
+                </>
+              )}
+              <div className="row"><button type="button" className="btn btn--gold grow" disabled={open.length === 0} onClick={saveRepay}>บันทึกการใช้คืน</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr(''); setMode('borrow') }}>ยกเลิก</button></div>
+            </>
+          ) : (<>
           {!only && <div className="field"><label htmlFor="ln-kind">ยืมจาก</label>
             <select id="ln-kind" className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as 'person' | 'fund' })}><option value="person">บุคคลภายนอก (พี่น้อง)</option><option value="fund">กองทุนในคริสตจักร</option></select></div>}
           {form.kind === 'person'
@@ -90,6 +150,7 @@ export default function LoansPanel({ store, funds, canWrite, only, title, types,
             <div className="field"><label>จำนวนเงินที่ยืม</label><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></div></div>
           <div className="field"><label htmlFor="ln-purpose">ใช้ทำอะไร / หมายเหตุ (ไม่บังคับ)</label><input id="ln-purpose" className="input" value={form.purpose} placeholder="เช่น ทำหลุมสุสาน" onChange={(e) => setForm({ ...form, purpose: e.target.value })} /></div>
           <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{form.id ? 'บันทึกการแก้ไข' : 'บันทึกเงินยืม'}</button><button type="button" className="btn btn--ghost" onClick={() => { setForm(null); setErr('') }}>ยกเลิก</button></div>
+          </>)}
         </div>
       ) : scope ? (
         <div className="row" style={{ gap: 8 }}>
