@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import ImageViewer from '../components/ImageViewer'
 import MoneyInput from '../components/MoneyInput'
 import Thumb from '../components/Thumb'
+import { Link } from 'react-router-dom'
 import WeekBar from '../components/WeekBar'
 import { can } from '../lib/access'
 import { useIncome, useIncomeTypes, usePassbook, usePassbookScans } from '../lib/data'
@@ -121,7 +122,7 @@ export default function Adjust({ year }: { year: number }) {
     title: weekTitle(sunday), range: weekRange(sunday),
     matched: matched.map(({ line, inc }) => ({ date: line.date, amount: line.amount, label: typeName(inc.typeId) })),
     unknown: unknown.map((l) => ({ date: l.date, amount: l.amount })),
-    missing: missing.map((x) => ({ date: x.date, amount: x.amount, label: typeName(x.typeId) })),
+    missing: missing.map((x) => ({ date: x.date, amount: x.amount, label: `${typeName(x.typeId)}${x.ref ? ` อ้างอิง ${x.ref}` : ''}${x.note ? ` · ${x.note}` : ''} (ไม่พบเงินเข้าในสมุด)` })),
     cash: sum(cash), out: sum(outs), ...(weekLines.length ? (() => { const b = [...weekLines].reverse().find((l) => l.balance !== undefined)?.balance; return b !== undefined ? { closing: b } : {} })() : {}),
   }
   const share = async () => { const r = await shareText('รายงานตรวจสมุดบัญชี', adjReportText(report)); if (r === 'copied') setMsg('คัดลอกรายงานแล้ว วางในแชต LINE ได้เลย'); else if (r === 'failed') setMsg('แชร์/คัดลอกไม่สำเร็จ') }
@@ -180,7 +181,7 @@ export default function Adjust({ year }: { year: number }) {
             <div className="adjsum">
               <div className="adjsum__ok"><b>✓ ตรงกัน {matched.length} รายการ</b><br />{fmtBaht(sum(matched.map((m) => m.line)))}</div>
               <div className="adjsum__unk"><b>❓ ไม่ทราบที่มา {unknown.length} รายการ</b><br />{fmtBaht(sum(unknown))}</div>
-              <div className="adjsum__miss"><b>⚠ ไม่เจอในสมุด {missing.length} รายการ</b><br />{fmtBaht(sum(missing))}</div>
+              <div className="adjsum__miss"><b>⚠ ไม่พบเงินเข้า {missing.length} รายการ</b><br />{fmtBaht(sum(missing))}</div>
             </div>
 
             <h3>✓ ตรงกับที่บันทึกไว้</h3>
@@ -205,10 +206,19 @@ export default function Adjust({ year }: { year: number }) {
               </li>
             ))}</ul>}
 
-            <h3>⚠ บันทึกว่าโอน แต่ไม่เจอในสมุด</h3>
-            {missing.length === 0 ? <p className="muted small">ไม่มี</p> : <ul className="list">{missing.map((x) => (
-              <li key={x.id} className="row row--between"><span>{fmtDate(x.date)} · {typeName(x.typeId)}{x.note ? ` · ${x.note}` : ''}</span><b>{fmtBaht(x.amount)}</b></li>
-            ))}</ul>}
+            <h3>⚠ บันทึกว่าโอนแล้ว แต่ไม่พบเงินเข้าในสมุด</h3>
+            {missing.length === 0 ? <p className="muted small">ไม่มี — ทุกรายการโอนที่บันทึกไว้เจอเงินเข้าในสมุดครบ</p> : (
+              <>
+                <p className="err" role="alert">มี {missing.length} รายการที่บันทึกว่าโอนแล้ว ({fmtBaht(sum(missing))}) แต่สมุดบัญชีสัปดาห์นี้ไม่มีเงินเข้าตรงกัน — อาจเป็นสลิปที่ไม่มีการโอนจริง หรือบันทึกยอด/วันที่ผิด · ระบบไม่ลบให้ กดไปตรวจที่หน้ารายรับแล้วตัดสินใจเอง</p>
+                <ul className="list">{missing.map((x) => (
+                  <li key={x.id} className="adjmiss">
+                    <div className="row row--between"><b>{typeName(x.typeId)}</b><b>{fmtBaht(x.amount)}</b></div>
+                    <div className="small">วันที่ {fmtDate(x.date)}{x.time ? ` เวลา ${x.time}` : ''} · {x.slip ? '📎 มีสลิปแนบ' : 'ไม่มีสลิปแนบ'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.note ? ` · ${x.note}` : ''}</div>
+                    <Link className="mini" to={`/income?focus=${x.id}`}>🔎 ไปตรวจที่หน้ารายรับ</Link>
+                  </li>
+                ))}</ul>
+              </>
+            )}
 
             <details>
               <summary>รายการอื่นในสมุดสัปดาห์นี้ (ฝากเงินสด {fmtBaht(sum(cash))} · ออก {fmtBaht(sum(outs))})</summary>

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import NoAccess from '../components/NoAccess'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import { can } from '../lib/access'
 import { useAccounts, useIncome, useIncomeTypes, usePassbook } from '../lib/data'
-import { BANK_UNKNOWN_LABEL, lineDate, unknownBankIn } from '../lib/passbook'
+import { BANK_UNKNOWN_LABEL, lineDate, unknownBankIn, unseenTransfers } from '../lib/passbook'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, monthName, monthOf, newId, todayISO, yearOf } from '../lib/money'
 import { UNSORTED, type IncomeEntry, type Method } from '../lib/types'
@@ -28,6 +28,13 @@ function IncomeList({ year }: { year: number }) {
   const [edit, setEdit] = useState<IncomeEntry | 'new' | null>(null)
   const rows = inc.items.filter((x) => !month || monthOf(x.date) === month).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated))
   const pb = usePassbook(year)
+  const unseen = new Set(unseenTransfers(pb.items, inc.items).map((x) => x.id)) // โอนที่บันทึกไว้ แต่สมุดบัญชีไม่มีเงินเข้า
+  const [params] = useSearchParams()
+  const focus = params.get('focus')
+  useEffect(() => { // มาจากหน้า ปรับ: เปิดรายการนั้นให้ตรวจเลย
+    const x = focus ? inc.items.find((y) => y.id === focus) : undefined
+    if (x) { setMonth(monthOf(x.date)); if (!x.roundId && can(role, 'income')) setEdit(x) }
+  }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // เงินเข้าสมุดที่ไม่มีรายรับตรงกัน (จากการสแกนในหน้า ปรับ) → รวมเป็นอีก 1 แถวท้ายรายการ
   const unk = unknownBankIn(pb.items, inc.items).filter((l) => !month || monthOf(lineDate(l)) === month)
   const unkSum = unk.reduce((s, l) => s + l.amount, 0)
@@ -48,6 +55,7 @@ function IncomeList({ year }: { year: number }) {
         </select>
       </div>
       <div className="kpi"><div><span>รวม{month ? `เดือน${monthName(month)}` : 'ทั้งปี'}</span><b>{fmtBaht(total)}</b></div><div><span>จำนวนรายการ</span><b>{rows.length + (unk.length ? 1 : 0)}</b></div></div>
+      {unseen.size > 0 && <p className="err" role="alert">⚠ มี {unseen.size} รายการโอนที่บันทึกไว้ แต่สมุดบัญชีไม่มีเงินเข้า — ตรวจสอบว่าเป็นสลิปที่ไม่มีการโอนจริงหรือบันทึกผิด (ระบบไม่ลบให้)</p>}
       <section className="card" aria-label="รายการรายรับ">
         {rows.length === 0 && unk.length === 0 ? <p className="empty">ยังไม่มีรายรับ{canWrite ? ' — กด “บันทึกรายรับ” เพื่อเริ่ม' : ''}</p> : (
           <ul className="list">
@@ -55,7 +63,7 @@ function IncomeList({ year }: { year: number }) {
               const body = (
                 <>
                   <span className="grow"><b>{typeName(x.typeId)}</b><br />
-                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.unknown ? ' · ❓ไม่ทราบที่มา — แตะเพื่อระบุที่มา' : ''}{x.note ? ` · ${x.note}` : ''}</span>
+                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{unseen.has(x.id) ? ' · ⚠ ไม่พบเงินเข้าในสมุดบัญชี — ตรวจสอบ (อาจไม่มีการโอนจริง)' : ''}{x.unknown ? ' · ❓ไม่ทราบที่มา — แตะเพื่อระบุที่มา' : ''}{x.note ? ` · ${x.note}` : ''}</span>
                   </span>
                   <span className="num"><b>{fmtBaht(x.amount)}</b></span>
                 </>
