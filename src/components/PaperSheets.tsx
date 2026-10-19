@@ -315,51 +315,58 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
   )
 }
 
-/** ใบกองทุน: A4 เต็มใบ 2 ชุด — ใบรับ แล้วตามด้วยใบจ่าย เรียงตามบรรทัดต่อเนื่องข้ามสัปดาห์ · เกินแผ่นขึ้นแผ่นถัดไป · ท้ายใบมีสรุปคงเหลือ */
+/** ใบกองทุน: A4 แนวตั้งเต็มใบ 2 ชุด — ใบรับ (แถบเขียว) แล้วตามด้วยใบจ่าย (แถบแดง) · แถวแรกสีเทา = ยอดตั้งต้น แล้วบวกลบตามรายการต่อเนื่อง ไม่แยกสัปดาห์ · เกินแผ่นขึ้นแผ่นถัดไปพร้อมยอดยกมา · สรุปคงเหลือท้ายใบ */
+export const FUND_ROWS = 35
 function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }: { church: string; fundName: string; kind: 'in' | 'out'; lines: FundLine[]; sheets: FundSheets; refs: MutableRefObject<(HTMLDivElement | null)[]>; start: number }) {
-  const ROWS = 24
-  const pages = chunk(lines, ROWS)
+  const ROWS = FUND_ROWS
+  const open: FundLine = { key: 'open', date: '', label: 'ยอดตั้งต้น (ยกมา)', amount: 0, balance: sheets.opening }
+  const pages = chunk([open, ...lines], ROWS)
   const title = kind === 'in' ? 'ใบรับ' : 'ใบจ่าย'
+  const color = kind === 'in' ? '#1f8a4c' : '#c4332a', tint = kind === 'in' ? '#e3f3e9' : '#fbe4e2'
   const total = kind === 'in' ? sheets.totalIn : sheets.totalOut
   const span = lines.length ? `ตั้งแต่ ${fmtDate(lines[0].date)} ถึง ${fmtDate(lines[lines.length - 1].date)}` : 'ยังไม่มีรายการ'
   return (
     <>
       {pages.map((rs, pi) => {
         const last = pi === pages.length - 1
-        const carry = pi > 0 ? pages[pi - 1][pages[pi - 1].length - 1].cum : undefined
+        const carry = pi > 0 ? pages[pi - 1][pages[pi - 1].length - 1].balance : undefined
         return (
           <ScaledPage key={`${kind}${pi}`} ref={(el) => { refs.current[start + pi] = el }}>
             <>
-              <PaperHead church={church} title={`ใบกองทุน · ${fundName} · ${title}`} sub={`ต่อเนื่องทุกสัปดาห์ ไม่แยกรายสัปดาห์ · ${span}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
+              <div style={{ height: 8, background: color, margin: '-4px 0 6px', borderRadius: 4 }} aria-hidden="true" />
+              <PaperHead church={church} title={`ใบกองทุน · ${fundName}`} sub={`ต่อเนื่องทุกสัปดาห์ ไม่แยกรายสัปดาห์ · ${span}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
+              <div style={{ textAlign: 'center', margin: '0 0 6px' }}><span style={{ display: 'inline-block', padding: '2px 18px', borderRadius: 999, background: color, color: '#fff', fontWeight: 800, fontSize: 15 }}>{kind === 'in' ? '● ' : '● '}{title} {kind === 'in' ? '(รายรับ)' : '(รายจ่าย)'}</span></div>
               <table className="sheetpaper sheetpaper--full" aria-label={`ใบกองทุน ${fundName} ${title} (A4)`}>
-                <colgroup><col style={{ width: '14%' }} /><col style={{ width: '7%' }} /><col style={{ width: '45%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /></colgroup>
-                <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>{kind === 'in' ? 'จำนวนเงินรับ' : 'จำนวนเงินจ่าย'}</th><th>{kind === 'in' ? 'รวมรับสะสม' : 'รวมจ่ายสะสม'}</th></tr></thead>
+                <colgroup><col style={{ width: '14%' }} /><col style={{ width: '7%' }} /><col style={{ width: '43%' }} /><col style={{ width: '17%' }} /><col style={{ width: '19%' }} /></colgroup>
+                <thead><tr style={{ background: tint }}><th style={{ background: tint }}>วันที่</th><th style={{ background: tint }}>ลำดับที่</th><th style={{ background: tint }}>รายการ</th><th style={{ background: tint, color }}>{kind === 'in' ? 'จำนวนเงินรับ' : 'จำนวนเงินจ่าย'}</th><th style={{ background: tint }}>เงินคงเหลือ</th></tr></thead>
                 <tbody>
-                  {carry !== undefined && <tr style={{ background: '#eef2fb' }}><td /><td /><td>ยอดยกมาจากแผ่นก่อน</td><td /><td className="num"><b>{m(carry)}</b></td></tr>}
-                  {rs.map((l, i) => (
+                  {carry !== undefined && <tr style={{ background: '#e9ebef' }}><td /><td /><td>ยอดยกมาจากแผ่นก่อน</td><td /><td className="num"><b>{m(carry)}</b></td></tr>}
+                  {rs.map((l, i) => l.key === 'open' ? (
+                    <tr key="open" style={{ background: '#e9ebef' }}><td /><td style={{ textAlign: 'center' }}>1</td><td><b>{l.label}</b></td><td /><td className="num"><b>{m(l.balance)}</b></td></tr>
+                  ) : (
                     <tr key={l.key}>
                       <td style={{ whiteSpace: 'nowrap', fontSize: 11 }}>{fmtDate(l.date)}</td>
                       <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td style={{ fontSize: 12 }}>{l.label}</td>
-                      <td className="num">{m(l.amount)}</td>
-                      <td className="num"><b>{m(l.cum)}</b></td>
+                      <td className="num" style={{ color }}><b>{kind === 'in' ? '+' : '−'}{m(l.amount)}</b></td>
+                      <td className="num"><b>{m(l.balance)}</b></td>
                     </tr>
                   ))}
                   {Array.from({ length: Math.max(0, ROWS - rs.length - (carry !== undefined ? 1 : 0)) }, (_, i) => <tr key={`e${i}`}><td>&nbsp;</td><td /><td /><td /><td /></tr>)}
                 </tbody>
-                {last && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวม{kind === 'in' ? 'รับ' : 'จ่าย'}ทั้งสิ้น</td><td className="num">{m(total)}</td><td className="num">{m(total)}</td></tr></tfoot>}
+                {last && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวม{kind === 'in' ? 'รับ' : 'จ่าย'}ทั้งสิ้น</td><td className="num" style={{ color }}>{m(total)}</td><td className="num">{m(sheets.balance)}</td></tr></tfoot>}
               </table>
               {last && (
-                <div style={{ border: '1px solid #1a2b4c', padding: 8, marginTop: 8, fontSize: 13, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
+                <div style={{ border: `2px solid ${color}`, padding: 8, marginTop: 8, fontSize: 13, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
                   <span>ยอดตั้งต้น</span><span className="num">{m(sheets.opening)}</span>
-                  <span>+ รับทั้งหมด</span><span className="num">{m(sheets.totalIn)}</span>
-                  <span>− จ่ายทั้งหมด</span><span className="num">{m(sheets.totalOut)}</span>
+                  <span style={{ color: '#1f8a4c' }}>+ รับทั้งหมด</span><span className="num" style={{ color: '#1f8a4c' }}>{m(sheets.totalIn)}</span>
+                  <span style={{ color: '#c4332a' }}>− จ่ายทั้งหมด</span><span className="num" style={{ color: '#c4332a' }}>{m(sheets.totalOut)}</span>
                   <b>เงินคงเหลือกองทุน</b><b className="num">{m(sheets.balance)} บาท</b>
                 </div>
               )}
               <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
-                <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้บันทึกบัญชี</b><br /><br />ลงชื่อ.................................................<br />วันที่........../........../..........</div>
-                <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้ตรวจสอบ</b><br /><br />ลงชื่อ.................................................<br />วันที่........../........../..........</div>
+                <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 6 }}><b>ผู้บันทึกบัญชี</b><br />ลงชื่อ.................................................<br />วันที่........../........../..........</div>
+                <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 6 }}><b>ผู้ตรวจสอบ</b><br />ลงชื่อ.................................................<br />วันที่........../........../..........</div>
               </div>
             </>
           </ScaledPage>
@@ -371,7 +378,7 @@ function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }:
 
 export function FundSheetPaper({ church, fundName, sheets }: { church: string; fundName: string; sheets: FundSheets }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
-  const nIn = chunk(sheets.inn, 24).length
+  const nIn = chunk([0, ...sheets.inn], FUND_ROWS).length
   return (
     <div>
       <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />

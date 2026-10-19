@@ -29,7 +29,7 @@ try {
   await page.getByRole('tab', { name: /ใบกองทุน/ }).click()
   const tin = await page.locator('table[aria-label$="ใบรับ (A4)"]').innerText()
   const tout = await page.locator('table[aria-label$="ใบจ่าย (A4)"]').innerText()
-  must(/12 ?/.test(tin) && /120/.test(tin) && /170/.test(tin), 'income sheet lists each line with cumulative 120 → 170: ' + tin)
+  must(/ยอดตั้งต้น/.test(tin) && tin.indexOf('ยอดตั้งต้น') < tin.indexOf('120') && /170/.test(tin), 'opening row first, then lines with running balance 120 → 170: ' + tin)
   must(/รวมจ่ายทั้งสิ้น/.test(tout), 'expense sheet present: ' + tout)
   must(/เงินคงเหลือกองทุน/.test(await page.locator('body').innerText()), 'balance summary')
   must(await page.getByRole('button', { name: /ดาวน์โหลด PDF ใบกองทุน/ }).isVisible(), 'download button')
