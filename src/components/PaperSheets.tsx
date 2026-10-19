@@ -17,6 +17,9 @@ export function weekHeading(sunday: string): string {
   return `ประจำวันอาทิตย์ที่ ${Math.ceil(d / 7)} ของเดือน${monthName(mo)} · ระหว่างวันที่ ${range} พ.ศ. ${be(y)}`
 }
 
+/** หัวใบเปล่า: เว้นวันที่/เดือน/สัปดาห์ไว้ให้เขียนมือ */
+export const BLANK_HEADING = 'ประจำวันอาทิตย์ที่ ........... ของเดือน .............................. · ระหว่างวันที่ ......... – ......... .............................. พ.ศ. ..............'
+
 /** โลโก้คริสตจักร: กางเขนขาวบนสี่เหลี่ยมข้าวหลามตัดสีกรมท่า (ตามใบเบิก-จ่ายเงินสด) */
 export function ChurchMark({ size = 30 }: { size?: number }) {
   return (
@@ -54,7 +57,7 @@ function DownloadRow({ onData, kind, church, sunday, onScan }: { onData: () => v
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, onScan }: { church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, onScan, blank }: { /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -62,7 +65,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
   const name = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกรายการ)' : '(รายการที่ถูกลบ)')
   const sum = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + x.amount, 0)
   const cnt = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + (x.count ?? 1), 0)
-  const heading = (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์')
+  const heading = blank ? BLANK_HEADING : (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์')
   return (
     <div>
       {pages.map((rows, pi) => (
@@ -89,10 +92,10 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
                   )
                 })}
               </tbody>
-              <tfoot><tr><td colSpan={3}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{cnt(rows, 'cash')}</td><td className="num">{m(sum(rows, 'cash'))}</td><td className="num">{cnt(rows, 'transfer')}</td><td className="num">{m(sum(rows, 'transfer'))}</td><td className="num">{m(sum(rows, 'cash') + sum(rows, 'transfer'))}</td></tr></tfoot>
+              <tfoot><tr><td colSpan={3}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td>{blank ? <><td /><td /><td /><td /><td /></> : <><td className="num">{cnt(rows, 'cash')}</td><td className="num">{m(sum(rows, 'cash'))}</td><td className="num">{cnt(rows, 'transfer')}</td><td className="num">{m(sum(rows, 'transfer'))}</td><td className="num">{m(sum(rows, 'cash') + sum(rows, 'transfer'))}</td></>}</tr></tfoot>
             </table>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 'auto' }}>
-              <div>รวมจากตู้ถวาย {m(sum(rows, 'cash'))} บาท<br />รวมจากการโอน {m(sum(rows, 'transfer'))} บาท{pages.length > 1 && pi === pages.length - 1 ? <><br />ยอดรวมทุกแผ่น {m(sum(all, 'cash') + sum(all, 'transfer'))} บาท</> : null}</div>
+              <div>{blank ? <>รวมจากตู้ถวาย .................................. บาท<br />รวมจากการโอน .................................. บาท</> : <>รวมจากตู้ถวาย {m(sum(rows, 'cash'))} บาท<br />รวมจากการโอน {m(sum(rows, 'transfer'))} บาท{pages.length > 1 && pi === pages.length - 1 ? <><br />ยอดรวมทุกแผ่น {m(sum(all, 'cash') + sum(all, 'transfer'))} บาท</> : null}</>}</div>
               <div>ลงชื่อผู้ตรวจนับ 1 ................................................<br />ลงชื่อผู้ตรวจนับ 2 ................................................</div>
             </div>
           </>
@@ -104,12 +107,12 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan }: { church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan, blank }: { /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
   const pages = chunk(all, ROWS)
-  const heading = (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : 'รวมทุกสัปดาห์')
+  const heading = blank ? BLANK_HEADING.replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : 'รวมทุกสัปดาห์')
   const sumOf = (xs: ExpenseEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
   return (
     <div>
@@ -136,7 +139,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
                   )
                 })}
               </tbody>
-              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{m(sumOf(rows))}</td><td colSpan={3}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
+              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{blank ? '' : m(sumOf(rows))}</td><td colSpan={3}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
             </table>
             {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} />}
             <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
