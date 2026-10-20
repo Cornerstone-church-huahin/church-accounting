@@ -1,3 +1,4 @@
+import { PrintFrame } from '../components/Credit'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
@@ -195,6 +196,7 @@ function Detail({ date }: { date: string }) {
 
       {/* ---- ใบบันทึกการถวาย (พิมพ์) ---- */}
       <section className="print-only" aria-hidden="true">
+<PrintFrame>
         <h2 style={{ textAlign: 'center' }}>ใบบันทึกการถวาย {settings.churchName}</h2>
         <p style={{ textAlign: 'center' }}>ประจำวันอาทิตย์ ที่ {Number(date.slice(8))} เดือน {monthName(monthOf(date))} พ.ศ. {be(year)}</p>
         <table className="tbl" style={{ fontSize: '10.5pt' }}>
@@ -213,7 +215,8 @@ function Detail({ date }: { date: string }) {
           <div>ลงชื่อผู้ตรวจนับ 1{saved && <><br /><span className="small">{saved.counter.name}</span></>}</div>
           <div>ลงชื่อผู้ตรวจนับ 2{saved?.verifier && <><br /><span className="small">{saved.verifier.name}</span></>}</div>
         </div>
-      </section>
+      </PrintFrame>
+</section>
     </>
   )
 }

@@ -1,3 +1,4 @@
+import { AppCredit } from './Credit'
 import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { can, isSolo, READONLY_EVENT, whoAmI } from '../lib/access'
@@ -117,6 +118,7 @@ export default function AppShell() {
               <p><b>ติดต่อแอดมิน</b> เพื่อเปิดสิทธิ์ให้ใช้งานอีกครั้ง (แอปตรวจให้อัตโนมัติ หรือกดปุ่มด้านล่าง)</p>
               <button type="button" className="btn btn--gold" onClick={ms.syncNow}>🔄 ตรวจว่าเปิดสิทธิ์แล้วหรือยัง</button>
             </section>
+            <AppCredit />
           </main>
         ) : role === 'pending' ? (
           <main className="main">
@@ -128,9 +130,10 @@ export default function AppShell() {
                 <button type="button" className="btn btn--ghost" onClick={ms.cancelRequest}>ยกเลิกคำขอ</button>
               </div>
             </section>
+            <AppCredit />
           </main>
         ) : (
-          <main className="main"><Outlet /></main>
+          <main className="main"><Outlet /><AppCredit /></main>
         )}
 
         <nav className="bottomnav" aria-label="เมนูหลัก">

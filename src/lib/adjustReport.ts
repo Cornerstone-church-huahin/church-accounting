@@ -1,3 +1,4 @@
+import { withDocCredit } from './credit'
 import { fmtBaht, fmtDate } from './money'
 
 export interface AdjItem { date: string; amount: number; label?: string }
@@ -20,7 +21,7 @@ const line = (x: AdjItem) => `  • ${fmtDate(x.date)}${x.label ? ` ${x.label}` 
 /** รายงานตรวจสมุดบัญชีประจำสัปดาห์ เป็นข้อความอ่านง่าย (แชร์ LINE ได้) */
 export function adjReportText(r: AdjReport): string {
   const sec = (head: string, xs: AdjItem[], empty: string) => [head, ...(xs.length ? xs.map(line) : [`  ${empty}`])]
-  return [
+  return withDocCredit([
     `🏦 รายงานตรวจสมุดบัญชี`,
     r.title,
     `ระหว่างวันที่ ${r.range}`,
@@ -34,5 +35,5 @@ export function adjReportText(r: AdjReport): string {
     '',
     `ฝากเงินสด ${fmtBaht(r.cash)} · เงินออก ${fmtBaht(r.out)}`,
     ...(r.closing !== undefined ? [`ยอดคงเหลือท้ายสัปดาห์ ${fmtBaht(r.closing)}`] : []),
-  ].join('\n')
+  ].join('\n'))
 }

@@ -1,3 +1,4 @@
+import { PrintFrame } from '../components/Credit'
 import { useMemo, useState } from 'react'
 import BarChart from '../components/BarChart'
 import { IconPrint } from '../components/Icons'
@@ -77,7 +78,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
   const flowLabel = p.kind === 'year' ? 'เดือน' : p.kind === 'month' ? 'สัปดาห์ (วันที่เริ่ม)' : 'วันที่'
 
   return (
-    <>
+    <PrintFrame>
       <div className="page-head no-print">
         <h1>รายงาน</h1>
         <button type="button" className="btn btn--gold" onClick={() => window.print()}><IconPrint /> พิมพ์ / บันทึก PDF</button>
@@ -145,7 +146,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
         </div>
         <p className="print-only small" style={{ textAlign: 'center' }}>พิมพ์เมื่อ {fmtDate(todayISO())} · สมาชิกมีข้อสงสัยกรุณาแจ้งผู้ปกครองหรือผู้ตรวจสอบ</p>
       </article>
-    </>
+    </PrintFrame>
   )
 }
 

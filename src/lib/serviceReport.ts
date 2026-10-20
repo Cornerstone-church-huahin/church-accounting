@@ -1,3 +1,4 @@
+import { withDocCredit } from './credit'
 import { fmtDateLong } from './money'
 import { isFirstTimer, regLevel, statusLabel } from './registry'
 import type { CheckIn, ChurchMember } from './types'
@@ -47,7 +48,7 @@ export function reportText(r: ServiceReport): string {
   lines.push(`• ผู้ร่วมนมัสการ ${r.worshiper} คน`)
   if (r.other) lines.push(`• อื่น ๆ ${r.other} คน`)
   lines.push(r.newcomers.length ? `• คนมาใหม่ ${r.newcomers.length} คน: ${r.newcomers.join(', ')}` : '• คนมาใหม่ 0 คน')
-  return lines.join('\n')
+  return withDocCredit(lines.join('\n'))
 }
 
 /** แชร์ข้อความผ่านเมนูแชร์ของเครื่อง (LINE / Messenger / Facebook) · ไม่มีเมนูแชร์ = คัดลอกไว้ให้วางในแชต */

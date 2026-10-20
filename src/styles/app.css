@@ -193,7 +193,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .home-tab--sum.on { background: var(--sky); color: #fff; }
 /* ใบสรุปรับ-จ่าย เต็มหน้า A4 (794×1123 px) — บนจอย่อให้พอดี ตอนพิมพ์/สร้าง PDF ใช้ขนาดจริง */
 .a4wrap { width: 100%; overflow: hidden; border: 1px solid var(--line); background: #fff; page: a4; }
-.a4page { width: 794px; height: 1123px; box-sizing: border-box; padding: 14px 18px 16px; background: #fff; color: #111; transform-origin: top left; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
+.a4page { position: relative; width: 794px; height: 1123px; box-sizing: border-box; padding: 14px 18px 24px; background: #fff; color: #111; transform-origin: top left; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
 .a4head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 4px; font-size: 14.5px; white-space: nowrap; }
 .a4head span { font-size: 13px; }
 .a4page .ledger { overflow: visible !important; }
@@ -608,3 +608,21 @@ span.fundpend__tog { cursor: default; }
 .sumrow__t { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .sumrow__n { display: flex; flex-direction: column; align-items: flex-end; font-weight: 800; font-size: 0.85rem; }
 .sumrow__in { color: #1f8a4c; } .sumrow__out { color: #c4332a; }
+
+/* เครดิตผู้ออกแบบและพัฒนาระบบ (ข้อความอยู่ที่ src/lib/credit.ts) */
+.app-credit { margin-top: auto; padding-top: 0.5rem; text-align: center; font-size: 0.72rem; line-height: 1.35; color: var(--ink-soft, #667085); }
+.doccredit { position: absolute; left: 0; right: 0; bottom: 7px; text-align: center; font-size: 10px; line-height: 1.2; color: #555; pointer-events: none; }
+/* กรอบพิมพ์: บนจอโปร่งใส (ไม่กระทบเลย์เอาต์) · ตอนพิมพ์เป็นตารางที่ส่วนท้ายซ้ำทุกหน้า */
+.print-frame, .print-frame > tbody, .print-frame > tbody > tr, .print-frame > tbody > tr > td, .print-frame__body { display: contents; }
+.print-frame > tfoot { display: none; }
+@media print {
+  .app-credit { display: none !important; }
+  .print-frame { display: table; width: 100%; border-collapse: collapse; }
+  .print-frame > tbody { display: table-row-group; }
+  .print-frame > tbody > tr { display: table-row; }
+  .print-frame > tbody > tr > td { display: table-cell; padding: 0; }
+  .print-frame__body { display: flex; flex-direction: column; gap: 0.8rem; }
+  .print-frame > tfoot { display: table-footer-group; }
+  .print-frame > tfoot > tr { display: table-row; }
+  .print-frame > tfoot > tr > td { display: table-cell; padding: 3mm 0 0; text-align: center; font-size: 8pt; color: #444; }
+}

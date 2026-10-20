@@ -1,3 +1,4 @@
+import { DocCredit } from './Credit'
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 export const A4_W = 794, A4_H = 1123 // A4 แนวตั้งที่ 96 dpi (แนวนอนสลับกัน)
@@ -25,7 +26,7 @@ const ScaledPage = forwardRef<HTMLDivElement, { children: ReactNode; className?:
   }, [PW])
   return (
     <div ref={wrap} className={`a4wrap${landscape ? ' a4wrap--land' : ''}${half ? ' a4wrap--half' : ''}`} style={{ height: PH * k, overflowX: zoom ? 'auto' : 'hidden', cursor: 'zoom-in' }} onClick={() => setZoom(!zoom)} title={zoom ? 'แตะเพื่อย่อให้พอดีจอ' : 'แตะเพื่อขยาย'}>
-      <div ref={inner} className={`${className}${landscape ? ' a4page--land' : ''}${half ? ' a4page--half' : ''}`} style={{ transform: `scale(${k})` }}>{children}</div>
+      <div ref={inner} className={`${className}${landscape ? ' a4page--land' : ''}${half ? ' a4page--half' : ''}`} style={{ transform: `scale(${k})` }}>{children}<DocCredit /></div>
     </div>
   )
 })
