@@ -30,7 +30,7 @@ export default function Meeting() {
   }
   return (
     <>
-      <div className="page-head"><h1>🧑‍🤝‍🧑 โหมดประชุม</h1></div>
+      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1></div>
       <p className="home-label">เลือกแท็บ <span>(งานเหรัญญิกและงานทะเบียนพร้อมใช้ · แท็บอื่นยังว่าง)</span></p>
       <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 6">
         {MEETING_TABS.map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[t.n - 1]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}

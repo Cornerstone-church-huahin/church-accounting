@@ -48,7 +48,7 @@ export default function Home() {
             <Link to="/balance/total" className="btile btile--total"><small>🧮 รวมเงินสด</small><b>{fmtBaht(b.total, { dec: false })}</b></Link>
             <Link to="/balance/indebt" className="btile btile--indebt"><small>🔁 หนี้ภายใน</small><b>{fmtBaht(ls.fromFunds, { dec: false })}</b></Link>
             <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
-            <Link to="/meeting" className="btile btile--spare"><small>🧑‍🤝‍🧑 รวมงาน</small><b>โหมดประชุม ›</b></Link>
+            <Link to="/meeting" className="btile btile--spare"><small>🧑‍🤝‍🧑 รวมงาน</small><b>โหมดการทำงาน ›</b></Link>
           </nav>
           {skipped.count > 0 && dismissed !== String(skipped.total) && (
             <div className="card no-print" role="alert" style={{ margin: '8px 0', borderColor: '#c0392b' }}>
