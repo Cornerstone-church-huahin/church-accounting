@@ -30,7 +30,7 @@ export function ChurchMark({ size = 30 }: { size?: number }) {
     </svg>
   )
 }
-function PaperHead({ church, title, sub, compact }: { church: string; title: string; sub: string; compact?: boolean; }) {
+export function PaperHead({ church, title, sub, compact }: { church: string; title: string; sub: string; compact?: boolean; }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: compact ? 2 : 6 }}>
       <ChurchMark size={compact ? 22 : 30} />

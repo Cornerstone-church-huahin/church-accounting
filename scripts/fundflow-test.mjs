@@ -62,14 +62,11 @@ try {
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const wd2 = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   must(/ค่าไฟ 1,200/.test(wd2) && /รวมต้องเบิก\s+2,200/.test(wd2), 'pending bill joins the withdrawal total (1,000 + 1,200): ' + wd2)
-  // สรุป: เงินถวายกองทุนอยู่ในบัญชีรับ/จ่ายด้วย แต่แยกไว้ใต้ตาราง ไม่รวมยอดหมุนเวียน
+  // สรุป: ใบประกาศแสดงเงินถวายกองทุนแยกไว้ ไม่ปนยอดรายรับ
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.getByRole('tab', { name: /สัปดาห์/ }).click()
-  const incF = page.getByLabel('เงินถวายกองทุน (แยกจากเงินหมุนเวียน)')
-  await incF.first().waitFor({ timeout: 15000 })
-  must(/กองทุนเพื่อที่ดินคริสตจักร/.test(await incF.first().innerText()) && /500/.test(await incF.first().innerText()), 'summary income sheet lists the fund separately')
-  const expF = page.getByLabel('รายจ่ายกองทุน (โอนออกเข้ากองทุน)')
-  must(/กองทุนเพื่อที่ดินคริสตจักร/.test(await expF.first().innerText()), 'summary expense sheet lists the fund transfer-out separately')
+  await page.locator('.sumrow').first().click()
+  const notice = await page.locator('.a4page').first().innerText()
+  must(/เงินถวายกองทุน/.test(notice) && /กองทุนเพื่อที่ดินคริสตจักร/.test(notice) && /500/.test(notice), 'summary notice lists the fund separately: ' + notice.slice(0, 400))
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   // แตะแถวในใบ → แนบรูปบิล/สลิปเป็นหลักฐานได้
