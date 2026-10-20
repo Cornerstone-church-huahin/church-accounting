@@ -21,10 +21,10 @@ try {
   const tiles = page.locator('nav[aria-label^="โหมดประชุม"] a.btile')
   must((await tiles.count()) === 6, 'six tabs: ' + await tiles.count())
   const texts = await tiles.allInnerTexts()
-  must(texts.map((t) => t.replace(/\D/g, '')).join('') === '123456', 'tabs numbered 1..6: ' + texts.join('|'))
+  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
   await page.screenshot({ path: '/tmp/meeting.png' })
   await tiles.nth(2).click()
-  must(/แท็บที่ 3 — ยังว่าง/.test(await page.locator('main').innerText()), 'tab 3 is an empty page')
+  must(/งานเหรัญญิก — ยังว่าง/.test(await page.locator('main').innerText()), 'tab 3 is an empty page')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('meeting-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
