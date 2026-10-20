@@ -24,7 +24,12 @@ await page.evaluate(([Y, a, b]) => {
     { id: 'i3', date: a, typeId: 'tt4', amount: 12000, method: 'cash', source: 'manual', updated: 1 },
     { id: 'i4', date: b, typeId: 'tt1', amount: 100000, method: 'cash', source: 'manual', updated: 1 },
   ]))
-  localStorage.setItem(`acct.expenses.${Y}.v1`, JSON.stringify([{ id: 'e1', channel: 'advance', date: a, amount: 150000, desc: 'ค่าอาหาร', status: 'open', requester: 'อ.ลับ สำรองจ่าย', biller: 'อ.ลับ', who: 'ร้านลับ', updated: 1 }]))
+  localStorage.setItem(`acct.expenses.${Y}.v1`, JSON.stringify([
+    { id: 'e1', channel: 'advance', date: a, amount: 150000, desc: 'ค่าอาหาร', status: 'open', requester: 'อ.ลับ สำรองจ่าย', biller: 'อ.ลับ', who: 'ร้านลับ', updated: 1 },
+    { id: 'e2', channel: 'manual', date: a, amount: 100000, desc: 'ค่าน้ำมัน อ.กฤต', status: 'paid', method: 'cash', updated: 1 },
+    { id: 'e3', channel: 'manual', date: a, amount: 100000, desc: 'ค่าน้ำมัน อ.พิชิต', status: 'paid', method: 'cash', updated: 1 },
+    ...Array.from({ length: 40 }, (_, i) => ({ id: 'm' + i, channel: 'manual', date: a, amount: 1000, desc: 'รายการย่อย ' + (i + 1), status: 'paid', method: 'cash', updated: 1 })),
+  ]))
 }, [Y, iso(d2), iso(old)])
 try {
   await page.reload()
@@ -34,10 +39,13 @@ try {
   must(/รับ/.test(await rows.first().innerText()) && /จ่าย/.test(await rows.first().innerText()), 'row shows รับ/จ่าย')
   await rows.first().click()
   const t = await page.locator('.a4page').first().innerText()
-  must(/รายรับ/.test(t) && /รายจ่าย/.test(t) && /รวมรายรับ/.test(t) && /รวมรายจ่าย/.test(t), 'income+expense on one sheet: ' + t)
-  must(/3,155/.test(t) || /3,155\.00/.test(t), 'income total 3,155 (cash+transfer, funds separate): ' + t)
-  must(!/อ\.ลับ|ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(t), 'no internal details on the notice')
-  must(/เงินถวายกองทุน/.test(t), 'fund donations shown separately')
+  const all = (await page.locator('.a4page').allInnerTexts()).join('\n')
+  must((await page.locator('.a4page').count()) >= 2, 'many expenses continue on a following A4 page: ' + await page.locator('.a4page').count())
+  must(/ค่าน้ำมัน อ\.กฤต/.test(all) && /ค่าน้ำมัน อ\.พิชิต/.test(all) && /รายการย่อย 40/.test(all), 'every actual expense line is listed')
+  must(/รวมรายรับ/.test(all) && /รวมรายจ่ายทั้งสิ้น/.test(all) && /รับมากกว่าจ่าย|จ่ายมากกว่ารับ/.test(all), 'income+expense+summary: ' + all.slice(0, 300))
+  must(/3,155/.test(all), 'income total 3,155 (cash+transfer, funds separate)')
+  must(!/อ\.ลับ|ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(all), 'no internal details on the notice')
+  must(/เงินถวายกองทุน/.test(all), 'fund donations shown separately')
   must(await page.getByRole('button', { name: /ดาวน์โหลดใบสรุป/ }).isVisible(), 'admin can download')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('notice-test OK')

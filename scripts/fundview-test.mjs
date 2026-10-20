@@ -88,7 +88,7 @@ try {
   await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.locator('.sumrow').first().click()
   const sum = (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')
-  must(/สิบลด/.test(sum) && !/กองทุนเพื่อที่ดิน/.test(sum.split('เงินถวายกองทุน')[0]) && /เงินถวายกองทุน.*กองทุนเพื่อที่ดิน\S*\s+1,000/.test(sum), 'main income excludes the fund offering; it is listed separately: ' + sum.slice(0, 600))
+  must(/สิบลด/.test(sum) && !/กองทุนเพื่อที่ดิน/.test(sum.split('เงินถวายกองทุน')[0]) && /เงินถวายกองทุน.*กองทุนเพื่อที่ดิน\S*\s+1\s+1,000/.test(sum), 'main income excludes the fund offering; it is listed separately: ' + sum.slice(0, 600))
   must(!/ค่าหนังสือ|150/.test(sum.split('รายจ่าย')[1] ?? ''), 'main expenses exclude the fund payment: ' + sum.slice(0, 600))
   // ฟอร์มรายจ่ายมีตัวเลือก "จ่ายจาก"
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()

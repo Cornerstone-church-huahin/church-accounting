@@ -4,7 +4,7 @@ import { can } from '../lib/access'
 import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useSettings, useVouchers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtBaht, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
-import { weekNotice } from '../lib/notice'
+import { expenseLines, weekNotice } from '../lib/notice'
 import { downloadSheetPdf } from '../lib/pdf'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
@@ -21,23 +21,24 @@ export default function Summary({ year }: { year: number }) {
   const entries = useBudgetEntries(year), passbook = usePassbook(year), types = useIncomeTypes(), cats = useExpenseCats(), expenses = useExpenses(year)
   const [open, setOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const paper = useRef<HTMLDivElement>(null)
+  const paper = useRef<HTMLDivElement[]>([])
   const canExport = can(role, 'detail')
   const church = settings.churchName.split(' ')[0]
 
   const weeks = useMemo(() => {
     const today = todayISO()
     return sundaysOf(year).filter((s) => s <= sheetSunday(today)).reverse().map((sunday) => {
-      const L = computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items, passbook: passbook.items, withFunds: false })
-      return { sunday, n: weekNotice(L) }
+      const range = rangeOf('week', year, { sunday })
+      const L = computeLedger({ range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items, passbook: passbook.items, withFunds: false })
+      return { sunday, n: weekNotice(L, expenseLines(range, { vouchers: vouchers.items, expenses: expenses.items, entries: entries.items })) }
     }).filter((w) => w.n.inc.length + w.n.fund.length + w.n.out.length > 0)
   }, [year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items, passbook.items])
   const cur = weeks.find((w) => w.sunday === open)
 
   const download = async () => {
-    if (!paper.current || !cur) return
+    if (paper.current.length === 0 || !cur) return
     setBusy(true)
-    try { await downloadSheetPdf([paper.current], `สรุปรับจ่าย-${cur.sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${cur.sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
     setBusy(false)
   }
 
@@ -52,7 +53,7 @@ export default function Summary({ year }: { year: number }) {
             <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
           </>}
         </div>
-        <NoticePaper ref={paper} church={church} sunday={cur.sunday} n={cur.n} />
+        <NoticePaper pagesRef={paper} church={church} sunday={cur.sunday} n={cur.n} />
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )
