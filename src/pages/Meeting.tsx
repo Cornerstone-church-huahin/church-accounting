@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
@@ -8,6 +9,22 @@ export const MEETING_TABS = [
   { n: 6, name: 'งานนมัสการ' }, { n: 7, name: 'งานต่างชาติ' }, { n: 8, name: 'งานรวี' }, { n: 9, name: 'งานอนุชน' }, { n: 10, name: 'งานสตรี' },
   { n: 11, name: 'แท็บ 11' }, { n: 12, name: 'แท็บ 12' }, // ยังไม่ได้ตั้งชื่อ
 ]
+/** แท็บย่อยในงานเลขา (ยังว่าง — พัฒนาทีละแท็บ) */
+const SECRETARY_TABS = ['ตารางงาน', 'การประชุม', 'แท็บ 3', 'แท็บ 4']
+
+function Secretary() {
+  const [t, setT] = useState(SECRETARY_TABS[0])
+  return (
+    <>
+      <div className="page-head"><h1>งานเลขา</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
+      <div className="seg seg--4 no-print" role="tablist" aria-label="หมวดงานเลขา">
+        {SECRETARY_TABS.map((k) => <button key={k} type="button" role="tab" aria-selected={t === k} className={t === k ? 'on' : ''} onClick={() => setT(k)}>{k}</button>)}
+      </div>
+      <section className="card" aria-label={t}><p className="empty">{t} — ยังว่าง (รอพัฒนา)</p></section>
+    </>
+  )
+}
+
 const TONE = ['own', 'fund', 'total', 'indebt', 'debt', 'spare'] as const
 
 export default function Meeting() {
@@ -21,10 +38,11 @@ export default function Meeting() {
     if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace />
     return <><Members /></>
   }
+  if (tab?.n === 1) return <Secretary />
   if (tab) {
     return (
       <>
-        <div className="page-head"><h1>โหมดประชุม · {tab.name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
+        <div className="page-head"><h1>{tab.name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
         <section className="card" aria-label={tab.name}><p className="empty">{tab.name} — ยังว่าง (รอพัฒนา)</p></section>
       </>
     )
