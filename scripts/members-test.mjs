@@ -232,8 +232,8 @@ try {
   await page.getByRole('button', { name: /ใช่ และแก้ชื่อเป็น/ }).click()
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).waitFor({ timeout: 5000 })
   await page.locator('li', { hasText: 'นางสมหญิง ทดสอบบ' }).getByText('ผู้บันทึก').waitFor({ timeout: 5000 }) // ยืนยันเป็นคนเดิม: ชื่อถูกแก้และลงชื่อให้
-  // ไอคอนลัดที่หัวแอปพาไปแท็บลงชื่อ · แท็บแชร์ท้ายแถบสรุปยอดของวันนั้น
-  await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).click()
+  // แท็บลงชื่อ (ไอคอนลัดที่หัวแอปถูกเอาออกแล้ว) · แท็บแชร์ท้ายแถบสรุปยอดของวันนั้น
+  await page.goto(`http://localhost:${PORT}/#/members?tab=checkin`)
   await page.locator('#ck-date').waitFor({ timeout: 3000 })
   must(await page.getByRole('tab', { name: 'แชร์', exact: true }).count() === 0, 'no share tab in the top menu')
   await snap('2-checkin')
