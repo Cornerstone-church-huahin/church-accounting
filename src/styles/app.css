@@ -602,3 +602,9 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 .fundpend__tog--done { background: #1f8a4c; border-color: #1f8a4c; color: #fff; }
 span.fundpend__tog { cursor: default; }
 .fundpend__tbl td { line-height: 1.25; }
+/* ใบสรุปรายสัปดาห์: แถบเล็กยาว */
+.sumlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sumrow { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border: 1px solid var(--line, #d9dde6); border-left: 6px solid var(--sky, #2a6fdb); border-radius: 10px; background: #fff; cursor: pointer; }
+.sumrow__t { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.sumrow__n { display: flex; flex-direction: column; align-items: flex-end; font-weight: 800; font-size: 0.85rem; }
+.sumrow__in { color: #1f8a4c; } .sumrow__out { color: #c4332a; }

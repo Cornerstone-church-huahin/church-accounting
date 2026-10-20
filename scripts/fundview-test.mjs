@@ -83,22 +83,13 @@ try {
   must(/ให้ยืมไป 500 /.test((await cardOf('กองทุนเพื่อที่ดินคริสตจักร').innerText()).replace(/\n/g, ' ')), 'lending fund shows it was lent out')
   must(/ยืมมา 100,000 .*มน.เสาวคน|ยืมมา 100,000 .*จาก มน\.เสาวคน/.test((await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' ')), 'study fund shows the loan added from the debt page')
   await page.screenshot({ path: 'shots/fundview-funds.png', fullPage: true })
-  // เงินกองทุนไม่ปนรายรับปกติ: สรุปสัปดาห์
+  // เงินกองทุนไม่ปนรายรับปกติ: ใบสรุปประกาศ
   await page.goto(`http://localhost:${PORT}/#/`)
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.getByRole('tab', { name: /^1\s*สัปดาห์/ }).click()
+  await page.locator('.sumrow').first().click()
   const sum = (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')
-  must(/สิบลด/.test(sum) && !/กองทุนเพื่อที่ดิน/.test(sum.split('เงินถวายกองทุน (แยก')[0]) && /เงินถวายกองทุน \(แยก.*กองทุนเพื่อที่ดิน\S*\s+1\s+1,000/.test(sum), 'main income table excludes the fund offering; it is listed separately below: ' + sum.slice(0, 600))
-  const exp = (await page.locator('.a4page').nth(1).innerText()).replace(/\n/g, ' ')
-  must(!/ค่าหนังสือ|150/.test(exp) && /ค่าไฟ|ยังไม่ระบุ|40/.test(exp), 'main expense sheet excludes the fund payment: ' + exp.slice(0, 500))
-  // เมนูพับ: สัปดาห์ล่าสุดอยู่บนสุด เปิดอยู่ · กดพับ/ขยายได้
-  const heads = page.locator('.weekacc__head')
-  must((await heads.first().getAttribute('aria-expanded')) === 'true', 'latest week is open and on top')
-  await heads.first().click()
-  must((await page.locator('.a4page').count()) === 0, 'collapse hides the sheets')
-  await heads.first().click()
-  must((await page.locator('.a4page').count()) === 3, 'expand shows the 3 related sheets')
-  await page.screenshot({ path: 'shots/fundview-weeks.png' })
+  must(/สิบลด/.test(sum) && !/กองทุนเพื่อที่ดิน/.test(sum.split('เงินถวายกองทุน')[0]) && /เงินถวายกองทุน.*กองทุนเพื่อที่ดิน\S*\s+1,000/.test(sum), 'main income excludes the fund offering; it is listed separately: ' + sum.slice(0, 600))
+  must(!/ค่าหนังสือ|150/.test(sum.split('รายจ่าย')[1] ?? ''), 'main expenses exclude the fund payment: ' + sum.slice(0, 600))
   // ฟอร์มรายจ่ายมีตัวเลือก "จ่ายจาก"
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
