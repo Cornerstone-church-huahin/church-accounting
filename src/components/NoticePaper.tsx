@@ -8,7 +8,7 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 const blank = (x: number) => (x ? m(x) : '')
 
 type Piece =
-  | { t: 'inc'; title: string; rows: NoticeLine[]; start: number; total?: { label: string; cash: number; tr: number; all: number; cn: number; tn: number } }
+  | { t: 'inc'; title: string; note?: string; rows: NoticeLine[]; start: number; total?: { label: string; cash: number; tr: number; all: number; cn: number; tn: number } }
   | { t: 'out'; title: string; rows: NoticeExpense[]; start: number; total?: number }
   | { t: 'sum' }
 
@@ -32,18 +32,20 @@ function paginate(n: Notice): Piece[][] {
   }
   const tot = (xs: NoticeLine[]) => ({ cash: xs.reduce((s, x) => s + x.cash, 0), tr: xs.reduce((s, x) => s + x.tr, 0), all: xs.reduce((s, x) => s + x.amt, 0), cn: xs.reduce((s, x) => s + x.cashN, 0), tn: xs.reduce((s, x) => s + x.trN, 0) })
   section(n.inc, (rows, start, last) => ({ t: 'inc', title: 'รายรับ', rows, start, ...(last ? { total: { label: 'รวมรายรับ', ...tot(n.inc) } } : {}) }))
-  if (n.fund.length > 0) section(n.fund, (rows, start, last) => ({ t: 'inc', title: 'เงินถวายกองทุน (แยกจากรายรับข้างบน)', rows, start, ...(last ? { total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } } : {}) }))
+  if (n.fund.length > 0) section(n.fund, (rows, start, last) => ({ t: 'inc', title: 'เงินถวายกองทุน', note: FUND_NOTE, rows, start, ...(last ? { total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } } : {}) }))
   section(n.out, (rows, start, last) => ({ t: 'out', title: 'รายจ่าย', rows, start, ...(last ? { total: n.totalOut } : {}) }))
   if (cap - used < 6) newPage()
   cur().push({ t: 'sum' })
   return pages
 }
 
+const FUND_NOTE = 'เงินส่วนกองทุน — แสดงเป็นรายงานให้ทราบเท่านั้น ไม่รวมกับเงินหมุนเวียน และไม่นำไปคำนวณรวมกับยอดรายรับ รายจ่าย หรือผลต่างของสัปดาห์นี้'
 const th: React.CSSProperties = { fontSize: 13 }
 function IncTable({ p }: { p: Extract<Piece, { t: 'inc' }> }) {
   return (
     <>
       <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{p.title}</div>
+      {p.note && <div style={{ fontSize: 12.5, margin: '0 0 3px', fontStyle: 'italic' }}>{p.note}</div>}
       <table className="sheetpaper sheetpaper--full" aria-label={p.title}>
         <colgroup><col style={{ width: '6%' }} /><col style={{ width: '31%' }} /><col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} /></colgroup>
         <thead><tr><th style={th}>ที่</th><th style={th}>รายการ</th><th style={th}>จำนวนซอง</th><th style={th}>จำนวนเงิน</th><th style={th}>จำนวนโอน</th><th style={th}>จำนวนเงิน</th><th style={th}>รวม</th></tr></thead>
@@ -90,7 +92,7 @@ export default function NoticePaper({ church, sunday, n, pagesRef }: { church: s
                 <span>รวมรายรับ</span><span className="num">{m(n.totalInc)}</span>
                 <span>หัก รวมรายจ่าย</span><span className="num">{m(n.totalOut)}</span>
                 <b style={{ fontSize: 17 }}>{n.net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{n.net < 0 ? '−' : ''}{m(Math.abs(n.net))} บาท</b>
-                {n.totalFund > 0 && <><span className="small">(เงินถวายกองทุน แยกต่างหาก)</span><span className="num small">{m(n.totalFund)}</span></>}
+                {n.totalFund > 0 && <><span className="small">เงินถวายกองทุน (รายงานให้ทราบ ไม่รวมในยอดข้างบน)</span><span className="num small">{m(n.totalFund)}</span></>}
               </div>
             ))}
           </>
