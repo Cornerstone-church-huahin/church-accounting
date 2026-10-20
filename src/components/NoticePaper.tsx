@@ -69,7 +69,7 @@ function OutTable({ p }: { p: Extract<Piece, { t: 'out' }> }) {
         <thead><tr><th style={th}>ที่</th><th style={th}>วันที่</th><th style={th}>รายการ</th><th style={th}>จำนวนเงิน</th></tr></thead>
         <tbody>
           {p.rows.length === 0 && <tr><td /><td /><td>— ไม่มีรายการ —</td><td /></tr>}
-          {p.rows.map((r, i) => <tr key={r.key}><td style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDate(r.date)}</td><td>{r.desc}</td><td className="num"><b>{m(r.amount)}</b></td></tr>)}
+          {p.rows.map((r, i) => <tr key={r.key}><td style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDate(r.date)}</td><td>{r.desc}{r.by ? ` (${r.by})` : ''}</td><td className="num"><b>{m(r.amount)}</b></td></tr>)}
         </tbody>
         {p.total !== undefined && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมรายจ่ายทั้งสิ้น</td><td className="num">{m(p.total)}</td></tr></tfoot>}
       </table>
