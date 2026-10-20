@@ -2,10 +2,11 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
 
-/** โหมดประชุม: แท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) ขนาดเดียวกับช่องเงินคริสตจักรหน้าแรก */
+/** โหมดประชุม: แท็บ 1–12 (ยังว่าง — พัฒนาทีละแท็บ) ขนาดเดียวกับช่องเงินคริสตจักรหน้าแรก */
 export const MEETING_TABS = [
   { n: 1, name: 'งานเลขา' }, { n: 2, name: 'งานทะเบียน' }, { n: 3, name: 'งานเหรัญญิก' }, { n: 4, name: 'งานอภิบาล' }, { n: 5, name: 'งานสุสาน' },
-  { n: 6, name: 'แท็บ 6' }, // ยังไม่ได้ตั้งชื่อ
+  { n: 6, name: 'งานนมัสการ' }, { n: 7, name: 'งานต่างชาติ' }, { n: 8, name: 'งานรวี' }, { n: 9, name: 'งานอนุชน' }, { n: 10, name: 'งานสตรี' },
+  { n: 11, name: 'แท็บ 11' }, { n: 12, name: 'แท็บ 12' }, // ยังไม่ได้ตั้งชื่อ
 ]
 const TONE = ['own', 'fund', 'total', 'indebt', 'debt', 'spare'] as const
 
@@ -32,8 +33,8 @@ export default function Meeting() {
     <>
       <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1></div>
       <p className="home-label">เลือกแท็บ <span>(งานเหรัญญิกและงานทะเบียนพร้อมใช้ · แท็บอื่นยังว่าง)</span></p>
-      <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 6">
-        {MEETING_TABS.map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[t.n - 1]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
+      <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 12">
+        {MEETING_TABS.map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
       </nav>
     </>
   )
