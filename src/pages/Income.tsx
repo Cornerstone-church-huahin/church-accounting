@@ -8,7 +8,7 @@ import { useAccounts, useIncome, useIncomeTypes, usePassbook } from '../lib/data
 import { BANK_UNKNOWN_LABEL, lineDate, unknownBankIn, unseenTransfers } from '../lib/passbook'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, monthName, monthOf, newId, todayISO, yearOf } from '../lib/money'
-import { UNSORTED, type IncomeEntry, type Method } from '../lib/types'
+import { UNKNOWN_INCOME_LABEL, UNSORTED, type IncomeEntry, type Method } from '../lib/types'
 import { compressImage } from '../lib/image'
 import { getBinary, getSync, putBinary } from '../lib/sync'
 import { useYear } from '../lib/year'
@@ -39,7 +39,7 @@ function IncomeList({ year }: { year: number }) {
   const unk = unknownBankIn(pb.items, inc.items).filter((l) => !month || monthOf(lineDate(l)) === month)
   const unkSum = unk.reduce((s, l) => s + l.amount, 0)
   const total = rows.reduce((s, x) => s + x.amount, 0) + unkSum
-  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
+  const typeName = (id: string) => (id === UNSORTED ? UNKNOWN_INCOME_LABEL : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
   const canWrite = can(role, 'income')
   return (
     <>
@@ -63,7 +63,7 @@ function IncomeList({ year }: { year: number }) {
               const body = (
                 <>
                   <span className="grow"><b>{typeName(x.typeId)}</b><br />
-                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{unseen.has(x.id) ? ' · ⚠ ไม่พบเงินเข้าในสมุดบัญชี — ตรวจสอบ (อาจไม่มีการโอนจริง)' : ''}{x.unknown ? ' · ❓ไม่ทราบที่มา — แตะเพื่อระบุที่มา' : ''}{x.note ? ` · ${x.note}` : ''}</span>
+                    <span className="small muted">{fmtDate(x.date)} · {x.method === 'cash' ? 'เงินสด' : 'โอน'}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.memberNo ? ` · สมาชิก ${x.memberNo}` : ''}{x.slip ? ' · 📎สลิป' : ''}{unseen.has(x.id) ? ' · ⚠ ไม่พบเงินเข้าในสมุดบัญชี — ตรวจสอบ (อาจไม่มีการโอนจริง)' : ''}{x.unknown ? ` · ❓ ${UNKNOWN_INCOME_LABEL} — แตะเพื่อระบุวัตถุประสงค์` : ''}{x.note ? ` · ${x.note}` : ''}</span>
                   </span>
                   <span className="num"><b>{fmtBaht(x.amount)}</b></span>
                 </>
@@ -114,7 +114,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   const [err, setErr] = useState('')
   const save = async () => {
     if (yearOf(date) !== year) return setErr(`วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`)
-    if (typeId === UNSORTED && method === 'cash') return setErr('เงินสดต้องเลือกประเภทถวาย (เลือก “ยังไม่แยกรายการ” ได้เฉพาะเงินโอน)')
+    if (typeId === UNSORTED && method === 'cash') return setErr('เงินสดต้องเลือกประเภทถวาย (เลือก “โอน (ไม่แจ้งวัตถุประสงค์)” ได้เฉพาะเงินโอน)')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
     if (method === 'transfer' && ref.trim()) {
       const dup = inc.items.find((x) => x.id !== entry?.id && x.method === 'transfer' && x.ref === ref.trim())
@@ -138,7 +138,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
   const slipLayout = preset === 'slip' || entry?.source === 'slip'
-  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'รายการถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>โอน (ยังไม่แยกรายการ)</option>}</select></div>
+  const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'รายการถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>{UNKNOWN_INCOME_LABEL}</option>}</select></div>
   const memField = <div className="field"><label htmlFor="i-mem">ชื่อผู้ถวาย หรือเลขที่สมาชิก (ไม่แสดงในรายงาน)</label><input id="i-mem" className="input" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>

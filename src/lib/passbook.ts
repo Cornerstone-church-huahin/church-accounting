@@ -1,4 +1,5 @@
 import { addDays, sheetSunday } from './money'
+import { UNKNOWN_INCOME_LABEL } from './types'
 import type { IncomeEntry, IncomeType, PassbookLine, PbKind } from './types'
 
 export interface RawPbRow { date?: string; code?: string; desc?: string; deposit?: number; withdraw?: number; balance?: number }
@@ -89,7 +90,7 @@ export function dedupeLines<T extends { date: string; amount: number; balance?: 
 export const lineWeek = (l: Pick<PassbookLine, 'date' | 'week'>) => l.week ?? sheetSunday(l.date)
 
 export const BANK_UNKNOWN = '__bank_unknown'
-export const BANK_UNKNOWN_LABEL = 'ไม่ทราบที่มา (Unknown)'
+export const BANK_UNKNOWN_LABEL = UNKNOWN_INCOME_LABEL
 export const BANK_UNKNOWN_OUT = '__bank_unknown_out'
 export const BANK_UNKNOWN_OUT_LABEL = 'ไม่ทราบรายจ่าย (Unknown)'
 

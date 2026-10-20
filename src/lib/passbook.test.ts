@@ -112,7 +112,7 @@ describe('bank lines flow into income and expense rows', () => {
     const L = computeLedger({ ...base, passbook: pb })
     expect(L.inSum.transfer).toBe(3200000)
     expect(L.incRows).toHaveLength(1)
-    expect(L.incRows[0].label).toContain('ไม่ทราบที่มา (Unknown)')
+    expect(L.incRows[0].label).toContain('โอน (ไม่แจ้งวัตถุประสงค์) Unkonw')
     expect(L.outSum.transfer).toBe(50000)
     expect(L.outRows).toHaveLength(1)
     expect(L.outRows[0].label).toContain('ไม่ทราบรายจ่าย (Unknown)')
@@ -148,7 +148,7 @@ it('a bank transfer with a handwritten type note joins that type; slip-matched o
   const byLabel = Object.fromEntries(L.incRows.map((r) => [r.label.split(' · ')[0], r.transfer.amt]))
   expect(byLabel['สิบลด']).toBe(200000)
   expect(byLabel['ประจำสัปดาห์']).toBe(16900)
-  expect(byLabel['ไม่ทราบที่มา (Unknown)']).toBe(3200000)
+  expect(byLabel['โอน (ไม่แจ้งวัตถุประสงค์) Unkonw']).toBe(3200000)
   expect(L.inSum.transfer).toBe(200000 + 16900 + 3200000)
 })
 

@@ -205,7 +205,7 @@ await page.getByText('ยืนยันแล้วโดย').waitFor()
 for (const [i, amt] of ['1500'].entries()) {
   await page.getByRole('button', { name: '＋ บันทึกรายการโอน' }).click()
   await page.getByLabel('จำนวนเงิน (บาท)').fill(amt)
-  await page.getByLabel(/รายการถวาย/).selectOption({ label: 'โอน (ยังไม่แยกรายการ)' })
+  await page.getByLabel(/รายการถวาย/).selectOption({ label: 'โอน (ไม่แจ้งวัตถุประสงค์) Unkonw' })
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByText(`รวมจากการโอน (${i + 1} รายการ)`, { exact: true }).waitFor()
 }
@@ -245,7 +245,7 @@ await page.getByLabel('คำอธิบาย').fill('ค่าธรรมเ
 await page.getByRole('button', { name: 'บันทึกว่าเป็นรายการอื่น' }).click()
 await must(await page.getByText('จับคู่ครบทุกรายการแล้ว').isVisible(), 'all matched')
 await go('/income')
-await must(await page.getByText(/ไม่ทราบที่มา — แตะเพื่อระบุที่มา/).isVisible(), 'unknown income appears in income list')
+await must(await page.getByText(/Unkonw — แตะเพื่อระบุวัตถุประสงค์/).isVisible(), 'unknown income appears in income list')
 await go('/rounds/statement')
 // พิมพ์รายการจากสมุดเอง: ดอกเบี้ย (IN) จับคู่อัตโนมัติ
 await page.getByRole('button', { name: '✍️ พิมพ์รายการจากสมุด' }).click()

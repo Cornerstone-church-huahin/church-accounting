@@ -1,5 +1,6 @@
 import { withDocCredit } from './credit'
 import { fmtBaht, fmtDate } from './money'
+import { UNKNOWN_INCOME_LABEL } from './types'
 
 export interface AdjItem { date: string; amount: number; label?: string }
 export interface AdjReport {
@@ -29,7 +30,7 @@ export function adjReportText(r: AdjReport): string {
     '',
     ...sec(`✓ ตรงกับที่บันทึกไว้ ${r.matched.length} รายการ (${fmtBaht(sum(r.matched))})`, r.matched, 'ไม่มี'),
     '',
-    ...sec(`❓ เงินเข้าที่ไม่ทราบที่มา ${r.unknown.length} รายการ (${fmtBaht(sum(r.unknown))})`, r.unknown, 'ไม่มี'),
+    ...sec(`❓ ${UNKNOWN_INCOME_LABEL} ${r.unknown.length} รายการ (${fmtBaht(sum(r.unknown))})`, r.unknown, 'ไม่มี'),
     '',
     ...sec(`⚠ บันทึกว่าโอนแต่ไม่เจอในสมุด ${r.missing.length} รายการ (${fmtBaht(sum(r.missing))})`, r.missing, 'ไม่มี'),
     '',

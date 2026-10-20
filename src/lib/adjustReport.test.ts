@@ -13,7 +13,7 @@ describe('adjReportText', () => {
     const r = { ...base, unknown: [{ date: '2026-10-17', amount: 123400 }], closing: 283400 }
     const t = adjReportText(r)
     expect(adjOk(r)).toBe(false)
-    expect(t).toContain('ไม่ทราบที่มา 1 รายการ (1,234.00)')
+    expect(t).toContain('โอน (ไม่แจ้งวัตถุประสงค์) Unkonw 1 รายการ (1,234.00)')
     expect(t).toContain('ยอดคงเหลือท้ายสัปดาห์ 2,834.00')
   })
 })

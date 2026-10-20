@@ -12,7 +12,7 @@ import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir } from '../lib/sync'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
-import { UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
+import { UNKNOWN_INCOME_LABEL, UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
@@ -85,7 +85,7 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
   const lstFiles = allWeeks ? allFiles : weekFiles
   const otherWeeks = (k: 'manual' | 'slip' | 'sheet') => (k === 'sheet' ? allFiles.length - weekFiles.length : allEnt.filter((x) => sheetSunday(x.date) !== sunday && (k === 'manual' ? kindOf(x) === 'manual' : kindOf(x) === 'slip' || kindOf(x) === 'unknown')).length)
   const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
-  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
+  const typeName = (id: string) => (id === UNSORTED ? UNKNOWN_INCOME_LABEL : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
   /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
   const dropFile = async (path?: string) => {
     const cfg = getSync()
