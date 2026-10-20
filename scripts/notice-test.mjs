@@ -45,7 +45,7 @@ try {
   must(/รวมรายรับ/.test(all) && /รวมรายจ่ายทั้งสิ้น/.test(all) && /รับมากกว่าจ่าย|จ่ายมากกว่ารับ/.test(all), 'income+expense+summary: ' + all.slice(0, 300))
   must(/จ่ายมากกว่ารับ\s+[-−]/.test(all), 'deficit shown with a minus sign')
   must(/3,155/.test(all), 'income total 3,155 (cash+transfer, funds separate)')
-  must(!/อ\.ลับ|ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(all), 'no internal details on the notice')
+  must(/ค่าอาหาร \(อ\.ลับ\)/.test(all) && !/ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(all), 'payer/biller name shown in brackets after the item, no other internal notes')
   must(/เงินถวายกองทุน/.test(all) && /ไม่รวมกับเงินหมุนเวียน/.test(all) && /ไม่นำไปคำนวณ/.test(all), 'fund donations shown separately with the explanation')
   must(await page.getByRole('button', { name: /ดาวน์โหลดใบสรุป/ }).isVisible(), 'admin can download')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))

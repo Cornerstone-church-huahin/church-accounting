@@ -15,4 +15,9 @@ describe('ใบประกาศ', () => {
     const l = expenseLines({ from: '2026-10-12', to: '2026-10-18' }, { vouchers: [], entries: [], expenses: [ex('1', '2026-10-15', 'ค่าน้ำมัน อ.กฤต', 100000), ex('2', '2026-10-15', 'ค่าน้ำมัน อ.พิชิต', 100000), ex('3', '2026-10-16', 'ค่าหนังสือ', 15000, 'tt4'), ex('4', '2026-10-30', 'นอกสัปดาห์', 5)] })
     expect(l.map((x) => [x.desc, x.amount])).toEqual([['ค่าน้ำมัน อ.กฤต', 100000], ['ค่าน้ำมัน อ.พิชิต', 100000]])
   })
+  it('ใส่ชื่อผู้เบิก/ผู้วางบิล/ผู้สำรองจ่ายไว้ให้แสดงในวงเล็บ', () => {
+    const e = (id: string, o: Partial<ExpenseEntry>): ExpenseEntry => ({ id, updated: 1, channel: 'manual', date: '2026-10-15', amount: 100, desc: 'x' + id, status: 'paid', ...o })
+    const l = expenseLines({ from: '2026-10-12', to: '2026-10-18' }, { vouchers: [], entries: [], expenses: [e('1', { channel: 'bill', biller: 'ร้านก' }), e('2', { channel: 'advance', who: 'นายข' }), e('3', { who: 'ผู้รับเงินเฉย ๆ' })] })
+    expect(l.map((x) => [x.desc, x.by])).toEqual([['x1', 'ร้านก'], ['x2', 'นายข'], ['x3', undefined]])
+  })
 })
