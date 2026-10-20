@@ -48,7 +48,7 @@ try {
   await page.getByRole('tab', { name: 'การประชุม' }).click()
   must(/การประชุม — ยังว่าง/.test(await page.locator('main').innerText()), 'secretary sub-tab is empty for now')
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
-  must(/งานอภิบาล — ยังว่าง/.test(await page.locator('main').innerText()), 'other tabs still empty')
+  must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('meeting-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

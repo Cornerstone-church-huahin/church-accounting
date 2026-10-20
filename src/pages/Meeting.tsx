@@ -2,13 +2,9 @@ import { useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
+import WorkCalendar from '../components/WorkCalendar'
+import { MEETING_TABS } from '../lib/workTabs'
 
-/** โหมดประชุม: แท็บ 1–12 (ยังว่าง — พัฒนาทีละแท็บ) ขนาดเดียวกับช่องเงินคริสตจักรหน้าแรก */
-export const MEETING_TABS = [
-  { n: 1, name: 'งานเลขา' }, { n: 2, name: 'งานทะเบียน' }, { n: 3, name: 'งานเหรัญญิก' }, { n: 4, name: 'งานอภิบาล' }, { n: 5, name: 'งานสุสาน' },
-  { n: 6, name: 'งานนมัสการ' }, { n: 7, name: 'งานต่างชาติ' }, { n: 8, name: 'งานรวี' }, { n: 9, name: 'งานอนุชน' }, { n: 10, name: 'งานสตรี' },
-  { n: 11, name: 'แท็บ 11' }, { n: 12, name: 'แท็บ 12' }, // ยังไม่ได้ตั้งชื่อ
-]
 /** แท็บย่อยในงานเลขา (ยังว่าง — พัฒนาทีละแท็บ) */
 const SECRETARY_TABS = ['ตารางงาน', 'การประชุม', 'แท็บ 3', 'แท็บ 4']
 
@@ -20,7 +16,7 @@ function Secretary() {
       <div className="seg seg--4 no-print" role="tablist" aria-label="หมวดงานเลขา">
         {SECRETARY_TABS.map((k) => <button key={k} type="button" role="tab" aria-selected={t === k} className={t === k ? 'on' : ''} onClick={() => setT(k)}>{k}</button>)}
       </div>
-      <section className="card" aria-label={t}><p className="empty">{t} — ยังว่าง (รอพัฒนา)</p></section>
+      {t === 'ตารางงาน' ? <WorkCalendar /> : <section className="card" aria-label={t}><p className="empty">{t} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
@@ -43,7 +39,7 @@ export default function Meeting() {
     return (
       <>
         <div className="page-head"><h1>{tab.name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
-        <section className="card" aria-label={tab.name}><p className="empty">{tab.name} — ยังว่าง (รอพัฒนา)</p></section>
+        <WorkCalendar tab={tab.n} />
       </>
     )
   }
