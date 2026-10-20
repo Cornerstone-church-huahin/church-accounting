@@ -13,11 +13,8 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/`)
-  const ico = page.getByRole('link', { name: 'โหมดประชุม', exact: true })
-  must(await ico.isVisible(), 'meeting icon in the top bar')
-  const members = await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).boundingBox(), mb = await ico.boundingBox()
-  must(mb.x + mb.width <= members.x + 1, 'meeting icon sits to the left of the members icon')
-  await ico.click()
+  must((await page.getByRole('link', { name: 'โหมดประชุม', exact: true }).count()) === 0 && (await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).count()) === 0, 'top bar has no meeting / members icons')
+  await page.getByRole('link', { name: /รวมงาน/ }).first().click()
   const tiles = page.locator('nav[aria-label^="โหมดประชุม"] a.btile')
   must((await tiles.count()) === 6, 'six tabs: ' + await tiles.count())
   const texts = await tiles.allInnerTexts()

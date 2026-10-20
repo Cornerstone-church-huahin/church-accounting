@@ -15,10 +15,10 @@ export default function Meeting() {
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   const [params] = useSearchParams()
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
-  if (tab?.n === 3) return <><div className="no-print"><Link to="/meeting" className="mini">‹ โหมดประชุม · งานเหรัญญิก</Link></div><Home /></>
+  if (tab?.n === 3) return <><Home /></>
   if (tab?.n === 2) {
     if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace />
-    return <><div className="no-print"><Link to="/meeting" className="mini">‹ โหมดประชุม · งานทะเบียน</Link></div><Members /></>
+    return <><Members /></>
   }
   if (tab) {
     return (
