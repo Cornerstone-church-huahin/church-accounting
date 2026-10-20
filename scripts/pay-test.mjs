@@ -71,7 +71,7 @@ try {
   await page.locator('.sumrow').first().click()
   const st0 = (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')
   must(/รวมรายจ่าย\s+3,850/.test(st0), 'summary notice shows the unpaid bill as expense: ' + st0)
-  must(/จ่ายมากกว่ารับ\s+3,850/.test(st0), 'summary net deducts pending too: ' + st0)
+  must(/จ่ายมากกว่ารับ\s+[-−]3,850/.test(st0), 'summary net deducts pending too: ' + st0)
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   await total()
   await page.screenshot({ path: 'shots/pay-total.png', fullPage: true })
@@ -119,7 +119,7 @@ try {
   await page.locator('.sumrow').first().click()
   const st = (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')
   must(/รวมรายจ่าย\s+2,600/.test(st), 'summary shows expenses from the pay tabs: ' + st)
-  must(/จ่ายมากกว่ารับ\s+2,600/.test(st), 'summary net deducts expenses: ' + st)
+  must(/จ่ายมากกว่ารับ\s+[-−]2,600/.test(st), 'summary net deducts expenses: ' + st)
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   console.log('PAY OK')
 } catch (e) { await page.screenshot({ path: 'shots/pay-fail.png', fullPage: true }); console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

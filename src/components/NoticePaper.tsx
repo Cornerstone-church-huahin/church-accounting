@@ -89,7 +89,7 @@ export default function NoticePaper({ church, sunday, n, pagesRef }: { church: s
               <div key={i} style={{ border: '1px solid #1a2b4c', padding: '8px 12px', marginTop: 10, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
                 <span>รวมรายรับ</span><span className="num">{m(n.totalInc)}</span>
                 <span>หัก รวมรายจ่าย</span><span className="num">{m(n.totalOut)}</span>
-                <b style={{ fontSize: 17 }}>{n.net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{m(Math.abs(n.net))} บาท</b>
+                <b style={{ fontSize: 17 }}>{n.net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{n.net < 0 ? '−' : ''}{m(Math.abs(n.net))} บาท</b>
                 {n.totalFund > 0 && <><span className="small">(เงินถวายกองทุน แยกต่างหาก)</span><span className="num small">{m(n.totalFund)}</span></>}
               </div>
             ))}
