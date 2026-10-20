@@ -23,8 +23,22 @@ try {
   const texts = await tiles.allInnerTexts()
   must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
   await page.screenshot({ path: '/tmp/meeting.png' })
+  // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
-  must(/งานเหรัญญิก — ยังว่าง/.test(await page.locator('main').innerText()), 'tab 3 is an empty page')
+  must(await page.getByText('ขั้นตอนทำบัญชีประจำสัปดาห์').isVisible() && await page.locator('.balance-tiles .btile').count() === 6, 'treasurer tab shows the whole home page')
+  await page.getByRole('tab', { name: /รับ/ }).first().click()
+  must(await page.getByText('ดาวน์โหลด PDF ไฟล์เปล่า').first().isVisible(), 'income step works inside the tab (sheet + download buttons)')
+  // งานทะเบียน = หน้าสมาชิกเต็ม (เปิดที่ ลงชื่อ)
+  await page.goto(`http://localhost:${PORT}/#/meeting`)
+  await tiles.nth(1).click()
+  for (const t of ['ตรวจสอบ', 'ยอดผู้มา', 'ลงชื่อ', 'ทะเบียน', 'วันเกิด', 'เพศ']) must(await page.getByRole('tab', { name: new RegExp(t) }).first().isVisible(), 'registry tab ' + t)
+  must(await page.getByText('ลงชื่อวันนี้แล้ว').first().isVisible(), 'check-in panel opens by default')
+  await page.getByRole('tab', { name: /ทะเบียน/ }).click()
+  must((await page.locator('.kpi').count()) > 0 || (await page.getByText(/ยังไม่มีสมาชิก/).count()) > 0, 'registry tab works inside งานทะเบียน')
+  // แท็บอื่นยังว่าง
+  await page.goto(`http://localhost:${PORT}/#/meeting`)
+  await tiles.nth(0).click()
+  must(/งานเลขา — ยังว่าง/.test(await page.locator('main').innerText()), 'other tabs still empty')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('meeting-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
