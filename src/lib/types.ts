@@ -322,3 +322,7 @@ export interface CheckIn extends SharedItem {
 }
 /** ผู้บันทึกลงชื่อ (ผู้ช่วยงาน) — แอดมินเพิ่ม/แก้/ลบได้ ไม่ต้องมีบัญชีในแอป */
 export interface Recorder extends SharedItem { name: string }
+
+// ---------- ปฏิทินงาน (ห้องทำงาน) ----------
+/** กิจกรรมในปฏิทินงาน · tab = เลขแท็บของห้องทำงาน (1–12) ที่เป็นเจ้าของ · 0 = ทั่วไป */
+export interface CalEvent extends SharedItem { date: string; title: string; tab: number; time?: string; note?: string }

@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -89,3 +89,9 @@ export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k
 export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'worship', poll })
 /** ผู้บันทึกลงชื่อ: ไฟล์เดียว (แอดมินจัดการ) */
 export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('recorders'), file: 'recorders.json', label: 'ผู้บันทึกลงชื่อ', write: 'settings' })
+
+/** ปฏิทินงานของห้องทำงาน (ไม่แบ่งปี · ทุกแท็บบันทึกลงไฟล์เดียวกัน เพื่อให้เห็นความสัมพันธ์รวมกัน) */
+export function useCalendar() {
+  const s = useSharedStore<CalEvent>({ localKey: k('calendar'), file: 'calendar.json', label: 'ปฏิทินงาน', write: 'detail' })
+  return { ...s, list: s.items }
+}

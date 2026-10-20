@@ -626,3 +626,17 @@ span.fundpend__tog { cursor: default; }
   .print-frame > tfoot > tr { display: table-row; }
   .print-frame > tfoot > tr > td { display: table-cell; padding: 3mm 0 0; text-align: center; font-size: 8pt; color: #444; }
 }
+
+/* ปฏิทินงาน (ห้องทำงาน) */
+.wcal__bar { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; }
+.wcal__title { background: none; border: 0; font: inherit; font-size: 1.25rem; font-weight: 800; color: var(--ink); cursor: pointer; padding: 0.2rem 0.3rem; }
+.wcal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.wcal__dow { text-align: center; font-weight: 700; font-size: 0.85rem; padding: 0.2rem 0; color: var(--ink-soft); }
+.wcal__day { display: flex; flex-direction: column; gap: 2px; align-items: stretch; min-height: 5.6rem; padding: 0.15rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; font: inherit; overflow: hidden; }
+.wcal__day.out { opacity: 0.5; }
+.wcal__num { align-self: center; font-weight: 700; font-size: 0.9rem; min-width: 1.5rem; text-align: center; border-radius: 999px; }
+.wcal__day.today .wcal__num { background: #1f6feb; color: #fff; }
+.wcal__chip { display: block; color: #fff; font-size: 0.66rem; line-height: 1.25; padding: 0 0.2rem; border-radius: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wcal__more { font-size: 0.66rem; color: var(--ink-soft); text-align: center; }
+.wcal__legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; margin: 0.4rem 0; }
+.wcal__legend i { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.25rem; vertical-align: -1px; }
