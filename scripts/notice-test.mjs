@@ -43,6 +43,7 @@ try {
   must((await page.locator('.a4page').count()) >= 2, 'many expenses continue on a following A4 page: ' + await page.locator('.a4page').count())
   must(/ค่าน้ำมัน อ\.กฤต/.test(all) && /ค่าน้ำมัน อ\.พิชิต/.test(all) && /รายการย่อย 40/.test(all), 'every actual expense line is listed')
   must(/รวมรายรับ/.test(all) && /รวมรายจ่ายทั้งสิ้น/.test(all) && /รับมากกว่าจ่าย|จ่ายมากกว่ารับ/.test(all), 'income+expense+summary: ' + all.slice(0, 300))
+  must(/จ่ายมากกว่ารับ\s+[-−]/.test(all), 'deficit shown with a minus sign')
   must(/3,155/.test(all), 'income total 3,155 (cash+transfer, funds separate)')
   must(!/อ\.ลับ|ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(all), 'no internal details on the notice')
   must(/เงินถวายกองทุน/.test(all), 'fund donations shown separately')
