@@ -640,3 +640,6 @@ span.fundpend__tog { cursor: default; }
 .wcal__more { font-size: 0.66rem; color: var(--ink-soft); text-align: center; }
 .wcal__legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; margin: 0.4rem 0; }
 .wcal__legend i { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.25rem; vertical-align: -1px; }
+
+.caltoggle { margin: 0.2rem 0 0.8rem; }
+.caltoggle > .btn { width: 100%; justify-content: center; margin-bottom: 0.4rem; }

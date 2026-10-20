@@ -22,9 +22,11 @@ try {
   await page.screenshot({ path: '/tmp/meeting.png' })
   // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
-  must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'every work opens on its ตารางงาน calendar first')
-  await page.getByRole('tab', { name: 'หน้างาน' }).click()
+  must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).count() === 0, 'treasurer page is untouched; calendar is collapsed')
   must(await page.getByText('ขั้นตอนทำบัญชีประจำสัปดาห์').isVisible() && await page.locator('.balance-tiles .btile').count() === 6, 'treasurer tab shows the whole home page')
+  await page.getByRole('button', { name: /ตารางงาน/ }).click()
+  must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), '📅 button at the top opens the calendar')
+  await page.getByRole('button', { name: /ตารางงาน/ }).click()
   await page.getByRole('tab', { name: /รับ/ }).first().click()
   must(await page.getByText('ดาวน์โหลด PDF ไฟล์เปล่า').first().isVisible(), 'income step works inside the tab (sheet + download buttons)')
   // ช่องที่ 6 ของหน้าแรก = รวมงาน → หน้าโหมดประชุม
@@ -37,7 +39,6 @@ try {
   // งานทะเบียน = หน้าสมาชิกเต็ม (เปิดที่ ลงชื่อ)
   await page.goto(`http://localhost:${PORT}/#/meeting`)
   await tiles.nth(1).click()
-  await page.getByRole('tab', { name: 'หน้างาน' }).click()
   for (const t of ['ตรวจสอบ', 'ยอดผู้มา', 'ลงชื่อ', 'ทะเบียน', 'วันเกิด', 'เพศ']) must(await page.getByRole('tab', { name: new RegExp(t) }).first().isVisible(), 'registry tab ' + t)
   must(await page.getByText('ลงชื่อวันนี้แล้ว').first().isVisible(), 'check-in panel opens by default')
   await page.getByRole('tab', { name: /ทะเบียน/ }).click()
