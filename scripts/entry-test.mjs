@@ -58,7 +58,7 @@ try {
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const items = await page.locator('#me-item option').allInnerTexts()
-  must(items.length === 11 && items[0] === 'ค่าน้ำมันออกเยี่ยม อ.กฤต' && items[10] === 'ค่าน้ำ', 'expense list follows the voucher: ' + items.join('|'))
+  must(items.length === 11 && items[0] === 'ค่าน้ำมันออกเยี่ยมสมาชิก อ.กฤต' && items[10] === 'ค่าน้ำ', 'expense list follows the voucher: ' + items.join('|'))
   await page.locator('#me-item').selectOption({ label: 'ค่าไฟ' })
   await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('1850')
   await page.locator('#me-req').fill('สมเจต')
