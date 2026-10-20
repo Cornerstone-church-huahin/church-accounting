@@ -23,7 +23,12 @@ export interface Settings extends SharedItem {
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 
 export type Method = 'cash' | 'transfer'
-/** typeId ว่าง = "โอน (ยังไม่แยกรายการ)" — ใบถวายจริงลงเฉพาะยอดโอนรวม ไม่แยกตามประเภท */
+/**
+ * ชื่อเรียกเงินโอนที่ไม่ทราบวัตถุประสงค์ — ใช้คำเดียวกันทั้งระบบ (รายการ รายงาน ใบสรุป แบบฟอร์ม)
+ * แก้ข้อความที่นี่ที่เดียว · ประเภท "Unkonw" ที่ตั้งเองในตั้งค่า ใช้ชื่อเดียวกันนี้
+ */
+export const UNKNOWN_INCOME_LABEL = 'โอน (ไม่แจ้งวัตถุประสงค์) Unkonw'
+/** typeId ว่าง = โอนที่ยังไม่แยกวัตถุประสงค์ (UNKNOWN_INCOME_LABEL) — ใบถวายจริงลงเฉพาะยอดโอนรวม ไม่แยกตามประเภท */
 export const UNSORTED = ''
 export interface IncomeEntry extends SharedItem {
   date: string

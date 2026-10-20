@@ -1,3 +1,4 @@
+import { UNKNOWN_INCOME_LABEL } from '../lib/types'
 import { useRef, type MutableRefObject, type ReactNode } from 'react'
 import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/money'
 import { downloadSheetPdf } from '../lib/pdf'
@@ -63,7 +64,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
   const pages = chunk(all, ROWS)
-  const name = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกรายการ)' : '(รายการที่ถูกลบ)')
+  const name = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? UNKNOWN_INCOME_LABEL : '(รายการที่ถูกลบ)')
   const sum = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + x.amount, 0)
   const cnt = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + (x.count ?? 1), 0)
   const heading = blank ? BLANK_HEADING : (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์')

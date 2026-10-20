@@ -16,7 +16,7 @@ import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO, wee
 import { adjReportText, adjOk, type AdjReport } from '../lib/adjustReport'
 import { shareText } from '../lib/serviceReport'
 import { fixKinds, chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
-import type { PassbookLine, PassbookScan } from '../lib/types'
+import { UNKNOWN_INCOME_LABEL, type PassbookLine, type PassbookScan } from '../lib/types'
 
 interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
 const sameRow = (a: Draft, b: Draft) => a.date === b.date && a.deposit === b.deposit && a.withdraw === b.withdraw && a.balance === b.balance
@@ -180,7 +180,7 @@ export default function Adjust({ year }: { year: number }) {
             <p className={`adjverdict${adjOk(report) ? ' adjverdict--ok' : ''}`} role="status">{adjOk(report) ? '✅ ผลตรวจ: ตรงกันครบถ้วน' : '⚠️ ผลตรวจ: มีรายการที่ต้องตรวจ'}</p>
             <div className="adjsum">
               <div className="adjsum__ok"><b>✓ ตรงกัน {matched.length} รายการ</b><br />{fmtBaht(sum(matched.map((m) => m.line)))}</div>
-              <div className="adjsum__unk"><b>❓ ไม่ทราบที่มา {unknown.length} รายการ</b><br />{fmtBaht(sum(unknown))}</div>
+              <div className="adjsum__unk"><b>❓ {UNKNOWN_INCOME_LABEL} {unknown.length} รายการ</b><br />{fmtBaht(sum(unknown))}</div>
               <div className="adjsum__miss"><b>⚠ ไม่พบเงินเข้า {missing.length} รายการ</b><br />{fmtBaht(sum(missing))}</div>
             </div>
 
@@ -189,8 +189,8 @@ export default function Adjust({ year }: { year: number }) {
               <li key={line.id} className="row row--between"><span>{row(line)}<br /><span className="small muted">ตรงกับรายรับ “{typeName(inc.typeId)}” ที่บันทึก {fmtDate(inc.date)}{inc.note ? ` · ${inc.note}` : ''}</span></span><b>{fmtBaht(line.amount)}</b></li>
             ))}</ul>}
 
-            <h3>❓ เงินเข้าที่ไม่ทราบที่มา</h3>
-            <p className="small muted">มีเงินเข้าสมุด แต่ไม่มีรายรับที่บันทึกไว้ตรงกัน — ระบุว่าเป็นรายรับอะไรได้</p>
+            <h3>❓ {UNKNOWN_INCOME_LABEL}</h3>
+            <p className="small muted">มีเงินเข้าสมุด แต่ไม่มีรายรับที่บันทึกไว้ตรงกัน (ไม่ทราบที่มา/วัตถุประสงค์) — ระบุว่าเป็นรายรับอะไรได้</p>
             {unknown.length === 0 ? <p className="muted small">ไม่มี</p> : <ul className="list">{unknown.map((l) => (
               <li key={l.id}>
                 <div className="row row--between"><span>{row(l)}</span><b>{fmtBaht(l.amount)}</b></div>

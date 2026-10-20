@@ -1,3 +1,4 @@
+import { PrintFrame } from '../components/Credit'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import NoAccess from '../components/NoAccess'
@@ -133,6 +134,7 @@ function PrintForm({ v, items, lineName }: { v: Voucher; items: ReturnType<typeo
   const rows = Math.max(items.length, 14)
   return (
     <section className="print-only" aria-hidden="true">
+<PrintFrame>
       <p style={{ textAlign: 'right' }}>{fmtDateLong(v.date)}</p>
       <h2 style={{ textAlign: 'center' }}>{settings.churchName}</h2>
       <h2 style={{ textAlign: 'center', textDecoration: 'underline' }}>ใบเบิก - จ่ายเงิน (เลขที่ {v.no})</h2>
@@ -145,7 +147,8 @@ function PrintForm({ v, items, lineName }: { v: Voucher; items: ReturnType<typeo
         <div>ผู้อนุมัติ / ตรวจสอบ{v.approvals.length > 0 && <><br /><span className="small">{v.approvals.map((a) => a.name).join(', ')}</span></>}<br /><span className="small">วันที่ ........../........../..........</span></div>
         <div>ผู้จ่าย / ฝ่ายบัญชี{v.paid && <><br /><span className="small">{v.paid.by}</span></>}<br /><span className="small">วันที่ {v.paid ? fmtDate(v.paid.date) : '........../........../..........'}</span></div>
       </div>
-    </section>
+    </PrintFrame>
+</section>
   )
 }
 

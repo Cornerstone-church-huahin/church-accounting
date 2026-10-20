@@ -1,3 +1,4 @@
+import { PrintFrame } from '../components/Credit'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
@@ -7,7 +8,7 @@ import { useAccounts, useIncome, useIncomeTypes, useRounds, useSettings, useStat
 import { DENOMS, denomTotal, entriesFromRound, envelopeTotal, roundId, roundTotal, weekInflow, weekTransfers } from '../lib/ledger'
 import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, isISO, monthName, monthOf, yearOf, be } from '../lib/money'
-import { UNSORTED, type Round } from '../lib/types'
+import { UNKNOWN_INCOME_LABEL, UNSORTED, type Round } from '../lib/types'
 import { IncomeForm } from './Income'
 
 export default function RoundDetail() {
@@ -89,7 +90,7 @@ function Detail({ date }: { date: string }) {
   }
   const roundTotalSaved = saved ? roundTotal(saved) : 0
   const variance = saved?.deposit ? saved.deposit.amount - roundTotalSaved : 0
-  const typeName = (t: string) => (t === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : types.byId(t)?.name ?? '?')
+  const typeName = (t: string) => (t === UNSORTED ? UNKNOWN_INCOME_LABEL : types.byId(t)?.name ?? '?')
 
   return (
     <>
@@ -141,7 +142,7 @@ function Detail({ date }: { date: string }) {
         <table className="tbl"><tbody>
           <tr><td>เงินสดจากตู้ถวาย{inflow.cash === 0 && saved?.status !== 'verified' && saved ? ' (รอยืนยัน)' : ''}</td><td className="num">{fmtBaht(inflow.cash)}</td></tr>
           <tr><td>เงินโอนตามสลิป — {inflow.slips.count} รายการ (แนบรูป {inflow.slips.withImage})</td><td className="num">{fmtBaht(inflow.slips.total)}</td></tr>
-          <tr><td>❓ ไม่ทราบที่มา (เข้าบัญชีแต่ไม่มีสลิป) — {inflow.unknown.count} รายการ</td><td className="num">{fmtBaht(inflow.unknown.total)}</td></tr>
+          <tr><td>❓ {UNKNOWN_INCOME_LABEL} (เข้าบัญชีแต่ไม่มีสลิป) — {inflow.unknown.count} รายการ</td><td className="num">{fmtBaht(inflow.unknown.total)}</td></tr>
         </tbody><tfoot><tr><td>รวมเงินเข้า</td><td className="num">{fmtBaht(inflow.total)}</td></tr></tfoot></table>
         <p className={inflow.bankCredits === 0 || inflow.variance === 0 ? 'muted small' : 'err'} role="status">
           {inflow.bankCredits === 0 ? 'ยังไม่มีรายการเงินเข้าจากสมุดบัญชีของสัปดาห์นี้ — พิมพ์รายการจากสมุดที่หน้า “เทียบสเตตเมนต์” เพื่อเทียบกับสลิป' : inflow.variance === 0 ? `✓ เงินโอนที่บันทึกตรงกับเงินเข้าบัญชีตามสมุด ${fmtBaht(inflow.bankCredits)} บาท` : `⚠️ เงินเข้าบัญชีตามสมุด ${fmtBaht(inflow.bankCredits)} ต่างจากเงินโอนที่บันทึก ${fmtBaht(inflow.variance, { sign: true })} บาท — ตรวจสลิปที่ขาด หรือกด “รับเป็นไม่ทราบที่มา” ที่หน้าเทียบสเตตเมนต์`}
@@ -195,6 +196,7 @@ function Detail({ date }: { date: string }) {
 
       {/* ---- ใบบันทึกการถวาย (พิมพ์) ---- */}
       <section className="print-only" aria-hidden="true">
+<PrintFrame>
         <h2 style={{ textAlign: 'center' }}>ใบบันทึกการถวาย {settings.churchName}</h2>
         <p style={{ textAlign: 'center' }}>ประจำวันอาทิตย์ ที่ {Number(date.slice(8))} เดือน {monthName(monthOf(date))} พ.ศ. {be(year)}</p>
         <table className="tbl" style={{ fontSize: '10.5pt' }}>
@@ -213,7 +215,8 @@ function Detail({ date }: { date: string }) {
           <div>ลงชื่อผู้ตรวจนับ 1{saved && <><br /><span className="small">{saved.counter.name}</span></>}</div>
           <div>ลงชื่อผู้ตรวจนับ 2{saved?.verifier && <><br /><span className="small">{saved.verifier.name}</span></>}</div>
         </div>
-      </section>
+      </PrintFrame>
+</section>
     </>
   )
 }

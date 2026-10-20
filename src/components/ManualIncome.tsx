@@ -1,3 +1,4 @@
+import { UNKNOWN_INCOME_LABEL } from '../lib/types'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
@@ -27,7 +28,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
   const [transfer, setTransfer] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
-  const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? 'โอน (ยังไม่แยกรายการ)' : '(รายการที่ถูกลบ)')
+  const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? UNKNOWN_INCOME_LABEL : '(รายการที่ถูกลบ)')
 
   const save = () => {
     if (!typeId) return setErr('เลือกรายการ')

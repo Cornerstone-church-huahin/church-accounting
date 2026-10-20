@@ -1,3 +1,4 @@
+import { PrintFrame } from '../components/Credit'
 import { useMemo, useState } from 'react'
 import BarChart from '../components/BarChart'
 import { IconPrint } from '../components/Icons'
@@ -5,7 +6,7 @@ import { useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, u
 import { budgetRows, buckets, directOut, liveIncome, paidIn, paidItems, periodOf, shiftPeriod, stageOf, sumBy, type Period, type PeriodKind } from '../lib/ledger'
 import { be, fmtBaht, fmtDate, monthName, monthShort, todayISO, yearOf } from '../lib/money'
 import { mergeItems } from '../lib/sync'
-import { UNSORTED, type IncomeEntry, type Voucher } from '../lib/types'
+import { UNKNOWN_INCOME_LABEL, UNSORTED, type IncomeEntry, type Voucher } from '../lib/types'
 
 const KIND_LABEL: Record<PeriodKind, string> = { week: 'รายสัปดาห์', month: 'รายเดือน', year: 'รายปี' }
 
@@ -54,9 +55,8 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
   const incByType = useMemo(() => {
     const m = sumBy(inc, (x) => x.typeId, (x) => x.amount)
     const rows = types.list.filter((t) => t.active || m.has(t.id)).map((t) => ({ name: t.name, value: m.get(t.id) ?? 0 }))
-    const unk = inc.filter((x) => x.unknown).reduce((a, x) => a + x.amount, 0)
-    const unsorted = (m.get(UNSORTED) ?? 0) - unk
-    return [...rows, ...(unsorted > 0 ? [{ name: 'โอน (ยังไม่แยกรายการ)', value: unsorted }] : []), ...(unk > 0 ? [{ name: 'ไม่ทราบที่มา', value: unk }] : [])]
+    const unsorted = (m.get(UNSORTED) ?? 0) // โอนที่ยังไม่แยกวัตถุประสงค์ + รับเป็นไม่ทราบที่มา = รายการเดียวกัน ใช้ชื่อเดียว
+    return [...rows, ...(unsorted > 0 ? [{ name: UNKNOWN_INCOME_LABEL, value: unsorted }] : [])]
   }, [inc, types.list])
   const lineName = (id: string) => { const l = lines.all.find((x) => x.id === id) ?? funds.all.find((x) => x.id === id); return l ? (l.deleted ? `${l.name} (ลบแล้ว)` : l.name) : 'นอกงบประมาณ' }
   const outByLine = useMemo(() => {
@@ -77,7 +77,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
   const flowLabel = p.kind === 'year' ? 'เดือน' : p.kind === 'month' ? 'สัปดาห์ (วันที่เริ่ม)' : 'วันที่'
 
   return (
-    <>
+    <PrintFrame>
       <div className="page-head no-print">
         <h1>รายงาน</h1>
         <button type="button" className="btn btn--gold" onClick={() => window.print()}><IconPrint /> พิมพ์ / บันทึก PDF</button>
@@ -145,7 +145,7 @@ function Report({ kind, pick, p, setP }: { kind: PeriodKind; pick: (k: PeriodKin
         </div>
         <p className="print-only small" style={{ textAlign: 'center' }}>พิมพ์เมื่อ {fmtDate(todayISO())} · สมาชิกมีข้อสงสัยกรุณาแจ้งผู้ปกครองหรือผู้ตรวจสอบ</p>
       </article>
-    </>
+    </PrintFrame>
   )
 }
 

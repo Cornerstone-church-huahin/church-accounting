@@ -3,7 +3,7 @@ import { directOut, paidItems, type Period } from './ledger'
 import { fmtDate, inRange } from './money'
 import { BANK_UNKNOWN_LABEL, BANK_UNKNOWN_OUT_LABEL, lineDate, typeFromNote, unknownBankIn, unknownBankOut } from './passbook'
 import { isFundType } from './funds'
-import { UNSORTED, type PassbookLine, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
+import { UNKNOWN_INCOME_LABEL, UNSORTED, type PassbookLine, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
 export interface LRow { key: string; label: string; cash: LSrc; transfer: LSrc; /** ค้างจ่าย: วางบิลที่ยังไม่จ่าย / สำรองจ่ายที่ยังไม่คืนเงิน (นับเป็นรายจ่ายแล้ว แต่เงินยังไม่ออก) */ pending?: LSrc }
@@ -39,7 +39,7 @@ export function computeLedger(a: {
   /** true = นับเงินถวายกองทุน/รายจ่ายจากกองทุนรวมในตารางด้วย (ปกติแยกไปอยู่หน้ากองทุน ไม่ปนรายรับ-รายจ่ายปกติ) */
   withFunds?: boolean
 }) {
-  const typeName = (id: string) => (id === UNSORTED ? 'โอน (ยังไม่แยกรายการ)' : a.types.find((t) => t.id === id)?.name ?? '(รายการที่ถูกลบ)')
+  const typeName = (id: string) => (id === UNSORTED ? UNKNOWN_INCOME_LABEL : a.types.find((t) => t.id === id)?.name ?? '(รายการที่ถูกลบ)')
   const inR = (d: string) => inRange(d, a.range.from, a.range.to)
   const ent = a.income.filter((x) => !x.roundId && inR(x.date))
   const rds = a.rounds.filter((r) => inR(r.date))

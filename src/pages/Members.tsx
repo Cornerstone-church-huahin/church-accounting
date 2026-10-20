@@ -1,3 +1,4 @@
+import { PrintFrame } from '../components/Credit'
 import { cleanName, applyNameFix, planNameClean } from '../lib/nameClean'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
@@ -332,7 +333,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
     } finally { setBusy(false) }
   }
   return (
-    <>
+    <PrintFrame>
       {canLog && (
         <div className="toolbar no-print">
           <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
@@ -411,7 +412,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
         </Sheet>
       )}
       {edit && <MemberForm lite={lite} canDelete={canEdit} member={edit === 'new' ? null : edit} statuses={statusOptions(members)} groups={groupOptions(members)} onClose={() => setEdit(null)} put={put} remove={remove} />}
-    </>
+    </PrintFrame>
   )
 }
 
