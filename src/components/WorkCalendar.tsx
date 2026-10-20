@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react'
 import Sheet from './Sheet'
 import { myRole, whoAmI } from '../lib/access'
-import { canTouchEvent } from '../lib/calendar'
+import { canTouchEvent, DAY_SHORT, describeRepeat, kindLabel, kindOf, occurrences, presetRepeat, type RepeatKind } from '../lib/calendar'
 import { useCalendar } from '../lib/data'
 import { MEETING_TABS } from '../lib/workTabs'
-import { addDays, be, daysInMonth, diffDays, fmtDateLong, monthName, newId, todayISO, weekStart } from '../lib/money'
-import type { CalEvent } from '../lib/types'
+import { addDays, be, daysInMonth, diffDays, dow, fmtDateLong, isISO, monthName, newId, todayISO, weekStart } from '../lib/money'
+import type { CalEvent, Repeat } from '../lib/types'
 
 /** สีของแต่ละงาน (0 = ทั่วไป) — ใช้ตัวอักษรขาวบนสีเข้ม */
 const TAB_COLORS = ['#5f6b7a', '#1f6feb', '#8a5a00', '#1b7f4b', '#c2255c', '#7048e8', '#d9480f', '#0b7285', '#5c940d', '#a61e4d', '#364fc7', '#e67700', '#495057']
-const WEEKDAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+const WEEKDAYS = DAY_SHORT
 const MAX_CHIPS = 3
 const tabName = (n: number) => (n === 0 ? 'ทั่วไป' : MEETING_TABS.find((t) => t.n === n)?.name ?? `แท็บ ${n}`)
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -34,20 +34,20 @@ export default function WorkCalendar({ tab }: { tab: number }) {
   const [day, setDay] = useState<string | null>(null)
 
   const events = useMemo(() => cal.list.filter((e) => (all ? filter === 'all' || e.tab === filter : e.tab === tab || e.tab === SECRETARY)), [cal.list, all, tab, filter])
-  const byDate = useMemo(() => {
-    const m = new Map<string, CalEvent[]>()
-    for (const e of events) m.set(e.date, [...(m.get(e.date) ?? []), e])
-    for (const v of m.values()) v.sort(byTime)
-    return m
-  }, [events])
-
   const first = `${cur.y}-${pad(cur.m)}-01`
   const last = `${cur.y}-${pad(cur.m)}-${pad(daysInMonth(cur.y, cur.m))}`
   const start = weekStart(first)
   const weeks = Math.ceil((diffDays(last, start) + 1) / 7)
   const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i))
   const go = (d: number) => setCur((c) => { const t = c.y * 12 + (c.m - 1) + d; return { y: Math.floor(t / 12), m: (t % 12) + 1 } })
-  const inMonth = events.filter((e) => e.date >= first && e.date <= last)
+  const gridEnd = cells[cells.length - 1]
+  const byDate = useMemo(() => {
+    const m = new Map<string, CalEvent[]>()
+    for (const e of events) for (const d of occurrences(e, start, gridEnd)) m.set(d, [...(m.get(d) ?? []), e])
+    for (const v of m.values()) v.sort(byTime)
+    return m
+  }, [events, start, gridEnd])
+  const inMonth = events.filter((e) => occurrences(e, first, last).length > 0)
   const present = [...new Set(inMonth.map((e) => e.tab))].sort((a, b) => a - b)
   const years = Array.from({ length: 21 }, (_, i) => cur.y - 10 + i)
 
@@ -85,7 +85,7 @@ export default function WorkCalendar({ tab }: { tab: number }) {
           return (
             <button key={d} type="button" role="gridcell" className={`wcal__day${out ? ' out' : ''}${d === today ? ' today' : ''}`} aria-label={`${fmtDateLong(d)}${list.length ? ` มี ${list.length} กิจกรรม` : ''}`} onClick={() => setDay(d)}>
               <span className="wcal__num">{Number(d.slice(8))}</span>
-              {list.slice(0, MAX_CHIPS).map((e) => <span key={e.id} className="wcal__chip" style={{ background: TAB_COLORS[e.tab] ?? TAB_COLORS[0] }}>{e.title}</span>)}
+              {list.slice(0, MAX_CHIPS).map((e) => <span key={e.id} className="wcal__chip" style={{ background: TAB_COLORS[e.tab] ?? TAB_COLORS[0] }}>{e.time ? `${e.time} ` : ''}{e.title}</span>)}
               {list.length > MAX_CHIPS && <span className="wcal__more">+{list.length - MAX_CHIPS}</span>}
             </button>
           )
@@ -100,38 +100,78 @@ export default function WorkCalendar({ tab }: { tab: number }) {
   )
 }
 
+const UNITS = [['day', 'วัน'], ['week', 'สัปดาห์'], ['month', 'เดือน'], ['year', 'ปี']] as const
+const KINDS: RepeatKind[] = ['none', 'daily', 'weekly', 'weekdays', 'monthly-date', 'monthly-nth', 'monthly-last', 'yearly', 'custom']
+
 function DaySheet({ date, list, tab, all, onClose, put, remove }: { date: string; list: CalEvent[]; tab: number; all: boolean; onClose: () => void; put: (x: CalEvent[]) => boolean; remove: (id: string) => boolean }) {
   const [editing, setEditing] = useState<CalEvent | null>(null)
   const [title, setTitle] = useState('')
   const [owner, setOwner] = useState(tab)
-  const [time, setTime] = useState('')
+  const [when, setWhen] = useState(date)
+  const [allDay, setAllDay] = useState(true)
+  const [time, setTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('10:00')
+  const [kind, setKind] = useState<RepeatKind>('none')
+  const [every, setEvery] = useState(1)
+  const [unit, setUnit] = useState<Repeat['freq']>('week')
+  const [days, setDays] = useState<number[]>([])
+  const [monthBy, setMonthBy] = useState<NonNullable<Repeat['by']>>('date')
+  const [endType, setEndType] = useState<'never' | 'until' | 'count'>('never')
+  const [until, setUntil] = useState('')
+  const [count, setCount] = useState(10)
   const [note, setNote] = useState('')
   const [msg, setMsg] = useState('')
-  const reset = () => { setEditing(null); setTitle(''); setOwner(tab); setTime(''); setNote('') }
-  const edit = (e: CalEvent) => { setEditing(e); setTitle(e.title); setOwner(e.tab); setTime(e.time ?? ''); setNote(e.note ?? ''); setMsg('') }
+  const reset = () => {
+    setEditing(null); setTitle(''); setOwner(tab); setWhen(date); setAllDay(true); setTime('09:00'); setEndTime('10:00'); setKind('none')
+    setEvery(1); setUnit('week'); setDays([]); setMonthBy('date'); setEndType('never'); setUntil(''); setCount(10); setNote('')
+  }
+  const edit = (e: CalEvent) => {
+    const r = e.repeat
+    setEditing(e); setTitle(e.title); setOwner(e.tab); setWhen(e.date); setAllDay(!e.time); setTime(e.time ?? '09:00'); setEndTime(e.end ?? '10:00'); setNote(e.note ?? ''); setMsg('')
+    setKind(kindOf(r, e.date)); setEvery(r?.every ?? 1); setUnit(r?.freq ?? 'week'); setDays(r?.days ?? []); setMonthBy(r?.by ?? 'date')
+    setEndType(r?.until ? 'until' : r?.count ? 'count' : 'never'); setUntil(r?.until ?? ''); setCount(r?.count ?? 10)
+  }
+  const buildRepeat = (): Repeat | undefined => {
+    if (kind === 'none') return undefined
+    const base: Repeat = kind === 'custom'
+      ? { freq: unit, every: Math.max(1, Math.floor(every) || 1), ...(unit === 'week' ? { days: days.length ? [...days].sort() : [dow(when)] } : {}), ...(unit === 'month' ? { by: monthBy } : {}) }
+      : presetRepeat(kind, when)
+    return { ...base, ...(endType === 'until' && until ? { until } : {}), ...(endType === 'count' ? { count: Math.max(1, Math.floor(count) || 1) } : {}) }
+  }
   const save = () => {
     if (!title.trim()) return setMsg('ใส่ชื่อกิจกรรมก่อน')
-    const ev: CalEvent = { ...(editing ?? { id: newId('cal'), updated: 0, recId: whoAmI().id, rec: whoAmI().name }), date, title: title.trim(), tab: owner, ...(time ? { time } : { time: undefined }), ...(note.trim() ? { note: note.trim() } : { note: undefined }) }
+    if (!isISO(when)) return setMsg('เลือกวันที่ให้ถูกต้อง')
+    if (!allDay && endTime && endTime < time) return setMsg('เวลาสิ้นสุดต้องไม่ก่อนเวลาเริ่ม')
+    if (endType === 'until' && (!until || until < when)) return setMsg('วันสิ้นสุดการทำซ้ำต้องไม่ก่อนวันเริ่ม')
+    const rep = buildRepeat()
+    const ev: CalEvent = {
+      ...(editing ?? { id: newId('cal'), updated: 0, recId: whoAmI().id, rec: whoAmI().name }),
+      date: when, title: title.trim(), tab: owner, note: note.trim() || undefined,
+      time: allDay ? undefined : time, end: allDay || !endTime ? undefined : endTime, repeat: rep,
+      exdates: rep ? (editing?.exdates ?? []).filter((d) => d >= when) : undefined,
+    }
     if (!put([ev])) return setMsg('ไม่มีสิทธิ์บันทึกในปฏิทิน')
     reset(); setMsg('')
   }
+  const toggleDay = (d: number) => setDays((xs) => (xs.includes(d) ? xs.filter((x) => x !== d) : [...xs, d]))
   return (
     <Sheet title={fmtDateLong(date)} onClose={onClose}>
       {list.length === 0 && <p className="empty">ยังไม่มีกิจกรรมในวันนี้</p>}
       <ul className="list">
         {list.map((e) => (
           <li key={e.id} className="row row--between" style={{ borderLeft: `6px solid ${TAB_COLORS[e.tab] ?? TAB_COLORS[0]}`, paddingLeft: '0.6rem' }}>
-            <span className="grow"><b>{e.title}</b><br /><span className="small muted">{[e.time, tabName(e.tab), e.note, e.rec ? `บันทึกโดย ${e.rec}` : ''].filter(Boolean).join(' · ')}</span></span>
+            <span className="grow"><b>{e.title}</b><br /><span className="small muted">{[e.time ? `${e.time}${e.end ? `–${e.end}` : ''}` : 'ตลอดวัน', tabName(e.tab), describeRepeat(e.repeat, e.date), e.note, e.rec ? `บันทึกโดย ${e.rec}` : ''].filter(Boolean).join(' · ')}</span></span>
             {canTouch(e)
               ? <>
-                <button type="button" className="mini" onClick={() => edit(e)} aria-label={`แก้ไข ${e.title}`}>แก้ไข</button>
-                <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบ “${e.title}” ?`)) { if (!remove(e.id)) setMsg('ไม่มีสิทธิ์ลบ') } }} aria-label={`ลบ ${e.title}`}>ลบ</button>
+                <button type="button" className="mini" onClick={() => edit(e)} aria-label={`แก้ไข ${e.title}`}>{e.repeat ? 'แก้ไขทั้งชุด' : 'แก้ไข'}</button>
+                {e.repeat && <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบ “${e.title}” เฉพาะวันนี้ ?`) && !put([{ ...e, exdates: [...(e.exdates ?? []), date] }])) setMsg('ไม่มีสิทธิ์ลบ') }} aria-label={`ลบเฉพาะวันนี้ ${e.title}`}>ลบวันนี้</button>}
+                <button type="button" className="mini" onClick={() => { if (window.confirm(e.repeat ? `ลบ “${e.title}” ทั้งชุดที่ทำซ้ำ ?` : `ลบ “${e.title}” ?`) && !remove(e.id)) setMsg('ไม่มีสิทธิ์ลบ') }} aria-label={`ลบ ${e.title}`}>{e.repeat ? 'ลบทั้งชุด' : 'ลบ'}</button>
               </>
               : <span className="small muted">แก้ได้เฉพาะผู้บันทึก</span>}
           </li>
         ))}
       </ul>
-      <h3 style={{ marginTop: '0.8rem' }}>{editing ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรม'}</h3>
+      <h3 style={{ marginTop: '0.8rem' }}>{editing ? (editing.repeat ? 'แก้ไขกิจกรรม (ทั้งชุดที่ทำซ้ำ)' : 'แก้ไขกิจกรรม') : 'เพิ่มกิจกรรม'}</h3>
       <div className="field"><label htmlFor="ce-t">ชื่อกิจกรรม</label><input id="ce-t" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ประชุมคณะกรรมการ" /></div>
       <div className="row" style={{ alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor="ce-o">งาน</label>
@@ -139,8 +179,46 @@ function DaySheet({ date, list, tab, all, onClose, put, remove }: { date: string
             {all && <option value={0}>ทั่วไป</option>}
             {(all ? MEETING_TABS : MEETING_TABS.filter((t) => t.n === tab || t.n === SECRETARY)).map((t) => <option key={t.n} value={t.n}>{t.name}</option>)}
           </select></div>
-        <div className="field" style={{ flex: 1 }}><label htmlFor="ce-h">เวลา (ไม่บังคับ)</label><input id="ce-h" className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="ce-d">วันที่{editing?.repeat ? 'เริ่ม' : ''}</label><input id="ce-d" className="input" type="date" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
       </div>
+      <label className="row" style={{ margin: '0.5rem 0' }}><input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} /> <b>ตลอดวัน</b></label>
+      {!allDay && (
+        <div className="row">
+          <div className="field" style={{ flex: 1 }}><label htmlFor="ce-h">เวลาเริ่ม</label><input id="ce-h" className="input" type="time" value={time} onChange={(e) => { const t = e.target.value; setTime(t); if (t && endTime <= t) { const [h, m] = t.split(':').map(Number); setEndTime(h >= 23 ? '23:59' : `${pad(h + 1)}:${pad(m)}`) } }} /></div>
+          <div className="field" style={{ flex: 1 }}><label htmlFor="ce-e">เวลาสิ้นสุด</label><input id="ce-e" className="input" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></div>
+        </div>
+      )}
+      <div className="field"><label htmlFor="ce-r">ทำซ้ำ</label>
+        <select id="ce-r" className="input" value={kind} onChange={(e) => { const k = e.target.value as RepeatKind; setKind(k); if (k === 'custom' && !days.length) setDays([dow(when)]) }}>
+          {KINDS.map((k) => <option key={k} value={k}>{kindLabel(k, isISO(when) ? when : date)}</option>)}
+        </select></div>
+      {kind === 'custom' && (
+        <div className="card" style={{ margin: '0.4rem 0' }}>
+          <div className="row">
+            <span>ทุก</span>
+            <input className="input" style={{ width: '4.5rem' }} type="number" min={1} max={99} aria-label="ทำซ้ำทุกกี่หน่วย" value={every} onChange={(e) => setEvery(Number(e.target.value))} />
+            <select className="input" style={{ flex: 1 }} aria-label="หน่วยการทำซ้ำ" value={unit} onChange={(e) => setUnit(e.target.value as Repeat['freq'])}>{UNITS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          </div>
+          {unit === 'week' && (
+            <div className="row" role="group" aria-label="ทำซ้ำในวัน" style={{ marginTop: '0.4rem' }}>
+              {WEEKDAYS.map((w, i) => <button key={w} type="button" className="wchip" aria-pressed={days.includes(i)} onClick={() => toggleDay(i)}>{w}</button>)}
+            </div>
+          )}
+          {unit === 'month' && (
+            <select className="input" style={{ marginTop: '0.4rem' }} aria-label="ทำซ้ำรายเดือนแบบ" value={monthBy} onChange={(e) => setMonthBy(e.target.value as NonNullable<Repeat['by']>)}>
+              <option value="date">{kindLabel('monthly-date', when)}</option><option value="nth">{kindLabel('monthly-nth', when)}</option><option value="last">{kindLabel('monthly-last', when)}</option>
+            </select>
+          )}
+        </div>
+      )}
+      {kind !== 'none' && (
+        <div className="row" style={{ margin: '0.4rem 0' }}>
+          <label htmlFor="ce-end">สิ้นสุด</label>
+          <select id="ce-end" className="input" style={{ flex: 1 }} value={endType} onChange={(e) => setEndType(e.target.value as 'never' | 'until' | 'count')}><option value="never">ไม่สิ้นสุด</option><option value="until">ถึงวันที่</option><option value="count">ครบกี่ครั้ง</option></select>
+          {endType === 'until' && <input className="input" style={{ flex: 1 }} type="date" aria-label="ซ้ำถึงวันที่" value={until} onChange={(e) => setUntil(e.target.value)} />}
+          {endType === 'count' && <><input className="input" style={{ width: '4.5rem' }} type="number" min={1} aria-label="จำนวนครั้ง" value={count} onChange={(e) => setCount(Number(e.target.value))} /><span>ครั้ง</span></>}
+        </div>
+      )}
       <div className="field"><label htmlFor="ce-n">รายละเอียด (ไม่บังคับ)</label><textarea id="ce-n" className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></div>
       {msg && <p className="error" role="alert">{msg}</p>}
       <div className="row" style={{ marginTop: '0.5rem' }}>

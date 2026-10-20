@@ -643,3 +643,6 @@ span.fundpend__tog { cursor: default; }
 
 .caltoggle { margin: 0.2rem 0 0.8rem; }
 .caltoggle > .btn { width: 100%; justify-content: center; margin-bottom: 0.4rem; }
+
+.wchip { min-width: 2.6rem; min-height: 2.4rem; border-radius: 999px; border: 2px solid var(--navy); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.wchip[aria-pressed='true'] { background: var(--navy); color: #fff; font-weight: 700; }

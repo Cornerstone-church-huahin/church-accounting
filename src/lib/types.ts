@@ -325,4 +325,12 @@ export interface Recorder extends SharedItem { name: string }
 
 // ---------- ปฏิทินงาน (ห้องทำงาน) ----------
 /** กิจกรรมในปฏิทินงาน · tab = เลขแท็บของห้องทำงาน (1–12) ที่เป็นเจ้าของ · 0 = ทั่วไป */
-export interface CalEvent extends SharedItem { date: string; title: string; tab: number; time?: string; note?: string; /** ผู้บันทึก (id/ชื่อ) — แก้ไข/ลบได้เฉพาะผู้บันทึกและแอดมิน */ recId?: string; rec?: string }
+export interface CalEvent extends SharedItem { date: string; title: string; tab: number; time?: string; note?: string; /** ผู้บันทึก (id/ชื่อ) — แก้ไข/ลบได้เฉพาะผู้บันทึกและแอดมิน */ recId?: string; rec?: string
+  /** เวลาสิ้นสุด (HH:MM) — time คือเวลาเริ่ม · ไม่มี time = ตลอดวัน */
+  end?: string
+  /** ทำซ้ำ (เริ่มนับจาก date) */
+  repeat?: Repeat
+  /** วันที่ที่ยกเว้นออกจากชุดที่ทำซ้ำ (ลบเฉพาะวันนั้น) */
+  exdates?: string[] }
+/** ทำซ้ำแบบ Google: ทุก every วัน/สัปดาห์/เดือน/ปี · สัปดาห์เลือกวันได้หลายวัน (0=อาทิตย์) · เดือนเลือก วันที่เดิม / วันที่ n ของเดือน (เช่น พฤหัสที่ 3) / วันสุดท้าย · สิ้นสุดด้วยวันที่หรือจำนวนครั้ง */
+export interface Repeat { freq: 'day' | 'week' | 'month' | 'year'; every: number; days?: number[]; by?: 'date' | 'nth' | 'last'; until?: string; count?: number }
