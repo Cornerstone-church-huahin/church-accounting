@@ -11,7 +11,7 @@ import { SYNC_EVENT } from '../lib/sync'
 import { initialYear, saveYear, YearContext } from '../lib/year'
 import OpenInChrome from './OpenInChrome'
 import SyncButton from './SyncButton'
-import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMeeting, IconMore, IconPeople, IconReceipt, IconWallet, Logo } from './Icons'
+import { IconBack, IconCalendar, IconChart, IconCoins, IconHome, IconMore, IconPeople, IconReceipt, IconWallet, Logo } from './Icons'
 
 const FULL = [
   { to: '/', label: 'หน้าแรก', Icon: IconHome, end: true },
@@ -76,8 +76,6 @@ export default function AppShell() {
             <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="ย้อนกลับ"><IconBack /></button>
           )}
           <span className="grow" />
-          {role !== 'worship' && <Link to="/meeting" className="topbar__go" aria-label="โหมดประชุม" title="โหมดประชุม"><IconMeeting /></Link>}
-          {can(role, 'registry') && <Link to="/members?tab=checkin" className="topbar__go" aria-label="ลงชื่อนมัสการ" title="ลงชื่อนมัสการ"><IconPeople /></Link>}
           <SyncButton />
           <label className="sr-only" htmlFor="year-sel">ปีบัญชี</label>
           <select id="year-sel" className="topbar__year" value={year} onChange={(e) => setYear(Number(e.target.value))}>
