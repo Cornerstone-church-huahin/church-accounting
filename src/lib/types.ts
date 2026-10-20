@@ -325,4 +325,4 @@ export interface Recorder extends SharedItem { name: string }
 
 // ---------- ปฏิทินงาน (ห้องทำงาน) ----------
 /** กิจกรรมในปฏิทินงาน · tab = เลขแท็บของห้องทำงาน (1–12) ที่เป็นเจ้าของ · 0 = ทั่วไป */
-export interface CalEvent extends SharedItem { date: string; title: string; tab: number; time?: string; note?: string }
+export interface CalEvent extends SharedItem { date: string; title: string; tab: number; time?: string; note?: string; /** ผู้บันทึก (id/ชื่อ) — แก้ไข/ลบได้เฉพาะผู้บันทึกและแอดมิน */ recId?: string; rec?: string }
