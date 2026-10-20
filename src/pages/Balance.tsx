@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import FundPendingPanel from '../components/FundPendingPanel'
 import LoansPanel from '../components/LoansPanel'
 import DebtBanner from '../components/DebtBanner'
@@ -21,7 +21,7 @@ import { useFundAccounts } from './FundAccounts'
 export type BalanceKind = 'own' | 'fund' | 'total' | 'indebt' | 'debt' | 'spare'
 const KINDS: { k: BalanceKind; icon: string; title: string }[] = [
   { k: 'own', icon: '🏠', title: 'หมุนเวียน' }, { k: 'fund', icon: '💰', title: 'กองทุน' }, { k: 'total', icon: '🧮', title: 'รวมเงินสด' },
-  { k: 'indebt', icon: '🔁', title: 'หนี้ภายใน' }, { k: 'debt', icon: '🧾', title: 'หนี้ภายนอก' }, { k: 'spare', icon: '⬜', title: 'ไอคอน' },
+  { k: 'indebt', icon: '🔁', title: 'หนี้ภายใน' }, { k: 'debt', icon: '🧾', title: 'หนี้ภายนอก' }, { k: 'spare', icon: '🧑‍🤝‍🧑', title: 'รวมงาน' },
 ]
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
@@ -146,7 +146,7 @@ export default function BalancePage() {
           <LoansPanel store={loans} funds={types.filter((t) => t.active && isFundType(t))} types={types} canWrite={can(role, 'statement')} only="fund" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
         </section>
       )}
-      {kind === 'spare' && <section className="card" aria-label="ไอคอน"><h2>⬜ ไอคอน</h2><p className="muted">ยังไม่มีเนื้อหา — สำรองไว้สำหรับใช้ภายหลัง</p></section>}
+      {kind === 'spare' && <Navigate to="/meeting" replace />}
       {kind === 'debt' && (
         <section className="card" aria-label="หนี้ภายนอก">
           <h2>🧾 หนี้ภายนอก</h2>

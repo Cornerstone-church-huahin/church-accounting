@@ -13,7 +13,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/`)
-  const ico = page.getByRole('link', { name: 'โหมดประชุม' })
+  const ico = page.getByRole('link', { name: 'โหมดประชุม', exact: true })
   must(await ico.isVisible(), 'meeting icon in the top bar')
   const members = await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).boundingBox(), mb = await ico.boundingBox()
   must(mb.x + mb.width <= members.x + 1, 'meeting icon sits to the left of the members icon')
@@ -28,6 +28,13 @@ try {
   must(await page.getByText('ขั้นตอนทำบัญชีประจำสัปดาห์').isVisible() && await page.locator('.balance-tiles .btile').count() === 6, 'treasurer tab shows the whole home page')
   await page.getByRole('tab', { name: /รับ/ }).first().click()
   must(await page.getByText('ดาวน์โหลด PDF ไฟล์เปล่า').first().isVisible(), 'income step works inside the tab (sheet + download buttons)')
+  // ช่องที่ 6 ของหน้าแรก = รวมงาน → หน้าโหมดประชุม
+  await page.goto(`http://localhost:${PORT}/#/`)
+  must(await page.getByRole('link', { name: /รวมงาน/ }).first().isVisible(), 'sixth tile is รวมงาน')
+  await page.getByRole('link', { name: /รวมงาน/ }).first().click()
+  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 6, 'รวมงาน opens the meeting page with the 6 tabs')
+  await page.goto(`http://localhost:${PORT}/#/balance/spare`); await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').first().waitFor({ timeout: 5000 }); must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 6, 'old spare route also lands on the meeting page')
+  await tiles.nth(2).click()
   // งานทะเบียน = หน้าสมาชิกเต็ม (เปิดที่ ลงชื่อ)
   await page.goto(`http://localhost:${PORT}/#/meeting`)
   await tiles.nth(1).click()
