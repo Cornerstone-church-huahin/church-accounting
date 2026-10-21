@@ -8,7 +8,7 @@ import { addDays, be, daysInMonth, diffDays, dow, fmtDateLong, isISO, monthName,
 import type { CalEvent, Repeat } from '../lib/types'
 
 /** สีของแต่ละงาน (0 = ทั่วไป) — ใช้ตัวอักษรขาวบนสีเข้ม */
-const TAB_COLORS = ['#5f6b7a', '#1f6feb', '#8a5a00', '#1b7f4b', '#c2255c', '#7048e8', '#d9480f', '#0b7285', '#5c940d', '#a61e4d', '#364fc7', '#e67700', '#495057']
+const TAB_COLORS = ['#5f6b7a', '#1f6feb', '#8a5a00', '#1b7f4b', '#c2255c', '#7048e8', '#d9480f', '#0b7285', '#5c940d', '#a61e4d', '#364fc7', '#e67700', '#495057', '#2f9e44', '#9c36b5', '#0c8599']
 const WEEKDAYS = DAY_SHORT
 const MAX_CHIPS = 3
 const tabName = (n: number) => (n === 0 ? 'ทั่วไป' : MEETING_TABS.find((t) => t.n === n)?.name ?? `แท็บ ${n}`)
