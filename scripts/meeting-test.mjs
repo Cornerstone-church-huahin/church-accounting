@@ -63,15 +63,34 @@ try {
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
   // ปุ่ม ‹ ทุกแท็บ อยู่ตำแหน่งเดียวกันในทุกงาน (1–12) และกดแล้วกลับหน้าห้องทำงาน
-  const boxes = []
+  const boxes = [], homes = []
   for (let k = 1; k <= 12; k++) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
     const l = page.getByRole('link', { name: '‹ ทุกแท็บ' }); await l.waitFor({ timeout: 8000 })
     const b = await l.boundingBox(); boxes.push(`${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.width)}`)
+    const h = await page.getByRole('link', { name: '🏠 หน้างาน' }).boundingBox(); homes.push(`${Math.round(h.x)},${Math.round(h.y)},${Math.round(h.width)}`)
   }
   must(new Set(boxes).size === 1, 'same position of the back link in every work: ' + boxes.join(' | '))
+  must(new Set(homes).size === 1, 'same position of the 🏠 หน้างาน button in every work: ' + homes.join(' | '))
   await page.getByRole('link', { name: '‹ ทุกแท็บ' }).click()
   must(await page.getByRole('heading', { name: /ห้องทำงาน/ }).isVisible(), 'back link returns to the work room')
+  // 🏠 หน้างาน: ในงานที่มีแท็บ เปิดแท็บอื่นแล้วกดกลับ = เริ่มที่แท็บแรกและพับปฏิทิน
+  await page.goto(`http://localhost:${PORT}/#/meeting/9`)
+  await page.getByRole('tab', { name: /แท็บ 4/ }).click(); await page.getByRole('button', { name: /ตารางงาน/ }).click()
+  must(/แท็บ 4 — ยังว่าง/.test(await page.locator('main').innerText()) && await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'moved into tab 4 with the calendar open')
+  await page.getByRole('link', { name: '🏠 หน้างาน' }).click()
+  must(/แท็บ 1 — ยังว่าง/.test(await page.locator('main').innerText()) && await page.getByRole('region', { name: 'ปฏิทินงาน' }).count() === 0, '🏠 หน้างาน returns to the work home (tab 1, calendar folded)')
+  // งานเหรัญญิก: เข้าหน้ารายละเอียดที่อยู่นอกห้องทำงาน (ยอดเงิน/กองทุน) แล้วมีปุ่มกลับหน้างานเหรัญญิก
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
+  await page.locator('nav[aria-label^="เงินคริสตจักร"] a.btile').first().click()
+  await page.getByRole('link', { name: /🏠 หน้างานเหรัญญิก/ }).waitFor({ timeout: 5000 })
+  await page.getByRole('link', { name: /🏠 หน้างานเหรัญญิก/ }).click()
+  must(await page.getByText('ขั้นตอนทำบัญชีประจำสัปดาห์').isVisible(), 'back to the treasurer work home')
+  // ออกไปหน้าหลักของแอปแล้วปุ่มหายไป
+  await page.locator('nav[aria-label^="เงินคริสตจักร"] a.btile').first().click()
+  await page.getByRole('link', { name: /🏠 หน้างานเหรัญญิก/ }).waitFor({ timeout: 5000 })
+  await page.getByRole('link', { name: 'เบิกจ่าย', exact: true }).click()
+  must(await page.getByRole('link', { name: /🏠 หน้างานเหรัญญิก/ }).count() === 0, 'button disappears on the app\'s main pages')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('meeting-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

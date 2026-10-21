@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
@@ -18,9 +18,20 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
   )
 }
 
-/** หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ ทุกแท็บ (ตำแหน่งเดียวกันทุกงาน ย้อนกลับไปหน้าห้องทำงาน) */
-function WorkHead({ name }: { name: string }) {
-  return <div className="page-head no-print"><h1>{name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
+/**
+ * หัวของทุกงาน: ชื่องาน + ปุ่ม 🏠 หน้างาน (กลับหน้าหลักของงานนั้น รีเซ็ตแท็บ/ปฏิทินที่เปิดอยู่) + ‹ ทุกแท็บ (กลับหน้าเลือกงาน)
+ * ตำแหน่งเดียวกันทุกงาน — ผู้รับผิดชอบแต่ละงานใช้หน้านี้เป็นหน้าหลักของงานตัวเอง
+ */
+function WorkHead({ n, name }: { n: number; name: string }) {
+  return (
+    <div className="page-head no-print">
+      <h1>{name}</h1>
+      <span className="row" style={{ gap: '0.4rem', flexWrap: 'nowrap' }}>
+        <Link to={`/meeting/${n}`} state={{ home: Date.now() }} className="mini">🏠 หน้างาน</Link>
+        <Link to="/meeting" className="mini">‹ ทุกแท็บ</Link>
+      </span>
+    </div>
+  )
 }
 
 /** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วแท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) */
@@ -33,7 +44,7 @@ function WorkTabs({ n, name, labels = DEFAULT_LABELS }: { n: number; name: strin
   const cur = Math.min(t, labels.length - 1)
   return (
     <>
-      <WorkHead name={name} />
+      <WorkHead n={n} name={name} />
       <CalToggle n={n} />
       <TileTabs label={`หมวด${name}`} value={String(cur)} onChange={(k) => setT(Number(k))} items={labels.map((l, i) => ({ key: String(i), label: l, icon: TAB_ICONS[i % TAB_ICONS.length] }))} />
       <section className="card" aria-label={`${name} ${labels[cur]}`}><p className="empty">{labels[cur]} — ยังว่าง (รอพัฒนา)</p></section>
@@ -43,17 +54,25 @@ function WorkTabs({ n, name, labels = DEFAULT_LABELS }: { n: number; name: strin
 
 const TONE = ['own', 'fund', 'total', 'indebt', 'debt', 'spare'] as const
 
+/** กดปุ่ม 🏠 หน้างาน = เปลี่ยน key เพื่อเริ่มหน้าของงานนั้นใหม่ตั้งแต่ต้น */
 export default function Meeting() {
   const { n } = useParams()
+  const home = (useLocation().state as { home?: number } | null)?.home ?? 0
+  return <MeetingRoom key={`${n ?? 'hub'}-${home}`} />
+}
+
+function MeetingRoom() {
+  const { n } = useParams()
+  const location = useLocation()
   const tab = MEETING_TABS.find((x) => String(x.n) === n)
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   const [params] = useSearchParams()
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
-  if (tab?.n === 3) return <><WorkHead name={tab.name} /><CalToggle n={3} /><Home /></>
+  if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={3} /><Home /></>
   if (tab?.n === 2) {
-    if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace />
-    return <><WorkHead name={tab.name} /><CalToggle n={2} /><Members /></>
+    if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace state={location.state} />
+    return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={2} /><Members /></>
   }
   if (tab?.n === 1) return <WorkTabs key={1} n={1} name={tab.name} labels={SECRETARY_LABELS} />
   if (tab) return <WorkTabs key={tab.n} n={tab.n} name={tab.name} />
