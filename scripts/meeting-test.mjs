@@ -39,6 +39,7 @@ try {
   // งานทะเบียน = หน้าสมาชิกเต็ม (เปิดที่ ลงชื่อ)
   await page.goto(`http://localhost:${PORT}/#/meeting`)
   await tiles.nth(1).click()
+  await page.getByRole('tab', { name: /ตรวจสอบ/ }).first().waitFor({ timeout: 8000 })
   for (const t of ['ตรวจสอบ', 'ยอดผู้มา', 'ลงชื่อ', 'ทะเบียน', 'วันเกิด', 'เพศ']) must(await page.getByRole('tab', { name: new RegExp(t) }).first().isVisible(), 'registry tab ' + t)
   must(await page.getByText('ลงชื่อวันนี้แล้ว').first().isVisible(), 'check-in panel opens by default')
   await page.getByRole('tab', { name: /ทะเบียน/ }).click()

@@ -336,3 +336,8 @@ export interface CalEvent extends SharedItem { date: string; title: string; tab:
   exdates?: string[] }
 /** ทำซ้ำแบบ Google: ทุก every วัน/สัปดาห์/เดือน/ปี · สัปดาห์เลือกวันได้หลายวัน (0=อาทิตย์) · เดือนเลือก วันที่เดิม / วันที่ n ของเดือน (เช่น พฤหัสที่ 3) / วันสุดท้าย · สิ้นสุดด้วยวันที่หรือจำนวนครั้ง */
 export interface Repeat { freq: 'day' | 'week' | 'month' | 'year'; every: number; days?: number[]; by?: 'date' | 'nth' | 'last'; until?: string; count?: number }
+
+// ---------- บันทึกโน้ต (ห้องทำงาน) ----------
+/** เสียงที่อัดไว้ในโน้ต (ไฟล์อยู่ใน repo ข้อมูลที่ path นี้) */
+export interface NoteClip { path: string; type: string; secs: number }
+export interface Note extends SharedItem { title: string; body: string; clips?: NoteClip[]; date: string; recId?: string; rec?: string }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
+import { IconNote } from '../components/Icons'
 import WorkCalendar from '../components/WorkCalendar'
 import { MEETING_TABS } from '../lib/workTabs'
 
@@ -57,7 +58,7 @@ export default function Meeting() {
   }
   return (
     <>
-      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1></div>
+      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1><Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้)</span></p>
       <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 12">
         {MEETING_TABS.map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
