@@ -9,7 +9,7 @@ describe('ปุ่ม ‹ ทุกแท็บ ตามงานที่ร�
     expect(workHomePath([1, 9])).toBe('/meeting')
   })
   it('หน้าเลือกงานแสดงเฉพาะงานของตน (ไม่ได้กำหนด = ทุกงาน)', () => {
-    expect(visibleWorks([]).length).toBe(15)
+    expect(visibleWorks([]).length).toBe(18)
     expect(visibleWorks([9, 1]).map((t) => t.n)).toEqual([1, 9])
   })
 })
