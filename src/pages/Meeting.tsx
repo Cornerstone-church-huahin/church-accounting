@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
+import WorkTeam from '../components/WorkTeam'
 import PastoralMembers from '../components/PastoralMembers'
 import WorkCalendar from '../components/WorkCalendar'
 import { myWorks } from '../lib/access'
@@ -24,14 +25,17 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
  * หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ ทุกแท็บ ตำแหน่งเดียวกันทุกงาน
  * แอดมิน → กลับหน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เลขา อนุชน ฯลฯ) → กลับหน้าหลักของงานตัวเอง (เริ่มใหม่ตั้งแต่ต้น)
  */
-function WorkHead({ name }: { n: number; name: string }) {
+function WorkHead({ n, name }: { n: number; name: string }) {
   useRole() // สิทธิ์/งานที่รับผิดชอบเปลี่ยนเมื่อรายชื่อซิงก์ → วาดใหม่
   const to = workHomePath(myWorks())
   return (
-    <div className="page-head no-print">
-      <h1>{name}</h1>
-      <Link to={to} state={{ home: Date.now() }} className="mini">‹ ทุกแท็บ</Link>
-    </div>
+    <>
+      <div className="page-head no-print">
+        <h1>{name}</h1>
+        <Link to={to} state={{ home: Date.now() }} className="mini">‹ ทุกแท็บ</Link>
+      </div>
+      <WorkTeam n={n} name={name} />
+    </>
   )
 }
 
