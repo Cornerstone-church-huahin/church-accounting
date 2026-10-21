@@ -46,6 +46,7 @@ export default function App() {
           <Route path="meeting" element={<Meeting />} />
           <Route path="meeting/notes" element={<Notes />} />
           <Route path="meeting/:n" element={<Meeting />} />
+          <Route path="meeting/:n/:k" element={<Meeting />} />
           <Route path="members" element={<Members />} />
           <Route path="reports" element={<Reports />} />
           <Route path="more" element={<More />} />

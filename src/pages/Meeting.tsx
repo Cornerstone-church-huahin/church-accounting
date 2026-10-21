@@ -3,7 +3,6 @@ import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-r
 import Home from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
-import TileTabs from '../components/TileTabs'
 import WorkCalendar from '../components/WorkCalendar'
 import { myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
@@ -35,41 +34,49 @@ function WorkHead({ name }: { n: number; name: string }) {
   )
 }
 
-/** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วแท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) */
+/** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วช่องแท็บ 1–6 — กดช่องไหนเปิดหน้าเต็มของแท็บนั้น (ว่างไว้ก่อน รอพัฒนา) */
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
 const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️' }
-const NUMBERED = ['1', '2', '3', '4', '5', '6']
-/** งานเลขา: แท็บแรกตั้งชื่อ “การประชุม” ไว้แล้ว */
-const SECRETARY_LABELS = ['การประชุม', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
-/** งานอภิบาล: แท็บ 1 = สมาชิก · แท็บ 2 = ตารางเยี่ยม — แต่ละแท็บมีแท็บย่อย 1–6 ว่างไว้ก่อน */
-const PASTORAL: { labels: string[]; subs: Record<number, string[]> } = {
-  labels: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
-  subs: { 0: NUMBERED, 1: NUMBERED },
+/** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
+const WORK_LABELS: Record<number, string[]> = {
+  1: ['การประชุม', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  4: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
+const labelsOf = (n: number) => WORK_LABELS[n] ?? DEFAULT_LABELS
 const iconOf = (label: string, i: number) => NAMED_ICONS[label] ?? TAB_ICONS[i % TAB_ICONS.length]
+const TILE_TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
 
-function WorkTabs({ n, name, labels = DEFAULT_LABELS, subs = {} }: { n: number; name: string; labels?: string[]; subs?: Record<number, string[]> }) {
-  const [t, setT] = useState(0)
-  const [sub, setSub] = useState(0)
-  const cur = Math.min(t, labels.length - 1)
-  const subLabels = subs[cur]
-  const subCur = subLabels ? Math.min(sub, subLabels.length - 1) : 0
+/** หน้าหลักของงาน: ปุ่มตารางงาน + ช่องแท็บ (ลิงก์ไปหน้าเต็มของแต่ละแท็บ ไม่มีเมนูรกบนหน้าลึก) */
+function WorkMenu({ n, name }: { n: number; name: string }) {
   return (
     <>
       <WorkHead n={n} name={name} />
       <CalToggle n={n} />
-      <TileTabs label={`หมวด${name}`} value={String(cur)} onChange={(k) => { setT(Number(k)); setSub(0) }} items={labels.map((l, i) => ({ key: String(i), label: l, icon: iconOf(l, i) }))} />
-      {subLabels && (
-        <>
-          <p className="home-label" style={{ margin: '0.2rem 0' }}>{labels[cur]} <span>› เลือกแท็บ</span></p>
-          <TileTabs label={`หมวด${name} ${labels[cur]}`} value={String(subCur)} onChange={(k) => setSub(Number(k))} items={subLabels.map((l, i) => ({ key: String(i), label: l, icon: TAB_ICONS[i % TAB_ICONS.length] }))} />
-        </>
-      )}
-      <section className="card" aria-label={`${name} ${labels[cur]}${subLabels ? ` ${subLabels[subCur]}` : ''}`}>
-        <p className="empty">{labels[cur]}{subLabels ? ` › ${subLabels[subCur]}` : ''} — ยังว่าง (รอพัฒนา)</p>
-      </section>
+      <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
+        {labelsOf(n).map((l, i) => (
+          <Link key={l} to={`/meeting/${n}/${i + 1}`} className={`btile btile--${TILE_TONES[i % TILE_TONES.length]}`}>
+            <small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
+          </Link>
+        ))}
+      </nav>
+    </>
+  )
+}
+
+/** หน้าเต็มของแท็บหนึ่ง (ว่างไว้ก่อน รอพัฒนา) — ปุ่มบนขวากลับไปหน้าหลักของงาน */
+function WorkPage({ n, name, k }: { n: number; name: string; k: number }) {
+  const label = labelsOf(n)[k - 1]
+  if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
+  return (
+    <>
+      <div className="page-head no-print">
+        <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
+        <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
+      </div>
+      <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>
+      <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>
     </>
   )
 }
@@ -79,12 +86,13 @@ const TONE = ['own', 'fund', 'total', 'indebt', 'debt', 'spare'] as const
 /** กดปุ่ม 🏠 หน้างาน = เปลี่ยน key เพื่อเริ่มหน้าของงานนั้นใหม่ตั้งแต่ต้น */
 export default function Meeting() {
   const { n } = useParams()
+  const { k } = useParams()
   const home = (useLocation().state as { home?: number } | null)?.home ?? 0
-  return <MeetingRoom key={`${n ?? 'hub'}-${home}`} />
+  return <MeetingRoom key={`${n ?? 'hub'}-${k ?? ''}-${home}`} />
 }
 
 function MeetingRoom() {
-  const { n } = useParams()
+  const { n, k } = useParams()
   const location = useLocation()
   const tab = MEETING_TABS.find((x) => String(x.n) === n)
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
@@ -96,9 +104,8 @@ function MeetingRoom() {
     if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace state={location.state} />
     return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={2} /><Members /></>
   }
-  if (tab?.n === 1) return <WorkTabs key={1} n={1} name={tab.name} labels={SECRETARY_LABELS} />
-  if (tab?.n === 4) return <WorkTabs key={4} n={4} name={tab.name} labels={PASTORAL.labels} subs={PASTORAL.subs} />
-  if (tab) return <WorkTabs key={tab.n} n={tab.n} name={tab.name} />
+  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} />
+  if (tab) return <WorkMenu n={tab.n} name={tab.name} />
   return <Hub />
 }
 
