@@ -19,7 +19,7 @@ try {
   const tiles = page.locator('nav[aria-label^="โหมดประชุม"] a.btile')
   must((await tiles.count()) === 12, 'twelve tabs: ' + await tiles.count())
   const texts = await tiles.allInnerTexts()
-  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน', 'งานนมัสการ', 'งานต่างชาติ', 'งานรวี', 'งานอนุชน', 'งานสตรี'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
+  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน', 'งานนมัสการ', 'งานต่างชาติ', 'งานรวี', 'งานอนุชน', 'งานสตรี', 'งานประกาศ', 'ฝ่ายทรัพย์สิน'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
   await page.screenshot({ path: '/tmp/meeting.png' })
   // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
@@ -86,6 +86,16 @@ try {
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
   // ปุ่ม ‹ ทุกแท็บ อยู่ตำแหน่งเดียวกันในทุกงาน (1–12) และกดแล้วกลับหน้าห้องทำงาน
+  // งานประกาศ / ฝ่ายทรัพย์สิน: เมนูมาตรฐานครบเหมือนงานอื่น (ปุ่มตารางงาน + ช่องแท็บ 1–6 เปิดหน้าเต็ม)
+  for (const [k, nm] of [[11, 'งานประกาศ'], [12, 'ฝ่ายทรัพย์สิน']]) {
+    await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
+    await page.getByRole('heading', { name: nm, exact: true }).waitFor({ timeout: 8000 })
+    const t = await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').allInnerTexts()
+    must(t.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'แท็บ 1|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6' && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible() && await page.getByRole('link', { name: '‹ ทุกแท็บ' }).isVisible() && await page.locator('.workteam').count() === 1, nm + ' has the standard work menu')
+    await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').nth(2).click()
+    await page.getByRole('heading', { name: 'แท็บ 3', exact: true }).waitFor({ timeout: 5000 })
+    must(/แท็บ 3 — ยังว่าง/.test(await page.locator('main').innerText()), nm + ' tab opens a full empty page')
+  }
   const boxes = []
   for (let k = 1; k <= 12; k++) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
