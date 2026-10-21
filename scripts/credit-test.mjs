@@ -14,7 +14,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7))
 const a = new Date(sun); a.setDate(a.getDate() - 2)
 const Y = sun.getFullYear()
-const routes = ['#/', '#/income', '#/rounds', '#/vouchers', '#/funds', '#/balance/fund', '#/reports', '#/members', '#/more', '#/settings', '#/join', '#/land', '#/meeting', '#/meeting/4', '#/meeting/4/1', '#/meeting/9/2', '#/meeting/notes']
+const routes = ['#/', '#/income', '#/rounds', '#/vouchers', '#/funds', '#/balance/fund', '#/reports', '#/members', '#/more', '#/settings', '#/join', '#/land', '#/meeting', '#/meeting/4', '#/meeting/4/1', '#/meeting/1/1', '#/meeting/1/1/4', '#/meeting/9/2', '#/meeting/notes']
 try {
   for (const vp of [{ width: 390, height: 800 }, { width: 1280, height: 800 }]) {
     const ctx = await browser.newContext({ viewport: vp, locale: 'th-TH' })
