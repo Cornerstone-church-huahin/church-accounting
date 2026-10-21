@@ -17,17 +17,20 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
   )
 }
 
-/** งานเลขา: แท็บย่อย ตารางงาน (ปฏิทินรวมทุกงาน) / การประชุม / แท็บ 3 / แท็บ 4 — แท็บอื่นๆ ยังว่าง */
-const SECRETARY_TABS = ['ตารางงาน', 'การประชุม', 'แท็บ 3', 'แท็บ 4']
-function Secretary({ name }: { name: string }) {
-  const [t, setT] = useState(SECRETARY_TABS[0])
+/** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วแท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) */
+const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
+/** งานเลขา: แท็บแรกตั้งชื่อ “การประชุม” ไว้แล้ว */
+const SECRETARY_LABELS = ['การประชุม', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
+function WorkTabs({ n, name, labels = DEFAULT_LABELS }: { n: number; name: string; labels?: string[] }) {
+  const [t, setT] = useState(0)
   return (
     <>
       <div className="page-head"><h1>{name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
-      <div className="seg seg--4 no-print" role="tablist" aria-label={`หมวด${name}`}>
-        {SECRETARY_TABS.map((k) => <button key={k} type="button" role="tab" aria-selected={t === k} className={t === k ? 'on' : ''} onClick={() => setT(k)}>{k}</button>)}
+      <CalToggle n={n} />
+      <div className="seg seg--6 no-print" role="tablist" aria-label={`หมวด${name}`}>
+        {labels.map((k, i) => <button key={k} type="button" role="tab" aria-selected={t === i} className={t === i ? 'on' : ''} onClick={() => setT(i)}>{k}</button>)}
       </div>
-      {t === 'ตารางงาน' ? <WorkCalendar tab={1} /> : <><CalToggle n={1} /><section className="card" aria-label={t}><p className="empty">{t} — ยังว่าง (รอพัฒนา)</p></section></>}
+      <section className="card" aria-label={`${name} ${labels[t]}`}><p className="empty">{labels[t]} — ยังว่าง (รอพัฒนา)</p></section>
     </>
   )
 }
@@ -46,20 +49,12 @@ export default function Meeting() {
     if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace />
     return <><CalToggle n={2} /><Members /></>
   }
-  if (tab?.n === 1) return <Secretary name={tab.name} />
-  if (tab) {
-    return (
-      <>
-        <div className="page-head"><h1>{tab.name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
-        <CalToggle n={tab.n} defaultOpen />
-        <section className="card" aria-label={tab.name}><p className="empty">{tab.name} — ยังว่าง (รอพัฒนา)</p></section>
-      </>
-    )
-  }
+  if (tab?.n === 1) return <WorkTabs key={1} n={1} name={tab.name} labels={SECRETARY_LABELS} />
+  if (tab) return <WorkTabs key={tab.n} n={tab.n} name={tab.name} />
   return (
     <>
       <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1><Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
-      <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้)</span></p>
+      <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
       <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 12">
         {MEETING_TABS.map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
       </nav>
