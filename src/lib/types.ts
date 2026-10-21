@@ -371,6 +371,8 @@ export interface Meeting extends SharedItem {
   agendaOk?: { by: string; at: number }
   notice?: { channels: string[]; body?: string; sentAt?: number; ref?: string }
   prep?: Record<string, boolean>
+  /** จำนวนผู้มีสิทธิ์ขั้นต่ำเพื่อครบองค์ประชุม (ไม่ระบุ = มากกว่าครึ่งหนึ่งของกรรมการ+ผู้มีสิทธิ์ลงคะแนน) */
+  quorumMin?: number
   opened?: { chair: string; time: string; agendaConfirmed: boolean; at: number }
   closed?: { time: string; next?: string }
   drafts?: MtDraft[]

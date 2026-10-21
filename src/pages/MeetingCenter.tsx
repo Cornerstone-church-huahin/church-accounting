@@ -4,6 +4,9 @@ import LetterheadSetup from '../components/LetterheadSetup'
 import Step1 from '../components/meeting/Step1'
 import Step2 from '../components/meeting/Step2'
 import Step3 from '../components/meeting/Step3'
+import Step4 from '../components/meeting/Step4'
+import Step5 from '../components/meeting/Step5'
+import Step6 from '../components/meeting/Step6'
 import { can } from '../lib/access'
 import { useLetterhead, useMeetings } from '../lib/data'
 import { blankMeeting, letterDate, nextNo, stepStatuses, type StepState } from '../lib/meetings'
@@ -49,7 +52,7 @@ function useCurrentMeeting() {
 export default function MeetingCenter({ step }: { step?: number }) {
   const c = useCurrentMeeting()
   const role = useRole()
-  const status = c.cur ? stepStatuses(c.cur) : undefined
+  const status = c.cur ? stepStatuses(c.cur, c.list) : undefined
   return (
     <div className={`mcenter${c.cur ? ' mcenter--bar' : ''}`}>
       {step === undefined ? <Hub c={c} canSetup={can(role, 'settings')} /> : <Step n={step} c={c} />}
@@ -63,7 +66,7 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
   const [setup, setSetup] = useState(false)
   const lh = useLetterhead().value
   const navigate = useNavigate()
-  const status = c.cur ? stepStatuses(c.cur) : undefined
+  const status = c.cur ? stepStatuses(c.cur, c.list) : undefined
   return (
     <>
       <div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
@@ -106,7 +109,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
   const s = stepOf(n)
   if (!s) return <><div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div><p className="empty">ไม่พบขั้นตอนนี้</p><Link to={BASE} className="btn">กลับศูนย์จัดการประชุม</Link></>
   const prev = stepOf(n - 1), next = stepOf(n + 1)
-  const working = n >= 1 && n <= 3
+  const working = n >= 1 && n <= 6
   const props = c.cur ? { m: c.cur, save: c.save, list: c.list } : undefined
   return (
     <>
@@ -119,7 +122,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
       {working && !props && (
         <section className="card"><p className="empty">ยังไม่มีการประชุม — สร้างการประชุมก่อนเพื่อเริ่มทำงานในขั้นนี้</p><button type="button" className="btn btn--gold" onClick={c.create}>＋ สร้างการประชุมใหม่</button></section>
       )}
-      {working && props && (n === 1 ? <Step1 {...props} /> : n === 2 ? <Step2 {...props} /> : <Step3 {...props} />)}
+      {working && props && (n === 1 ? <Step1 {...props} /> : n === 2 ? <Step2 {...props} /> : n === 3 ? <Step3 {...props} /> : n === 4 ? <Step4 {...props} /> : n === 5 ? <Step5 {...props} /> : <Step6 {...props} />)}
       <details className="mc__guide" open={!working}>
         <summary>{working ? 'คำอธิบายขั้นตอนนี้' : 'หัวข้อและคำอธิบายของขั้นตอนนี้'}</summary>
         <ol className="mc__items" aria-label={`หัวข้อของ ${s.title}`}>
