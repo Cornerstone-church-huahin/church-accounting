@@ -17,9 +17,9 @@ try {
   await page.goto(`http://localhost:${PORT}/#/`)
   await page.getByRole('link', { name: /ห้องทำงาน/ }).click()
   const tiles = page.locator('nav[aria-label^="โหมดประชุม"] a.btile')
-  must((await tiles.count()) === 15, 'fifteen tabs: ' + await tiles.count())
+  must((await tiles.count()) === 18, 'eighteen tabs: ' + await tiles.count())
   const texts = await tiles.allInnerTexts()
-  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน', 'งานนมัสการ', 'งานต่างชาติ', 'งานรวี', 'งานอนุชน', 'งานสตรี', 'งานประกาศ', 'ฝ่ายทรัพย์สิน', 'งานมีเดีย', 'แท็บ 14', 'แท็บ 15'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
+  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน', 'งานนมัสการ', 'งานต่างชาติ', 'งานรวี', 'งานอนุชน', 'งานสตรี', 'งานประกาศ', 'งานทรัพย์สิน', 'งานมีเดีย', 'แท็บ 14', 'แท็บ 15', 'แท็บ 16', 'แท็บ 17', 'แท็บ 18'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
   await page.screenshot({ path: '/tmp/meeting.png' })
   // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
@@ -34,8 +34,8 @@ try {
   // ปุ่มห้องทำงานบนหน้าแรก
   await page.goto(`http://localhost:${PORT}/#/`)
   await page.getByRole('link', { name: /ห้องทำงาน/ }).click()
-  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 15, 'หน้าแรก › ห้องทำงาน opens the meeting page with the tabs')
-  await page.goto(`http://localhost:${PORT}/#/balance/spare`); await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').first().waitFor({ timeout: 5000 }); must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 15, 'old spare route also lands on the meeting page')
+  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 18, 'หน้าแรก › ห้องทำงาน opens the meeting page with the tabs')
+  await page.goto(`http://localhost:${PORT}/#/balance/spare`); await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').first().waitFor({ timeout: 5000 }); must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 18, 'old spare route also lands on the meeting page')
   await tiles.nth(2).click()
   // งานทะเบียน = หน้าสมาชิกเต็ม (เปิดที่ ลงชื่อ)
   await page.goto(`http://localhost:${PORT}/#/meeting`)
@@ -86,8 +86,8 @@ try {
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
   // ปุ่ม ‹ ทุกแท็บ อยู่ตำแหน่งเดียวกันในทุกงาน (1–12) และกดแล้วกลับหน้าห้องทำงาน
-  // งานประกาศ / ฝ่ายทรัพย์สิน: เมนูมาตรฐานครบเหมือนงานอื่น (ปุ่มตารางงาน + ช่องแท็บ 1–6 เปิดหน้าเต็ม)
-  for (const [k, nm] of [[11, 'งานประกาศ'], [12, 'ฝ่ายทรัพย์สิน'], [13, 'งานมีเดีย'], [14, 'แท็บ 14'], [15, 'แท็บ 15']]) {
+  // งานประกาศ / งานทรัพย์สิน / งานมีเดีย / แท็บ 14–18: เมนูมาตรฐานครบเหมือนงานอื่น (ปุ่มตารางงาน + ช่องแท็บ 1–6 เปิดหน้าเต็ม)
+  for (const [k, nm] of [[11, 'งานประกาศ'], [12, 'งานทรัพย์สิน'], [13, 'งานมีเดีย'], [14, 'แท็บ 14'], [15, 'แท็บ 15'], [16, 'แท็บ 16'], [17, 'แท็บ 17'], [18, 'แท็บ 18']]) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
     await page.getByRole('heading', { name: nm, exact: true }).waitFor({ timeout: 8000 })
     const t = await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').allInnerTexts()
@@ -97,7 +97,7 @@ try {
     must(/แท็บ 3 — ยังว่าง/.test(await page.locator('main').innerText()), nm + ' tab opens a full empty page')
   }
   const boxes = []
-  for (let k = 1; k <= 15; k++) {
+  for (let k = 1; k <= 18; k++) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
     const l = page.getByRole('link', { name: '‹ ทุกแท็บ' }); await l.waitFor({ timeout: 8000 })
     const b = await l.boundingBox(); boxes.push(`${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.width)}`)

@@ -19,7 +19,7 @@ try {
   must(/ยังไม่ระบุผู้รับผิดชอบ/.test(await team.innerText()), 'empty hint when nobody is set')
   // ตำแหน่งเดียวกันทุกงาน (ใต้ชื่องาน ก่อนปุ่มตารางงาน)
   const ys = []
-  for (const k of [1, 2, 3, 4, 5, 9, 12, 13, 15]) { await page.goto(`http://localhost:${PORT}/#/meeting/${k}`); await team.waitFor({ timeout: 5000 }); ys.push(Math.round((await team.boundingBox()).y)) }
+  for (const k of [1, 2, 3, 4, 5, 9, 12, 13, 15, 18]) { await page.goto(`http://localhost:${PORT}/#/meeting/${k}`); await team.waitFor({ timeout: 5000 }); ys.push(Math.round((await team.boundingBox()).y)) }
   must(new Set(ys).size === 1, 'same position in every work: ' + ys)
   const head = await page.locator('.page-head').first().boundingBox(), cal = await page.getByRole('button', { name: /ตารางงาน/ }).boundingBox()
   must(ys[0] > head.y && ys[0] < cal.y, 'sits between the title row and the calendar button')
