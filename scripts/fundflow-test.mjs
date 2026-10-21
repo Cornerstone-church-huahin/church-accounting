@@ -64,7 +64,7 @@ try {
   must(/ค่าไฟ 1,200/.test(wd2) && /รวมต้องเบิก\s+2,200/.test(wd2), 'pending bill joins the withdrawal total (1,000 + 1,200): ' + wd2)
   // สรุป: ใบประกาศแสดงเงินถวายกองทุนแยกไว้ ไม่ปนยอดรายรับ
   await page.getByRole('tab', { name: /สรุป/ }).click()
-  await page.locator('.sumrow').first().click()
+  await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
   const notice = await page.locator('.a4page').first().innerText()
   must(/เงินถวายกองทุน/.test(notice) && /กองทุนเพื่อที่ดินคริสตจักร/.test(notice) && /500/.test(notice), 'summary notice lists the fund separately: ' + notice.slice(0, 400))
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()

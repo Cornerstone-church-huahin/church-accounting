@@ -779,3 +779,30 @@ span.fundpend__tog { cursor: default; }
 .mcbtn__st--partial { background: #fff3c4; color: #6b5200; }
 .mc__guide { margin: 0.8rem 0 0; }
 .mc__guide > summary { cursor: pointer; font-weight: 700; padding: 0.4rem 0; }
+
+/* สรุปและรายงาน */
+.rtabs { display: flex; gap: 6px; margin: 4px 0 6px; }
+.rtab { flex: 1; min-height: 2.6rem; border-radius: 999px; border: 2px solid var(--navy); background: transparent; color: var(--navy); font: inherit; font-weight: 600; cursor: pointer; }
+.rtab.on { background: var(--navy); color: #fff; }
+.rstatus { margin: 4px 0 8px; font-size: 0.9rem; }
+.rkpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 10px; }
+.rkpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rkpi span { font-size: 0.8rem; color: var(--ink-soft); }
+.rkpi b { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.rkpi small { font-size: 0.72rem; color: var(--ink-soft); }
+.rkpis .rkpi:nth-child(odd):last-child { grid-column: 1 / -1; }
+.card + .card, .rkpis + .card { margin-top: 10px; }
+.hbars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.hbars__r { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(4.5rem, 32%) 1fr auto; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px; font-size: 0.9rem; }
+button.hbars__r { cursor: pointer; }
+button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
+.hbars__l { overflow-wrap: anywhere; }
+.hbars__t { height: 14px; background: rgba(0, 0, 0, 0.05); border-radius: 7px; overflow: hidden; }
+.hbars__b { display: block; height: 100%; border-radius: 7px; }
+.hbars__v { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; min-width: 4.2rem; }
+.rtblwrap { overflow-x: auto; }
+.rtbl { width: 100%; font-size: 0.85rem; }
+.rtbl .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rfold > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.rsel { border: 1.5px solid var(--navy); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.linkbtn { all: unset; color: var(--navy); font-weight: 600; text-decoration: underline; cursor: pointer; }
