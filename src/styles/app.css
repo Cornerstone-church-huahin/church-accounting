@@ -711,3 +711,8 @@ span.fundpend__tog { cursor: default; }
 .pcols__col b { font-size: 0.72rem; font-variant-numeric: tabular-nums; }
 .pcols__bar { display: block; width: 70%; border-radius: 0.3rem 0.3rem 0 0; min-height: 0; }
 .pcols__col small { font-size: 0.62rem; white-space: nowrap; }
+
+/* แผนที่ (Leaflet) */
+.leafletbox { width: 100%; border-radius: 0.8rem; border: 1px solid var(--line); overflow: hidden; z-index: 0; }
+.mapdot { display: block; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #c2255c; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
+.mapdot--pick { background: #1f5fbf; }

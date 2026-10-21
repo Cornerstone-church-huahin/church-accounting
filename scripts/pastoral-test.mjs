@@ -1,4 +1,4 @@
-// งานอภิบาล › สมาชิก: 5 ส่วน (ตัวเลขสำคัญ · สถานะ · ช่วงวัย/เพศ · กลุ่ม/ปีที่เข้า · การเข้าร่วม/ติดตาม) จากทะเบียนและบันทึกลงชื่อ (ข้อมูลสมมติเท่านั้น)
+// งานอภิบาล › สมาชิก: 5 ส่วน อ่านอย่างเดียว (ตัวเลขสำคัญ · สถานะ · ช่วงวัย/เพศ · กลุ่ม/ปีที่เข้า · แผนที่บ้าน) · บันทึกพิกัดบ้านที่งานทะเบียนแล้วหมุดขึ้นบนแผนที่ (ข้อมูลสมมติเท่านั้น)
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -24,15 +24,10 @@ try {
       since: `${2022 + (i % 4)}-03-01`, ...(i % 3 === 0 ? { birth: `${1950 + i * 2}-05-05` } : {}), updated: 1,
     }))
     localStorage.setItem('acct.church-members.v1', JSON.stringify(members))
-    // t0 มาทุกอาทิตย์ · t1 มาเมื่อ 10 สัปดาห์ก่อนแล้วหายไป · t2 มา 5 สัปดาห์ก่อน
-    const ck = (m, d) => ({ id: `${d}_${m}`, date: d, mid: m, updated: 1 })
-    const items = [...sundays.slice(0, 12).map((d) => ck('t0', d)), ck('t1', sundays[10]), ck('t2', sundays[5]), ck('t3', sundays[0])]
-    localStorage.setItem(`acct.attendance.${Y}.v1`, JSON.stringify(items.filter((x) => x.date.startsWith(String(Y)))))
-    localStorage.setItem(`acct.attendance.${Y - 1}.v1`, JSON.stringify(items.filter((x) => x.date.startsWith(String(Y - 1)))))
   }, [Y, sundays])
   await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /สมาชิก/, level: 1 }).waitFor({ timeout: 8000 })
-  for (const h of ['1 · ตัวเลขสำคัญ', '2 · สถานะสมาชิก', '3 · ช่วงวัยและเพศ', '4 · กลุ่มและปีที่เข้าเป็นสมาชิก', '5 · การเข้าร่วมนมัสการและการติดตาม']) must(await page.getByRole('heading', { name: h }).isVisible(), 'section ' + h)
+  for (const h of ['1 · ตัวเลขสำคัญ', '2 · สถานะสมาชิก', '3 · ช่วงวัยและเพศ', '4 · กลุ่มและปีที่เข้าเป็นสมาชิก', '5 · แผนที่บ้านสมาชิก']) must(await page.getByRole('heading', { name: h }).isVisible(), 'section ' + h)
   const kpi = (await page.locator('.pkpi').allInnerTexts()).map((t) => t.replace(/\s+/g, ' '))
   must(kpi[0] === 'รายชื่อทั้งหมด 24' && kpi[1].includes('สมาชิกสมบูรณ์ (1+2) 8') && kpi.length === 6, 'headline numbers: ' + kpi.join(' | '))
   must(await page.locator('.pbar--btn').count() === 5, 'five status bars')
@@ -44,12 +39,32 @@ try {
   must(/กำลังดูเฉพาะ สมาชิกสมบูรณ์ \(8 คน\)/.test(await page.locator('#pm-2').locator('xpath=..').innerText()), 'status filter applies')
   must(/ทราบวันเกิด \d+ จาก 8 คน/.test(await page.locator('#pm-3').locator('xpath=..').innerText()), 'age section follows the filter')
   await page.getByRole('button', { name: 'ดูทุกสถานะ' }).click()
-  // ติดตาม: t1 (หายไป 10 สัปดาห์) ขึ้นเมื่อเลือก 8 สัปดาห์ · เปลี่ยนเป็น 12 → ไม่ขึ้น
-  await page.getByLabel(/ไม่ได้มานมัสการเกิน/).selectOption('8')
-  const fl = await page.getByRole('list', { name: 'รายชื่อที่ควรติดตาม' }).innerText()
-  must(fl.includes('ทดสอบ1 สมมติ') && !fl.includes('ทดสอบ0 สมมติ'), 'follow-up lists the member absent > 8 weeks: ' + fl)
-  await page.getByLabel(/ไม่ได้มานมัสการเกิน/).selectOption('12')
-  must(await page.getByRole('list', { name: 'รายชื่อที่ควรติดตาม' }).count() === 0, 'nobody absent > 12 weeks')
+  // ไม่มีส่วนการติดตามในหน้านี้ (แยกเป็นไอคอนต่อไป)
+  must(!/ควรติดตาม/.test(await page.locator('main').innerText()), 'no follow-up list on the read-only members page')
+  must(/ยังไม่มีพิกัดบ้านของสมาชิก/.test(await page.locator('#pm-5').locator('xpath=..').innerText()) && await page.locator('.leafletbox').count() === 0, 'map section is empty until coordinates are recorded')
+  // บันทึกพิกัดบ้านที่งานทะเบียน (เพิ่มสมาชิกใหม่พร้อมพิกัด) → หมุดขึ้นที่หน้าสมาชิกของอภิบาล
+  await page.goto(`http://localhost:${PORT}/#/meeting/2`)
+  await page.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  await page.getByRole('button', { name: '＋ เพิ่มสมาชิก' }).click()
+  await page.getByLabel('ชื่อ-สกุล').fill('บ้านมีพิกัด ทดสอบ')
+  await page.getByLabel(/พิกัดบ้าน/).fill('หัวหิน')
+  await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
+  must(/พิกัดบ้านอ่านไม่ได้/.test(await page.getByRole('alert').innerText()), 'bad coordinate text is rejected')
+  await page.getByLabel(/พิกัดบ้าน/).fill('https://www.google.com/maps/place/x/@12.5684,99.9577,17z')
+  must(/บันทึกพิกัด 12\.568400, 99\.957700/.test(await page.getByRole('dialog').innerText()), 'Google Maps link is parsed')
+  await page.getByRole('button', { name: /เลือกบนแผนที่/ }).click()
+  await page.locator('.leafletbox').waitFor({ timeout: 8000 })
+  must(await page.locator('.leaflet-marker-icon').count() === 1, 'picker map shows the pin')
+  await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
+  await page.getByRole('button', { name: '‹ เมนูสมาชิก' }).click().catch(() => undefined)
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`)
+  await page.locator('.leafletbox').waitFor({ timeout: 8000 })
+  must(await page.locator('.leafletbox').getAttribute('data-pins') === '1' && await page.locator('.leaflet-marker-icon').count() === 1, 'the recorded home appears as a pin on the map')
+  must(/บันทึกพิกัดบ้านแล้ว 1 จาก 25 คน/.test(await page.locator('#pm-5').locator('xpath=..').innerText()), 'map summary')
+  await page.screenshot({ path: '/tmp/pastoral-map.png' })
+  // กรองสถานะที่ไม่มีหมุด → แผนที่หาย
+  await page.locator('.pbar--btn', { hasText: 'สมาชิกสำรอง' }).click()
+  must(/ยังไม่มีพิกัดบ้านของสมาชิก/.test(await page.locator('#pm-5').locator('xpath=..').innerText()), 'filter without pins shows the empty hint')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('pastoral-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

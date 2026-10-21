@@ -76,10 +76,13 @@ export function joinYears(members: { since?: string }[]) {
 export const recentServices = (stats: { date: string; count: number }[], n = 12) => stats.slice(0, n).map((s) => ({ date: s.date, count: s.count })).reverse()
 
 export interface FollowUp { id: string; name: string; status: string; last: string; idleDays: number | null }
-/** คนที่ควรติดตาม: ยังอยู่ในทะเบียน (ไม่นับสิ้นสภาพ/เสียชีวิต/คนใหม่ที่ยังไม่เคยมา) และไม่ได้มาเกิน weeks สัปดาห์ · มากสุดก่อน */
-export function followUp(rows: Evaluated[], weeks: number, g: StatusGroup = 'all'): FollowUp[] {
+/**
+ * คนที่ควรติดตาม: เฉพาะ “สมาชิกสมบูรณ์” (1+2) ที่ไม่ได้มานมัสการเกิน weeks สัปดาห์ — ไม่นับสมาชิกสำรอง ผู้ร่วมนมัสการ คนใหม่ สิ้นสภาพ/เสียชีวิต
+ * เพื่อให้ประเมินการติดตามสมาชิกได้ตรงกลุ่ม · ไม่นับคนที่ยังไม่เคยมีบันทึกลงชื่อ · ขาดนานสุดก่อน
+ */
+export function followUp(rows: Evaluated[], weeks: number): FollowUp[] {
   return rows
-    .filter((r) => isLive(r.member) && inGroup(r.member, g) && !r.noRecord && r.idleDays != null && r.idleDays > weeks * 7)
+    .filter((r) => groupOf(r.member.status) === 'complete' && !r.noRecord && r.idleDays != null && r.idleDays > weeks * 7)
     .map((r) => ({ id: r.member.id, name: r.member.name, status: statusLabel(r.member.status), last: r.last, idleDays: r.idleDays }))
     .sort((a, b) => (b.idleDays ?? 0) - (a.idleDays ?? 0))
 }

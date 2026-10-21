@@ -35,11 +35,11 @@ describe('ข้อมูลสมาชิกสำหรับงานอภ�
   it('แนวโน้มยอดผู้มา: n ครั้งล่าสุด เรียงเก่า→ใหม่', () => {
     expect(recentServices([{ date: '2026-10-18', count: 9 }, { date: '2026-10-11', count: 8 }, { date: '2026-10-04', count: 7 }], 2)).toEqual([{ date: '2026-10-11', count: 8 }, { date: '2026-10-18', count: 9 }])
   })
-  it('คนที่ควรติดตาม: ขาดเกินกำหนด มากสุดก่อน ตัดสิ้นสภาพ/ไม่เคยมา', () => {
+  it('คนที่ควรติดตาม: เฉพาะสมาชิกสมบูรณ์ (1+2) ที่ขาดเกินกำหนด · ขาดนานสุดก่อน · ไม่นับสถานะอื่นหรือคนที่ไม่เคยมีบันทึก', () => {
     const row = (id: string, status: string, idleDays: number | null, noRecord = false): Evaluated => ({ member: { id, name: id, status, updated: 1 }, idleDays, noRecord, last: '2026-01-01' } as unknown as Evaluated)
-    const rows = [row('a', '1.สมบูรณ์ ( 1 )', 40), row('b', '3.สมาชิกสำรอง', 100), row('c', '7.เสียชีวิต', 200), row('d', '5.คนใหม่', 10), row('e', '4.ผู้ร่วมนมัสการ', null, true), row('f', '1.สมบูรณ์ ( 1 )', 20)]
-    expect(followUp(rows, 4).map((x) => x.id)).toEqual(['b', 'a'])
-    expect(followUp(rows, 8).map((x) => x.id)).toEqual(['b'])
-    expect(followUp(rows, 4, 'complete').map((x) => x.id)).toEqual(['a'])
+    const rows = [row('a', '1.สมบูรณ์ ( 1 )', 40), row('b', '3.สมาชิกสำรอง', 100), row('c', '7.เสียชีวิต', 200), row('d', '5.คนใหม่', 10), row('e', '4.ผู้ร่วมนมัสการ', 300), row('f', '1.สมบูรณ์ ( 1 )', 20), row('g', '2.สมบูรณ์  ( 2 )', 90), row('h', '2.สมบูรณ์ ( 2 )', null, true)]
+    expect(followUp(rows, 4).map((x) => x.id)).toEqual(['g', 'a'])
+    expect(followUp(rows, 8).map((x) => x.id)).toEqual(['g'])
+    expect(followUp(rows, 26)).toEqual([])
   })
 })
