@@ -38,17 +38,38 @@ function WorkHead({ name }: { n: number; name: string }) {
 /** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วแท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) */
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
+/** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️' }
+const NUMBERED = ['1', '2', '3', '4', '5', '6']
 /** งานเลขา: แท็บแรกตั้งชื่อ “การประชุม” ไว้แล้ว */
 const SECRETARY_LABELS = ['การประชุม', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
-function WorkTabs({ n, name, labels = DEFAULT_LABELS }: { n: number; name: string; labels?: string[] }) {
+/** งานอภิบาล: แท็บ 1 = สมาชิก · แท็บ 2 = ตารางเยี่ยม — แต่ละแท็บมีแท็บย่อย 1–6 ว่างไว้ก่อน */
+const PASTORAL: { labels: string[]; subs: Record<number, string[]> } = {
+  labels: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  subs: { 0: NUMBERED, 1: NUMBERED },
+}
+const iconOf = (label: string, i: number) => NAMED_ICONS[label] ?? TAB_ICONS[i % TAB_ICONS.length]
+
+function WorkTabs({ n, name, labels = DEFAULT_LABELS, subs = {} }: { n: number; name: string; labels?: string[]; subs?: Record<number, string[]> }) {
   const [t, setT] = useState(0)
+  const [sub, setSub] = useState(0)
   const cur = Math.min(t, labels.length - 1)
+  const subLabels = subs[cur]
+  const subCur = subLabels ? Math.min(sub, subLabels.length - 1) : 0
   return (
     <>
       <WorkHead n={n} name={name} />
       <CalToggle n={n} />
-      <TileTabs label={`หมวด${name}`} value={String(cur)} onChange={(k) => setT(Number(k))} items={labels.map((l, i) => ({ key: String(i), label: l, icon: TAB_ICONS[i % TAB_ICONS.length] }))} />
-      <section className="card" aria-label={`${name} ${labels[cur]}`}><p className="empty">{labels[cur]} — ยังว่าง (รอพัฒนา)</p></section>
+      <TileTabs label={`หมวด${name}`} value={String(cur)} onChange={(k) => { setT(Number(k)); setSub(0) }} items={labels.map((l, i) => ({ key: String(i), label: l, icon: iconOf(l, i) }))} />
+      {subLabels && (
+        <>
+          <p className="home-label" style={{ margin: '0.2rem 0' }}>{labels[cur]} <span>› เลือกแท็บ</span></p>
+          <TileTabs label={`หมวด${name} ${labels[cur]}`} value={String(subCur)} onChange={(k) => setSub(Number(k))} items={subLabels.map((l, i) => ({ key: String(i), label: l, icon: TAB_ICONS[i % TAB_ICONS.length] }))} />
+        </>
+      )}
+      <section className="card" aria-label={`${name} ${labels[cur]}${subLabels ? ` ${subLabels[subCur]}` : ''}`}>
+        <p className="empty">{labels[cur]}{subLabels ? ` › ${subLabels[subCur]}` : ''} — ยังว่าง (รอพัฒนา)</p>
+      </section>
     </>
   )
 }
@@ -76,6 +97,7 @@ function MeetingRoom() {
     return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={2} /><Members /></>
   }
   if (tab?.n === 1) return <WorkTabs key={1} n={1} name={tab.name} labels={SECRETARY_LABELS} />
+  if (tab?.n === 4) return <WorkTabs key={4} n={4} name={tab.name} labels={PASTORAL.labels} subs={PASTORAL.subs} />
   if (tab) return <WorkTabs key={tab.n} n={tab.n} name={tab.name} />
   return <Hub />
 }

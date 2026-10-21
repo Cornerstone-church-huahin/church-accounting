@@ -57,8 +57,19 @@ try {
   must(/แท็บ 5 — ยังว่าง/.test(await page.locator('main').innerText()), 'tab content is empty for now')
   // งานอื่น: ปุ่มตารางงานบนสุด + แท็บ 1–6 ว่าง · ปุ่มตารางงานเปิดปฏิทินได้
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
-  const tabs4 = await page.getByRole('tablist', { name: 'หมวดงานอภิบาล' }).getByRole('tab').allInnerTexts()
-  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'แท็บ 1|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'six generic tabs: ' + tabs4.join('|'))
+  const tabs4 = await page.getByRole('tablist', { name: 'หมวดงานอภิบาล', exact: true }).getByRole('tab').allInnerTexts()
+  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'สมาชิก|ตารางเยี่ยม|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
+  // อภิบาล: สมาชิกและตารางเยี่ยมมีแท็บย่อย 1–6 (ว่าง) ของตัวเอง
+  for (const [parent, icon] of [['สมาชิก', '👥'], ['ตารางเยี่ยม', '🗓️']]) {
+    await page.getByRole('tab', { name: new RegExp(parent) }).click()
+    const subs = await page.getByRole('tablist', { name: `หมวดงานอภิบาล ${parent}` }).getByRole('tab').allInnerTexts()
+    must(subs.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === '1|2|3|4|5|6', parent + ' has six sub tabs: ' + subs.join('|'))
+    await page.getByRole('tablist', { name: `หมวดงานอภิบาล ${parent}` }).getByRole('tab', { name: /4/ }).click()
+    must(new RegExp(`${parent} › 4 — ยังว่าง`).test(await page.locator('main').innerText()), parent + ' sub tab 4 is empty for now')
+  }
+  must((await page.getByRole('tab', { name: /สมาชิก/ }).first().innerText()).includes('👥'), 'สมาชิก tab has the members icon')
+  await page.getByRole('tab', { name: /แท็บ 3/ }).first().click()
+  must(await page.getByRole('tablist', { name: /งานอภิบาล สมาชิก/ }).count() === 0, 'other tabs have no sub menu')
   must(await page.locator('.tiletabs button.btile').count() === 6, 'tabs are colored tiles like the home money tiles')
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
