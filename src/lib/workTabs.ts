@@ -4,3 +4,10 @@ export const MEETING_TABS = [
   { n: 6, name: 'งานนมัสการ' }, { n: 7, name: 'งานต่างชาติ' }, { n: 8, name: 'งานรวี' }, { n: 9, name: 'งานอนุชน' }, { n: 10, name: 'งานสตรี' },
   { n: 11, name: 'แท็บ 11' }, { n: 12, name: 'แท็บ 12' }, // ยังไม่ได้ตั้งชื่อ
 ]
+
+/**
+ * ปุ่ม “‹ ทุกแท็บ” ไปที่ไหน: แอดมิน/ผู้ไม่ได้กำหนดงาน = หน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เช่น เลขา อนุชน) = หน้าหลักของงานนั้น
+ */
+export const workHomePath = (works: number[]) => (works.length === 1 ? `/meeting/${works[0]}` : '/meeting')
+/** งานที่แสดงในหน้าเลือกงาน: ไม่ได้กำหนด = ทุกงาน · กำหนดแล้ว = เฉพาะงานของตน */
+export const visibleWorks = (works: number[]) => (works.length ? MEETING_TABS.filter((t) => works.includes(t.n)) : MEETING_TABS)

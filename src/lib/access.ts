@@ -23,7 +23,7 @@ export const ROLE_HELP: Record<Role, string> = {
 
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
 /** role = สิทธิ์หลัก (สูงสุดในรายการ) · roles = สิทธิ์ทั้งหมดถ้ามีมากกว่า 1 (เครื่องรุ่นเก่าอ่านแค่ role ได้ จึงไม่พัง) */
-export interface Member extends SharedItem { name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean }
+export interface Member extends SharedItem { name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'
@@ -132,4 +132,12 @@ export function blocked(p: Perm): boolean {
   if (can(myRole(), p)) return false
   window.dispatchEvent(new Event(READONLY_EVENT))
   return true
+}
+
+/** งานที่เครื่องนี้รับผิดชอบในห้องทำงาน (แอดมิน/โหมดทดลอง = ไม่จำกัด คืนว่าง) */
+export function myWorks(): number[] {
+  if (!getSync() || myRole() === 'admin') return []
+  const me = getMe()
+  const mine = me && readAllMembers().find((m) => m.id === me.id)
+  return (mine && !mine.deleted && mine.works) || []
 }

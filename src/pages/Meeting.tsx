@@ -5,7 +5,9 @@ import Members from './Members'
 import { IconNote } from '../components/Icons'
 import TileTabs from '../components/TileTabs'
 import WorkCalendar from '../components/WorkCalendar'
-import { MEETING_TABS } from '../lib/workTabs'
+import { myWorks } from '../lib/access'
+import { useRole } from '../lib/members'
+import { MEETING_TABS, visibleWorks, workHomePath } from '../lib/workTabs'
 
 /** ปุ่มเปิด/ปิดตารางงานไว้บนสุดของแต่ละหน้า — เปิดดูได้โดยไม่ไปแตะข้อมูล/หน้าเดิมของงานนั้น */
 function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolean }) {
@@ -19,17 +21,16 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
 }
 
 /**
- * หัวของทุกงาน: ชื่องาน + ปุ่ม 🏠 หน้างาน (กลับหน้าหลักของงานนั้น รีเซ็ตแท็บ/ปฏิทินที่เปิดอยู่) + ‹ ทุกแท็บ (กลับหน้าเลือกงาน)
- * ตำแหน่งเดียวกันทุกงาน — ผู้รับผิดชอบแต่ละงานใช้หน้านี้เป็นหน้าหลักของงานตัวเอง
+ * หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ ทุกแท็บ ตำแหน่งเดียวกันทุกงาน
+ * แอดมิน → กลับหน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เลขา อนุชน ฯลฯ) → กลับหน้าหลักของงานตัวเอง (เริ่มใหม่ตั้งแต่ต้น)
  */
-function WorkHead({ n, name }: { n: number; name: string }) {
+function WorkHead({ name }: { n: number; name: string }) {
+  useRole() // สิทธิ์/งานที่รับผิดชอบเปลี่ยนเมื่อรายชื่อซิงก์ → วาดใหม่
+  const to = workHomePath(myWorks())
   return (
     <div className="page-head no-print">
       <h1>{name}</h1>
-      <span className="row" style={{ gap: '0.4rem', flexWrap: 'nowrap' }}>
-        <Link to={`/meeting/${n}`} state={{ home: Date.now() }} className="mini">🏠 หน้างาน</Link>
-        <Link to="/meeting" className="mini">‹ ทุกแท็บ</Link>
-      </span>
+      <Link to={to} state={{ home: Date.now() }} className="mini">‹ ทุกแท็บ</Link>
     </div>
   )
 }
@@ -76,12 +77,20 @@ function MeetingRoom() {
   }
   if (tab?.n === 1) return <WorkTabs key={1} n={1} name={tab.name} labels={SECRETARY_LABELS} />
   if (tab) return <WorkTabs key={tab.n} n={tab.n} name={tab.name} />
+  return <Hub />
+}
+
+/** หน้าเลือกงาน: แอดมินเห็นทุกงาน · ผู้รับผิดชอบงานเดียวถูกพาเข้าหน้าหลักของงานตนเลย */
+function Hub() {
+  useRole()
+  const works = myWorks()
+  if (works.length === 1) return <Navigate to={`/meeting/${works[0]}`} replace />
   return (
     <>
       <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1><Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
       <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 12">
-        {MEETING_TABS.map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
+        {visibleWorks(works).map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
       </nav>
     </>
   )

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import MoneyInput from '../components/MoneyInput'
+import { MEETING_TABS } from '../lib/workTabs'
 import { can, normalizeRoles, ROLE_HELP, ROLE_LABEL, ROLES, rolesLabel, rolesOf, type Role } from '../lib/access'
 import RolePicker from '../components/RolePicker'
 import { isFundType } from '../lib/funds'
@@ -158,8 +159,18 @@ function Members() {
                   {delId === x.id ? (
                     <span className="row"><button type="button" className="btn btn--danger" onClick={() => { if (!m.removeMember(x.id)) flash('ลบแอดมินคนสุดท้ายไม่ได้'); setDelId(null) }}>ลบ {x.name}</button><button type="button" className="btn btn--ghost" onClick={() => setDelId(null)}>ไม่ลบ</button></span>
                   ) : <button type="button" className="mini" disabled={lastAdmin} onClick={() => setDelId(x.id)} aria-label={`ลบ ${x.name}`}>🗑️</button>}
+                  <details style={{ flexBasis: '100%' }}>
+                    <summary className="small">งานที่รับผิดชอบในห้องทำงาน: {x.works?.length ? x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ') : 'ไม่จำกัด (เห็นทุกงาน)'}</summary>
+                    <p className="small muted" style={{ margin: '0.3rem 0' }}>กำหนดงานให้คนที่ดูแลงานนั้น: ปุ่ม “‹ ทุกแท็บ” ของเขาจะกลับหน้าหลักของงานตัวเอง (ถ้ามีงานเดียว) · ไม่ได้เปลี่ยนสิทธิ์ใช้งานอื่นของเขา</p>
+                    <div className="row" role="group" aria-label={`งานที่รับผิดชอบของ ${x.name}`}>
+                      {MEETING_TABS.map((t) => {
+                        const on = x.works?.includes(t.n) ?? false
+                        return <button key={t.n} type="button" className="wchip" style={{ padding: '0 0.7rem' }} aria-pressed={on} onClick={() => { const next = on ? (x.works ?? []).filter((n) => n !== t.n) : [...(x.works ?? []), t.n]; if (m.setWorks(x.id, next)) flash(`ตั้งงานของ ${x.name}: ${next.length ? next.map((n) => MEETING_TABS.find((z) => z.n === n)?.name).join(', ') : 'ไม่จำกัด'}`) }}>{t.name}</button>
+                      })}
+                    </div>
+                  </details>
                 </>
-              ) : <span className="badge">{rolesLabel(rolesOf(x))}</span>}
+              ) : <span className="badge">{rolesLabel(rolesOf(x))}{x.works?.length ? ` · ${x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ')}` : ''}</span>}
             </li>
           )
         })}

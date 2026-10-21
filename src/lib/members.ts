@@ -86,6 +86,15 @@ export function useMembers() {
       return true
     },
     /** แอดมินพักสิทธิ์ (ปิดชั่วคราว) / เปิดคืน โดยไม่ลบคน · พักแอดมินคนสุดท้ายไม่ได้ */
+    /** แอดมินกำหนดงานที่คนนั้นรับผิดชอบในห้องทำงาน (ว่าง = ไม่จำกัด) */
+    setWorks: (id: string, works: number[]) => {
+      if (!isAdmin) return false
+      const m = active.find((x) => x.id === id)
+      if (!m) return false
+      store.put([{ ...m, works: works.length ? [...new Set(works)].sort((a, b) => a - b) : undefined }])
+      announce()
+      return true
+    },
     setPaused: (id: string, paused: boolean) => {
       if (!isAdmin) return false
       const m = active.find((x) => x.id === id)
