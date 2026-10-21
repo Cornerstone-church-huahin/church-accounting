@@ -51,26 +51,28 @@ try {
   must(await page.getByRole('heading', { name: 'งานเลขา', exact: true }).isVisible(), 'secretary heading has no "โหมดประชุม" prefix')
   must(await page.getByRole('heading', { name: 'งานเลขา', exact: true }).isVisible(), 'secretary heading has no "โหมดประชุม" prefix')
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).count() === 0 && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible(), '📅 ตารางงาน button on top, collapsed')
-  const sec = await page.getByRole('tablist', { name: 'หมวดงานเลขา' }).getByRole('tab').allInnerTexts()
+  const links = (nm) => page.getByRole('navigation', { name: nm, exact: true }).getByRole('link')
+  const sec = await links('หมวดงานเลขา').allInnerTexts()
   must(sec.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'การประชุม|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'six secretary tabs: ' + sec.join('|'))
-  await page.getByRole('tab', { name: 'แท็บ 5' }).click()
-  must(/แท็บ 5 — ยังว่าง/.test(await page.locator('main').innerText()), 'tab content is empty for now')
-  // งานอื่น: ปุ่มตารางงานบนสุด + แท็บ 1–6 ว่าง · ปุ่มตารางงานเปิดปฏิทินได้
+  // กดช่องแท็บ = เปิดหน้าเต็ม ว่างไว้ก่อน ไม่มีเมนูแท็บรกบนหน้านั้น · ปุ่มบนขวากลับหน้าหลักของงาน
+  await links('หมวดงานเลขา').filter({ hasText: 'แท็บ 5' }).click()
+  await page.getByRole('heading', { name: 'แท็บ 5', exact: true }).waitFor({ timeout: 5000 })
+  must(/แท็บ 5 — ยังว่าง/.test(await page.locator('main').innerText()), 'tab opens a full empty page')
+  must(await page.locator('.tiletabs').count() === 0 && await page.getByRole('tab').count() === 0 && await page.getByRole('button', { name: /ตารางงาน/ }).count() === 0, 'no tab menu clutter on the full page')
+  await page.getByRole('link', { name: '‹ งานเลขา' }).click()
+  must(await page.getByRole('heading', { name: 'งานเลขา', exact: true }).isVisible() && await page.locator('.tiletabs a.btile').count() === 6, 'back to the work home with its six tiles')
+  // งานอภิบาล: สมาชิก 👥 / ตารางเยี่ยม เปิดหน้าเต็มว่าง
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
-  const tabs4 = await page.getByRole('tablist', { name: 'หมวดงานอภิบาล', exact: true }).getByRole('tab').allInnerTexts()
+  const tabs4 = await links('หมวดงานอภิบาล').allInnerTexts()
   must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'สมาชิก|ตารางเยี่ยม|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
-  // อภิบาล: สมาชิกและตารางเยี่ยมมีแท็บย่อย 1–6 (ว่าง) ของตัวเอง
-  for (const [parent, icon] of [['สมาชิก', '👥'], ['ตารางเยี่ยม', '🗓️']]) {
-    await page.getByRole('tab', { name: new RegExp(parent) }).click()
-    const subs = await page.getByRole('tablist', { name: `หมวดงานอภิบาล ${parent}` }).getByRole('tab').allInnerTexts()
-    must(subs.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === '1|2|3|4|5|6', parent + ' has six sub tabs: ' + subs.join('|'))
-    await page.getByRole('tablist', { name: `หมวดงานอภิบาล ${parent}` }).getByRole('tab', { name: /4/ }).click()
-    must(new RegExp(`${parent} › 4 — ยังว่าง`).test(await page.locator('main').innerText()), parent + ' sub tab 4 is empty for now')
+  must(tabs4[0].includes('👥'), 'สมาชิก tile has the members icon')
+  for (const parent of ['สมาชิก', 'ตารางเยี่ยม']) {
+    await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
+    await page.getByRole('heading', { name: new RegExp(parent) }).waitFor({ timeout: 5000 })
+    must(new RegExp(`${parent} — ยังว่าง`).test(await page.locator('main').innerText()) && await page.locator('.tiletabs').count() === 0, parent + ' opens a full empty page without sub tabs')
+    await page.getByRole('link', { name: '‹ งานอภิบาล' }).click()
   }
-  must((await page.getByRole('tab', { name: /สมาชิก/ }).first().innerText()).includes('👥'), 'สมาชิก tab has the members icon')
-  await page.getByRole('tab', { name: /แท็บ 3/ }).first().click()
-  must(await page.getByRole('tablist', { name: /งานอภิบาล สมาชิก/ }).count() === 0, 'other tabs have no sub menu')
-  must(await page.locator('.tiletabs button.btile').count() === 6, 'tabs are colored tiles like the home money tiles')
+  must(await page.locator('.tiletabs a.btile').count() === 6, 'tabs are colored tiles like the home money tiles')
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
   // ปุ่ม ‹ ทุกแท็บ อยู่ตำแหน่งเดียวกันในทุกงาน (1–12) และกดแล้วกลับหน้าห้องทำงาน
