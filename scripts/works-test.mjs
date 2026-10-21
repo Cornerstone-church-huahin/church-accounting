@@ -31,10 +31,10 @@ async function open(meId, meName) {
 try {
   // แอดมิน: หน้าเลือกงานครบ 12 · เข้างานใดก็ได้ · ทุกแท็บ → หน้าเลือกงาน
   let page = await open('ad1', 'แอดมิน')
-  must(await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count() === 12, 'admin sees all 12 works')
+  must(await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count() === 15, 'admin sees all 15 works')
   await page.goto(`http://localhost:${PORT}/#/meeting/9`); await page.getByRole('heading', { name: 'งานอนุชน', exact: true }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: '‹ ทุกแท็บ' }).click()
-  must(await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count() === 12, 'admin: ‹ ทุกแท็บ → all works')
+  must(await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count() === 15, 'admin: ‹ ทุกแท็บ → all works')
   // เลขา: เข้า /meeting แล้วถูกพาไปงานเลขา · ทุกแท็บ = หน้าหลักของเลขา (เริ่มใหม่)
   page = await open('sec1', 'เลขาธิการ')
   await page.getByRole('heading', { name: 'งานเลขา', exact: true }).waitFor({ timeout: 5000 })
