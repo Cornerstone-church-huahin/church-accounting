@@ -5,6 +5,7 @@ import { useRole } from '../lib/members'
 export default function More() {
   const role = useRole()
   const items = [
+    { to: '/meeting', icon: '🧑‍🤝‍🧑', title: 'ห้องทำงาน', sub: 'ตารางงาน บันทึกโน้ต งานเลขา ทะเบียน เหรัญญิก และงานอื่น ๆ', show: role !== 'worship' },
     { to: '/funds', icon: '💰', title: 'กองทุน', sub: 'ยอดแต่ละกองทุน เงินถวายที่เข้า เงินที่จ่ายออก', show: true },
     { to: '/budget', icon: '📊', title: 'งบประมาณรายปี', sub: 'แยกหมวด ปรับเพิ่มลด ประวัติ งบฉุกเฉิน', show: true },
     { to: '/reports', icon: '🖨️', title: 'รายงาน (สัปดาห์ · เดือน · ปี)', sub: 'กราฟแท่ง พิมพ์ติดประกาศพร้อมช่องเซ็นชื่อ', show: true },
