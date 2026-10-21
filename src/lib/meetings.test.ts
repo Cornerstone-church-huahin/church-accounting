@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { attendance, blankAgenda, blankMeeting, blankPerson, carryOver, hasVoteItems, letterDate, minuteComplete, moveAgenda, nextNo, prepKeys, previousMeeting, quorumNeeded, refNo, stepStatuses } from './meetings'
+import { assignedTasks, chairReviewed, CHAIR_ROLE, attendance, blankAgenda, blankMeeting, blankPerson, carryOver, hasVoteItems, letterDate, minuteComplete, moveAgenda, nextNo, prepKeys, previousMeeting, quorumNeeded, refNo, stepStatuses } from './meetings'
 import { defaultNoticeBody, orderedAgenda, timeTh } from '../components/meeting/docs'
+import { checkMinutes, minutesPlain } from '../components/meeting/minutes'
 import type { Meeting } from './types'
 
 const full = (): Meeting => ({ ...blankMeeting(2026, 3), name: 'การประชุมคณะธรรมกิจ', date: '2026-11-15', time: '18:30', place: 'ห้องประชุม', chair: 'ก', secretary: 'ข', people: [{ ...blankPerson(), name: 'ค' }] })
@@ -84,5 +85,31 @@ describe('ศูนย์จัดการประชุม', () => {
     const list = [a('1', 'แจ้งเพื่อทราบ'), a('2', 'เรื่องเสนอพิจารณา'), a('3', 'แจ้งเพื่อทราบ')]
     expect(moveAgenda(list, '3', -1).map((x) => x.id)).toEqual(['3', '2', '1'])
     expect(moveAgenda(list, '2', -1).map((x) => x.id)).toEqual(['1', '2', '3'])
+  })
+})
+
+describe('ศูนย์จัดการประชุม ขั้น 7–10', () => {
+  const base = (): Meeting => ({ ...blankMeeting(2026, 1), name: 'ประชุมกรรมการ', chair: 'ประธาน', secretary: 'เลขา' } as Meeting)
+  it('ประธานตรวจใช้ได้เฉพาะฉบับร่างล่าสุด', () => {
+    const m = { ...base(), drafts: [{ at: 1, by: 'x', note: '', text: 'a' }], chairOk: { by: 'ประธาน', at: 5, draftAt: 1 } }
+    expect(chairReviewed(m)).toBe(true)
+    expect(chairReviewed({ ...m, drafts: [...m.drafts, { at: 2, by: 'x', note: '', text: 'b' }] })).toBe(false)
+  })
+  it('สถานะขั้น 7–10 เดินตามลำดับ', () => {
+    let m: Meeting = { ...base(), drafts: [{ at: 1, by: 'x', note: '', text: 'a' }] }
+    expect(stepStatuses(m)[7].state).toBe('partial')
+    m = { ...m, toChair: { at: 2 }, chairOk: { by: 'ประธาน', at: 3, draftAt: 1 }, signs: [{ role: CHAIR_ROLE, name: 'ประธาน', img: 'data:image/png;base64,AA' }] }
+    expect(stepStatuses(m)[7].state).toBe('done')
+    expect(stepStatuses(m)[8].state).toBe('todo')
+    m = { ...m, distributed: { at: 4, channel: 'อีเมล' }, queuedNext: true, approval: { result: 'รับรองโดยไม่แก้ไข', date: '2026-12-13', atNo: '2/2026' } }
+    expect([stepStatuses(m)[8].state, stepStatuses(m)[9].state, stepStatuses(m)[10].state]).toEqual(['done', 'done', 'partial'])
+    expect(stepStatuses({ ...m, archived: { at: 9 } })[10].state).toBe('done')
+    expect(stepStatuses({ ...m, approval: { ...m.approval!, result: 'ยังไม่รับรอง' } })[9].state).toBe('partial')
+  })
+  it('ตรวจรายงานและงานที่มอบหมาย', () => {
+    const m = { ...base(), agenda: [{ ...blankAgenda(), title: 'งบ', purpose: 'ขอมติ' as const, minute: { assignee: 'นาย ก' } }] }
+    expect(checkMinutes(m).errors).toBeGreaterThan(0)
+    expect(assignedTasks(m)).toHaveLength(1)
+    expect(minutesPlain(m)).toContain('ผู้รับผิดชอบ: นาย ก')
   })
 })

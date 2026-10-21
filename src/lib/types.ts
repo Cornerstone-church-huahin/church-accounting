@@ -377,12 +377,14 @@ export interface Meeting extends SharedItem {
   closed?: { time: string; next?: string }
   drafts?: MtDraft[]
   toChair?: { at: number }
-  chairOk?: { by: string; at: number }
+  chairOk?: { by: string; at: number; /** ฉบับร่างที่ประธานตรวจ (เวลาบันทึก) — มีฉบับใหม่กว่าต้องตรวจใหม่ */ draftAt?: number }
   distributed?: { at: number; channel: string }
   objections?: string[]
   queuedNext?: boolean
   approval?: { result: MtApproval; date: string; atNo: string; edits?: string }
   signs?: { role: string; name: string; img?: string }[]
+  /** ลงนามบนกระดาษแล้ว (ไม่ใช้ลายเซ็นในระบบ) */ paperSigned?: boolean
+  /** ระดับเอกสาร: ทั่วไป · ภายใน (กรรมการ) · ลับ (แอดมินเท่านั้น) */ access?: 'ทั่วไป' | 'ภายใน' | 'ลับ'
   archived?: { at: number }
 }
 /** หัวจดหมาย/ท้ายจดหมายของคริสตจักร (รูปที่ผู้ดูแลอัปโหลด เก็บใน repo ข้อมูลส่วนตัว) */

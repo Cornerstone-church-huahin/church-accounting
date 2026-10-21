@@ -52,6 +52,14 @@ export function prepKeys(m: Meeting, list: Meeting[]): string[] {
 /** วาระนี้บันทึกครบแล้วหรือยัง: วาระที่ขอมติต้องมีมติ · วาระอื่นต้องมีสาระสำคัญหรือมติ */
 export const minuteComplete = (a: MtAgenda) => (a.purpose === 'ขอมติ' ? !!a.minute?.result : !!(a.minute?.summary?.trim() || a.minute?.result))
 
+export const CHANNELS_DIST = ['LINE กลุ่มกรรมการ', 'อีเมล', 'ฉบับกระดาษ']
+export const CHAIR_ROLE = 'ผู้ตรวจรายงานการประชุม'
+export const SECRETARY_ROLE = 'ผู้จดรายงานการประชุม'
+/** ประธานตรวจฉบับร่างล่าสุดแล้ว (ถ้ามีฉบับใหม่กว่าหลังตรวจ = ต้องตรวจใหม่) */
+export const chairReviewed = (m: Meeting) => !!m.chairOk && !!m.drafts?.length && m.chairOk.draftAt === m.drafts[m.drafts.length - 1].at
+/** งานที่มอบหมายจากมติ (ใช้ทั้งติดตามงานและทะเบียนเอกสาร) */
+export const assignedTasks = (m: Meeting) => m.agenda.filter((a) => a.minute?.assignee?.trim()).map((a) => ({ id: a.id, title: a.title, assignee: a.minute!.assignee!, due: a.minute!.due, done: !!a.minute!.done }))
+
 export function stepStatuses(m: Meeting, list: Meeting[] = []): Record<number, StepStatus> {
   const required = [m.name, m.date, m.time, m.place, m.chair, m.secretary]
   const filled = required.filter(has).length + (m.no > 0 ? 1 : 0) + (m.year > 0 ? 1 : 0)
@@ -68,10 +76,13 @@ export function stepStatuses(m: Meeting, list: Meeting[] = []): Record<number, S
   s[5] = m.opened?.agendaConfirmed ? { state: 'done', hint: `เปิดประชุมแล้ว (มา ${att.present.length} คน)` } : m.opened || marked > 0 ? { state: 'partial', hint: m.opened ? 'ยังไม่ยืนยันวาระ' : att.present.length >= quorumNeeded(m) ? 'ครบองค์ประชุม รอเปิดประชุม' : 'ยังไม่ครบองค์ประชุม' } : { state: 'todo', hint: 'ยังไม่ได้ลงชื่อผู้มาประชุม' }
   const items = m.agenda.filter((a) => a.title.trim()), doneItems = items.filter(minuteComplete).length
   s[6] = items.length > 0 && doneItems === items.length && m.closed?.time ? { state: 'done', hint: 'บันทึกครบทุกวาระ' } : doneItems > 0 || m.closed?.time ? { state: 'partial', hint: `บันทึกแล้ว ${doneItems}/${items.length} วาระ${m.closed?.time ? '' : ' · ยังไม่มีเวลาเลิกประชุม'}` } : { state: 'todo', hint: 'ยังไม่ได้บันทึกประชุม' }
-  s[7] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
-  s[8] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
-  s[9] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
-  s[10] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
+  const lastDraft = m.drafts?.[m.drafts.length - 1]
+  const chairSigned = !!m.signs?.find((x) => x.role === CHAIR_ROLE)?.img || !!m.paperSigned
+  s[7] = chairReviewed(m) && chairSigned ? { state: 'done', hint: 'ประธานตรวจและลงนามแล้ว' } : chairReviewed(m) ? { state: 'partial', hint: 'ประธานตรวจแล้ว รอลายเซ็น' } : m.toChair ? { state: 'partial', hint: 'ส่งประธานแล้ว รอตรวจ' } : lastDraft ? { state: 'partial', hint: `มีฉบับร่าง ${m.drafts!.length} ฉบับ ยังไม่ส่งประธาน` } : { state: 'todo', hint: 'ยังไม่มีฉบับร่าง' }
+  s[8] = m.distributed && m.queuedNext ? { state: 'done', hint: 'แจกกรรมการและบรรจุวาระรับรองแล้ว' } : m.distributed || m.queuedNext ? { state: 'partial', hint: m.distributed ? 'แจกแล้ว ยังไม่บรรจุวาระรับรอง' : 'บรรจุวาระแล้ว ยังไม่ได้แจก' } : { state: 'todo', hint: chairReviewed(m) ? 'พร้อมแจกกรรมการ' : 'รอประธานตรวจก่อน' }
+  const ap = m.approval
+  s[9] = ap && ap.result !== 'ยังไม่รับรอง' && chairSigned ? { state: 'done', hint: ap.result } : ap ? { state: 'partial', hint: ap.result === 'ยังไม่รับรอง' ? 'ที่ประชุมยังไม่รับรอง' : 'รอลงนามฉบับสมบูรณ์' } : { state: 'todo', hint: 'ยังไม่มีผลรับรอง' }
+  s[10] = m.archived ? { state: 'done', hint: 'เก็บเอกสารแล้ว' } : s[9].state === 'done' ? { state: 'partial', hint: 'พร้อมเก็บเอกสาร' } : { state: 'todo', hint: 'รอรับรองและลงนาม' }
   return s
 }
 
