@@ -38,10 +38,10 @@ export default function Home() {
   const full = tab !== null
   const inMeeting = useLocation().pathname.startsWith('/meeting') // ในห้องทำงานเองไม่ต้องมีปุ่มกลับเข้าห้องทำงาน
   return (
-    <>
+    <div className={inMeeting ? 'home--work' : undefined}>
       {!full && (
         <>
-          <div className="page-head no-print"><h1>บัญชีคริสตจักรศิลาเอก</h1></div>
+          {!inMeeting && <div className="page-head no-print"><h1>บัญชีคริสตจักรศิลาเอก</h1></div>}
           {!inMeeting && <Link to="/meeting" className="worknav no-print"><span aria-hidden="true">🧑‍🤝‍🧑</span><span className="grow"><b>ห้องทำงาน</b><br /><small>ตารางงาน · บันทึกโน้ต · งานเลขา · ทะเบียน · เหรัญญิก</small></span><span aria-hidden="true">›</span></Link>}
           <p className="home-label no-print">เงินคริสตจักร ณ วันนี้ <span>(แตะดูรายละเอียด)</span></p>
           <nav className="balance-tiles no-print" aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
@@ -87,6 +87,6 @@ export default function Home() {
       {tab === 'sum' && <Summary key={year} year={year} />}
       {tab === 'out' && <Pay key={year} year={year} />}
       </div>
-    </>
+    </div>
   )
 }
