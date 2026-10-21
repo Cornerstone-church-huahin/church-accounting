@@ -349,3 +349,39 @@ export interface Note extends SharedItem { title: string; body: string; clips?: 
 /** รายชื่อผู้รับผิดชอบของงานหนึ่ง เรียงตามลำดับที่แอดมินจัด (เช่น เลขา · รองเลขา · ครูศาสนกิจ) */
 export interface TeamMember { role: string; name: string }
 export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
+
+// ---------- ศูนย์จัดการประชุม (งานเลขา) ----------
+export type MtKind = 'กรรมการ' | 'ผู้มีสิทธิ์ลงคะแนน' | 'ผู้เข้าร่วมอื่น'
+export type MtRsvp = 'ตอบรับ' | 'ลา' | 'ยังไม่ตอบ'
+export type MtAttend = 'มา' | 'ลา' | 'ไม่มา'
+export interface MtPerson { id: string; name: string; kind: MtKind; /** ตอบรับ/ลา หลังแจ้งประชุม */ rsvp?: MtRsvp; /** มาจริงในวันประชุม */ att?: MtAttend }
+export type MtResult = 'เห็นชอบ' | 'ไม่เห็นชอบ' | 'เลื่อนพิจารณา' | 'มีเงื่อนไข'
+export interface MtMinute { summary?: string; proposal?: string; result?: MtResult; condition?: string; yes?: number; no?: number; abstain?: number; assignee?: string; due?: string; /** ผู้รับผิดชอบทำเสร็จแล้ว */ done?: boolean }
+export type MtGroup = 'แจ้งเพื่อทราบ' | 'รับรองรายงาน' | 'ติดตามงาน' | 'เรื่องเสนอพิจารณา'
+export type MtPurpose = 'ทราบ' | 'หารือ' | 'ขอมติ'
+export interface MtAgenda { id: string; title: string; group: MtGroup; purpose: MtPurpose; docs?: string; /** ยกมาจากการประชุมครั้งก่อน */ carried?: boolean; minute?: MtMinute }
+export interface MtDraft { at: number; by: string; note: string; /** สำเนารายงาน ณ ตอนบันทึกฉบับ */ text: string }
+export type MtApproval = 'รับรองโดยไม่แก้ไข' | 'รับรองโดยมีการแก้ไข' | 'ยังไม่รับรอง'
+/** ข้อมูลการประชุม 1 ครั้ง — ใช้ร่วมทุกขั้นตั้งแต่สร้างจนเก็บเอกสาร */
+export interface Meeting extends SharedItem {
+  name: string; no: number; year: number; type: 'ปกติ' | 'พิเศษ'
+  date: string; time: string; place: string; chair: string; secretary: string
+  /** วันปิดรับเรื่องเสนอ */ deadline?: string
+  people: MtPerson[]; agenda: MtAgenda[]
+  agendaOk?: { by: string; at: number }
+  notice?: { channels: string[]; body?: string; sentAt?: number; ref?: string }
+  prep?: Record<string, boolean>
+  opened?: { chair: string; time: string; agendaConfirmed: boolean; at: number }
+  closed?: { time: string; next?: string }
+  drafts?: MtDraft[]
+  toChair?: { at: number }
+  chairOk?: { by: string; at: number }
+  distributed?: { at: number; channel: string }
+  objections?: string[]
+  queuedNext?: boolean
+  approval?: { result: MtApproval; date: string; atNo: string; edits?: string }
+  signs?: { role: string; name: string; img?: string }[]
+  archived?: { at: number }
+}
+/** หัวจดหมาย/ท้ายจดหมายของคริสตจักร (รูปที่ผู้ดูแลอัปโหลด เก็บใน repo ข้อมูลส่วนตัว) */
+export interface Letterhead extends SharedItem { header?: { path: string }; footer?: { path: string } }
