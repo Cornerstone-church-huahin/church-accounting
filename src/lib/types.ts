@@ -344,3 +344,8 @@ export interface Repeat { freq: 'day' | 'week' | 'month' | 'year'; every: number
 /** เสียงที่อัดไว้ในโน้ต (ไฟล์อยู่ใน repo ข้อมูลที่ path นี้) */
 export interface NoteClip { path: string; type: string; secs: number }
 export interface Note extends SharedItem { title: string; body: string; clips?: NoteClip[]; date: string; recId?: string; rec?: string }
+
+// ---------- ผู้รับผิดชอบแต่ละงาน (ห้องทำงาน) ----------
+/** รายชื่อผู้รับผิดชอบของงานหนึ่ง เรียงตามลำดับที่แอดมินจัด (เช่น เลขา · รองเลขา · ครูศาสนกิจ) */
+export interface TeamMember { role: string; name: string }
+export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }

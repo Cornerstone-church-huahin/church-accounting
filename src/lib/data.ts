@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -100,4 +100,10 @@ export function useCalendar() {
 export function useNotes() {
   const s = useSharedStore<Note>({ localKey: k('notes'), file: 'notes.json', label: 'บันทึกโน้ต', write: 'detail' })
   return { ...s, list: [...s.items].sort((a, b) => b.updated - a.updated) }
+}
+
+/** ผู้รับผิดชอบของแต่ละงานในห้องทำงาน: ไฟล์เดียว · แอดมินเป็นคนบันทึก ทุกคนเห็น */
+export function useWorkTeams() {
+  const s = useSharedStore<WorkTeam>({ localKey: k('work-teams'), file: 'work-teams.json', label: 'ผู้รับผิดชอบงาน', write: 'settings' })
+  return { ...s, of: (n: number) => s.items.find((x) => x.n === n)?.people ?? [], save: (n: number, people: WorkTeam['people']) => s.put([{ id: `team-${n}`, n, people, updated: 0 }]) }
 }

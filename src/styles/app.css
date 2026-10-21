@@ -716,3 +716,10 @@ span.fundpend__tog { cursor: default; }
 .leafletbox { width: 100%; border-radius: 0.8rem; border: 1px solid var(--line); overflow: hidden; z-index: 0; }
 .mapdot { display: block; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #c2255c; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
 .mapdot--pick { background: #1f5fbf; }
+
+/* ผู้รับผิดชอบของงาน (ใต้ชื่องาน) */
+.workteam { margin: -0.2rem 0 0.7rem; }
+.workteam__list { list-style: none; margin: 0 0 0.3rem; padding: 0; display: grid; gap: 0.1rem; }
+.workteam__list li { display: flex; gap: 0.5rem; font-size: 0.9rem; }
+.workteam__list li span { color: var(--ink-soft); min-width: 5.2rem; }
+.workteam__list li b { font-weight: 600; overflow-wrap: anywhere; }
