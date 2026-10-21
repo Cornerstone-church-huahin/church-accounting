@@ -46,6 +46,11 @@ try {
   must(/ค่าอาหาร \(อ\.ลับ\)/.test(all) && !/ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(all), 'payer/biller name shown in brackets after the item, no other internal notes')
   must(/เงินถวายกองทุน/.test(all) && /ไม่รวมกับเงินหมุนเวียน/.test(all) && /ไม่นำไปคำนวณ/.test(all), 'fund donations shown separately with the explanation')
   must(await page.getByRole('button', { name: /ดาวน์โหลดใบสรุป/ }).isVisible(), 'admin can download')
+  await page.evaluate(() => { window.__shared = null; navigator.canShare = () => true; navigator.share = async (d) => { window.__shared = { n: d.files.length, name: d.files[0].name, type: d.files[0].type, size: d.files[0].size } } })
+  await page.getByRole('button', { name: 'แชร์ใบสรุปเป็น PDF' }).click()
+  await page.waitForFunction(() => window.__shared, null, { timeout: 30000 })
+  const sh = await page.evaluate(() => window.__shared)
+  must(sh.n === 1 && sh.type === 'application/pdf' && /^สรุปรับจ่าย-\d{4}-\d{2}-\d{2}\.pdf$/.test(sh.name) && sh.size > 1000, 'share button hands a real PDF file to the share sheet: ' + JSON.stringify(sh))
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('notice-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

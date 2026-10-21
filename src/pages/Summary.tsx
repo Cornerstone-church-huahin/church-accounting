@@ -7,7 +7,7 @@ import { useRole } from '../lib/members'
 import { useSettings } from '../lib/data'
 import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import { expenseLines, weekNotice } from '../lib/notice'
-import { downloadSheetPdf } from '../lib/pdf'
+import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { periodReport } from '../lib/report'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
@@ -50,6 +50,16 @@ export default function Summary({ year }: { year: number }) {
     try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
     setBusy(false)
   }
+  const share = async () => {
+    if (paper.current.length === 0) return
+    setBusy(true)
+    try {
+      const file = `สรุปรับจ่าย-${sunday}.pdf`
+      const r = await sharePdf(paper.current, file, 'full', `สรุปรายรับ-รายจ่าย ${church}`)
+      if (r === 'unsupported') { await downloadSheetPdf(paper.current, file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แทนแล้ว นำไปแชร์ต่อจากไฟล์ที่ดาวน์โหลดได้') }
+    } catch (e) { console.error('share', e); alert('แชร์ไม่สำเร็จ — ลองกด “ดาวน์โหลด PDF” แทน') }
+    setBusy(false)
+  }
   const canExport = can(role, 'detail')
   if (notice) {
     return (
@@ -59,6 +69,7 @@ export default function Summary({ year }: { year: number }) {
           <span className="grow" />
           {canExport && <>
             <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void download()} aria-label="ดาวน์โหลดใบสรุปเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
+            <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void share()} aria-label="แชร์ใบสรุปเป็น PDF" title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ PDF</button>
             <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
           </>}
         </div>
