@@ -747,3 +747,35 @@ span.fundpend__tog { cursor: default; }
 .mc__step--next { text-align: right; }
 .mc__step small { color: var(--ink-soft); font-size: 0.78rem; }
 .mc__step b { font-size: 0.92rem; line-height: 1.25; }
+
+/* เอกสารหัวจดหมาย A4 (ศูนย์จัดการประชุม) */
+.a4page--letter { padding: 0 !important; display: block !important; }
+.letter { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; font-family: 'Sarabun', 'Noto Sans Thai', system-ui, sans-serif; color: #111; }
+.letter__head img, .letter__foot img { display: block; width: 100%; height: auto; }
+.letter__fallback { padding: 28px 48px 8px; text-align: center; font-size: 22px; border-bottom: 2px solid #1a2b4c; margin: 0 40px; }
+.letter__body { flex: 1; padding: 14px 56px 0; font-size: 15.5px; line-height: 1.55; }
+.letter__foot { margin-top: auto; padding-bottom: 26px; }
+.letter__row { display: flex; gap: 10px; margin: 2px 0; }
+.letter__row > span:first-child { flex: none; width: 96px; }
+.letter__p { text-indent: 2.2em; margin: 8px 0; text-align: justify; }
+.letter__sign { margin: 26px 0 0 auto; width: 62%; text-align: center; }
+.letter table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.letter th, .letter td { border: 1px solid #333; padding: 3px 7px; vertical-align: top; }
+.letter th { background: #eef1f6; }
+.lhline { position: absolute; left: 0; right: 0; height: 2px; pointer-events: none; }
+.lhline span { position: absolute; right: 2px; top: -1.1rem; font-size: 0.7rem; line-height: 1; background: inherit; color: #fff; padding: 2px 4px; border-radius: 3px; }
+
+/* แถบเช็คความพร้อมของศูนย์จัดการประชุม (ติดล่างเหนือเมนูหลัก) */
+.mcenter--bar { padding-bottom: 5.2rem; }
+.mcbar { position: fixed; left: 0; right: 0; bottom: calc(3.55rem + env(safe-area-inset-bottom, 0px)); z-index: 15; max-width: var(--maxw); margin-inline: auto; background: var(--surface); border-top: 1px solid var(--line); padding: 0.3rem 0.5rem 0.25rem; box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08); }
+.mcbar__dots { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.2rem; }
+.mcbar__dot { display: grid; place-items: center; height: 1.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-decoration: none; border: 2px solid var(--line); color: var(--ink-soft); background: var(--surface-2, #f1f1f1); }
+.mcbar__dot--done { background: #1b7f4b; border-color: #1b7f4b; color: #fff; }
+.mcbar__dot--partial { background: #fff3c4; border-color: #c99a14; color: #6b5200; }
+.mcbar__dot--cur { outline: 3px solid #1f6feb; outline-offset: 1px; }
+.mcbar__cap { margin-top: 0.2rem; font-size: 0.72rem; text-align: center; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcbtn__st { position: absolute; bottom: 0.5rem; right: 0.6rem; width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.85rem; font-weight: 800; }
+.mcbtn__st--done { background: #fff; color: #1b7f4b; }
+.mcbtn__st--partial { background: #fff3c4; color: #6b5200; }
+.mc__guide { margin: 0.8rem 0 0; }
+.mc__guide > summary { cursor: pointer; font-weight: 700; padding: 0.4rem 0; }

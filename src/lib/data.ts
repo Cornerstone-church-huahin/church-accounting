@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -106,4 +106,15 @@ export function useNotes() {
 export function useWorkTeams() {
   const s = useSharedStore<WorkTeam>({ localKey: k('work-teams'), file: 'work-teams.json', label: 'ผู้รับผิดชอบงาน', write: 'settings' })
   return { ...s, of: (n: number) => s.items.find((x) => x.n === n)?.people ?? [], save: (n: number, people: WorkTeam['people']) => s.put([{ id: `team-${n}`, n, people, updated: 0 }]) }
+}
+
+/** การประชุมของศูนย์จัดการประชุม (ไม่แบ่งปี · แต่ละครั้งเป็นรายการเดียวที่เก็บทุกขั้น) */
+export function useMeetings() {
+  const s = useSharedStore<Meeting>({ localKey: k('meetings'), file: 'meetings.json', label: 'การประชุม', write: 'detail' })
+  return { ...s, list: [...s.items].sort((a, b) => b.date.localeCompare(a.date) || b.updated - a.updated) }
+}
+/** หัวจดหมาย/ท้ายจดหมาย: รายการเดียว (id = letterhead) · แอดมินตั้งค่า */
+export function useLetterhead() {
+  const s = useSharedStore<Letterhead>({ localKey: k('letterhead'), file: 'letterhead.json', label: 'หัวจดหมาย', write: 'settings' })
+  return { ...s, value: s.items.find((x) => x.id === 'letterhead'), save: (v: Pick<Letterhead, 'header' | 'footer'>) => s.put([{ id: 'letterhead', updated: 0, ...v }]) }
 }
