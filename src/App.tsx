@@ -8,6 +8,7 @@ import Statement from './pages/Statement'
 import Vouchers from './pages/Vouchers'
 import VoucherDetail from './pages/VoucherDetail'
 import Budget from './pages/Budget'
+import Notes from './pages/Notes'
 import Meeting from './pages/Meeting'
 import FundAccountsPage from './pages/FundAccounts'
 import FundDetailPage from './pages/FundDetail'
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="funds/:id" element={<FundDetailPage />} />
           <Route path="balance/:kind" element={<BalancePage />} />
           <Route path="meeting" element={<Meeting />} />
+          <Route path="meeting/notes" element={<Notes />} />
           <Route path="meeting/:n" element={<Meeting />} />
           <Route path="members" element={<Members />} />
           <Route path="reports" element={<Reports />} />

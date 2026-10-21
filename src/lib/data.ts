@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -94,4 +94,10 @@ export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('record
 export function useCalendar() {
   const s = useSharedStore<CalEvent>({ localKey: k('calendar'), file: 'calendar.json', label: 'ปฏิทินงาน', write: 'detail' })
   return { ...s, list: s.items }
+}
+
+/** บันทึกโน้ตของห้องทำงาน (ไม่แบ่งปี) */
+export function useNotes() {
+  const s = useSharedStore<Note>({ localKey: k('notes'), file: 'notes.json', label: 'บันทึกโน้ต', write: 'detail' })
+  return { ...s, list: [...s.items].sort((a, b) => b.updated - a.updated) }
 }
