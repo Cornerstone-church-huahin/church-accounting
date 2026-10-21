@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useAttendance, useChurchMembers } from '../lib/data'
+import { useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
-import { fmtDate, todayISO, yearOf } from '../lib/money'
-import { ageBands, followUp, genderSplit, groupCounts, headline, inGroup, joinYears, recentServices, STATUS_GROUPS, type StatusGroup } from '../lib/pastoral'
-import { DEFAULT_CRITERIA, evaluate, serviceStats, toAttendance } from '../lib/registry'
-import type { CheckIn } from '../lib/types'
+import { hasCoord } from '../lib/geo'
+import { todayISO } from '../lib/money'
+import { ageBands, genderSplit, groupCounts, headline, inGroup, joinYears, STATUS_GROUPS, type StatusGroup } from '../lib/pastoral'
+import { statusShort } from '../lib/registry'
+import type { MapPin } from './LeafletMap'
+
+const LeafletMap = lazy(() => import('./LeafletMap'))
 
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
@@ -41,19 +45,14 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
 }
 
 /**
- * หน้า “สมาชิก” ของงานอภิบาล: 5 ส่วนที่แสดงผลต่างกัน — ตัวเลขสำคัญ · สถานะ (แตะเพื่อกรองส่วนอื่น) · ช่วงวัยและเพศ · กลุ่มและปีที่เข้าเป็นสมาชิก · การเข้าร่วมนมัสการและคนที่ควรติดตาม
- * ข้อมูลทั้งหมดอ่านจากทะเบียนและบันทึกลงชื่อนมัสการจริง (ไม่แก้ข้อมูลใด)
+ * หน้า “สมาชิก” ของงานอภิบาล (อ่านอย่างเดียว · ฐานข้อมูลหลักของสมาชิก): ตัวเลขสำคัญ · สถานะ (แตะเพื่อกรองส่วนอื่น) · ช่วงวัยและเพศ · กลุ่มและปีที่เข้าเป็นสมาชิก · แผนที่บ้านสมาชิก
+ * อ่านจากทะเบียนจริง ไม่แก้ข้อมูลใด · พิกัดบ้านบันทึกที่งานทะเบียน (แอดมิน/ผู้บันทึกทะเบียน) · การติดตามจะแยกเป็นไอคอนต่อไป
  */
 export default function PastoralMembers() {
   const role = useRole()
-  const today = todayISO(), y = yearOf(today)
+  const today = todayISO()
   const people = useChurchMembers()
-  const a0 = useAttendance(y), a1 = useAttendance(y - 1, false), a2 = useAttendance(y - 2, false)
   const [g, setG] = useState<StatusGroup>('all')
-  const [weeks, setWeeks] = useState(8)
-  const [showAll, setShowAll] = useState(false)
-  const raw = useMemo(() => [a2, a1, a0].flatMap((s) => s.items), [a0.items, a1.items, a2.items]) // eslint-disable-line react-hooks/exhaustive-deps
-  const attendance = useMemo(() => toAttendance(raw), [raw])
   const all = people.items
   const sel = useMemo(() => all.filter((m) => inGroup(m, g)), [all, g])
   const head = useMemo(() => headline(all), [all])
@@ -61,14 +60,10 @@ export default function PastoralMembers() {
   const sex = useMemo(() => genderSplit(sel), [sel])
   const groups = useMemo(() => groupCounts(sel), [sel])
   const joins = useMemo(() => joinYears(sel).slice(-6), [sel])
-  const trend = useMemo(() => recentServices(serviceStats(attendance, all), 12), [attendance, all])
-  const rows = useMemo(() => evaluate(all, attendance, DEFAULT_CRITERIA, today).rows, [all, attendance, today])
-  const follow = useMemo(() => followUp(rows, weeks, g), [rows, weeks, g])
-  const checkins = raw.filter((x): x is CheckIn => 'mid' in x).length
+  const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
   if (!can(role, 'detail')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
   const gName = STATUS_GROUPS.find((x) => x.key === g)!.label
-  const shown = showAll ? follow : follow.slice(0, 12)
 
   return (
     <div className="pastoral">
@@ -105,28 +100,12 @@ export default function PastoralMembers() {
       </section>
 
       <section className="card" aria-labelledby="pm-5">
-        <h2 id="pm-5">5 · การเข้าร่วมนมัสการและการติดตาม</h2>
-        <p className="home-label" style={{ margin: '0 0 0.2rem' }}>ผู้มานมัสการ 12 ครั้งล่าสุด</p>
-        {trend.length === 0 ? <p className="empty">ยังไม่มีบันทึกลงชื่อนมัสการ</p> : <Columns label="ผู้มานมัสการ 12 ครั้งล่าสุด" data={trend.map((t) => ({ key: fmtDate(t.date).split(' ').slice(0, 2).join(' '), value: t.count }))} />}
-        <p className="muted small" style={{ margin: '0.2rem 0 0.6rem' }}>บันทึกลงชื่อทั้งหมด {checkins.toLocaleString('th-TH')} รายการ (3 ปีล่าสุด)</p>
-        <div className="row" style={{ margin: '0.4rem 0' }}>
-          <label htmlFor="pm-w" className="small"><b>ควรติดตาม</b> — ไม่ได้มานมัสการเกิน</label>
-          <select id="pm-w" className="input" style={{ width: 'auto' }} value={weeks} onChange={(e) => { setWeeks(Number(e.target.value)); setShowAll(false) }}>
-            {[4, 8, 12, 26].map((w) => <option key={w} value={w}>{w} สัปดาห์</option>)}
-          </select>
-        </div>
-        <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>พบ <b>{follow.length}</b> คน{g !== 'all' ? ` (${gName})` : ''} · ไม่นับสิ้นสภาพ/เสียชีวิต และคนที่ยังไม่เคยมีบันทึกลงชื่อ</p>
-        {follow.length > 0 && (
-          <ul className="list" aria-label="รายชื่อที่ควรติดตาม">
-            {shown.map((f) => (
-              <li key={f.id} className="row row--between">
-                <span className="grow"><b>{f.name}</b><br /><span className="muted small">{f.status} · มาล่าสุด {fmtDate(f.last)}</span></span>
-                <b style={{ color: '#b3261e' }}>{Math.floor((f.idleDays ?? 0) / 7)} สัปดาห์</b>
-              </li>
-            ))}
-          </ul>
-        )}
-        {follow.length > 12 && <button type="button" className="mini" onClick={() => setShowAll((v) => !v)}>{showAll ? 'แสดงน้อยลง' : `แสดงทั้งหมด ${follow.length} คน`}</button>}
+        <h2 id="pm-5">5 · แผนที่บ้านสมาชิก <span className="muted small">({gName})</span></h2>
+        <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>บันทึกพิกัดบ้านแล้ว <b>{pins.length}</b> จาก {sel.length} คน ({pct(pins.length, sel.length)}%) · แตะหมุดเพื่อดูชื่อ</p>
+        {pins.length === 0
+          ? <p className="empty">ยังไม่มีพิกัดบ้านของสมาชิก — แอดมิน/ผู้บันทึกทะเบียนบันทึกได้ที่ <Link to="/meeting/2">งานทะเบียน</Link> › ทะเบียน › แตะชื่อ › แก้ไขข้อมูล › “พิกัดบ้าน”</p>
+          : <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} height={340} label="แผนที่บ้านสมาชิก" /></Suspense>}
+        <p className="muted small" style={{ margin: '0.4rem 0 0' }}>แผนที่ © OpenStreetMap · พิกัดบ้านเป็นข้อมูลส่วนบุคคล เห็นได้เฉพาะผู้มีสิทธิ์ดูรายละเอียดสมาชิก</p>
       </section>
     </div>
   )

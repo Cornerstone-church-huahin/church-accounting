@@ -302,6 +302,9 @@ export interface ChurchMember extends SharedItem {
   photo?: string
   /** ที่อยู่รูปที่อัปโหลดแล้ว (ใน repo ข้อมูล) */
   photoPath?: string
+  /** พิกัดบ้าน (ละติจูด/ลองจิจูด · องศาทศนิยม) — แอดมิน/ผู้บันทึกทะเบียนเป็นคนบันทึก แสดงบนแผนที่ของงานอภิบาล */
+  lat?: number
+  lng?: number
   /** ผู้ดูแลกำหนดผลตรวจเอง (ว่าง = ตามการคำนวณ) */
   override?: MemberOverride
 }

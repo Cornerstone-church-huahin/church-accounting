@@ -1,6 +1,6 @@
 import { PrintFrame } from '../components/Credit'
 import { cleanName, applyNameFix, planNameClean } from '../lib/nameClean'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
@@ -16,6 +16,8 @@ import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import TileTabs from '../components/TileTabs'
+import { formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
+const LeafletMap = lazy(() => import('../components/LeafletMap'))
 import CheckinPanel, { RecorderChip } from '../components/CheckinPanel'
 import BirthdayList from '../components/BirthdayList'
 import GenderView from '../components/GenderView'
@@ -453,6 +455,7 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, put, remove
     ['เพศ', m.gender && m.gender],
     ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
     ['วันที่เริ่มมา', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
+    ...(lite ? [] : [['พิกัดบ้าน', hasCoord(m) && <a href={mapsLink({ lat: m.lat, lng: m.lng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.lat, lng: m.lng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
   ]
   return (
@@ -488,11 +491,22 @@ const groupOptions = (ms: { group?: string }[]) => [...new Set(ms.map((m) => m.g
 function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, remove }: { lite: boolean; canDelete: boolean; member: ChurchMember | null; statuses: string[]; groups: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
   const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
+  // พิกัดบ้าน: พิมพ์/วางลิงก์ Google Maps · ใช้ตำแหน่งปัจจุบัน · แตะ/ลากหมุดบนแผนที่
+  const [coord, setCoord] = useState<Coord | null>(member && hasCoord(member) ? { lat: member.lat, lng: member.lng } : null)
+  const [coordText, setCoordText] = useState(member && hasCoord(member) ? formatCoord({ lat: member.lat, lng: member.lng }) : '')
+  const [mapOpen, setMapOpen] = useState(false)
+  const pickCoord = (c: Coord | null) => { setCoord(c); setCoordText(c ? formatCoord(c) : ''); setErr('') }
+  const onCoordText = (v: string) => { setCoordText(v); setCoord(parseCoords(v)) }
+  const here = () => {
+    if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
+    navigator.geolocation.getCurrentPosition((p) => pickCoord({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6 }), () => setErr('หาตำแหน่งไม่ได้ — อนุญาตการเข้าถึงตำแหน่ง หรือเลือกบนแผนที่แทน'), { enableHighAccuracy: true, timeout: 15000 })
+  }
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const save = () => {
     if (!f.name.trim()) return setErr('ใส่ชื่อ-สกุล')
+    if (coordText.trim() && !coord) return setErr('พิกัดบ้านอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps หรือเลือกบนแผนที่')
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
-    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
+    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng }), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
   const text = (k: keyof typeof f, label: string, type = 'text', full = false) => <div className={`field${full ? ' full' : ''}`}><label htmlFor={`m-${k}`}>{label}</label><input id={`m-${k}`} className="input" type={type} value={f[k]} onChange={set(k)} /></div>
   return (
@@ -519,6 +533,20 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
         {!lite && text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
         {text('since', 'วันที่เริ่มมา', 'date')}
         {text('note', 'หมายเหตุ', 'text', true)}
+        {!lite && (
+          <div className="field full">
+            <label htmlFor="m-coord">พิกัดบ้าน <span className="muted small">(แสดงบนแผนที่ของงานอภิบาล)</span></label>
+            <input id="m-coord" className="input" inputMode="decimal" value={coordText} onChange={(e) => onCoordText(e.target.value)} placeholder="เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps" />
+            <div className="row" style={{ marginTop: '0.3rem' }}>
+              <button type="button" className="mini" onClick={here}>📍 ใช้ตำแหน่งปัจจุบัน</button>
+              <button type="button" className="mini" aria-expanded={mapOpen} onClick={() => setMapOpen((v) => !v)}>🗺️ {mapOpen ? 'ซ่อนแผนที่' : 'เลือกบนแผนที่'}</button>
+              {coordText && <button type="button" className="mini" onClick={() => pickCoord(null)}>ล้างพิกัด</button>}
+              {coord && <a className="mini" href={mapsLink(coord)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
+            </div>
+            <p className="small muted" role="status" style={{ margin: '0.2rem 0 0' }}>{coord ? `บันทึกพิกัด ${formatCoord(coord)}` : coordText ? 'ยังอ่านพิกัดไม่ได้' : 'ยังไม่มีพิกัด'}</p>
+            {mapOpen && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap label="เลือกพิกัดบ้านบนแผนที่ (แตะหรือลากหมุด)" height={260} pick={coord} onPick={pickCoord} /></Suspense>}
+          </div>
+        )}
       </div>
       <p className="pagehint">วันที่เริ่มมาแก้ได้ถ้าคลาดเคลื่อน{lite ? '' : ' · อายุคำนวณจากวันเกิดให้ทุกวัน'}</p>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
