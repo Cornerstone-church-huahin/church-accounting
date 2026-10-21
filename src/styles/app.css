@@ -659,3 +659,9 @@ span.fundpend__tog { cursor: default; }
 .landrow:last-of-type { border-bottom: 0; }
 .landrow > span:first-child { color: var(--ink-soft); }
 .landrow > b { text-align: right; overflow-wrap: anywhere; }
+
+/* ปุ่มห้องทำงานบนหน้าแรก (แถบเต็มความกว้างใต้ชื่อหน้า) */
+.worknav { display: flex; align-items: center; gap: 0.7rem; margin: 0.3rem 0 0.6rem; padding: 0.55rem 0.8rem; border-radius: 0.8rem; background: #1a2b4c; color: #fff; text-decoration: none; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18); }
+.worknav > span:first-child { font-size: 1.7rem; }
+.worknav b { font-size: 1.1rem; }
+.worknav small { opacity: 0.85; font-size: 0.78rem; }

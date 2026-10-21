@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { fmtBaht, fmtDate } from '../lib/money'
 import { useLoans } from '../lib/data'
 import { summarizeLoans } from '../lib/loans'
@@ -36,11 +36,13 @@ export default function Home() {
   const pickSum = pick.reduce((a, i) => a + (skipped.items[i]?.amount ?? 0), 0)
   const ls = summarizeLoans(useLoans().items)
   const full = tab !== null
+  const inMeeting = useLocation().pathname.startsWith('/meeting') // ในห้องทำงานเองไม่ต้องมีปุ่มกลับเข้าห้องทำงาน
   return (
     <>
       {!full && (
         <>
           <div className="page-head no-print"><h1>บัญชีคริสตจักรศิลาเอก</h1></div>
+          {!inMeeting && <Link to="/meeting" className="worknav no-print"><span aria-hidden="true">🧑‍🤝‍🧑</span><span className="grow"><b>ห้องทำงาน</b><br /><small>ตารางงาน · บันทึกโน้ต · งานเลขา · ทะเบียน · เหรัญญิก</small></span><span aria-hidden="true">›</span></Link>}
           <p className="home-label no-print">เงินคริสตจักร ณ วันนี้ <span>(แตะดูรายละเอียด)</span></p>
           <nav className="balance-tiles no-print" aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
             <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>

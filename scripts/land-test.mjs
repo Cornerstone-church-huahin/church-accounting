@@ -1,4 +1,4 @@
-// หน้าแรก: ช่อง ภาระที่ดิน (6,000,000 ตัวอย่าง) → หน้าต้นแบบ · ห้องทำงานย้ายไปเป็นรายการแรกของ เพิ่มเติม
+// หน้าแรก: ช่อง ภาระที่ดิน (6,000,000 ตัวอย่าง) → หน้าต้นแบบ · ปุ่มห้องทำงานอยู่ด้านบนของหน้าแรก
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -32,13 +32,16 @@ try {
   await noOverflow('land'); await page.screenshot({ path: '/tmp/land-page.png', fullPage: true })
   await page.getByRole('link', { name: '‹ หน้าแรก' }).click()
   must(await page.getByText('เงินคริสตจักร ณ วันนี้').isVisible(), 'back to home')
-  await page.goto(`http://localhost:${PORT}/#/more`)
-  const first = page.locator('.list.card a.item').first()
-  must((await first.innerText()).includes('ห้องทำงาน'), 'เพิ่มเติม: ห้องทำงาน is first')
-  await page.screenshot({ path: '/tmp/land-more.png' })
-  await first.click()
+  const work = page.getByRole('link', { name: /ห้องทำงาน/ })
+  must(await work.isVisible(), 'ปุ่มห้องทำงาน at the top of home')
+  const y = await work.boundingBox(), ty = await tiles.first().boundingBox()
+  must(y.y < ty.y, 'work-room button sits above the money tiles')
+  await page.screenshot({ path: '/tmp/land-home2.png' })
+  await work.click()
   await page.getByRole('heading', { name: /ห้องทำงาน/ }).waitFor({ timeout: 5000 })
-  must(await page.getByRole('heading', { name: /ห้องทำงาน/ }).isVisible(), 'opens the work room')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
+  await page.getByText('เงินคริสตจักร ณ วันนี้').waitFor({ timeout: 5000 })
+  must(await page.getByRole('link', { name: /ห้องทำงาน/ }).count() === 0, 'no work-room button repeated inside the treasurer page of the work room')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('land-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

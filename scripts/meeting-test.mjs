@@ -14,9 +14,8 @@ const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/`)
   must((await page.getByRole('link', { name: 'โหมดประชุม', exact: true }).count()) === 0 && (await page.getByRole('link', { name: 'ลงชื่อนมัสการ' }).count()) === 0, 'top bar has no meeting / members icons')
-  await page.goto(`http://localhost:${PORT}/#/more`)
-  must((await page.locator('.list.card a.item').first().innerText()).includes('ห้องทำงาน'), 'ห้องทำงาน is the first item in เพิ่มเติม')
-  await page.locator('.list.card a.item').first().click()
+  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.getByRole('link', { name: /ห้องทำงาน/ }).click()
   const tiles = page.locator('nav[aria-label^="โหมดประชุม"] a.btile')
   must((await tiles.count()) === 12, 'twelve tabs: ' + await tiles.count())
   const texts = await tiles.allInnerTexts()
@@ -31,10 +30,10 @@ try {
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   await page.getByRole('tab', { name: /รับ/ }).first().click()
   must(await page.getByText('ดาวน์โหลด PDF ไฟล์เปล่า').first().isVisible(), 'income step works inside the tab (sheet + download buttons)')
-  // เมนู เพิ่มเติม → ห้องทำงาน
-  await page.goto(`http://localhost:${PORT}/#/more`)
-  await page.locator('.list.card a.item').first().click()
-  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 12, 'เพิ่มเติม › ห้องทำงาน opens the meeting page with the tabs')
+  // ปุ่มห้องทำงานบนหน้าแรก
+  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.getByRole('link', { name: /ห้องทำงาน/ }).click()
+  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 12, 'หน้าแรก › ห้องทำงาน opens the meeting page with the tabs')
   await page.goto(`http://localhost:${PORT}/#/balance/spare`); await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').first().waitFor({ timeout: 5000 }); must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').count()) === 12, 'old spare route also lands on the meeting page')
   await tiles.nth(2).click()
   // งานทะเบียน = หน้าสมาชิกเต็ม (เปิดที่ ลงชื่อ)
