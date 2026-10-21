@@ -74,3 +74,43 @@ export function paginate(blocks: MBlock[], perPage = 31): MBlock[][] {
   }
   return pages
 }
+
+/** ข้อความล้วนของรายงาน (เก็บเป็นสำเนาประวัติฉบับแก้ไข) */
+export function minutesPlain(m: Meeting): string {
+  const a = attendance(m)
+  const L: string[] = [`รายงานการประชุม${m.name} ครั้งที่ ${m.no}/${m.year}`, `วันที่ ${letterDate(m.date)} เวลา ${timeTh(m.time)} ณ ${m.place}`]
+  if (a.present.length) L.push(`ผู้มาประชุม: ${names(a.present)}`)
+  if (a.leave.length) L.push(`ผู้ลา: ${names(a.leave)}`)
+  if (a.absent.length) L.push(`ผู้ไม่มา: ${names(a.absent)}`)
+  if (m.opened) L.push(`เปิดประชุม ${timeTh(m.opened.time)} โดย ${m.opened.chair}`)
+  for (const { n, item } of orderedAgenda(m)) {
+    const mi = item.minute ?? {}
+    L.push(`วาระที่ ${n} ${item.title}`)
+    if (mi.summary) L.push(`  สาระ: ${mi.summary}`)
+    if (mi.proposal) L.push(`  ข้อเสนอ: ${mi.proposal}`)
+    if (mi.result) L.push(`  มติ: ${resultLine(item)}`)
+    if (mi.yes != null || mi.no != null || mi.abstain != null) L.push(`  คะแนน: เห็นชอบ ${mi.yes ?? 0} ไม่เห็นชอบ ${mi.no ?? 0} งดออกเสียง ${mi.abstain ?? 0}`)
+    if (mi.assignee) L.push(`  ผู้รับผิดชอบ: ${mi.assignee}${mi.due ? ` ภายใน ${letterDate(mi.due)}` : ''}`)
+  }
+  if (m.closed?.time) L.push(`เลิกประชุม ${timeTh(m.closed.time)}${m.closed.next ? ` · นัดครั้งต่อไป ${m.closed.next}` : ''}`)
+  return L.join('\n')
+}
+
+/** ตรวจความถูกต้องของรายงานก่อนส่งประธาน: errors = ต้องแก้ · warns = ควรตรวจ */
+export function checkMinutes(m: Meeting): { basics: { ok: boolean; text: string }[]; numbers: { ok: boolean; text: string }[]; errors: number } {
+  const a = attendance(m)
+  const live = m.agenda.filter((x) => x.title.trim())
+  const basics = [
+    { ok: !!m.name.trim() && m.no > 0, text: 'ชื่อการประชุมและครั้งที่' }, { ok: !!m.date && !!m.time && !!m.place.trim(), text: 'วัน เวลา และสถานที่' },
+    { ok: !!m.chair.trim() && !!m.secretary.trim(), text: 'ชื่อประธานและเลขานุการ' }, { ok: a.present.length > 0, text: 'มีรายชื่อผู้มาประชุม' },
+    { ok: !!m.opened?.time && !!m.closed?.time, text: 'เวลาเปิดและเวลาเลิกประชุม' },
+  ]
+  const numbers = [
+    ...live.map((x, i) => ({ ok: x.purpose !== 'ขอมติ' || !!x.minute?.result, text: `วาระที่ ${i + 1} ${x.purpose === 'ขอมติ' ? 'มีมติที่ประชุม' : 'มีบันทึก'}` })).filter((_, i) => live[i].purpose === 'ขอมติ' || !live[i].minute?.summary),
+    ...live.filter((x) => (x.minute?.yes ?? 0) + (x.minute?.no ?? 0) + (x.minute?.abstain ?? 0) > a.present.length && a.present.length > 0).map((x) => ({ ok: false, text: `ผลคะแนนวาระ “${x.title}” รวมเกินผู้มาประชุม` })),
+    ...live.filter((x) => x.minute?.assignee && !x.minute?.due).map((x) => ({ ok: false, text: `วาระ “${x.title}” มีผู้รับผิดชอบแต่ยังไม่มีกำหนดเสร็จ` })),
+    ...live.filter((x) => x.minute?.result === 'มีเงื่อนไข' && !x.minute?.condition?.trim()).map((x) => ({ ok: false, text: `วาระ “${x.title}” มติมีเงื่อนไขแต่ยังไม่ระบุเงื่อนไข` })),
+  ]
+  if (numbers.length === 0) numbers.push({ ok: true, text: 'มติ ผลคะแนน ผู้รับผิดชอบ และกำหนดเสร็จ สอดคล้องกัน' })
+  return { basics, numbers, errors: [...basics, ...numbers].filter((x) => !x.ok).length }
+}

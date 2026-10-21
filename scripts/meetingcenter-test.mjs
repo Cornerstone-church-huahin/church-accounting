@@ -1,4 +1,4 @@
-// ศูนย์จัดการประชุม: เมนู 10 ขั้น · จัดหน้า 4/2/1 ต่อแถว · ขั้น 1–3 ทำงานจริง (สร้างการประชุม จัดวาระ แจ้งประชุม) · แถบเช็คด้านล่าง · หัวจดหมาย A4 · ขั้น 4–10 ยังเป็นหน้าอธิบาย
+// ศูนย์จัดการประชุม: เมนู 10 ขั้น · จัดหน้า 4/2/1 ต่อแถว · ขั้น 1–3 ทำงานจริง (สร้างการประชุม จัดวาระ แจ้งประชุม) · แถบเช็คด้านล่าง · หัวจดหมาย A4 · ขั้น 4–10 ทำงานจริง (ลายเซ็น PDF)
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -37,7 +37,7 @@ try {
   for (let n = 1; n <= 10; n++) {
     await page.goto(`http://localhost:${PORT}/#/meeting/1/1`)
     await btns.nth(n - 1).click()
-    if (n <= 6) await page.getByText('คำอธิบายขั้นตอนนี้').click()
+    if (n <= 10) await page.getByText('คำอธิบายขั้นตอนนี้').click()
     await page.getByRole('heading', { name: `${n}. ${TITLES[n - 1]}`, level: 1 }).waitFor({ timeout: 5000 })
     const items = await page.getByRole('list', { name: `หัวข้อของ ${TITLES[n - 1]}` }).locator('li').allInnerTexts()
     must(items.length === 6 && items.every((t, i) => t.startsWith(`${n}.${i + 1}`)), `step ${n} has six numbered items: ` + items.map((t) => t.slice(0, 8)).join('|'))
@@ -47,8 +47,7 @@ try {
     must(await page.getByRole('link', { name: '‹ กลับศูนย์จัดการประชุม' }).isVisible() && await page.getByRole('link', { name: 'กลับศูนย์จัดการประชุม', exact: true }).isVisible(), `step ${n} back buttons`)
     const prev = await page.getByRole('link', { name: /ขั้นตอนก่อนหน้า/ }).count(), next = await page.getByRole('link', { name: /ขั้นตอนถัดไป/ }).count()
     must(prev === (n > 1 ? 1 : 0) && next === (n < 10 ? 1 : 0), `step ${n} prev/next: ${prev}/${next}`)
-    if (n >= 7) must(await page.locator('.mcenter button, .mcenter input, .mcenter textarea, .mcenter select').count() === 0, `step ${n} has no fake action buttons or forms yet`)
-    if (n >= 7) must(!/ความคืบหน้า|เสร็จแล้ว|ส่งแล้ว|อนุมัติแล้ว/.test(await page.locator('.mcenter').innerText()), `step ${n} shows no progress status`)
+    if (n >= 7) must(/ยังไม่มีการประชุม/.test(await page.locator('main').innerText()), `step ${n} asks to create a meeting first`)
     await noOverflow(page, `step ${n} @390`)
   }
   // ===== ใช้งานจริง ขั้น 1–3 =====
@@ -145,6 +144,47 @@ try {
   must(await bar.locator('.mcbar__dot--done').count() === 6 && /บันทึกแล้ว 2\/2 วาระ/.test(await wp.locator('main').innerText()), 'all agenda items recorded + closing time → step 6 ✓')
   await wp.reload(); await wp.locator('#mt-close-time').waitFor({ timeout: 8000 })
   must((await wp.locator('#mt-close-time').inputValue()) === '20:30' && (await wp.locator('.mcbar__dot--done').count()) === 6, 'steps 4–6 persisted after reload')
+  // ===== ขั้น 7–10 =====
+  const barLink = (n) => wp.locator('.mcbar').getByRole('link', { name: new RegExp(`^ขั้นที่ ${n} `) })
+  await barLink(7).click(); await wp.getByRole('heading', { name: '7. ส่งประธานตรวจ', level: 1 }).waitFor({ timeout: 5000 })
+  must(/รายงานการประชุม/.test(await wp.locator('.letter').first().innerText()) && /รับทราบรายงานการเงินประจำเดือน/.test(await wp.locator('main').innerText()), 'step 7 draft minutes show the recorded content')
+  must(await wp.getByRole('button', { name: 'บันทึกว่าประธานตรวจฉบับนี้แล้ว' }).isDisabled(), 'chair cannot be marked before sending')
+  must(await wp.getByRole('button', { name: /✍️ ประธานลงลายเซ็น/ }).isDisabled(), 'chair signature locked before review')
+  await wp.getByRole('button', { name: /บันทึกฉบับและส่งให้ประธานตรวจ/ }).click()
+  must(/ส่งให้ประธานแล้ว/.test(await wp.locator('main').innerText()) && /ฉบับที่ 1 /.test(await wp.locator('main').innerText()), 'sent to the chair, version 1 recorded')
+  await wp.getByRole('button', { name: 'บันทึกว่าประธานตรวจฉบับนี้แล้ว' }).click()
+  must(/ตรวจฉบับล่าสุดแล้ว/.test(await wp.locator('main').innerText()), 'chair reviewed')
+  const drawSig = async (name) => {
+    await wp.getByRole('button', { name }).click()
+    const c = wp.getByLabel('กรอบเซ็นชื่อ'); await c.evaluate((e) => e.scrollIntoView({ block: 'center' })); const b = await c.boundingBox()
+    await wp.mouse.move(b.x + 20, b.y + 30); await wp.mouse.down(); await wp.mouse.move(b.x + 120, b.y + 80, { steps: 6 }); await wp.mouse.move(b.x + 200, b.y + 40, { steps: 6 }); await wp.mouse.up()
+    await wp.getByRole('button', { name: 'ใช้ลายเซ็นนี้' }).click()
+  }
+  await drawSig(/✍️ ประธานลงลายเซ็น/)
+  must(await wp.getByRole('region', { name: '7.4 ประธานตรวจและลงนาม' }).locator('img').count() === 1 && await wp.locator('.mcbar__dot--done').count() === 7, 'chair signature saved → step 7 ✓ ' + await wp.locator('main img[alt^="ลายเซ็น"]').count() + ' ' + await wp.locator('.mcbar__dot--done').count())
+  await wp.locator('#mt-close-time').count()
+  await barLink(8).click(); await wp.getByRole('heading', { name: '8. รอที่ประชุมรับรอง', level: 1 }).waitFor({ timeout: 5000 })
+  await wp.getByRole('button', { name: 'บันทึกว่าแจกแล้ว' }).click()
+  await wp.getByLabel('ข้อสังเกตใหม่').fill('แก้ชื่อในวาระที่ 2'); await wp.getByRole('button', { name: '＋ เพิ่ม' }).click()
+  must(/แก้ชื่อในวาระที่ 2/.test(await wp.locator('main').innerText()), 'objection recorded')
+  await wp.getByLabel('บรรจุวาระรับรองแล้ว').check()
+  await wp.getByLabel(/ผู้รับผิดชอบ ทดสอบ/).check()
+  must(await wp.locator('.mcbar__dot--done').count() === 8, 'step 8 ✓ after distributing and queuing')
+  await barLink(9).click(); await wp.getByRole('heading', { name: '9. รับรอง / ลงนาม', level: 1 }).waitFor({ timeout: 5000 })
+  must(await wp.getByRole('button', { name: /✍️ เซ็นใหม่/ }).isDisabled(), 'final signing locked before approval result')
+  await wp.getByLabel('ผล', { exact: true }).selectOption('รับรองโดยไม่แก้ไข')
+  await wp.locator('#s9-d').fill('2026-12-13'); await wp.locator('#s9-d').blur(); await wp.locator('#s9-n').fill('2/2026'); await wp.locator('#s9-n').blur()
+  must(/การรับรองรายงาน/.test(await wp.locator('.letter').first().innerText()) || /การรับรองรายงาน/.test(await wp.locator('main').innerText()), 'final shows approval box')
+  await drawSig(/✍️ เซ็นใหม่/)
+  must(await wp.locator('.mcbar__dot--done').count() === 9, 'approved and signed → step 9 ✓')
+  const dlf = wp.waitForEvent('download', { timeout: 30000 }); await wp.getByRole('button', { name: /ดาวน์โหลด PDF ฉบับสมบูรณ์/ }).click()
+  const df = await dlf; must(df.suggestedFilename() === 'meeting-minutes-final-1-2026.pdf' && fs.readFileSync(await df.path()).subarray(0, 5).toString() === '%PDF-', 'final PDF downloads')
+  await barLink(10).click(); await wp.getByRole('heading', { name: '10. เก็บเอกสาร', level: 1 }).waitFor({ timeout: 5000 })
+  await wp.getByLabel('ค้นหามติ').fill('ผู้รับผิดชอบ ทดสอบ')
+  must(/ขออนุมัติงบซ่อมแซมหลังคา/.test(await wp.locator('main').innerText()), 'resolution register search')
+  await wp.getByRole('button', { name: /เก็บเอกสารเข้าแฟ้ม/ }).click()
+  must(await wp.locator('.mcbar__dot--done').count() === 10, 'archived → all ten steps ✓')
+  must(await wp.locator('[data-credit="app"]').count() === 1, 'app credit on step 10')
   // หัวจดหมาย: แอดมินตั้งจากรูปจดหมายตัวอย่าง → หัวขึ้นบนเอกสาร
   await wp.goto(U); await wp.getByRole('button', { name: /ตั้งค่าหัวจดหมาย/ }).click()
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR4nGP8z8Dwn4EIwESMolGFOAEA7WwBDxMJDjEAAAAASUVORK5CYII=', 'base64')
