@@ -104,6 +104,22 @@ try {
   await page.getByRole('button', { name: 'ลบ ประชุมต้นเดือน' }).click(); await page.getByRole('button', { name: 'ปิด' }).click()
   await cal.getByRole('button', { name: 'เดือนถัดไป' }).click()
   must(await cal.locator('.wcal__day:not(.out) .wcal__chip', { hasText: 'ประชุมต้นเดือน' }).count() === 0, 'delete whole series')
+  // เลือกวันที่เองหลายวัน: 23–26 แล้วเอา 25 ออก
+  await page.goto(`${U}/meeting/1`)
+  const now = new Date(), ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  await cal.getByRole('button', { name: 'วันนี้' }).click()
+  await cal.locator('.wcal__day:not(.out)').nth(22).click()
+  await page.getByLabel('ชื่อกิจกรรม').fill('เข้าค่ายเยาวชน')
+  await page.getByLabel('ทำซ้ำ', { exact: true }).selectOption('dates')
+  await page.getByLabel('เลือกต่อเนื่องถึงวันที่').fill(`${ym}-26`)
+  must(await page.getByText(/เลือกแล้ว 4 วัน: วันที่ 23–26/).isVisible(), 'range 23–26 selected from the "ถึงวันที่" input')
+  await page.getByRole('button', { name: /^เลือก วัน\S+ที่ 25 / }).first().click()
+  must(await page.getByText(/เลือกแล้ว 3 วัน: วันที่ 23, 24, 26/).isVisible(), 'tap a day to remove it')
+  await page.getByRole('button', { name: '＋ เพิ่ม' }).click()
+  must(await page.getByText(/วันที่ 23, 24, 26/).first().isVisible(), 'list shows the picked dates')
+  await page.getByRole('button', { name: 'ปิด' }).click()
+  const camp = (n) => cal.locator('.wcal__day:not(.out)').nth(n - 1).locator('.wcal__chip', { hasText: 'เข้าค่ายเยาวชน' }).count()
+  must(await camp(23) === 1 && await camp(24) === 1 && await camp(25) === 0 && await camp(26) === 1 && await camp(27) === 0, 'chips only on the picked days')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('calendar-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

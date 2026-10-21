@@ -646,3 +646,7 @@ span.fundpend__tog { cursor: default; }
 
 .wchip { min-width: 2.6rem; min-height: 2.4rem; border-radius: 999px; border: 2px solid var(--navy); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .wchip[aria-pressed='true'] { background: var(--navy); color: #fff; font-weight: 700; }
+
+.wpick { min-height: 2.4rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.wpick.out { opacity: 0.45; }
+.wpick[aria-pressed='true'] { background: var(--navy); color: #fff; font-weight: 700; border-color: var(--navy); opacity: 1; }

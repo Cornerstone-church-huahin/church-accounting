@@ -55,11 +55,11 @@ function* generate(anchor: string, r: Repeat, end: string): Generator<string> {
 }
 
 /** วันที่ในช่วง [from, to] ที่กิจกรรมนี้เกิดขึ้น (รวมการทำซ้ำ · ตัดวันที่ยกเว้นออก) */
-export function occurrences(ev: Pick<CalEvent, 'date' | 'repeat' | 'exdates'>, from: string, to: string): string[] {
+export function occurrences(ev: Pick<CalEvent, 'date' | 'repeat' | 'exdates' | 'extra'>, from: string, to: string): string[] {
   const ex = new Set(ev.exdates ?? [])
   const out: string[] = []
   const r = ev.repeat
-  if (!r) return ev.date >= from && ev.date <= to && !ex.has(ev.date) ? [ev.date] : []
+  if (!r) return [...new Set([ev.date, ...(ev.extra ?? [])])].filter((d) => d >= from && d <= to && !ex.has(d)).sort()
   const end = r.until && r.until < to ? r.until : to
   let n = 0
   for (const d of generate(ev.date, r, end)) {
@@ -69,10 +69,10 @@ export function occurrences(ev: Pick<CalEvent, 'date' | 'repeat' | 'exdates'>, f
   return out
 }
 
-export type RepeatKind = 'none' | 'daily' | 'weekly' | 'weekdays' | 'monthly-date' | 'monthly-nth' | 'monthly-last' | 'yearly' | 'custom'
+export type RepeatKind = 'none' | 'dates' | 'daily' | 'weekly' | 'weekdays' | 'monthly-date' | 'monthly-nth' | 'monthly-last' | 'yearly' | 'custom'
 
 /** ตัวเลือกสำเร็จรูปของ “ทำซ้ำ” (อิงวันที่ของกิจกรรม) */
-export function presetRepeat(kind: Exclude<RepeatKind, 'none' | 'custom'>, anchor: string): Repeat {
+export function presetRepeat(kind: Exclude<RepeatKind, 'none' | 'dates' | 'custom'>, anchor: string): Repeat {
   switch (kind) {
     case 'daily': return { freq: 'day', every: 1 }
     case 'weekly': return { freq: 'week', every: 1, days: [dow(anchor)] }
@@ -86,7 +86,7 @@ export function presetRepeat(kind: Exclude<RepeatKind, 'none' | 'custom'>, ancho
 const same = (a: Repeat, b: Repeat) => a.freq === b.freq && a.every === b.every && a.by === b.by && [...(a.days ?? [])].sort().join() === [...(b.days ?? [])].sort().join()
 export function kindOf(r: Repeat | undefined, anchor: string): RepeatKind {
   if (!r) return 'none'
-  const ks: Exclude<RepeatKind, 'none' | 'custom'>[] = ['daily', 'weekly', 'weekdays', 'monthly-date', 'monthly-nth', 'monthly-last', 'yearly']
+  const ks: Exclude<RepeatKind, 'none' | 'dates' | 'custom'>[] = ['daily', 'weekly', 'weekdays', 'monthly-date', 'monthly-nth', 'monthly-last', 'yearly']
   return ks.find((k) => same({ ...r, days: r.freq === 'week' ? r.days ?? [dow(anchor)] : undefined }, presetRepeat(k, anchor))) ?? 'custom'
 }
 /** ข้อความอธิบายตัวเลือกสำเร็จรูป เช่น “ทุกสัปดาห์ (วันพฤหัสบดี)” */
@@ -94,6 +94,7 @@ export function kindLabel(k: RepeatKind, anchor: string): string {
   const d = Number(anchor.slice(8)), m = Number(anchor.slice(5, 7)), w = DAY_NAMES[dow(anchor)]
   switch (k) {
     case 'none': return 'ไม่ซ้ำ'
+    case 'dates': return 'เลือกวันที่เอง (เช่น 23, 24, 25, 26)…'
     case 'daily': return 'ทุกวัน'
     case 'weekly': return `ทุกสัปดาห์ (วัน${w})`
     case 'weekdays': return 'ทุกวันธรรมดา (จันทร์–ศุกร์)'
@@ -118,4 +119,22 @@ export function describeRepeat(r: Repeat | undefined, anchor: string): string {
   } else if (r.freq === 'month') t = `${n}เดือน ${r.by === 'last' ? 'วันสุดท้ายของเดือน' : r.by === 'nth' ? `วัน${DAY_NAMES[dow(anchor)]}ที่ ${nthOf(d)}` : `วันที่ ${d}`}`
   else t = `${n}ปี (${d} ${monthName(Number(anchor.slice(5, 7)))})`
   return t + (r.until ? ` · ถึง ${fmtDate(r.until)}` : r.count ? ` · ${r.count} ครั้ง` : '')
+}
+
+/** วันที่ทุกวันในช่วง from–to (รวมสองปลาย · ไม่เกิน 62 วัน) */
+export function dateRange(from: string, to: string): string[] {
+  const out: string[] = []
+  for (let d = from; d <= to && out.length < 62; d = addDays(d, 1)) out.push(d)
+  return out
+}
+
+/** สรุปวันที่ที่เลือกเอง เช่น “วันที่ 23–26 ต.ค. 69” หรือ “วันที่ 23, 25 ต.ค. 69” (ข้ามเดือนแสดงเต็มทีละวัน) */
+export function describeDates(date: string, extra: string[] | undefined): string {
+  const ds = [...new Set([date, ...(extra ?? [])])].sort()
+  if (ds.length < 2) return ''
+  if (ds[0].slice(0, 7) !== ds[ds.length - 1].slice(0, 7)) return ds.map(fmtDate).join(', ')
+  const nums = ds.map((d) => Number(d.slice(8)))
+  const run = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1)
+  const tail = fmtDate(ds[0]).split(' ').slice(1).join(' ')
+  return `วันที่ ${run ? `${nums[0]}–${nums[nums.length - 1]}` : nums.join(', ')} ${tail}`
 }
