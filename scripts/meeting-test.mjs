@@ -78,7 +78,7 @@ try {
   must(tabs4[0].includes('👥'), 'สมาชิก tile has the members icon')
   for (const parent of ['สมาชิก', 'ตารางเยี่ยม']) {
     await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
-    await page.getByRole('heading', { name: new RegExp(parent) }).waitFor({ timeout: 5000 })
+    await page.getByRole('heading', { name: new RegExp(parent), level: 1 }).waitFor({ timeout: 5000 })
     must((parent === 'สมาชิก' ? /1 · ตัวเลขสำคัญ/ : new RegExp(`${parent} — ยังว่าง`)).test(await page.locator('main').innerText()) && await page.locator('.tiletabs').count() === 0, parent + ' opens a full page without sub tabs')
     await page.getByRole('link', { name: '‹ งานอภิบาล' }).click()
   }
