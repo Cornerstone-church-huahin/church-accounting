@@ -3,6 +3,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
+import TileTabs from '../components/TileTabs'
 import WorkCalendar from '../components/WorkCalendar'
 import { MEETING_TABS } from '../lib/workTabs'
 
@@ -19,18 +20,18 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
 
 /** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วแท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) */
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
+const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** งานเลขา: แท็บแรกตั้งชื่อ “การประชุม” ไว้แล้ว */
 const SECRETARY_LABELS = ['การประชุม', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 function WorkTabs({ n, name, labels = DEFAULT_LABELS }: { n: number; name: string; labels?: string[] }) {
   const [t, setT] = useState(0)
+  const cur = Math.min(t, labels.length - 1)
   return (
     <>
       <div className="page-head"><h1>{name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
       <CalToggle n={n} />
-      <div className="seg seg--6 no-print" role="tablist" aria-label={`หมวด${name}`}>
-        {labels.map((k, i) => <button key={k} type="button" role="tab" aria-selected={t === i} className={t === i ? 'on' : ''} onClick={() => setT(i)}>{k}</button>)}
-      </div>
-      <section className="card" aria-label={`${name} ${labels[t]}`}><p className="empty">{labels[t]} — ยังว่าง (รอพัฒนา)</p></section>
+      <TileTabs label={`หมวด${name}`} value={String(cur)} onChange={(k) => setT(Number(k))} items={labels.map((l, i) => ({ key: String(i), label: l, icon: TAB_ICONS[i % TAB_ICONS.length] }))} />
+      <section className="card" aria-label={`${name} ${labels[cur]}`}><p className="empty">{labels[cur]} — ยังว่าง (รอพัฒนา)</p></section>
     </>
   )
 }

@@ -680,3 +680,11 @@ span.fundpend__tog { cursor: default; }
   .btile { padding: 0.5rem 0.3rem 0.55rem; }
   .stepbtn { min-height: 3.5rem; }
 }
+
+/* เมนูแท็บแบบช่องสี (ห้องทำงาน) */
+.tiletabs { margin: 0.2rem 0 0.8rem; }
+.tiletabs button.btile { font: inherit; cursor: pointer; border: 0; min-height: 4.2rem; justify-content: center; }
+.tiletabs .btile small { font-size: 1.4rem; line-height: 1.1; opacity: 1; }
+.tiletabs .btile b { font-size: 0.95rem; }
+.tiletabs .btile[aria-selected='true'] { outline: 3px solid #d4af37; outline-offset: 2px; }
+.tiletabs .btile[aria-selected='false'] { opacity: 0.88; }

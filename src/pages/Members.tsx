@@ -14,7 +14,8 @@ import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
+import TileTabs from '../components/TileTabs'
 import CheckinPanel, { RecorderChip } from '../components/CheckinPanel'
 import BirthdayList from '../components/BirthdayList'
 import GenderView from '../components/GenderView'
@@ -33,6 +34,7 @@ function MembersPage() {
   const role = useRole()
   const canEdit = can(role, 'registry')
   const canLog = can(role, 'worship')
+  const inRoom = useLocation().pathname.startsWith('/meeting') // ในห้องทำงาน: เมนูแท็บเป็นช่องสีเหมือนหน้าแรก
   const startTab = useSearchParams()[0].get('tab') // ไอคอนลัดที่หัวแอปเปิดมาที่แท็บ ลงชื่อ ทันที
   /** ผู้บันทึกการนมัสการ: ไม่เห็นเบอร์โทร วันเกิด สถานะทะเบียน */
   const lite = role === 'worship'
@@ -67,11 +69,15 @@ function MembersPage() {
   return (
     <>
       <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
-      <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
-        {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-        ))}
-      </div>
+      {inRoom ? (
+        <TileTabs label="หมวด" value={tab} onChange={setTab} items={(lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).map(([key, label, icon]) => ({ key, label, icon }))} />
+      ) : (
+        <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
+          {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
+          ))}
+        </div>
+      )}
       {!lite && tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
@@ -448,7 +454,7 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, put, remove
           <div key={k} className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.35rem 0', flexWrap: 'nowrap' }}>
             <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>{k}</dt>
             <dd style={{ margin: 0, textAlign: 'right', wordBreak: 'break-word' }}>{v || <span className="muted">—</span>}</dd>
-          </div>
+        </div>
         ))}
         {!lite && (
         <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
