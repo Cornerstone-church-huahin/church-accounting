@@ -28,7 +28,7 @@ export default function LeafletMap({ pins = [], pick, onPick, height = 320, labe
     map.current = m
     const ro = new ResizeObserver(() => m.invalidateSize())
     ro.observe(box.current)
-    return () => { ro.disconnect(); m.remove(); map.current = null; layer.current = null; pickMark.current = null }
+    return () => { ro.disconnect(); m.stop(); m.remove(); map.current = null; layer.current = null; pickMark.current = null }
   }, [])
 
   // หมุดหลายจุด
@@ -42,8 +42,8 @@ export default function LeafletMap({ pins = [], pick, onPick, height = 320, labe
       if (p.sub) { el.appendChild(document.createElement('br')); const s = document.createElement('span'); s.textContent = p.sub; el.appendChild(s) }
       L.marker([p.lat, p.lng], { icon: dot(), title: p.label }).bindPopup(el).addTo(g)
     }
-    if (pins.length > 1) m.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number])), { padding: [24, 24], maxZoom: 17 })
-    else if (pins.length === 1) m.setView([pins[0].lat, pins[0].lng], 16)
+    if (pins.length > 1) m.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number])), { padding: [24, 24], maxZoom: 17, animate: false })
+    else if (pins.length === 1) m.setView([pins[0].lat, pins[0].lng], 16, { animate: false })
   }, [pins])
 
   // โหมดเลือกจุด
@@ -56,7 +56,7 @@ export default function LeafletMap({ pins = [], pick, onPick, height = 320, labe
       mk.on('dragend', () => { const p = mk.getLatLng(); onPickRef.current?.({ lat: Math.round(p.lat * 1e6) / 1e6, lng: Math.round(p.lng * 1e6) / 1e6 }) })
       pickMark.current = mk
     } else pickMark.current.setLatLng([pick.lat, pick.lng])
-    m.setView([pick.lat, pick.lng], Math.max(m.getZoom(), 16))
+    m.setView([pick.lat, pick.lng], Math.max(m.getZoom(), 16), { animate: false })
   }, [pick?.lat, pick?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={box} className="leafletbox" style={{ height }} role="application" aria-label={label} data-pins={pins.length} />
