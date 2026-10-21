@@ -665,3 +665,18 @@ span.fundpend__tog { cursor: default; }
 .worknav > span:first-child { font-size: 1.7rem; }
 .worknav b { font-size: 1.1rem; }
 .worknav small { opacity: 0.85; font-size: 0.78rem; }
+
+/* หน้าแรก: ปุ่มขั้นตอน รับ/จ่าย/ปรับ/สรุป ย่อให้พอดีหนึ่งจอมือถือ */
+.stepgrid { gap: 0.45rem; margin: 0.3rem 0 0.6rem; }
+.stepbtn { min-height: 3.9rem; gap: 0.1rem; padding: 0.35rem 0.3rem; border-radius: 0.8rem; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
+.stepbtn__top { font-size: 1.25rem; gap: 0.4rem; }
+.stepbtn .hn { width: 1.45rem; height: 1.45rem; font-size: 0.85rem; }
+.stepbtn small { font-size: 0.76rem; }
+.home-label--steps { margin-top: 0.8rem; padding-top: 0.55rem; }
+.worknav .grow { min-width: 0; }
+.worknav small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-height: 780px) {
+  .home-label { margin-top: 0.5rem; }
+  .btile { padding: 0.5rem 0.3rem 0.55rem; }
+  .stepbtn { min-height: 3.5rem; }
+}
