@@ -2,7 +2,7 @@ import type { StepProps } from './Step1'
 import { AgendaBody } from './docs'
 import { SelectField, TextField } from './fields'
 import LetterPage from '../LetterPage'
-import { AGENDA_GROUPS, blankAgenda, carryOver, letterDate, PURPOSES } from '../../lib/meetings'
+import { AGENDA_GROUPS, blankAgenda, carryOver, letterDate, moveAgenda, PURPOSES } from '../../lib/meetings'
 import { newId } from '../../lib/money'
 import type { MtAgenda } from '../../lib/types'
 import { useRef } from 'react'
@@ -14,13 +14,7 @@ export default function Step2({ m, save, list }: StepProps) {
   // แก้วาระหลังประธานเห็นชอบแล้ว = ต้องให้ประธานเห็นชอบใหม่
   const setAgenda = (agenda: MtAgenda[]) => save({ agenda, agendaOk: undefined })
   const patch = (id: string, p: Partial<MtAgenda>) => setAgenda(m.agenda.map((a) => (a.id === id ? { ...a, ...p } : a)))
-  const move = (id: string, d: number) => {
-    const i = m.agenda.findIndex((a) => a.id === id), g = m.agenda[i].group
-    let j = i + d
-    while (j >= 0 && j < m.agenda.length && m.agenda[j].group !== g) j += d // เลื่อนภายในกลุ่มเดียวกัน
-    if (j < 0 || j >= m.agenda.length) return
-    const c = [...m.agenda]; [c[i], c[j]] = [c[j], c[i]]; setAgenda(c)
-  }
+  const move = (id: string, d: number) => setAgenda(moveAgenda(m.agenda, id, d))
   const carried = carryOver(list, m).filter((c) => !m.agenda.some((a) => a.carried && a.title === c.title))
   const items = m.agenda.filter((a) => a.title.trim())
   const ready = items.length > 0 && !!m.chair.trim()

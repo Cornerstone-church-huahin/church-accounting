@@ -39,7 +39,20 @@ export function carryOver(list: Meeting[], current: Meeting): MtAgenda[] {
 }
 
 /** สถานะของแต่ละขั้น (ใช้แสดงเครื่องหมายถูกด้านล่าง) — คำนวณจากข้อมูลที่กรอกจริงเท่านั้น */
-export function stepStatuses(m: Meeting): Record<number, StepStatus> {
+/** การประชุมครั้งก่อนที่มีรายงาน (มีบันทึกสาระ/มติอย่างน้อย 1 วาระ) */
+export function previousMeeting(list: Meeting[], m: Meeting): Meeting | undefined {
+  return list.filter((x) => !x.deleted && x.id !== m.id && x.date && x.date < (m.date || '9999-12-31') && x.agenda.some((a) => a.minute && (a.minute.summary || a.minute.result))).sort((a, b) => b.date.localeCompare(a.date))[0]
+}
+export const hasVoteItems = (m: Meeting) => m.agenda.some((a) => a.title.trim() && a.purpose === 'ขอมติ')
+/** รายการเตรียมเอกสารที่ต้องติ๊กครบก่อนถือว่าพร้อมประชุม (ขั้น 4) */
+export function prepKeys(m: Meeting, list: Meeting[]): string[] {
+  return ['sign', 'agenda', ...(previousMeeting(list, m) ? ['prev'] : []), 'form', ...(hasVoteItems(m) ? ['ballot'] : []), 'c_cnt', 'c_names', 'c_date', 'c_attach']
+}
+
+/** วาระนี้บันทึกครบแล้วหรือยัง: วาระที่ขอมติต้องมีมติ · วาระอื่นต้องมีสาระสำคัญหรือมติ */
+export const minuteComplete = (a: MtAgenda) => (a.purpose === 'ขอมติ' ? !!a.minute?.result : !!(a.minute?.summary?.trim() || a.minute?.result))
+
+export function stepStatuses(m: Meeting, list: Meeting[] = []): Record<number, StepStatus> {
   const required = [m.name, m.date, m.time, m.place, m.chair, m.secretary]
   const filled = required.filter(has).length + (m.no > 0 ? 1 : 0) + (m.year > 0 ? 1 : 0)
   const people = m.people.filter((p) => has(p.name))
@@ -49,12 +62,41 @@ export function stepStatuses(m: Meeting): Record<number, StepStatus> {
   s[2] = ag.length > 0 && m.agendaOk ? { state: 'done', hint: 'ประธานเห็นชอบวาระแล้ว' } : ag.length > 0 ? { state: 'partial', hint: 'รอประธานเห็นชอบวาระ' } : { state: 'todo', hint: 'ยังไม่มีวาระ' }
   const n = m.notice
   s[3] = n?.sentAt ? { state: 'done', hint: 'แจ้งประชุมแล้ว' } : n && (n.channels.length > 0 || has(n.body)) ? { state: 'partial', hint: 'ยังไม่ได้บันทึกว่าแจ้งแล้ว' } : { state: 'todo', hint: 'ยังไม่ได้แจ้ง' }
-  s[4] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
-  s[5] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
-  s[6] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
+  const keys = prepKeys(m, list), ticked = keys.filter((k) => m.prep?.[k]).length
+  s[4] = ticked === keys.length ? { state: 'done', hint: 'เอกสารพร้อมประชุม' } : ticked > 0 ? { state: 'partial', hint: `เตรียมแล้ว ${ticked}/${keys.length} รายการ` } : { state: 'todo', hint: 'ยังไม่ได้เตรียมเอกสาร' }
+  const att = attendance(m), marked = att.voters.length - att.unmarked.length
+  s[5] = m.opened?.agendaConfirmed ? { state: 'done', hint: `เปิดประชุมแล้ว (มา ${att.present.length} คน)` } : m.opened || marked > 0 ? { state: 'partial', hint: m.opened ? 'ยังไม่ยืนยันวาระ' : att.present.length >= quorumNeeded(m) ? 'ครบองค์ประชุม รอเปิดประชุม' : 'ยังไม่ครบองค์ประชุม' } : { state: 'todo', hint: 'ยังไม่ได้ลงชื่อผู้มาประชุม' }
+  const items = m.agenda.filter((a) => a.title.trim()), doneItems = items.filter(minuteComplete).length
+  s[6] = items.length > 0 && doneItems === items.length && m.closed?.time ? { state: 'done', hint: 'บันทึกครบทุกวาระ' } : doneItems > 0 || m.closed?.time ? { state: 'partial', hint: `บันทึกแล้ว ${doneItems}/${items.length} วาระ${m.closed?.time ? '' : ' · ยังไม่มีเวลาเลิกประชุม'}` } : { state: 'todo', hint: 'ยังไม่ได้บันทึกประชุม' }
   s[7] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
   s[8] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
   s[9] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
   s[10] = { state: 'todo', hint: 'ยังไม่เปิดใช้' }
   return s
 }
+
+/** เลื่อนวาระขึ้น/ลงภายในกลุ่มเดียวกัน (คืนลำดับใหม่ · ไม่มีที่ให้เลื่อน = ลำดับเดิม) */
+export function moveAgenda(agenda: MtAgenda[], id: string, d: number): MtAgenda[] {
+  const i = agenda.findIndex((a) => a.id === id)
+  if (i < 0) return agenda
+  const g = agenda[i].group
+  let j = i + d
+  while (j >= 0 && j < agenda.length && agenda[j].group !== g) j += d
+  if (j < 0 || j >= agenda.length) return agenda
+  const c = [...agenda]; [c[i], c[j]] = [c[j], c[i]]
+  return c
+}
+
+/** ผู้ประชุมแยกตามการมา (ขั้น 5) */
+export function attendance(m: Meeting) {
+  const live = m.people.filter((p) => p.name.trim())
+  const voters = live.filter((p) => p.kind !== 'ผู้เข้าร่วมอื่น')
+  return {
+    present: voters.filter((p) => p.att === 'มา'), leave: voters.filter((p) => p.att === 'ลา'),
+    absent: voters.filter((p) => p.att === 'ไม่มา'), unmarked: voters.filter((p) => !p.att),
+    guests: live.filter((p) => p.kind === 'ผู้เข้าร่วมอื่น' && p.att === 'มา'), voters,
+  }
+}
+/** จำนวนองค์ประชุมขั้นต่ำ: ตั้งเอง หรือมากกว่าครึ่งหนึ่งของกรรมการ+ผู้มีสิทธิ์ลงคะแนน */
+export const quorumNeeded = (m: Meeting) => m.quorumMin && m.quorumMin > 0 ? m.quorumMin : Math.floor(attendance(m).voters.length / 2) + 1
+

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blankAgenda, blankMeeting, blankPerson, carryOver, letterDate, nextNo, refNo, stepStatuses } from './meetings'
+import { attendance, blankAgenda, blankMeeting, blankPerson, carryOver, hasVoteItems, letterDate, minuteComplete, moveAgenda, nextNo, prepKeys, previousMeeting, quorumNeeded, refNo, stepStatuses } from './meetings'
 import { defaultNoticeBody, orderedAgenda, timeTh } from '../components/meeting/docs'
 import type { Meeting } from './types'
 
@@ -35,7 +35,9 @@ describe('ศูนย์จัดการประชุม', () => {
     const m = { ...full(), agenda: [{ ...blankAgenda(), title: 'เสนอ', group: 'เรื่องเสนอพิจารณา' as const }, { ...blankAgenda(), title: 'ทราบ', group: 'แจ้งเพื่อทราบ' as const, purpose: 'ทราบ' as const }, { ...blankAgenda(), title: '' }] }
     expect(orderedAgenda(m).map((x) => [x.n, x.item.title])).toEqual([[1, 'ทราบ'], [2, 'เสนอ']])
     const b = defaultNoticeBody(m)
-    expect(b).toContain('ครั้งที่ 3/2026') && expect(b).toContain('15 พฤศจิกายน 2026') && expect(b).toContain('18.30 น.')
+    expect(b).toContain('ครั้งที่ 3/2026')
+    expect(b).toContain('15 พฤศจิกายน 2026')
+    expect(b).toContain('18.30 น.')
   })
   it('เรื่องค้างจากครั้งก่อน: เลื่อนพิจารณา/มีเงื่อนไข/งานที่ยังไม่เสร็จ', () => {
     const prev: Meeting = { ...full(), id: 'p', date: '2026-10-01', agenda: [
@@ -44,5 +46,43 @@ describe('ศูนย์จัดการประชุม', () => {
     const cur: Meeting = { ...full(), id: 'c', date: '2026-11-15' }
     expect(carryOver([prev, cur], cur).map((a) => a.title)).toEqual(['เลื่อน', 'งานค้าง'])
     expect(carryOver([cur], cur)).toEqual([])
+  })
+  it('ขั้น 4: รายการเตรียมเอกสารขึ้นกับวาระขอมติและรายงานครั้งก่อน', () => {
+    const m = full()
+    expect(prepKeys(m, [])).toEqual(['sign', 'agenda', 'form', 'c_cnt', 'c_names', 'c_date', 'c_attach'])
+    const withVote = { ...m, agenda: [{ ...blankAgenda(), title: 'ขอมติ' }] }
+    expect(hasVoteItems(withVote)).toBe(true)
+    expect(prepKeys(withVote, [])).toContain('ballot')
+    const prev: Meeting = { ...full(), id: 'p', date: '2026-10-01', agenda: [{ ...blankAgenda(), title: 'ก', minute: { summary: 'สรุป' } }] }
+    expect(previousMeeting([prev, withVote], withVote)?.id).toBe('p')
+    expect(prepKeys(withVote, [prev])).toContain('prev')
+    const all = Object.fromEntries(prepKeys(m, []).map((k) => [k, true]))
+    expect(stepStatuses({ ...m, prep: all })[4].state).toBe('done')
+    expect(stepStatuses({ ...m, prep: { sign: true } })[4].state).toBe('partial')
+  })
+  it('ขั้น 5: องค์ประชุมนับเฉพาะกรรมการ/ผู้มีสิทธิ์ที่มา ไม่นับผู้เข้าร่วมเพิ่มเติม', () => {
+    const ps = [{ ...blankPerson('กรรมการ'), name: 'ก', att: 'มา' as const }, { ...blankPerson('ผู้มีสิทธิ์ลงคะแนน'), name: 'ข', att: 'ลา' as const }, { ...blankPerson('กรรมการ'), name: 'ค' }, { ...blankPerson('ผู้เข้าร่วมอื่น'), name: 'ง', att: 'มา' as const }]
+    const m: Meeting = { ...full(), people: ps }
+    const a = attendance(m)
+    expect([a.present.length, a.leave.length, a.unmarked.length, a.guests.length, a.voters.length]).toEqual([1, 1, 1, 1, 3])
+    expect(quorumNeeded(m)).toBe(2)
+    expect(quorumNeeded({ ...m, quorumMin: 3 })).toBe(3)
+    expect(stepStatuses(m)[5].state).toBe('partial')
+    expect(stepStatuses({ ...m, opened: { chair: 'ก', time: '18:30', agendaConfirmed: true, at: 1 } })[5].state).toBe('done')
+  })
+  it('ขั้น 6: วาระขอมติต้องมีมติ วาระอื่นต้องมีสาระ · ต้องมีเวลาเลิกประชุม', () => {
+    expect(minuteComplete({ ...blankAgenda(), purpose: 'ขอมติ' })).toBe(false)
+    expect(minuteComplete({ ...blankAgenda(), purpose: 'ขอมติ', minute: { result: 'เห็นชอบ' } })).toBe(true)
+    expect(minuteComplete({ ...blankAgenda(), purpose: 'ทราบ', minute: { summary: ' ' } })).toBe(false)
+    expect(minuteComplete({ ...blankAgenda(), purpose: 'ทราบ', minute: { summary: 'สรุป' } })).toBe(true)
+    const ag = [{ ...blankAgenda(), title: 'ก', purpose: 'ทราบ' as const, minute: { summary: 'x' } }]
+    expect(stepStatuses({ ...full(), agenda: ag })[6].state).toBe('partial')
+    expect(stepStatuses({ ...full(), agenda: ag, closed: { time: '20:00' } })[6].state).toBe('done')
+  })
+  it('เลื่อนวาระภายในกลุ่มเดียวกันเท่านั้น', () => {
+    const a = (id: string, g: 'แจ้งเพื่อทราบ' | 'เรื่องเสนอพิจารณา') => ({ ...blankAgenda(), id, title: id, group: g })
+    const list = [a('1', 'แจ้งเพื่อทราบ'), a('2', 'เรื่องเสนอพิจารณา'), a('3', 'แจ้งเพื่อทราบ')]
+    expect(moveAgenda(list, '3', -1).map((x) => x.id)).toEqual(['3', '2', '1'])
+    expect(moveAgenda(list, '2', -1).map((x) => x.id)).toEqual(['1', '2', '3'])
   })
 })
