@@ -4,6 +4,7 @@ import Home from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
+import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import WorkCalendar from '../components/WorkCalendar'
 import { myWorks } from '../lib/access'
@@ -71,8 +72,10 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
 }
 
 /** หน้าเต็มของแท็บหนึ่ง (ว่างไว้ก่อน รอพัฒนา) — ปุ่มบนขวากลับไปหน้าหลักของงาน */
-function WorkPage({ n, name, k }: { n: number; name: string; k: number }) {
+function WorkPage({ n, name, k, s }: { n: number; name: string; k: number; s?: number }) {
   const label = labelsOf(n)[k - 1]
+  // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
+  if (n === 1 && k === 1) return <MeetingCenter step={s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
   return (
     <>
@@ -91,20 +94,20 @@ const TONE = ['own', 'fund', 'total', 'indebt', 'debt', 'spare'] as const
 /** กดปุ่ม 🏠 หน้างาน = เปลี่ยน key เพื่อเริ่มหน้าของงานนั้นใหม่ตั้งแต่ต้น */
 export default function Meeting() {
   const { n } = useParams()
-  const { k } = useParams()
+  const { k, s } = useParams()
   const home = (useLocation().state as { home?: number } | null)?.home ?? 0
-  return <MeetingRoom key={`${n ?? 'hub'}-${k ?? ''}-${home}`} />
+  return <MeetingRoom key={`${n ?? 'hub'}-${k ?? ''}-${s ?? ''}-${home}`} />
 }
 
 function MeetingRoom() {
-  const { n, k } = useParams()
+  const { n, k, s } = useParams()
   const tab = MEETING_TABS.find((x) => String(x.n) === n)
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={3} /><Home /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={2} /><Members /></>
-  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} />
+  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
   return <Hub />
 }
