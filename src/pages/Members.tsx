@@ -52,6 +52,8 @@ function MembersPage() {
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canLog ? 'checkin' : lite ? 'checkin' : attendance.length === 0 ? 'roster' : 'audit'))
   const [detail, setDetail] = useState('')
+  // ในห้องทำงาน: เปิดมาเห็นเมนูช่องสี 6 ช่องอย่างเดียว · กดช่องไหน เมนูหายและหน้านั้นเต็มจอ · ‹ เมนูสมาชิก กลับมาเห็นช่องทั้งหก
+  const [menu, setMenu] = useState(inRoom && !startTab)
   const [editId, setEditId] = useState('') // แก้ข้อมูลคนจากหน้าลงชื่อ (ไม่มีปุ่มลบสมาชิก)
   const editMember = editId ? people.items.find((m) => m.id === editId) : undefined
   useEffect(() => { if (startTab === 'checkin' && canLog) setTab('checkin') }, [startTab, canLog])
@@ -66,12 +68,20 @@ function MembersPage() {
     }
     return true
   }
+  const tabItems = (lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).map(([key, label, icon]) => ({ key, label, icon }))
+  if (inRoom && menu) {
+    return (
+      <>
+        <div className="page-head no-print"><h1>สมาชิก</h1></div>
+        <TileTabs label="หมวด" value={'' as Tab} onChange={(k) => { setTab(k); setMenu(false) }} items={tabItems} />
+      </>
+    )
+  }
   return (
     <>
+      {inRoom && <div className="no-print" style={{ margin: '0 0 0.4rem' }}><button type="button" className="mini" onClick={() => setMenu(true)}>‹ เมนูสมาชิก</button></div>}
       <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
-      {inRoom ? (
-        <TileTabs label="หมวด" value={tab} onChange={setTab} items={(lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).map(([key, label, icon]) => ({ key, label, icon }))} />
-      ) : (
+      {!inRoom && (
         <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
           {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
