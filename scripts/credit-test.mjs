@@ -42,7 +42,7 @@ try {
     // ใบ A4: ทุกหน้ามีเครดิตเอกสาร ครั้งเดียวต่อหน้า (สรุป 40 รายการ = หลายแผ่น)
     await page.goto(`http://localhost:${PORT}/#/`)
     await page.getByRole('tab', { name: /สรุป/ }).first().click()
-    await page.locator('.sumrow').first().click()
+    await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
     const pages = page.locator('.a4page')
     const n = await pages.count()
     must(n >= 2, 'notice has multiple pages: ' + n)

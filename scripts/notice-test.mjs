@@ -34,10 +34,8 @@ await page.evaluate(([Y, a, b]) => {
 try {
   await page.reload()
   await page.getByRole('tab', { name: /สรุป/ }).first().click()
-  const rows = page.locator('.sumrow')
-  must((await rows.count()) === 2, 'two weeks listed as slim rows: ' + await rows.count())
-  must(/รับ/.test(await rows.first().innerText()) && /จ่าย/.test(await rows.first().innerText()), 'row shows รับ/จ่าย')
-  await rows.first().click()
+  must(await page.getByRole('heading', { name: /สรุปและรายงาน/ }).isVisible() && await page.getByRole('tab', { name: 'รายสัปดาห์' }).isVisible(), 'summary & report page with three tabs')
+  await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
   const t = await page.locator('.a4page').first().innerText()
   const all = (await page.locator('.a4page').allInnerTexts()).join('\n')
   must((await page.locator('.a4page').count()) >= 2, 'many expenses continue on a following A4 page: ' + await page.locator('.a4page').count())

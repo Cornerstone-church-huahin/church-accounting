@@ -1,80 +1,81 @@
 import { useMemo, useRef, useState } from 'react'
 import NoticePaper from '../components/NoticePaper'
+import { MonthTab, WeekTab, YearTab } from '../components/report/Tabs'
 import { can } from '../lib/access'
-import { useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useIncome, useIncomeTypes, usePassbook, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useLoans } from '../lib/data'
 import { useRole } from '../lib/members'
-import { fmtBaht, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
+import { useSettings } from '../lib/data'
+import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import { expenseLines, weekNotice } from '../lib/notice'
 import { downloadSheetPdf } from '../lib/pdf'
+import { periodReport } from '../lib/report'
+import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
-const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
+type Tab = 'week' | 'month' | 'year'
+const TABS: { k: Tab; t: string }[] = [{ k: 'week', t: 'รายสัปดาห์' }, { k: 'month', t: 'รายเดือน' }, { k: 'year', t: 'ภาพรวมปี' }]
 
 /**
- * แท็บ "สรุป": รายการสัปดาห์ที่ผ่านมาเป็นแถบเล็กยาว (ใหม่สุดอยู่บน) → แตะแล้วเห็นใบสรุปรับ-จ่าย A4 ใบเดียวสำหรับติดประกาศ
- * ใบมีเฉพาะสิ่งที่สมาชิกควรเห็น (ไม่มีวางบิล/สำรองจ่าย/รายละเอียดภายใน) · ดาวน์โหลด/พิมพ์ได้เฉพาะผู้มีสิทธิ์
+ * แท็บ "สรุปและรายงาน": ศูนย์รวมรายงาน 3 ระดับ (รายสัปดาห์ · รายเดือน · ภาพรวมปี) คำนวณจากข้อมูลเดิมชุดเดียวกัน
+ * เจาะลงได้ ปี → เดือน → สัปดาห์ → รายการ · ใบสรุปรายสัปดาห์เดิม (ติดประกาศ/พิมพ์/PDF) เปิดจากแท็บรายสัปดาห์
+ * รายละเอียดภายใน (ผู้เบิก หลักฐาน รายการต้องติดตาม ตารางกองทุน) แสดงเฉพาะผู้มีสิทธิ์ดูรายงานภายใน
  */
 export default function Summary({ year }: { year: number }) {
   const role = useRole()
   const { settings } = useSettings()
-  const income = useIncome(year), rounds = useRounds(year), vouchers = useVouchers(year), lines = useBudgetLines(year), funds = useFunds()
-  const entries = useBudgetEntries(year), passbook = usePassbook(year), types = useIncomeTypes(), cats = useExpenseCats(), expenses = useExpenses(year)
-  const [open, setOpen] = useState<string | null>(null)
+  const { input, opening } = useBalances(year)
+  const loans = useLoans().items
+  const a = useMemo(() => ({ ...input, opening, loans }), [input, opening, loans])
+  const detail = can(role, 'detail')
+  const church = settings.churchName.split(' ')[0]
+  const today = todayISO()
+  const latest = useMemo(() => {
+    const ss = sundaysOf(year).filter((s) => s <= sheetSunday(today)).reverse()
+    return ss.find((s) => !periodReport(rangeOf('week', year, { sunday: s }), a).empty) ?? ss[0] ?? sheetSunday(`${year}-01-01`)
+  }, [year, a, today])
+  const [tab, setTab] = useState<Tab>('week')
+  const [sunday, setSunday] = useState(latest)
+  const [month, setMonth] = useState(() => Number(sheetSunday(latest).slice(5, 7)))
+  const [notice, setNotice] = useState(false)
   const [busy, setBusy] = useState(false)
   const paper = useRef<HTMLDivElement[]>([])
-  const canExport = can(role, 'detail')
-  const church = settings.churchName.split(' ')[0]
-
-  const weeks = useMemo(() => {
-    const today = todayISO()
-    return sundaysOf(year).filter((s) => s <= sheetSunday(today)).reverse().map((sunday) => {
-      const range = rangeOf('week', year, { sunday })
-      const L = computeLedger({ range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: expenses.items, passbook: passbook.items, withFunds: false })
-      return { sunday, n: weekNotice(L, expenseLines(range, { vouchers: vouchers.items, expenses: expenses.items, entries: entries.items })) }
-    }).filter((w) => w.n.inc.length + w.n.fund.length + w.n.out.length > 0)
-  }, [year, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, expenses.items, passbook.items])
-  const cur = weeks.find((w) => w.sunday === open)
-
+  const n = useMemo(() => {
+    const range = rangeOf('week', year, { sunday })
+    const L = computeLedger({ range, ...a, withFunds: false })
+    return weekNotice(L, expenseLines(range, { vouchers: a.vouchers, expenses: a.expenses, entries: a.entries }))
+  }, [a, year, sunday])
   const download = async () => {
-    if (paper.current.length === 0 || !cur) return
+    if (paper.current.length === 0) return
     setBusy(true)
-    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${cur.sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
     setBusy(false)
   }
-
-  if (cur) {
+  const canExport = can(role, 'detail')
+  if (notice) {
     return (
       <>
         <div className="row no-print" style={{ margin: '8px 0', gap: 8 }}>
-          <button type="button" className="btn btn--ghost" onClick={() => setOpen(null)}>‹ รายการสัปดาห์</button>
+          <button type="button" className="btn btn--ghost" onClick={() => setNotice(false)}>‹ สรุปและรายงาน</button>
           <span className="grow" />
           {canExport && <>
             <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void download()} aria-label="ดาวน์โหลดใบสรุปเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
             <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
           </>}
         </div>
-        <NoticePaper pagesRef={paper} church={church} sunday={cur.sunday} n={cur.n} />
+        <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} />
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )
   }
   return (
-    <section aria-label="ใบสรุปรายสัปดาห์">
-      <h2 style={{ margin: '10px 0 4px' }}>📊 ใบสรุปรายสัปดาห์</h2>
-      <p className="muted small" style={{ margin: '0 0 8px' }}>แตะสัปดาห์เพื่อดูใบสรุปรับ-จ่าย (ใหม่สุดอยู่บน) — ใช้ติดประกาศได้</p>
-      {weeks.length === 0 ? <p className="empty">ยังไม่มีรายการรับ-จ่ายในปี {year + 543}</p> : (
-        <ul className="sumlist">
-          {weeks.map((w) => (
-            <li key={w.sunday}>
-              <button type="button" className="sumrow" onClick={() => setOpen(w.sunday)} aria-label={`เปิดใบสรุป ${weekTitle(w.sunday)}`}>
-                <span className="sumrow__t"><b>{weekTitle(w.sunday).replace(' ของเดือน', ' · ')}</b><span className="small muted">{weekRange(w.sunday)}</span></span>
-                <span className="sumrow__n"><span className="sumrow__in">รับ {m(w.n.totalInc)}</span><span className="sumrow__out">จ่าย {m(w.n.totalOut)}</span></span>
-                <span aria-hidden="true">›</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+    <section aria-label="สรุปและรายงาน">
+      <h2 style={{ margin: '10px 0 4px' }}>📊 สรุปและรายงาน</h2>
+      <div className="rtabs no-print" role="tablist" aria-label="ระดับรายงาน">
+        {TABS.map((x) => <button key={x.k} type="button" role="tab" aria-selected={tab === x.k} className={`rtab${tab === x.k ? ' on' : ''}`} onClick={() => setTab(x.k)}>{x.t}</button>)}
+      </div>
+      {tab === 'week' && <WeekTab year={year} a={a} detail={detail} sunday={sunday} setSunday={setSunday} openNotice={() => setNotice(true)} />}
+      {tab === 'month' && <MonthTab year={year} a={a} detail={detail} month={month} setMonth={setMonth} openWeek={(s) => { setSunday(s); setTab('week') }} />}
+      {tab === 'year' && <YearTab year={year} a={a} detail={detail} loans={loans} openMonth={(m) => { setMonth(m); setTab('month') }} />}
     </section>
   )
 }
