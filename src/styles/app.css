@@ -688,3 +688,5 @@ span.fundpend__tog { cursor: default; }
 .tiletabs .btile b { font-size: 0.95rem; }
 .tiletabs .btile[aria-selected='true'] { outline: 3px solid #d4af37; outline-offset: 2px; }
 .tiletabs .btile[aria-selected='false'] { opacity: 0.88; }
+
+.workback { display: inline-flex; align-items: center; margin: 0.1rem 0 0.5rem; background: #1a2b4c; color: #fff; border-color: #1a2b4c; text-decoration: none; }

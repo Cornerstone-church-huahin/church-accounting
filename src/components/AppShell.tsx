@@ -1,6 +1,7 @@
 import { AppCredit } from './Credit'
+import { MEETING_TABS } from '../lib/workTabs'
 import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { can, isSolo, READONLY_EVENT, whoAmI } from '../lib/access'
 import { useMembership, useRole } from '../lib/members'
 import { useSettings, useVouchers } from '../lib/data'
@@ -33,6 +34,12 @@ const ROOTS = ['/', '/income', '/rounds', '/vouchers', '/members', '/more', '/bu
 
 export default function AppShell() {
   const { pathname } = useLocation()
+  // งานที่กำลังใช้อยู่: จำไว้เมื่อเปิดหน้างาน (/meeting/N) แล้วคงไว้ตอนเข้าหน้ารายละเอียดนอกห้องทำงาน (เช่น กองทุน/ยอดเงิน) เพื่อมีปุ่มกลับหน้างาน · ล้างเมื่อกลับหน้าห้องทำงานหรือหน้าหลักของแอป
+  const workCtx = useRef<number | null>(null)
+  const wm = pathname.match(/^\/meeting\/(\d+)$/)
+  if (wm) workCtx.current = Number(wm[1])
+  else if (pathname.startsWith('/meeting') || ROOTS.includes(pathname)) workCtx.current = null
+  const workBack = workCtx.current !== null && !pathname.startsWith('/meeting') ? MEETING_TABS.find((t) => t.n === workCtx.current) : undefined
   const navigate = useNavigate()
   const role = useRole()
   const ms = useMembership()
@@ -132,7 +139,7 @@ export default function AppShell() {
             <AppCredit />
           </main>
         ) : (
-          <main className="main"><Outlet /><AppCredit /></main>
+          <main className="main">{workBack && <Link to={`/meeting/${workBack.n}`} state={{ home: Date.now() }} className="mini workback no-print">🏠 หน้า{workBack.name}</Link>}<Outlet /><AppCredit /></main>
         )}
 
         <nav className="bottomnav" aria-label="เมนูหลัก">
