@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import Home from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
+import PastoralMembers from '../components/PastoralMembers'
 import WorkCalendar from '../components/WorkCalendar'
 import { myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
@@ -76,7 +77,7 @@ function WorkPage({ n, name, k }: { n: number; name: string; k: number }) {
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>
-      <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>
+      {n === 4 && k === 1 ? <PastoralMembers /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
