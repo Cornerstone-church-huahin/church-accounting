@@ -18,6 +18,11 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
   )
 }
 
+/** หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ ทุกแท็บ (ตำแหน่งเดียวกันทุกงาน ย้อนกลับไปหน้าห้องทำงาน) */
+function WorkHead({ name }: { name: string }) {
+  return <div className="page-head no-print"><h1>{name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
+}
+
 /** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วแท็บ 1–6 (ยังว่าง — พัฒนาทีละแท็บ) */
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
@@ -28,7 +33,7 @@ function WorkTabs({ n, name, labels = DEFAULT_LABELS }: { n: number; name: strin
   const cur = Math.min(t, labels.length - 1)
   return (
     <>
-      <div className="page-head"><h1>{name}</h1><Link to="/meeting" className="mini">‹ ทุกแท็บ</Link></div>
+      <WorkHead name={name} />
       <CalToggle n={n} />
       <TileTabs label={`หมวด${name}`} value={String(cur)} onChange={(k) => setT(Number(k))} items={labels.map((l, i) => ({ key: String(i), label: l, icon: TAB_ICONS[i % TAB_ICONS.length] }))} />
       <section className="card" aria-label={`${name} ${labels[cur]}`}><p className="empty">{labels[cur]} — ยังว่าง (รอพัฒนา)</p></section>
@@ -45,10 +50,10 @@ export default function Meeting() {
   const [params] = useSearchParams()
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
-  if (tab?.n === 3) return <><CalToggle n={3} /><Home /></>
+  if (tab?.n === 3) return <><WorkHead name={tab.name} /><CalToggle n={3} /><Home /></>
   if (tab?.n === 2) {
     if (!params.get('tab')) return <Navigate to="/meeting/2?tab=checkin" replace />
-    return <><CalToggle n={2} /><Members /></>
+    return <><WorkHead name={tab.name} /><CalToggle n={2} /><Members /></>
   }
   if (tab?.n === 1) return <WorkTabs key={1} n={1} name={tab.name} labels={SECRETARY_LABELS} />
   if (tab) return <WorkTabs key={tab.n} n={tab.n} name={tab.name} />

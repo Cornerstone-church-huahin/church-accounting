@@ -24,6 +24,7 @@ try {
   // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).count() === 0, 'treasurer page is untouched; calendar is collapsed')
+  must(await page.getByRole('link', { name: '‹ ทุกแท็บ' }).isVisible(), 'back link to ทุกแท็บ on the treasurer work too')
   must(await page.getByText('ขั้นตอนทำบัญชีประจำสัปดาห์').isVisible() && await page.locator('.balance-tiles .btile').count() === 6, 'treasurer tab shows the whole home page')
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), '📅 button at the top opens the calendar')
@@ -61,6 +62,16 @@ try {
   must(await page.locator('.tiletabs button.btile').count() === 6, 'tabs are colored tiles like the home money tiles')
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
+  // ปุ่ม ‹ ทุกแท็บ อยู่ตำแหน่งเดียวกันในทุกงาน (1–12) และกดแล้วกลับหน้าห้องทำงาน
+  const boxes = []
+  for (let k = 1; k <= 12; k++) {
+    await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
+    const l = page.getByRole('link', { name: '‹ ทุกแท็บ' }); await l.waitFor({ timeout: 8000 })
+    const b = await l.boundingBox(); boxes.push(`${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.width)}`)
+  }
+  must(new Set(boxes).size === 1, 'same position of the back link in every work: ' + boxes.join(' | '))
+  await page.getByRole('link', { name: '‹ ทุกแท็บ' }).click()
+  must(await page.getByRole('heading', { name: /ห้องทำงาน/ }).isVisible(), 'back link returns to the work room')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('meeting-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
