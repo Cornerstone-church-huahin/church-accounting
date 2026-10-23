@@ -350,6 +350,10 @@ export interface Note extends SharedItem { title: string; body: string; clips?: 
 export interface TeamMember { role: string; name: string }
 export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
 
+// ---------- ข่าวจากแอดมินถึงแต่ละงาน (กระดิ่ง) ----------
+/** ข่าวที่แอดมินส่งถึงงาน: works = เลขงานที่รับ (0 = ทุกงาน) · at = เวลาที่ส่ง */
+export interface Announcement extends SharedItem { text: string; works: number[]; at: number }
+
 // ---------- ศูนย์จัดการประชุม (งานเลขา) ----------
 export type MtKind = 'กรรมการ' | 'ผู้มีสิทธิ์ลงคะแนน' | 'ผู้เข้าร่วมอื่น'
 export type MtRsvp = 'ตอบรับ' | 'ลา' | 'ยังไม่ตอบ'

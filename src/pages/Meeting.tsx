@@ -7,10 +7,12 @@ import WorkTeam from '../components/WorkTeam'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import WorkCalendar from '../components/WorkCalendar'
-import { myWorks } from '../lib/access'
+import { can, myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
 import { useYear } from '../lib/year'
 import AccountLinks from '../components/AccountLinks'
+import WorkBell from '../components/WorkBell'
+import AnnounceAdmin from '../components/AnnounceAdmin'
 import Receive from './Receive'
 import Pay from './Pay'
 import OverviewView from '../components/OverviewView'
@@ -38,6 +40,7 @@ function WorkHead({ n, name }: { n: number; name: string }) {
     <>
       <div className="page-head no-print">
         <h1>{name}</h1>
+        <WorkBell n={n} />
         <Link to={to} state={{ home: Date.now() }} className="mini">‹ ทุกแท็บ</Link>
       </div>
       <WorkTeam n={n} name={name} />
@@ -147,12 +150,12 @@ function MeetingRoom() {
 
 /** หน้าเลือกงาน: แอดมินเห็นทุกงาน · ผู้รับผิดชอบงานเดียวถูกพาเข้าหน้าหลักของงานตนเลย */
 function Hub() {
-  useRole()
+  const role = useRole()
   const works = myWorks()
   if (works.length === 1) return <Navigate to={`/meeting/${works[0]}`} replace />
   return (
     <>
-      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1><Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
+      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1>{can(role, 'settings') && <AnnounceAdmin />}<Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
       <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 18">
         {visibleWorks(works).map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
