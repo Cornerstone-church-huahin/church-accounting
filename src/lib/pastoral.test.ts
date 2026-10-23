@@ -60,11 +60,12 @@ describe('เรียงสมาชิกตามการมานมัส�
   })
   it('ระดับการขาดตามช่วงเวลา', () => {
     expect(absence('2026-10-18', T).tier).toBe(0)
-    expect(absence('2026-06-01', T)).toMatchObject({ tier: 1, label: 'ขาด 3 เดือน' })
-    expect(absence('2026-02-01', T).label).toBe('ขาด 6 เดือน')
-    expect(absence('2025-01-05', T).label).toBe('ขาด 1 ปี')
-    expect(absence('2024-01-01', T).label).toBe('ขาด 2 ปี')
-    expect(absence('2023-01-01', T).label).toBe('ขาด 3 ปีขึ้นไป')
+    expect(absence('2026-06-01', T)).toMatchObject({ tier: 1, label: 'ขาดเกิน 3 เดือน' })
+    expect(absence('2026-02-01', T).label).toBe('ขาดเกิน 6 เดือน')
+    expect(absence('2025-08-01', T).label).toBe('ขาดเกิน 1 ปี')
+    expect(absence('2025-03-01', T).label).toBe('ขาดเกิน 1 ปีครึ่ง')
+    expect(absence('2024-10-01', T).label).toBe('ขาดเกิน 2 ปี')
+    expect(absence('2023-01-01', T).label).toBe('ขาดเกิน 2 ปี')
     expect(absence(undefined, T).label).toBe('ไม่เคยมีบันทึกการมา')
   })
   it('ค่าเริ่มต้น: มาบ่อยก่อน แล้วขาดน้อย→มาก ไม่เคยมา/สิ้นสภาพอยู่ท้าย', () => {

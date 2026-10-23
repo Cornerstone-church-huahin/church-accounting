@@ -99,17 +99,17 @@ export function visitStats(attendance: { date: string; ids: string[]; deleted?: 
 }
 /** ลำดับสถานะตามเลขนำหน้า 1–7 (ไม่มีเลข = ท้ายสุด) */
 export const statusRank = (status?: string) => Number(statusLabel(status).match(/^(\d)\./)?.[1] ?? 9)
-/** ระดับการขาด: 0 = ไม่ขาด (มาภายใน 3 เดือน) · 1 = ขาด 3 เดือน · 2 = 6 เดือน · 3 = 1 ปี · 4 = 2 ปี · 5 = 3 ปีขึ้นไป · 6 = ไม่เคยมีบันทึก */
-export const ABSENCE_LABELS = ['', 'ขาด 3 เดือน', 'ขาด 6 เดือน', 'ขาด 1 ปี', 'ขาด 2 ปี', 'ขาด 3 ปีขึ้นไป', 'ไม่เคยมีบันทึกการมา']
+/** ระดับการขาด: 0 = ไม่ขาด (มาภายใน 3 เดือน) · 1 = ขาดเกิน 3 เดือน · 2 = 6 เดือน · 3 = 1 ปี · 4 = ปีครึ่ง · 5 = 2 ปีขึ้นไป · 6 = ไม่เคยมีบันทึก */
+export const ABSENCE_LABELS = ['', 'ขาดเกิน 3 เดือน', 'ขาดเกิน 6 เดือน', 'ขาดเกิน 1 ปี', 'ขาดเกิน 1 ปีครึ่ง', 'ขาดเกิน 2 ปี', 'ไม่เคยมีบันทึกการมา']
 export function absence(last: string | undefined, today: string): { tier: number; days: number | null; label: string } {
   if (!last) return { tier: 6, days: null, label: ABSENCE_LABELS[6] }
   const d = diffDays(today, last)
-  const tier = d >= 1095 ? 5 : d >= 730 ? 4 : d >= 365 ? 3 : d >= 180 ? 2 : d >= 90 ? 1 : 0
+  const tier = d >= 730 ? 5 : d >= 548 ? 4 : d >= 365 ? 3 : d >= 180 ? 2 : d >= 90 ? 1 : 0
   return { tier, days: d, label: ABSENCE_LABELS[tier] }
 }
 export type MemberOrder = 'default' | 'asc' | 'status' | 'name'
 /**
- * เรียงรายชื่อ — ค่าเริ่มต้น: คนที่ไม่ขาด (มาภายใน 3 เดือน) มาบ่อยที่สุดใน 1 ปีก่อน → แล้วคนที่ขาดเรียงจากขาดน้อยไปมาก (3 เดือน → 6 เดือน → 1 ปี → 2 ปี → 3 ปี → ไม่เคยมา)
+ * เรียงรายชื่อ — ค่าเริ่มต้น: คนที่ไม่ขาด (มาภายใน 3 เดือน) มาบ่อยที่สุดใน 1 ปีก่อน → แล้วคนที่ขาดเรียงจากขาดน้อยไปมาก (เกิน 3 เดือน → 6 เดือน → 1 ปี → ปีครึ่ง → 2 ปี → ไม่เคยมา)
  * สมาชิกที่สิ้นสภาพ/เสียชีวิตอยู่ท้ายสุด ไม่ติดป้ายขาด · asc = กลับลำดับ · status = สถานะ 1→7 · name = ก→ฮ
  */
 export function orderMembers<T extends { id: string; name: string; status?: string }>(list: T[], order: MemberOrder, stats: Map<string, VisitStat>, today: string): T[] {
