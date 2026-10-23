@@ -25,7 +25,7 @@ export function HBars({ bars, tone, title, onPick, active }: { bars: { key: stri
 
 export interface GroupItem { key: string; label: string; a: number; b: number; note?: string }
 /** แท่งคู่แนวตั้ง (รับ–จ่าย) ต่อช่วง · แตะช่วงเพื่อเจาะรายการ */
-export function GroupBars({ items, title, onPick, active }: { items: GroupItem[]; title: string; onPick?: (key: string) => void; active?: string | null }) {
+export function GroupBars({ items, title, onPick, active }: { items: GroupItem[]; title: string; onPick: (key: string) => void; active?: string | null }) {
   const W = 340, H = 190, top = 18, bot = 34, bw = Math.min(26, (W / items.length - 14) / 2)
   const max = Math.max(1, ...items.flatMap((i) => [i.a, i.b]))
   const y = (v: number) => top + (1 - v / max) * (H - top - bot)
@@ -38,7 +38,7 @@ export function GroupBars({ items, title, onPick, active }: { items: GroupItem[]
         {items.map((it, i) => {
           const cx = step * i + step / 2
           return (
-            <g key={it.key} aria-label={`${it.label} รับ ${money(it.a)} จ่าย ${money(it.b)} บาท`} {...(onPick ? { role: 'button', tabIndex: 0, 'aria-pressed': active === it.key, style: { cursor: 'pointer' }, onClick: () => onPick(it.key), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(it.key) } } } : { role: 'img' })}>
+            <g key={it.key} role="button" tabIndex={0} aria-label={`${it.label} รับ ${money(it.a)} จ่าย ${money(it.b)} บาท`} aria-pressed={active === it.key} style={{ cursor: 'pointer' }} onClick={() => onPick(it.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(it.key) } }}>
               <rect x={cx - step / 2 + 2} y={0} width={step - 4} height={H} fill={active === it.key ? 'rgba(31,63,143,.10)' : 'transparent'} rx={6} />
               <rect x={cx - bw - 1} y={y(it.a)} width={bw} height={Math.max(0, H - bot - y(it.a))} fill={TONE.in} rx={3} />
               <rect x={cx + 1} y={y(it.b)} width={bw} height={Math.max(0, H - bot - y(it.b))} fill={TONE.out} rx={3} />
@@ -56,7 +56,7 @@ export function GroupBars({ items, title, onPick, active }: { items: GroupItem[]
 
 export interface LinePt { key: string; label: string; a: number | null; b: number | null; partial?: boolean }
 /** กราฟเส้นรับ–จ่าย: จุดที่ไม่มีข้อมูลเว้นช่วง (ไม่ลากเส้นเป็นศูนย์) · มีจุดเดียวแสดงเป็นจุด · แตะจุดเพื่อเปิดเดือน */
-export function Lines({ points, title, onPick }: { points: LinePt[]; title: string; onPick?: (key: string) => void }) {
+export function Lines({ points, title, onPick }: { points: LinePt[]; title: string; onPick: (key: string) => void }) {
   const W = 340, H = 200, left = 6, right = 6, top = 22, bot = 24
   const max = Math.max(1, ...points.flatMap((p) => [p.a ?? 0, p.b ?? 0]))
   const x = (i: number) => left + ((W - left - right) / Math.max(1, points.length - 1)) * i
@@ -73,7 +73,7 @@ export function Lines({ points, title, onPick }: { points: LinePt[]; title: stri
         <line className="grid" x1={left} x2={W - right} y1={H - bot} y2={H - bot} />
         {([['a', TONE.in], ['b', TONE.out]] as const).map(([k, c]) => <path key={k} d={path((p) => p[k])} fill="none" stroke={c} strokeWidth="2.2" strokeLinejoin="round" />)}
         {points.map((p, i) => (
-          <g key={p.key} aria-label={`${p.label}${p.a === null ? ' ยังไม่มีข้อมูล' : ` รับ ${money(p.a)} จ่าย ${money(p.b ?? 0)} บาท${p.partial ? ' ข้อมูลบางส่วน' : ''}`}`} {...(onPick ? { role: 'button', tabIndex: 0, style: { cursor: p.a === null ? 'default' : 'pointer' }, onClick: () => p.a !== null && onPick(p.key), onKeyDown: (e: React.KeyboardEvent) => { if (p.a !== null && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick(p.key) } } } : { role: 'img' })}>
+          <g key={p.key} role="button" tabIndex={0} aria-label={`${p.label}${p.a === null ? ' ยังไม่มีข้อมูล' : ` รับ ${money(p.a)} จ่าย ${money(p.b ?? 0)} บาท${p.partial ? ' ข้อมูลบางส่วน' : ''}`}`} style={{ cursor: p.a === null ? 'default' : 'pointer' }} onClick={() => p.a !== null && onPick(p.key)} onKeyDown={(e) => { if (p.a !== null && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick(p.key) } }}>
             <rect x={x(i) - 12} y={0} width={24} height={H} fill="transparent" />
             <text x={x(i)} y={H - 8} textAnchor="middle" fontSize="9" fill={p.a === null ? '#aaa' : undefined}>{p.label}</text>
             {p.a !== null && ([['a', TONE.in, p.a], ['b', TONE.out, p.b ?? 0]] as const).map(([k, c, v]) => <circle key={k} cx={x(i)} cy={y(v)} r={4} fill={p.partial ? '#fff' : c} stroke={c} strokeWidth="2" />)}
