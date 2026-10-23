@@ -4,15 +4,20 @@ import { useAttendance, useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
 import { todayISO } from '../lib/money'
-import { ageBands, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, orderMembers, STATUS_GROUPS, visitStats, type MemberOrder, type StatusGroup } from '../lib/pastoral'
-import { toAttendance } from '../lib/registry'
-import { statusShort } from '../lib/registry'
+import { ageBands, genderByStatus, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, orderByPct, orderByTenure, orderMembers, STATUS_GROUPS, statusBreakdown, tenureDays, tenureText, visitStats, type StatusGroup } from '../lib/pastoral'
+import { DEFAULT_CRITERIA, evaluate, statusLabel, statusShort, toAttendance } from '../lib/registry'
 import type { MapPin } from './LeafletMap'
 import MemberAvatar from './MemberAvatar'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
-const ORDERS: { k: MemberOrder; t: string }[] = [{ k: 'default', t: 'มาบ่อยใน 1 ปี → ขาดนาน' }, { k: 'asc', t: 'ขาดนานสุด → มาบ่อย' }, { k: 'status', t: 'สถานะ 1 → 7' }, { k: 'name', t: 'ชื่อ ก → ฮ' }]
+type Ord = 'old' | 'new' | 'recent' | 'pct' | 'pctAsc' | 'name'
+/** 4 แท็บ: 1 เก่าแก่ → ใหม่ · 2 ความสม่ำเสมอในการมา · 3 สถานะ · 4 เพศ */
+const TABS = [{ n: 1, name: 'เก่าแก่' }, { n: 2, name: 'สม่ำเสมอ' }, { n: 3, name: 'สถานะ' }, { n: 4, name: 'เพศ' }]
+const ORDERS: Record<number, { k: Ord; t: string }[]> = {
+  1: [{ k: 'old', t: 'เก่าแก่ → ใหม่' }, { k: 'new', t: 'ใหม่ → เก่าแก่' }, { k: 'recent', t: 'มาบ่อยใน 1 ปี → ขาดนาน' }, { k: 'name', t: 'ชื่อ ก → ฮ' }],
+  2: [{ k: 'pct', t: 'สม่ำเสมอสุด → น้อยสุด' }, { k: 'pctAsc', t: 'น้อยสุด → สม่ำเสมอสุด' }, { k: 'name', t: 'ชื่อ ก → ฮ' }],
+}
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
 
@@ -56,11 +61,14 @@ export default function PastoralMembers() {
   const people = useChurchMembers()
   const [g, setG] = useState<StatusGroup>('all')
   const [tab, setTab] = useState(1)
-  const [order, setOrder] = useState<MemberOrder>('default')
+  const [order, setOrder] = useState<Ord>('old')
+  const changeTab = (n: number) => { setTab(n); setOrder(n === 2 ? 'pct' : 'old') }
   const a0 = useAttendance(new Date().getFullYear()), a1 = useAttendance(new Date().getFullYear() - 1, false), a2 = useAttendance(new Date().getFullYear() - 2, false), a3 = useAttendance(new Date().getFullYear() - 3, false)
-  const stats = useMemo(() => visitStats(toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), todayISO()), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const stats = useMemo(() => visitStats(att, todayISO()), [att])
   const all = people.items
   const sel = useMemo(() => all.filter((m) => inGroup(m, g)), [all, g])
+  const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData } }, [all, att])
   const head = useMemo(() => headline(all), [all])
   const ages = useMemo(() => ageBands(sel, today), [sel, today])
   const sex = useMemo(() => genderSplit(sel), [sel])
@@ -72,10 +80,18 @@ export default function PastoralMembers() {
   const gName = STATUS_GROUPS.find((x) => x.key === g)!.label
 
   const TONES = ['own', 'fund', 'total', 'indebt'] as const
-  const orderName = ORDERS.find((o) => o.k === order)!.t
+  const orderName = ORDERS[tab]?.find((o) => o.k === order)?.t ?? ''
   // โซน 3: การ์ดสมาชิก 1 คน 1 การ์ด (ดูอย่างเดียว) · เริ่มต้นเรียงคนที่มานมัสการบ่อยที่สุดก่อน แล้วตามสถานะ 1,2,3…
-  const faces = useMemo(() => orderMembers(sel, order, stats, today), [sel, order, stats, today])
+  const tenureMap = useMemo(() => new Map(all.map((m) => [m.id, tenureDays(m.since, ev.map.get(m.id)?.firstAtt, today)])), [all, ev, today])
+  const pctOf = (id: string) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }
+  const faces = useMemo(() => {
+    if (tab === 2) return order === 'name' ? orderMembers(sel, 'name', stats, today) : orderByPct(sel, (id) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }, order !== 'pctAsc')
+    if (order === 'old' || order === 'new') return orderByTenure(sel, (id) => tenureMap.get(id) ?? null, order === 'old')
+    return orderMembers(sel, order === 'name' ? 'name' : 'default', stats, today)
+  }, [sel, order, tab, stats, today, ev, tenureMap])
   const grp = (m: { group?: string }) => { const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
+  const statusRows = useMemo(() => statusBreakdown(all), [all])
+  const sexRows = useMemo(() => genderByStatus(sel), [sel])
   const absLabel = (m: { id: string; status?: string }) => (!isLive(m) ? '' : absence(stats.get(m.id)?.last, today).label)
   const shortName = (n: string) => n.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*/, '').trim() || n
   return (
@@ -84,16 +100,16 @@ export default function PastoralMembers() {
       <section className="pzone1 no-print" aria-label="เลือกแท็บและตัวเลือก">
         <nav className="ptabs" role="tablist" aria-label="แท็บสมาชิก">
           {TONES.map((t, i) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === i + 1} className={`ptab btile--${t}`} onClick={() => setTab(i + 1)}>
-              <span aria-hidden="true">{i + 1}</span> แท็บ {i + 1}
+            <button key={t} type="button" role="tab" aria-selected={tab === i + 1} className={`ptab btile--${t}`} onClick={() => changeTab(i + 1)}>
+              <span aria-hidden="true">{i + 1}</span> {TABS[i].name}
             </button>
           ))}
         </nav>
         <div className="pfilters pfilters--slim">
-          <div className="field"><label htmlFor="pf-status">สถานะ</label>
-            <select id="pf-status" className="input" value={g} onChange={(e) => setG(e.target.value as StatusGroup)}>{STATUS_GROUPS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></div>
-          <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
-            <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as MemberOrder)}>{ORDERS.map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>
+          {tab !== 3 && <div className="field"><label htmlFor="pf-status">สถานะ</label>
+            <select id="pf-status" className="input" value={g} onChange={(e) => setG(e.target.value as StatusGroup)}>{STATUS_GROUPS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></div>}
+          {(tab === 1 || tab === 2) && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
+            <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
         </div>
       </section>
 
@@ -111,14 +127,52 @@ export default function PastoralMembers() {
 
       {/* โซน 3: รูปสมาชิกตามตัวเลือก — ดูอย่างเดียว กดเข้าไปดูรายละเอียดไม่ได้ */}
       <div className="pzone2" role="tabpanel" aria-label="พื้นที่แสดงผล">
-      {tab !== 1 && (
-        <section className="card pplace" aria-label={`แท็บ ${tab}`}>
-          <h2 style={{ margin: 0 }}>แท็บ {tab}</h2>
-          <p className="empty" style={{ margin: 0 }}>พื้นที่แสดงผล — รอใส่รายละเอียด</p>
-          <p className="muted small" style={{ margin: 0 }}>ตัวเลือกที่เลือกไว้: สถานะ {gName} · เรียง {orderName}</p>
+      {tab === 3 && (
+        <section className="card" aria-label="สถานะสมาชิก">
+          <h2 style={{ margin: 0 }}>สถานะสมาชิก <span className="muted small">(เรียงจากสถานะที่ดีที่สุด)</span></h2>
+          <ul className="pstat" aria-label="จำนวนแต่ละสถานะ">
+            {statusRows.map((r) => (
+              <li key={r.label}><BarRow label={r.label} n={r.count} total={all.length} color={r.rank <= 2 ? GOLD : r.rank >= 6 ? GRAY : NAVY} /></li>
+            ))}
+          </ul>
+          <p className="small" role="status" style={{ margin: 0 }}>รวมทั้งหมด <b>{all.length.toLocaleString('th-TH')}</b> คน</p>
+          {statusRows.map((r, i) => (
+            <details key={r.label} className="pstat__sec" open={i === 0}>
+              <summary><b>{r.label}</b> · {r.count.toLocaleString('th-TH')} คน</summary>
+              <ul className="pcards">
+                {orderMembers(all.filter((m) => statusLabel(m.status) === r.label), 'default', stats, today).map((m) => (
+                  <li key={m.id} className="pcard" aria-label={m.name}>
+                    <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={44} />
+                    <div className="pcard__body">
+                      <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b></span>
+                      <span className="pcard__l2">1 ปี มา <b>{(stats.get(m.id)?.recent ?? 0).toLocaleString('th-TH')}</b> ครั้ง · กลุ่ม {grp(m)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
         </section>
       )}
-      {tab === 1 && <>
+      {tab === 4 && (
+        <section className="card" aria-label="เพศสมาชิก">
+          <h2 style={{ margin: 0 }}>เพศสมาชิก <span className="muted small">({gName})</span></h2>
+          <div className="psexbig" role="group" aria-label="จำนวนตามเพศ">
+            <div className="psexbig__c" style={{ borderColor: BLUE }}><span>ชาย</span><b style={{ color: BLUE }}>{sex.ชาย.toLocaleString('th-TH')}</b><small>{pct(sex.ชาย, sel.length)}%</small></div>
+            <div className="psexbig__c" style={{ borderColor: ROSE }}><span>หญิง</span><b style={{ color: ROSE }}>{sex.หญิง.toLocaleString('th-TH')}</b><small>{pct(sex.หญิง, sel.length)}%</small></div>
+            <div className="psexbig__c" style={{ borderColor: GRAY }}><span>ไม่ระบุ</span><b style={{ color: GRAY }}>{sex.ไม่ระบุ.toLocaleString('th-TH')}</b><small>{pct(sex.ไม่ระบุ, sel.length)}%</small></div>
+          </div>
+          <div className="psex" role="img" aria-label={`ชาย ${sex.ชาย} หญิง ${sex.หญิง} ไม่ระบุ ${sex.ไม่ระบุ}`}>
+            {([['ชาย', sex.ชาย, BLUE], ['หญิง', sex.หญิง, ROSE], ['ไม่ระบุ', sex.ไม่ระบุ, GRAY]] as const).map(([k, v, c]) => v > 0 && <span key={k} style={{ width: `${pct(v, sel.length)}%`, background: c }} />)}
+          </div>
+          <p className="small" role="status" style={{ margin: 0 }}>รวม {sel.length.toLocaleString('th-TH')} คน · “ไม่ระบุ” = ทะเบียนยังไม่ได้กรอกเพศ</p>
+          <div className="rtblwrap"><table className="tbl rtbl" aria-label="เพศแยกตามสถานะ">
+            <thead><tr><th>สถานะ</th><th className="num">ชาย</th><th className="num">หญิง</th><th className="num">ไม่ระบุ</th></tr></thead>
+            <tbody>{sexRows.map((r) => <tr key={r.label}><td>{r.label}</td><td className="num">{r.ชาย}</td><td className="num">{r.หญิง}</td><td className="num">{r.ไม่ระบุ}</td></tr>)}</tbody>
+          </table></div>
+        </section>
+      )}
+      {(tab === 1 || tab === 2) && <>
       <section className="pfaces" aria-label={`รูปสมาชิก ${gName}`}>
         <p className="pfaces__n muted small">{gName} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {orderName}</p>
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
@@ -128,7 +182,9 @@ export default function PastoralMembers() {
                 <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={52} />
                 <div className="pcard__body">
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
-                  <span className="pcard__l2">1 ปี มา <b>{(stats.get(m.id)?.recent ?? 0).toLocaleString('th-TH')}</b> ครั้ง · {statusShort(m.status)} · กลุ่ม {grp(m)}</span>
+                  {tab === 1
+                    ? <span className="pcard__l2">สมาชิกมา <b>{tenureText(tenureMap.get(m.id) ?? null)}</b> · {statusShort(m.status)} · กลุ่ม {grp(m)}</span>
+                    : <span className="pcard__l2">{ev.hasData ? <>มา <b>{ev.map.get(m.id)?.visits ?? 0}</b>/{ev.map.get(m.id)?.possible ?? 0} ครั้ง · <b className="pcard__pct">{Math.round(pctOf(m.id).pct * 100)}%</b> · {statusShort(m.status)}</> : 'ยังไม่มีบันทึกลงชื่อนมัสการ'}</span>}
                 </div>
               </li>
             ))}
@@ -136,7 +192,7 @@ export default function PastoralMembers() {
         )}
       </section>
 
-      <details className="pmore">
+      {tab === 1 && <details className="pmore">
         <summary>รายละเอียดเพิ่มเติม (การ์ดสรุป)</summary>
       <section className="card" aria-labelledby="pm-2">
         <h2 id="pm-2">2 · สถานะสมาชิก <span className="muted small">(แตะเพื่อกรองส่วนที่ 3–5)</span></h2>
@@ -169,7 +225,7 @@ export default function PastoralMembers() {
           : <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} height={340} label="แผนที่บ้านสมาชิก" noLinks /></Suspense>}
         <p className="muted small" style={{ margin: '0.4rem 0 0' }}>แผนที่ © OpenStreetMap · พิกัดบ้านเป็นข้อมูลส่วนบุคคล เห็นได้เฉพาะผู้มีสิทธิ์ดูรายละเอียดสมาชิก</p>
       </section>
-      </details>
+      </details>}
       </>}
       </div>
     </div>
