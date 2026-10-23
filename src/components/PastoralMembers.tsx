@@ -10,6 +10,7 @@ import type { MapPin } from './LeafletMap'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
+const ORDERS = [{ k: 'default', t: 'ตามค่าเริ่มต้น' }, { k: 'desc', t: 'จำนวนมาก → น้อย' }, { k: 'asc', t: 'จำนวนน้อย → มาก' }, { k: 'name', t: 'ชื่อ ก → ฮ' }]
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
 
@@ -52,6 +53,8 @@ export default function PastoralMembers() {
   const today = todayISO()
   const people = useChurchMembers()
   const [g, setG] = useState<StatusGroup>('all')
+  const [tab, setTab] = useState(1)
+  const [order, setOrder] = useState('default')
   const all = people.items
   const sel = useMemo(() => all.filter((m) => inGroup(m, g)), [all, g])
   const head = useMemo(() => headline(all), [all])
@@ -64,8 +67,37 @@ export default function PastoralMembers() {
   if (!can(role, 'detail')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
   const gName = STATUS_GROUPS.find((x) => x.key === g)!.label
 
+  const TONES = ['own', 'fund', 'total', 'indebt'] as const
+  const orderName = ORDERS.find((o) => o.k === order)!.t
   return (
     <div className="pastoral">
+      {/* โซน 1: แท็บ 1–4 + ตัวเลือกค้นหา 2 ตัว */}
+      <section className="pzone1 no-print" aria-label="เลือกแท็บและตัวเลือก">
+        <nav className="balance-tiles tiletabs" role="tablist" aria-label="แท็บสมาชิก">
+          {TONES.map((t, i) => (
+            <button key={t} type="button" role="tab" aria-selected={tab === i + 1} className={`btile btile--${t}`} onClick={() => setTab(i + 1)}>
+              <small aria-hidden="true">{i + 1}</small><b>แท็บ {i + 1}</b>
+            </button>
+          ))}
+        </nav>
+        <div className="pfilters">
+          <div className="field"><label htmlFor="pf-status">สถานะ</label>
+            <select id="pf-status" className="input" value={g} onChange={(e) => setG(e.target.value as StatusGroup)}>{STATUS_GROUPS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></div>
+          <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
+            <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value)}>{ORDERS.map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>
+        </div>
+      </section>
+
+      {/* โซน 2: พื้นที่แสดงผล — กดแท็บหรือเปลี่ยนตัวเลือกแล้วผลขึ้นที่นี่ */}
+      <div className="pzone2" role="tabpanel" aria-label="พื้นที่แสดงผล">
+      {tab !== 1 && (
+        <section className="card pplace" aria-label={`แท็บ ${tab}`}>
+          <h2 style={{ margin: 0 }}>แท็บ {tab}</h2>
+          <p className="empty" style={{ margin: 0 }}>พื้นที่แสดงผล — รอใส่รายละเอียด</p>
+          <p className="muted small" style={{ margin: 0 }}>ตัวเลือกที่เลือกไว้: สถานะ {gName} · เรียง {orderName}</p>
+        </section>
+      )}
+      {tab === 1 && <>
       <section className="card" aria-labelledby="pm-1">
         <h2 id="pm-1">1 · ตัวเลขสำคัญ</h2>
         <div className="pkpis">
@@ -106,6 +138,8 @@ export default function PastoralMembers() {
           : <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} height={340} label="แผนที่บ้านสมาชิก" noLinks /></Suspense>}
         <p className="muted small" style={{ margin: '0.4rem 0 0' }}>แผนที่ © OpenStreetMap · พิกัดบ้านเป็นข้อมูลส่วนบุคคล เห็นได้เฉพาะผู้มีสิทธิ์ดูรายละเอียดสมาชิก</p>
       </section>
+      </>}
+      </div>
     </div>
   )
 }
