@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -100,6 +100,12 @@ export function useCalendar() {
 export function useNotes() {
   const s = useSharedStore<Note>({ localKey: k('notes'), file: 'notes.json', label: 'บันทึกโน้ต', write: 'detail' })
   return { ...s, list: [...s.items].sort((a, b) => b.updated - a.updated) }
+}
+
+/** ข่าวจากแอดมินถึงงานต่าง ๆ (กระดิ่ง): แอดมินเป็นคนส่ง ทุกงานอ่านได้ */
+export function useAnnouncements() {
+  const s = useSharedStore<Announcement>({ localKey: k('announcements'), file: 'announcements.json', label: 'ข่าวจากแอดมิน', write: 'settings' })
+  return { ...s, list: [...s.items].filter((x) => !x.deleted).sort((a, b) => b.at - a.at) }
 }
 
 /** ผู้รับผิดชอบของแต่ละงานในห้องทำงาน: ไฟล์เดียว · แอดมินเป็นคนบันทึก ทุกคนเห็น */
