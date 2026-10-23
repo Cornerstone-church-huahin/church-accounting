@@ -901,3 +901,18 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .bellpanel__to label:first-of-type { grid-column: 1 / -1; }
 .bellpanel--admin { max-height: calc(100dvh - 9rem); }
 .bellpanel--admin textarea { min-height: 3.2rem; }
+
+/* งานอภิบาล › ตารางเยี่ยม */
+.pvdays { list-style: none; margin: 0 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.pvday { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--navy); border-radius: 0.8rem; padding: 0.55rem 0.7rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.pvday--worship { border-left-color: #1b8a4b; background: rgba(27, 138, 75, 0.07); }
+.pvday--off { border-left-color: #9aa3b2; background: rgba(154, 163, 178, 0.12); }
+.pvday.today { outline: 2px solid var(--gold); }
+.pvday__h { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.pvday__auto { margin: 0; font-weight: 700; }
+.pvvisit { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.55rem; border-radius: 0.6rem; background: rgba(31, 63, 143, 0.07); cursor: pointer; }
+.pvadd { min-height: 2.4rem; }
+.pvpick { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 14rem; overflow: auto; border: 1px solid var(--line); border-radius: 0.6rem; }
+.pvpick__r { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); cursor: pointer; }
+.pvpick__r.on { background: rgba(201, 154, 20, 0.2); }
+.pvpick__abs { color: #c0261b; font-size: 0.8rem; flex: none; }
