@@ -20,13 +20,13 @@ const TABS: { k: Tab; t: string }[] = [{ k: 'week', t: 'รายสัปดา
  * เจาะลงได้ ปี → เดือน → สัปดาห์ → รายการ · ใบสรุปรายสัปดาห์เดิม (ติดประกาศ/พิมพ์/PDF) เปิดจากแท็บรายสัปดาห์
  * รายละเอียดภายใน (ผู้เบิก หลักฐาน รายการต้องติดตาม ตารางกองทุน) แสดงเฉพาะผู้มีสิทธิ์ดูรายงานภายใน
  */
-export default function Summary({ year, view }: { year: number; /** ภาพรวมดูอย่างเดียว (ใช้ในทุกงาน): ไม่มีรายละเอียดภายใน ไม่มีทางเจาะรายการ/ใบประกาศ */ view?: boolean }) {
+export default function Summary({ year }: { year: number }) {
   const role = useRole()
   const { settings } = useSettings()
   const { input, opening } = useBalances(year)
   const loans = useLoans().items
   const a = useMemo(() => ({ ...input, opening, loans }), [input, opening, loans])
-  const detail = !view && can(role, 'detail')
+  const detail = can(role, 'detail')
   const church = settings.churchName.split(' ')[0]
   const today = todayISO()
   const latest = useMemo(() => {
@@ -79,14 +79,14 @@ export default function Summary({ year, view }: { year: number; /** ภาพร
     )
   }
   return (
-    <section aria-label="สรุปและรายงาน" className={view ? 'rview' : undefined}>
-      {!view && <h2 style={{ margin: '10px 0 4px' }}>📊 สรุปและรายงาน</h2>}
+    <section aria-label="สรุปและรายงาน">
+      <h2 style={{ margin: '10px 0 4px' }}>📊 สรุปและรายงาน</h2>
       <div className="rtabs no-print" role="tablist" aria-label="ระดับรายงาน">
         {TABS.map((x) => <button key={x.k} type="button" role="tab" aria-selected={tab === x.k} className={`rtab${tab === x.k ? ' on' : ''}`} onClick={() => setTab(x.k)}>{x.t}</button>)}
       </div>
-      {tab === 'week' && <WeekTab year={year} a={a} detail={detail} view={view} sunday={sunday} setSunday={setSunday} openNotice={() => setNotice(true)} />}
-      {tab === 'month' && <MonthTab year={year} a={a} detail={detail} view={view} month={month} setMonth={setMonth} openWeek={(s) => { setSunday(s); setTab('week') }} />}
-      {tab === 'year' && <YearTab year={year} a={a} detail={detail} view={view} loans={loans} openMonth={(m) => { setMonth(m); setTab('month') }} />}
+      {tab === 'week' && <WeekTab year={year} a={a} detail={detail} sunday={sunday} setSunday={setSunday} openNotice={() => setNotice(true)} />}
+      {tab === 'month' && <MonthTab year={year} a={a} detail={detail} month={month} setMonth={setMonth} openWeek={(s) => { setSunday(s); setTab('week') }} />}
+      {tab === 'year' && <YearTab year={year} a={a} detail={detail} loans={loans} openMonth={(m) => { setMonth(m); setTab('month') }} />}
     </section>
   )
 }

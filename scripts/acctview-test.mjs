@@ -61,17 +61,22 @@ try {
   await page.getByRole('button', { name: 'สัปดาห์ถัดไป' }).waitFor({ timeout: 5000 }).catch(() => undefined)
   await lock('expense view')
   await page.screenshot({ path: 'shots/acctview-out.png' })
-  // ภาพรวม: สรุป 3 ระดับ ดูอย่างเดียว ไม่มีทางเจาะรายการ
+  // ภาพรวม: โซน 1 ช่องเงิน · โซน 2 ใบสรุปประจำสัปดาห์ · โซน 3 แถบสัปดาห์ย้อนหลัง — ดูอย่างเดียว
   await page.goto(`http://localhost:${PORT}/#/meeting/4`)
   await page.getByRole('link', { name: /ภาพรวม/ }).click()
   await page.getByRole('heading', { name: /ภาพรวมรายรับ-รายจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
-  for (const t of ['รายสัปดาห์', 'รายเดือน', 'ภาพรวมปี']) {
-    await page.getByRole('tab', { name: t }).click()
-    const acts = await page.locator('main button, main a, main [role=button], main input, main select').evaluateAll((els) => els.filter((e) => e.getAttribute('role') !== 'tab' && !/^(ช่วงก่อน|ช่วงถัดไป|สัปดาห์ก่อน|สัปดาห์ถัดไป)$/.test(e.getAttribute('aria-label') ?? '') && !e.closest('.page-head')).map((e) => e.tagName + ':' + (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 30)))
-    must(acts.length === 0, `overview ${t}: view only, nothing to click into: ` + acts.join(' | '))
-  }
-  await page.getByRole('tab', { name: 'รายสัปดาห์' }).click()
-  must(/รายรับหมุนเวียน/.test(await page.locator('main').innerText()) && await page.getByRole('region', { name: 'รายการต้องติดตาม' }).count() === 0, 'overview shows the numbers but no internal follow-up list')
+  const z1 = page.getByRole('region', { name: /โซน 1/ }), z2 = page.getByRole('region', { name: /โซน 2/ }), z3 = page.getByRole('region', { name: /โซน 3/ })
+  const t1 = (await z1.innerText()).replace(/\s+/g, ' ')
+  must(['หมุนเวียน', 'กองทุน', 'รวมเงินสด', 'หนี้ภายใน', 'หนี้ภายนอก', 'ภาระที่ดิน'].every((x) => t1.includes(x)) && await z1.locator('a, button').count() === 0, 'zone 1: six money tiles, nothing to click: ' + t1)
+  must(/สรุปรายรับ - รายจ่ายประจำสัปดาห์/.test(await z2.innerText()) && await z2.locator('a, button').count() === 0, 'zone 2: the weekly summary sheet')
+  const rows = z3.locator('.sumrow')
+  must(await rows.count() === 2, 'zone 3: slim week bars: ' + await rows.count())
+  const before = await z2.innerText()
+  await rows.nth(1).click()
+  await page.waitForFunction((b) => document.querySelector('[aria-label^="โซน 2"]').innerText !== b, before)
+  must(await rows.nth(1).getAttribute('aria-pressed') === 'true', 'tapping a week shows that week in zone 2')
+  const other = await page.locator('main a, main select, main input').evaluateAll((els) => els.filter((e) => !e.closest('.page-head')).length)
+  must(other === 0, 'overview has no links or inputs')
   await page.screenshot({ path: 'shots/acctview-overview.png' })
   // งานทะเบียน: ปุ่มอยู่แถวเดียวกับหัวข้อ "สมาชิก"
   await page.goto(`http://localhost:${PORT}/#/meeting/2`)

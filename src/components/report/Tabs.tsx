@@ -9,14 +9,14 @@ import { computeBalances } from '../../lib/balances'
 import { circulatingOnly } from '../../lib/balances'
 import type { Loan } from '../../lib/types'
 
-interface TabProps { year: number; a: ReportInput; detail: boolean; /** ภาพรวมดูอย่างเดียว: ไม่มีทางเจาะรายการ/เปิดใบประกาศ */ view?: boolean }
+interface TabProps { year: number; a: ReportInput; detail: boolean }
 
 /** เปิด/ปิดรายการยาว ๆ (พับไว้ก่อน) */
 const Fold = ({ title, children }: { title: string; children: React.ReactNode }) => <details className="rfold"><summary>{title}</summary>{children}</details>
 
-const pickNote = (detail: boolean, view?: boolean) => view ? '' : detail ? 'แตะแท่งเพื่อดูรายการที่ประกอบเป็นยอดนั้น' : 'ดูรายการละเอียดได้เฉพาะผู้มีสิทธิ์ดูรายงานภายใน'
+const pickNote = (detail: boolean) => detail ? 'แตะแท่งเพื่อดูรายการที่ประกอบเป็นยอดนั้น' : 'ดูรายการละเอียดได้เฉพาะผู้มีสิทธิ์ดูรายงานภายใน'
 
-export function WeekTab({ year, a, detail, view, sunday, setSunday, openNotice }: TabProps & { sunday: string; setSunday: (s: string) => void; openNotice: () => void }) {
+export function WeekTab({ year, a, detail, sunday, setSunday, openNotice }: TabProps & { sunday: string; setSunday: (s: string) => void; openNotice: () => void }) {
   const [cat, setCat] = useState<string | null>(null), [inc, setInc] = useState<string | null>(null)
   const all = useMemo(() => sundaysOf(year).filter((s) => s <= sheetSunday(todayISO())), [year])
   const i = all.indexOf(sunday)
@@ -27,12 +27,12 @@ export function WeekTab({ year, a, detail, view, sunday, setSunday, openNotice }
       <StatusLine r={r} range={r.range} />
       {r.empty ? <p className="empty">ยังไม่มีรายการรับ-จ่ายในสัปดาห์นี้</p> : <>
         <Kpis items={[{ label: 'รายรับหมุนเวียน', value: money(r.inTotal), tone: 'in' }, { label: 'เงินจ่ายออก', value: money(r.outTotal), tone: 'out', sub: r.advance > 0 ? `= ค่าใช้จ่าย ${money(r.expenseTotal)} + สำรองจ่ายรอคืน ${money(r.advance)}` : undefined }, { label: 'ส่วนต่างรับ–จ่าย', value: money(r.net), tone: 'bal' }, { label: 'เงินถวายเข้ากองทุน', value: money(r.fundTotal), sub: 'แยกจากรายรับหมุนเวียน' }]} />
-        <Card title="01 รายรับเข้าจากที่ใด" hint={pickNote(detail, view)}>
+        <Card title="01 รายรับเข้าจากที่ใด" hint={pickNote(detail)}>
           <HBars title="รายรับแยกประเภท" tone="in" bars={r.incBars} active={inc} onPick={detail ? (k) => setInc(inc === k ? null : k) : undefined} />
           {r.fundBars.length > 0 && <><p className="small" style={{ margin: 0 }}><b>เงินถวายเข้ากองทุน</b> (ไม่รวมในรายรับหมุนเวียน)</p><HBars title="เงินถวายกองทุน" tone="bal" bars={r.fundBars} /></>}
           {detail && inc && <IncTable title="รายการรายรับ" lines={r.incLines.filter((x) => x.typeId === inc)} />}
         </Card>
-        <Card title="02 ค่าใช้จ่ายแยกหมวด" hint={pickNote(detail, view)}>
+        <Card title="02 ค่าใช้จ่ายแยกหมวด" hint={pickNote(detail)}>
           <HBars title="ค่าใช้จ่ายแยกหมวด" tone="out" bars={r.catBars} active={cat} onPick={detail ? (k) => setCat(cat === k ? null : k) : undefined} />
           {r.advance > 0 && <p className="small" style={{ margin: 0 }}>เงินสำรองจ่ายรอคืนเงิน (แยกจากค่าใช้จ่าย): <b style={{ color: TONE.out }}>{money(r.advance)}</b></p>}
           {detail && cat && <OutTable title="รายการจ่ายของหมวด" lines={r.outLines.filter((l) => l.catKey === cat && l.status !== 'advance')} />}
@@ -40,14 +40,14 @@ export function WeekTab({ year, a, detail, view, sunday, setSunday, openNotice }
         {detail && <Card title="03 รายละเอียดรายการจ่ายทั้งหมด"><Fold title={`ดูทั้ง ${r.outLines.length} รายการ`}><OutTable title="รายการจ่ายทั้งหมด" lines={r.outLines} /></Fold></Card>}
         {detail && <Follow items={r.follow} />}
       </>}
-      {!view && <div className="row no-print" style={{ gap: 8, flexWrap: 'wrap' }}>
+      <div className="row no-print" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn--gold" onClick={openNotice} disabled={r.empty}>📄 เปิดใบสรุปรายสัปดาห์ (ติดประกาศ / พิมพ์ / PDF)</button>
-      </div>}
+      </div>
     </>
   )
 }
 
-export function MonthTab({ year, a, detail, view, month, setMonth, openWeek }: TabProps & { month: number; setMonth: (m: number) => void; openWeek: (sunday: string) => void }) {
+export function MonthTab({ year, a, detail, month, setMonth, openWeek }: TabProps & { month: number; setMonth: (m: number) => void; openWeek: (sunday: string) => void }) {
   const [wk, setWk] = useState<string | null>(null), [cat, setCat] = useState<string | null>(null)
   const range = monthRange(year, month)
   const r = useMemo(() => periodReport(range, a), [a, year, month]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -63,8 +63,8 @@ export function MonthTab({ year, a, detail, view, month, setMonth, openWeek }: T
       <StatusLine r={r} range={range} />
       {r.empty ? <p className="empty">ยังไม่มีรายการในเดือนนี้</p> : <>
         <Kpis items={[{ label: 'รายรับหมุนเวียนรวมเดือน', value: money(r.inTotal), tone: 'in' }, { label: 'เงินจ่ายออกรวมเดือน', value: money(r.outTotal), tone: 'out', sub: r.advance > 0 ? `ค่าใช้จ่าย ${money(r.expenseTotal)} + สำรองจ่ายรอคืน ${money(r.advance)}` : undefined }, { label: 'ส่วนต่าง', value: money(r.net), tone: 'bal' }, { label: 'เงินถวายเข้ากองทุน', value: money(r.fundTotal), sub: 'แยกจากรายรับหมุนเวียน' }]} />
-        <Card title="01 เปรียบเทียบรับ–จ่ายแต่ละสัปดาห์" hint={view ? 'ยอดนับเฉพาะวันที่อยู่ในเดือนนี้' : 'แตะช่วงสัปดาห์เพื่อดูรายการ · ยอดนับเฉพาะวันที่อยู่ในเดือนนี้'}>
-          <GroupBars title="รับ-จ่ายรายสัปดาห์" items={ws.map((w) => ({ key: w.sunday, label: `${Number(w.clipped.from.slice(8))}–${Number(w.clipped.to.slice(8))}`, a: w.report.inTotal, b: w.report.outTotal, note: w.report.empty ? 'ไม่มีข้อมูล' : w.partial ? 'บางส่วน' : undefined }))} active={wk} onPick={view ? undefined : (k) => setWk(wk === k ? null : k)} />
+        <Card title="01 เปรียบเทียบรับ–จ่ายแต่ละสัปดาห์" hint="แตะช่วงสัปดาห์เพื่อดูรายการ · ยอดนับเฉพาะวันที่อยู่ในเดือนนี้">
+          <GroupBars title="รับ-จ่ายรายสัปดาห์" items={ws.map((w) => ({ key: w.sunday, label: `${Number(w.clipped.from.slice(8))}–${Number(w.clipped.to.slice(8))}`, a: w.report.inTotal, b: w.report.outTotal, note: w.report.empty ? 'ไม่มีข้อมูล' : w.partial ? 'บางส่วน' : undefined }))} active={wk} onPick={(k) => setWk(wk === k ? null : k)} />
           {partials.length > 0 && <p className="muted small" style={{ margin: 0 }}>สัปดาห์ที่คร่อมเดือน ({partials.map((w) => weekRange(w.sunday)).join(' · ')}) กราฟนี้นับเฉพาะวันที่อยู่ในเดือน — รายงานสัปดาห์เต็มอาจมียอดต่างจากช่วงที่ตัดเฉพาะเดือน</p>}
           {sel && <div className="rsel" role="region" aria-label={`สัปดาห์ ${weekRange(sel.sunday)}`}>
             <b>{weekRange(sel.sunday)}</b> · รับ {money(sel.report.inTotal)} · จ่าย {money(sel.report.outTotal)}{sel.partial ? ' (เฉพาะวันในเดือน)' : ''}
@@ -72,7 +72,7 @@ export function MonthTab({ year, a, detail, view, month, setMonth, openWeek }: T
             <button type="button" className="btn btn--gold" onClick={() => openWeek(sel.sunday)}>เปิดรายงานสัปดาห์เต็ม ›</button>
           </div>}
         </Card>
-        <Card title="02 ค่าใช้จ่ายรวมเดือนแยกหมวด" hint={pickNote(detail, view)}>
+        <Card title="02 ค่าใช้จ่ายรวมเดือนแยกหมวด" hint={pickNote(detail)}>
           <HBars title="ค่าใช้จ่ายรวมเดือน" tone="out" bars={r.catBars} active={cat} onPick={detail ? (k) => setCat(cat === k ? null : k) : undefined} />
           {r.advance > 0 && <p className="small" style={{ margin: 0 }}>เงินสำรองจ่ายรอคืนเงิน (แยกจากค่าใช้จ่าย): <b style={{ color: TONE.out }}>{money(r.advance)}</b></p>}
           {detail && cat && <OutTable title="รายการจ่ายของหมวด" lines={r.outLines.filter((l) => l.catKey === cat && l.status !== 'advance')} />}
@@ -90,7 +90,7 @@ export function MonthTab({ year, a, detail, view, month, setMonth, openWeek }: T
   )
 }
 
-export function YearTab({ year, a, detail, view, loans, openMonth }: TabProps & { loans: Loan[]; openMonth: (m: number) => void }) {
+export function YearTab({ year, a, detail, loans, openMonth }: TabProps & { loans: Loan[]; openMonth: (m: number) => void }) {
   const [cat, setCat] = useState<string | null>(null)
   const today = todayISO(), endY = `${year}-12-31`
   const ref = today < endY ? (today < `${year}-01-01` ? `${year}-01-01` : today) : endY
@@ -115,17 +115,17 @@ export function YearTab({ year, a, detail, view, loans, openMonth }: TabProps & 
         <Card title={`ยอดคงเหลือ ณ วันที่ ${fmtDate(ref)}`} hint="ยอด ณ วันอ้างอิง — แยกจากยอดรับ–จ่ายระหว่างงวดด้านบน">
           <Kpis items={[{ label: 'เงินหมุนเวียนคงเหลือ', value: money(circulatingOnly(b, loans)), tone: 'bal' }, { label: 'เงินกองทุนคงเหลือ', value: known ? money(bal.reduce((s, f) => s + (f.balance ?? 0), 0)) : 'ข้อมูลยังไม่ครบ', tone: 'bal' }, { label: 'เงินสดและเงินฝากรวม', value: money(b.total), tone: 'bal' }]} />
         </Card>
-        <Card title="01 แนวโน้มรับ–จ่ายรายเดือน" hint={view ? 'เดือนที่ไม่มีข้อมูลเว้นว่าง ไม่ลากเป็นศูนย์' : 'แตะจุดเพื่อเปิดแท็บรายเดือน · เดือนที่ไม่มีข้อมูลเว้นว่าง ไม่ลากเป็นศูนย์'}>
-          <Lines title="แนวโน้มรายเดือน" points={months.map((m) => ({ key: String(m.month), label: monthShort(m.month), a: m.report.empty ? null : m.report.inTotal, b: m.report.empty ? null : m.report.outTotal, partial: m.partial }))} onPick={view ? undefined : (k) => openMonth(Number(k))} />
+        <Card title="01 แนวโน้มรับ–จ่ายรายเดือน" hint="แตะจุดเพื่อเปิดแท็บรายเดือน · เดือนที่ไม่มีข้อมูลเว้นว่าง ไม่ลากเป็นศูนย์">
+          <Lines title="แนวโน้มรายเดือน" points={months.map((m) => ({ key: String(m.month), label: monthShort(m.month), a: m.report.empty ? null : m.report.inTotal, b: m.report.empty ? null : m.report.outTotal, partial: m.partial }))} onPick={(k) => openMonth(Number(k))} />
           {withData.length === 1 && <p className="small" style={{ margin: 0 }}>มีข้อมูลเพียงเดือน{monthName(withData[0].month)}เดือนเดียว — แสดงเป็นจุด ยังไม่สรุปแนวโน้ม</p>}
           <div className="rtblwrap"><table className="tbl rtbl" aria-label="ตารางรายเดือน">
             <thead><tr><th>เดือน</th><th className="num">รับ</th><th className="num">จ่ายออก</th><th>สถานะ</th></tr></thead>
-            <tbody>{months.map((m) => <tr key={m.month}><td>{m.report.empty || view ? monthName(m.month) : <button type="button" className="linkbtn" onClick={() => openMonth(m.month)}>{monthName(m.month)} ›</button>}</td>
+            <tbody>{months.map((m) => <tr key={m.month}><td>{m.report.empty ? monthName(m.month) : <button type="button" className="linkbtn" onClick={() => openMonth(m.month)}>{monthName(m.month)} ›</button>}</td>
               <td className="num">{m.report.empty ? '—' : money(m.report.inTotal)}</td><td className="num">{m.report.empty ? '—' : money(m.report.outTotal)}</td>
               <td><small>{m.report.empty ? 'ยังไม่มีข้อมูล' : m.partial ? `ข้อมูลบางส่วน (${m.weeksWithData}/${m.weeks} สัปดาห์)` : 'มีข้อมูล'}</small></td></tr>)}</tbody>
           </table></div>
         </Card>
-        <Card title="02 ค่าใช้จ่ายสะสมทั้งปีแยกหมวด" hint={pickNote(detail, view)}>
+        <Card title="02 ค่าใช้จ่ายสะสมทั้งปีแยกหมวด" hint={pickNote(detail)}>
           <HBars title="ค่าใช้จ่ายสะสมทั้งปี" tone="out" bars={yr.catBars} active={cat} onPick={detail ? (k) => setCat(cat === k ? null : k) : undefined} />
           {yr.advance > 0 && <p className="small" style={{ margin: 0 }}>เงินสำรองจ่ายรอคืนเงิน (แยกจากค่าใช้จ่าย): <b style={{ color: TONE.out }}>{money(yr.advance)}</b></p>}
           {detail && cat && <Fold title="รายการของหมวดนี้"><OutTable title="รายการจ่ายของหมวด" lines={yr.outLines.filter((l) => l.catKey === cat && l.status !== 'advance')} /></Fold>}

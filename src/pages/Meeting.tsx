@@ -13,7 +13,7 @@ import { useYear } from '../lib/year'
 import AccountLinks from '../components/AccountLinks'
 import Receive from './Receive'
 import Pay from './Pay'
-import Summary from './Summary'
+import OverviewView from '../components/OverviewView'
 import { MEETING_TABS, visibleWorks, workHomePath } from '../lib/workTabs'
 
 /** ปุ่มเปิด/ปิดตารางงานไว้บนสุดของแต่ละหน้า — เปิดดูได้โดยไม่ไปแตะข้อมูล/หน้าเดิมของงานนั้น */
@@ -115,8 +115,7 @@ function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 
           <h1>📊 ภาพรวมรายรับ-รายจ่าย</h1>
           <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
         </div>
-        <p className="muted small no-print" style={{ margin: '0 0 0.2rem' }}>ดูอย่างเดียว · เลือกรายสัปดาห์ รายเดือน หรือภาพรวมปี</p>
-        <Summary key={year} year={year} view />
+        <OverviewView key={year} year={year} />
       </>
     )
   }
