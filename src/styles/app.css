@@ -852,3 +852,14 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pmore > summary { cursor: pointer; font-weight: 700; padding: 0.5rem 0.2rem; }
 .pastoral .pfilters--slim .field { flex-direction: row; align-items: center; gap: 0.3rem; }
 .pastoral .pfilters--slim .field label { display: inline; text-align: left; }
+
+.pcards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.pcard { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0.7rem; background: var(--surface); border: 1px solid var(--line); border-radius: 0.8rem; pointer-events: none; user-select: none; content-visibility: auto; contain-intrinsic-size: 4.6rem; }
+.pcard > :first-child { flex: none; }
+.pcard__body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+.pcard__name { font-size: 1rem; overflow-wrap: anywhere; }
+.pcard__nick { font-weight: 500; color: var(--ink-soft); }
+.pcard__row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.7rem; font-size: 0.88rem; }
+.pcard__visits b { color: var(--navy); font-size: 1rem; }
+.pcard__st { color: var(--ink); }
+.pcard__grp { font-size: 0.82rem; color: var(--ink-soft); }

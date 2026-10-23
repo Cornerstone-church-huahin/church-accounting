@@ -87,3 +87,25 @@ export function followUp(rows: Evaluated[], weeks: number): FollowUp[] {
     .sort((a, b) => (b.idleDays ?? 0) - (a.idleDays ?? 0))
 }
 export type { ChurchMember }
+
+/** จำนวนครั้งที่มานมัสการของแต่ละคน (นับวันที่ไม่ซ้ำ) */
+export function visitCounts(attendance: { date: string; ids: string[]; deleted?: boolean }[]): Map<string, number> {
+  const days = new Map<string, Set<string>>()
+  for (const a of attendance) if (!a.deleted) for (const id of a.ids) (days.get(id) ?? days.set(id, new Set()).get(id)!).add(a.date)
+  return new Map([...days].map(([id, d]) => [id, d.size]))
+}
+/** ลำดับสถานะตามเลขนำหน้า 1–7 (ไม่มีเลข = ท้ายสุด) */
+export const statusRank = (status?: string) => Number(statusLabel(status).match(/^(\d)\./)?.[1] ?? 9)
+export type MemberOrder = 'default' | 'asc' | 'status' | 'name'
+/** เรียงรายชื่อ: ค่าเริ่มต้น = มาบ่อยสุด → น้อยสุด (เท่ากันเรียงตามสถานะ 1,2,3… แล้วชื่อ) · asc = มาน้อย → มาก · status = สถานะ 1→7 · name = ก→ฮ */
+export function orderMembers<T extends { id: string; name: string; status?: string }>(list: T[], order: MemberOrder, visits: Map<string, number>): T[] {
+  const v = (m: T) => visits.get(m.id) ?? 0
+  const nm = (x: T, y: T) => x.name.localeCompare(y.name, 'th')
+  const cmp: Record<MemberOrder, (x: T, y: T) => number> = {
+    default: (x, y) => v(y) - v(x) || statusRank(x.status) - statusRank(y.status) || nm(x, y),
+    asc: (x, y) => v(x) - v(y) || statusRank(x.status) - statusRank(y.status) || nm(x, y),
+    status: (x, y) => statusRank(x.status) - statusRank(y.status) || v(y) - v(x) || nm(x, y),
+    name: nm,
+  }
+  return [...list].sort(cmp[order])
+}
