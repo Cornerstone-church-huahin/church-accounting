@@ -1,5 +1,4 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
 import { useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
@@ -103,8 +102,8 @@ export default function PastoralMembers() {
         <h2 id="pm-5">5 · แผนที่บ้านสมาชิก <span className="muted small">({gName})</span></h2>
         <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>บันทึกพิกัดบ้านแล้ว <b>{pins.length}</b> จาก {sel.length} คน ({pct(pins.length, sel.length)}%) · แตะหมุดเพื่อดูชื่อ</p>
         {pins.length === 0
-          ? <p className="empty">ยังไม่มีพิกัดบ้านของสมาชิก — แอดมิน/ผู้บันทึกทะเบียนบันทึกได้ที่ <Link to="/meeting/2">งานทะเบียน</Link> › ทะเบียน › แตะชื่อ › แก้ไขข้อมูล › “พิกัดบ้าน”</p>
-          : <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} height={340} label="แผนที่บ้านสมาชิก" /></Suspense>}
+          ? <p className="empty">ยังไม่มีพิกัดบ้านของสมาชิก — ผู้ดูแลทะเบียนเป็นผู้บันทึกข้อมูลนี้</p>
+          : <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} height={340} label="แผนที่บ้านสมาชิก" noLinks /></Suspense>}
         <p className="muted small" style={{ margin: '0.4rem 0 0' }}>แผนที่ © OpenStreetMap · พิกัดบ้านเป็นข้อมูลส่วนบุคคล เห็นได้เฉพาะผู้มีสิทธิ์ดูรายละเอียดสมาชิก</p>
       </section>
     </div>

@@ -11,7 +11,7 @@ const dot = (cls = '') => L.divIcon({ className: '', html: `<span class="mapdot$
  * แผนที่ (OpenStreetMap + Leaflet): แสดงหมุดหลายจุด (pins) หรือโหมดเลือกจุด (onPick — แตะ/ลากหมุดเพื่อบันทึกพิกัด)
  * โหลดแบบ lazy จึงไม่หนักหน้าอื่น · ส่งเฉพาะตำแหน่งกระเบื้องแผนที่ไปยังเซิร์ฟเวอร์แผนที่ ไม่ส่งพิกัดหมุดของสมาชิก
  */
-export default function LeafletMap({ pins = [], pick, onPick, height = 320, label }: { pins?: MapPin[]; pick?: Coord | null; onPick?: (c: Coord) => void; height?: number; label: string }) {
+export default function LeafletMap({ pins = [], pick, onPick, height = 320, label, noLinks }: { pins?: MapPin[]; pick?: Coord | null; onPick?: (c: Coord) => void; height?: number; label: string; /** ไม่มีลิงก์ออกนอกแอป (ข้อความอ้างอิงแผนที่เป็นตัวอักษรล้วน) */ noLinks?: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -22,7 +22,8 @@ export default function LeafletMap({ pins = [], pick, onPick, height = 320, labe
   useEffect(() => {
     if (!box.current) return
     const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([HUAHIN.lat, HUAHIN.lng], 12)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: noLinks ? '© OpenStreetMap' : '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m)
+    if (noLinks) m.attributionControl.setPrefix(false)
     layer.current = L.layerGroup().addTo(m)
     if (onPickRef.current) m.on('click', (e: L.LeafletMouseEvent) => onPickRef.current?.({ lat: Math.round(e.latlng.lat * 1e6) / 1e6, lng: Math.round(e.latlng.lng * 1e6) / 1e6 }))
     map.current = m
