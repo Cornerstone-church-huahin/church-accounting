@@ -79,11 +79,11 @@ function WorkPage({ n, name, k, s }: { n: number; name: string; k: number; s?: n
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
   return (
     <>
-      <div className="page-head no-print">
+      <div className={`page-head no-print${n === 4 && k === 1 ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
-      <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>
+      {!(n === 4 && k === 1) && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
       {n === 4 && k === 1 ? <PastoralMembers /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )

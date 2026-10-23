@@ -825,3 +825,30 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pfilters .field { min-width: 0; }
 .pzone2 { display: flex; flex-direction: column; gap: 0.7rem; min-height: 40vh; }
 .pplace { align-items: center; justify-content: center; text-align: center; min-height: 30vh; }
+
+/* งานอภิบาล › สมาชิก (จัดใหม่): แท็บเตี้ยชิดบน · ตัวเลขเป็นตัวอักษร 2 แถว · รูปสมาชิกเล็ก ๆ ดูอย่างเดียว */
+.page-head--tight { margin: 0 0 0.25rem; }
+.page-head--tight h1 { font-size: 1.15rem; margin: 0; }
+.pzone1 { gap: 0.35rem; margin-bottom: 0.3rem; }
+.ptabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem; }
+.ptab { font: inherit; font-size: 0.85rem; font-weight: 700; color: #fff; border: 0; border-radius: 0.5rem; min-height: 2.1rem; padding: 0 0.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.3rem; white-space: nowrap; box-shadow: 0 1px 0 rgba(0,0,0,0.18); }
+.ptab span { font-size: 0.95rem; }
+.ptab[aria-selected='true'] { outline: 2px solid #d4af37; outline-offset: 1px; }
+.ptab[aria-selected='false'] { opacity: 0.88; }
+.ptab.btile--own { background: #1a2b4c; } .ptab.btile--fund { background: #8a6410; } .ptab.btile--total { background: #1f5fbf; } .ptab.btile--indebt { background: #1b6b6b; }
+.pfilters--slim { gap: 0.4rem; }
+.pfilters--slim .field { display: flex; align-items: center; gap: 0.3rem; margin: 0; }
+.pfilters--slim label { font-size: 0.75rem; white-space: nowrap; margin: 0; }
+.pfilters--slim .input { min-height: 2rem; padding: 0.15rem 0.4rem; font-size: 0.85rem; flex: 1; min-width: 0; }
+.pcounts { margin: 0.1rem 0 0.4rem; font-size: 0.82rem; line-height: 1.6; color: var(--ink-soft); }
+.pcounts span { white-space: nowrap; margin-right: 0.7rem; }
+.pcounts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pzone2 { min-height: 0; gap: 0.4rem; }
+.pfaces__n { margin: 0 0 0.3rem; }
+.pfaces__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(3.9rem, 1fr)); gap: 0.4rem 0.3rem; }
+.pface { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; min-width: 0; pointer-events: none; user-select: none; content-visibility: auto; contain-intrinsic-size: 4.6rem; }
+.pface > span:last-child { font-size: 0.66rem; line-height: 1.15; text-align: center; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+.pmore { margin-top: 0.6rem; }
+.pmore > summary { cursor: pointer; font-weight: 700; padding: 0.5rem 0.2rem; }
+.pastoral .pfilters--slim .field { flex-direction: row; align-items: center; gap: 0.3rem; }
+.pastoral .pfilters--slim .field label { display: inline; text-align: left; }

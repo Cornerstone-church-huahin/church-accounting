@@ -7,6 +7,7 @@ import { todayISO } from '../lib/money'
 import { ageBands, genderSplit, groupCounts, headline, inGroup, joinYears, STATUS_GROUPS, type StatusGroup } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import type { MapPin } from './LeafletMap'
+import MemberAvatar from './MemberAvatar'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
@@ -69,18 +70,28 @@ export default function PastoralMembers() {
 
   const TONES = ['own', 'fund', 'total', 'indebt'] as const
   const orderName = ORDERS.find((o) => o.k === order)!.t
+  // โซน 3: รูปสมาชิกตามตัวเลือก (ดูอย่างเดียว) · จำนวนมาก/น้อย = เรียงตามขนาดกลุ่มของสมาชิก
+  const faces = useMemo(() => {
+    const size = new Map(groupCounts(sel))
+    const gk = (m: { group?: string }) => { const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
+    const list = [...sel]
+    if (order === 'name') list.sort((x, y) => x.name.localeCompare(y.name, 'th'))
+    else if (order === 'desc' || order === 'asc') list.sort((x, y) => ((size.get(gk(y)) ?? 0) - (size.get(gk(x)) ?? 0)) * (order === 'desc' ? 1 : -1) || x.name.localeCompare(y.name, 'th'))
+    return list
+  }, [sel, order])
+  const shortName = (n: string) => n.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*/, '').trim() || n
   return (
     <div className="pastoral">
-      {/* โซน 1: แท็บ 1–4 + ตัวเลือกค้นหา 2 ตัว */}
+      {/* โซน 1: แท็บ 1–4 (แถบเตี้ย ชิดบนสุด) + ตัวเลือกค้นหา 2 ตัว */}
       <section className="pzone1 no-print" aria-label="เลือกแท็บและตัวเลือก">
-        <nav className="balance-tiles tiletabs" role="tablist" aria-label="แท็บสมาชิก">
+        <nav className="ptabs" role="tablist" aria-label="แท็บสมาชิก">
           {TONES.map((t, i) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === i + 1} className={`btile btile--${t}`} onClick={() => setTab(i + 1)}>
-              <small aria-hidden="true">{i + 1}</small><b>แท็บ {i + 1}</b>
+            <button key={t} type="button" role="tab" aria-selected={tab === i + 1} className={`ptab btile--${t}`} onClick={() => setTab(i + 1)}>
+              <span aria-hidden="true">{i + 1}</span> แท็บ {i + 1}
             </button>
           ))}
         </nav>
-        <div className="pfilters">
+        <div className="pfilters pfilters--slim">
           <div className="field"><label htmlFor="pf-status">สถานะ</label>
             <select id="pf-status" className="input" value={g} onChange={(e) => setG(e.target.value as StatusGroup)}>{STATUS_GROUPS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></div>
           <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
@@ -88,7 +99,18 @@ export default function PastoralMembers() {
         </div>
       </section>
 
-      {/* โซน 2: พื้นที่แสดงผล — กดแท็บหรือเปลี่ยนตัวเลือกแล้วผลขึ้นที่นี่ */}
+      {/* โซน 2: ตัวเลขจำนวนเป็นตัวอักษร 2 แถว (ไม่ใช้การ์ด) */}
+      <p className="pcounts" role="status" aria-label="จำนวนสมาชิก">
+        <span>รายชื่อทั้งหมด <b>{head.total.toLocaleString('th-TH')}</b></span>
+        <span>สมาชิกสมบูรณ์ (1+2) <b>{head.complete.toLocaleString('th-TH')}</b></span>
+        <span>สมาชิกสำรอง <b>{head.reserve.toLocaleString('th-TH')}</b></span>
+        <br />
+        <span>ผู้ร่วมนมัสการ <b>{head.worship.toLocaleString('th-TH')}</b></span>
+        <span>คนใหม่ <b>{head.newcomer.toLocaleString('th-TH')}</b></span>
+        <span>สิ้นสภาพ/เสียชีวิต <b>{head.ended.toLocaleString('th-TH')}</b></span>
+      </p>
+
+      {/* โซน 3: รูปสมาชิกตามตัวเลือก — ดูอย่างเดียว กดเข้าไปดูรายละเอียดไม่ได้ */}
       <div className="pzone2" role="tabpanel" aria-label="พื้นที่แสดงผล">
       {tab !== 1 && (
         <section className="card pplace" aria-label={`แท็บ ${tab}`}>
@@ -98,15 +120,22 @@ export default function PastoralMembers() {
         </section>
       )}
       {tab === 1 && <>
-      <section className="card" aria-labelledby="pm-1">
-        <h2 id="pm-1">1 · ตัวเลขสำคัญ</h2>
-        <div className="pkpis">
-          {([['รายชื่อทั้งหมด', head.total], ['สมาชิกสมบูรณ์ (1+2)', head.complete], ['สมาชิกสำรอง', head.reserve], ['ผู้ร่วมนมัสการ', head.worship], ['คนใหม่', head.newcomer], ['สิ้นสภาพ/เสียชีวิต', head.ended]] as const).map(([k, v]) => (
-            <div key={k} className="pkpi"><span>{k}</span><b>{v.toLocaleString('th-TH')}</b></div>
-          ))}
-        </div>
+      <section className="pfaces" aria-label={`รูปสมาชิก ${gName}`}>
+        <p className="pfaces__n muted small">{gName} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {orderName}</p>
+        {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
+          <ul className="pfaces__grid">
+            {faces.map((m) => (
+              <li key={m.id} className="pface" aria-label={m.name}>
+                <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={56} />
+                <span>{shortName(m.nick?.trim() || m.name)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
+      <details className="pmore">
+        <summary>รายละเอียดเพิ่มเติม (การ์ดสรุป)</summary>
       <section className="card" aria-labelledby="pm-2">
         <h2 id="pm-2">2 · สถานะสมาชิก <span className="muted small">(แตะเพื่อกรองส่วนที่ 3–5)</span></h2>
         {STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => <BarRow key={x.key} label={x.label} n={head[x.key as Exclude<StatusGroup, 'all'>]} total={head.total} color={g === x.key ? GOLD : NAVY} active={g === x.key} onClick={() => setG(g === x.key ? 'all' : x.key)} />)}
@@ -138,6 +167,7 @@ export default function PastoralMembers() {
           : <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} height={340} label="แผนที่บ้านสมาชิก" noLinks /></Suspense>}
         <p className="muted small" style={{ margin: '0.4rem 0 0' }}>แผนที่ © OpenStreetMap · พิกัดบ้านเป็นข้อมูลส่วนบุคคล เห็นได้เฉพาะผู้มีสิทธิ์ดูรายละเอียดสมาชิก</p>
       </section>
+      </details>
       </>}
       </div>
     </div>
