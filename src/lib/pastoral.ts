@@ -3,23 +3,23 @@ import { statusLabel, type Evaluated } from './registry'
 import type { ChurchMember } from './types'
 
 /** สถานะที่ใช้กรองดูข้อมูลในหน้าสมาชิกของงานอภิบาล */
-export type StatusGroup = 'all' | 'complete' | 'reserve' | 'worship' | 'newcomer' | 'ended'
+export type StatusGroup = 'all' | 'complete' | 'reserve' | 'worship' | 'newcomer' | 'resigned' | 'deceased'
 export const STATUS_GROUPS: { key: StatusGroup; label: string }[] = [
   { key: 'all', label: 'ทุกสถานะ' }, { key: 'complete', label: 'สมาชิกสมบูรณ์' }, { key: 'reserve', label: 'สมาชิกสำรอง' },
-  { key: 'worship', label: 'ผู้ร่วมนมัสการ' }, { key: 'newcomer', label: 'คนใหม่' }, { key: 'ended', label: 'สิ้นสภาพ/เสียชีวิต' },
+  { key: 'worship', label: 'ผู้ร่วมนมัสการ' }, { key: 'newcomer', label: 'คนใหม่' }, { key: 'resigned', label: 'สิ้นสภาพสมาชิก' }, { key: 'deceased', label: 'เสียชีวิต' },
 ]
 /** สถานะตามทะเบียน → กลุ่มที่ใช้กรอง (ดูเลขนำหน้า 1–7 · ไม่รู้จัก = นับในทุกสถานะเท่านั้น) */
 export function groupOf(status?: string): Exclude<StatusGroup, 'all'> | undefined {
   const n = statusLabel(status).match(/^(\d)\./)?.[1]
-  return n === '1' || n === '2' ? 'complete' : n === '3' ? 'reserve' : n === '4' ? 'worship' : n === '5' ? 'newcomer' : n === '6' || n === '7' ? 'ended' : undefined
+  return n === '1' || n === '2' ? 'complete' : n === '3' ? 'reserve' : n === '4' ? 'worship' : n === '5' ? 'newcomer' : n === '6' ? 'resigned' : n === '7' ? 'deceased' : undefined
 }
 export const inGroup = (m: { status?: string }, g: StatusGroup) => g === 'all' || groupOf(m.status) === g
 /** ยังอยู่ในทะเบียน (ไม่นับสิ้นสภาพ/เสียชีวิต) */
-export const isLive = (m: { status?: string }) => groupOf(m.status) !== 'ended'
+export const isLive = (m: { status?: string }) => { const g = groupOf(m.status); return g !== 'resigned' && g !== 'deceased' }
 
 /** ตัวเลขสำคัญของทะเบียน */
 export function headline(members: { status?: string }[]) {
-  const c = { total: members.length, complete: 0, reserve: 0, worship: 0, newcomer: 0, ended: 0 }
+  const c = { total: members.length, complete: 0, reserve: 0, worship: 0, newcomer: 0, resigned: 0, deceased: 0 }
   for (const m of members) { const g = groupOf(m.status); if (g) c[g]++ }
   return c
 }
@@ -113,7 +113,7 @@ export type MemberOrder = 'default' | 'asc' | 'status' | 'name'
  * สมาชิกที่สิ้นสภาพ/เสียชีวิตอยู่ท้ายสุด ไม่ติดป้ายขาด · asc = กลับลำดับ · status = สถานะ 1→7 · name = ก→ฮ
  */
 export function orderMembers<T extends { id: string; name: string; status?: string }>(list: T[], order: MemberOrder, stats: Map<string, VisitStat>, today: string): T[] {
-  const ended = (m: T) => groupOf(m.status) === 'ended'
+  const ended = (m: T) => !isLive(m)
   const ab = (m: T) => (ended(m) ? { tier: 7, days: -1 } : absence(stats.get(m.id)?.last, today))
   const rc = (m: T) => stats.get(m.id)?.recent ?? 0
   const nm = (x: T, y: T) => x.name.localeCompare(y.name, 'th')

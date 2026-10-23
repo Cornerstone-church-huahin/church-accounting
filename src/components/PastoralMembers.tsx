@@ -105,7 +105,8 @@ export default function PastoralMembers() {
         <br />
         <span>ผู้ร่วมนมัสการ <b>{head.worship.toLocaleString('th-TH')}</b></span>
         <span>คนใหม่ <b>{head.newcomer.toLocaleString('th-TH')}</b></span>
-        <span>สิ้นสภาพ/เสียชีวิต <b>{head.ended.toLocaleString('th-TH')}</b></span>
+        <span>สิ้นสภาพสมาชิก <b>{head.resigned.toLocaleString('th-TH')}</b></span>
+        <span>เสียชีวิต <b>{head.deceased.toLocaleString('th-TH')}</b></span>
       </p>
 
       {/* โซน 3: รูปสมาชิกตามตัวเลือก — ดูอย่างเดียว กดเข้าไปดูรายละเอียดไม่ได้ */}
