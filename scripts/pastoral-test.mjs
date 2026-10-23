@@ -65,6 +65,9 @@ try {
   // กรองสถานะที่ไม่มีหมุด → แผนที่หาย
   await page.locator('.pbar--btn', { hasText: 'สมาชิกสำรอง' }).click()
   must(/ยังไม่มีพิกัดบ้านของสมาชิก/.test(await page.locator('#pm-5').locator('xpath=..').innerText()), 'filter without pins shows the empty hint')
+  const links = await page.locator('main a, main button').evaluateAll((els) => els.filter((e) => !e.closest('.page-head')).map((e) => e.tagName === 'A' ? 'a:' + e.getAttribute('href') : '').filter(Boolean))
+  must(links.length === 0, 'pastoral members page has no links out (registry/other works/external): ' + links.join(','))
+  must(await page.locator('.leaflet-control-attribution a').count() === 0, 'map attribution is plain text, no outbound link')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('pastoral-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
