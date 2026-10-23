@@ -8,7 +8,6 @@ import MemberAvatar from '../components/MemberAvatar'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
-import AccountLinks from '../components/AccountLinks'
 import { useAttendance, useChurchMembers, useRecorders, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
@@ -75,7 +74,7 @@ function MembersPage() {
   if (inRoom && menu) {
     return (
       <>
-        <div className="page-head no-print"><h1>สมาชิก</h1><AccountLinks n={2} /></div>
+        <div className="page-head no-print"><h1>สมาชิก</h1></div>
         <TileTabs label="หมวด" value={'' as Tab} onChange={(k) => { setTab(k); setMenu(false) }} items={tabItems} />
       </>
     )
