@@ -9,15 +9,15 @@ describe('ข้อมูลสมาชิกสำหรับงานอภ�
     expect(groupOf('3.สมาชิกสำรอง')).toBe('reserve')
     expect(groupOf('4.ผู้ร่วมนมัสการ')).toBe('worship')
     expect(groupOf('5.คนใหม่')).toBe('newcomer')
-    expect(groupOf('7.เสียชีวิต')).toBe('ended')
-    expect(groupOf('6.สิ้นสภาพสมาชิก')).toBe('ended')
+    expect(groupOf('7.เสียชีวิต')).toBe('deceased')
+    expect(groupOf('6.สิ้นสภาพสมาชิก')).toBe('resigned')
     expect(groupOf(undefined)).toBeUndefined()
     expect(inGroup({ status: '3.สมาชิกสำรอง' }, 'all')).toBe(true)
     expect(inGroup({ status: '3.สมาชิกสำรอง' }, 'complete')).toBe(false)
   })
   it('ตัวเลขสำคัญ', () => {
     const h = headline([{ status: '1.สมบูรณ์ ( 1 )' }, { status: '2.สมบูรณ์ ( 2 )' }, { status: '3.สมาชิกสำรอง' }, { status: '5.คนใหม่' }, { status: '5.คนใหม่' }, { status: '7.เสียชีวิต' }, {}])
-    expect(h).toEqual({ total: 7, complete: 2, reserve: 1, worship: 0, newcomer: 2, ended: 1 })
+    expect(h).toEqual({ total: 7, complete: 2, reserve: 1, worship: 0, newcomer: 2, resigned: 0, deceased: 1 })
   })
   it('ช่วงวัย: นับเฉพาะที่ทราบวันเกิด และบอกจำนวนที่ไม่ทราบ', () => {
     expect(ageYears('2000-10-22', '2026-10-21')).toBe(25)
