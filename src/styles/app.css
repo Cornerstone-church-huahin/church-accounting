@@ -910,9 +910,18 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pvday.today { outline: 2px solid var(--gold); }
 .pvday__h { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .pvday__auto { margin: 0; font-weight: 700; }
-.pvvisit { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.55rem; border-radius: 0.6rem; background: rgba(31, 63, 143, 0.07); cursor: pointer; }
+.pvvisit { all: unset; box-sizing: border-box; display: flex; flex-direction: row; align-items: center; gap: 0.6rem; padding: 0.4rem 0.55rem; border-radius: 0.6rem; background: rgba(31, 63, 143, 0.07); cursor: pointer; }
 .pvadd { min-height: 2.4rem; }
 .pvpick { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 14rem; overflow: auto; border: 1px solid var(--line); border-radius: 0.6rem; }
 .pvpick__r { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); cursor: pointer; }
 .pvpick__r.on { background: rgba(201, 154, 20, 0.2); }
 .pvpick__abs { color: #c0261b; font-size: 0.8rem; flex: none; }
+
+.pvvisit__pic { position: relative; flex: none; display: inline-flex; }
+.pvvisit__nopic { width: 64px; height: 64px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.06); font-size: 1.6rem; opacity: 0.5; }
+.pvvisit__more { position: absolute; right: -4px; bottom: -4px; background: var(--navy); color: #fff; border-radius: 999px; padding: 0 0.35rem; font: 700 0.72rem/1.3rem var(--font-body, inherit); font-style: normal; }
+.pvvisit__txt { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+.pvphotos { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.pvphoto { position: relative; display: inline-flex; }
+.pvphoto__x { position: absolute; top: -6px; right: -6px; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 0; background: #c0261b; color: #fff; font-weight: 700; cursor: pointer; }
+.pvphoto__add { min-width: 5.5rem; }
