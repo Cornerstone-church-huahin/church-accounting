@@ -816,3 +816,12 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .caltoggle { margin: 0.1rem 0 0.35rem; }
 .caltoggle > .btn { min-height: 2.5rem; margin-bottom: 0.3rem; }
 .home--work .home-label span { display: none; }
+
+/* งานอภิบาล › สมาชิก: โซน 1 (แท็บ+ตัวเลือก) · โซน 2 (พื้นที่แสดงผล) */
+.pzone1 { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.6rem; }
+.pzone1 .tiletabs { margin: 0; grid-template-columns: repeat(4, 1fr); }
+.pzone1 .tiletabs button.btile { min-height: 3.6rem; }
+.pfilters { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.pfilters .field { min-width: 0; }
+.pzone2 { display: flex; flex-direction: column; gap: 0.7rem; min-height: 40vh; }
+.pplace { align-items: center; justify-content: center; text-align: center; min-height: 30vh; }
