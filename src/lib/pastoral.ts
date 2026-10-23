@@ -127,3 +127,41 @@ export function orderMembers<T extends { id: string; name: string; status?: stri
   }
   return [...list].sort(cmp[order])
 }
+
+/** อายุการเป็นสมาชิก (วัน): นับจากวันที่เข้าเป็นสมาชิกในทะเบียน ไม่มี = วันที่มาครั้งแรกในบันทึกลงชื่อ ไม่มีทั้งคู่ = null */
+export function tenureDays(since: string | undefined, firstAtt: string | undefined, today: string): number | null {
+  const base = since || firstAtt
+  return base ? Math.max(0, diffDays(today, base)) : null
+}
+export function tenureText(days: number | null): string {
+  if (days === null) return 'ไม่ทราบวันที่เข้า'
+  const y = Math.floor(days / 365), mo = Math.floor((days % 365) / 30)
+  return y > 0 ? `${y} ปี${mo ? ` ${mo} เดือน` : ''}` : mo > 0 ? `${mo} เดือน` : `${days} วัน`
+}
+/** เรียงตามอายุการเป็นสมาชิก: oldest = เก่าแก่ก่อน (ไม่ทราบอยู่ท้ายเสมอ) */
+export function orderByTenure<T extends { id: string; name: string }>(list: T[], days: (id: string) => number | null, oldest = true): T[] {
+  return [...list].sort((x, y) => {
+    const a = days(x.id), b = days(y.id)
+    if (a === null || b === null) return a === b ? x.name.localeCompare(y.name, 'th') : a === null ? 1 : -1
+    return (oldest ? b - a : a - b) || x.name.localeCompare(y.name, 'th')
+  })
+}
+/** เรียงตามเปอร์เซ็นต์การมา (มา ÷ ที่ควรมาได้): high = ค่าเฉลี่ยดีก่อน · เท่ากันให้คนที่มีข้อมูลมากกว่าก่อน */
+export function orderByPct<T extends { id: string; name: string }>(list: T[], pctOf: (id: string) => { pct: number; possible: number }, high = true): T[] {
+  return [...list].sort((x, y) => {
+    const a = pctOf(x.id), b = pctOf(y.id)
+    return (high ? b.pct - a.pct : a.pct - b.pct) || b.possible - a.possible || x.name.localeCompare(y.name, 'th')
+  })
+}
+/** จำนวนสมาชิกแยกตามสถานะจริง (1.สมบูรณ์ 1 → 7.เสียชีวิต · สถานะอื่น/ไม่ระบุอยู่ท้าย) */
+export function statusBreakdown(members: { status?: string }[]): { label: string; rank: number; count: number }[] {
+  const m = new Map<string, number>()
+  for (const x of members) { const l = statusLabel(x.status); m.set(l, (m.get(l) ?? 0) + 1) }
+  return [...m].map(([label, count]) => ({ label, rank: statusRank(label), count })).sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'th'))
+}
+/** เพศแยกตามสถานะ */
+export function genderByStatus(members: { status?: string; gender?: string }[]): { label: string; rank: number; ชาย: number; หญิง: number; ไม่ระบุ: number }[] {
+  const m = new Map<string, { ชาย: number; หญิง: number; ไม่ระบุ: number }>()
+  for (const x of members) { const l = statusLabel(x.status), c = m.get(l) ?? { ชาย: 0, หญิง: 0, ไม่ระบุ: 0 }; c[x.gender === 'ชาย' ? 'ชาย' : x.gender === 'หญิง' ? 'หญิง' : 'ไม่ระบุ']++; m.set(l, c) }
+  return [...m].map(([label, c]) => ({ label, rank: statusRank(label), ...c })).sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'th'))
+}

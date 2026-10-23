@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, orderMembers, recentServices, statusRank, visitStats, absence } from './pastoral'
+import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, genderByStatus, orderByPct, orderByTenure, statusBreakdown, tenureDays, tenureText, orderMembers, recentServices, statusRank, visitStats, absence } from './pastoral'
 import type { Evaluated } from './registry'
 
 describe('ข้อมูลสมาชิกสำหรับงานอภิบาล', () => {
@@ -74,5 +74,32 @@ describe('เรียงสมาชิกตามการมานมัส�
     expect(orderMembers(ms, 'asc', st, T).map((m) => m.id)[0]).toBe('x')
     expect(orderMembers(ms, 'status', st, T).map((m) => m.id).at(-1)).toBe('x')
     expect(statusRank(undefined)).toBe(9)
+  })
+})
+
+describe('แท็บเก่าแก่ · สม่ำเสมอ · สถานะ · เพศ', () => {
+  const T = '2026-10-23'
+  it('อายุการเป็นสมาชิก: ใช้วันที่เข้า ไม่มีก็ใช้วันมาครั้งแรก', () => {
+    expect(tenureDays('2016-10-23', undefined, T)).toBe(3652)
+    expect(tenureDays(undefined, '2026-01-01', T)).toBe(295)
+    expect(tenureDays(undefined, undefined, T)).toBeNull()
+    expect(tenureText(3652)).toBe('10 ปี')
+    expect(tenureText(400)).toBe('1 ปี 1 เดือน')
+    expect(tenureText(75)).toBe('2 เดือน')
+    expect(tenureText(null)).toBe('ไม่ทราบวันที่เข้า')
+  })
+  it('เรียงเก่าแก่ก่อน (ไม่ทราบอยู่ท้าย) และเรียงตามเปอร์เซ็นต์การมา', () => {
+    const ms = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id }))
+    const d: Record<string, number | null> = { a: 100, b: 5000, c: null, d: 2000 }
+    expect(orderByTenure(ms, (id) => d[id], true).map((m) => m.id)).toEqual(['b', 'd', 'a', 'c'])
+    expect(orderByTenure(ms, (id) => d[id], false).map((m) => m.id)).toEqual(['a', 'd', 'b', 'c'])
+    const p: Record<string, { pct: number; possible: number }> = { a: { pct: 0.5, possible: 10 }, b: { pct: 0.9, possible: 2 }, c: { pct: 0.9, possible: 50 }, d: { pct: 0.1, possible: 5 } }
+    expect(orderByPct(ms, (id) => p[id]).map((m) => m.id)).toEqual(['c', 'b', 'a', 'd'])
+    expect(orderByPct(ms, (id) => p[id], false).map((m) => m.id)).toEqual(['d', 'a', 'c', 'b'])
+  })
+  it('นับตามสถานะเรียงจากดีที่สุด และเพศแยกตามสถานะ', () => {
+    const ms = [{ status: '2.สมบูรณ์ ( 2 )', gender: 'หญิง' }, { status: '1.สมบูรณ์ ( 1 )', gender: 'ชาย' }, { status: '1.สมบูรณ์ ( 1 )', gender: 'หญิง' }, { status: '7.เสียชีวิต' }, { gender: 'ชาย' }]
+    expect(statusBreakdown(ms).map((r) => [r.label, r.count])).toEqual([['1.สมบูรณ์ ( 1 )', 2], ['2.สมบูรณ์ ( 2 )', 1], ['7.เสียชีวิต', 1], ['(ไม่ระบุสถานะ)', 1]])
+    expect(genderByStatus(ms)[0]).toMatchObject({ ชาย: 1, หญิง: 1, ไม่ระบุ: 0 })
   })
 })
