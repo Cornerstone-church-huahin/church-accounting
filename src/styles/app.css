@@ -894,4 +894,10 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .bellpanel__list li { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.5rem; border-radius: 0.6rem; background: rgba(0, 0, 0, 0.04); }
 .bellpanel__list li.new { background: rgba(192, 38, 27, 0.1); border-left: 4px solid #c0261b; }
 .bellpanel__tag { color: #c0261b; }
-.bellpanel__to { border: 1px solid var(--line); border-radius: 0.6rem; padding: 0.3rem 0.6rem; display: flex; flex-direction: column; gap: 0.15rem; max-height: 12rem; overflow: auto; }
+.bellpanel__to { border: 1px solid var(--line); border-radius: 0.6rem; padding: 0.3rem 0.5rem 0.4rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 0.3rem; }
+.bellpanel__to legend { padding: 0 0.3rem; }
+.bellpanel__to label { min-height: 2.2rem; font-size: 0.82rem; align-items: center; gap: 0.25rem; line-height: 1.15; }
+.bellpanel__to input { flex: none; }
+.bellpanel__to label:first-of-type { grid-column: 1 / -1; }
+.bellpanel--admin { max-height: calc(100dvh - 9rem); }
+.bellpanel--admin textarea { min-height: 3.2rem; }
