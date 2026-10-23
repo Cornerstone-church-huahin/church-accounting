@@ -6,6 +6,7 @@ import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
+import PastoralVisits from '../components/PastoralVisits'
 import WorkCalendar from '../components/WorkCalendar'
 import { can, myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
@@ -93,7 +94,7 @@ function WorkPage({ n, name, k, s }: { n: number; name: string; k: number; s?: n
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {!(n === 4 && k === 1) && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
-      {n === 4 && k === 1 ? <PastoralMembers /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {n === 4 && k === 1 ? <PastoralMembers /> : n === 4 && k === 2 ? <PastoralVisits /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

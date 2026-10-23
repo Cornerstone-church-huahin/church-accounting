@@ -79,7 +79,7 @@ try {
   for (const parent of ['สมาชิก', 'ตารางเยี่ยม']) {
     await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
     await page.getByRole('heading', { name: new RegExp(parent), level: 1 }).waitFor({ timeout: 5000 })
-    must((parent === 'สมาชิก' ? /รายชื่อทั้งหมด/ : new RegExp(`${parent} — ยังว่าง`)).test(await page.locator('main').innerText()) && await page.locator('.tiletabs').count() === 0, parent + ' opens a full page without sub tabs')
+    must((parent === 'สมาชิก' ? /รายชื่อทั้งหมด/ : /การ์ด 7 วัน/).test(await page.locator('main').innerText()) && await page.locator('.tiletabs').count() === 0, parent + ' opens a full page without sub tabs')
     await page.getByRole('link', { name: '‹ งานอภิบาล' }).click()
   }
   must(await page.locator('.tiletabs a.btile').count() === 6, 'tabs are colored tiles like the home money tiles')
