@@ -46,7 +46,7 @@ const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidD
 const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b) ? 1 : effDate(a) > effDate(b) ? -1 : b.updated - a.updated)
 
 /** โหมด "จ่าย": 1 บันทึกด้วยมือ · 2 วางบิล · 3 สำรองจ่าย · 4 รวมจ่าย (หักลบกับรายรับในแท็บสรุป) */
-export default function Pay({ year, fund }: { year: number; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
+export default function Pay({ year, fund, view }: { year: number; /** ดูอย่างเดียว: แสดงเฉพาะใบเบิก-จ่ายเงินสดรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
   const role = useRole()
   const exp = useExpenses(year)
   const passbook = usePassbook(year)
@@ -202,6 +202,14 @@ export default function Pay({ year, fund }: { year: number; /** หน้าก�
     <button type="button" role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}><i className="dot">{n}</i><span>{label}{badge ? ` (${badge})` : ''}</span></button>
   )
 
+  if (view) {
+    return (
+      <>
+        <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...weekAll.map(sheetOf), ...fundRowsE]} sunday={sunday} summary={weekSummary} noDownload /></div>
+      </>
+    )
+  }
   return (
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />

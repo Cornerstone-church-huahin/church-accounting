@@ -59,7 +59,7 @@ function DownloadRow({ onData, kind, church, sunday, onScan }: { onData: () => v
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, onScan, blank }: { /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, onScan, blank, noDownload }: { /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -103,13 +103,13 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
           </>
         </ScaledPage>
       ))}
-      <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />
+      {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />}
     </div>
   )
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan, blank }: { /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload }: { /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -152,7 +152,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
           </>
         </ScaledPage>
       ))}
-      <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />
+      {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
     </div>
   )
 }
