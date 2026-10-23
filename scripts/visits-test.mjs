@@ -9,7 +9,7 @@ const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chrom
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const page = await (await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
 const errors = []
-page.on('pageerror', (e) => errors.push(String(e)))
+page.on('pageerror', (e) => errors.push(String(e))); page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text()) })
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/`)
@@ -36,8 +36,16 @@ try {
   must(/ลงชื่อผู้เยี่ยม/.test(await dlg.innerText()), 'visitor signature required')
   await dlg.locator('#pv-by').selectOption('คศ.กฤต')
   await dlg.getByLabel(/เหตุผล/).fill('ป่วย ไม่ได้มานมัสการ')
+  must(/ยังไม่ได้แนบรูป/.test(await dlg.innerText()), 'photo hint before attaching')
+  const png = await page.evaluate(async () => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const g = c.getContext('2d'); g.fillStyle = '#3a7'; g.fillRect(0, 0, 40, 30); g.fillStyle = '#fff'; g.fillRect(8, 8, 14, 10); const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())] }).then((a) => Buffer.from(a))
+  await dlg.getByLabel('ถ่ายรูปการเยี่ยม').setInputFiles({ name: 'v1.png', mimeType: 'image/png', buffer: png })
+  await dlg.getByRole('button', { name: 'ลบรูปที่ 1' }).waitFor({ timeout: 15000 })
+  await dlg.getByLabel('เลือกรูปการเยี่ยมจากเครื่อง').setInputFiles({ name: 'v2.png', mimeType: 'image/png', buffer: png })
+  await dlg.getByRole('button', { name: 'ลบรูปที่ 2' }).waitFor({ timeout: 15000 })
+  must(await dlg.getByLabel('ถ่ายรูปการเยี่ยม').count() === 0 && /แนบแล้ว 2 รูป/.test(await dlg.innerText()), 'max two photos: add buttons gone')
   await dlg.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
+  must(await tue.locator('.pvvisit__pic img').count() === 1 && /\+1/.test(await tue.locator('.pvvisit__pic').innerText()), 'card shows the first photo with +1 badge')
   const t = await tue.innerText()
   must(/ทดสอบ3 สมมติ/.test(t) && /ป่วย ไม่ได้มานมัสการ/.test(t) && /ผู้เยี่ยม คศ.กฤต/.test(t), 'card shows member, reason and signed visitor: ' + t)
   must(/เยี่ยมแล้ว 1 ครั้ง · 1 คน/.test(await page.locator('.pvisits p[role=status]').innerText()), 'week count')
@@ -48,6 +56,7 @@ try {
   await page.getByRole('dialog').locator('#pv-by').selectOption('คศ.พิชิต')
   await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
+  must(await days.nth(3).locator('.pvvisit__nopic').count() === 1, 'visit without photo shows the camera placeholder')
   // แก้ไข/ลบ
   await tue.getByRole('button', { name: /แก้ไขการเยี่ยม/ }).click()
   await page.getByRole('dialog').getByLabel(/รายละเอียดการเยี่ยม/).fill('อธิษฐานร่วมกัน')

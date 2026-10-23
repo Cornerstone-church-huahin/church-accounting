@@ -352,7 +352,7 @@ export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
 
 // ---------- ตารางเยี่ยม (งานอภิบาล) ----------
 /** บันทึกการเยี่ยม 1 ครั้ง: วันที่ · สมาชิกที่เยี่ยม · เหตุผล/หมายเหตุ · ผู้เยี่ยม (ลงชื่อ) */
-export interface Visit extends SharedItem { date: string; memberId: string; memberName: string; reason: string; detail?: string; visitor: string }
+export interface Visit extends SharedItem { date: string; memberId: string; memberName: string; reason: string; detail?: string; visitor: string; /** รูปการเยี่ยม 1–2 รูป (ที่อยู่ในที่เก็บข้อมูล) */ photos?: string[] }
 
 // ---------- ข่าวจากแอดมินถึงแต่ละงาน (กระดิ่ง) ----------
 /** ข่าวที่แอดมินส่งถึงงาน: works = เลขงานที่รับ (0 = ทุกงาน) · at = เวลาที่ส่ง */

@@ -7,6 +7,9 @@ import { useAttendance, useChurchMembers, useSettings, useVisits, useWorkTeams }
 import { useRole } from '../lib/members'
 import { absence, isLive, visitStats } from '../lib/pastoral'
 import { addDays, fmtDate, newId, todayISO } from '../lib/money'
+import MemberAvatar from './MemberAvatar'
+import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
+import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { statusShort, toAttendance } from '../lib/registry'
 import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats } from '../lib/visits'
@@ -70,9 +73,12 @@ export default function PastoralVisits() {
                       {xs.length === 0 && <p className="muted small" style={{ margin: 0 }}>{future ? 'ยังไม่ถึงวัน' : 'ยังไม่มีการเยี่ยม'}</p>}
                       {xs.map((x) => (
                         <button key={x.id} type="button" className="pvvisit" onClick={() => setForm({ date: d, entry: x })} aria-label={`แก้ไขการเยี่ยม ${x.memberName}`}>
-                          <b>{x.memberName}</b>
-                          <span className="small">{x.reason || '—'}</span>
-                          <span className="small muted">ผู้เยี่ยม {x.visitor}</span>
+                          <span className="pvvisit__pic">{x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={64} /> : <span className="pvvisit__nopic" aria-label="ยังไม่มีรูป">📷</span>}{(x.photos?.length ?? 0) > 1 && <i className="pvvisit__more">+{(x.photos?.length ?? 1) - 1}</i>}</span>
+                          <span className="pvvisit__txt">
+                            <b>{x.memberName}</b>
+                            <span className="small">{x.reason || '—'}</span>
+                            <span className="small muted">ผู้เยี่ยม {x.visitor}</span>
+                          </span>
                         </button>
                       ))}
                       <button type="button" className="btn btn--ghost pvadd" onClick={() => setForm({ date: d, entry: null })}>＋ บันทึกการเยี่ยม</button>
@@ -90,7 +96,7 @@ export default function PastoralVisits() {
         <VisitForm date={form.date} entry={form.entry} team={team.map((t) => t.name).filter(Boolean)} members={people.items} stats={stats} today={today}
           onClose={() => setForm(null)}
           onSave={(v) => { visits.put([v]); setForm(null) }}
-          onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
+          onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); (form.entry!.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); setForm(null) } } : undefined} />
       )}
     </div>
   )
@@ -107,6 +113,18 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
   const [by, setBy] = useState(initBy ? (inTeam(initBy) ? initBy : OTHER) : '')
   const [byOther, setByOther] = useState(initBy && !inTeam(initBy) ? initBy : '')
   const [err, setErr] = useState('')
+  const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
+  const [busy, setBusy] = useState(false)
+  const added = useRef<string[]>([])
+  const addPhoto = async (f?: File | null) => {
+    if (!f || photos.length >= MAX_VISIT_PHOTOS) return
+    setBusy(true); setErr('')
+    try { const p = await uploadVisitPhoto(f); added.current.push(p); setPhotos((xs) => [...xs, p].slice(0, MAX_VISIT_PHOTOS)) } catch (e) { console.error('visit photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
+    setBusy(false)
+  }
+  const dropPhoto = (p: string) => setPhotos((xs) => xs.filter((x) => x !== p))
+  const close = () => { added.current.filter((p) => !(entry?.photos ?? []).includes(p) && !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p)); if (!saved.current) added.current.forEach((p) => void removeMemberPhotoFile(p)); onClose() }
+  const saved = useRef(false)
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return members.filter((m) => isLive(m) && (!needle || `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(needle)))
@@ -120,10 +138,14 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
     if (!member) return setErr('เลือกสมาชิกที่ไปเยี่ยม')
     if (!visitor) return setErr('ลงชื่อผู้เยี่ยม')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, updated: 0 })
+    if (busy) return setErr('กำลังแนบรูป รอสักครู่')
+    saved.current = true
+    ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
+    added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, ...(photos.length ? { photos } : {}), updated: 0 })
   }
   return (
-    <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={onClose}>
+    <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
       <div className="field"><label htmlFor="pv-by">ผู้เยี่ยม (ลงชื่อ)</label>
         <select id="pv-by" className="input" value={by} onChange={(e) => setBy(e.target.value)}>
           <option value="">— เลือกผู้เยี่ยม —</option>
@@ -144,6 +166,19 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
         </ul></div>
       <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label htmlFor="pv-detail">รายละเอียดการเยี่ยม (ไม่บังคับ)</label><textarea id="pv-detail" className="input" rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} /></div>
+      <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป)</label>
+        <div className="pvphotos" aria-label="รูปการเยี่ยม">
+          {photos.map((p, i) => (
+            <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
+          ))}
+          {photos.length < MAX_VISIT_PHOTOS && (
+            <>
+              <label className="act-btn pvphoto__add"><span className="act-btn__ico" aria-hidden="true">📷</span><span>ถ่ายรูป</span><input type="file" accept="image/*" capture="environment" aria-label="ถ่ายรูปการเยี่ยม" style={{ display: 'none' }} onChange={(e) => { void addPhoto(e.target.files?.[0]); e.target.value = '' }} /></label>
+              <label className="act-btn pvphoto__add"><span className="act-btn__ico" aria-hidden="true">🖼️</span><span>เลือกรูป</span><input type="file" accept="image/*" aria-label="เลือกรูปการเยี่ยมจากเครื่อง" style={{ display: 'none' }} onChange={(e) => { void addPhoto(e.target.files?.[0]); e.target.value = '' }} /></label>
+            </>
+          )}
+        </div>
+        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — ควรแนบอย่างน้อย 1 รูป' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <div className="row"><button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>{onDelete && <button type="button" className="mini" onClick={onDelete}>ลบ</button>}</div>
     </Sheet>
