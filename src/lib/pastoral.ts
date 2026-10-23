@@ -1,3 +1,4 @@
+import { addDays, diffDays } from './money'
 import { statusLabel, type Evaluated } from './registry'
 import type { ChurchMember } from './types'
 
@@ -88,24 +89,41 @@ export function followUp(rows: Evaluated[], weeks: number): FollowUp[] {
 }
 export type { ChurchMember }
 
-/** จำนวนครั้งที่มานมัสการของแต่ละคน (นับวันที่ไม่ซ้ำ) */
-export function visitCounts(attendance: { date: string; ids: string[]; deleted?: boolean }[]): Map<string, number> {
+export interface VisitStat { /** มาในช่วง 1 ปีล่าสุด (วันที่ไม่ซ้ำ) */ recent: number; /** ทั้งหมดในข้อมูล */ total: number; /** วันที่มาล่าสุด */ last: string }
+/** สถิติการมานมัสการของแต่ละคน: ครั้งใน 1 ปีล่าสุด · ทั้งหมด · วันล่าสุด (ไม่นับรายการที่ยกเลิก) */
+export function visitStats(attendance: { date: string; ids: string[]; deleted?: boolean }[], today: string): Map<string, VisitStat> {
   const days = new Map<string, Set<string>>()
   for (const a of attendance) if (!a.deleted) for (const id of a.ids) (days.get(id) ?? days.set(id, new Set()).get(id)!).add(a.date)
-  return new Map([...days].map(([id, d]) => [id, d.size]))
+  const from = addDays(today, -365)
+  return new Map([...days].map(([id, d]) => { const ds = [...d]; return [id, { recent: ds.filter((x) => x > from && x <= today).length, total: ds.length, last: ds.reduce((m, x) => (x > m ? x : m), '') }] }))
 }
 /** ลำดับสถานะตามเลขนำหน้า 1–7 (ไม่มีเลข = ท้ายสุด) */
 export const statusRank = (status?: string) => Number(statusLabel(status).match(/^(\d)\./)?.[1] ?? 9)
+/** ระดับการขาด: 0 = ไม่ขาด (มาภายใน 3 เดือน) · 1 = ขาด 3 เดือน · 2 = 6 เดือน · 3 = 1 ปี · 4 = 2 ปี · 5 = 3 ปีขึ้นไป · 6 = ไม่เคยมีบันทึก */
+export const ABSENCE_LABELS = ['', 'ขาด 3 เดือน', 'ขาด 6 เดือน', 'ขาด 1 ปี', 'ขาด 2 ปี', 'ขาด 3 ปีขึ้นไป', 'ไม่เคยมีบันทึกการมา']
+export function absence(last: string | undefined, today: string): { tier: number; days: number | null; label: string } {
+  if (!last) return { tier: 6, days: null, label: ABSENCE_LABELS[6] }
+  const d = diffDays(today, last)
+  const tier = d >= 1095 ? 5 : d >= 730 ? 4 : d >= 365 ? 3 : d >= 180 ? 2 : d >= 90 ? 1 : 0
+  return { tier, days: d, label: ABSENCE_LABELS[tier] }
+}
 export type MemberOrder = 'default' | 'asc' | 'status' | 'name'
-/** เรียงรายชื่อ: ค่าเริ่มต้น = มาบ่อยสุด → น้อยสุด (เท่ากันเรียงตามสถานะ 1,2,3… แล้วชื่อ) · asc = มาน้อย → มาก · status = สถานะ 1→7 · name = ก→ฮ */
-export function orderMembers<T extends { id: string; name: string; status?: string }>(list: T[], order: MemberOrder, visits: Map<string, number>): T[] {
-  const v = (m: T) => visits.get(m.id) ?? 0
+/**
+ * เรียงรายชื่อ — ค่าเริ่มต้น: คนที่ไม่ขาด (มาภายใน 3 เดือน) มาบ่อยที่สุดใน 1 ปีก่อน → แล้วคนที่ขาดเรียงจากขาดน้อยไปมาก (3 เดือน → 6 เดือน → 1 ปี → 2 ปี → 3 ปี → ไม่เคยมา)
+ * สมาชิกที่สิ้นสภาพ/เสียชีวิตอยู่ท้ายสุด ไม่ติดป้ายขาด · asc = กลับลำดับ · status = สถานะ 1→7 · name = ก→ฮ
+ */
+export function orderMembers<T extends { id: string; name: string; status?: string }>(list: T[], order: MemberOrder, stats: Map<string, VisitStat>, today: string): T[] {
+  const ended = (m: T) => groupOf(m.status) === 'ended'
+  const ab = (m: T) => (ended(m) ? { tier: 7, days: -1 } : absence(stats.get(m.id)?.last, today))
+  const rc = (m: T) => stats.get(m.id)?.recent ?? 0
   const nm = (x: T, y: T) => x.name.localeCompare(y.name, 'th')
+  const main = (x: T, y: T) => {
+    const a = ab(x), b = ab(y)
+    return a.tier - b.tier || (a.tier === 0 ? rc(y) - rc(x) || statusRank(x.status) - statusRank(y.status) : (a.days ?? 1e9) - (b.days ?? 1e9)) || nm(x, y)
+  }
   const cmp: Record<MemberOrder, (x: T, y: T) => number> = {
-    default: (x, y) => v(y) - v(x) || statusRank(x.status) - statusRank(y.status) || nm(x, y),
-    asc: (x, y) => v(x) - v(y) || statusRank(x.status) - statusRank(y.status) || nm(x, y),
-    status: (x, y) => statusRank(x.status) - statusRank(y.status) || v(y) - v(x) || nm(x, y),
-    name: nm,
+    default: main, asc: (x, y) => main(y, x),
+    status: (x, y) => statusRank(x.status) - statusRank(y.status) || rc(y) - rc(x) || nm(x, y), name: nm,
   }
   return [...list].sort(cmp[order])
 }

@@ -4,7 +4,7 @@ import { useAttendance, useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
 import { todayISO } from '../lib/money'
-import { ageBands, genderSplit, groupCounts, headline, inGroup, joinYears, orderMembers, STATUS_GROUPS, visitCounts, type MemberOrder, type StatusGroup } from '../lib/pastoral'
+import { ageBands, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, orderMembers, STATUS_GROUPS, visitStats, type MemberOrder, type StatusGroup } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { statusShort } from '../lib/registry'
 import type { MapPin } from './LeafletMap'
@@ -12,7 +12,7 @@ import MemberAvatar from './MemberAvatar'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
-const ORDERS: { k: MemberOrder; t: string }[] = [{ k: 'default', t: 'มาบ่อยสุด → น้อยสุด' }, { k: 'asc', t: 'มาน้อยสุด → บ่อยสุด' }, { k: 'status', t: 'สถานะ 1 → 7' }, { k: 'name', t: 'ชื่อ ก → ฮ' }]
+const ORDERS: { k: MemberOrder; t: string }[] = [{ k: 'default', t: 'มาบ่อยใน 1 ปี → ขาดนาน' }, { k: 'asc', t: 'ขาดนานสุด → มาบ่อย' }, { k: 'status', t: 'สถานะ 1 → 7' }, { k: 'name', t: 'ชื่อ ก → ฮ' }]
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
 
@@ -58,7 +58,7 @@ export default function PastoralMembers() {
   const [tab, setTab] = useState(1)
   const [order, setOrder] = useState<MemberOrder>('default')
   const a0 = useAttendance(new Date().getFullYear()), a1 = useAttendance(new Date().getFullYear() - 1, false), a2 = useAttendance(new Date().getFullYear() - 2, false), a3 = useAttendance(new Date().getFullYear() - 3, false)
-  const visits = useMemo(() => visitCounts(toAttendance([a3, a2, a1, a0].flatMap((st) => st.items))), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const stats = useMemo(() => visitStats(toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), todayISO()), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const all = people.items
   const sel = useMemo(() => all.filter((m) => inGroup(m, g)), [all, g])
   const head = useMemo(() => headline(all), [all])
@@ -74,8 +74,9 @@ export default function PastoralMembers() {
   const TONES = ['own', 'fund', 'total', 'indebt'] as const
   const orderName = ORDERS.find((o) => o.k === order)!.t
   // โซน 3: การ์ดสมาชิก 1 คน 1 การ์ด (ดูอย่างเดียว) · เริ่มต้นเรียงคนที่มานมัสการบ่อยที่สุดก่อน แล้วตามสถานะ 1,2,3…
-  const faces = useMemo(() => orderMembers(sel, order, visits), [sel, order, visits])
+  const faces = useMemo(() => orderMembers(sel, order, stats, today), [sel, order, stats, today])
   const grp = (m: { group?: string }) => { const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
+  const absLabel = (m: { id: string; status?: string }) => (!isLive(m) ? '' : absence(stats.get(m.id)?.last, today).label)
   const shortName = (n: string) => n.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*/, '').trim() || n
   return (
     <div className="pastoral">
@@ -123,11 +124,10 @@ export default function PastoralMembers() {
           <ul className="pcards">
             {faces.map((m) => (
               <li key={m.id} className="pcard" aria-label={m.name}>
-                <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={56} />
+                <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={52} />
                 <div className="pcard__body">
-                  <b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>
-                  <span className="pcard__row"><span className="pcard__visits">มา <b>{(visits.get(m.id) ?? 0).toLocaleString('th-TH')}</b> ครั้ง</span><span className="pcard__st">{statusShort(m.status)}</span></span>
-                  <span className="pcard__grp">กลุ่ม {grp(m)}</span>
+                  <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
+                  <span className="pcard__l2">1 ปี มา <b>{(stats.get(m.id)?.recent ?? 0).toLocaleString('th-TH')}</b> ครั้ง · {statusShort(m.status)} · กลุ่ม {grp(m)}</span>
                 </div>
               </li>
             ))}
