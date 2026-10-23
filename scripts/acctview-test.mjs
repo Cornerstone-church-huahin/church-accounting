@@ -35,9 +35,9 @@ try {
   await page.reload()
   for (const n of [1, 2, 4, 5]) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${n}`); await page.waitForLoadState('networkidle')
-    const nav = page.getByRole('navigation', { name: 'บัญชีรับและบัญชีจ่าย (ดูอย่างเดียว)' })
+    const nav = page.getByRole('navigation', { name: 'บัญชีรับ บัญชีจ่าย และภาพรวม (ดูอย่างเดียว)' })
     await nav.waitFor({ timeout: 8000 })
-    must(await nav.getByRole('link', { name: /บัญชีรับ/ }).isVisible() && await nav.getByRole('link', { name: /บัญชีจ่าย/ }).isVisible(), `work ${n} has both account buttons`)
+    must(await nav.getByRole('link', { name: /บัญชีรับ/ }).isVisible() && await nav.getByRole('link', { name: /บัญชีจ่าย/ }).isVisible() && await nav.getByRole('link', { name: /ภาพรวม/ }).isVisible(), `work ${n} has the three buttons`)
   }
   await page.goto(`http://localhost:${PORT}/#/meeting/4`)
   await page.getByRole('link', { name: /บัญชีรับ/ }).click()
@@ -61,6 +61,18 @@ try {
   await page.getByRole('button', { name: 'สัปดาห์ถัดไป' }).waitFor({ timeout: 5000 }).catch(() => undefined)
   await lock('expense view')
   await page.screenshot({ path: 'shots/acctview-out.png' })
+  // ภาพรวม: สรุป 3 ระดับ ดูอย่างเดียว ไม่มีทางเจาะรายการ
+  await page.goto(`http://localhost:${PORT}/#/meeting/4`)
+  await page.getByRole('link', { name: /ภาพรวม/ }).click()
+  await page.getByRole('heading', { name: /ภาพรวมรายรับ-รายจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
+  for (const t of ['รายสัปดาห์', 'รายเดือน', 'ภาพรวมปี']) {
+    await page.getByRole('tab', { name: t }).click()
+    const acts = await page.locator('main button, main a, main [role=button], main input, main select').evaluateAll((els) => els.filter((e) => e.getAttribute('role') !== 'tab' && !/^(ช่วงก่อน|ช่วงถัดไป|สัปดาห์ก่อน|สัปดาห์ถัดไป)$/.test(e.getAttribute('aria-label') ?? '') && !e.closest('.page-head')).map((e) => e.tagName + ':' + (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 30)))
+    must(acts.length === 0, `overview ${t}: view only, nothing to click into: ` + acts.join(' | '))
+  }
+  await page.getByRole('tab', { name: 'รายสัปดาห์' }).click()
+  must(/รายรับหมุนเวียน/.test(await page.locator('main').innerText()) && await page.getByRole('region', { name: 'รายการต้องติดตาม' }).count() === 0, 'overview shows the numbers but no internal follow-up list')
+  await page.screenshot({ path: 'shots/acctview-overview.png' })
   // งานทะเบียน: ปุ่มอยู่แถวเดียวกับหัวข้อ "สมาชิก"
   await page.goto(`http://localhost:${PORT}/#/meeting/2`)
   const head = page.locator('.page-head', { hasText: 'สมาชิก' })

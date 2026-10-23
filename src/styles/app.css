@@ -871,3 +871,17 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .acctlink--out { background: #b3261e; }
 .page-head .acctlinks { margin: 0; flex: 0 1 auto; }
 .page-head .acctlink { flex: none; min-height: 2.3rem; padding: 0.1rem 0.7rem; font-size: 0.9rem; }
+
+.acctlink--all { background: #1f5fbf; }
+.page-head .acctlinks { flex-wrap: wrap; justify-content: flex-end; gap: 0.3rem; }
+.page-head .acctlink { padding: 0.1rem 0.55rem; font-size: 0.85rem; }
+/* ภาพรวมดูอย่างเดียว: ตัวใหญ่ เต็มหน้าจอ */
+.rview .rtab { min-height: 3rem; font-size: 1.05rem; }
+.rview .rkpis { gap: 10px; }
+.rview .rkpi { padding: 12px 12px; border-radius: 16px; }
+.rview .rkpi span { font-size: 0.92rem; }
+.rview .rkpi b { font-size: 1.75rem; }
+.rview .hbars__r { padding: 10px 4px; font-size: 1rem; }
+.rview .hbars__t { height: 20px; border-radius: 10px; }
+.rview .chart svg { min-height: 220px; }
+.rview .card h3 { font-size: 1.15rem; }

@@ -13,6 +13,7 @@ import { useYear } from '../lib/year'
 import AccountLinks from '../components/AccountLinks'
 import Receive from './Receive'
 import Pay from './Pay'
+import Summary from './Summary'
 import { MEETING_TABS, visibleWorks, workHomePath } from '../lib/workTabs'
 
 /** ปุ่มเปิด/ปิดตารางงานไว้บนสุดของแต่ละหน้า — เปิดดูได้โดยไม่ไปแตะข้อมูล/หน้าเดิมของงานนั้น */
@@ -105,8 +106,20 @@ export default function Meeting() {
 }
 
 /** บัญชีรับ / บัญชีจ่ายของทุกงาน: ดูใบรายสัปดาห์ได้ ย้อนสัปดาห์ได้ แต่แก้ไขไม่ได้และไม่มีทางไปโหมดอื่น */
-function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 'out' }) {
+function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 'out' | 'all' }) {
   const { year } = useYear()
+  if (kind === 'all') {
+    return (
+      <>
+        <div className="page-head no-print">
+          <h1>📊 ภาพรวมรายรับ-รายจ่าย</h1>
+          <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
+        </div>
+        <p className="muted small no-print" style={{ margin: '0 0 0.2rem' }}>ดูอย่างเดียว · เลือกรายสัปดาห์ รายเดือน หรือภาพรวมปี</p>
+        <Summary key={year} year={year} view />
+      </>
+    )
+  }
   return (
     <>
       <div className="page-head no-print">
@@ -125,7 +138,7 @@ function MeetingRoom() {
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
-  if (tab && (k === 'in' || k === 'out')) return <AccountView n={tab.n} name={tab.name} kind={k} />
+  if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={3} /><Home /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={2} /><Members /></>
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} />
