@@ -35,7 +35,7 @@ const kindOf = (x: IncomeEntry): 'sheet' | 'slip' | 'unknown' | 'manual' =>
 const byDateDesc = (a: IncomeEntry, b: IncomeEntry) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
 
 /** โหมด "รับ": ช่อง 1 บันทึกด้วยมือ · 2 บันทึกสลิป · 3 ใบบันทึกการถวาย → รวมเป็นใบสรุปรายสัปดาห์ (4) ใบเดียว */
-export default function Receive({ year, fund }: { year: number; /** หน้ากองทุน: รับของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) */ fund?: FundScope }) {
+export default function Receive({ year, fund, view }: { year: number; /** ดูอย่างเดียว: แสดงเฉพาะใบบันทึกการถวายรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: รับของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) */ fund?: FundScope }) {
   const role = useRole()
   const inc = useIncome(year)
   const passbook = usePassbook(year)
@@ -144,6 +144,14 @@ export default function Receive({ year, fund }: { year: number; /** หน้า
     )
   }
 
+  if (view) {
+    return (
+      <>
+        <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+        <div className="no-print"><IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload /></div>
+      </>
+    )
+  }
   return (
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />

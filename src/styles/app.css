@@ -863,3 +863,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pcard__abs { flex: none; color: #c0261b; font-size: 0.82rem; }
 .pcard__l2 { font-size: 0.85rem; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcard__l2 b { color: var(--navy); font-size: 0.95rem; }
+
+/* บัญชีรับ / บัญชีจ่าย (ดูอย่างเดียว) ในทุกงาน */
+.acctlinks { display: flex; gap: 0.4rem; margin: 0 0 0.5rem; }
+.acctlink { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; min-height: 2.6rem; padding: 0.2rem 0.6rem; border-radius: 999px; color: #fff; font-weight: 700; text-decoration: none; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18); }
+.acctlink--in { background: #1b8a4b; }
+.acctlink--out { background: #b3261e; }
+.page-head .acctlinks { margin: 0; flex: 0 1 auto; }
+.page-head .acctlink { flex: none; min-height: 2.3rem; padding: 0.1rem 0.7rem; font-size: 0.9rem; }

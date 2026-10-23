@@ -9,6 +9,10 @@ import PastoralMembers from '../components/PastoralMembers'
 import WorkCalendar from '../components/WorkCalendar'
 import { myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
+import { useYear } from '../lib/year'
+import AccountLinks from '../components/AccountLinks'
+import Receive from './Receive'
+import Pay from './Pay'
 import { MEETING_TABS, visibleWorks, workHomePath } from '../lib/workTabs'
 
 /** ปุ่มเปิด/ปิดตารางงานไว้บนสุดของแต่ละหน้า — เปิดดูได้โดยไม่ไปแตะข้อมูล/หน้าเดิมของงานนั้น */
@@ -60,6 +64,7 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
     <>
       <WorkHead n={n} name={name} />
       <CalToggle n={n} />
+      <AccountLinks n={n} />
       <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
         {labelsOf(n).map((l, i) => (
           <Link key={l} to={`/meeting/${n}/${i + 1}`} className={`btile btile--${TILE_TONES[i % TILE_TONES.length]}`}>
@@ -99,12 +104,28 @@ export default function Meeting() {
   return <MeetingRoom key={`${n ?? 'hub'}-${k ?? ''}-${s ?? ''}-${home}`} />
 }
 
+/** บัญชีรับ / บัญชีจ่ายของทุกงาน: ดูใบรายสัปดาห์ได้ ย้อนสัปดาห์ได้ แต่แก้ไขไม่ได้และไม่มีทางไปโหมดอื่น */
+function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 'out' }) {
+  const { year } = useYear()
+  return (
+    <>
+      <div className="page-head no-print">
+        <h1>{kind === 'in' ? '💚 บัญชีรับ' : '🔴 บัญชีจ่าย'}</h1>
+        <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
+      </div>
+      <p className="muted small no-print" style={{ margin: '0 0 0.2rem' }}>ดูอย่างเดียว · ย้อนดูแต่ละสัปดาห์ได้ด้วยลูกศร</p>
+      {kind === 'in' ? <Receive key={year} year={year} view /> : <Pay key={year} year={year} view />}
+    </>
+  )
+}
+
 function MeetingRoom() {
   const { n, k, s } = useParams()
   const tab = MEETING_TABS.find((x) => String(x.n) === n)
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
+  if (tab && (k === 'in' || k === 'out')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={3} /><Home /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={2} /><Members /></>
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} />
