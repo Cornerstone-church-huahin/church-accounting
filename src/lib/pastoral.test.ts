@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, recentServices } from './pastoral'
+import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, orderMembers, recentServices, statusRank, visitCounts } from './pastoral'
 import type { Evaluated } from './registry'
 
 describe('ข้อมูลสมาชิกสำหรับงานอภิบาล', () => {
@@ -41,5 +41,17 @@ describe('ข้อมูลสมาชิกสำหรับงานอภ�
     expect(followUp(rows, 4).map((x) => x.id)).toEqual(['g', 'a'])
     expect(followUp(rows, 8).map((x) => x.id)).toEqual(['g'])
     expect(followUp(rows, 26)).toEqual([])
+  })
+})
+
+describe('เรียงสมาชิกตามการมานมัสการ', () => {
+  const att = [{ date: '2026-01-04', ids: ['a', 'b'] }, { date: '2026-01-11', ids: ['b', 'c', 'c'] }, { date: '2026-01-18', ids: ['b'], deleted: true }]
+  const ms = [{ id: 'a', name: 'ก', status: '2.สมบูรณ์ ( 2 )' }, { id: 'b', name: 'ข', status: '4.ผู้ร่วมนมัสการ' }, { id: 'c', name: 'ค', status: '1.สมบูรณ์ ( 1 )' }, { id: 'd', name: 'ง', status: '1.สมบูรณ์ ( 1 )' }]
+  it('นับวันที่ไม่ซ้ำและไม่นับรายการที่ลบ', () => { expect([...visitCounts(att)]).toEqual([['a', 1], ['b', 2], ['c', 1]]) })
+  it('ค่าเริ่มต้น: มาบ่อยสุดก่อน เท่ากันตามสถานะ', () => {
+    expect(orderMembers(ms, 'default', visitCounts(att)).map((m) => m.id)).toEqual(['b', 'c', 'a', 'd'])
+    expect(orderMembers(ms, 'asc', visitCounts(att)).map((m) => m.id)).toEqual(['d', 'c', 'a', 'b'])
+    expect(orderMembers(ms, 'status', visitCounts(att)).map((m) => m.id)).toEqual(['c', 'd', 'a', 'b'])
+    expect(statusRank(undefined)).toBe(9)
   })
 })
