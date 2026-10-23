@@ -33,15 +33,13 @@ await page.evaluate(([Y, a, b]) => {
 }, [Y, iso(d2), iso(old)])
 try {
   await page.reload()
-  for (const n of [1, 2, 5]) {
+  for (const n of [1, 2, 4, 5]) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${n}`); await page.waitForLoadState('networkidle')
     const nav = page.getByRole('navigation', { name: 'บัญชีรับ บัญชีจ่าย และภาพรวม (ดูอย่างเดียว)' })
     await nav.waitFor({ timeout: 8000 })
     must(await nav.getByRole('link', { name: /บัญชีรับ/ }).isVisible() && await nav.getByRole('link', { name: /บัญชีจ่าย/ }).isVisible() && await nav.getByRole('link', { name: /ภาพรวม/ }).isVisible(), `work ${n} has the three buttons`)
   }
   await page.goto(`http://localhost:${PORT}/#/meeting/4`); await page.waitForLoadState('networkidle')
-  must(await page.getByRole('link', { name: /บัญชีรับ|บัญชีจ่าย|ภาพรวม/ }).count() === 0, 'pastoral work (4) is read-only: no account buttons')
-  await page.goto(`http://localhost:${PORT}/#/meeting/5`)
   await page.getByRole('link', { name: /บัญชีรับ/ }).click()
   await page.getByRole('heading', { name: /บัญชีรับ/, level: 1 }).waitFor({ timeout: 8000 })
   const inTxt = (await page.locator('.a4page').allInnerTexts()).join('\n')

@@ -68,7 +68,7 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
   return (
     <>
       <WorkHead n={n} name={name} />
-      {n !== 4 && <AccountLinks n={n} />}
+      <AccountLinks n={n} />
       <CalToggle n={n} />
       <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
         {labelsOf(n).map((l, i) => (
@@ -141,7 +141,7 @@ function MeetingRoom() {
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
-  if (tab && tab.n !== 4 && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
+  if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={3} /><Home /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><AccountLinks n={2} /><CalToggle n={2} /><Members /></>
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} />
