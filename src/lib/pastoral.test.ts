@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, orderMembers, recentServices, statusRank, visitCounts } from './pastoral'
+import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, orderMembers, recentServices, statusRank, visitStats, absence } from './pastoral'
 import type { Evaluated } from './registry'
 
 describe('ข้อมูลสมาชิกสำหรับงานอภิบาล', () => {
@@ -44,14 +44,34 @@ describe('ข้อมูลสมาชิกสำหรับงานอภ�
   })
 })
 
-describe('เรียงสมาชิกตามการมานมัสการ', () => {
-  const att = [{ date: '2026-01-04', ids: ['a', 'b'] }, { date: '2026-01-11', ids: ['b', 'c', 'c'] }, { date: '2026-01-18', ids: ['b'], deleted: true }]
-  const ms = [{ id: 'a', name: 'ก', status: '2.สมบูรณ์ ( 2 )' }, { id: 'b', name: 'ข', status: '4.ผู้ร่วมนมัสการ' }, { id: 'c', name: 'ค', status: '1.สมบูรณ์ ( 1 )' }, { id: 'd', name: 'ง', status: '1.สมบูรณ์ ( 1 )' }]
-  it('นับวันที่ไม่ซ้ำและไม่นับรายการที่ลบ', () => { expect([...visitCounts(att)]).toEqual([['a', 1], ['b', 2], ['c', 1]]) })
-  it('ค่าเริ่มต้น: มาบ่อยสุดก่อน เท่ากันตามสถานะ', () => {
-    expect(orderMembers(ms, 'default', visitCounts(att)).map((m) => m.id)).toEqual(['b', 'c', 'a', 'd'])
-    expect(orderMembers(ms, 'asc', visitCounts(att)).map((m) => m.id)).toEqual(['d', 'c', 'a', 'b'])
-    expect(orderMembers(ms, 'status', visitCounts(att)).map((m) => m.id)).toEqual(['c', 'd', 'a', 'b'])
+describe('เรียงสมาชิกตามการมานมัสการ (1 ปี) และการขาด', () => {
+  const T = '2026-10-23'
+  const att = [
+    { date: '2026-10-18', ids: ['a', 'b'] }, { date: '2026-10-11', ids: ['b', 'a', 'a'] }, { date: '2026-10-04', ids: ['b'] },
+    { date: '2026-06-01', ids: ['c'] }, { date: '2026-02-01', ids: ['d'] }, { date: '2025-01-05', ids: ['e', 'x'] }, { date: '2023-01-01', ids: ['f'] },
+    { date: '2026-10-18', ids: ['b'], deleted: true },
+  ]
+  const ms = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => ({ id, name: id, status: '1.สมบูรณ์ ( 1 )' })).concat([{ id: 'x', name: 'x', status: '7.เสียชีวิต' }])
+  it('นับครั้งใน 1 ปีและวันล่าสุด ไม่นับรายการที่ยกเลิก', () => {
+    const st = visitStats(att, T)
+    expect(st.get('b')).toEqual({ recent: 3, total: 3, last: '2026-10-18' })
+    expect(st.get('a')?.recent).toBe(2)
+    expect(st.get('e')?.recent).toBe(0)
+  })
+  it('ระดับการขาดตามช่วงเวลา', () => {
+    expect(absence('2026-10-18', T).tier).toBe(0)
+    expect(absence('2026-06-01', T)).toMatchObject({ tier: 1, label: 'ขาด 3 เดือน' })
+    expect(absence('2026-02-01', T).label).toBe('ขาด 6 เดือน')
+    expect(absence('2025-01-05', T).label).toBe('ขาด 1 ปี')
+    expect(absence('2024-01-01', T).label).toBe('ขาด 2 ปี')
+    expect(absence('2023-01-01', T).label).toBe('ขาด 3 ปีขึ้นไป')
+    expect(absence(undefined, T).label).toBe('ไม่เคยมีบันทึกการมา')
+  })
+  it('ค่าเริ่มต้น: มาบ่อยก่อน แล้วขาดน้อย→มาก ไม่เคยมา/สิ้นสภาพอยู่ท้าย', () => {
+    const st = visitStats(att, T)
+    expect(orderMembers(ms, 'default', st, T).map((m) => m.id)).toEqual(['b', 'a', 'c', 'd', 'e', 'f', 'g', 'h', 'x'])
+    expect(orderMembers(ms, 'asc', st, T).map((m) => m.id)[0]).toBe('x')
+    expect(orderMembers(ms, 'status', st, T).map((m) => m.id).at(-1)).toBe('x')
     expect(statusRank(undefined)).toBe(9)
   })
 })
