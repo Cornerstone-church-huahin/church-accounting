@@ -29,7 +29,7 @@ export default function AnnounceAdmin() {
       {open && (
         <div className="bellpanel bellpanel--admin card" role="region" aria-label="ส่งข่าวถึงแต่ละงาน">
           <b>ส่งข่าวถึงแต่ละงาน</b>
-          <div className="field"><label htmlFor="ann-text">ข้อความ</label><textarea id="ann-text" className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="เช่น ประชุมกรรมการวันอาทิตย์หน้า" /></div>
+          <div className="field"><label htmlFor="ann-text">ข้อความ</label><textarea id="ann-text" className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="เช่น ประชุมกรรมการวันอาทิตย์หน้า" /></div>
           <fieldset className="bellpanel__to"><legend className="small">ส่งถึง</legend>
             <label className="row"><input type="checkbox" checked={all} onChange={() => setTo(all ? [] : [ALL_WORKS])} /> <b>ทุกงาน</b></label>
             {MEETING_TABS.map((t) => <label key={t.n} className="row"><input type="checkbox" disabled={all} checked={all || to.includes(t.n)} onChange={() => toggle(t.n)} /> {t.name}</label>)}
