@@ -38,6 +38,9 @@ export default function Summary({ year }: { year: number }) {
   const [month, setMonth] = useState(() => Number(sheetSunday(latest).slice(5, 7)))
   const [notice, setNotice] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [copy, setCopy] = useState<'evidence' | 'public'>(detail ? 'evidence' : 'public')
+  const kind = detail ? copy : 'public'
+  const tag = kind === 'evidence' ? 'ต้นฉบับ' : 'ประกาศ'
   const paper = useRef<HTMLDivElement[]>([])
   const n = useMemo(() => {
     const range = rangeOf('week', year, { sunday })
@@ -47,14 +50,14 @@ export default function Summary({ year }: { year: number }) {
   const download = async () => {
     if (paper.current.length === 0) return
     setBusy(true)
-    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${tag}-${sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
     setBusy(false)
   }
   const share = async () => {
     if (paper.current.length === 0) return
     setBusy(true)
     try {
-      const file = `สรุปรับจ่าย-${sunday}.pdf`
+      const file = `สรุปรับจ่าย-${tag}-${sunday}.pdf`
       const r = await sharePdf(paper.current, file, 'full', `สรุปรายรับ-รายจ่าย ${church}`)
       if (r === 'unsupported') { await downloadSheetPdf(paper.current, file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แทนแล้ว นำไปแชร์ต่อจากไฟล์ที่ดาวน์โหลดได้') }
     } catch (e) { console.error('share', e); alert('แชร์ไม่สำเร็จ — ลองกด “ดาวน์โหลด PDF” แทน') }
@@ -73,7 +76,14 @@ export default function Summary({ year }: { year: number }) {
             <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
           </>}
         </div>
-        <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} />
+        {detail && (
+          <div className="rtabs no-print" role="tablist" aria-label="ฉบับของใบสรุป">
+            <button type="button" role="tab" aria-selected={copy === 'evidence'} className={`rtab${copy === 'evidence' ? ' on' : ''}`} onClick={() => setCopy('evidence')}>🔒 สำหรับแอดมินและเหรัญญิก</button>
+            <button type="button" role="tab" aria-selected={copy === 'public'} className={`rtab${copy === 'public' ? ' on' : ''}`} onClick={() => setCopy('public')}>📢 สำหรับประกาศสมาชิก</button>
+          </div>
+        )}
+        {detail && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
+        <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind} />
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )
