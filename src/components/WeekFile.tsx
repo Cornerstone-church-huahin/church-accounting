@@ -5,7 +5,8 @@ import { circulatingOnly } from '../lib/balances'
 import { getBinary, getSync } from '../lib/sync'
 import { cachedImage } from '../lib/imageCache'
 import { useIncomeTypes, useSettings } from '../lib/data'
-import { fmtBaht, fmtDate, sheetSunday, todayISO } from '../lib/money'
+import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import { summarizeLoans } from '../lib/loans'
 import { canSharePdf, downloadPagesPdf, sharePagesPdf } from '../lib/pdf'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
@@ -16,6 +17,54 @@ const kindManual = (x: IncomeEntry) => !x.roundId && !x.unknown && !(x.source ==
 const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
 const toDataUrl = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(b) })
 const PER_PAGE = 6
+const pg = (from: number, n: number) => (n <= 0 ? '—' : n === 1 ? `หน้า ${from}` : `หน้า ${from}–${from + n - 1}`)
+const TILE_COLORS = ['#1a2b4c', '#8a6414', '#1f5fc4', '#17766b', '#6b2d82', '#8a3d12']
+
+/** ใบปะหน้าแฟ้ม: เลขแฟ้ม/สัปดาห์/วันที่ สำหรับค้นหา + สารบัญ + ช่องเงินคริสตจักร 6 ช่อง ณ สัปดาห์นั้น (ตัวเลขชุดเดียวกับหน้าแรก) */
+function Cover({ church, sunday, week, asOf, nInc, nOut, nPhoto, tiles, tot }: { church: string; sunday: string; week: number; asOf: string; nInc: number; nOut: number; nPhoto: number; tiles: [string, string][]; tot: { inn: number; out: number } }) {
+  const [y] = sunday.split('-').map(Number)
+  const no = `${y + 543}-W${String(week).padStart(2, '0')}`
+  const net = tot.inn - tot.out
+  const rows: [string, string, string][] = [['ใบรับ (ใบบันทึกการถวาย)', pg(2, nInc), `${nInc} แผ่น`], ['ใบเบิก - จ่ายเงินสด พร้อมสรุปประจำสัปดาห์', pg(2 + nInc, nOut), `${nOut} แผ่น`], ['ภาพหลักฐาน (สลิป/บิล ที่แนบ)', pg(2 + nInc + nOut, nPhoto), nPhoto ? `${nPhoto} แผ่น` : 'ไม่มีรูปแนบ']]
+  return (
+    <ScaledPage>
+      <>
+        <PaperHead church={church} title="แฟ้มรับ - จ่ายประจำสัปดาห์" sub="ใบปะหน้า · เอกสารต้นฉบับสำหรับเก็บเข้าแฟ้ม" />
+        <div style={{ border: '2px solid #1a2b4c', borderRadius: 8, padding: '14px 18px', margin: '14px 0 10px', textAlign: 'center' }}>
+          <div style={{ fontSize: 15, color: '#444' }}>เลขที่แฟ้ม (ปี พ.ศ.-สัปดาห์ที่)</div>
+          <div style={{ fontSize: 44, fontWeight: 800, color: '#1a2b4c', letterSpacing: 2, lineHeight: 1.15 }}>{no}</div>
+          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>สัปดาห์ที่ {week} ของปี พ.ศ. {y + 543}</div>
+          <div style={{ fontSize: 16, marginTop: 2 }}>{weekHeading(sunday)}</div>
+        </div>
+        <table className="sheetpaper sheetpaper--full" aria-label="รายละเอียดแฟ้ม" style={{ marginBottom: 10 }}>
+          <tbody>
+            <tr><td style={{ width: '30%', fontWeight: 700 }}>วันอาทิตย์ประจำสัปดาห์</td><td>{fmtDate(sunday)}</td></tr>
+            <tr><td style={{ fontWeight: 700 }}>ข้อมูลเงินคงเหลือ ณ วันที่</td><td>{fmtDate(asOf)}</td></tr>
+            <tr><td style={{ fontWeight: 700 }}>ยอดประจำสัปดาห์ (เงินหมุนเวียน)</td><td>รับ {fmtBaht(tot.inn)} · จ่าย {fmtBaht(tot.out)} · {net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'} {fmtBaht(Math.abs(net))} บาท</td></tr>
+          </tbody>
+        </table>
+        <div style={{ fontWeight: 800, fontSize: 16, margin: '6px 0 2px' }}>สารบัญในแฟ้ม</div>
+        <table className="sheetpaper sheetpaper--full" aria-label="สารบัญแฟ้ม">
+          <thead><tr><th>รายการ</th><th style={{ width: '22%' }}>หน้าที่</th><th style={{ width: '22%' }}>จำนวน</th></tr></thead>
+          <tbody>
+            <tr><td>ใบปะหน้า (แผ่นนี้)</td><td style={{ textAlign: 'center' }}>หน้า 1</td><td style={{ textAlign: 'center' }}>1 แผ่น</td></tr>
+            {rows.map(([a, b, c]) => <tr key={a}><td>{a}</td><td style={{ textAlign: 'center' }}>{b}</td><td style={{ textAlign: 'center' }}>{c}</td></tr>)}
+          </tbody>
+        </table>
+        <div style={{ fontWeight: 800, fontSize: 16, margin: '14px 0 4px' }}>เงินคริสตจักร ณ วันที่ {fmtDate(asOf)}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }} aria-label="เงินคริสตจักร 6 ช่อง">
+          {tiles.map(([label, val], i) => (
+            <div key={label} style={{ background: TILE_COLORS[i], color: '#fff', borderRadius: 10, padding: '12px 10px', textAlign: 'center', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+              <div style={{ fontSize: 15 }}>{label}</div>
+              <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>{val}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 'auto', fontSize: 12, color: '#555', textAlign: 'center' }}>เอกสารต้นฉบับ มีชื่อบุคคลครบ — ห้ามนำไปติดประกาศหรือแชร์สมาชิก · จัดทำ {fmtDate(todayISO())}</div>
+      </>
+    </ScaledPage>
+  )
+}
 
 /** รูปหลักฐานหนึ่งช่อง: โหลดรูปเป็นข้อมูลในหน้า (ให้ติดไปกับ PDF) แล้วแจ้งผลกลับ */
 function Photo({ path, label, onDone }: { path: string; label: string; onDone: (ok: boolean) => void }) {
@@ -63,6 +112,8 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const pending = expRows.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount }))
   const net = (r: { from: string; to: string }) => { const l = computeLedger({ range: r, ...a } as Parameters<typeof computeLedger>[0]); return l.inSum.cash + l.inSum.transfer - l.outSum.cash - l.outSum.transfer - l.outSum.pending }
   const summary = { inn: L.inSum, funds: fundOut, pending, out: L.outSum, balance: circulatingOnly(balances, a.loans as never), asOf, net: { week: net(week), month: net(rangeOf('month', year, { month: Number(sunday.slice(5, 7)) })), year: net(rangeOf('year', year)) } }
+  const ls = summarizeLoans(a.loans as never, asOf)
+  const tiles: [string, string][] = [['🏠 หมุนเวียน', fmtBaht(balances.own.balance, { dec: false })], ['💰 กองทุน', fmtBaht(balances.fundTotal, { dec: false })], ['🧮 รวมเงินสด', fmtBaht(balances.total, { dec: false })], ['🔁 หนี้ภายใน', fmtBaht(ls.fromFunds, { dec: false })], ['🧾 หนี้ภายนอก', fmtBaht(ls.external, { dec: false })], ['🏞️ ภาระที่ดิน', '6,000,000']]
   const settled = photos.every((p) => p.x.id in loaded)
   const missing = photos.filter((p) => loaded[p.x.id] === false)
   const pagesEls = () => [...(box.current?.querySelectorAll<HTMLElement>('.a4page') ?? [])].map((el) => ({ el, landscape: el.classList.contains('a4page--land') }))
@@ -79,8 +130,8 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
     <div data-keep="1" aria-label="แฟ้มประจำสัปดาห์">
       <div className="card no-print" style={{ margin: '6px 0' }}>
         <b>🗂️ แฟ้มประจำสัปดาห์ (เก็บเข้าแฟ้ม)</b>
-        <p className="muted small" style={{ margin: '4px 0' }}>รวมใบรับ → ใบเบิก-จ่ายเงินสด → ภาพสลิป/บิลที่แนบ (เฉพาะรายการที่มีรูป หน้าละ 6 รูป) เป็น PDF ไฟล์เดียว · ข้อมูลต้นฉบับครบ มีชื่อบุคคล — ห้ามนำไปติดประกาศหรือแชร์สมาชิก · ถ้าจะพิมพ์ ให้ดาวน์โหลดแล้วพิมพ์จากไฟล์ PDF</p>
-        <p className="small" style={{ margin: '2px 0' }}>ใบรับ {Math.max(1, Math.ceil(incomeRows.length / 20))} แผ่น · ใบเบิก-จ่าย {Math.max(1, Math.ceil(ordered.length / 25))} แผ่น · {photos.length === 0 ? 'ไม่มีรูปแนบในสัปดาห์นี้ (ไม่มีหน้ารูป)' : `รูปแนบ ${photos.length} รูป ${pages.length} แผ่น`}</p>
+        <p className="muted small" style={{ margin: '4px 0' }}>ใบปะหน้า (เลขแฟ้ม สัปดาห์ สารบัญ และเงินคริสตจักร 6 ช่อง) → รวมใบรับ → ใบเบิก-จ่ายเงินสด → ภาพสลิป/บิลที่แนบ (เฉพาะรายการที่มีรูป หน้าละ 6 รูป) เป็น PDF ไฟล์เดียว · ข้อมูลต้นฉบับครบ มีชื่อบุคคล — ห้ามนำไปติดประกาศหรือแชร์สมาชิก · ถ้าจะพิมพ์ ให้ดาวน์โหลดแล้วพิมพ์จากไฟล์ PDF</p>
+        <p className="small" style={{ margin: '2px 0' }}>ใบปะหน้า 1 แผ่น · ใบรับ {Math.max(1, Math.ceil(incomeRows.length / 20))} แผ่น · ใบเบิก-จ่าย {Math.max(1, Math.ceil(ordered.length / 25))} แผ่น · {photos.length === 0 ? 'ไม่มีรูปแนบในสัปดาห์นี้ (ไม่มีหน้ารูป)' : `รูปแนบ ${photos.length} รูป ${pages.length} แผ่น`}</p>
         {!settled && <p className="small" role="status">กำลังโหลดรูป {Object.keys(loaded).length}/{photos.length}…</p>}
         {settled && missing.length > 0 && <p className="small" role="alert" style={{ color: 'var(--danger, #c4332a)' }}>โหลดรูปไม่ได้ {missing.length} รูป (ลำดับที่ {missing.map((p) => p.no).join(', ')}) — ต้องออนไลน์จึงจะได้รูปครบ</p>}
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -89,6 +140,7 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
         </div>
       </div>
       <div ref={box}>
+        <Cover church={church} sunday={sunday} week={sundaysOf(year).indexOf(sunday) + 1} asOf={asOf} nInc={Math.max(1, Math.ceil(incomeRows.length / 20))} nOut={Math.max(1, Math.ceil(ordered.length / 25))} nPhoto={pages.length} tiles={tiles} tot={{ inn: L.inSum.cash + L.inSum.transfer, out: L.outSum.cash + L.outSum.transfer + L.outSum.pending }} />
         <IncomeSheetPaper church={church} entries={incomeRows} types={types} sunday={sunday} noDownload />
         <VoucherPaper church={church} entries={entries} sunday={sunday} summary={summary} noDownload />
         {pages.map((ps, pi) => (
