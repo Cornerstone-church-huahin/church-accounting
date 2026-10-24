@@ -109,7 +109,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
-export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload }: { /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
+export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance }: { /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   const ROWS = 25
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -143,7 +143,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
               </tbody>
               <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{blank ? '' : m(sumOf(rows))}</td><td colSpan={3}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
             </table>
-            {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} />}
+            {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} noBalance={noBalance} />}
             <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้อนุมัติ / ตรวจสอบ</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้จ่าย / ฝ่ายบัญชี</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
@@ -269,7 +269,7 @@ export interface WeekSummary {
 }
 
 /** 3 กรอบใต้ตารางใบเบิก-จ่าย: 1 สรุปรับประจำสัปดาห์ · 2 สรุปจ่ายประจำสัปดาห์ · 3 สรุปยอดเงินในบัญชีทั้งสิ้น (เงินหมุนเวียน) */
-function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
+function WeekSummaryBoxes({ summary, noBalance }: { summary?: WeekSummary; noBalance?: boolean }) {
   const dots = '..............'
   const v = (x: number | undefined) => (x === undefined ? dots : m(x))
   const row = (label: string, val: string, bold?: boolean, key?: string) => <div key={key ?? label} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontWeight: bold ? 700 : 400 }}><span>{label}</span><span className="num">{val}</span></div>
@@ -285,7 +285,7 @@ function WeekSummaryBoxes({ summary }: { summary?: WeekSummary }) {
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
         <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{summary?.scopeName ? row(`เงินรับ ${summary.scopeName}`, v(circIn), true) : <>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</>}</div>
         <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{summary?.scopeName ? row(`เงินจ่าย ${summary.scopeName}`, v(circOut), true) : <>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</>}</div>
-        <div style={{ ...box, justifyContent: 'center' }} aria-label="ยอดเงินหมุนเวียน">{row(summary?.scopeName ? 'เงินกองทุนคงเหลือปัจจุบัน' : 'เงินหมุนเวียนทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}</div>
+        {!noBalance && <div style={{ ...box, justifyContent: 'center' }} aria-label="ยอดเงินหมุนเวียน">{row(summary?.scopeName ? 'เงินกองทุนคงเหลือปัจจุบัน' : 'เงินหมุนเวียนทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}</div>}
       </div>
     </div>
   )
