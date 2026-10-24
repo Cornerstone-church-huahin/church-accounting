@@ -2,6 +2,7 @@ import { UNKNOWN_INCOME_LABEL } from '../lib/types'
 import { useRef, type MutableRefObject, type ReactNode } from 'react'
 import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/money'
 import { downloadSheetPdf } from '../lib/pdf'
+import { isCompensation } from '../lib/maskPay'
 import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 import type { LRow } from '../lib/weekLedger'
 import type { FundLine, FundSheets } from '../lib/fundSheet'
@@ -129,14 +130,14 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
                   return (
-                    <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
-                      <td style={{ whiteSpace: 'nowrap', fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td>
-                      <td style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
-                      <td>{x?.desc ?? ''}</td>
-                      <td className="num" style={{ fontSize: 11.5 }}>{x ? m(x.amount) : ''}</td>
-                      <td style={{ fontSize: 11, whiteSpace: 'nowrap', ...(x?.file && onFileClick ? { cursor: 'pointer' } : {}) }} onClick={x?.file && onFileClick ? (e) => { e.stopPropagation(); onFileClick(x) } : undefined} role={x?.file && onFileClick ? 'button' : undefined} aria-label={x?.file && onFileClick ? 'ดูรูปแนบ' : undefined} tabIndex={x?.file && onFileClick ? 0 : undefined} onKeyDown={x?.file && onFileClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onFileClick(x) } } : undefined}>{x ? <>{x.requester ? <span className="pname">{x.requester}</span> : x.note || ''}{x.file && <span style={{ marginLeft: 3, textDecoration: onFileClick ? 'underline' : undefined, color: onFileClick ? '#1a5fb4' : undefined }}>📎 มีรูป</span>}</> : ''}</td>
-                      <td><span className="pname">{x?.biller ?? ''}</span></td>
-                      <td><span className="pname">{x?.who ?? ''}</span></td>
+                    <tr key={i} data-comp={x && isCompensation(x) ? '1' : undefined} data-amt={x?.amount} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
+                      <td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td>
+                      <td data-c="no" style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
+                      <td data-c="desc">{x?.desc ?? ''}</td>
+                      <td data-c="amt" className="num" style={{ fontSize: 11.5 }}>{x ? m(x.amount) : ''}</td>
+                      <td data-c="x" style={{ fontSize: 11, whiteSpace: 'nowrap', ...(x?.file && onFileClick ? { cursor: 'pointer' } : {}) }} onClick={x?.file && onFileClick ? (e) => { e.stopPropagation(); onFileClick(x) } : undefined} role={x?.file && onFileClick ? 'button' : undefined} aria-label={x?.file && onFileClick ? 'ดูรูปแนบ' : undefined} tabIndex={x?.file && onFileClick ? 0 : undefined} onKeyDown={x?.file && onFileClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onFileClick(x) } } : undefined}>{x ? <>{x.requester ? <span className="pname">{x.requester}</span> : x.note || ''}{x.file && <span style={{ marginLeft: 3, textDecoration: onFileClick ? 'underline' : undefined, color: onFileClick ? '#1a5fb4' : undefined }}>📎 มีรูป</span>}</> : ''}</td>
+                      <td data-c="x"><span className="pname">{x?.biller ?? ''}</span></td>
+                      <td data-c="x"><span className="pname">{x?.who ?? ''}</span></td>
                     </tr>
                   )
                 })}
@@ -306,7 +307,7 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
           <tr key={r} style={{ height: 22 }}>
             {Array.from({ length: COLS }, (_, c) => {
               const x = items[c * rows + r]
-              return <td key={c} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top' }}>{x && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span>{x.person && <><span className="pname">{x.person}</span>{x.desc ? ' — ' : ''}</>}{x.desc}</span><span className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
+              return <td key={c} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top' }}>{x && <div data-pcomp={isCompensation(x) ? '1' : undefined} data-amt={x.amt} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span data-c="desc">{x.person && <><span className="pname">{x.person}</span>{x.desc ? ' — ' : ''}</>}{x.desc}</span><span data-c="amt" className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
             })}
           </tr>
         ))}

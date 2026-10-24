@@ -2,7 +2,7 @@ import type { ExpenseEntry } from './types'
 
 /** รายการค่าตอบแทนผู้รับใช้ (เงินเดือน/สวัสดิการ/ค่าตอบแทน) — ผู้นำงานเห็นเป็นยอดรวม ไม่เห็นรายคน */
 export const isCompensation = (e: { desc?: string; note?: string }) => /เงินเดือน|สวัสดิการ|ค่าตอบแทน/.test(`${e.desc ?? ''} ${e.note ?? ''}`)
-export const COMP_LABEL = 'เงินเดือน/สวัสดิการผู้รับใช้ (ยอดรวม)'
+export const COMP_LABEL = 'สวัสดิการผู้รับใช้ (ยอดรวม)'
 
 /** รวมรายการค่าตอบแทนในใบเป็นแถวเดียว (ไม่มีชื่อ/หมายเหตุ/ผู้วางบิล/รูป) · รายการอื่นเหมือนเดิม */
 export function maskExpenses(entries: ExpenseEntry[]): ExpenseEntry[] {

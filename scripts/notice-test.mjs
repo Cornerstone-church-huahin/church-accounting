@@ -28,6 +28,9 @@ await page.evaluate(([Y, a, b]) => {
     { id: 'e1', channel: 'advance', date: a, amount: 150000, desc: 'ค่าอาหาร', status: 'open', requester: 'อ.ลับ สำรองจ่าย', biller: 'อ.ลับ', who: 'ร้านลับ', updated: 1 },
     { id: 'e2', channel: 'manual', date: a, amount: 100000, desc: 'ค่าน้ำมัน อ.กฤต', status: 'paid', method: 'cash', updated: 1 },
     { id: 'e3', channel: 'manual', date: a, amount: 100000, desc: 'ค่าน้ำมัน อ.พิชิต', status: 'paid', method: 'cash', updated: 1 },
+    { id: 'e4', channel: 'manual', date: a, amount: 15000, desc: 'เงินเดือน อ.กฤต', status: 'paid', method: 'cash', updated: 1 },
+    { id: 'e5', channel: 'manual', date: a, amount: 15000, desc: 'เงินเดือน อ.พิชิต', status: 'paid', method: 'cash', updated: 1 },
+    { id: 'e6', channel: 'manual', date: a, amount: 5000, desc: 'เงินเดือน อ.สายฝน', status: 'paid', method: 'cash', updated: 1 },
     ...Array.from({ length: 40 }, (_, i) => ({ id: 'm' + i, channel: 'manual', date: a, amount: 1000, desc: 'รายการย่อย ' + (i + 1), status: 'paid', method: 'cash', updated: 1 })),
   ]))
 }, [Y, iso(d2), iso(old)])
@@ -44,6 +47,12 @@ try {
   must(/จ่ายมากกว่ารับ\s+[-−]/.test(all), 'deficit shown with a minus sign')
   must(/3,155/.test(all), 'income total 3,155 (cash+transfer, funds separate)')
   must(/ค่าอาหาร \(อ\.ลับ\)/.test(all) && !/ผู้วางบิล|สำรองจ่าย|ร้านลับ/.test(all), 'payer/biller name shown in brackets after the item, no other internal notes')
+  must(/เงินเดือน อ\.กฤต/.test(all) && /เงินเดือน อ\.สายฝน/.test(all), 'in the app each salary is listed by person')
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+  const merged = (await page.locator('.a4page').allInnerTexts()).join('\n')
+  must(!/อ\.กฤต|อ\.พิชิต|อ\.สายฝน/.test(merged.replace(/ค่าน้ำมัน อ\.(กฤต|พิชิต)/g, '')) && /สวัสดิการผู้รับใช้ \(ยอดรวม\)\s+350/.test(merged), 'print merge: ' + merged.split('\n').filter((l) => /สวัสดิการ|เงินเดือน|อ\./.test(l)).join(' | '))
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+  must(/เงินเดือน อ\.กฤต/.test((await page.locator('.a4page').allInnerTexts()).join('\n')), 'app view restored after print')
   await page.emulateMedia({ media: 'print' })
   const printed = (await page.locator('.a4page').allInnerTexts()).join('\n')
   await page.emulateMedia({ media: 'screen' })
