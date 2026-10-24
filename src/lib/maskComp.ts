@@ -17,7 +17,7 @@ export function mergeCompRows(root: ParentNode): () => void {
   const undo: (() => void)[] = []
   root.querySelectorAll('tbody').forEach((tb) => {
     const rows = [...tb.querySelectorAll<HTMLElement>(':scope > tr[data-comp]')]
-    if (rows.length === 0) return
+    if (rows.length === 0 || tb.closest('[data-keep]')) return
     const total = rows.reduce((s, r) => s + Number(r.dataset.amt ?? 0), 0)
     rows[0].querySelectorAll('td').forEach((td) => {
       const c = td.dataset.c
