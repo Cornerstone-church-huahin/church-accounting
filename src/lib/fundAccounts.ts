@@ -26,7 +26,7 @@ export function fundAccounts(a: { types: IncomeType[]; opening?: Opening; income
     for (const l of a.loans ?? []) {
       if (l.deleted) continue
       const note = l.purpose ? ` · ${l.purpose}` : ''
-      const lender = l.lender.kind === 'fund' ? nm(l.lender.fundId) : l.lender.name || 'บุคคลภายนอก'
+      const lender = l.lender.kind === 'own' ? 'เงินหมุนเวียน' : l.lender.kind === 'fund' ? nm(l.lender.fundId) : l.lender.name || 'บุคคลภายนอก'
       if (l.lender.kind === 'fund' && l.lender.fundId === t.id) {
         mv.push({ key: `ln:${l.id}`, date: l.date, label: `ให้ ${nm(l.borrower)} ยืม${note}`, amount: -l.principal })
         for (const r of l.repayments) mv.push({ key: `lr:${r.id}`, date: r.date, label: `รับคืนจาก ${nm(l.borrower)}`, amount: r.amount })

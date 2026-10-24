@@ -19,7 +19,9 @@ describe('loans', () => {
       L({ id: 'd', lender: { kind: 'fund', fundId: 'tt9' }, principal: 3000000, repayments: [{ id: 'r', date: '2026-09-01', amount: 3000000 }] }),
       L({ id: 'e', deleted: true, principal: 99 }),
     ])
-    expect(s).toEqual({ external: 15000000, fromFunds: 5000000, total: 20000000, lentByFund: { tt9: 5000000 } })
+    expect(s).toEqual({ external: 15000000, fromFunds: 5000000, fromOwn: 0, total: 20000000, lentByFund: { tt9: 5000000 } })
+    const o = summarizeLoans([L({ id: 'o', lender: { kind: 'own' }, principal: 500000 }), L({ id: 'f', lender: { kind: 'fund', fundId: 'tt9' }, principal: 100 })])
+    expect(o).toMatchObject({ external: 0, fromFunds: 500100, fromOwn: 500000, total: 500100 })
   })
   it('circulating-only balance drops money borrowed from funds but keeps outside loans', () => {
     const b = { own: { balance: 30000000 } } as unknown as Balances
