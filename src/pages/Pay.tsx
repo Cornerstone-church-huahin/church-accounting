@@ -206,7 +206,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
     return (
       <>
         <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...weekAll.map(sheetOf), ...fundRowsE]} sunday={sunday} summary={weekSummary} noDownload /></div>
+        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...weekAll.map(sheetOf), ...fundRowsE]} sunday={sunday} summary={weekSummary} noDownload noBalance={!can(role, 'detail')} /></div>
       </>
     )
   }

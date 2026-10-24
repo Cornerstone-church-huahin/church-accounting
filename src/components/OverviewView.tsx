@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import NoticePaper from './NoticePaper'
+import { can } from '../lib/access'
+import { useRole } from '../lib/members'
 import { useLoans, useSettings } from '../lib/data'
 import { fmtBaht, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
 import { expenseLines, weekNotice } from '../lib/notice'
@@ -15,6 +17,7 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
  */
 export default function OverviewView({ year }: { year: number }) {
   const { settings } = useSettings()
+  const showTiles = can(useRole(), 'detail')
   const { balances: b, input } = useBalances(year)
   const ls = summarizeLoans(useLoans().items)
   const church = settings.churchName.split(' ')[0]
@@ -36,12 +39,12 @@ export default function OverviewView({ year }: { year: number }) {
   ]
   return (
     <div className="ovw">
-      <section aria-label="โซน 1 เงินคริสตจักร ณ วันนี้">
+      {showTiles && <section aria-label="โซน 1 เงินคริสตจักร ณ วันนี้">
         <p className="home-label">เงินคริสตจักร ณ วันนี้</p>
         <div className="balance-tiles" role="group" aria-label="เงินคริสตจักร: ดูอย่างเดียว">
           {tiles.map(([k, l, v, a]) => <div key={k} className={`btile btile--${k}`} aria-label={`${a} ${v}`}><small>{l}</small><b>{v}</b></div>)}
         </div>
-      </section>
+      </section>}
       <section aria-label="โซน 2 ใบสรุปรายรับ-รายจ่ายประจำสัปดาห์" ref={zone2} className="ovw__paper">
         {cur ? <NoticePaper pagesRef={paper} church={church} sunday={cur.sunday} n={cur.n} /> : <p className="empty">ยังไม่มีรายการรับ-จ่ายในปี {year + 543}</p>}
       </section>

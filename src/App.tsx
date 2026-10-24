@@ -17,6 +17,7 @@ import BalancePage from './pages/Balance'
 import Reports from './pages/Reports'
 import More from './pages/More'
 import Members from './pages/Members'
+import DetailGate from './components/DetailGate'
 import Settings from './pages/Settings'
 import Join from './pages/Join'
 
@@ -39,10 +40,10 @@ export default function App() {
           <Route path="vouchers" element={<Vouchers />} />
           <Route path="vouchers/:id" element={<VoucherDetail />} />
           <Route path="budget" element={<Budget />} />
-          <Route path="funds" element={<FundAccountsPage />} />
-          <Route path="funds/:id" element={<FundDetailPage />} />
-          <Route path="balance/:kind" element={<BalancePage />} />
-          <Route path="land" element={<Land />} />
+          <Route path="funds" element={<DetailGate><FundAccountsPage /></DetailGate>} />
+          <Route path="funds/:id" element={<DetailGate><FundDetailPage /></DetailGate>} />
+          <Route path="balance/:kind" element={<DetailGate><BalancePage /></DetailGate>} />
+          <Route path="land" element={<DetailGate><Land /></DetailGate>} />
           <Route path="meeting" element={<Meeting />} />
           <Route path="meeting/notes" element={<Notes />} />
           <Route path="meeting/:n" element={<Meeting />} />
