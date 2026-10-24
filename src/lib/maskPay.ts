@@ -19,3 +19,12 @@ export function maskPending<T extends { desc: string; person: string; kind: stri
   if (comp.length === 0) return items
   return [...items.filter((x) => !isCompensation(x)), { ...comp[0], desc: COMP_LABEL, person: '', amount: comp.reduce((s, x) => s + x.amount, 0) }]
 }
+
+/** ใบสรุปรายสัปดาห์: ค่าตอบแทนรวมเป็นแถวเดียว (ตัดชื่อผู้เบิก) */
+export function maskNoticeOut<T extends { key: string; date: string; desc: string; amount: number; by?: string }>(out: T[]): T[] {
+  const comp = out.filter((x) => isCompensation(x))
+  if (comp.length === 0) return out
+  const first = comp.reduce((a, x) => (x.date < a.date ? x : a), comp[0])
+  const { by: _by, ...rest } = first
+  return [...out.filter((x) => !isCompensation(x)), { ...rest, key: 'mask:comp', desc: COMP_LABEL, amount: comp.reduce((s, x) => s + x.amount, 0) } as unknown as T].sort((a, b) => a.date.localeCompare(b.date))
+}
