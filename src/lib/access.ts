@@ -141,3 +141,8 @@ export function myWorks(): number[] {
   const mine = me && readAllMembers().find((m) => m.id === me.id)
   return (mine && !mine.deleted && mine.works) || []
 }
+
+/** หัวหน้าทีม/ผู้นำงาน = ผู้ใช้ที่แอดมินกำหนดงานที่รับผิดชอบไว้ (ตั้งค่า › ผู้ใช้) — ตั้งได้หลายคนต่องาน */
+export const isTeamLeader = () => myWorks().length > 0
+/** ดูภาพรวมยอดเงิน (หมุนเวียน กองทุน หนี้ — ยอดรวมเท่านั้น ดูอย่างเดียว) ได้: ผู้มีสิทธิ์ดูรายละเอียด หรือหัวหน้าทีมของงานใดงานหนึ่ง */
+export const canSeeBalances = (role: AccessRole) => can(role, 'detail') || isTeamLeader()

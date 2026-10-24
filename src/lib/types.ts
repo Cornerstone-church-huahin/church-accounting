@@ -19,6 +19,8 @@ export interface Settings extends SharedItem {
   /** เกณฑ์ตรวจสมาชิก: เป็นสมาชิกครบกี่ปีถึงเป็นสมาชิกสมบูรณ์ · ไม่มานมัสการเกินกี่เดือนถือว่าขาด */
   memberMinYears?: number
   memberAbsentMonths?: number
+  /** ข้อความสรุปสถานการณ์การเงินถึงผู้นำงาน (แอดมินเขียน แสดงบนหน้า ภาพรวม) */
+  leaderNote?: { text: string; at: number }
 }
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 

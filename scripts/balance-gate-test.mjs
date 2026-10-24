@@ -13,6 +13,7 @@ const members = [
   { id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 },
   { id: 'vw1', name: 'ผู้ดู', role: 'viewer', joined: 2, updated: 1 },
   { id: 'au1', name: 'ผู้ตรวจ', role: 'auditor', joined: 3, updated: 1 },
+  { id: 'ld1', name: 'หัวหน้าทีม', role: 'viewer', works: [5], joined: 5, updated: 1 },
   { id: 'bk1', name: 'ผู้บันทึก', role: 'bookkeeper', joined: 4, updated: 1 },
 ]
 async function open(id, name) {
@@ -44,6 +45,22 @@ try {
     await page.goto(`${U}/meeting/5/out`); await page.waitForTimeout(800)
     must((await page.locator('[aria-label="ยอดเงินหมุนเวียน"]').count() > 0) === allowed, `${name}: weekly sheet balance box ${allowed ? 'shown' : 'hidden'}`)
     if (!allowed) must(!/เงินหมุนเวียนทั้งหมดปัจจุบัน/.test(await page.locator('main').innerText()), 'no balance wording left for the viewer')
+    await page.context().close()
+  }
+  // ระดับ 2: หัวหน้าทีม = ดูภาพรวมยอดรวมในห้องงานของตัวเองอย่างเดียว ไม่เห็นหน้าหลัก/หน้ายอด/กองทุน
+  {
+    const page = await open('ld1', 'หัวหน้าทีม')
+    await page.goto(`${U}/`); await page.waitForTimeout(600)
+    must(await page.locator('.balance-tiles').count() === 0, 'leader: home tiles hidden')
+    for (const route of ['balance/own', 'funds', 'land']) {
+      await page.goto(`${U}/${route}`); await page.waitForTimeout(500)
+      must(/ดูได้เฉพาะแอดมิน/.test(await page.locator('main').innerText()), `leader: /${route} blocked`)
+    }
+    await page.goto(`${U}/meeting/5/all`); await page.waitForTimeout(600)
+    must(await page.getByRole('region', { name: /โซน 1/ }).count() > 0, 'leader: overview totals shown')
+    must(await page.getByRole('button', { name: /ข้อความสรุปสถานการณ์/ }).count() === 0, 'leader cannot edit the note')
+    await page.goto(`${U}/meeting/5/out`); await page.waitForTimeout(800)
+    must(await page.locator('[aria-label="ยอดเงินหมุนเวียน"]').count() > 0, 'leader: weekly sheet balance box shown')
     await page.context().close()
   }
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))

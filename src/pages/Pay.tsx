@@ -13,7 +13,8 @@ import { VoucherPaper } from '../components/PaperSheets'
 import { VoucherScan } from '../components/PaperScan'
 import ManualExpense from '../components/ManualExpense'
 import StoredImage, { LocalImage } from '../components/StoredImage'
-import { can } from '../lib/access'
+import { can, canSeeBalances } from '../lib/access'
+import { maskExpenses, maskPending } from '../lib/maskPay'
 import { usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useLoans, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
 import { ensureGemini, getGemini, readBill } from '../lib/gemini'
 import { compressImage } from '../lib/image'
@@ -206,7 +207,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
     return (
       <>
         <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} entries={[...weekAll.map(sheetOf), ...fundRowsE]} sunday={sunday} summary={weekSummary} noDownload noBalance={!can(role, 'detail')} /></div>
+        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} entries={can(role, 'detail') ? [...weekAll.map(sheetOf), ...fundRowsE] : [...maskExpenses(weekAll.map(sheetOf)), ...fundRowsE]} sunday={sunday} summary={can(role, 'detail') ? weekSummary : { ...weekSummary, pending: maskPending(weekSummary.pending) }} noDownload noBalance={!canSeeBalances(role)} /></div>
       </>
     )
   }
