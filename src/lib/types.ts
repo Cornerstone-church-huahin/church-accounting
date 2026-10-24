@@ -261,12 +261,14 @@ export interface Opening extends SharedItem {
 /** เงินยืม (หนี้): ยืมจากบุคคลภายนอก หรือยืมระหว่างกองทุน — ไม่ใช่รายรับ และการคืนไม่ใช่รายจ่าย */
 export interface LoanRepayment { id: string; date: string; amount: number; note?: string }
 export interface Loan extends SharedItem {
-  /** ผู้ให้ยืม: person = บุคคลภายนอก (ใส่ชื่อ) · fund = กองทุนในคริสตจักร (id ประเภทถวายที่เป็นกองทุน) */
-  lender: { kind: 'person' | 'fund'; name?: string; fundId?: string }
+  /** ผู้ให้ยืม: own = เงินหมุนเวียนของคริสตจักร · person = บุคคลภายนอก (ใส่ชื่อ) · fund = กองทุนในคริสตจักร (id ประเภทถวายที่เป็นกองทุน) */
+  lender: { kind: 'person' | 'fund' | 'own'; name?: string; fundId?: string }
   /** ใช้ทำอะไร เช่น ทำสุสาน สร้างห้องพัก */
   purpose: string
   /** ผู้ยืม = เงินนี้ไปอยู่ที่ไหน: 'own' = เงินหมุนเวียนของคริสตจักร · id ประเภทถวาย (เช่น กองทุนสุสาน) · ไม่ใส่ = ไม่ระบุ */
   borrower?: string
+  /** รหัสชุดรายการที่สร้างพร้อมกัน (จ่ายสวัสดิการผ่านเงินยืม: เงินยืม + การคืน + รายจ่าย) — ไว้ยกเลิกทั้งชุด */
+  group?: string
   date: string
   /** เงินต้น (สตางค์) */
   principal: number

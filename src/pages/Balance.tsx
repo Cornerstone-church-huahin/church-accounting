@@ -2,9 +2,10 @@ import { useMemo } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import FundPendingPanel from '../components/FundPendingPanel'
 import LoansPanel from '../components/LoansPanel'
+import AdvancePay from '../components/AdvancePay'
 import DebtBanner from '../components/DebtBanner'
 import { can } from '../lib/access'
-import { useLoans } from '../lib/data'
+import { useExpenses, useLoans } from '../lib/data'
 import { isFundType } from '../lib/funds'
 import { loanBalance, repaidOf, summarizeLoans } from '../lib/loans'
 import { useRole } from '../lib/members'
@@ -32,14 +33,16 @@ export default function BalancePage() {
   const { year } = useYear()
   const { balances: b, input, opening } = useBalances(year)
   const loans = useLoans()
+  const expenses = useExpenses(year)
   const role = useRole()
   const ext = loans.items.filter((l) => l.lender.kind === 'person')
-  const inn = loans.items.filter((l) => l.lender.kind === 'fund')
+  const inn = loans.items.filter((l) => l.lender.kind !== 'person')
   const sums = summarizeLoans(loans.items)
   const fundAcc = useFundAccounts()
   const fc = fundColorMap(b.funds.map((f) => f.id))
   const dot = (c: string) => <i aria-hidden="true" style={{ display: 'inline-block', width: 11, height: 11, borderRadius: 3, background: c, marginRight: 6, verticalAlign: 'baseline' }} />
   const debt = sums.external
+  const lenderNm = (l: { lender: { kind: string; fundId?: string } }) => (l.lender.kind === 'own' ? 'เงินหมุนเวียน' : fundNm(l.lender.fundId))
   const fundNm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.find((t) => t.id === id)?.name ?? '(ถูกลบ)')
   const types = input.types
 
@@ -70,6 +73,7 @@ export default function BalancePage() {
           <h2>🏠 เงินหมุนเวียนของคริสตจักร</h2>
           <p className="muted small" style={{ margin: 0 }}>เงินที่ใช้บริหารงานประจำสัปดาห์/เดือน — ไม่รวมกองทุน ไม่รวมเงินยืม</p>
           <DebtBanner loans={loans.items.filter((l) => l.borrower === 'own')} types={types} />
+          <DebtBanner lent loans={loans.items.filter((l) => l.lender.kind === 'own')} types={types} />
           <p className="bigfig">{fmtBaht(b.own.balance)} บาท</p>
           <table className="tbl tbl--paper" aria-label="ที่มาของเงินหมุนเวียน">
             <tbody>
@@ -77,6 +81,7 @@ export default function BalancePage() {
               <tr><td>+ รายรับปกติ (ไม่รวมกองทุน)</td><td className="num">{m(b.own.moneyIn)}</td></tr>
               <tr><td>− รายจ่ายปกติ (จ่ายแล้ว)</td><td className="num">{m(b.own.moneyOut)}</td></tr>
               {b.own.pending > 0 && <tr><td>− ค้างจ่าย (วางบิล/สำรองจ่ายที่บันทึกไว้ ยังไม่จ่าย)</td><td className="num">{m(b.own.pending)}</td></tr>}
+              {b.own.lent > 0 && <tr><td>− ให้กองทุนยืมไป (ยังไม่คืน · เงินก้อนนี้จะกลับมาเมื่อกองทุนคืน)</td><td className="num">{m(b.own.lent)}</td></tr>}
               {b.own.borrowed > 0 && <tr><td>+ ยืมจากกองทุน (เงินสดที่มีจริง · ยังเป็นหนี้อยู่)</td><td className="num">{m(b.own.borrowed)}</td></tr>}
             </tbody>
             <tfoot><tr><td>เงินหมุนเวียนคงเหลือ</td><td className="num">{m(b.own.balance)}</td></tr></tfoot>
@@ -133,16 +138,17 @@ export default function BalancePage() {
       {kind === 'indebt' && (
         <section className="card" aria-label="หนี้ภายใน">
           <h2>🔁 หนี้ภายใน</h2>
-          <p className="muted small" style={{ margin: 0 }}>เงินที่กองทุนให้ยืมกันเอง หรือให้เงินหมุนเวียนยืม — กองทุนที่ให้ยืมถูกหักเงินออก กองทุนที่ยืมมาได้เงินสดเข้ามาจริง และมีแถบแดงเตือนว่าเป็นหนี้อยู่ ไม่หักลบกับหนี้จนกว่าจะบันทึกการคืน</p>
+          <p className="muted small" style={{ margin: 0 }}>เงินที่กองทุนให้ยืมกันเอง หรือกองทุน/เงินหมุนเวียนให้กันยืม — ผู้ให้ยืมถูกหักเงินออก กองทุนที่ยืมมาได้เงินสดเข้ามาจริง และมีแถบแดงเตือนว่าเป็นหนี้อยู่ ไม่หักลบกับหนี้จนกว่าจะบันทึกการคืน</p>
           <p className="bigfig">{fmtBaht(sums.fromFunds)} บาท</p>
           {inn.length === 0 ? <p className="muted">ยังไม่มีหนี้ภายใน</p> : (
             <table className="tbl tbl--paper" aria-label="รายการหนี้ภายใน">
               <thead><tr><th>วันที่ยืม</th><th>ผู้ให้ยืม → ผู้ยืม</th><th className="num">ยืม</th><th className="num">คืนแล้ว</th><th className="num">ค้างคืน</th></tr></thead>
-              <tbody>{[...inn].sort((x, y) => x.date.localeCompare(y.date)).map((l) => <tr key={l.id}><td>{fmtDate(l.date)}</td><td>{fundNm(l.lender.fundId)} → <b>{l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}</b>{l.purpose ? <><br /><span className="muted small">{l.purpose}</span></> : null}</td><td className="num">{m(l.principal)}</td><td className="num">{m(repaidOf(l))}</td><td className="num"><b>{m(loanBalance(l))}</b></td></tr>)}</tbody>
+              <tbody>{[...inn].sort((x, y) => x.date.localeCompare(y.date)).map((l) => <tr key={l.id}><td>{fmtDate(l.date)}</td><td>{lenderNm(l)} → <b>{l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}</b>{l.purpose ? <><br /><span className="muted small">{l.purpose}</span></> : null}</td><td className="num">{m(l.principal)}</td><td className="num">{m(repaidOf(l))}</td><td className="num"><b>{m(loanBalance(l))}</b></td></tr>)}</tbody>
               <tfoot><tr><td colSpan={4}>รวมค้างคืน</td><td className="num">{m(sums.fromFunds)}</td></tr></tfoot>
             </table>
           )}
-          {inn.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={inn.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${fundNm(l.lender.fundId)} → ${l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}`, value: loanBalance(l) }))} tone="out" /></>}
+          {inn.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={inn.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${lenderNm(l)} → ${l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}`, value: loanBalance(l) }))} tone="out" /></>}
+          <AdvancePay loans={loans} expenses={expenses} types={types} year={year} ownBalance={b.own.balance} canWrite={can(role, 'statement') && can(role, 'voucherPay')} />
           <LoansPanel store={loans} funds={types.filter((t) => t.active && isFundType(t))} types={types} canWrite={can(role, 'statement')} only="fund" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
         </section>
       )}
