@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import NoticePaper from './NoticePaper'
-import { can } from '../lib/access'
+import { can, canSeeBalances } from '../lib/access'
 import { useRole } from '../lib/members'
 import { useLoans, useSettings } from '../lib/data'
-import { fmtBaht, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
+import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
 import { expenseLines, weekNotice } from '../lib/notice'
 import { summarizeLoans } from '../lib/loans'
 import { useBalances } from '../lib/useBalances'
@@ -17,7 +17,10 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
  */
 export default function OverviewView({ year }: { year: number }) {
   const { settings } = useSettings()
-  const showTiles = can(useRole(), 'detail')
+  const role = useRole()
+  const showTiles = canSeeBalances(role)
+  const { save } = useSettings()
+  const [editNote, setEditNote] = useState<string | null>(null)
   const { balances: b, input } = useBalances(year)
   const ls = summarizeLoans(useLoans().items)
   const church = settings.churchName.split(' ')[0]
@@ -39,6 +42,11 @@ export default function OverviewView({ year }: { year: number }) {
   ]
   return (
     <div className="ovw">
+      {showTiles && settings.leaderNote?.text && editNote === null && <section className="card" aria-label="สรุปสถานการณ์การเงินจากแอดมิน"><b>📝 สรุปสถานการณ์การเงิน</b><p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{settings.leaderNote.text}</p><span className="muted small">ปรับปรุง {fmtDate(new Date(settings.leaderNote.at).toISOString().slice(0, 10))} · ข้อมูลภายในผู้นำ โปรดไม่เผยแพร่ต่อ</span></section>}
+      {can(role, 'settings') && (editNote === null
+        ? <button type="button" className="btn btn--ghost no-print" onClick={() => setEditNote(settings.leaderNote?.text ?? '')}>✏️ {settings.leaderNote?.text ? 'แก้' : 'เขียน'}ข้อความสรุปสถานการณ์ถึงผู้นำงาน</button>
+        : <section className="card no-print" aria-label="เขียนข้อความสรุปสถานการณ์"><label htmlFor="ov-note"><b>ข้อความสรุปสถานการณ์การเงิน (ผู้นำงานทุกคนเห็น)</b></label><textarea id="ov-note" className="input" rows={4} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="เช่น เดือนนี้เงินหมุนเวียนลดเพราะ… แผนคือ… คาดว่าจะดีขึ้นเมื่อ…" />
+            <div className="row"><button type="button" className="btn btn--gold" onClick={() => { save({ leaderNote: editNote.trim() ? { text: editNote.trim(), at: Date.now() } : undefined }); setEditNote(null) }}>บันทึก</button><button type="button" className="btn btn--ghost" onClick={() => setEditNote(null)}>ยกเลิก</button></div></section>)}
       {showTiles && <section aria-label="โซน 1 เงินคริสตจักร ณ วันนี้">
         <p className="home-label">เงินคริสตจักร ณ วันนี้</p>
         <div className="balance-tiles" role="group" aria-label="เงินคริสตจักร: ดูอย่างเดียว">
