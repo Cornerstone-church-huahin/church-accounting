@@ -90,3 +90,32 @@ export async function sharePdf(els: HTMLElement[], filename: string, mode: 'land
   if (!navigator.canShare({ files: [file] })) return 'unsupported'
   try { await navigator.share({ files: [file], title: title ?? filename }); return 'shared' } catch (e) { return (e as Error).name === 'AbortError' ? 'cancelled' : 'unsupported' }
 }
+
+/** หลายแผ่นผสมแนวตั้ง/แนวนอน (แต่ละ element = 1 หน้า A4 เต็ม) → PDF · ใช้กับ "แฟ้มประจำสัปดาห์" */
+export async function buildPagesPdf(pages: { el: HTMLElement; landscape?: boolean }[]) {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+  let pdf: InstanceType<typeof jsPDF> | null = null
+  for (const { el, landscape } of pages) {
+    const w = landscape ? 1123 : 794
+    const canvas = await html2canvas(el, {
+      scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(el),
+      onclone: (_d, cloned) => { cloned.style.width = `${w}px`; cloned.style.maxWidth = `${w}px`; cloned.style.boxShadow = 'none'; cloned.style.position = 'relative'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+    })
+    const orient = landscape ? 'landscape' : 'portrait'
+    if (!pdf) pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: orient })
+    else pdf.addPage('a4', orient)
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, landscape ? 297 : 210, landscape ? 210 : 297)
+  }
+  return pdf
+}
+export async function downloadPagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], filename: string): Promise<void> {
+  ;(await buildPagesPdf(pages))?.save(filename)
+}
+export async function sharePagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], filename: string, title?: string): Promise<'shared' | 'cancelled' | 'unsupported'> {
+  if (pages.length === 0 || !canSharePdf()) return 'unsupported'
+  const pdf = await buildPagesPdf(pages)
+  if (!pdf) return 'unsupported'
+  const file = new File([pdf.output('blob')], filename, { type: 'application/pdf' })
+  if (!navigator.canShare({ files: [file] })) return 'unsupported'
+  try { await navigator.share({ files: [file], title: title ?? filename }); return 'shared' } catch (e) { return (e as Error).name === 'AbortError' ? 'cancelled' : 'unsupported' }
+}

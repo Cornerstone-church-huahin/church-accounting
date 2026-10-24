@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import NoticePaper from '../components/NoticePaper'
+import WeekFile from '../components/WeekFile'
 import { MonthTab, WeekTab, YearTab } from '../components/report/Tabs'
 import { can } from '../lib/access'
 import { useLoans } from '../lib/data'
@@ -38,8 +39,9 @@ export default function Summary({ year }: { year: number }) {
   const [month, setMonth] = useState(() => Number(sheetSunday(latest).slice(5, 7)))
   const [notice, setNotice] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [copy, setCopy] = useState<'evidence' | 'public'>(detail ? 'evidence' : 'public')
+  const [copy, setCopy] = useState<'evidence' | 'public' | 'file'>(detail ? 'evidence' : 'public')
   const kind = detail ? copy : 'public'
+  const fileMode = kind === 'file'
   const tag = kind === 'evidence' ? 'ต้นฉบับ' : 'ประกาศ'
   const paper = useRef<HTMLDivElement[]>([])
   const n = useMemo(() => {
@@ -70,7 +72,7 @@ export default function Summary({ year }: { year: number }) {
         <div className="row no-print" style={{ margin: '8px 0', gap: 8 }}>
           <button type="button" className="btn btn--ghost" onClick={() => setNotice(false)}>‹ สรุปและรายงาน</button>
           <span className="grow" />
-          {canExport && <>
+          {canExport && !fileMode && <>
             <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void download()} aria-label="ดาวน์โหลดใบสรุปเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
             <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void share()} aria-label="แชร์ใบสรุปเป็น PDF" title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ PDF</button>
             <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
@@ -80,10 +82,11 @@ export default function Summary({ year }: { year: number }) {
           <div className="rtabs no-print" role="tablist" aria-label="ฉบับของใบสรุป">
             <button type="button" role="tab" aria-selected={copy === 'evidence'} className={`rtab${copy === 'evidence' ? ' on' : ''}`} onClick={() => setCopy('evidence')}>🔒 สำหรับแอดมินและเหรัญญิก</button>
             <button type="button" role="tab" aria-selected={copy === 'public'} className={`rtab${copy === 'public' ? ' on' : ''}`} onClick={() => setCopy('public')}>📢 สำหรับประกาศสมาชิก</button>
+            <button type="button" role="tab" aria-selected={copy === 'file'} className={`rtab${copy === 'file' ? ' on' : ''}`} onClick={() => setCopy('file')}>🗂️ แฟ้มประจำสัปดาห์</button>
           </div>
         )}
-        {detail && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
-        <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind} />
+        {detail && !fileMode && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
+        {fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind as 'evidence' | 'public'} />}
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )
