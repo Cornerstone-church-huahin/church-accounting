@@ -59,6 +59,7 @@ try {
     await page.goto(`${U}/meeting/5/all`); await page.waitForTimeout(600)
     must(await page.getByRole('region', { name: /โซน 1/ }).count() > 0, 'leader: overview totals shown')
     must(await page.getByRole('button', { name: /ข้อความสรุปสถานการณ์/ }).count() === 0, 'leader cannot edit the note')
+    must(!/เงินเดือน/.test(await page.getByRole('region', { name: /โซน 2/ }).innerText()) || /ยอดรวม/.test(await page.getByRole('region', { name: /โซน 2/ }).innerText()), 'leader: no per-person salary in notice')
     await page.goto(`${U}/meeting/5/out`); await page.waitForTimeout(800)
     must(await page.locator('[aria-label="ยอดเงินหมุนเวียน"]').count() > 0, 'leader: weekly sheet balance box shown')
     await page.context().close()

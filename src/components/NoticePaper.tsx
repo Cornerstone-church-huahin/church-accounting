@@ -2,7 +2,9 @@ import type { MutableRefObject } from 'react'
 import { PaperHead, weekHeading } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import { fmtBaht, fmtDate } from '../lib/money'
-import { isCompensation } from '../lib/maskPay'
+import { isCompensation, maskNoticeOut } from '../lib/maskPay'
+import { can } from '../lib/access'
+import { useRole } from '../lib/members'
 import type { Notice, NoticeExpense, NoticeLine } from '../lib/notice'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
@@ -79,7 +81,8 @@ function OutTable({ p }: { p: Extract<Piece, { t: 'out' }> }) {
 }
 
 /** ใบสรุปรับ-จ่ายรายสัปดาห์สำหรับติดประกาศ — A4 แนวตั้งแบบเดียวกับใบ PDF (ขาว-ดำ พิมพ์ได้) · รายการจริงครบ เกินหน้าต่อแผ่นถัดไป */
-export default function NoticePaper({ church, sunday, n, pagesRef }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
+export default function NoticePaper({ church, sunday, n: full, pagesRef }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
+  const n = can(useRole(), 'detail') ? full : { ...full, out: maskNoticeOut(full.out) } // ผู้นำ/สมาชิกเห็นเงินเดือนเป็นแถวรวม · แอดมิน/ผู้บันทึก/ผู้ตรวจเห็นรายคน
   const pages = paginate(n)
   pagesRef.current = []
   return (

@@ -21,3 +21,12 @@ describe('maskPay', () => {
     expect(out[0]).toMatchObject({ desc: COMP_LABEL, person: '', amount: 30 })
   })
 })
+
+describe('maskNoticeOut', () => {
+  it('รวมเงินเดือนในใบสรุปเป็นแถวเดียวและตัดชื่อผู้เบิก', async () => {
+    const { maskNoticeOut } = await import('./maskPay')
+    const o = maskNoticeOut([{ key: 'a', date: '2026-01-02', desc: 'เงินเดือน อ.กฤต', amount: 10, by: 'อ.กฤต' }, { key: 'b', date: '2026-01-03', desc: 'ค่าน้ำ', amount: 5 }, { key: 'c', date: '2026-01-04', desc: 'เงินเดือน อ.พิชิต', amount: 20 }])
+    expect(o.map((x) => x.desc)).toEqual(['สวัสดิการผู้รับใช้ (ยอดรวม)', 'ค่าน้ำ'])
+    expect(o[0]).toMatchObject({ amount: 30 }); expect(o[0].by).toBeUndefined()
+  })
+})
