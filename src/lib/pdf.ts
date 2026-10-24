@@ -1,6 +1,7 @@
+import { mergeCompRows } from './maskComp'
 /** แปลงส่วนของหน้าเว็บ (ใบสรุป) เป็นไฟล์ PDF A4 ในเครื่อง — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น */
 /** ชื่อบุคคลบนใบ (class pname) ดูได้ในแอป แต่ไม่ติดไปกับไฟล์ PDF/ใบพิมพ์/แชร์ */
-const stripNames = (el: HTMLElement) => el.querySelectorAll('.pname').forEach((n) => n.remove())
+const stripNames = (el: HTMLElement) => { el.querySelectorAll('.pname').forEach((n) => n.remove()); mergeCompRows(el) }
 
 /** fullPage: ใช้ทั้งหน้า A4 ตามขนาด 794×1123 px ของ element (ไม่เว้นขอบ ไม่ตัดหน้า) */
 export async function downloadPdf(el: HTMLElement, filename: string, opts: { fullPage?: boolean; fitOnePage?: boolean } = {}): Promise<void> {
