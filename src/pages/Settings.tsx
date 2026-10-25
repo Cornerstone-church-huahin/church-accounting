@@ -93,6 +93,7 @@ function Connect() {
 
 function Members() {
   const m = useMembers()
+  const fundTypes = useIncomeTypes().list.filter((t) => t.active && isFundType(t))
   const cfg = getSync()
   const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'worship' | 'auditor' | 'viewer'>('bookkeeper')
   const [inviteFor, setInviteFor] = useState('')
@@ -159,6 +160,32 @@ function Members() {
                   {delId === x.id ? (
                     <span className="row"><button type="button" className="btn btn--danger" onClick={() => { if (!m.removeMember(x.id)) flash('ลบแอดมินคนสุดท้ายไม่ได้'); setDelId(null) }}>ลบ {x.name}</button><button type="button" className="btn btn--ghost" onClick={() => setDelId(null)}>ไม่ลบ</button></span>
                   ) : <button type="button" className="mini" disabled={lastAdmin} onClick={() => setDelId(x.id)} aria-label={`ลบ ${x.name}`}>🗑️</button>}
+                  {rolesOf(x).includes('fundkeeper') && (
+                    <details style={{ flexBasis: '100%' }} open={!x.funds?.length}>
+                      <summary className="small">กองทุนที่ดูแล: {x.funds?.length ? x.funds.map((a) => fundTypes.find((t) => t.id === a.id)?.name ?? '(กองทุนที่ถูกลบ)').join(', ') : 'ยังไม่ได้กำหนด (จะยังไม่เห็นกองทุนใดเลย)'}</summary>
+                      <p className="small muted" style={{ margin: '0.3rem 0' }}>เลือกกองทุนที่คนนี้ดูแล เขาจะเห็นเฉพาะกองทุนเหล่านี้ (เปิดแอปแล้วเข้ากองทุนนั้นทันที) · ถ้ากองทุนมีหมวด เลือกหมวดที่ให้ดูแลได้ ไม่เลือกหมวด = ทุกหมวดของกองทุนนั้น</p>
+                      {fundTypes.length === 0 && <p className="small">ยังไม่มีกองทุน</p>}
+                      {fundTypes.map((t) => {
+                        const a = x.funds?.find((f) => f.id === t.id)
+                        const subs = (t.subs ?? []).filter((q) => q.active)
+                        const setF = (next: { id: string; subs?: string[] }[]) => { if (m.setFunds(x.id, next)) flash(`ตั้งกองทุนของ ${x.name}: ${next.length ? next.map((f) => fundTypes.find((q) => q.id === f.id)?.name).filter(Boolean).join(', ') : 'ไม่มี'}`) }
+                        return (
+                          <div key={t.id} style={{ marginBottom: 6 }}>
+                            <button type="button" className="wchip" style={{ padding: '0 0.7rem' }} aria-pressed={!!a} aria-label={`กองทุน ${t.name} ของ ${x.name}`} onClick={() => setF(a ? (x.funds ?? []).filter((f) => f.id !== t.id) : [...(x.funds ?? []), { id: t.id }])}>{t.name}</button>
+                            {a && subs.length > 0 && (
+                              <div className="row" role="group" aria-label={`หมวดของ ${t.name} ที่ ${x.name} ดูแล`} style={{ marginLeft: 12, marginTop: 4 }}>
+                                {subs.map((q) => {
+                                  const on = a.subs?.includes(q.id) ?? false
+                                  return <button key={q.id} type="button" className="wchip" style={{ padding: '0 0.7rem' }} aria-pressed={on} onClick={() => { const next = on ? (a.subs ?? []).filter((s) => s !== q.id) : [...(a.subs ?? []), q.id]; setF((x.funds ?? []).map((f) => (f.id === t.id ? { id: t.id, ...(next.length ? { subs: next } : {}) } : f))) }}>{q.name}</button>
+                                })}
+                                <span className="small muted">{a.subs?.length ? '' : 'ทุกหมวด'}</span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </details>
+                  )}
                   <details style={{ flexBasis: '100%' }}>
                     <summary className="small">งานที่รับผิดชอบในห้องทำงาน: {x.works?.length ? x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ') : 'ไม่จำกัด (เห็นทุกงาน)'}</summary>
                     <p className="small muted" style={{ margin: '0.3rem 0' }}>กำหนดงานให้คนที่ดูแลงานนั้น: ปุ่ม “‹ ทุกแท็บ” ของเขาจะกลับหน้าหลักของงานตัวเอง (ถ้ามีงานเดียว) · ไม่ได้เปลี่ยนสิทธิ์ใช้งานอื่นของเขา</p>

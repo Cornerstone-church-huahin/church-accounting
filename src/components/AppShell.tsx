@@ -2,9 +2,9 @@ import { AppCredit } from './Credit'
 import { MEETING_TABS } from '../lib/workTabs'
 import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { can, isSolo, READONLY_EVENT, whoAmI } from '../lib/access'
+import { can, isSolo, myFunds, READONLY_EVENT, whoAmI } from '../lib/access'
 import { useMembership, useRole } from '../lib/members'
-import { useSettings, useVouchers } from '../lib/data'
+import { useIncomeTypes, useSettings, useVouchers } from '../lib/data'
 import { tasksFor } from '../lib/ledger'
 import { be, todayISO, yearOf } from '../lib/money'
 import { refreshSharedGemini } from '../lib/gemini'
@@ -47,8 +47,12 @@ export default function AppShell() {
   const setYear = (y: number) => { setYearState(y); saveYear(y) }
   const [roToast, setRoToast] = useState(false)
   const full = can(role, 'detail')
+  // ผู้ดูแลกองทุน: เห็นเมนูเดียวคือกองทุนที่ได้รับมอบหมาย (เข้าหน้ากองทุนนั้นทันที ไม่เห็นกองทุนอื่น/หน้าอื่น)
+  const fk = role === 'fundkeeper' ? myFunds() ?? [] : null
+  const fundNames = useIncomeTypes().list
   // ผู้ที่มีไอคอนลงชื่อที่หัวแอปอยู่แล้ว (แอดมิน/ผู้บันทึกบัญชี) ไม่ต้องมีเมนูสมาชิกซ้ำที่แถบล่าง
-  const TABS = role === 'worship' ? WORSHIP : full ? (can(role, 'registry') ? FULL.filter((t) => t.to !== '/members') : FULL) : VIEW
+  const FUNDTABS = (fk ?? []).map((f) => ({ to: `/funds/${f.id}`, label: fundNames.find((t) => t.id === f.id)?.name.replace(/^กองทุน-?/, '') || 'กองทุน', Icon: IconWallet, end: false }))
+  const TABS = fk ? FUNDTABS : role === 'worship' ? WORSHIP : full ? (can(role, 'registry') ? FULL.filter((t) => t.to !== '/members') : FULL) : VIEW
 
   useEffect(() => { document.documentElement.dataset.role = role }, [role])
   useEffect(() => {
@@ -73,6 +77,12 @@ export default function AppShell() {
   if (!years.includes(year)) years.push(year)
 
   if (role === 'worship' && pathname !== '/members' && pathname !== '/join') return <Navigate to="/members" replace />
+  if (fk) {
+    const fid = pathname.match(/^\/funds\/([^/]+)$/)?.[1]
+    const allowed = (fid && fk.some((f) => f.id === fid)) || pathname === '/join'
+    if (!allowed && fk.length > 0) return <Navigate to={`/funds/${fk[0].id}`} replace />
+    if (!allowed) return <p className="empty" role="status" style={{ margin: '2rem 1rem' }}>ยังไม่ได้รับมอบหมายกองทุน — แจ้งแอดมินให้กำหนดกองทุนที่ท่านดูแล แล้วเปิดแอปใหม่</p>
+  }
   return (
     <YearContext.Provider value={{ year, setYear }}>
       <div className="app">

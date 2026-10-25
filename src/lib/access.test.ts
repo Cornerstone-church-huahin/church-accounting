@@ -46,3 +46,17 @@ describe('หลายสิทธิ์ต่อคน', () => {
     expect(rolesLabel(['bookkeeper', 'worship'])).toBe('ผู้บันทึกบัญชี + ผู้บันทึกการนมัสการ')
   })
 })
+
+describe('ผู้ดูแลกองทุน', () => {
+  it('บันทึกรับ-จ่ายได้ แต่ไม่เห็นรายละเอียดเงินทั้งระบบ', () => {
+    expect(can('fundkeeper', 'income') && can('fundkeeper', 'voucherPay') && can('fundkeeper', 'attach')).toBe(true)
+    for (const p of ['detail', 'settings', 'members', 'statement', 'deposit', 'count', 'budget'] as Perm[]) expect(can('fundkeeper', p), p).toBe(false)
+    expect(ROLE_LABEL.fundkeeper).toBe('ผู้ดูแลกองทุน')
+  })
+  it('อยู่เดี่ยว ๆ · ถ้ามีผู้บันทึกบัญชี/ผู้ตรวจสอบอยู่แล้วไม่ต้องมีซ้ำ', () => {
+    expect(normalizeRoles(['fundkeeper', 'worship'])).toEqual(['fundkeeper'])
+    expect(normalizeRoles(['fundkeeper', 'bookkeeper'])).toEqual(['bookkeeper'])
+    expect(normalizeRoles(['fundkeeper', 'viewer'])).toEqual(['fundkeeper'])
+    expect(normalizeRoles(['admin', 'fundkeeper'])).toEqual(['admin'])
+  })
+})
