@@ -13,7 +13,8 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 /**
  * ช่อง 1 ของฝั่งรับ: แถวบันทึก 1 บรรทัด (เลือกประเภทจากรายชื่อที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบบันทึกการถวายด้านล่าง พร้อมยอดรวม
  */
-export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage, withNote, subs, subOps, defaultSub }: {
+export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage, withNote, subs, subOps, defaultSub, subsOnly }: {
+  subsOnly?: boolean;
   /** หน้ากองทุนที่มีหมวด: ช่องเลือกหมวดต่อจากช่องรายการ + เพิ่ม/ลบหมวด */ subs?: FundSub[]; subOps?: CatalogOps; defaultSub?: string
   /** หน้ากองทุน: มีช่อง "รายการ / รายละเอียด" (เก็บเป็นหมายเหตุของแถว) */ withNote?: boolean
   types: IncomeType[]; entries: IncomeEntry[]; defaultDate: string; canWrite: boolean
@@ -52,7 +53,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
           <div className="field"><label htmlFor="mi-date">วันที่</label><input id="mi-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label htmlFor="mi-type">รายการ</label>
             <select id="mi-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-          {(subs?.length || subOps) && <SubField id="mi-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} />}
+          {(subs?.length || subOps) && <SubField id="mi-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} />}
           {withNote && <div className="field"><label htmlFor="mi-note">รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)</label><input id="mi-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
           <div className="entryrow__pair">
             <div className="field"><label htmlFor="mi-env">จำนวนซอง</label><input id="mi-env" className="input" inputMode="numeric" value={env} onChange={(e) => setEnv(e.target.value)} placeholder="0" /></div>

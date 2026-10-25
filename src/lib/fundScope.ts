@@ -10,7 +10,7 @@ export interface FundScope {
   /** รายการเงินยืม/คืน ของกองทุนนี้ (จาก fundAccounts: key ขึ้นต้น ln: lr: lb: lq:) — + เข้า · − ออก */
   loanMoves?: FundMove[]
   /** หมวดย่อยของกองทุน (ถ้ามี) · sub = หมวดที่กำลังดู/บันทึก (all = ทุกหมวด · '' = ส่วนกลาง) · subBal = ยอดคงเหลือแต่ละหมวด ('' = ส่วนกลาง) · subLabel = ชื่อหมวดที่แสดงบนหัวใบ */
-  subs?: FundSub[]; /** เพิ่ม/แก้ชื่อ/ลบหมวด (เฉพาะผู้มีสิทธิ์ตั้งค่า) */ subOps?: CatalogOps; sub?: string; subBal?: Record<string, number>; subLabel?: string
+  subs?: FundSub[]; /** ผู้ดูแลกองทุนที่จำกัดเฉพาะบางหมวด: ต้องเลือกหมวดเสมอ ไม่มีตัวเลือกส่วนกลาง/ทุกหมวด */ subsOnly?: boolean; /** เพิ่ม/แก้ชื่อ/ลบหมวด (เฉพาะผู้มีสิทธิ์ตั้งค่า) */ subOps?: CatalogOps; sub?: string; subBal?: Record<string, number>; subLabel?: string
 }
 
 export const isLoanMove = (m: FundMove) => /^l[nrbq]:/.test(m.key)

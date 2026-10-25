@@ -8,10 +8,10 @@ import { newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry, FundSub, IncomeEntry, IncomeType } from '../lib/types'
 
 /** ช่องเลือกหมวดของกองทุน (ต่อจากช่อง "รายการ") + เพิ่ม/แก้ชื่อ/ลบหมวดได้ในฟอร์ม — ว่าง = ส่วนกลาง */
-export function SubField({ id, subs, value, onChange, ops }: { id: string; subs: FundSub[]; value: string; onChange: (v: string) => void; ops?: CatalogOps }) {
+export function SubField({ id, subs, value, onChange, ops, noCentral }: { id: string; subs: FundSub[]; value: string; onChange: (v: string) => void; ops?: CatalogOps; noCentral?: boolean }) {
   return (
     <div className="field"><label htmlFor={id}>หมวดของกองทุน</label>
-      <select id={id} className="input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">ส่วนกลาง (ยังไม่ระบุหมวด)</option>{subs.map((q) => <option key={q.id} value={q.id}>{q.name}</option>)}</select>
+      <select id={id} className="input" value={value} onChange={(e) => onChange(e.target.value)}>{!noCentral && <option value="">ส่วนกลาง (ยังไม่ระบุหมวด)</option>}{subs.map((q) => <option key={q.id} value={q.id}>{q.name}</option>)}</select>
       {ops && <CatalogManager noun="หมวด" items={subs} ops={ops} onAdded={onChange} />}
     </div>
   )
@@ -20,7 +20,8 @@ export function SubField({ id, subs, value, onChange, ops }: { id: string; subs:
 const intOrNull = (s: string) => { const n = parseInt(s.replace(/\D/g, ''), 10); return Number.isFinite(n) && n > 0 ? n : null }
 
 /** แตะแถวในใบบันทึกการถวายเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) — ตารางในใบเปลี่ยนทันทีหลังบันทึก */
-export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage, noteMode, onUpload, onDropPhoto, subs, defaultSub, subOps }: {
+export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage, noteMode, onUpload, onDropPhoto, subs, defaultSub, subOps, subsOnly }: {
+  subsOnly?: boolean
   /** กองทุนที่มีหมวด: ตัวเลือกหมวด + หมวดเริ่มต้น + เพิ่ม/ลบหมวด */ subs?: FundSub[]; defaultSub?: string; subOps?: CatalogOps
   /** แนบรูปหลักฐานได้หลายรูป: อัปโหลดทีละรูปแล้วคืนที่อยู่ไฟล์ · onDropPhoto = ลบไฟล์ที่เอาออกจาก repo */ onUpload?: (f: File) => Promise<{ path: string; name: string }>; onDropPhoto?: (path: string) => void
   /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบประเภทจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
@@ -77,7 +78,7 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
       <div className="field"><label htmlFor="ire-date">วันที่</label><input id="ire-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       <div className="field"><label htmlFor="ire-type">รายการ</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { setTypeId(e.target.value); setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         {onManage && <CatalogManager noun="รายการรับ" items={opts} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setLabel(n.trim()); return r } }} onAdded={setTypeId} />}</div>
-      {(subs?.length || subOps) && <SubField id="ire-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} />}
+      {(subs?.length || subOps) && <SubField id="ire-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} />}
       <div className="field"><label htmlFor="ire-label">{noteMode ? 'รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)' : 'ชื่อรายการ (แก้ข้อความได้ — พิมพ์ชื่อใหม่ถ้าไม่มีในตัวเลือก)'}</label><input id="ire-label" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={noteMode ? 'เช่น ยกยอดมา' : 'เช่น ถวายค่าไฟ'} /></div>
       <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด (ตู้ถวาย)</button><button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอน</button></div>
       <div className="field"><label htmlFor="ire-count">{method === 'cash' ? 'จำนวนซอง' : 'จำนวนโอน (ครั้ง)'}</label><input id="ire-count" className="input" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" /></div>
@@ -99,7 +100,8 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
 }
 
 /** แตะแถวในใบเบิก-จ่ายเงินสดเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) */
-export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage, onUpload, subs, defaultSub, subOps }: {
+export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage, onUpload, subs, defaultSub, subOps, subsOnly }: {
+  subsOnly?: boolean
   /** กองทุนที่มีหมวด: ตัวเลือกหมวด + หมวดเริ่มต้น + เพิ่ม/ลบหมวด */ subs?: FundSub[]; defaultSub?: string; subOps?: CatalogOps
   /** แนบรูปบิล/สลิปเป็นหลักฐาน (อัปโหลดแล้วคืนที่เก็บรูป) */ onUpload?: (f: File) => Promise<{ path: string; name: string }>
   /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
@@ -139,7 +141,7 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
           <option value="">— ไม่ระบุหมวด —</option>{items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {onManage && <CatalogManager noun="รายการจ่าย" items={items} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setDesc(n.trim()); return r } }} onAdded={setCatId} />}</div>
-      {(subs?.length || subOps) && <SubField id="ere-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} />}
+      {(subs?.length || subOps) && <SubField id="ere-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} />}
       <div className="field"><label htmlFor="ere-desc">รายการ (แก้ข้อความได้)</label><input id="ere-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
       <div className="field"><label htmlFor="ere-note">หมายเหตุ</label><input id="ere-note" className="input" value={note} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setNote(e.target.value)} /></div>

@@ -8,7 +8,7 @@ import { useFundAccounts } from './FundAccounts'
 import { FundSheetPaper } from '../components/PaperSheets'
 import { fundSheets } from '../lib/fundSheet'
 import { useSettings } from '../lib/data'
-import { can } from '../lib/access'
+import { can, myFunds } from '../lib/access'
 import { useRole } from '../lib/members'
 import type { CatalogOps } from '../components/CatalogManager'
 import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fundSubs'
@@ -33,12 +33,15 @@ export default function FundDetailPage() {
   const f = rows.find((r) => r.id === id)
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
   const t = types.list.find((x) => x.id === f.id)
-  const subs = activeSubs(t)
+  const keeper = role === 'fundkeeper'
+  // ผู้ดูแลกองทุน: จำกัดเฉพาะหมวดที่ได้รับมอบหมาย (ถ้าแอดมินกำหนดหมวดไว้)
+  const only = keeper ? myFunds()?.find((a) => a.id === f.id)?.subs?.length ? myFunds()!.find((a) => a.id === f.id)!.subs! : null : null
+  const subs = activeSubs(t).filter((q) => !only || only.includes(q.id))
   const sum = subSummary(f, t)
   // มีหมวด: เริ่มที่หมวดแรก (พร้อมบันทึกได้ทันที) · ไม่มีหมวด: ทำงานเหมือนเดิมทุกประการ
   const canManage = can(role, 'settings')
   // ตัวเลือก/ตารางหมวดในหน้านี้เห็นเฉพาะแอดมิน · คนอื่นเลือกหมวดในฟอร์มบันทึก (เห็นรายการทุกหมวด)
-  const sub = subs.length && canManage ? (pick !== null && (pick === 'all' || pick === '' || subs.some((q) => q.id === pick)) ? pick : subs[0].id) : 'all'
+  const sub = only && subs.length ? (pick !== null && subs.some((q) => q.id === pick) ? pick : subs[0].id) : subs.length && canManage ? (pick !== null && (pick === 'all' || pick === '' || subs.some((q) => q.id === pick)) ? pick : subs[0].id) : 'all'
   const acct = subAccount(f, sub)
   const subName = sub === 'all' ? '' : sub === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === sub)?.name ?? ''
   const saveSubs = (next: ReturnType<typeof removeSub>) => { if (t) types.put([{ ...t, subs: next }]) }
@@ -50,19 +53,26 @@ export default function FundDetailPage() {
   const fund: FundScope = {
     id: f.id, name: f.name, balance: acct.balance,
     loanMoves: sub === 'all' || sub === '' ? f.moves.filter(isLoanMove) : [],
-    ...(subs.length || subOps ? { subs, subOps, sub, subLabel: subName, subBal: { '': sum.central.balance, ...Object.fromEntries(sum.rows.map((r) => [r.id, r.acc.balance])) } } : {}),
+    ...(subs.length || subOps ? { subs, subOps, subsOnly: !!only, sub, subLabel: subName, subBal: { '': sum.central.balance, ...Object.fromEntries(sum.rows.map((r) => [r.id, r.acc.balance])) } } : {}),
   }
   const add = () => { if (!t) return; const r = addSub(t, newSub); if ('error' in r) return setSubErr(r.error); saveSubs(r.subs); setNewSub(''); setSubErr('') }
   const rename = (id: string, cur: string) => { const n = prompt('แก้ชื่อหมวด', cur)?.trim(); if (n && n !== cur && t) saveSubs((t.subs ?? []).map((q) => (q.id === id ? { ...q, name: n } : q))) }
   const del = (id: string, nm: string) => { if (!t) return; const has = f.moves.some((m) => m.subId === id); if (confirm(has ? `หมวด “${nm}” มีรายการแล้ว จะเก็บถาวร (ซ่อนจากตัวเลือก แต่รายงานยังเห็น) — ต้องการหรือไม่?` : `ลบหมวด “${nm}” ?`)) { saveSubs(removeSub(t, id, has)); if (pick === id) setPick(null) } }
   return (
     <>
-      <div className="page-head no-print"><h1>💰 {f.name}</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div>
+      <div className="page-head no-print"><h1>💰 {f.name}</h1>{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</div>
+      {only ? (
+        <section className="card no-print" role="status" aria-label={`ยอดคงเหลือ หมวดที่ดูแลของ ${f.name}`}>
+          <p className="muted small" style={{ margin: 0 }}>เงินคงเหลือของหมวดที่ท่านดูแล ({subs.map((q) => q.name).join(', ')})</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: acct.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(subs.reduce((n, q) => n + subAccount(f, q.id).balance, 0))} บาท</p>
+        </section>
+      ) : (
       <section className="card no-print" role="status" aria-label={`ยอดคงเหลือ กองทุน ${f.name}`}>
         <p className="muted small" style={{ margin: 0 }}>เงินคงเหลือของกองทุนนี้</p>
         <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
         <p className="muted small" style={{ margin: 0 }}>ตั้งต้น {fmtBaht(f.opening)}{opening ? ` (${fmtDate(opening.date)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b>{fmtBaht(f.balance)}</b></p>
       </section>
+      )}
       {canManage && tab !== 'sheet' && (
         <section className="card no-print" aria-label="หมวดของกองทุน">
           <b>หมวดของกองทุนนี้</b>
@@ -94,8 +104,13 @@ export default function FundDetailPage() {
           {subErr && <p className="err" role="alert">{subErr}</p>}
         </section>
       )}
-      <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
-      <DebtBanner lent loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} />
+      {!keeper && <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />}
+      {!keeper && <DebtBanner lent loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} />}
+      {only && subs.length > 1 && (
+        <div className="rtabs no-print" role="tablist" aria-label="หมวดที่ดูแล">
+          {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={sub === q.id} className={`rtab${sub === q.id ? ' on' : ''}`} onClick={() => setPick(q.id)}>{q.name}</button>)}
+        </div>
+      )}
       <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: รับ จ่าย ใบกองทุน" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <button type="button" role="tab" aria-selected={tab === 'in'} className={`home-tab home-tab--in${tab === 'in' ? ' on' : ''}`} onClick={() => setTab('in')}><i className="hn">1</i><span>💚 รับ</span></button>
         <button type="button" role="tab" aria-selected={tab === 'out'} className={`home-tab home-tab--out${tab === 'out' ? ' on' : ''}`} onClick={() => setTab('out')}><i className="hn">2</i><span>🔴 จ่าย</span></button>
@@ -106,15 +121,15 @@ export default function FundDetailPage() {
           const church = settings.churchName.split(' ')[0]
           if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} />
           // กองทุนที่มีหมวด: แถบเลือกหมวดขึ้นก่อน แล้วจึงแสดงใบรับ/ใบจ่ายของหมวดนั้น
-          const valid = sheetPick !== null && (sheetPick === 'all' || sheetPick === '' || subs.some((q) => q.id === sheetPick))
+          const valid = sheetPick !== null && ((!only && (sheetPick === 'all' || sheetPick === '')) || subs.some((q) => q.id === sheetPick))
           const cur = valid ? sheetPick : subs[0].id // เปิดหมวดแรกให้อัตโนมัติ ไม่ปล่อยให้ว่าง
           const name = cur === 'all' ? '' : cur === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === cur)?.name ?? ''
           return (
             <>
               <div className="rtabs no-print" role="tablist" aria-label="เลือกหมวดของใบกองทุน">
                 {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={cur === q.id} className={`rtab${cur === q.id ? ' on' : ''}`} onClick={() => setSheetPick(q.id)}>{q.name}</button>)}
-                <button type="button" role="tab" aria-selected={cur === ''} className={`rtab${cur === '' ? ' on' : ''}`} onClick={() => setSheetPick('')}>ส่วนกลาง</button>
-                <button type="button" role="tab" aria-selected={cur === 'all'} className={`rtab${cur === 'all' ? ' on' : ''}`} onClick={() => setSheetPick('all')}>รวมทุกหมวด</button>
+                {!only && <button type="button" role="tab" aria-selected={cur === ''} className={`rtab${cur === '' ? ' on' : ''}`} onClick={() => setSheetPick('')}>ส่วนกลาง</button>}
+                {!only && <button type="button" role="tab" aria-selected={cur === 'all'} className={`rtab${cur === 'all' ? ' on' : ''}`} onClick={() => setSheetPick('all')}>รวมทุกหมวด</button>}
               </div>
               <FundSheetPaper church={church} fundName={name ? `${f.name} · ${name}` : f.name} sheets={fundSheets(subAccount(f, cur))} />
             </>

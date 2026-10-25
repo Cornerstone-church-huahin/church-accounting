@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type Member, type Role } from './access'
+import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role } from './access'
 import { useSharedStore } from './sharedStore'
 import { getSync, saveSync, SYNC_EVENT } from './sync'
 
@@ -86,6 +86,15 @@ export function useMembers() {
       return true
     },
     /** แอดมินพักสิทธิ์ (ปิดชั่วคราว) / เปิดคืน โดยไม่ลบคน · พักแอดมินคนสุดท้ายไม่ได้ */
+    /** แอดมินกำหนดกองทุน (และหมวด) ที่ผู้ดูแลกองทุนคนนั้นดูแล */
+    setFunds: (id: string, funds: FundAssign[]) => {
+      if (!isAdmin) return false
+      const m = active.find((x) => x.id === id)
+      if (!m) return false
+      store.put([{ ...m, funds: funds.length ? funds : undefined }])
+      announce()
+      return true
+    },
     /** แอดมินกำหนดงานที่คนนั้นรับผิดชอบในห้องทำงาน (ว่าง = ไม่จำกัด) */
     setWorks: (id: string, works: number[]) => {
       if (!isAdmin) return false

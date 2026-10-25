@@ -8,22 +8,24 @@ import { getSync, type SharedItem } from './sync'
  * - ดูอย่างเดียว: ดูรายงาน งบประมาณ และภาพรวม (ไม่เห็นรายการรายตัว เลขอ้างอิง ใบเสร็จ)
  * ตัวตน = ชื่อที่ใช้ครั้งแรกบนเครื่องนั้น
  */
-export type Role = 'admin' | 'bookkeeper' | 'worship' | 'auditor' | 'viewer'
+export type Role = 'admin' | 'bookkeeper' | 'worship' | 'auditor' | 'fundkeeper' | 'viewer'
 /** pending = รออนุมัติ · paused = แอดมินพักสิทธิ์ไว้ชั่วคราว */
 export type AccessRole = Role | 'pending' | 'paused'
-export const ROLES: Role[] = ['admin', 'bookkeeper', 'worship', 'auditor', 'viewer']
-export const ROLE_LABEL: Record<Role, string> = { admin: 'แอดมิน', bookkeeper: 'ผู้บันทึกบัญชี', worship: 'ผู้บันทึกการนมัสการ', auditor: 'ผู้ตรวจสอบ', viewer: 'ดูอย่างเดียว' }
+export const ROLES: Role[] = ['admin', 'bookkeeper', 'worship', 'auditor', 'fundkeeper', 'viewer']
+export const ROLE_LABEL: Record<Role, string> = { admin: 'แอดมิน', bookkeeper: 'ผู้บันทึกบัญชี', worship: 'ผู้บันทึกการนมัสการ', fundkeeper: 'ผู้ดูแลกองทุน', auditor: 'ผู้ตรวจสอบ', viewer: 'ดูอย่างเดียว' }
 export const ROLE_HELP: Record<Role, string> = {
   admin: 'ทำได้ทุกอย่าง · จัดการผู้ใช้ ประเภทถวาย งบประมาณ · อนุมัติใบเบิกขั้นสุดท้าย',
   bookkeeper: 'บันทึกรายรับ นับเงิน นำฝาก อัปโหลดสเตตเมนต์ ทำใบเบิก แนบใบเสร็จ บันทึกการจ่าย',
   worship: 'เห็นเฉพาะเมนูสมาชิก: ลงชื่อนมัสการ ดูยอดผู้มา เพิ่มคนใหม่ แก้ชื่อ รูป เพศ · ไม่เห็นบัญชี เบอร์โทร วันเกิด และเปลี่ยนสถานะทะเบียนไม่ได้',
   auditor: 'ดูได้ทุกอย่าง · ยืนยันยอดนับ (คนที่ 2) · รับรองใบเบิก · รับรองการจับคู่ธนาคาร · แก้ข้อมูลไม่ได้',
+  fundkeeper: 'เห็นเฉพาะกองทุน (และหมวด) ที่แอดมินกำหนดให้ บันทึกรับ-จ่ายของกองทุนนั้นได้ · ไม่เห็นกองทุนอื่น หน้าแรก ยอดหมุนเวียน เงินยืม หรือเมนูอื่น',
   viewer: 'ดูรายงาน งบประมาณ และภาพรวมเท่านั้น (ไม่เห็นรายการรายตัวและใบเสร็จ)',
 }
 
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
 /** role = สิทธิ์หลัก (สูงสุดในรายการ) · roles = สิทธิ์ทั้งหมดถ้ามีมากกว่า 1 (เครื่องรุ่นเก่าอ่านแค่ role ได้ จึงไม่พัง) */
-export interface Member extends SharedItem { name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
+export interface FundAssign { id: string; /** จำกัดเฉพาะหมวดเหล่านี้ (ว่าง = ทุกหมวดของกองทุน) */ subs?: string[] }
+export interface Member extends SharedItem { /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'
@@ -35,11 +37,12 @@ const PERMS: Record<Role, Perm[]> = {
   admin: ['members', 'settings', 'budget', 'income', 'count', 'verifyCount', 'deposit', 'statement', 'signoffRecon', 'voucherCreate', 'voucherReview', 'voucherApprove', 'voucherPay', 'attach', 'detail', 'registry', 'worship'],
   bookkeeper: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry', 'worship'],
   worship: ['worship'],
+  fundkeeper: ['income', 'voucherPay', 'attach'],
   auditor: ['verifyCount', 'signoffRecon', 'voucherReview', 'detail'],
   viewer: [],
 }
 /** ลำดับความสูงของสิทธิ์ ใช้เลือกสิทธิ์หลักเมื่อมีหลายสิทธิ์ */
-const RANK: Role[] = ['admin', 'bookkeeper', 'auditor', 'worship', 'viewer']
+const RANK: Role[] = ['admin', 'bookkeeper', 'auditor', 'worship', 'fundkeeper', 'viewer']
 export const rolesOf = (m: { role: Role; roles?: Role[] }): Role[] => {
   const all = [...new Set([m.role, ...(m.roles ?? [])])].filter((r) => RANK.includes(r))
   return all.length ? all : [m.role]
@@ -50,6 +53,8 @@ export const primaryRole = (roles: Role[]): Role => RANK.find((r) => roles.inclu
 export const normalizeRoles = (rs: Role[]): Role[] => {
   const u = [...new Set(rs)].filter((r) => RANK.includes(r))
   if (u.includes('admin')) return ['admin']
+  // ผู้ดูแลกองทุนเป็นสิทธิ์เฉพาะทาง: อยู่เดี่ยว ๆ · ถ้ามีผู้บันทึกบัญชี/ผู้ตรวจสอบอยู่แล้วเห็นทุกกองทุนอยู่แล้ว ไม่ต้องมีซ้ำ
+  if (u.includes('fundkeeper')) return u.includes('bookkeeper') || u.includes('auditor') ? RANK.filter((r) => u.includes(r) && r !== 'fundkeeper') : ['fundkeeper']
   const others: Role[] = u.filter((r) => r !== 'viewer')
   return others.length ? RANK.filter((r) => others.includes(r)) : ['viewer']
 }
@@ -146,3 +151,11 @@ export function myWorks(): number[] {
 export const isTeamLeader = () => myWorks().length > 0
 /** ดูภาพรวมยอดเงิน (หมุนเวียน กองทุน หนี้ — ยอดรวมเท่านั้น ดูอย่างเดียว) ได้: ผู้มีสิทธิ์ดูรายละเอียด หรือหัวหน้าทีมของงานใดงานหนึ่ง */
 export const canSeeBalances = (role: AccessRole) => can(role, 'detail') || isTeamLeader()
+
+/** ผู้ดูแลกองทุน: กองทุน/หมวดที่ได้รับมอบหมาย (บทบาทอื่น = ไม่จำกัด คืน null) */
+export function myFunds(): FundAssign[] | null {
+  if (!getSync() || myRole() !== 'fundkeeper') return null
+  const me = getMe()
+  const mine = me && readAllMembers().find((m) => m.id === me.id)
+  return (mine && !mine.deleted && mine.funds) || []
+}
