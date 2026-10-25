@@ -15,9 +15,12 @@ export function maskExpenses(entries: ExpenseEntry[]): ExpenseEntry[] {
 
 /** รายการ "ต้องเบิก" ใต้ใบ: ค่าตอบแทนรวมเป็นแถวเดียวไม่ระบุชื่อ */
 export function maskPending<T extends { desc: string; person: string; kind: string; amount: number }>(items: T[]): T[] {
-  const comp = items.filter((x) => isCompensation(x))
-  if (comp.length === 0) return items
-  return [...items.filter((x) => !isCompensation(x)), { ...comp[0], desc: COMP_LABEL, person: '', amount: comp.reduce((s, x) => s + x.amount, 0) }]
+  const comp = items.filter((x) => x.kind !== 'loan' && isCompensation(x))
+  if (comp.length === 0 && !items.some((x) => x.kind === 'loan')) return items
+  const rest = items.filter((x) => x.kind === 'loan' ? false : !isCompensation(x))
+  const loans = items.filter((x) => x.kind === 'loan').map((x) => ({ ...x, desc: 'ให้กองทุนยืมจากเงินหมุนเวียน' }))
+  if (comp.length === 0) return [...rest, ...loans]
+  return [...rest, ...loans, { ...comp[0], desc: COMP_LABEL, person: '', amount: comp.reduce((s, x) => s + x.amount, 0) }]
 }
 
 /** ใบสรุปรายสัปดาห์: ค่าตอบแทนรวมเป็นแถวเดียว (ตัดชื่อผู้เบิก) */

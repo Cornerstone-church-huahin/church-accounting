@@ -6,7 +6,8 @@ import { getBinary, getSync } from '../lib/sync'
 import { cachedImage } from '../lib/imageCache'
 import { useIncomeTypes, useSettings } from '../lib/data'
 import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
-import { summarizeLoans } from '../lib/loans'
+import { ownLent, summarizeLoans } from '../lib/loans'
+import { ownLoanLines } from '../lib/weekLoans'
 import { canSharePdf, downloadPagesPdf, sharePagesPdf } from '../lib/pdf'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
@@ -115,9 +116,11 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const photos = ordered.map((x, i) => ({ x, no: i + 1 })).filter((p) => p.x.file?.path)
   const pages = Array.from({ length: Math.ceil(photos.length / PER_PAGE) }, (_, i) => photos.slice(i * PER_PAGE, (i + 1) * PER_PAGE))
   const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
-  const pending = expRows.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount }))
+  const typeNames = useIncomeTypes().list
+  const loanLines = ownLoanLines(a.loans as never, (id) => (id === 'own' ? 'เงินหมุนเวียน' : typeNames.find((t) => t.id === id)?.name ?? 'กองทุน'), week.from, week.to)
+  const pending = [...expRows.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount })), ...loanLines]
   const net = (r: { from: string; to: string }) => { const l = computeLedger({ range: r, ...a } as Parameters<typeof computeLedger>[0]); return l.inSum.cash + l.inSum.transfer - l.outSum.cash - l.outSum.transfer - l.outSum.pending }
-  const summary = { inn: L.inSum, funds: fundOut, pending, out: L.outSum, balance: circulatingOnly(balances, a.loans as never), asOf, net: { week: net(week), month: net(rangeOf('month', year, { month: Number(sunday.slice(5, 7)) })), year: net(rangeOf('year', year)) } }
+  const summary = { inn: L.inSum, funds: fundOut, pending, out: L.outSum, balance: circulatingOnly(balances, a.loans as never), asOf, net: { week: net(week), month: net(rangeOf('month', year, { month: Number(sunday.slice(5, 7)) })), year: net(rangeOf('year', year)) }, lent: ownLent(a.loans as never, asOf) }
   const ls = summarizeLoans(a.loans as never, asOf)
   const tiles: [string, string][] = [['🏠 หมุนเวียน', fmtBaht(balances.own.balance, { dec: false })], ['💰 กองทุน', fmtBaht(balances.fundTotal, { dec: false })], ['🧮 รวมเงินสด', fmtBaht(balances.total, { dec: false })], ['🔁 หนี้ภายใน', fmtBaht(ls.fromFunds, { dec: false })], ['🧾 หนี้ภายนอก', fmtBaht(ls.external, { dec: false })], ['🏞️ ภาระที่ดิน', '6,000,000']]
   const settled = photos.every((p) => p.x.id in loaded)

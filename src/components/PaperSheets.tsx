@@ -259,12 +259,14 @@ export interface WeekSummary {
   /** เงินเข้ากองทุนในสัปดาห์ (แยกจากเงินหมุนเวียน) — แต่ละกองทุนมีรายจ่ายโอนออกเท่ากันในตารางทันที */
   funds: { name: string; amount: number }[]
   /** บิลที่วางไว้/สำรองจ่ายที่ยังรอจ่ายในสัปดาห์นี้ — รวมกับกองทุนเป็น "จำนวนที่ต้องเบิก" */
-  pending: { desc: string; person: string; kind: 'bill' | 'advance' | 'manual'; amount: number }[]
+  pending: { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number }[]
   out: { cash: number; transfer: number; pending: number }
   /** เงินหมุนเวียนคงเหลือ ณ วันที่ asOf (ไม่รวมกองทุน) */
   balance: number; asOf: string
   /** ผลสุทธิ (รับ − จ่าย) เงินหมุนเวียนล้วน ไม่รวมกองทุน: สัปดาห์นี้ · เดือนนี้ · ปีนี้ */
   net: { week: number; month: number; year: number }
+  /** เงินหมุนเวียนที่ให้กองทุนยืมไปและยังไม่คืน (หักจากเงินหมุนเวียนแล้ว ไม่นับเป็นรายจ่าย) */
+  lent?: number
   /** หน้ากองทุน: ชื่อกองทุน — กรอบสรุปเป็นของกองทุนนี้ล้วน (ไม่มีแถวหมุนเวียน/กองทุน) */
   scopeName?: string
 }
@@ -286,7 +288,7 @@ function WeekSummaryBoxes({ summary, noBalance }: { summary?: WeekSummary; noBal
       <div style={{ display: 'flex', gap: 10, width: '100%' }} aria-label="สรุปประจำสัปดาห์">
         <div style={box}><div style={head}>① สรุปรับประจำสัปดาห์</div>{summary?.scopeName ? row(`เงินรับ ${summary.scopeName}`, v(circIn), true) : <>{row('เงินหมุนเวียน', v(circIn), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมรับทั้งสิ้น', v(inTotal), true)}</>}</div>
         <div style={box}><div style={head}>② สรุปจ่ายประจำสัปดาห์</div>{summary?.scopeName ? row(`เงินจ่าย ${summary.scopeName}`, v(circOut), true) : <>{row('รายจ่ายหมุนเวียน', v(circOut), true)}{summary?.funds.map((f) => row(`กองทุน · ${f.name}`, m(f.amount)))}{summary && summary.funds.length === 0 && row('กองทุน', m(0))}{row('รวมจ่ายทั้งสิ้น', v(outTotal), true)}</>}</div>
-        {!noBalance && <div style={{ ...box, justifyContent: 'center' }} aria-label="ยอดเงินหมุนเวียน">{row(summary?.scopeName ? 'เงินกองทุนคงเหลือปัจจุบัน' : 'เงินหมุนเวียนทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}</div>}
+        {!noBalance && <div style={{ ...box, justifyContent: 'center' }} aria-label="ยอดเงินหมุนเวียน">{row(summary?.scopeName ? 'เงินกองทุนคงเหลือปัจจุบัน' : 'เงินหมุนเวียนทั้งหมดปัจจุบัน', v(summary?.balance), true)}{row('สรุปสัปดาห์นี้', v(summary?.net.week))}{row('สรุปเดือนนี้', v(summary?.net.month))}{row('สรุปปีนี้', v(summary?.net.year))}{summary?.lent ? row('หัก ให้กองทุนยืมค้าง', `−${m(summary.lent)}`) : null}</div>}
       </div>
     </div>
   )
@@ -294,7 +296,7 @@ function WeekSummaryBoxes({ summary, noBalance }: { summary?: WeekSummary; noBal
 
 /** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): ตาราง 4 คอลัมน์ ชื่อรายการ+จำนวนเงินอยู่ช่องเดียวกัน เรียงลงทีละคอลัมน์จนเต็มแล้วขึ้นคอลัมน์ถัดไป (กองทุนก่อน ตามด้วยรายการรอจ่าย — ไม่แยกประเภท) · ขั้นต่ำ 3 แถว เกินขยายแถวเอง */
 function WithdrawNote({ summary }: { summary?: WeekSummary }) {
-  const items = summary ? [...summary.funds.map((f) => ({ desc: f.name, person: '', amt: f.amount })), ...summary.pending.map((b) => ({ desc: b.desc, person: b.person, amt: b.amount }))] : []
+  const items = summary ? [...summary.funds.map((f) => ({ desc: f.name, person: '', amt: f.amount, loan: false })), ...summary.pending.map((b) => ({ desc: b.desc, person: b.person, amt: b.amount, loan: b.kind === 'loan' }))] : []
   const total = summary ? items.reduce((a, x) => a + x.amt, 0) : undefined
   const COLS = 4
   const rows = Math.max(3, Math.ceil(items.length / COLS))
@@ -307,7 +309,7 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
           <tr key={r} style={{ height: 22 }}>
             {Array.from({ length: COLS }, (_, c) => {
               const x = items[c * rows + r]
-              return <td key={c} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top' }}>{x && <div data-pcomp={isCompensation(x) ? '1' : undefined} data-amt={x.amt} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span data-c="desc">{x.person && <><span className="pname">{x.person}</span>{x.desc ? ' — ' : ''}</>}{x.desc}</span><span data-c="amt" className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
+              return <td key={c} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top' }}>{x && <div data-pcomp={!x.loan && isCompensation(x) ? '1' : undefined} data-amt={x.amt} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span data-c="desc">{x.person && <><span className="pname">{x.person}</span>{x.desc ? ' — ' : ''}</>}{x.desc}</span><span data-c="amt" className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
             })}
           </tr>
         ))}
