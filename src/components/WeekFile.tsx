@@ -113,7 +113,10 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const fundRowsE: ExpenseEntry[] = wf.map((r, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: r.cash.amt + r.transfer.amt, desc: r.label, status: 'paid', requester: 'กองทุน · รอเบิก', updated: 1e15 + i }) as ExpenseEntry)
   const entries = [...expRows.map(sheetOf), ...fundRowsE]
   const ordered = [...entries].sort((x, y) => x.date.localeCompare(y.date) || x.updated - y.updated)
-  const photos = ordered.map((x, i) => ({ x, no: i + 1 })).filter((p) => p.x.file?.path)
+  const expPhotos = ordered.map((x, i) => ({ x, no: i + 1 })).filter((p) => p.x.file?.path)
+  // รูปหลักฐานของรายรับ (แนบหลายรูปต่อรายการ) ต่อท้าย: ติดป้าย "รับ"
+  const incPhotos = incomeRows.flatMap((x) => (x.photos ?? []).map((ph, k) => ({ x: { id: `${x.id}#${k}`, desc: `${types.find((t) => t.id === x.typeId)?.name ?? ''}${x.note ? ` ${x.note}` : ''}`, amount: x.amount, date: x.date, file: ph } as ExpenseEntry, no: 0, inc: true as const })))
+  const photos = [...expPhotos.map((p) => ({ ...p, inc: false as boolean })), ...incPhotos]
   const pages = Array.from({ length: Math.ceil(photos.length / PER_PAGE) }, (_, i) => photos.slice(i * PER_PAGE, (i + 1) * PER_PAGE))
   const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
   const typeNames = useIncomeTypes().list
@@ -157,12 +160,12 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
             <>
               <PaperHead church={church} title="ภาพหลักฐานประกอบใบเบิก-จ่าย" sub={`${weekHeading(sunday)} · แผ่นที่ ${pi + 1}/${pages.length}`} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10, flex: 1, minHeight: 0, marginTop: 6 }}>
-                {ps.map(({ x, no }) => (
+                {ps.map(({ x, no, inc }) => (
                   <figure key={x.id} style={{ margin: 0, border: '1px solid #1a2b4c', display: 'flex', flexDirection: 'column', minHeight: 0, padding: 4 }}>
                     <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
                       <Photo path={x.file!.path} label={x.desc} onDone={(ok) => setLoaded((m) => (x.id in m ? m : { ...m, [x.id]: ok }))} />
                     </div>
-                    <figcaption style={{ fontSize: 12, textAlign: 'center', paddingTop: 3 }}><b>ลำดับที่ {no}</b> · {x.desc} · {fmtBaht(x.amount)} บาท · {fmtDate(x.date)}</figcaption>
+                    <figcaption style={{ fontSize: 12, textAlign: 'center', paddingTop: 3 }}><b>{inc ? 'รายรับ' : `ลำดับที่ ${no}`}</b> · {x.desc} · {fmtBaht(x.amount)} บาท · {fmtDate(x.date)}</figcaption>
                   </figure>
                 ))}
               </div>

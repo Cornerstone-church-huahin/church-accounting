@@ -10,7 +10,9 @@ import { makeIncomeType } from '../lib/catalog'
 import WeekBar from '../components/WeekBar'
 import { useRole } from '../lib/members'
 import Sheet from '../components/Sheet'
-import { deleteFile, getSync, listDir } from '../lib/sync'
+import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
+import { compressImage } from '../lib/image'
+import { cacheImage } from '../lib/imageCache'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { UNKNOWN_INCOME_LABEL, UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
@@ -96,9 +98,18 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
       if (f) await deleteFile(cfg, f.path, f.sha, 'สลิป/ใบถวายที่ลบ')
     } catch { /* ignore */ }
   }
+  /** แนบรูปหลักฐานหลายรูป: อัปโหลดขึ้น repo ข้อมูล (ไม่ได้ซิงก์ = เก็บในเครื่องนี้) */
+  const uploadPic = async (file: File) => {
+    const { data, ext } = await compressImage(file)
+    const path = `attachments/${year}/in-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}.${ext}`
+    const cfg = getSync()
+    if (cfg) await putBinary(cfg, path, data, 'รูปหลักฐานรายรับ')
+    void cacheImage(path, data)
+    return { path, name: file.name }
+  }
   const delEntry = (x: IncomeEntry) => {
     if (!confirm(`ลบรายการ ${fmtBaht(x.amount)} (${fmtDate(x.date)}) พร้อมรูปสลิปที่แนบ?`)) return
-    if (inc.remove(x.id)) void dropFile(x.slip?.path)
+    if (inc.remove(x.id)) { void dropFile(x.slip?.path); for (const p of x.photos ?? []) void dropFile(p.path) }
   }
   const delFile = (f: SheetFile) => {
     const rd = rounds.items.find((r) => r.sheetFileId === f.id)
@@ -158,11 +169,11 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
       <div className="no-print">
         <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund?.name} sunday={sunday} onScan={canWrite && !fid ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
-        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}`, amount: x.amount }))}
+        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />
       </div>
       {scanFiles && <IncomeScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} types={scopeTypes} existing={inc.items} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = inc.put(es); if (ok) goWeek(es[0].date); return ok }} />}
-      {rowEdit && <IncomeRowEditor onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
+      {rowEdit && <IncomeRowEditor onUpload={canWrite ? uploadPic : undefined} onDropPhoto={(p) => void dropFile(p)} onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!inc.put([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
       <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PersonField from './PersonField'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
-import StoredImage from './StoredImage'
+import StoredImage, { LocalImage } from './StoredImage'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
@@ -10,7 +10,8 @@ import type { ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType } from '../lib/t
 const intOrNull = (s: string) => { const n = parseInt(s.replace(/\D/g, ''), 10); return Number.isFinite(n) && n > 0 ? n : null }
 
 /** แตะแถวในใบบันทึกการถวายเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) — ตารางในใบเปลี่ยนทันทีหลังบันทึก */
-export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage, noteMode }: {
+export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage, noteMode, onUpload, onDropPhoto }: {
+  /** แนบรูปหลักฐานได้หลายรูป: อัปโหลดทีละรูปแล้วคืนที่อยู่ไฟล์ · onDropPhoto = ลบไฟล์ที่เอาออกจาก repo */ onUpload?: (f: File) => Promise<{ path: string; name: string }>; onDropPhoto?: (path: string) => void
   /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบประเภทจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
   /** หน้ากองทุน: ประเภทมีกองทุนเดียว ช่อง "รายการ" เป็นข้อความอธิบายของแถว (เก็บเป็นหมายเหตุ) ไม่สร้างประเภทใหม่ */ noteMode?: boolean
   entry: IncomeEntry | null; types: IncomeType[]; defaultDate: string; onSave: (e: IncomeEntry) => string | null; onDelete?: (e: IncomeEntry) => void; onClose: () => void
@@ -24,7 +25,10 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   const [count, setCount] = useState(entry?.count ? String(entry.count) : '')
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
   const [err, setErr] = useState('')
-  const save = () => {
+  const [kept, setKept] = useState(entry?.photos ?? [])
+  const [picks, setPicks] = useState<File[]>([])
+  const [busy, setBusy] = useState(false)
+  const save = async () => {
     if (!typeId && !label.trim()) return setErr('เลือกรายการหรือพิมพ์ชื่อรายการใหม่')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
@@ -42,11 +46,19 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
       }
     }
     const n = intOrNull(count)
-    const { count: _c, note: _n, ...rest } = entry ?? ({} as IncomeEntry)
-    void _c; void _n
-    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(n ? { count: n } : {}), ...(noteMode ? (typed ? { note: typed } : {}) : (entry?.note ? { note: entry.note } : {})) } as IncomeEntry
+    const { count: _c, note: _n, photos: _p, ...rest } = entry ?? ({} as IncomeEntry)
+    void _c; void _n; void _p
+    const photos = [...kept]
+    if (picks.length && onUpload) {
+      setBusy(true)
+      try { for (const f of picks) photos.push(await onUpload(f)) } catch (x) { setBusy(false); return setErr(x instanceof Error ? x.message : 'แนบรูปไม่สำเร็จ') }
+      setBusy(false)
+    }
+    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(photos.length ? { photos } : {}), ...(n ? { count: n } : {}), ...(noteMode ? (typed ? { note: typed } : {}) : (entry?.note ? { note: entry.note } : {})) } as IncomeEntry
     const r = onSave(e)
-    if (r) setErr(r); else onClose()
+    if (r) return setErr(r)
+    for (const p of entry?.photos ?? []) if (!kept.some((k) => k.path === p.path)) onDropPhoto?.(p.path)
+    onClose()
   }
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบบันทึกการถวาย' : 'เพิ่มรายการในใบบันทึกการถวาย'} onClose={onClose}>
@@ -57,8 +69,18 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
       <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด (ตู้ถวาย)</button><button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอน</button></div>
       <div className="field"><label htmlFor="ire-count">{method === 'cash' ? 'จำนวนซอง' : 'จำนวนโอน (ครั้ง)'}</label><input id="ire-count" className="input" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" /></div>
       <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
+      {onUpload && (
+        <div className="field">
+          <label htmlFor="ire-photos">รูปหลักฐาน (เลือกได้หลายรูป){kept.length + picks.length > 0 ? ` — ${kept.length + picks.length} รูป` : ''}</label>
+          <input id="ire-photos" className="input" type="file" accept="image/*" multiple onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) setPicks((p) => [...p, ...fs]) }} />
+          <div style={{ display: 'grid', gap: 8, marginTop: 6 }}>
+            {kept.map((k) => <div key={k.path} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: 6 }}><StoredImage path={k.path} alt={`รูปหลักฐาน ${k.name}`} /><button type="button" className="mini" onClick={() => setKept((a) => a.filter((x) => x.path !== k.path))}>✕ เอารูปนี้ออก</button></div>)}
+            {picks.map((f, i) => <div key={`${f.name}${i}`} style={{ border: '1px dashed var(--line)', borderRadius: 8, padding: 6 }}><LocalImage file={f} alt={`รูปที่เลือก ${f.name}`} /><button type="button" className="mini" onClick={() => setPicks((a) => a.filter((_, j) => j !== i))}>✕ ไม่เอารูปนี้</button></div>)}
+          </div>
+        </div>
+      )}
       {err && <p className="err" role="alert">{err}</p>}
-      <div className="row"><button type="button" className="btn btn--gold grow" onClick={save}>{entry ? 'บันทึกการแก้ไข' : 'เพิ่มลงใบ'}</button>{entry && onDelete && <button type="button" className="btn btn--ghost" onClick={() => { onDelete(entry); onClose() }}>🗑 ลบ</button>}</div>
+      <div className="row"><button type="button" className="btn btn--gold grow" disabled={busy} onClick={() => void save()}>{busy ? 'กำลังอัปโหลด…' : entry ? 'บันทึกการแก้ไข' : 'เพิ่มลงใบ'}</button>{entry && onDelete && <button type="button" className="btn btn--ghost" onClick={() => { onDelete(entry); onClose() }}>🗑 ลบ</button>}</div>
     </Sheet>
   )
 }

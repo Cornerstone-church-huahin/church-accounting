@@ -47,6 +47,8 @@ export interface IncomeEntry extends SharedItem {
   memberNo?: string
   /** รูปสลิปโอน (ในโฟลเดอร์ attachments ของ repo ข้อมูล) */
   slip?: { path: string; name: string }
+  /** รูปหลักฐานหลายรูป (บิล/สลิป/รูปงาน) แนบในใบบันทึกการถวาย */
+  photos?: { path: string; name: string }[]
   /** มาจากรอบนับวันอาทิตย์: แก้ที่หน้ารอบนับเท่านั้น */
   roundId?: string
   /** บันทึกจากช่องไหนในหน้าแรก: manual = บันทึกด้วยมือ · slip = สลิป */
