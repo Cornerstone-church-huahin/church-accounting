@@ -21,7 +21,7 @@ await page.evaluate(async ([Y, a]) => {
   const db = await new Promise((res, rej) => { const r = indexedDB.open('acct-images', 1); r.onupgradeneeded = () => r.result.createObjectStore('img'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
   await new Promise((res) => { const t = db.transaction('img', 'readwrite'); for (let i = 0; i < 7; i++) t.objectStore('img').put(png, `attachments/p${i}.png`); t.oncomplete = res })
   localStorage.setItem('acct.loans.v1', JSON.stringify([{ id: 'ln1', lender: { kind: 'own' }, borrower: 'tt4', purpose: 'จ่าย สวัสดิการ อ.พิชิต แทนกองทุนสวัสดิการ', date: a, principal: 500000, repayments: [], updated: 1 }]))
-  localStorage.setItem(`acct.income.${Y}.v1`, JSON.stringify([{ id: 'i1', date: a, typeId: 'tt1', amount: 285500, method: 'cash', source: 'manual', updated: 1 }]))
+  localStorage.setItem(`acct.income.${Y}.v1`, JSON.stringify([{ id: 'i1', date: a, typeId: 'tt1', amount: 285500, method: 'cash', source: 'manual', updated: 1, photos: [{ path: 'attachments/p0.png', name: 'a.png' }] }]))
   localStorage.setItem(`acct.expenses.${Y}.v1`, JSON.stringify([
     ...Array.from({ length: 7 }, (_, i) => ({ id: 'e' + i, channel: 'manual', date: a, amount: 100000 + i, desc: 'ค่าของ ' + (i + 1), status: 'paid', method: 'cash', updated: 10 + i, file: { path: `attachments/p${i}.png`, name: 'p.png' } })),
     { id: 'n1', channel: 'manual', date: a, amount: 5000, desc: 'ไม่มีรูปแนบ', status: 'paid', method: 'cash', updated: 99 },
@@ -32,7 +32,7 @@ try {
   await page.getByRole('tab', { name: /สรุป/ }).first().click()
   await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
   await page.getByRole('tab', { name: /แฟ้มประจำสัปดาห์/ }).click()
-  await page.waitForFunction(() => document.querySelectorAll('figure img').length === 7, null, { timeout: 15000 })
+  await page.waitForFunction(() => document.querySelectorAll('figure img').length === 8, null, { timeout: 15000 })
   const cover = await page.locator('.a4page').first().innerText()
   must(/แฟ้มรับ - จ่ายประจำสัปดาห์/.test(cover) && /เลขที่แฟ้ม/.test(cover) && /\d{4}-W\d{2}/.test(cover) && /สัปดาห์ที่ \d+ ของปี/.test(cover) && /สารบัญ/.test(cover), 'cover page has file no., week and contents: ' + cover.slice(0, 200))
   must(await page.locator('.a4page').first().evaluate((e) => e.scrollHeight <= e.clientHeight + 1), 'cover fits on one A4 page: ' + await page.locator('.a4page').first().evaluate((e) => e.scrollHeight + '/' + e.clientHeight))
@@ -46,8 +46,8 @@ try {
   await page.getByRole('tab', { name: /สรุป/ }).first().click()
   await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
   await page.getByRole('tab', { name: /แฟ้มประจำสัปดาห์/ }).click()
-  await page.waitForFunction(() => document.querySelectorAll('figure img').length === 7, null, { timeout: 15000 })
-  must(await page.locator('.a4page').count() === 5, 'cover 1 + income 1 + voucher 1 + 2 photo pages (7 photos): ' + await page.locator('.a4page').count())
+  await page.waitForFunction(() => document.querySelectorAll('figure img').length === 8, null, { timeout: 15000 })
+  must(await page.locator('.a4page').count() === 5, 'cover 1 + income 1 + voucher 1 + 2 photo pages (8 photos): ' + await page.locator('.a4page').count())
   must(await page.locator('.a4page--land').count() === 1, 'income sheet is the landscape one')
   const cap = (await page.locator('figcaption').allInnerTexts()).join('\n')
   must(/ลำดับที่ 1 · ค่าของ 1/.test(cap) && /ลำดับที่ 7 · ค่าของ 7/.test(cap) && !/ไม่มีรูปแนบ/.test(cap), 'captions cross-reference voucher rows and skip entries without a photo: ' + cap)
@@ -55,7 +55,7 @@ try {
   must(/ให้.+ยืมจากเงินหมุนเวียน \(จ่าย สวัสดิการ อ\.พิชิต/.test(vt) && /5,000/.test(vt), 'loan out shows under ต้องเบิก: ' + vt.slice(-400))
   must(/หัก ให้กองทุนยืมค้าง\s+−5,000/.test(vt), 'reconciling line for money lent out')
   must(/รวมจ่ายเป็นเงินทั้งสิ้น[\s\S]{0,20}7,050/.test(vt) || /รวมจ่ายเป็นเงินทั้งสิ้น/.test(vt) && !/รวมจ่ายเป็นเงินทั้งสิ้น[\s\S]{0,20}12,050/.test(vt), 'loan is not counted in total expenses')
-  must(await page.locator('figure').count() === 7, 'only the 7 entries with a photo')
+  must(await page.locator('figure').count() === 8 && /รายรับ/.test(cap), '7 expense photos + 1 income photo (labelled รายรับ)')
   const fits = await page.locator('figure').evaluateAll((fs) => fs.every((f) => { const b = f.querySelector('div').getBoundingClientRect(), i = f.querySelector('img').getBoundingClientRect(); return i.width <= b.width + 1 && i.height <= b.height + 1 }))
   must(fits, 'every photo is scaled to fit its cell (never cropped)')
   await page.evaluate(() => { window.__shared = null; navigator.canShare = () => true; navigator.share = async (d) => { window.__shared = { n: d.files.length, name: d.files[0].name, type: d.files[0].type, size: d.files[0].size } } })
