@@ -5,12 +5,18 @@ import Sheet from './Sheet'
 import StoredImage, { LocalImage } from './StoredImage'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { newId } from '../lib/money'
-import type { ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
+import type { ExpenseCat, ExpenseEntry, FundSub, IncomeEntry, IncomeType } from '../lib/types'
+
+/** ช่องเลือกหมวดของกองทุน (แสดงเมื่อกองทุนมีหมวด) — ว่าง = ส่วนกลาง */
+function SubField({ id, subs, value, onChange }: { id: string; subs: FundSub[]; value: string; onChange: (v: string) => void }) {
+  return <div className="field"><label htmlFor={id}>หมวดของกองทุน</label><select id={id} className="input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">ส่วนกลาง (ยังไม่ระบุหมวด)</option>{subs.map((q) => <option key={q.id} value={q.id}>{q.name}</option>)}</select></div>
+}
 
 const intOrNull = (s: string) => { const n = parseInt(s.replace(/\D/g, ''), 10); return Number.isFinite(n) && n > 0 ? n : null }
 
 /** แตะแถวในใบบันทึกการถวายเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) — ตารางในใบเปลี่ยนทันทีหลังบันทึก */
-export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage, noteMode, onUpload, onDropPhoto }: {
+export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, onClose, onManage, noteMode, onUpload, onDropPhoto, subs, defaultSub }: {
+  /** กองทุนที่มีหมวด: ตัวเลือกหมวด + หมวดเริ่มต้น */ subs?: FundSub[]; defaultSub?: string
   /** แนบรูปหลักฐานได้หลายรูป: อัปโหลดทีละรูปแล้วคืนที่อยู่ไฟล์ · onDropPhoto = ลบไฟล์ที่เอาออกจาก repo */ onUpload?: (f: File) => Promise<{ path: string; name: string }>; onDropPhoto?: (path: string) => void
   /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบประเภทจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
   /** หน้ากองทุน: ประเภทมีกองทุนเดียว ช่อง "รายการ" เป็นข้อความอธิบายของแถว (เก็บเป็นหมายเหตุ) ไม่สร้างประเภทใหม่ */ noteMode?: boolean
@@ -25,6 +31,7 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   const [count, setCount] = useState(entry?.count ? String(entry.count) : '')
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
   const [err, setErr] = useState('')
+  const [subId, setSubId] = useState(entry?.subId ?? defaultSub ?? '')
   const [kept, setKept] = useState(entry?.photos ?? [])
   const [picks, setPicks] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
@@ -46,15 +53,15 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
       }
     }
     const n = intOrNull(count)
-    const { count: _c, note: _n, photos: _p, ...rest } = entry ?? ({} as IncomeEntry)
-    void _c; void _n; void _p
+    const { count: _c, note: _n, photos: _p, subId: _s, ...rest } = entry ?? ({} as IncomeEntry)
+    void _c; void _n; void _p; void _s
     const photos = [...kept]
     if (picks.length && onUpload) {
       setBusy(true)
       try { for (const f of picks) photos.push(await onUpload(f)) } catch (x) { setBusy(false); return setErr(x instanceof Error ? x.message : 'แนบรูปไม่สำเร็จ') }
       setBusy(false)
     }
-    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(photos.length ? { photos } : {}), ...(n ? { count: n } : {}), ...(noteMode ? (typed ? { note: typed } : {}) : (entry?.note ? { note: entry.note } : {})) } as IncomeEntry
+    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(photos.length ? { photos } : {}), ...(subs?.length && subId ? { subId } : {}), ...(n ? { count: n } : {}), ...(noteMode ? (typed ? { note: typed } : {}) : (entry?.note ? { note: entry.note } : {})) } as IncomeEntry
     const r = onSave(e)
     if (r) return setErr(r)
     for (const p of entry?.photos ?? []) if (!kept.some((k) => k.path === p.path)) onDropPhoto?.(p.path)
@@ -62,6 +69,7 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   }
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบบันทึกการถวาย' : 'เพิ่มรายการในใบบันทึกการถวาย'} onClose={onClose}>
+      {subs && subs.length > 0 && <SubField id="ire-sub" subs={subs} value={subId} onChange={setSubId} />}
       <div className="field"><label htmlFor="ire-date">วันที่</label><input id="ire-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       <div className="field"><label htmlFor="ire-type">รายการ</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { setTypeId(e.target.value); setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         {onManage && <CatalogManager noun="รายการรับ" items={opts} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setLabel(n.trim()); return r } }} onAdded={setTypeId} />}</div>
@@ -86,7 +94,8 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
 }
 
 /** แตะแถวในใบเบิก-จ่ายเงินสดเพื่อแก้ไข (หรือแตะแถวว่างเพื่อเพิ่ม) */
-export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage, onUpload }: {
+export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, onClose, onManage, onUpload, subs, defaultSub }: {
+  /** กองทุนที่มีหมวด: ตัวเลือกหมวด + หมวดเริ่มต้น */ subs?: FundSub[]; defaultSub?: string
   /** แนบรูปบิล/สลิปเป็นหลักฐาน (อัปโหลดแล้วคืนที่เก็บรูป) */ onUpload?: (f: File) => Promise<{ path: string; name: string }>
   /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายจากป๊อปอัพนี้ได้ (ข้อมูลชุดเดียวกับตั้งค่า) */ onManage?: CatalogOps
 
@@ -101,6 +110,7 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
   const [payee, setPayee] = useState(entry?.who ?? '')
   const [biller, setBiller] = useState(entry?.biller ?? '')
   const [pic, setPic] = useState<File | null>(null)
+  const [subId, setSubId] = useState(entry?.subId ?? defaultSub ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const save = async () => {
@@ -109,15 +119,16 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
     let file = entry?.file
     if (pic && onUpload) { setBusy(true); try { file = await onUpload(pic) } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบรูปไม่สำเร็จ') } setBusy(false) }
-    const { requester: _r, who: _w, catId: _c, biller: _b, ...rest } = entry ?? ({} as ExpenseEntry)
-    void _r; void _w; void _c; void _b
+    const { requester: _r, who: _w, catId: _c, biller: _b, subId: _s, ...rest } = entry ?? ({} as ExpenseEntry)
+    void _r; void _w; void _c; void _b; void _s
     const e = { ...rest, id: entry?.id ?? newId('ex'), updated: 0, channel: entry?.channel ?? 'manual', date, amount, desc: desc.trim(), status: entry?.status ?? 'paid', paidDate: entry?.paidDate ?? date, method: entry?.method ?? 'cash',
-      ...(catId ? { catId } : {}), ...(note.trim() ? { requester: note.trim() } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(biller ? { biller } : {}), ...(file ? { file } : {}) } as ExpenseEntry
+      ...(catId ? { catId } : {}), ...(note.trim() ? { requester: note.trim() } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(biller ? { biller } : {}), ...(file ? { file } : {}), ...(subs?.length && subId ? { subId } : {}) } as ExpenseEntry
     const r = onSave(e)
     if (r) setErr(r); else onClose()
   }
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบเบิก-จ่ายเงินสด' : 'เพิ่มรายการในใบเบิก-จ่ายเงินสด'} onClose={onClose}>
+      {subs && subs.length > 0 && <SubField id="ere-sub" subs={subs} value={subId} onChange={setSubId} />}
       <div className="field"><label htmlFor="ere-date">วันที่</label><input id="ere-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       <div className="field"><label htmlFor="ere-item">หมวด/รายการที่ตั้งไว้</label>
         <select id="ere-item" className="input" value={catId} onChange={(e) => { setCatId(e.target.value); const c = items.find((x) => x.id === e.target.value); if (c) setDesc(c.name) }}>

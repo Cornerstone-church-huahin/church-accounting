@@ -2,7 +2,11 @@ import type { SharedItem } from './sync'
 
 /** ทุกจำนวนเงินเป็นสตางค์ (จำนวนเต็ม) · ทุกวันที่เป็น YYYY-MM-DD (ค.ศ.) */
 
+/** หมวดย่อยภายในกองทุน (เช่น พืชผัก โต๊ะจีน) — รายรับ/รายจ่ายของกองทุนระบุหมวดได้ แยกยอด/รายงานตามหมวด */
+export interface FundSub { id: string; name: string; active: boolean; order: number }
 export interface IncomeType extends SharedItem { name: string; order: number; active: boolean
+  /** หมวดย่อยของกองทุนนี้ (ไม่มี = กองทุนไม่แบ่งหมวด) */
+  subs?: FundSub[]
   /** เป็นกองทุนวัตถุประสงค์ (ไม่ตั้ง = เดาจากชื่อ เช่น "กองทุน…" "สร้างอาคาร") */
   fund?: boolean }
 export interface BankAccount extends SharedItem { name: string; bank: string; last4: string
@@ -47,6 +51,8 @@ export interface IncomeEntry extends SharedItem {
   memberNo?: string
   /** รูปสลิปโอน (ในโฟลเดอร์ attachments ของ repo ข้อมูล) */
   slip?: { path: string; name: string }
+  /** หมวดย่อยของกองทุน (ว่าง = ส่วนกลาง ยังไม่ระบุหมวด) */
+  subId?: string
   /** รูปหลักฐานหลายรูป (บิล/สลิป/รูปงาน) แนบในใบบันทึกการถวาย */
   photos?: { path: string; name: string }[]
   /** มาจากรอบนับวันอาทิตย์: แก้ที่หน้ารอบนับเท่านั้น */
@@ -169,6 +175,8 @@ export interface ExpenseCat extends SharedItem {
 export interface Person extends SharedItem { name: string }
 
 export interface ExpenseEntry extends SharedItem {
+  /** หมวดย่อยของกองทุน (เฉพาะรายจ่ายที่จ่ายจากกองทุน) */
+  subId?: string
   /** ผู้วางบิล / ผู้สำรองจ่าย (ชื่อจากรายชื่อที่ตั้งไว้) — แสดงเป็นคอลัมน์หลังหมายเหตุในใบเบิก-จ่าย */
   biller?: string
   channel: 'manual' | 'bill' | 'advance'

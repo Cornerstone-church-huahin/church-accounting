@@ -1,4 +1,4 @@
-import type { ExpenseEntry, IncomeEntry } from './types'
+import type { ExpenseEntry, FundSub, IncomeEntry } from './types'
 import type { FundMove } from './fundAccounts'
 
 /** กองทุนที่หน้ารับ/จ่ายใช้เป็นขอบเขต: ข้อมูลเฉพาะกองทุนนี้ + เงินยืมที่เกี่ยวข้อง (แสดงในใบเป็นแถวอ่านอย่างเดียว) */
@@ -8,6 +8,8 @@ export interface FundScope {
   balance: number
   /** รายการเงินยืม/คืน ของกองทุนนี้ (จาก fundAccounts: key ขึ้นต้น ln: lr: lb: lq:) — + เข้า · − ออก */
   loanMoves?: FundMove[]
+  /** หมวดย่อยของกองทุน (ถ้ามี) · sub = หมวดที่กำลังดู/บันทึก (all = ทุกหมวด · '' = ส่วนกลาง) · subBal = ยอดคงเหลือแต่ละหมวด ('' = ส่วนกลาง) · subLabel = ชื่อหมวดที่แสดงบนหัวใบ */
+  subs?: FundSub[]; sub?: string; subBal?: Record<string, number>; subLabel?: string
 }
 
 export const isLoanMove = (m: FundMove) => /^l[nrbq]:/.test(m.key)
