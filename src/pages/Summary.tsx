@@ -11,6 +11,7 @@ import { expenseLines, weekNotice } from '../lib/notice'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { periodReport } from '../lib/report'
 import { useBalances } from '../lib/useBalances'
+import { isFundZone } from '../lib/funds'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
 type Tab = 'week' | 'month' | 'year'
@@ -26,7 +27,8 @@ export default function Summary({ year }: { year: number }) {
   const { settings } = useSettings()
   const { input, opening } = useBalances(year)
   const loans = useLoans().items
-  const a = useMemo(() => ({ ...input, opening, loans }), [input, opening, loans])
+  // รายงาน/ใบสรุป/แฟ้มรายสัปดาห์ = บัญชีหมุนเวียน: รายรับที่บันทึกจากโซนกองทุนไม่ปนเข้ามา
+  const a = useMemo(() => ({ ...input, income: input.income.filter((x) => !isFundZone(x)), opening, loans }), [input, opening, loans])
   const detail = can(role, 'detail')
   const church = settings.churchName.split(' ')[0]
   const today = todayISO()

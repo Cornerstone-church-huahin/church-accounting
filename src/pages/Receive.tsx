@@ -28,6 +28,7 @@ import { downloadPdf } from '../lib/pdf'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { readSlip } from '../lib/slipOcr'
 import { loanIncomeRows, type FundScope } from '../lib/fundScope'
+import { isFundZone } from '../lib/funds'
 
 type Sub = 'manual' | 'slip' | 'sheet' | 'total' | null
 
@@ -70,8 +71,12 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
   const fcat = subsOn ? fund?.sub ?? 'all' : 'all'
   const inSub = (x: { subId?: string }) => fcat === 'all' || (x.subId ?? '') === fcat
   /** บันทึกรายรับของกองทุนที่มีหมวด: ติดหมวดที่เลือกอยู่ให้รายการใหม่ (ทุกช่องทางบันทึก) · ทุกหมวด/ส่วนกลาง = ส่วนกลาง */
-  const putInc = (xs: IncomeEntry[]) => inc.put(subsOn && fid ? xs.map((x) => (x.subId !== undefined || inc.items.some((i) => i.id === x.id) || !fcat || fcat === 'all' ? x : { ...x, subId: fcat })) : xs)
-  const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId && (!fid || (x.typeId === fid && inSub(x)))).sort(byDateDesc), [inc.items, fid, fcat])
+  const putInc = (xs: IncomeEntry[]) => inc.put(fid ? xs.map((x) => {
+    if (inc.items.some((i) => i.id === x.id)) return x
+    const y = subsOn && x.subId === undefined && fcat && fcat !== 'all' ? { ...x, subId: fcat } : x
+    return { ...y, fz: true } // บันทึกจากหน้ากองทุน = โซนกองทุนล้วน
+  }) : xs)
+  const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId && (fid ? x.typeId === fid && inSub(x) : !isFundZone(x))).sort(byDateDesc), [inc.items, fid, fcat])
   const scopeTypes = useMemo(() => (fid ? types.list.filter((t) => t.id === fid) : types.list), [types.list, fid])
   const week = useMemo(() => allEnt.filter((x) => sheetSunday(x.date) === sunday), [allEnt, sunday])
   const byDateF = (a: SheetFile, b: SheetFile) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
@@ -149,7 +154,7 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
   // ใบสรุปรายรับ (แท็บ 4): สัปดาห์ที่เลือก หรือ ทั้งปี
   const { incRows } = useMemo(() => computeLedger(fid
     ? { range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items.filter((x) => x.typeId === fid && inSub(x)), rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: scopeTypes, passbook: [], withFunds: true }
-    : { range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: passbook.items }), [year, sunday, repScope, inc.items, rounds.items, types.list, scopeTypes, passbook.items, fid])
+    : { range: rangeOf(repScope === 'year' ? 'year' : 'week', year, { sunday }), income: inc.items.filter((x) => !isFundZone(x)), rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, passbook: passbook.items }), [year, sunday, repScope, inc.items, rounds.items, types.list, scopeTypes, passbook.items, fid])
 
   /** หัวการ์ด: จำนวนรายการ + รวม + สลับ "สัปดาห์นี้/ทุกสัปดาห์" */
   const scopeBar = (k: 'manual' | 'slip' | 'sheet', n: number, amt: number) => {
