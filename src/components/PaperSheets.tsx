@@ -59,6 +59,18 @@ function DownloadRow({ onData, kind, church, sunday, onScan }: { onData: () => v
   )
 }
 
+/** ช่องไฟล์แนบในใบ: 📎 + จำนวน · แตะเพื่อเปิดดู (ถ้าเปิดดูได้) — ไม่มีไฟล์ = ว่าง */
+function AttachCell({ n, onClick }: { n: number; onClick?: () => void }) {
+  if (n <= 0) return <td data-c="x" />
+  return (
+    <td data-c="x" style={{ textAlign: 'center', whiteSpace: 'nowrap', fontSize: 11 }}>
+      {onClick
+        ? <span role="button" tabIndex={0} className="attach" aria-label={`ดูไฟล์แนบ ${n} ไฟล์`} onClick={(e) => { e.stopPropagation(); onClick() }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onClick() } }}>📎 {n}</span>
+        : <span>📎 {n}</span>}
+    </td>
+  )
+}
+
 /** ข้อความจางกลางแผ่น (เฉพาะบนจอ ไม่ติดไปกับ PDF/พิมพ์/แชร์): บอกวิธีใช้ใบทันที */
 function SheetHint() {
   const ref = useRef<HTMLDivElement>(null)
@@ -72,7 +84,7 @@ function SheetHint() {
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, onScan, blank, noDownload }: { /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, onFileClick, scope, onScan, blank, noDownload }: { /** แตะ 📎 ในช่องไฟล์แนบ = เปิดดูรูปที่แนบ */ onFileClick?: (x: IncomeEntry) => void; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -88,8 +100,8 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
           <>
             <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact />
             <table className="sheetpaper sheetpaper--land" aria-label="ใบบันทึกการถวาย (A4 แนวนอน)">
-              <colgroup><col style={{ width: '9%' }} /><col style={{ width: '5%' }} /><col style={{ width: '29%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '15%' }} /></colgroup>
-              <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
+              <colgroup><col style={{ width: '9%' }} /><col style={{ width: '5%' }} /><col style={{ width: '26%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '14%' }} /><col style={{ width: '8%' }} /></colgroup>
+              <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th><th>ไฟล์แนบ</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
@@ -103,11 +115,12 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
                       <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
                       <td className="num">{x && x.method === 'transfer' ? m(x.amount) : ''}</td>
                       <td className="num"><b>{x ? m(x.amount) : ''}</b></td>
+                      <AttachCell n={x ? (x.photos?.length ?? 0) + (x.slip ? 1 : 0) : 0} onClick={x && onFileClick ? () => onFileClick(x) : undefined} />
                     </tr>
                   )
                 })}
               </tbody>
-              <tfoot><tr><td colSpan={3}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td>{blank ? <><td /><td /><td /><td /><td /></> : <><td className="num">{cnt(rows, 'cash')}</td><td className="num">{m(sum(rows, 'cash'))}</td><td className="num">{cnt(rows, 'transfer')}</td><td className="num">{m(sum(rows, 'transfer'))}</td><td className="num">{m(sum(rows, 'cash') + sum(rows, 'transfer'))}</td></>}</tr></tfoot>
+              <tfoot><tr><td colSpan={3}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td>{blank ? <><td /><td /><td /><td /><td /></> : <><td className="num">{cnt(rows, 'cash')}</td><td className="num">{m(sum(rows, 'cash'))}</td><td className="num">{cnt(rows, 'transfer')}</td><td className="num">{m(sum(rows, 'transfer'))}</td><td className="num">{m(sum(rows, 'cash') + sum(rows, 'transfer'))}</td></>}<td /></tr></tfoot>
             </table>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 'auto' }}>
               <div>{blank ? <>รวมจากตู้ถวาย .................................. บาท<br />รวมจากการโอน .................................. บาท</> : <>รวมจากตู้ถวาย {m(sum(rows, 'cash'))} บาท<br />รวมจากการโอน {m(sum(rows, 'transfer'))} บาท{pages.length > 1 && pi === pages.length - 1 ? <><br />ยอดรวมทุกแผ่น {m(sum(all, 'cash') + sum(all, 'transfer'))} บาท</> : null}</>}</div>
@@ -137,8 +150,8 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
-              <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '25%' }} /><col style={{ width: '10%' }} /><col style={{ width: '25%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /></colgroup>
-              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ / รูป</th><th>ผู้วางบิล</th><th>ผู้รับเงิน</th></tr></thead>
+              <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} /><col style={{ width: '21%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '8%' }} /></colgroup>
+              <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th>ผู้วางบิล</th><th>ผู้รับเงิน</th><th>ไฟล์แนบ</th></tr></thead>
               <tbody>
                 {Array.from({ length: ROWS }, (_, i) => {
                   const x = rows[i]
@@ -148,14 +161,15 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
                       <td data-c="no" style={{ textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                       <td data-c="desc">{x?.desc ?? ''}</td>
                       <td data-c="amt" className="num" style={{ fontSize: 11.5 }}>{x ? m(x.amount) : ''}</td>
-                      <td data-c="x" style={{ fontSize: 11, whiteSpace: 'nowrap', ...(x?.file && onFileClick ? { cursor: 'pointer' } : {}) }} onClick={x?.file && onFileClick ? (e) => { e.stopPropagation(); onFileClick(x) } : undefined} role={x?.file && onFileClick ? 'button' : undefined} aria-label={x?.file && onFileClick ? 'ดูรูปแนบ' : undefined} tabIndex={x?.file && onFileClick ? 0 : undefined} onKeyDown={x?.file && onFileClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onFileClick(x) } } : undefined}>{x ? <>{x.requester ? <span className="pname">{x.requester}</span> : x.note || ''}{x.file && <span style={{ marginLeft: 3, textDecoration: onFileClick ? 'underline' : undefined, color: onFileClick ? '#1a5fb4' : undefined }}>📎 มีรูป</span>}</> : ''}</td>
+                      <td data-c="x" style={{ fontSize: 11 }}>{x?.requester ? <span className="pname">{x.requester}</span> : x?.note || ''}</td>
                       <td data-c="x"><span className="pname">{x?.biller ?? ''}</span></td>
                       <td data-c="x"><span className="pname">{x?.who ?? ''}</span></td>
+                      <AttachCell n={x?.file ? 1 : 0} onClick={x?.file && onFileClick ? () => onFileClick(x) : undefined} />
                     </tr>
                   )
                 })}
               </tbody>
-              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{blank ? '' : m(sumOf(rows))}</td><td colSpan={3}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
+              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{blank ? '' : m(sumOf(rows))}</td><td colSpan={4}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
             </table>
             {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} noBalance={noBalance} />}
             <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>

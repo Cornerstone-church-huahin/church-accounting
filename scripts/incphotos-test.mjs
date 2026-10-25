@@ -28,6 +28,11 @@ try {
   await page.waitForTimeout(1500)
   const stored = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('acct.income.')).flatMap((k) => JSON.parse(localStorage.getItem(k))).flatMap((x) => x.photos ?? []).length)
   must(stored === 2, 'two photos saved on the entry: ' + stored)
+  // คอลัมน์ไฟล์แนบ: 📎 2 แล้วแตะเปิดดูทั้ง 2 รูป
+  must(await inc.locator('th', { hasText: 'ไฟล์แนบ' }).count() === 1, 'income sheet has an attachments column')
+  await inc.getByRole('button', { name: 'ดูไฟล์แนบ 2 ไฟล์' }).click()
+  await page.waitForFunction(() => document.querySelectorAll('[role="dialog"] img[alt^="ไฟล์แนบ"]').length === 2, null, { timeout: 8000 })
+  await page.locator('[role="dialog"]').getByRole('button', { name: 'ปิด' }).click()
   // เปิดแถวเดิม: เห็นรูปที่เก็บไว้ 2 รูป เอาออก 1 รูป แล้วบันทึก
   await inc.locator('tbody tr').nth(0).click()
   await page.locator('#ire-photos').waitFor()

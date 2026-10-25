@@ -20,6 +20,7 @@ import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
 import SheetEntryList from '../components/SheetEntryList'
 import { IncomeRowEditor } from '../components/RowEditors'
+import AttachViewer from '../components/AttachViewer'
 import { IncomeSheetPaper } from '../components/PaperSheets'
 import { IncomeScan } from '../components/PaperScan'
 import ManualIncome from '../components/ManualIncome'
@@ -56,6 +57,7 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
   const [sub, setSub] = useState<Sub>(null)
   const [scanFiles, setScanFiles] = useState<File[] | null>(null) // สแกนใบบันทึกการถวายที่เขียนมือไว้
   const [rowEdit, setRowEdit] = useState<{ entry: IncomeEntry | null } | null>(null)
+  const [viewAtt, setViewAtt] = useState<IncomeEntry | null>(null)
   const [form, setForm] = useState<{ entry: IncomeEntry | null; preset: 'manual' | 'slip' } | null>(null)
   const canWrite = can(role, 'income')
 
@@ -164,7 +166,7 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
     return (
       <>
         <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-        <div className="no-print"><IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload /></div>
+        <div className="no-print"><IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload /></div>
       </>
     )
   }
@@ -172,12 +174,13 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} sunday={sunday} onScan={canWrite && !fid ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
+        <IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} sunday={sunday} onScan={canWrite && !fid ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
         {canWrite && !fid && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         {!fid && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />}
       </div>
       {scanFiles && <IncomeScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} types={scopeTypes} existing={inc.items} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = putInc(es); if (ok) goWeek(es[0].date); return ok }} />}
+      {viewAtt && <AttachViewer title={`${viewAtt.note || fmtDate(viewAtt.date)} · ${fmtBaht(viewAtt.amount)} บาท`} files={[...(viewAtt.slip ? [viewAtt.slip] : []), ...(viewAtt.photos ?? [])]} onClose={() => setViewAtt(null)} />}
       {rowEdit && <IncomeRowEditor subs={fund?.subs} subOps={fund?.subOps} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} onUpload={canWrite ? uploadPic : undefined} onDropPhoto={(p) => void dropFile(p)} onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!putInc([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
