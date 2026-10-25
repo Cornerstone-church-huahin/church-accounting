@@ -20,6 +20,7 @@ await page.evaluate(async ([Y, a]) => {
   const png = await new Promise((res) => { const c = document.createElement('canvas'); c.width = 60; c.height = 40; const g = c.getContext('2d'); g.fillStyle = '#c33'; g.fillRect(0, 0, 60, 40); c.toBlob(res, 'image/png') })
   const db = await new Promise((res, rej) => { const r = indexedDB.open('acct-images', 1); r.onupgradeneeded = () => r.result.createObjectStore('img'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
   await new Promise((res) => { const t = db.transaction('img', 'readwrite'); for (let i = 0; i < 7; i++) t.objectStore('img').put(png, `attachments/p${i}.png`); t.oncomplete = res })
+  localStorage.setItem('acct.loans.v1', JSON.stringify([{ id: 'ln1', lender: { kind: 'own' }, borrower: 'tt4', purpose: 'จ่าย สวัสดิการ อ.พิชิต แทนกองทุนสวัสดิการ', date: a, principal: 500000, repayments: [], updated: 1 }]))
   localStorage.setItem(`acct.income.${Y}.v1`, JSON.stringify([{ id: 'i1', date: a, typeId: 'tt1', amount: 285500, method: 'cash', source: 'manual', updated: 1 }]))
   localStorage.setItem(`acct.expenses.${Y}.v1`, JSON.stringify([
     ...Array.from({ length: 7 }, (_, i) => ({ id: 'e' + i, channel: 'manual', date: a, amount: 100000 + i, desc: 'ค่าของ ' + (i + 1), status: 'paid', method: 'cash', updated: 10 + i, file: { path: `attachments/p${i}.png`, name: 'p.png' } })),
@@ -50,6 +51,10 @@ try {
   must(await page.locator('.a4page--land').count() === 1, 'income sheet is the landscape one')
   const cap = (await page.locator('figcaption').allInnerTexts()).join('\n')
   must(/ลำดับที่ 1 · ค่าของ 1/.test(cap) && /ลำดับที่ 7 · ค่าของ 7/.test(cap) && !/ไม่มีรูปแนบ/.test(cap), 'captions cross-reference voucher rows and skip entries without a photo: ' + cap)
+  const vt = (await page.locator('.a4page').allInnerTexts()).join('\n')
+  must(/ให้.+ยืมจากเงินหมุนเวียน \(จ่าย สวัสดิการ อ\.พิชิต/.test(vt) && /5,000/.test(vt), 'loan out shows under ต้องเบิก: ' + vt.slice(-400))
+  must(/หัก ให้กองทุนยืมค้าง\s+−5,000/.test(vt), 'reconciling line for money lent out')
+  must(/รวมจ่ายเป็นเงินทั้งสิ้น[\s\S]{0,20}7,050/.test(vt) || /รวมจ่ายเป็นเงินทั้งสิ้น/.test(vt) && !/รวมจ่ายเป็นเงินทั้งสิ้น[\s\S]{0,20}12,050/.test(vt), 'loan is not counted in total expenses')
   must(await page.locator('figure').count() === 7, 'only the 7 entries with a photo')
   const fits = await page.locator('figure').evaluateAll((fs) => fs.every((f) => { const b = f.querySelector('div').getBoundingClientRect(), i = f.querySelector('img').getBoundingClientRect(); return i.width <= b.width + 1 && i.height <= b.height + 1 }))
   must(fits, 'every photo is scaled to fit its cell (never cropped)')

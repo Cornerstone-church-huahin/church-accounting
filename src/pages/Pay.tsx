@@ -28,6 +28,8 @@ import { cacheImage } from '../lib/imageCache'
 import { loanExpenseRows, loanFlows, type FundScope } from '../lib/fundScope'
 import { useBalances } from '../lib/useBalances'
 import { circulatingOnly } from '../lib/balances'
+import { ownLent } from '../lib/loans'
+import { ownLoanLines } from '../lib/weekLoans'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
 import type { ExpenseEntry } from '../lib/types'
@@ -106,9 +108,11 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   // แถวในใบเบิก-จ่ายเงินสด: รายการบันทึกด้วยมือ + วางบิล/สำรองจ่าย (หมายเหตุขึ้นว่า วางบิล/สำรองจ่าย · ชื่อผู้นำบิลมาเบิก/ผู้สำรอง · รอเบิก)
   const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
   const weekAll = all.filter(inWeek)
-  const pendingBills = weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount }))
+  const fundNm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.byId(id ?? '')?.name ?? 'กองทุน')
+  const loanLines = fid ? [] : ownLoanLines(loansAll.items, fundNm, weekRange.from, weekRange.to)
+  const pendingBills = [...weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount })), ...loanLines]
   const weekLoan = loanFlows(fund, weekRange.from, weekRange.to)
-  const weekSummary = { inn: { ...weekL.inSum, cash: weekL.inSum.cash + weekLoan.inn }, funds: fundOut, pending: pendingBills, out: { ...weekL.outSum, cash: weekL.outSum.cash + weekLoan.out }, balance: fund ? fund.balance : circulatingOnly(bal, loansAll.items), asOf, net: { week: netOf(weekL, weekRange), month: netMonth, year: netYear }, ...(fund ? { scopeName: fund.name } : {}) }
+  const weekSummary = { inn: { ...weekL.inSum, cash: weekL.inSum.cash + weekLoan.inn }, funds: fundOut, pending: pendingBills, out: { ...weekL.outSum, cash: weekL.outSum.cash + weekLoan.out }, balance: fund ? fund.balance : circulatingOnly(bal, loansAll.items), asOf, net: { week: netOf(weekL, weekRange), month: netMonth, year: netYear }, ...(fid ? {} : { lent: ownLent(loansAll.items, asOf) }), ...(fund ? { scopeName: fund.name } : {}) }
   /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
   const expOps = can(role, 'settings') ? {
     add: (name: string) => { const g = makeExpenseGroup(cats.list, name); if (typeof g === 'string') return { error: g }; return cats.put([g]) ? { id: g.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
