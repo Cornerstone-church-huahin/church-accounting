@@ -28,6 +28,7 @@ export default function FundDetailPage() {
   const role = useRole()
   const [pick, setPick] = useState<string | null>(null)
   const [newSub, setNewSub] = useState('')
+  const [sheetPick, setSheetPick] = useState<string | null>(null) // ใบกองทุน: หมวดที่เลือกดู (null = ยังไม่เลือก)
   const [subErr, setSubErr] = useState('')
   const f = rows.find((r) => r.id === id)
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
@@ -100,7 +101,26 @@ export default function FundDetailPage() {
         <button type="button" role="tab" aria-selected={tab === 'sheet'} className={`home-tab home-tab--sum${tab === 'sheet' ? ' on' : ''}`} onClick={() => setTab('sheet')}><i className="hn">3</i><span>📄 ใบกองทุน</span></button>
       </div>
       <div className="fullmode">
-        {tab === 'sheet' ? <FundSheetPaper church={settings.churchName.split(' ')[0]} fundName={subName ? `${f.name} · ${subName}` : f.name} sheets={fundSheets(acct)} /> : tab === 'in' ? <Receive key={`${year}-${f.id}-in-${sub}`} year={year} fund={fund} /> : <Pay key={`${year}-${f.id}-out-${sub}`} year={year} fund={fund} />}
+        {tab === 'sheet' ? (() => {
+          const church = settings.churchName.split(' ')[0]
+          if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} />
+          // กองทุนที่มีหมวด: แถบเลือกหมวดขึ้นก่อน แล้วจึงแสดงใบรับ/ใบจ่ายของหมวดนั้น
+          const valid = sheetPick !== null && (sheetPick === 'all' || sheetPick === '' || subs.some((q) => q.id === sheetPick))
+          const cur = valid ? sheetPick : null
+          const name = cur === null ? '' : cur === 'all' ? '' : cur === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === cur)?.name ?? ''
+          return (
+            <>
+              <div className="rtabs no-print" role="tablist" aria-label="เลือกหมวดของใบกองทุน">
+                {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={cur === q.id} className={`rtab${cur === q.id ? ' on' : ''}`} onClick={() => setSheetPick(q.id)}>{q.name}</button>)}
+                <button type="button" role="tab" aria-selected={cur === ''} className={`rtab${cur === '' ? ' on' : ''}`} onClick={() => setSheetPick('')}>ส่วนกลาง</button>
+                <button type="button" role="tab" aria-selected={cur === 'all'} className={`rtab${cur === 'all' ? ' on' : ''}`} onClick={() => setSheetPick('all')}>รวมทุกหมวด</button>
+              </div>
+              {cur === null
+                ? <p className="muted small no-print" role="status" style={{ textAlign: 'center', margin: '1rem 0' }}>เลือกหมวดด้านบนเพื่อดูใบรับและใบจ่ายของหมวดนั้น</p>
+                : <FundSheetPaper church={church} fundName={name ? `${f.name} · ${name}` : f.name} sheets={fundSheets(subAccount(f, cur))} />}
+            </>
+          )
+        })() : tab === 'in' ? <Receive key={`${year}-${f.id}-in-${sub}`} year={year} fund={fund} /> : <Pay key={`${year}-${f.id}-out-${sub}`} year={year} fund={fund} />}
       </div>
     </>
   )
