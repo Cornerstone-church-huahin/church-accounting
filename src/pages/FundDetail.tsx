@@ -10,6 +10,7 @@ import { fundSheets } from '../lib/fundSheet'
 import { useSettings } from '../lib/data'
 import { can } from '../lib/access'
 import { useRole } from '../lib/members'
+import type { CatalogOps } from '../components/CatalogManager'
 import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fundSubs'
 import Pay from './Pay'
 import Receive from './Receive'
@@ -37,13 +38,18 @@ export default function FundDetailPage() {
   const sub = subs.length ? (pick !== null && (pick === 'all' || pick === '' || subs.some((q) => q.id === pick)) ? pick : subs[0].id) : 'all'
   const acct = subAccount(f, sub)
   const subName = sub === 'all' ? '' : sub === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === sub)?.name ?? ''
+  const canManage = can(role, 'settings')
+  const saveSubs = (next: ReturnType<typeof removeSub>) => { if (t) types.put([{ ...t, subs: next }]) }
+  const subOps: CatalogOps | undefined = canManage && t ? {
+    add: (name) => { const r = addSub(t, name); if ('error' in r) return r; const id = r.subs[r.subs.length - 1].id; saveSubs(r.subs); return { id } },
+    rename: (id, cur) => { const n = prompt('แก้ชื่อหมวด', cur)?.trim(); if (n && n !== cur) saveSubs((t.subs ?? []).map((q) => (q.id === id ? { ...q, name: n } : q))) },
+    remove: (id, nm) => { const has = f.moves.some((m) => m.subId === id); if (confirm(has ? `หมวด “${nm}” มีรายการแล้ว จะเก็บถาวร (ซ่อนจากตัวเลือก แต่รายงานยังเห็น) — ต้องการหรือไม่?` : `ลบหมวด “${nm}” ?`)) { saveSubs(removeSub(t, id, has)); if (pick === id) setPick(null) } },
+  } : undefined
   const fund: FundScope = {
     id: f.id, name: f.name, balance: acct.balance,
     loanMoves: sub === 'all' || sub === '' ? f.moves.filter(isLoanMove) : [],
-    ...(subs.length ? { subs, sub, subLabel: subName, subBal: { '': sum.central.balance, ...Object.fromEntries(sum.rows.map((r) => [r.id, r.acc.balance])) } } : {}),
+    ...(subs.length || subOps ? { subs, subOps, sub, subLabel: subName, subBal: { '': sum.central.balance, ...Object.fromEntries(sum.rows.map((r) => [r.id, r.acc.balance])) } } : {}),
   }
-  const canManage = can(role, 'settings')
-  const saveSubs = (next: ReturnType<typeof removeSub>) => { if (t) types.put([{ ...t, subs: next }]) }
   const add = () => { if (!t) return; const r = addSub(t, newSub); if ('error' in r) return setSubErr(r.error); saveSubs(r.subs); setNewSub(''); setSubErr('') }
   const rename = (id: string, cur: string) => { const n = prompt('แก้ชื่อหมวด', cur)?.trim(); if (n && n !== cur && t) saveSubs((t.subs ?? []).map((q) => (q.id === id ? { ...q, name: n } : q))) }
   const del = (id: string, nm: string) => { if (!t) return; const has = f.moves.some((m) => m.subId === id); if (confirm(has ? `หมวด “${nm}” มีรายการแล้ว จะเก็บถาวร (ซ่อนจากตัวเลือก แต่รายงานยังเห็น) — ต้องการหรือไม่?` : `ลบหมวด “${nm}” ?`)) { saveSubs(removeSub(t, id, has)); if (pick === id) setPick(null) } }
