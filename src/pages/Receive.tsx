@@ -173,20 +173,20 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
         <IncomeSheetPaper church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} sunday={sunday} onScan={canWrite && !fid ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
-        {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
-        <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
-          onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />
+        {canWrite && !fid && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
+        {!fid && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
+          onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />}
       </div>
       {scanFiles && <IncomeScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} types={scopeTypes} existing={inc.items} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = putInc(es); if (ok) goWeek(es[0].date); return ok }} />}
       {rowEdit && <IncomeRowEditor subs={fund?.subs} subOps={fund?.subOps} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} onUpload={canWrite ? uploadPic : undefined} onDropPhoto={(p) => void dropFile(p)} onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!putInc([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
-      <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
+      {!fid && <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
         <button type="button" role="tab" aria-selected={sub === 'manual'} className={sub === 'manual' ? 'on' : ''} onClick={() => setSub('manual')}><i className="dot">1</i><span>บันทึกด้วยมือ{manual.length ? ` (${manual.length})` : ''}</span></button>
         {!fid && <button type="button" role="tab" aria-selected={sub === 'slip'} className={sub === 'slip' ? 'on' : ''} onClick={() => setSub('slip')}><i className="dot">2</i><span>บันทึกสลิป{slips.length ? ` (${slips.length})` : ''}</span></button>}
         {!fid && <button type="button" role="tab" aria-selected={sub === 'sheet'} className={sub === 'sheet' ? 'on' : ''} onClick={() => setSub('sheet')}><i className="dot">3</i><span>ใบบันทึกการถวาย{lstFiles.length ? ` (${lstFiles.length})` : ''}</span></button>}
               <button type="button" role="tab" aria-selected={sub === 'total'} className={sub === 'total' ? 'on' : ''} onClick={() => setSub('total')}><i className="dot">4</i><span>รวมรับ</span></button>
-      </div>
+      </div>}
 
       {sub === 'manual' && (
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
