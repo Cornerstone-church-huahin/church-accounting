@@ -51,7 +51,30 @@ const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b
 /** โหมด "จ่าย": 1 บันทึกด้วยมือ · 2 วางบิล · 3 สำรองจ่าย · 4 รวมจ่าย (หักลบกับรายรับในแท็บสรุป) */
 export default function Pay({ year, fund, view }: { year: number; /** ดูอย่างเดียว: แสดงเฉพาะใบเบิก-จ่ายเงินสดรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
   const role = useRole()
-  const exp = useExpenses(year)
+  const expRaw = useExpenses(year)
+  const subsOn = !!fund?.subs?.length
+  const fcat = subsOn ? fund?.sub ?? 'all' : 'all'
+  const inSub = (x: { subId?: string }) => fcat === 'all' || (x.subId ?? '') === fcat
+  /** รายจ่ายของกองทุนที่มีหมวด: ใหม่ต้องมีหมวด (ติดหมวดที่เลือกอยู่) · จ่ายเกินยอดหมวดต้องยืนยัน */
+  const exp = {
+    ...expRaw,
+    put: (xs: ExpenseEntry[]) => {
+      if (!subsOn || !fund) return expRaw.put(xs)
+      const out: ExpenseEntry[] = []
+      for (const x of xs) {
+        if (x.subId !== undefined || expRaw.items.some((i) => i.id === x.id)) { out.push(x); continue }
+        if (fcat === 'all') { alert('เลือกหมวดของกองทุนก่อนบันทึกรายจ่าย (แถบ “หมวด” ด้านบน) — ไม่เลือกหมวดจะบันทึกไม่ได้'); return false }
+        out.push(fcat ? { ...x, subId: fcat } : x)
+      }
+      const need: Record<string, number> = {}
+      for (const x of out) if (!expRaw.items.some((i) => i.id === x.id)) need[x.subId ?? ''] = (need[x.subId ?? ''] ?? 0) + x.amount
+      for (const [k, v] of Object.entries(need)) {
+        const bal = fund.subBal?.[k] ?? 0
+        if (v > bal && !confirm(`${k ? fund.subs?.find((q) => q.id === k)?.name ?? 'หมวดนี้' : 'ส่วนกลาง'} มีเงินคงเหลือ ${fmtBaht(bal)} บาท แต่จะจ่าย ${fmtBaht(v)} บาท (เกินยอดที่มี)\nบันทึกต่อหรือไม่?`)) return false
+      }
+      return expRaw.put(out)
+    },
+  }
   const passbook = usePassbook(year)
   const cats = useExpenseCats()
   const vouchers = useVouchers(year)
@@ -79,10 +102,10 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
 
   // บัญชีหมุนเวียนเท่านั้น: รายจ่ายของกองทุน (จ่ายจากกองทุน) อยู่ที่หน้ากองทุน ไม่แสดง/แก้/ลบที่นี่
   const fid = fund?.id
-  const all = useMemo(() => [...exp.items].filter((x) => (fid ? x.fundId === fid : !x.fundId)).sort(byDateDesc), [exp.items, fid])
+  const all = useMemo(() => [...exp.items].filter((x) => (fid ? x.fundId === fid && inSub(x) : !x.fundId)).sort(byDateDesc), [exp.items, fid, fcat])
   // รับ/จ่ายที่ใช้คำนวณใบสรุป: บัญชีหมุนเวียน = ตามปกติ · หน้ากองทุน = เฉพาะรายรับของกองทุนนั้นกับรายจ่ายที่จ่ายจากกองทุนนั้น (withFunds)
   const ledgerArgs = (range: { from: string; to: string }) => fid
-    ? { range, income: income.items.filter((x) => x.typeId === fid), rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: types.list.filter((t) => t.id === fid), cats: cats.list, expenses: exp.items.filter((x) => x.fundId === fid), passbook: [], withFunds: true }
+    ? { range, income: income.items.filter((x) => x.typeId === fid && inSub(x)), rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: types.list.filter((t) => t.id === fid), cats: cats.list, expenses: exp.items.filter((x) => x.fundId === fid && inSub(x)), passbook: [], withFunds: true }
     : { range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }
   // สรุป 3 กรอบใต้ใบ: รับ/จ่ายของสัปดาห์ (ทุกช่องทาง เฉพาะเงินหมุนเวียน) + เงินหมุนเวียนคงเหลือ ณ สิ้นสัปดาห์ (ไม่เกินวันนี้)
   const dataKey = [passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items]
@@ -219,7 +242,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund?.name} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onScan={canWrite ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund && (fcat === 'all' || fcat === '') ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onScan={canWrite ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />
@@ -244,7 +267,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
           },
         } : {})} />}
       {scanFiles && <VoucherScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} cats={cats.list} existing={all} fundId={fid} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = exp.put(es); if (ok) { const w = sheetSunday(es[0].date); if (sundays.includes(w)) setSunday(w) } return ok }} />}
-      {rowEdit && <ExpenseRowEditor onManage={expOps} onUpload={uploadPic} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
+      {rowEdit && <ExpenseRowEditor subs={subsOn ? fund?.subs : undefined} defaultSub={fcat === 'all' ? '' : fcat} onManage={expOps} onUpload={uploadPic} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([fid ? { ...e, fundId: fid } : e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
