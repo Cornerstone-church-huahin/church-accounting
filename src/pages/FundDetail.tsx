@@ -63,7 +63,7 @@ export default function FundDetailPage() {
         <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
         <p className="muted small" style={{ margin: 0 }}>ตั้งต้น {fmtBaht(f.opening)}{opening ? ` (${fmtDate(opening.date)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b>{fmtBaht(f.balance)}</b></p>
       </section>
-      {canManage && (
+      {canManage && tab !== 'sheet' && (
         <section className="card no-print" aria-label="หมวดของกองทุน">
           <b>หมวดของกองทุนนี้</b>
           <p className="muted small" style={{ margin: '2px 0 6px' }}>{subs.length ? 'เลือกหมวดก่อนบันทึกรับ/จ่าย — รายการใหม่จะอยู่ในหมวดที่เลือก และแต่ละหมวดมียอดคงเหลือแยกกัน' : 'ยังไม่มีหมวด — เพิ่มหมวด (เช่น พืชผัก โต๊ะจีน) เพื่อแยกบัญชีและรายงานภายในกองทุนนี้'}</p>
@@ -96,21 +96,23 @@ export default function FundDetailPage() {
       )}
       <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />
       <DebtBanner lent loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} />
-      <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: รับ จ่าย ใบกองทุน" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      {tab !== 'sheet' && <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: รับ จ่าย ใบกองทุน" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <button type="button" role="tab" aria-selected={tab === 'in'} className={`home-tab home-tab--in${tab === 'in' ? ' on' : ''}`} onClick={() => setTab('in')}><i className="hn">1</i><span>💚 รับ</span></button>
         <button type="button" role="tab" aria-selected={tab === 'out'} className={`home-tab home-tab--out${tab === 'out' ? ' on' : ''}`} onClick={() => setTab('out')}><i className="hn">2</i><span>🔴 จ่าย</span></button>
-        <button type="button" role="tab" aria-selected={tab === 'sheet'} className={`home-tab home-tab--sum${tab === 'sheet' ? ' on' : ''}`} onClick={() => setTab('sheet')}><i className="hn">3</i><span>📄 ใบกองทุน</span></button>
-      </div>
+        <button type="button" role="tab" aria-selected={false} className="home-tab home-tab--sum" onClick={() => setTab('sheet')}><i className="hn">3</i><span>📄 ใบกองทุน</span></button>
+      </div>}
       <div className="fullmode">
         {tab === 'sheet' ? (() => {
           const church = settings.churchName.split(' ')[0]
-          if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} />
+          const back = <div className="no-print" style={{ margin: '6px 0' }}><button type="button" className="btn btn--ghost" onClick={() => setTab('in')}>‹ กลับไปรับ / จ่าย</button></div>
+          if (!subs.length) return <>{back}<FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} /></>
           // กองทุนที่มีหมวด: แถบเลือกหมวดขึ้นก่อน แล้วจึงแสดงใบรับ/ใบจ่ายของหมวดนั้น
           const valid = sheetPick !== null && (sheetPick === 'all' || sheetPick === '' || subs.some((q) => q.id === sheetPick))
           const cur = valid ? sheetPick : null
           const name = cur === null ? '' : cur === 'all' ? '' : cur === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === cur)?.name ?? ''
           return (
             <>
+              {back}
               <div className="rtabs no-print" role="tablist" aria-label="เลือกหมวดของใบกองทุน">
                 {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={cur === q.id} className={`rtab${cur === q.id ? ' on' : ''}`} onClick={() => setSheetPick(q.id)}>{q.name}</button>)}
                 <button type="button" role="tab" aria-selected={cur === ''} className={`rtab${cur === '' ? ' on' : ''}`} onClick={() => setSheetPick('')}>ส่วนกลาง</button>

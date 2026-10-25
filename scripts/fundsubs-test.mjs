@@ -62,11 +62,14 @@ try {
   must((await page.getByRole('table', { name: 'สรุปยอดแต่ละหมวด' }).innerText()).includes('ของที่ระลึก'), 'new category appears in the summary table')
   // ใบกองทุน: แถบหมวดขึ้นก่อน ยังไม่แสดงใบจนกว่าจะเลือกหมวด
   await page.getByRole('tab', { name: /ใบกองทุน/ }).click()
+  must(await page.getByRole('region', { name: 'หมวดของกองทุน' }).count() === 0 && await page.getByRole('tablist', { name: /กองทุนนี้: รับ จ่าย ใบกองทุน/ }).count() === 0, 'sheet view hides the category card and the รับ/จ่าย/ใบกองทุน tabs')
   must(await page.getByRole('tablist', { name: 'เลือกหมวดของใบกองทุน' }).count() === 1, 'category bar appears first on the fund sheet tab')
   must(await page.locator('.a4page').count() === 0, 'no sheet is shown before a category is picked')
   await page.getByRole('tablist', { name: 'เลือกหมวดของใบกองทุน' }).getByRole('tab', { name: 'โต๊ะจีน' }).click()
   const sheet = (await page.locator('.a4page').allInnerTexts()).join('\n')
   must(/โต๊ะจีน/.test(sheet) && /3,000/.test(sheet) && !/5,000/.test(sheet), 'fund sheet is filtered to the picked category: ' + sheet.slice(0, 200))
+  await page.getByRole('button', { name: /กลับไปรับ/ }).click()
+  must(await page.getByRole('tab', { name: /💚 รับ/ }).count() === 1 && await page.getByRole('region', { name: 'หมวดของกองทุน' }).count() === 1, 'back button returns to รับ/จ่าย with the card')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('fundsubs-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
