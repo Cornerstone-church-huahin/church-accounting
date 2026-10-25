@@ -46,17 +46,20 @@ try {
   must(dialogs.some((d) => /เกินยอดที่มี/.test(d)), 'overspend asks for confirmation: ' + dialogs.join('|'))
   const ex = (await store('acct.expenses.')).filter((x) => x.fundId === 'tt9')
   must(ex.length === 1 && ex[0].subId === (inc.find((x) => x.amount === 500000)?.subId), 'expense saved in the selected category')
-  // ทุกหมวด: บันทึกรายจ่ายไม่ได้
-  dialogs.length = 0
+  // ทุกหมวด: ฟอร์มเลือกหมวดแรกให้ · เพิ่มหมวดใหม่ได้ในฟอร์มเลย
   await page.getByRole('tab', { name: 'ทุกหมวด' }).click()
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await page.getByRole('table', { name: /ใบเบิก-จ่ายเงินสด/ }).locator('tbody tr').nth(1).click()
-  await page.locator('#ere-desc').fill('ไม่ระบุหมวด')
-  await page.locator('.field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('100')
-  await page.locator('.sheet button.btn--gold', { hasText: 'เพิ่มลงใบ' }).click()
+  const ys = await page.evaluate(() => ['ere-item', 'ere-sub', 'ere-desc'].map((id) => document.getElementById(id)?.getBoundingClientRect().top ?? -1))
+  must(ys[0] > 0 && ys[1] > ys[0] && ys[2] > ys[1], 'category field sits right after the item field: ' + ys)
+  must(await page.locator('#ere-sub').inputValue() !== '', 'all-categories view preselects the first category')
+  await page.locator('.sheet summary', { hasText: 'หมวด' }).click()
+  await page.locator('.sheet').getByLabel('ชื่อหมวดใหม่').fill('ของที่ระลึก')
+  await page.locator('.sheet').getByRole('button', { name: '＋ เพิ่ม', exact: true }).click()
   await page.waitForTimeout(500)
-  must(dialogs.some((d) => /เลือกหมวด/.test(d)) && (await store('acct.expenses.')).filter((x) => x.fundId === 'tt9').length === 1, 'all-categories view refuses a new expense: ' + dialogs.join('|'))
-  await page.locator('button:has-text("ปิด")').first().click().catch(() => {})
+  must((await page.locator('#ere-sub option:checked').innerText()) === 'ของที่ระลึก', 'a category added inside the form becomes the selected one')
+  await page.locator('.sheet').getByRole('button', { name: 'ปิด' }).click()
+  must((await page.getByRole('table', { name: 'สรุปยอดแต่ละหมวด' }).innerText()).includes('ของที่ระลึก'), 'new category appears in the summary table')
   // ใบกองทุนแยกตามหมวด
   await page.getByRole('tab', { name: 'โต๊ะจีน' }).click()
   await page.getByRole('tab', { name: /ใบกองทุน/ }).click()

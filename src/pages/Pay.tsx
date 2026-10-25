@@ -221,7 +221,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
         )}
         {c !== 'manual' && open.length > 0 && <p><span className="badge badge--gold">{CH[c].openLabel} {open.length} · {fmtBaht(sum(open))}</span></p>}
         {c === 'manual'
-          ? <ManualExpense cats={cats.list} onManage={expOps} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([fid ? { ...e, fundId: fid } : e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
+          ? <ManualExpense subs={fund?.subs} subOps={fund?.subOps} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} cats={cats.list} onManage={expOps} entries={ofAll('manual').filter(inWeek)} canWrite={canWrite} defaultDate={weekDefaultDate} onAdd={(e) => exp.put([fid ? { ...e, fundId: fid } : e])} onEdit={(x) => setForm({ entry: x, channel: 'manual' })} onDelete={del} />
           : xs.length === 0 ? <p className="muted small">ยังไม่มีรายการ</p> : <ul className="list">{xs.map(card)}</ul>}
       </section>
     )
@@ -267,7 +267,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
           },
         } : {})} />}
       {scanFiles && <VoucherScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} cats={cats.list} existing={all} fundId={fid} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = exp.put(es); if (ok) { const w = sheetSunday(es[0].date); if (sundays.includes(w)) setSunday(w) } return ok }} />}
-      {rowEdit && <ExpenseRowEditor subs={subsOn ? fund?.subs : undefined} defaultSub={fcat === 'all' ? '' : fcat} onManage={expOps} onUpload={uploadPic} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
+      {rowEdit && <ExpenseRowEditor subs={fund?.subs} subOps={fund?.subOps} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} onManage={expOps} onUpload={uploadPic} entry={rowEdit.entry} cats={cats.list} defaultDate={weekDefaultDate} onClose={() => setRowEdit(null)} onDelete={del}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!exp.put([fid ? { ...e, fundId: fid } : e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; const w = sheetSunday(e.date); if (sundays.includes(w)) setSunday(w); return null }} />}
       <div className="subtabs subtabs--out no-print" role="tablist" aria-label="ช่องบันทึกรายจ่าย">
         {tab('manual', 1, 'บันทึกด้วยมือ', of('manual').length)}
