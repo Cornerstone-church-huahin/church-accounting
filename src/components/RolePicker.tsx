@@ -9,7 +9,9 @@ export default function RolePicker({ value, onChange, label, disabled, confirmTe
   const start = () => { setDraft(value); setOpen(true) }
   const toggle = (r: Role) => {
     if (draft.includes(r)) { if (draft.length > 1) setDraft(normalizeRoles(draft.filter((x) => x !== r))); return }
-    setDraft(normalizeRoles(r === 'admin' || r === 'viewer' ? [r] : [...draft, r]))
+    // ผู้ดูแลกองทุนเป็นสิทธิ์เฉพาะทาง: เลือกแล้วแทนที่สิทธิ์อื่นทั้งหมด · เลือกสิทธิ์อื่นเพิ่มจะยกเลิกผู้ดูแลกองทุนให้
+    if (r === 'fundkeeper') { setDraft(['fundkeeper']); return }
+    setDraft(normalizeRoles(r === 'admin' || r === 'viewer' ? [r] : [...draft.filter((x) => x !== 'fundkeeper'), r]))
   }
   const adminOn = draft.includes('admin')
   return (
