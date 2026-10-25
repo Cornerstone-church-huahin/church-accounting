@@ -1,5 +1,5 @@
 import { UNKNOWN_INCOME_LABEL } from '../lib/types'
-import { useRef, type MutableRefObject, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
 import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/money'
 import { downloadSheetPdf } from '../lib/pdf'
 import { isCompensation } from '../lib/maskPay'
@@ -60,8 +60,15 @@ function DownloadRow({ onData, kind, church, sunday, onScan }: { onData: () => v
 }
 
 /** ข้อความจางกลางแผ่น (เฉพาะบนจอ ไม่ติดไปกับ PDF/พิมพ์/แชร์): บอกวิธีใช้ใบทันที */
-function SheetHint({ top }: { top?: string }) {
-  return <div className="sheet-hint no-print" aria-hidden="true" style={top ? { top } : undefined}><b>แตะแถวว่างเพื่อบันทึกข้อมูล</b><span>แตะแถวที่มีรายการเพื่อแก้ไข</span></div>
+function SheetHint() {
+  const ref = useRef<HTMLDivElement>(null)
+  // วางกึ่งกลางตารางของใบนี้ (ทั้งแนวตั้งและแนวนอน) ไม่ว่าตารางจะสูงเท่าไร
+  useLayoutEffect(() => {
+    const el = ref.current, page = el?.closest<HTMLElement>('.a4page'), tbl = page?.querySelector<HTMLElement>('table.sheetpaper')
+    if (!el || !tbl) return
+    el.style.top = `${tbl.offsetTop + tbl.offsetHeight / 2 - el.offsetHeight / 2}px`
+  })
+  return <div ref={ref} className="sheet-hint no-print" aria-hidden="true"><b>แตะแถวว่างเพื่อบันทึกข้อมูล</b><span>แตะแถวที่มีรายการเพื่อแก้ไข</span></div>
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
@@ -157,7 +164,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
             </div>
             {pi === pages.length - 1 && <WithdrawNote summary={summary} />}
           </>
-          {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint top="34%" />}
+          {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint />}
         </ScaledPage>
       ))}
       {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
