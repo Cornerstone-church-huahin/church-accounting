@@ -4,6 +4,9 @@ import type { FundMove, IncomeType, Opening, PassbookLine } from './types'
 /** กองทุนวัตถุประสงค์: ตั้งไว้ชัดเจนก่อน ไม่ตั้ง = เดาจากชื่อ (กองทุน… / สร้างอาคาร / ก่อสร้าง) */
 export const isFundType = (t: Pick<IncomeType, 'name' | 'fund'>) => t.fund ?? /กองทุน|สร้างอาคาร|ก่อสร้าง/.test(t.name)
 
+/** รายรับที่บันทึกจากโซนกองทุน (หน้ากองทุน/ระบุหมวด) — ไม่นับในบัญชีหมุนเวียนรายสัปดาห์ */
+export const isFundZone = (x: { fz?: boolean; subId?: string }) => !!x.fz || x.subId !== undefined
+
 export interface FundRow { id: string; name: string; received: number; moved: number; unmoved: number }
 
 /**

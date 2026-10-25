@@ -29,6 +29,7 @@ import { loanExpenseRows, loanFlows, type FundScope } from '../lib/fundScope'
 import { useBalances } from '../lib/useBalances'
 import { circulatingOnly } from '../lib/balances'
 import { ownLent } from '../lib/loans'
+import { isFundZone } from '../lib/funds'
 import { ownLoanLines } from '../lib/weekLoans'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
@@ -106,7 +107,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   // รับ/จ่ายที่ใช้คำนวณใบสรุป: บัญชีหมุนเวียน = ตามปกติ · หน้ากองทุน = เฉพาะรายรับของกองทุนนั้นกับรายจ่ายที่จ่ายจากกองทุนนั้น (withFunds)
   const ledgerArgs = (range: { from: string; to: string }) => fid
     ? { range, income: income.items.filter((x) => x.typeId === fid && inSub(x)), rounds: [], vouchers: [], lines: [], funds: [], entries: [], types: types.list.filter((t) => t.id === fid), cats: cats.list, expenses: exp.items.filter((x) => x.fundId === fid && inSub(x)), passbook: [], withFunds: true }
-    : { range, income: income.items, rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }
+    : { range, income: income.items.filter((x) => !isFundZone(x)), rounds: rounds.items, vouchers: vouchers.items, lines: lines.items, funds: funds.items, entries: entries.items, types: types.list, cats: cats.list, expenses: exp.items, passbook: passbook.items }
   // สรุป 3 กรอบใต้ใบ: รับ/จ่ายของสัปดาห์ (ทุกช่องทาง เฉพาะเงินหมุนเวียน) + เงินหมุนเวียนคงเหลือ ณ สิ้นสัปดาห์ (ไม่เกินวันนี้)
   const dataKey = [passbook.items, income.items, rounds.items, vouchers.items, lines.items, funds.items, entries.items, types.list, cats.list, exp.items]
   const weekL = useMemo(() => computeLedger(ledgerArgs(rangeOf('week', year, { sunday }))), [year, sunday, fid, ...dataKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -122,7 +123,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   const { balances: bal } = useBalances(year, asOf)
   const loansAll = useLoans()
   // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
-  const wf = useMemo(() => fid ? [] : computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items, rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, cats: cats.list, expenses: [], passbook: passbook.items, withFunds: true }).fundRows, [year, sunday, fid, passbook.items, income.items, rounds.items, types.list, cats.list])
+  const wf = useMemo(() => fid ? [] : computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items.filter((x) => !isFundZone(x)), rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, cats: cats.list, expenses: [], passbook: passbook.items, withFunds: true }).fundRows, [year, sunday, fid, passbook.items, income.items, rounds.items, types.list, cats.list])
   const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
   const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', requester: 'กองทุน · รอเบิก', updated: 1e15 + i }) as ExpenseEntry)
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday

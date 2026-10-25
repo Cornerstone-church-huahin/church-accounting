@@ -6,6 +6,7 @@ import { useLoans, useSettings } from '../lib/data'
 import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO, weekRange, weekTitle } from '../lib/money'
 import { expenseLines, weekNotice } from '../lib/notice'
 import { summarizeLoans } from '../lib/loans'
+import { isFundZone } from '../lib/funds'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 
@@ -21,7 +22,8 @@ export default function OverviewView({ year }: { year: number }) {
   const showTiles = canSeeBalances(role)
   const { save } = useSettings()
   const [editNote, setEditNote] = useState<string | null>(null)
-  const { balances: b, input } = useBalances(year)
+  const { balances: b, input: fullInput } = useBalances(year)
+  const input = useMemo(() => ({ ...fullInput, income: fullInput.income.filter((x) => !isFundZone(x)) }), [fullInput])
   const ls = summarizeLoans(useLoans().items)
   const church = settings.churchName.split(' ')[0]
   const paper = useRef<HTMLDivElement[]>([])
