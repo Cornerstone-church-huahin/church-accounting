@@ -21,6 +21,10 @@ try {
   must(await page.getByLabel('สัปดาห์ถัดไป').isVisible(), 'week bar above the sheet')
   must(/อาทิตย์ที่ \d ของเดือน\S+ \d{4}\s+ระหว่างวันที่ \d+(–| [^\s]+ – )\d+ \S+ \d{2}/.test((await page.locator('.weekbar').first().innerText()).replace(/\n/g, ' ')), 'week bar reads: อาทิตย์ที่ N ของเดือน … ระหว่างวันที่ …')
   await page.screenshot({ path: 'shots/weekbar-title.png' })
+  must(await page.locator('.a4page .sheet-hint').first().isVisible() && /แตะแถวว่างเพื่อบันทึกข้อมูล/.test(await page.locator('.sheet-hint').first().innerText()), 'faint usage hint is shown on the editable sheet')
+  await page.emulateMedia({ media: 'print' })
+  must(!(await page.locator('.sheet-hint').first().isVisible()), 'usage hint is hidden when printing')
+  await page.emulateMedia({ media: 'screen' })
   // แตะแถวว่างเพื่อเพิ่ม
   await inc.locator('tbody tr').nth(0).click()
   await page.locator('#ire-count').fill('3')
