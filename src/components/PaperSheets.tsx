@@ -59,6 +59,11 @@ function DownloadRow({ onData, kind, church, sunday, onScan }: { onData: () => v
   )
 }
 
+/** ข้อความจางกลางแผ่น (เฉพาะบนจอ ไม่ติดไปกับ PDF/พิมพ์/แชร์): บอกวิธีใช้ใบทันที */
+function SheetHint({ top }: { top?: string }) {
+  return <div className="sheet-hint no-print" aria-hidden="true" style={top ? { top } : undefined}><b>แตะแถวว่างเพื่อบันทึกข้อมูล</b><span>แตะแถวที่มีรายการเพื่อแก้ไข</span></div>
+}
+
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
 export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, scope, onScan, blank, noDownload }: { /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
@@ -102,6 +107,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, s
               <div>ลงชื่อผู้ตรวจนับ 1 ................................................<br />ลงชื่อผู้ตรวจนับ 2 ................................................</div>
             </div>
           </>
+          {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint />}
         </ScaledPage>
       ))}
       {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />}
@@ -151,6 +157,7 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
             </div>
             {pi === pages.length - 1 && <WithdrawNote summary={summary} />}
           </>
+          {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint top="34%" />}
         </ScaledPage>
       ))}
       {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
