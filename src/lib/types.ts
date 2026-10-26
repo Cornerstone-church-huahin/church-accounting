@@ -5,10 +5,12 @@ import type { SharedItem } from './sync'
 /** หมวดย่อยภายในกองทุน (เช่น พืชผัก โต๊ะจีน) — รายรับ/รายจ่ายของกองทุนระบุหมวดได้ แยกยอด/รายงานตามหมวด */
 export interface FundSub { id: string; name: string; active: boolean; order: number; /** กิจกรรมของกองทุนที่หมวดนี้อยู่ (กองทุนโหมดกิจกรรม) */ actId?: string }
 /** กิจกรรมในกองทุน (เช่น วันขอบคุณพระเจ้า คริสต์มาส): วันที่ = วันเริ่มกิจกรรม · ปิดกิจกรรมแล้วบันทึกเพิ่มไม่ได้ และมีคะแนนประเมิน 0-10 พร้อมเหตุผล */
+/** คณะกรรมการ/ทีมงานของกิจกรรม: ใครรับผิดชอบอะไร */
+export interface ActMember { id: string; name: string; duty?: string }
 export interface ActGoal { id: string; text: string; done: boolean; doneDate?: string }
 /** ประเมินผลกิจกรรม: ความพึงพอใจ 0–100 (แสดงเป็นขีดปรอทที่การ์ด) + ข้อดี/ข้อเสีย/สรุป */
 export interface ActEval { score: number; pros?: string; cons?: string; summary?: string }
-export interface FundActivity { id: string; name: string; /** วันเริ่มกิจกรรม */ date: string; /** วันสิ้นสุด (ไม่ใส่ = วันเดียวกับวันเริ่ม) */ endDate?: string; purpose?: string; committee?: string; note?: string; /** เป้าหมาย/ขั้นตอนของงาน: ทำแล้ว/ยังไม่ทำ */ goals?: ActGoal[]; eval?: ActEval; closed?: { date: string } }
+export interface FundActivity { id: string; name: string; /** วันเริ่มกิจกรรม */ date: string; /** วันสิ้นสุด (ไม่ใส่ = วันเดียวกับวันเริ่ม) */ endDate?: string; /** คณะกรรมการ/ทีมงาน (ชื่อ + หน้าที่) — ทุกคนที่เปิดกิจกรรมเห็น แอดมินแก้ได้ */ team?: ActMember[]; purpose?: string; committee?: string; note?: string; /** เป้าหมาย/ขั้นตอนของงาน: ทำแล้ว/ยังไม่ทำ */ goals?: ActGoal[]; eval?: ActEval; closed?: { date: string } }
 export interface IncomeType extends SharedItem { name: string; order: number; active: boolean
   /** หมวดย่อยของกองทุนนี้ (ไม่มี = กองทุนไม่แบ่งหมวด) */
   subs?: FundSub[]

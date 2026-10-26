@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
 import { actDays, actEnded, addGoal, goalProgress, toggleGoal } from '../lib/fundActs'
-import type { ActEval, FundActivity } from '../lib/types'
+import { newId } from '../lib/money'
+import type { ActEval, ActMember, FundActivity } from '../lib/types'
 
 const gaugeColor = (v: number) => (v < 40 ? '#c4332a' : v < 70 ? '#d9a21b' : '#1f8a4c')
 
@@ -63,11 +64,13 @@ export function AddActivity({ onAdd }: { onAdd: (name: string, date: string, end
 }
 
 /** ส่วนหัวของกิจกรรม: ชื่อ สถานะ ช่วงวันที่ · ไอคอน ✏️ แก้ชื่อ/วันเริ่ม/วันสิ้นสุดได้ทันที (แอดมิน) — วันที่นี้แสดงที่การ์ดและใช้เรียงลำดับ (ใหม่อยู่บนสุด) */
-export function ActHeader({ act, onReport, onDelete, onEdit }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onEdit?: (patch: { name: string; date: string; endDate?: string }) => string | null }) {
+export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onTeam?: (team: ActMember[]) => void; onEdit?: (patch: { name: string; date: string; endDate?: string }) => string | null }) {
   const ended = actEnded(act, todayISO()), end = act.endDate ?? act.date
   const [edit, setEdit] = useState(false)
   const [d, setD] = useState({ name: act.name, date: act.date, endDate: end })
   const [err, setErr] = useState('')
+  const [teamEdit, setTeamEdit] = useState<ActMember[] | null>(null)
+  const team = act.team ?? []
   return (
     <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -89,7 +92,31 @@ export function ActHeader({ act, onReport, onDelete, onEdit }: { act: FundActivi
           {err && <p className="err" role="alert">{err}</p>}
         </div>
       )}
+      {(team.length > 0 || (onTeam && !teamEdit)) && !teamEdit && (
+        <div style={{ marginTop: 6 }} aria-label="คณะกรรมการกิจกรรม">
+          <p className="small" style={{ margin: 0 }}><b>👥 คณะกรรมการ / ทีมงาน</b>{team.length === 0 ? <span className="muted"> — ยังไม่ได้บันทึก</span> : null}</p>
+          {team.length > 0 && <ul style={{ margin: '2px 0 0', paddingLeft: 18, fontSize: 13 }}>{team.map((m) => <li key={m.id}><b>{m.name}</b>{m.duty ? ` — ${m.duty}` : ''}</li>)}</ul>}
+        </div>
+      )}
+      {teamEdit && (
+        <div className="no-print" role="group" aria-label="แก้คณะกรรมการกิจกรรม" style={{ marginTop: 6 }}>
+          <b className="small">👥 คณะกรรมการ / ทีมงาน (ใคร ทำหน้าที่อะไร)</b>
+          {teamEdit.map((m, i) => (
+            <div key={m.id} className="row" style={{ gap: 6, margin: '4px 0', flexWrap: 'wrap' }}>
+              <input className="input" style={{ flex: '1 1 40%' }} aria-label={`ชื่อกรรมการคนที่ ${i + 1}`} placeholder="ชื่อ" value={m.name} onChange={(e) => setTeamEdit(teamEdit.map((x) => (x.id === m.id ? { ...x, name: e.target.value } : x)))} />
+              <input className="input" style={{ flex: '1 1 45%' }} aria-label={`หน้าที่ของกรรมการคนที่ ${i + 1}`} placeholder="หน้าที่ เช่น ประธาน / การเงิน / อาหาร" value={m.duty ?? ''} onChange={(e) => setTeamEdit(teamEdit.map((x) => (x.id === m.id ? { ...x, duty: e.target.value } : x)))} />
+              <button type="button" className="mini" aria-label={`ลบกรรมการคนที่ ${i + 1}`} onClick={() => setTeamEdit(teamEdit.filter((x) => x.id !== m.id))}>🗑️</button>
+            </div>
+          ))}
+          <div className="row" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit([...teamEdit, { id: newId('tm'), name: '' }])}>＋ เพิ่มคน</button>
+            <button type="button" className="btn btn--gold" onClick={() => { onTeam?.(teamEdit.map((m) => ({ id: m.id, name: m.name.trim(), ...(m.duty?.trim() ? { duty: m.duty.trim() } : {}) })).filter((m) => m.name)); setTeamEdit(null) }}>บันทึกคณะกรรมการ</button>
+            <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit(null)}>ยกเลิก</button>
+          </div>
+        </div>
+      )}
       <div className="row no-print" style={{ marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
+        {onTeam && !teamEdit && <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit(team.length ? team : [{ id: newId('tm'), name: '' }])}>✏️ แก้คณะกรรมการ</button>}
         {onReport && <button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
         {onDelete && <button type="button" className="btn btn--ghost" onClick={onDelete}>🗑️ ลบกิจกรรมนี้</button>}
       </div>
