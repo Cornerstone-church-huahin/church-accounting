@@ -82,3 +82,16 @@ export function applyWizard(t: IncomeType, rows: WizRow[], map: Record<string, s
   })
   return { actMode: true, activities, subs }
 }
+
+/**
+ * เปิดโหมดกิจกรรมอัตโนมัติ (ไม่ต้องตอบคำถาม): หมวดที่ชื่อเหมือนกิจกรรมกลายเป็นกิจกรรมของตัวเอง · หมวดอื่นอยู่ในกิจกรรมที่เริ่มเร็วสุด
+ * ไม่มีหมวดเลย = เริ่มด้วยโหมดกิจกรรมที่ยังไม่มีการ์ด (เพิ่มกิจกรรมได้ที่หน้ากองทุน) · dateOf = วันที่รายการแรกของหมวด (ไม่มี = วันนี้)
+ */
+export function autoActivities(t: IncomeType, dateOf: (subId: string) => string | undefined, today: string): Partial<IncomeType> {
+  const subs = (t.subs ?? []).filter((s) => s.active)
+  if (subs.length === 0) return { actMode: true, activities: t.activities ?? [] }
+  const own: WizRow[] = subs.filter((s) => looksLikeActivity(s.name)).map((s) => ({ key: `s-${s.id}`, name: s.name, date: dateOf(s.id) ?? today, selfSub: s.id }))
+  const rows: WizRow[] = own.length ? own : [{ key: 'r0', name: 'กิจกรรมแรก', date: subs.map((s) => dateOf(s.id)).filter((d): d is string => !!d).sort()[0] ?? today }]
+  const r = applyWizard(t, rows, {})
+  return 'error' in r ? { actMode: true, activities: t.activities ?? [] } : r
+}

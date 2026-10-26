@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fmtBaht, fmtDate } from '../lib/money'
 import { useYear } from '../lib/year'
@@ -12,8 +12,8 @@ import { can, myFunds } from '../lib/access'
 import { useRole } from '../lib/members'
 import type { CatalogOps } from '../components/CatalogManager'
 import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fundSubs'
-import { actAccount, actSubIds, addActivity, applyWizard, lockedSubIds, sortedActs } from '../lib/fundActs'
-import { ActEvaluation, ActHeader, ActivityCards, ActivityWizard, ActProgress, AddActivity } from '../components/FundActivities'
+import { actAccount, actSubIds, addActivity, autoActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
+import { ActEvaluation, ActHeader, ActivityCards, ActProgress, AddActivity } from '../components/FundActivities'
 import ActReportPages, { type ActReportKind } from '../components/ActReport'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import Pay from './Pay'
@@ -39,8 +39,14 @@ export default function FundDetailPage() {
   const [busy, setBusy] = useState(false)
   const repRef = useRef<HTMLDivElement[]>([])
   const [actTab, setActTab] = useState<'acct' | 'prog' | 'eval'>('acct')
-  const [wiz, setWiz] = useState(false)
   const f = rows.find((r) => r.id === id)
+  // "กองทุนกิจกรรม": เปิดโหมดกิจกรรมให้เองครั้งแรกที่แอดมินเข้า (หมวดที่ชื่อเป็นกิจกรรมกลายเป็นการ์ดกิจกรรม) — ไม่มีหน้าถามเพิ่ม
+  useEffect(() => {
+    const ft = types.list.find((x) => x.id === id)
+    if (!f || !ft || ft.actMode || !can(role, 'settings') || !/กิจกรรม/.test(ft.name)) return
+    const first = (sid: string) => f.moves.filter((m) => m.subId === sid).map((m) => m.date).sort()[0]
+    types.put([{ ...ft, ...autoActivities(ft, first, new Date().toISOString().slice(0, 10)) }])
+  }, [id, f, types.list, role]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
   const t = types.list.find((x) => x.id === f.id)
   const keeper = role === 'fundkeeper'
@@ -88,9 +94,7 @@ export default function FundDetailPage() {
           </section>
         )}
         {canManage && <AddActivity onAdd={(name, date, end) => { if (!t) return 'ไม่พบกองทุน'; const r = addActivity(t, name, date, end); if ('error' in r) return r.error; saveActs(r.activities); return null }} />}
-        <h2 className="no-print" style={{ margin: '8px 0 0', fontSize: '1.05rem' }}>กิจกรรมของกองทุน (ใหม่อยู่บนสุด)</h2>
         <ActivityCards acts={visibleActs} stat={(a) => actAccount(f, actSubIds(t, a.id).filter((i) => !keeperOnly || keeperOnly.includes(i)))} onOpen={(id) => { setActId(id); setPick(null); setSheetPick(null); setTab('in'); setActTab('acct') }} />
-        {canManage && (sum.central.moneyIn > 0 || sum.central.moneyOut > 0 || sum.central.opening !== 0) && <p className="muted small no-print" style={{ margin: '4px 0' }}>ส่วนกลางของกองทุน (ยังไม่แบ่งกิจกรรม) คงเหลือ {fmtBaht(sum.central.balance)} บาท · รวมอยู่ในยอดกองทุนด้านบนแล้ว</p>}
       </>
     )
   }
@@ -127,7 +131,14 @@ export default function FundDetailPage() {
   return (
     <>
       {act && <div className="no-print" style={{ margin: '6px 0' }}><button type="button" className="btn btn--ghost" onClick={() => { setActId(null); setPick(null); setSheetPick(null) }}>‹ ทุกกิจกรรม</button></div>}
-      {act && <ActHeader act={act} onReport={() => setReport('all')} />}
+      {act && <ActHeader act={act} onReport={() => setReport('all')} onDelete={canManage ? () => {
+        if (!t) return
+        const ids = actSubIds(t, act.id)
+        if (f.moves.some((m) => m.subId && ids.includes(m.subId))) { alert('กิจกรรมนี้มีรายการรับ-จ่ายแล้ว ลบไม่ได้ — ใช้ “ปิดกิจกรรม” แทน (ข้อมูลบัญชียังอยู่ครบ)'); return }
+        if (!confirm(`ลบกิจกรรม “${act.name}” ?`)) return
+        types.put([{ ...t, activities: (t.activities ?? []).filter((a) => a.id !== act.id), subs: (t.subs ?? []).filter((q) => q.actId !== act.id) }])
+        setActId(null)
+      } : undefined} />}
       {act && (
         <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="หมวดงานของกิจกรรม" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <button type="button" role="tab" aria-selected={actTab === 'acct'} className={`home-tab home-tab--in${actTab === 'acct' ? ' on' : ''}`} onClick={() => setActTab('acct')}><i className="hn">1</i><span>📒 ระบบบัญชี</span></button>
@@ -158,19 +169,6 @@ export default function FundDetailPage() {
         <p className="muted small" style={{ margin: 0 }}>ตั้งต้น {fmtBaht(f.opening)}{opening ? ` (${fmtDate(opening.date)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b>{fmtBaht(f.balance)}</b></p>
       </section>
       )}
-      {!actMode && canManage && t && wiz && (
-        <ActivityWizard
-          cats={(t.subs ?? []).filter((q) => q.active).map((q) => ({ id: q.id, name: q.name, defDate: f.moves.filter((m) => m.subId === q.id).map((m) => m.date).sort()[0] ?? new Date().toISOString().slice(0, 10) }))}
-          onCancel={() => setWiz(false)}
-          onApply={(rows, map) => { const r = applyWizard(t, rows, map); if ('error' in r) return r.error; types.put([{ ...t, ...r }]); setWiz(false); setActId(null); return null }} />
-      )}
-      {!actMode && canManage && t && !wiz && tab !== 'sheet' && (
-        <section className="card no-print" aria-label="แบ่งเป็นกิจกรรม" style={{ borderLeft: '6px solid #1f5fc4' }}>
-          <b>🗓️ กองทุนนี้มีหลายกิจกรรมไหม?</b>
-          <p className="small muted" style={{ margin: '2px 0 6px' }}>แบ่งเป็นกิจกรรม (เช่น วันขอบคุณพระเจ้า คริสต์มาส) แล้วเข้ากองทุนมาจะเห็นการ์ดของแต่ละกิจกรรมก่อน พร้อมยอดเงินและขีดประเมินผล</p>
-          <button type="button" className="btn btn--gold" onClick={() => setWiz(true)}>แบ่งเป็นกิจกรรม</button>
-        </section>
-      )}
       {canManage && tab !== 'sheet' && (
         <section className="card no-print" aria-label="หมวดของกองทุน">
           <b>หมวดของกองทุนนี้</b>
@@ -200,7 +198,6 @@ export default function FundDetailPage() {
             </div>
           )}
           {subErr && <p className="err" role="alert">{subErr}</p>}
-          {!actMode && canManage && t && !wiz && <div style={{ marginTop: 10 }}><button type="button" className="btn btn--ghost" onClick={() => setWiz(true)}>🗓️ แบ่งเป็นกิจกรรม (เช่น วันขอบคุณพระเจ้า, คริสต์มาส)</button></div>}
         </section>
       )}
       {!keeper && !act && <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />}

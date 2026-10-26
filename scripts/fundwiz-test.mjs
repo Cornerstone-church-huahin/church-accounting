@@ -1,4 +1,4 @@
-// กองทุนที่มีหมวดชื่อกิจกรรมอยู่แล้ว (วันขอบคุณพระเจ้า วันคริสต์มาส) → ตัวช่วยแปลงเป็นการ์ดกิจกรรม เงินเดิมไม่หาย · เปิดมาเจอการ์ดทันที
+// กองทุนที่มีหมวดชื่อกิจกรรมอยู่แล้ว (วันขอบคุณพระเจ้า วันคริสต์มาส) → เปิดโหมดกิจกรรม: แปลงเป็นการ์ดเอง เงินเดิมไม่หาย · เปิดมาเจอการ์ดทันที
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -24,22 +24,16 @@ try {
   await page.goto(`http://localhost:${PORT}/#/funds/tt9`); await page.waitForLoadState('networkidle')
   for (const n of ['พืชผัก', 'โต๊ะจีน', 'วันขอบคุณพระเจ้า', 'วันคริสต์มาส']) { await page.getByLabel('ชื่อหมวดใหม่').fill(n); await page.getByRole('button', { name: '＋ เพิ่มหมวด' }).click() }
   await addIncome('พืชผัก', 1000); await addIncome('วันคริสต์มาส', 300)
-  must(await page.getByRole('region', { name: 'แบ่งเป็นกิจกรรม' }).count() === 1, 'a clear card invites the admin to split the fund into activities')
-  await page.getByRole('button', { name: 'แบ่งเป็นกิจกรรม', exact: true }).click()
-  must(await page.getByLabel('ชื่อกิจกรรมที่ 1').inputValue() === 'วันขอบคุณพระเจ้า' && await page.getByLabel('ชื่อกิจกรรมที่ 2').inputValue() === 'วันคริสต์มาส', 'categories named like activities become activity rows')
-  await page.getByLabel('วันเริ่มกิจกรรมที่ 1').fill('2026-10-25'); await page.getByLabel('วันเริ่มกิจกรรมที่ 2').fill('2026-12-25'); await page.getByLabel('วันสิ้นสุดกิจกรรมที่ 2').fill('2026-12-26')
-  await page.getByLabel('กิจกรรมของหมวด พืชผัก').selectOption({ label: 'วันขอบคุณพระเจ้า' })
-  await page.getByRole('button', { name: 'เปิดโหมดกิจกรรม' }).click()
-  await page.waitForTimeout(500)
-  const names = await page.locator('.actcard__name').allInnerTexts()
-  must(names.join('|') === 'วันคริสต์มาส|วันขอบคุณพระเจ้า', 'cards first, newest on top: ' + names)
-  const xm = await page.getByRole('button', { name: /กิจกรรม วันคริสต์มาส/ }).innerText()
-  must(/25 ธ.ค. 69 – 26 ธ.ค. 69 · 2 วัน/.test(xm) && /300/.test(xm) && /ยังไม่ประเมิน/.test(xm), 'card: dates, money and an evaluation gauge: ' + xm)
-  must(/1,000/.test(await page.getByRole('button', { name: /กิจกรรม วันขอบคุณพระเจ้า/ }).innerText()), 'the old category money moved with its activity')
+  await page.goto(`http://localhost:${PORT}/#/settings`); await page.waitForLoadState('networkidle')
+  await page.locator('#h-types').click()
+  await page.getByLabel('แบ่ง กองทุนศึกษา เป็นกิจกรรม').check()
+  await page.goto(`http://localhost:${PORT}/#/funds/tt9`); await page.waitForTimeout(700)
+  const names = (await page.locator('.actcard__name').allInnerTexts()).sort()
+  must(names.join('|') === ['วันขอบคุณพระเจ้า', 'วันคริสต์มาส'].sort().join('|'), 'categories named like activities became activity cards: ' + names)
+  must(await page.getByRole('region', { name: /แบ่งเป็นกิจกรรม|หมวดของกองทุน/ }).count() === 0, 'nothing but the total, the add button and the cards')
+  must(/ยังไม่ประเมิน/.test(await page.getByRole('button', { name: /กิจกรรม วันคริสต์มาส/ }).innerText()), 'every card has an evaluation gauge')
+  must(/300/.test(await page.getByRole('button', { name: /กิจกรรม วันคริสต์มาส/ }).innerText()) && /1,000/.test(await page.getByRole('button', { name: /กิจกรรม วันขอบคุณพระเจ้า/ }).innerText()), 'old money moved with its activity (other categories joined the earliest activity)')
   must(/1,300/.test(await page.getByRole('status', { name: /ยอดคงเหลือ กองทุน/ }).innerText()), 'fund total = all activities')
-  await page.getByRole('button', { name: /กิจกรรม วันขอบคุณพระเจ้า/ }).click()
-  const cats = await page.getByRole('region', { name: 'หมวดของกองทุน' }).innerText()
-  must(/พืชผัก/.test(cats) && /รายการทั่วไป/.test(cats) && !/วันคริสต์มาส/.test(cats), 'inside an activity: its own categories only: ' + cats)
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('fundwiz-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

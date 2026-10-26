@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
-import { actDays, actEnded, addGoal, goalProgress, looksLikeActivity, toggleGoal, type WizRow } from '../lib/fundActs'
+import { actDays, actEnded, addGoal, goalProgress, toggleGoal } from '../lib/fundActs'
 import type { ActEval, FundActivity } from '../lib/types'
 
 const gaugeColor = (v: number) => (v < 40 ? '#c4332a' : v < 70 ? '#d9a21b' : '#1f8a4c')
@@ -63,13 +63,16 @@ export function AddActivity({ onAdd }: { onAdd: (name: string, date: string, end
 }
 
 /** ส่วนหัวของกิจกรรม: ชื่อ สถานะ วันที่เริ่ม */
-export function ActHeader({ act, onReport }: { act: FundActivity; onReport?: () => void }) {
+export function ActHeader({ act, onReport, onDelete }: { act: FundActivity; onReport?: () => void; onDelete?: () => void }) {
   const ended = actEnded(act, todayISO()), end = act.endDate ?? act.date
   return (
     <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
       <p style={{ margin: 0 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
       <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}{end !== act.date ? ` · สิ้นสุด ${fmtDate(end)}` : ''} · รวม {actDays(act)} วัน</p>
-      {onReport && <button type="button" className="btn btn--ghost no-print" style={{ marginTop: 6 }} onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
+      <div className="row no-print" style={{ marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
+        {onReport && <button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
+        {onDelete && <button type="button" className="btn btn--ghost" onClick={onDelete}>🗑️ ลบกิจกรรมนี้</button>}
+      </div>
     </section>
   )
 }
@@ -179,58 +182,6 @@ export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen, o
           {ev.summary && <p style={{ margin: '4px 0 0' }}><b>สรุป:</b> {ev.summary}</p>}
         </>
       ) : <p className="muted small">ยังไม่มีการประเมิน</p>}
-    </section>
-  )
-}
-
-/** ตัวช่วยแบ่งกองทุนเป็นกิจกรรม (แอดมิน): ตั้งกิจกรรม แล้วเลือกว่าหมวดเดิมแต่ละหมวดอยู่ในกิจกรรมไหน หรือเป็นตัวกิจกรรมเอง */
-export function ActivityWizard({ cats, onApply, onCancel }: {
-  cats: { id: string; name: string; defDate: string }[]
-  onApply: (rows: WizRow[], map: Record<string, string>) => string | null
-  onCancel: () => void
-}) {
-  const initRows = (): WizRow[] => {
-    const own = cats.filter((c) => looksLikeActivity(c.name)).map((c) => ({ key: `s-${c.id}`, name: c.name, date: c.defDate, selfSub: c.id }))
-    return own.length ? own : [{ key: 'r0', name: 'กิจกรรมแรก', date: cats[0]?.defDate ?? todayISO() }]
-  }
-  const [rows, setRows] = useState<WizRow[]>(initRows)
-  const [map, setMap] = useState<Record<string, string>>({})
-  const [err, setErr] = useState('')
-  const others = cats.filter((c) => !rows.some((r) => r.selfSub === c.id))
-  const upd = (key: string, patch: Partial<WizRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
-  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date))
-  return (
-    <section className="card no-print" role="group" aria-label="แบ่งกองทุนเป็นกิจกรรม">
-      <b>🗓️ แบ่งกองทุนนี้เป็นกิจกรรม</b>
-      <p className="small muted" style={{ margin: '4px 0' }}>เปิดแล้วหน้ากองทุนจะขึ้น “การ์ดกิจกรรม” ก่อน (ใหม่อยู่บนสุด) กดการ์ดเข้าไปจึงเห็นบัญชี ความคืบหน้า และประเมินผลของกิจกรรมนั้น · รายการรับ-จ่ายเดิมไม่หาย</p>
-      {cats.some((c) => rows.some((r) => r.selfSub === c.id)) && <p className="small" style={{ margin: '4px 0' }}>หมวดที่ชื่อเป็นกิจกรรม (เช่น วันคริสต์มาส) ระบบแปลงให้เป็นกิจกรรมแล้ว — เงินเดิมของหมวดนั้นอยู่ในหมวด “รายการทั่วไป” ของกิจกรรม</p>}
-      {rows.map((r, i) => (
-        <div key={r.key} className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '6px 0' }}>
-          <input className="input grow" aria-label={`ชื่อกิจกรรมที่ ${i + 1}`} value={r.name} onChange={(e) => upd(r.key, { name: e.target.value })} />
-          <label className="small" style={{ display: 'grid', gap: 2 }}>วันเริ่ม<input className="input" type="date" aria-label={`วันเริ่มกิจกรรมที่ ${i + 1}`} value={r.date} onChange={(e) => upd(r.key, { date: e.target.value })} /></label>
-          <label className="small" style={{ display: 'grid', gap: 2 }}>วันสิ้นสุด<input className="input" type="date" aria-label={`วันสิ้นสุดกิจกรรมที่ ${i + 1}`} min={r.date} value={r.endDate ?? r.date} onChange={(e) => upd(r.key, { endDate: e.target.value })} /></label>
-          {!r.selfSub && rows.length > 1 && <button type="button" className="mini" aria-label={`ลบกิจกรรมที่ ${i + 1}`} onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}>🗑️</button>}
-        </div>
-      ))}
-      <button type="button" className="btn btn--ghost" onClick={() => setRows((rs) => [...rs, { key: `n${Date.now()}`, name: '', date: todayISO() }])}>＋ เพิ่มอีกกิจกรรม</button>
-      {others.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <b className="small">หมวดเดิมอยู่ในกิจกรรมไหน</b>
-          {others.map((c) => (
-            <div key={c.id} className="row" style={{ gap: 6, alignItems: 'center', margin: '4px 0' }}>
-              <span className="grow">{c.name}</span>
-              <select className="input" style={{ maxWidth: '55%' }} aria-label={`กิจกรรมของหมวด ${c.name}`} value={map[c.id] ?? sorted[0]?.key} onChange={(e) => setMap({ ...map, [c.id]: e.target.value })}>
-                {sorted.map((r) => <option key={r.key} value={r.key}>{r.name || '(ยังไม่ตั้งชื่อ)'}</option>)}
-              </select>
-            </div>
-          ))}
-        </div>
-      )}
-      {err && <p className="err" role="alert">{err}</p>}
-      <div className="row" style={{ gap: 6, marginTop: 8 }}>
-        <button type="button" className="btn btn--gold" onClick={() => { const m = { ...map }; for (const c of others) m[c.id] = m[c.id] ?? sorted[0]?.key; const r = onApply(rows, m); if (r) setErr(r) }}>เปิดโหมดกิจกรรม</button>
-        <button type="button" className="btn btn--ghost" onClick={onCancel}>ยกเลิก</button>
-      </div>
     </section>
   )
 }

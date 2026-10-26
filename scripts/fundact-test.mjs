@@ -24,14 +24,20 @@ try {
   await page.goto(`http://localhost:${PORT}/#/funds/tt9`); await page.waitForLoadState('networkidle')
   for (const n of ['พืชผัก', 'โต๊ะจีน']) { await page.getByLabel('ชื่อหมวดใหม่').fill(n); await page.getByRole('button', { name: '＋ เพิ่มหมวด' }).click() }
   await addIncome(1000) // รายการเดิมในหมวด (ก่อนเปิดโหมดกิจกรรม)
-  // เปิดโหมดกิจกรรม: หมวดเดิมย้ายเข้ากิจกรรมแรก
-  await page.getByRole('button', { name: 'แบ่งเป็นกิจกรรม', exact: true }).click()
-  await page.getByLabel('ชื่อกิจกรรมที่ 1').fill('วันขอบคุณพระเจ้า')
-  await page.getByLabel('วันเริ่มกิจกรรมที่ 1').fill('2026-10-25')
-  await page.getByRole('button', { name: 'เปิดโหมดกิจกรรม' }).click()
-  await page.waitForTimeout(500)
+  // เปิดโหมดกิจกรรมที่ ตั้งค่า › รายการรับ (ไม่มีหน้าถามในหน้ากองทุน): หมวดเดิมย้ายเข้ากิจกรรมแรก
+  await page.goto('http://localhost:' + PORT + '/#/settings'); await page.waitForLoadState('networkidle')
+  await page.locator('#h-types').click()
+  await page.getByLabel('แบ่ง กองทุนศึกษา เป็นกิจกรรม').check()
+  await page.goto('http://localhost:' + PORT + '/#/funds/tt9'); await page.waitForTimeout(600)
+  must(await page.getByRole('region', { name: /แบ่งเป็นกิจกรรม|หมวดของกองทุน/ }).count() === 0, 'the activity page has no invitation or category cards: only the total, the add button and the cards')
+  await page.getByRole('button', { name: /กิจกรรม กิจกรรมแรก/ }).click()
+  await page.getByRole('tab', { name: /ความคืบหน้า/ }).click()
+  await page.getByRole('button', { name: /แก้โน้ตกิจกรรม/ }).click()
+  await page.locator('#an-name').fill('วันขอบคุณพระเจ้า'); await page.locator('#an-date').fill('2026-10-25')
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  await page.getByRole('button', { name: '‹ ทุกกิจกรรม' }).click()
   must(await page.getByRole('list', { name: 'กิจกรรมของกองทุน' }).count() === 1 && await page.getByRole('tablist', { name: /กองทุนนี้: รับ จ่าย/ }).count() === 0, 'activity cards come first (no tabs yet)')
-  must(/10\.00|1,000/.test(await page.getByRole('button', { name: /กิจกรรม วันขอบคุณพระเจ้า/ }).innerText()), 'first activity card carries the existing money')
+  must(/1,000/.test(await page.getByRole('button', { name: /กิจกรรม วันขอบคุณพระเจ้า/ }).innerText()), 'first activity card carries the existing money')
   // เพิ่มกิจกรรมที่สอง: ใหม่อยู่บนสุด
   await page.getByText('＋ เพิ่มกิจกรรมใหม่').click()
   await page.getByLabel('ชื่อกิจกรรมใหม่').fill('งานคริสต์มาส'); await page.getByLabel('วันที่เริ่มกิจกรรม').fill('2026-12-24'); await page.getByLabel('วันที่สิ้นสุดกิจกรรม').fill('2026-12-26')
@@ -91,6 +97,15 @@ try {
   await page.getByRole('button', { name: /เปิดกิจกรรมอีกครั้ง/ }).click()
   await page.getByRole('button', { name: '‹ ทุกกิจกรรม' }).click()
   must(/actcard--open/.test(await page.getByRole('button', { name: 'กิจกรรม งานคริสต์มาส' }).getAttribute('class')), 'a reopened activity (end date in the future) is blue again')
+  // ลบกิจกรรม: มีรายการแล้วลบไม่ได้ · ว่างลบได้
+  dialogs.length = 0
+  await page.getByRole('button', { name: /กิจกรรม วันขอบคุณพระเจ้า/ }).click()
+  await page.getByRole('button', { name: /ลบกิจกรรมนี้/ }).click()
+  must(dialogs.some((d) => /ลบไม่ได้/.test(d)) && await page.getByRole('button', { name: '‹ ทุกกิจกรรม' }).count() === 1, 'an activity with entries cannot be deleted: ' + dialogs.join('|'))
+  await page.getByRole('button', { name: '‹ ทุกกิจกรรม' }).click()
+  await page.getByRole('button', { name: /กิจกรรม งานที่จบไปแล้ว/ }).click()
+  await page.getByRole('button', { name: /ลบกิจกรรมนี้/ }).click()
+  must(await page.getByRole('button', { name: /กิจกรรม งานที่จบไปแล้ว/ }).count() === 0, 'an empty activity can be deleted')
   // รายงานพิมพ์/PDF/แชร์ของแต่ละขั้นตอน + เครดิตผู้พัฒนา
   await page.getByRole('button', { name: /กิจกรรม งานคริสต์มาส/ }).click()
   for (const [tab, btn, title] of [[/ระบบบัญชี/, /รายงานบัญชีกิจกรรม/, 'รายงานบัญชีกิจกรรม'], [/ความคืบหน้า/, /รายงานความคืบหน้า/, 'รายงานความคืบหน้ากิจกรรม'], [/ประเมินผล/, /รายงานการประเมินผล/, 'รายงานการประเมินผลกิจกรรม']]) {
