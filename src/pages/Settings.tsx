@@ -8,7 +8,8 @@ import { makeExpenseGroup, makeIncomeType } from '../lib/catalog'
 import { DEFAULT_EXPENSE_CATS } from '../lib/expenseCats'
 import { DEFAULT_INCOME_TYPES, useExpenses, useFundMoves, useLoans, usePassbook, useSheetFiles, useWeekCloses, useOpening, useAccounts, useExpenseCats, useBudgetAdjs, useBudgetEntries, useBudgetLines, useFunds, useIncome, useIncomeTypes, useRounds, useSettings, useStatementBatches, useStatementLines, useVouchers } from '../lib/data'
 import { useMembers, useRole } from '../lib/members'
-import { fmtBaht, newId, parseBaht } from '../lib/money'
+import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
+import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
@@ -264,6 +265,7 @@ function Types() {
           <li key={x.id}>
             <span className="grow" style={x.active ? undefined : { opacity: 0.55 }}>{x.name}</span>
             <label className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={isFundType(x)} onChange={(e) => t.put([{ ...x, fund: e.target.checked }])} />กองทุน</label>
+            {isFundType(x) && <label className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}><input type="checkbox" aria-label={`แบ่ง ${x.name} เป็นกิจกรรม`} checked={!!x.actMode} onChange={(e) => t.put([{ ...x, ...(e.target.checked ? autoActivities(x, () => undefined, todayISO()) : { actMode: false }) }])} /> แบ่งเป็นกิจกรรม (การ์ดกิจกรรม)</label>}
             <button type="button" className="mini" onClick={() => rename(x.id, x.name)}>แก้ชื่อ</button>
             <button type="button" className="mini" onClick={() => t.put([{ ...x, active: !x.active }])}>{x.active ? 'ปิดใช้' : 'เปิดใช้'}</button>
             <button type="button" className="mini" aria-label={`ย้าย ${x.name} ไปรายการจ่าย`} onClick={() => moveToExpense(x)}>→ ไปรายจ่าย</button>
