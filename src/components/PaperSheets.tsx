@@ -1,5 +1,5 @@
 import { UNKNOWN_INCOME_LABEL } from '../lib/types'
-import { useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/money'
 import { downloadSheetPdf } from '../lib/pdf'
 import { isCompensation } from '../lib/maskPay'
@@ -136,9 +136,31 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
 }
 
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
+/** ขนาดช่อง "หมายเหตุ · ต้องเบิก": รายการมากขึ้นใช้ 5 คอลัมน์ · ยาวเกิน 8 แถวแยกไปอีกหน้า เพื่อให้เห็นครบและรวมต้องเบิกไม่ถูกตัด */
+const withdrawLayout = (summary?: WeekSummary) => {
+  const n = summary ? summary.funds.length + summary.pending.length : 0
+  const cols = n > 16 ? 5 : 4
+  const rows = Math.max(3, Math.ceil(n / cols))
+  return { n, cols, rows, own: rows <= 8 }
+}
 export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance }: { /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
-  const ROWS = 25
+  // แถวในตารางลดลงตามความสูงของช่องต้องเบิก (ใบเดียวต้องพอดี A4 เห็นครบถึงยอดรวมต้องเบิก)
+  const wl0 = withdrawLayout(summary)
   const refs = useRef<(HTMLDivElement | null)[]>([])
+  // วัดจริงหลังจัดหน้า: ถ้าล้นแผ่น ลดแถวว่างทีละแถว (ต่ำสุด 12) แล้วถ้ายังล้นย้ายช่องต้องเบิกไปอีกหน้า — เห็นครบถึงยอดรวมต้องเบิกเสมอ
+  const [trim, setTrim] = useState(0)
+  const [split, setSplit] = useState(false)
+  const sig = `${entries.length}:${summary?.pending.length ?? -1}:${summary?.funds.length ?? -1}:${summary?.pending.map((x) => x.desc.length + x.person.length).join(',') ?? ''}`
+  useEffect(() => { setTrim(0); setSplit(false) }, [sig])
+  const wl = { ...wl0, own: wl0.own && !split }
+  const ROWS = wl.own ? Math.max(12, 25 - Math.ceil(Math.max(0, wl0.rows - 3) * 1.8) - trim) : 25
+  useLayoutEffect(() => {
+    if (blank) return
+    const over = refs.current.some((el) => el && el.scrollHeight > el.clientHeight + 1)
+    if (!over) return
+    if (wl.own && ROWS > 12) setTrim((t) => t + 1)
+    else if (wl.own) setSplit(true)
+  })
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
   const pages = chunk(all, ROWS)
   const heading = blank ? BLANK_HEADING.replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday).replace('ประจำวันอาทิตย์', 'ประจำสัปดาห์ · วันอาทิตย์') : 'รวมทุกสัปดาห์')
@@ -172,15 +194,23 @@ export function VoucherPaper({ church, entries, sunday, onRowClick, onFileClick,
               <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{blank ? '' : m(sumOf(rows))}</td><td colSpan={4}>บาท{pages.length > 1 && pi === pages.length - 1 ? ` · รวมทุกแผ่น ${m(sumOf(all))}` : ''}</td></tr></tfoot>
             </table>
             {pi === pages.length - 1 && <WeekSummaryBoxes summary={summary} noBalance={noBalance} />}
-            <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 13 }}>
-              <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้อนุมัติ / ตรวจสอบ</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
-              <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>ผู้จ่าย / ฝ่ายบัญชี</b><br /><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
+            <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 12.5 }}>
+              <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 6 }}><b>ผู้อนุมัติ / ตรวจสอบ</b><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
+              <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 6 }}><b>ผู้จ่าย / ฝ่ายบัญชี</b><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>
             </div>
-            {pi === pages.length - 1 && <WithdrawNote summary={summary} />}
+            {pi === pages.length - 1 && wl.own && <WithdrawNote summary={summary} />}
           </>
           {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint />}
         </ScaledPage>
       ))}
+      {!wl.own && (
+        <ScaledPage ref={(el) => { refs.current[pages.length] = el }}>
+          <>
+            <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด (ต่อ)" sub={`${heading} · หมายเหตุ ต้องเบิก`} compact />
+            <WithdrawNote summary={summary} />
+          </>
+        </ScaledPage>
+      )}
       {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
     </div>
   )
@@ -326,10 +356,9 @@ function WeekSummaryBoxes({ summary, noBalance }: { summary?: WeekSummary; noBal
 function WithdrawNote({ summary }: { summary?: WeekSummary }) {
   const items = summary ? [...summary.funds.map((f) => ({ desc: f.name, person: '', amt: f.amount, loan: false })), ...summary.pending.map((b) => ({ desc: b.desc, person: b.person, amt: b.amount, loan: b.kind === 'loan' }))] : []
   const total = summary ? items.reduce((a, x) => a + x.amt, 0) : undefined
-  const COLS = 4
-  const rows = Math.max(3, Math.ceil(items.length / COLS))
+  const { cols: COLS, rows } = withdrawLayout(summary)
   return (
-    <table className="sheetpaper" style={{ marginTop: 8 }} aria-label="หมายเหตุ ต้องเบิก">
+    <table className="sheetpaper" style={{ marginTop: 6, fontSize: items.length > 16 ? 10.5 : undefined }} aria-label="หมายเหตุ ต้องเบิก">
       <colgroup>{Array.from({ length: COLS }, (_, c) => <col key={c} style={{ width: `${100 / COLS}%` }} />)}</colgroup>
       <thead><tr><th colSpan={COLS} style={{ textAlign: 'left' }}>หมายเหตุ · ต้องเบิก</th></tr></thead>
       <tbody>
