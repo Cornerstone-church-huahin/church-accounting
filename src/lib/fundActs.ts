@@ -53,3 +53,32 @@ export function addGoal(a: FundActivity, text: string): ActGoal[] | { error: str
   return [...(a.goals ?? []), { id: newId('gl'), text: t, done: false }]
 }
 export const toggleGoal = (a: FundActivity, id: string, today: string): ActGoal[] => (a.goals ?? []).map((g) => (g.id === id ? (g.done ? { id: g.id, text: g.text, done: false } : { ...g, done: true, doneDate: today }) : g))
+
+/** แถวกิจกรรมในตัวช่วยแบ่งกองทุนเป็นกิจกรรม: selfSub = แปลงมาจากหมวดที่เป็นตัวกิจกรรมเอง (เช่น หมวด "วันคริสต์มาส") */
+export interface WizRow { key: string; name: string; date: string; endDate?: string; selfSub?: string }
+/** หมวดที่ชื่อเหมือนตัวกิจกรรม (เช่น วันขอบคุณพระเจ้า งานคริสต์มาส) — เดาให้แปลงเป็นกิจกรรมเอง */
+export const looksLikeActivity = (name: string) => /^(วัน|งาน|กิจกรรม|เทศกาล)/.test(name.trim())
+
+/**
+ * เปิดโหมดกิจกรรมจากหมวดที่มีอยู่: แต่ละแถวเป็น 1 กิจกรรม · หมวดที่ selfSub ผูกกับแถวนั้นกลายเป็นหมวด "รายการทั่วไป" ของกิจกรรมนั้น
+ * หมวดอื่นย้ายเข้ากิจกรรมตาม map (id หมวด → key แถว) · รายการรับ-จ่ายเดิมไม่หาย (ยังติด id หมวดเดิม)
+ */
+export function applyWizard(t: IncomeType, rows: WizRow[], map: Record<string, string>): Partial<IncomeType> | { error: string } {
+  if (rows.length === 0) return { error: 'ต้องมีอย่างน้อย 1 กิจกรรม' }
+  const ids: Record<string, string> = {}
+  for (const r of rows) {
+    if (!r.name.trim()) return { error: 'พิมพ์ชื่อกิจกรรมให้ครบทุกแถว' }
+    if (!ISO.test(r.date)) return { error: `เลือกวันเริ่มของ “${r.name.trim()}”` }
+    if (r.endDate && r.endDate < r.date) return { error: `วันสิ้นสุดของ “${r.name.trim()}” ต้องไม่ก่อนวันเริ่ม` }
+    ids[r.key] = newId('ac')
+  }
+  const activities: FundActivity[] = rows.map((r) => ({ id: ids[r.key], name: r.name.trim(), date: r.date, ...(r.endDate && r.endDate !== r.date ? { endDate: r.endDate } : {}) }))
+  const self = new Map(rows.filter((r) => r.selfSub).map((r) => [r.selfSub as string, ids[r.key]]))
+  const subs = (t.subs ?? []).map((s) => {
+    const own = self.get(s.id)
+    if (own) return { ...s, name: 'รายการทั่วไป', actId: own }
+    const key = map[s.id] && ids[map[s.id]] ? ids[map[s.id]] : ids[rows[0].key]
+    return { ...s, actId: s.actId ?? key }
+  })
+  return { actMode: true, activities, subs }
+}
