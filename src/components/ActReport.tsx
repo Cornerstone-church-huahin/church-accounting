@@ -30,8 +30,8 @@ function Info({ act }: { act: FundActivity }) {
         {row('ระยะเวลา', `${fmtDate(act.date)}${end !== act.date ? ` – ${fmtDate(end)}` : ''} · ${actDays(act)} วัน`)}
         {row('สถานะ', status)}
         {act.purpose && row('เหตุผล / วัตถุประสงค์', act.purpose)}
-        {(act.team ?? []).length > 0 && row('คณะกรรมการ', (act.team ?? []).map((m) => `${m.name}${m.duty ? ` — ${m.duty}` : ''}`).join('\n'))}
-        {act.committee && row('อนุกรรมการ (โน้ต)', act.committee)}
+        {act.resolution && (act.resolution.meeting || act.resolution.date || act.resolution.text) && row('มติคณะกรรมการ', `${act.resolution.meeting ? `ประชุมครั้งที่ ${act.resolution.meeting}` : ''}${act.resolution.date ? `${act.resolution.meeting ? ' · ' : ''}${fmtDate(act.resolution.date)}` : ''}${act.resolution.text ? `\n${act.resolution.text}` : ''}`)}
+        {(act.team ?? []).length > 0 && row('อนุกรรมการจัดงาน', (act.team ?? []).map((m) => `${m.name}${m.duty ? ` — ${m.duty}` : ''}`).join('\n'))}
         {act.note && row('หมายเหตุ', act.note)}
       </tbody>
     </table>
@@ -39,7 +39,7 @@ function Info({ act }: { act: FundActivity }) {
 }
 const Sign = () => (
   <div style={{ display: 'flex', gap: 14, marginTop: 'auto', fontSize: 13 }}>
-    {['อนุกรรมการผู้รับผิดชอบกิจกรรม', 'ผู้ตรวจสอบ', 'ผู้อนุมัติ / ศิษยาภิบาล'].map((r) => <div key={r} style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>{r}</b><br /><br />ลงชื่อ......................................<br />(......................................)<br />วันที่........../........../..........</div>)}
+    {['ประธานอนุกรรมการจัดงาน (ผู้รายงาน)', 'เหรัญญิก / ผู้ตรวจสอบ', 'ประธานคณะกรรมการ (ผู้ประเมิน)'].map((r) => <div key={r} style={{ flex: 1, border: '1px solid #1a2b4c', padding: 8 }}><b>{r}</b><br /><br />ลงชื่อ......................................<br />(......................................)<br />วันที่........../........../..........</div>)}
   </div>
 )
 const heading = (t: string) => <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{t}</div>
@@ -66,7 +66,7 @@ function EvalBody({ act }: { act: FundActivity }) {
   const ev = act.eval
   return (
     <>
-      {heading('การประเมินผล')}
+      {heading('การประเมินผลโดยคณะกรรมการ')}
       {ev ? (
         <>
           <p style={{ margin: '0 0 4px', fontSize: 14 }}><b>ความพึงพอใจต่อกิจกรรม {ev.score}/100</b></p>
@@ -75,7 +75,9 @@ function EvalBody({ act }: { act: FundActivity }) {
             <tbody>
               <tr><td style={{ width: '24%', fontWeight: 700, verticalAlign: 'top' }}>ข้อดี</td><td style={{ whiteSpace: 'pre-wrap', minHeight: 60 }}>{ev.pros ?? '-'}</td></tr>
               <tr><td style={{ fontWeight: 700, verticalAlign: 'top' }}>ข้อเสีย / ควรปรับปรุง</td><td style={{ whiteSpace: 'pre-wrap' }}>{ev.cons ?? '-'}</td></tr>
+              <tr><td style={{ fontWeight: 700, verticalAlign: 'top' }}>ความเห็นคณะกรรมการ</td><td style={{ whiteSpace: 'pre-wrap' }}>{ev.comment ?? '-'}</td></tr>
               <tr><td style={{ fontWeight: 700, verticalAlign: 'top' }}>สรุป</td><td>{ev.summary ?? '-'}</td></tr>
+              {ev.evaluatedDate && <tr><td style={{ fontWeight: 700 }}>ประเมินเมื่อวันที่</td><td>{fmtDate(ev.evaluatedDate)}</td></tr>}
             </tbody>
           </table>
         </>

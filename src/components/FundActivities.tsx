@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
 import { actDays, actEnded, addGoal, goalProgress, toggleGoal } from '../lib/fundActs'
 import { newId } from '../lib/money'
-import type { ActEval, ActMember, FundActivity } from '../lib/types'
+import type { ActEval, ActMember, ActResolution, FundActivity } from '../lib/types'
 
 const gaugeColor = (v: number) => (v < 40 ? '#c4332a' : v < 70 ? '#d9a21b' : '#1f8a4c')
 
@@ -64,10 +64,10 @@ export function AddActivity({ onAdd }: { onAdd: (name: string, date: string, end
 }
 
 /** ส่วนหัวของกิจกรรม: ชื่อ สถานะ ช่วงวันที่ · ไอคอน ✏️ แก้ชื่อ/วันเริ่ม/วันสิ้นสุดได้ทันที (แอดมิน) — วันที่นี้แสดงที่การ์ดและใช้เรียงลำดับ (ใหม่อยู่บนสุด) */
-export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onTeam?: (team: ActMember[]) => void; onEdit?: (patch: { name: string; date: string; endDate?: string; purpose?: string; committee?: string; note?: string }) => string | null }) {
+export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onTeam?: (team: ActMember[]) => void; onEdit?: (patch: { name: string; date: string; endDate?: string; purpose?: string; note?: string; resolution?: ActResolution }) => string | null }) {
   const ended = actEnded(act, todayISO()), end = act.endDate ?? act.date
   const [edit, setEdit] = useState(false)
-  const [d, setD] = useState({ name: act.name, date: act.date, endDate: end, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' })
+  const [d, setD] = useState({ name: act.name, date: act.date, endDate: end, purpose: act.purpose ?? '', note: act.note ?? '', rMeeting: act.resolution?.meeting ?? '', rDate: act.resolution?.date ?? '', rText: act.resolution?.text ?? '' })
   const [err, setErr] = useState('')
   const [teamEdit, setTeamEdit] = useState<ActMember[] | null>(null)
   const team = act.team ?? []
@@ -75,7 +75,7 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
     <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <p style={{ margin: 0, flex: 1 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
-        {onEdit && !edit && <button type="button" className="mini no-print" aria-label="แก้ไขกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' }); setEdit(true) }}>✏️ แก้ไข</button>}
+        {onEdit && !edit && <button type="button" className="mini no-print" aria-label="แก้ไขกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', note: act.note ?? '', rMeeting: act.resolution?.meeting ?? '', rDate: act.resolution?.date ?? '', rText: act.resolution?.text ?? '' }); setEdit(true) }}>✏️ แก้ไข</button>}
       </div>
       <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}{end !== act.date ? ` · สิ้นสุด ${fmtDate(end)}` : ''} · รวม {actDays(act)} วัน</p>
       {edit && (
@@ -86,40 +86,48 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
             <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>วันสิ้นสุดกิจกรรม<input className="input" type="date" aria-label="แก้วันสิ้นสุดกิจกรรม" min={d.date} value={d.endDate} onChange={(e) => setD({ ...d, endDate: e.target.value })} /></label>
           </div>
           <div className="field"><label htmlFor="ah-purpose">เหตุผล / วัตถุประสงค์</label><textarea id="ah-purpose" className="input" rows={2} value={d.purpose} onChange={(e) => setD({ ...d, purpose: e.target.value })} /></div>
-          <div className="field"><label htmlFor="ah-committee">อนุกรรมการ (โน้ตข้อความ)</label><textarea id="ah-committee" className="input" rows={2} value={d.committee} onChange={(e) => setD({ ...d, committee: e.target.value })} /></div>
+          <p className="small" style={{ margin: '6px 0 2px' }}><b>📜 มติคณะกรรมการ (ตั้งอนุกรรมการจัดงาน)</b></p>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>ประชุมครั้งที่<input className="input" aria-label="ประชุมคณะกรรมการครั้งที่" placeholder="เช่น 5/2569" value={d.rMeeting} onChange={(e) => setD({ ...d, rMeeting: e.target.value })} /></label>
+            <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>วันที่ประชุม<input className="input" type="date" aria-label="วันที่ประชุมคณะกรรมการ" value={d.rDate} onChange={(e) => setD({ ...d, rDate: e.target.value })} /></label>
+          </div>
+          <div className="field"><label htmlFor="ah-rtext">มติที่ประชุม</label><textarea id="ah-rtext" className="input" rows={2} value={d.rText} placeholder="เช่น มีมติให้จัดงาน และตั้งอนุกรรมการจัดงานตามรายชื่อ โดยให้มีอำนาจบริหารจัดการงานได้เต็มที่" onChange={(e) => setD({ ...d, rText: e.target.value })} /></div>
           <div className="field"><label htmlFor="ah-note">หมายเหตุ</label><textarea id="ah-note" className="input" rows={2} value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></div>
           <div className="row" style={{ gap: 6, marginTop: 6 }}>
-            <button type="button" className="btn btn--gold" onClick={() => { const r = onEdit?.({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined, purpose: d.purpose.trim() || undefined, committee: d.committee.trim() || undefined, note: d.note.trim() || undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึกการแก้ไข</button>
+            <button type="button" className="btn btn--gold" onClick={() => { const r = onEdit?.({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined, purpose: d.purpose.trim() || undefined, note: d.note.trim() || undefined, resolution: d.rMeeting.trim() || d.rDate || d.rText.trim() ? { ...(d.rMeeting.trim() ? { meeting: d.rMeeting.trim() } : {}), ...(d.rDate ? { date: d.rDate } : {}), ...(d.rText.trim() ? { text: d.rText.trim() } : {}) } : undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึกการแก้ไข</button>
             <button type="button" className="btn btn--ghost" onClick={() => { setEdit(false); setErr('') }}>ยกเลิก</button>
           </div>
           {err && <p className="err" role="alert">{err}</p>}
         </div>
       )}
+      {act.resolution && (act.resolution.meeting || act.resolution.date || act.resolution.text) && (
+        <p className="small" style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }} aria-label="มติคณะกรรมการ"><b>📜 มติคณะกรรมการ</b>{act.resolution.meeting ? ` · ประชุมครั้งที่ ${act.resolution.meeting}` : ''}{act.resolution.date ? ` · ${fmtDate(act.resolution.date)}` : ''}{act.resolution.text ? `\n${act.resolution.text}` : ''}</p>
+      )}
       {(team.length > 0 || (onTeam && !teamEdit)) && !teamEdit && (
-        <div style={{ marginTop: 6 }} aria-label="คณะกรรมการกิจกรรม">
-          <p className="small" style={{ margin: 0 }}><b>👥 คณะกรรมการ / ทีมงาน</b>{team.length === 0 ? <span className="muted"> — ยังไม่ได้บันทึก</span> : null}</p>
+        <div style={{ marginTop: 6 }} aria-label="อนุกรรมการจัดงาน">
+          <p className="small" style={{ margin: 0 }}><b>👥 อนุกรรมการจัดงาน</b>{team.length === 0 ? <span className="muted"> — ยังไม่ได้บันทึก</span> : null}</p>
           {team.length > 0 && <ul style={{ margin: '2px 0 0', paddingLeft: 18, fontSize: 13 }}>{team.map((m) => <li key={m.id}><b>{m.name}</b>{m.duty ? ` — ${m.duty}` : ''}</li>)}</ul>}
         </div>
       )}
       {teamEdit && (
-        <div className="no-print" role="group" aria-label="แก้คณะกรรมการกิจกรรม" style={{ marginTop: 6 }}>
-          <b className="small">👥 คณะกรรมการ / ทีมงาน (ใคร ทำหน้าที่อะไร)</b>
+        <div className="no-print" role="group" aria-label="แก้อนุกรรมการจัดงาน" style={{ marginTop: 6 }}>
+          <b className="small">👥 อนุกรรมการจัดงาน (ทีมที่คณะกรรมการแต่งตั้ง — ใคร ทำหน้าที่อะไร)</b>
           {teamEdit.map((m, i) => (
             <div key={m.id} className="row" style={{ gap: 6, margin: '4px 0', flexWrap: 'wrap' }}>
-              <input className="input" style={{ flex: '1 1 40%' }} aria-label={`ชื่อกรรมการคนที่ ${i + 1}`} placeholder="ชื่อ" value={m.name} onChange={(e) => setTeamEdit(teamEdit.map((x) => (x.id === m.id ? { ...x, name: e.target.value } : x)))} />
-              <input className="input" style={{ flex: '1 1 45%' }} aria-label={`หน้าที่ของกรรมการคนที่ ${i + 1}`} placeholder="หน้าที่ เช่น ประธาน / การเงิน / อาหาร" value={m.duty ?? ''} onChange={(e) => setTeamEdit(teamEdit.map((x) => (x.id === m.id ? { ...x, duty: e.target.value } : x)))} />
-              <button type="button" className="mini" aria-label={`ลบกรรมการคนที่ ${i + 1}`} onClick={() => setTeamEdit(teamEdit.filter((x) => x.id !== m.id))}>🗑️</button>
+              <input className="input" style={{ flex: '1 1 40%' }} aria-label={`ชื่ออนุกรรมการคนที่ ${i + 1}`} placeholder="ชื่อ" value={m.name} onChange={(e) => setTeamEdit(teamEdit.map((x) => (x.id === m.id ? { ...x, name: e.target.value } : x)))} />
+              <input className="input" style={{ flex: '1 1 45%' }} aria-label={`หน้าที่ของอนุกรรมการคนที่ ${i + 1}`} placeholder="หน้าที่ เช่น ประธาน / เลขา / เหรัญญิก / ฝ่ายสถานที่" value={m.duty ?? ''} onChange={(e) => setTeamEdit(teamEdit.map((x) => (x.id === m.id ? { ...x, duty: e.target.value } : x)))} />
+              <button type="button" className="mini" aria-label={`ลบอนุกรรมการคนที่ ${i + 1}`} onClick={() => setTeamEdit(teamEdit.filter((x) => x.id !== m.id))}>🗑️</button>
             </div>
           ))}
           <div className="row" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
             <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit([...teamEdit, { id: newId('tm'), name: '' }])}>＋ เพิ่มคน</button>
-            <button type="button" className="btn btn--gold" onClick={() => { onTeam?.(teamEdit.map((m) => ({ id: m.id, name: m.name.trim(), ...(m.duty?.trim() ? { duty: m.duty.trim() } : {}) })).filter((m) => m.name)); setTeamEdit(null) }}>บันทึกคณะกรรมการ</button>
+            <button type="button" className="btn btn--gold" onClick={() => { onTeam?.(teamEdit.map((m) => ({ id: m.id, name: m.name.trim(), ...(m.duty?.trim() ? { duty: m.duty.trim() } : {}) })).filter((m) => m.name)); setTeamEdit(null) }}>บันทึกอนุกรรมการ</button>
             <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit(null)}>ยกเลิก</button>
           </div>
         </div>
       )}
       <div className="row no-print" style={{ marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
-        {onTeam && !teamEdit && <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit(team.length ? team : [{ id: newId('tm'), name: '' }])}>✏️ แก้คณะกรรมการ</button>}
+        {onTeam && !teamEdit && <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit(team.length ? team : [{ id: newId('tm'), name: '' }])}>✏️ แก้อนุกรรมการจัดงาน</button>}
         {onReport && <button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
         {onDelete && <button type="button" className="btn btn--ghost" onClick={onDelete}>🗑️ ลบกิจกรรมนี้</button>}
       </div>
@@ -127,14 +135,14 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
   )
 }
 
-/** แท็บ ความคืบหน้า: โน้ตกิจกรรม (เหตุผล อนุกรรมการ หมายเหตุ) + เป้าหมายของงาน ทำแล้ว/ยังไม่ทำ */
+/** แท็บ ความคืบหน้า: โน้ตกิจกรรม (เหตุผล หมายเหตุ) + เป้าหมายของงาน ทำแล้ว/ยังไม่ทำ */
 export function ActProgress({ act, canManage, locked, onSave, onGoals, onReport }: {
   act: FundActivity; canManage: boolean; locked: boolean; onReport?: () => void
   onSave: (patch: Partial<FundActivity>) => string | null
   onGoals: (goals: NonNullable<FundActivity['goals']>) => void
 }) {
   const [edit, setEdit] = useState(false)
-  const [d, setD] = useState({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' })
+  const [d, setD] = useState({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', note: act.note ?? '' })
   const [goal, setGoal] = useState('')
   const [err, setErr] = useState('')
   const gp = goalProgress(act)
@@ -146,9 +154,8 @@ export function ActProgress({ act, canManage, locked, onSave, onGoals, onReport 
         {!edit ? (
           <>
             {act.purpose && <p style={{ margin: '0 0 4px', whiteSpace: 'pre-wrap' }}><b>เหตุผล / วัตถุประสงค์:</b> {act.purpose}</p>}
-            {act.committee && <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}><b>อนุกรรมการกิจกรรม:</b> {act.committee}</p>}
             {act.note && <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}><b>หมายเหตุ:</b> {act.note}</p>}
-            {!act.purpose && !act.committee && !act.note && <p className="muted small" style={{ margin: 0 }}>ยังไม่มีโน้ตของกิจกรรม{can ? ' — กด “แก้โน้ตกิจกรรม”' : ''}</p>}
+            {!act.purpose && !act.note && <p className="muted small" style={{ margin: 0 }}>ยังไม่มีโน้ตของกิจกรรม{can ? ' — กด “แก้โน้ตกิจกรรม”' : ''}</p>}
             {can && <button type="button" className="btn btn--ghost no-print" style={{ marginTop: 8 }} onClick={() => setEdit(true)}>✏️ แก้โน้ตกิจกรรม</button>}
           </>
         ) : (
@@ -157,10 +164,9 @@ export function ActProgress({ act, canManage, locked, onSave, onGoals, onReport 
             <div className="field"><label htmlFor="an-date">วันที่เริ่มกิจกรรม</label><input id="an-date" className="input" type="date" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-end">วันสิ้นสุดกิจกรรม</label><input id="an-end" className="input" type="date" min={d.date} value={d.endDate} onChange={(e) => setD({ ...d, endDate: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-purpose">เหตุผล / วัตถุประสงค์</label><textarea id="an-purpose" className="input" rows={2} value={d.purpose} onChange={(e) => setD({ ...d, purpose: e.target.value })} /></div>
-            <div className="field"><label htmlFor="an-committee">อนุกรรมการกิจกรรม</label><textarea id="an-committee" className="input" rows={2} value={d.committee} placeholder="ชื่อผู้รับผิดชอบ / อนุกรรมการ" onChange={(e) => setD({ ...d, committee: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-note">หมายเหตุ</label><textarea id="an-note" className="input" rows={2} value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></div>
             <div className="row" style={{ gap: 6 }}>
-              <button type="button" className="btn btn--gold" onClick={() => { const r = onSave({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined, purpose: d.purpose.trim() || undefined, committee: d.committee.trim() || undefined, note: d.note.trim() || undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึก</button>
+              <button type="button" className="btn btn--gold" onClick={() => { const r = onSave({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined, purpose: d.purpose.trim() || undefined, note: d.note.trim() || undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึก</button>
               <button type="button" className="btn btn--ghost" onClick={() => setEdit(false)}>ยกเลิก</button>
             </div>
           </div>
@@ -204,11 +210,13 @@ export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen, o
   const [pros, setPros] = useState(ev?.pros ?? '')
   const [cons, setCons] = useState(ev?.cons ?? '')
   const [summary, setSummary] = useState(ev?.summary ?? '')
+  const [evDate, setEvDate] = useState(ev?.evaluatedDate ?? '')
+  const [comment, setComment] = useState(ev?.comment ?? '')
   const [saved, setSaved] = useState(false)
   return (
     <section className="card" aria-label="การประเมินผลกิจกรรม">
       {onReport && <div className="no-print" style={{ marginBottom: 6 }}><button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานการประเมินผล (พิมพ์ / PDF / แชร์)</button></div>}
-      <p style={{ margin: 0 }}><b>⭐ การประเมินผล</b> <span className="small muted">ความพึงพอใจต่อกิจกรรม 0–100 (แสดงที่หน้าการ์ด)</span></p>
+      <p style={{ margin: 0 }}><b>⭐ การประเมินผลโดยคณะกรรมการ</b> <span className="small muted">ประเมินผลงานของอนุกรรมการจัดงาน · ความพึงพอใจ 0–100 (แสดงที่หน้าการ์ด)</span></p>
       {canManage ? (
         <>
           <label htmlFor="ev-score" style={{ display: 'block', marginTop: 6 }}><b>ความพึงพอใจ {score}/100</b></label>
@@ -216,9 +224,11 @@ export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen, o
           <Gauge value={score} label="ความพึงพอใจ" />
           <div className="field"><label htmlFor="ev-pros">ข้อดี / สิ่งที่ทำได้ดี</label><textarea id="ev-pros" className="input" rows={3} value={pros} onChange={(e) => { setPros(e.target.value); setSaved(false) }} placeholder="เช่น คนมาร่วมมาก อาหารพอดี" /></div>
           <div className="field"><label htmlFor="ev-cons">ข้อเสีย / ควรปรับปรุง</label><textarea id="ev-cons" className="input" rows={3} value={cons} onChange={(e) => { setCons(e.target.value); setSaved(false) }} placeholder="เช่น ที่จอดรถไม่พอ" /></div>
+          <div className="field"><label htmlFor="ev-date">คณะกรรมการประเมินเมื่อวันที่</label><input id="ev-date" className="input" type="date" value={evDate} onChange={(e) => { setEvDate(e.target.value); setSaved(false) }} /></div>
+          <div className="field"><label htmlFor="ev-comment">ความเห็นของคณะกรรมการต่อผลงานของอนุกรรมการ</label><textarea id="ev-comment" className="input" rows={3} value={comment} onChange={(e) => { setComment(e.target.value); setSaved(false) }} /></div>
           <div className="field"><label htmlFor="ev-sum">สรุปสั้น ๆ (แสดงที่การ์ด)</label><input id="ev-sum" className="input" value={summary} onChange={(e) => { setSummary(e.target.value); setSaved(false) }} placeholder="เช่น คนมาร่วมมาก อาหารพอดี" /></div>
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn--gold" onClick={() => { onSaveEval({ score, pros: pros.trim() || undefined, cons: cons.trim() || undefined, summary: summary.trim() || undefined }); setSaved(true) }}>บันทึกการประเมิน</button>
+            <button type="button" className="btn btn--gold" onClick={() => { onSaveEval({ score, pros: pros.trim() || undefined, cons: cons.trim() || undefined, summary: summary.trim() || undefined, evaluatedDate: evDate || undefined, comment: comment.trim() || undefined }); setSaved(true) }}>บันทึกการประเมิน</button>
             {act.closed ? <button type="button" className="btn btn--ghost" onClick={onReopen}>↺ เปิดกิจกรรมอีกครั้ง</button> : <button type="button" className="btn btn--ghost" onClick={onClose}>✔ ปิดกิจกรรม</button>}
           </div>
           {saved && <p className="ok" role="status" style={{ margin: '4px 0 0' }}>บันทึกการประเมินแล้ว</p>}
@@ -229,7 +239,9 @@ export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen, o
           <Gauge value={ev.score} label="ความพึงพอใจ" />
           {ev.pros && <p style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}><b>ข้อดี:</b> {ev.pros}</p>}
           {ev.cons && <p style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}><b>ข้อเสีย / ควรปรับปรุง:</b> {ev.cons}</p>}
+          {ev.comment && <p style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}><b>ความเห็นคณะกรรมการ:</b> {ev.comment}</p>}
           {ev.summary && <p style={{ margin: '4px 0 0' }}><b>สรุป:</b> {ev.summary}</p>}
+          {ev.evaluatedDate && <p className="small muted" style={{ margin: '4px 0 0' }}>ประเมินเมื่อ {fmtDate(ev.evaluatedDate)}</p>}
         </>
       ) : <p className="muted small">ยังไม่มีการประเมิน</p>}
     </section>
