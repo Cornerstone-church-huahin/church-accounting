@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
-import { addGoal, goalProgress, toggleGoal } from '../lib/fundActs'
+import { actDays, actEnded, addGoal, goalProgress, toggleGoal } from '../lib/fundActs'
 import type { ActEval, FundActivity } from '../lib/types'
 
 const gaugeColor = (v: number) => (v < 40 ? '#c4332a' : v < 70 ? '#d9a21b' : '#1f8a4c')
@@ -25,15 +25,15 @@ export function ActivityCards({ acts, stat, onOpen }: { acts: FundActivity[]; st
   return (
     <ul className="actlist no-print" aria-label="กิจกรรมของกองทุน">
       {acts.map((a) => {
-        const st = stat(a), gp = goalProgress(a)
+        const st = stat(a), gp = goalProgress(a), ended = actEnded(a, todayISO()), end = a.endDate ?? a.date
         return (
           <li key={a.id}>
-            <button type="button" className={`actcard ${a.closed ? 'actcard--closed' : 'actcard--open'}`} onClick={() => onOpen(a.id)} aria-label={`กิจกรรม ${a.name}${a.closed ? ' (ปิดแล้ว)' : ''}`}>
-              <span className="actcard__top"><b className="actcard__name">{a.name}</b><span className="actcard__date">เริ่ม {fmtDate(a.date)}</span></span>
+            <button type="button" className={`actcard ${ended ? 'actcard--closed' : 'actcard--open'}`} onClick={() => onOpen(a.id)} aria-label={`กิจกรรม ${a.name}${a.closed ? ' (ปิดแล้ว)' : ended ? ' (สิ้นสุดแล้ว)' : ''}`}>
+              <span className="actcard__top"><b className="actcard__name">{a.name}</b><span className="actcard__date">{fmtDate(a.date)}{end !== a.date ? ` – ${fmtDate(end)}` : ''} · {actDays(a)} วัน</span></span>
               <span className="actcard__nums"><span>รับ {fmtBaht(st.moneyIn)}</span><span>จ่าย {fmtBaht(st.moneyOut)}</span><b>คงเหลือ {fmtBaht(st.balance)}</b></span>
               {gp.total > 0 && <span className="actcard__row"><span className="small">เป้าหมาย {gp.done}/{gp.total}</span><Gauge value={gp.pct} label="ความคืบหน้า" text={`${gp.pct}%`} /></span>}
               {a.eval && <span className="actcard__row"><span className="small">ความพึงพอใจ</span><Gauge value={a.eval.score} label="ความพึงพอใจ" /></span>}
-              {a.closed && <span className="small">ปิดกิจกรรมแล้ว {fmtDate(a.closed.date)}{a.eval?.summary ? ` · “${a.eval.summary}”` : ''}</span>}
+              {ended && <span className="small">{a.closed ? `ปิดกิจกรรมแล้ว ${fmtDate(a.closed.date)}` : 'สิ้นสุดแล้ว'}{a.eval?.summary ? ` · “${a.eval.summary}”` : ''}</span>}
             </button>
           </li>
         )
@@ -43,17 +43,19 @@ export function ActivityCards({ acts, stat, onOpen }: { acts: FundActivity[]; st
 }
 
 /** ฟอร์มเพิ่มกิจกรรมใหม่ (แอดมิน) — พับเก็บไว้ ให้การ์ดอยู่ด้านบน */
-export function AddActivity({ onAdd }: { onAdd: (name: string, date: string) => string | null }) {
+export function AddActivity({ onAdd }: { onAdd: (name: string, date: string, endDate: string) => string | null }) {
   const [name, setName] = useState('')
   const [date, setDate] = useState(todayISO())
+  const [endDate, setEnd] = useState(todayISO())
   const [err, setErr] = useState('')
   return (
     <details className="card no-print" aria-label="เพิ่มกิจกรรม">
       <summary><b>＋ เพิ่มกิจกรรมใหม่</b></summary>
       <div className="row" style={{ marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
         <input className="input grow" aria-label="ชื่อกิจกรรมใหม่" placeholder="ชื่อกิจกรรม เช่น งานคริสต์มาส" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="input" type="date" aria-label="วันที่เริ่มกิจกรรม" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button type="button" className="btn btn--gold" onClick={() => { const r = onAdd(name, date); if (r) setErr(r); else { setName(''); setErr('') } }}>เพิ่มกิจกรรม</button>
+        <label className="small" style={{ display: 'grid', gap: 2 }}>วันเริ่ม<input className="input" type="date" aria-label="วันที่เริ่มกิจกรรม" value={date} onChange={(e) => { setDate(e.target.value); if (endDate < e.target.value) setEnd(e.target.value) }} /></label>
+        <label className="small" style={{ display: 'grid', gap: 2 }}>วันสิ้นสุด<input className="input" type="date" aria-label="วันที่สิ้นสุดกิจกรรม" value={endDate} min={date} onChange={(e) => setEnd(e.target.value)} /></label>
+        <button type="button" className="btn btn--gold" onClick={() => { const r = onAdd(name, date, endDate); if (r) setErr(r); else { setName(''); setErr('') } }}>เพิ่มกิจกรรม</button>
       </div>
       {err && <p className="err" role="alert">{err}</p>}
     </details>
@@ -61,29 +63,32 @@ export function AddActivity({ onAdd }: { onAdd: (name: string, date: string) => 
 }
 
 /** ส่วนหัวของกิจกรรม: ชื่อ สถานะ วันที่เริ่ม */
-export function ActHeader({ act }: { act: FundActivity }) {
+export function ActHeader({ act, onReport }: { act: FundActivity; onReport?: () => void }) {
+  const ended = actEnded(act, todayISO()), end = act.endDate ?? act.date
   return (
-    <section className={`card actnote ${act.closed ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
-      <p style={{ margin: 0 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : 'กำลังดำเนินการ'}</span></p>
-      <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}</p>
+    <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
+      <p style={{ margin: 0 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
+      <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}{end !== act.date ? ` · สิ้นสุด ${fmtDate(end)}` : ''} · รวม {actDays(act)} วัน</p>
+      {onReport && <button type="button" className="btn btn--ghost no-print" style={{ marginTop: 6 }} onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
     </section>
   )
 }
 
 /** แท็บ ความคืบหน้า: โน้ตกิจกรรม (เหตุผล อนุกรรมการ หมายเหตุ) + เป้าหมายของงาน ทำแล้ว/ยังไม่ทำ */
-export function ActProgress({ act, canManage, locked, onSave, onGoals }: {
-  act: FundActivity; canManage: boolean; locked: boolean
+export function ActProgress({ act, canManage, locked, onSave, onGoals, onReport }: {
+  act: FundActivity; canManage: boolean; locked: boolean; onReport?: () => void
   onSave: (patch: Partial<FundActivity>) => string | null
   onGoals: (goals: NonNullable<FundActivity['goals']>) => void
 }) {
   const [edit, setEdit] = useState(false)
-  const [d, setD] = useState({ name: act.name, date: act.date, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' })
+  const [d, setD] = useState({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' })
   const [goal, setGoal] = useState('')
   const [err, setErr] = useState('')
   const gp = goalProgress(act)
   const can = canManage && !locked
   return (
     <>
+      {onReport && <div className="no-print"><button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานความคืบหน้า (พิมพ์ / PDF / แชร์)</button></div>}
       <section className="card" aria-label="โน้ตกิจกรรม">
         {!edit ? (
           <>
@@ -97,11 +102,12 @@ export function ActProgress({ act, canManage, locked, onSave, onGoals }: {
           <div className="no-print" role="group" aria-label="แก้โน้ตกิจกรรม">
             <div className="field"><label htmlFor="an-name">ชื่อกิจกรรม</label><input id="an-name" className="input" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-date">วันที่เริ่มกิจกรรม</label><input id="an-date" className="input" type="date" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} /></div>
+            <div className="field"><label htmlFor="an-end">วันสิ้นสุดกิจกรรม</label><input id="an-end" className="input" type="date" min={d.date} value={d.endDate} onChange={(e) => setD({ ...d, endDate: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-purpose">เหตุผล / วัตถุประสงค์</label><textarea id="an-purpose" className="input" rows={2} value={d.purpose} onChange={(e) => setD({ ...d, purpose: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-committee">อนุกรรมการกิจกรรม</label><textarea id="an-committee" className="input" rows={2} value={d.committee} placeholder="ชื่อผู้รับผิดชอบ / อนุกรรมการ" onChange={(e) => setD({ ...d, committee: e.target.value })} /></div>
             <div className="field"><label htmlFor="an-note">หมายเหตุ</label><textarea id="an-note" className="input" rows={2} value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></div>
             <div className="row" style={{ gap: 6 }}>
-              <button type="button" className="btn btn--gold" onClick={() => { const r = onSave({ name: d.name.trim(), date: d.date, purpose: d.purpose.trim() || undefined, committee: d.committee.trim() || undefined, note: d.note.trim() || undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึก</button>
+              <button type="button" className="btn btn--gold" onClick={() => { const r = onSave({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined, purpose: d.purpose.trim() || undefined, committee: d.committee.trim() || undefined, note: d.note.trim() || undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึก</button>
               <button type="button" className="btn btn--ghost" onClick={() => setEdit(false)}>ยกเลิก</button>
             </div>
           </div>
@@ -134,8 +140,8 @@ export function ActProgress({ act, canManage, locked, onSave, onGoals }: {
 }
 
 /** แท็บ การประเมินผล: ความพึงพอใจ 0–100 + ข้อดี/ข้อเสีย/สรุป · ปิด/เปิดกิจกรรม */
-export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen }: {
-  act: FundActivity; canManage: boolean
+export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen, onReport }: {
+  act: FundActivity; canManage: boolean; onReport?: () => void
   onSaveEval: (e: ActEval) => void
   onClose: () => void
   onReopen: () => void
@@ -148,6 +154,7 @@ export function ActEvaluation({ act, canManage, onSaveEval, onClose, onReopen }:
   const [saved, setSaved] = useState(false)
   return (
     <section className="card" aria-label="การประเมินผลกิจกรรม">
+      {onReport && <div className="no-print" style={{ marginBottom: 6 }}><button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานการประเมินผล (พิมพ์ / PDF / แชร์)</button></div>}
       <p style={{ margin: 0 }}><b>⭐ การประเมินผล</b> <span className="small muted">ความพึงพอใจต่อกิจกรรม 0–100 (แสดงที่หน้าการ์ด)</span></p>
       {canManage ? (
         <>

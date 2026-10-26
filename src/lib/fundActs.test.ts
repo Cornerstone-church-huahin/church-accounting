@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actAccount, actSubIds, addActivity, addGoal, enableActivities, goalProgress, lockedSubIds, sortedActs, toggleGoal, validScore } from './fundActs'
+import { actDays, actEnded, actAccount, actSubIds, addActivity, addGoal, enableActivities, goalProgress, lockedSubIds, sortedActs, toggleGoal, validScore } from './fundActs'
 import type { FundAccount } from './fundAccounts'
 import type { IncomeType } from './types'
 
@@ -40,4 +40,17 @@ describe('fundActs', () => {
     expect(toggleGoal({ ...a2, goals: tg }, 'g2', 'x').find((x) => x.id === 'g2')?.done).toBe(false)
   })
   it('คะแนนความพึงพอใจ 0–100', () => { expect(validScore(0) && validScore(100) && validScore(85)).toBe(true); expect(validScore(101) || validScore(-1) || validScore(NaN)).toBe(false) })
+  it('จำนวนวันและสถานะสิ้นสุด: ผ่านวันสิ้นสุดแล้วเป็นสีเทา', () => {
+    expect(actDays({ date: '2026-12-24' })).toBe(1)
+    expect(actDays({ date: '2026-12-24', endDate: '2026-12-26' })).toBe(3)
+    const a = { id: 'x', name: 'x', date: '2026-12-24', endDate: '2026-12-26' }
+    expect(actEnded(a, '2026-12-26')).toBe(false)
+    expect(actEnded(a, '2026-12-27')).toBe(true)
+    expect(actEnded({ ...a, closed: { date: '2026-12-25' } }, '2026-12-25')).toBe(true)
+    expect(actEnded({ id: 'y', name: 'y', date: '2026-12-24' }, '2026-12-25')).toBe(true) // ไม่มีวันสิ้นสุด = วันเดียว
+  })
+  it('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม', () => {
+    expect(addActivity(t, 'งานใหม่', '2027-01-10', '2027-01-09')).toEqual({ error: 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม' })
+    const r = addActivity(t, 'งานใหม่', '2027-01-10', '2027-01-12'); expect('activities' in r && r.activities.at(-1)?.endDate).toBe('2027-01-12')
+  })
 })

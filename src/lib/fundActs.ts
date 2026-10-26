@@ -17,14 +17,20 @@ export function actAccount(f: FundAccount, ids: string[]) {
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
-export function addActivity(t: IncomeType, name: string, date: string): { activities: FundActivity[]; id: string } | { error: string } {
+const utc = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) }
+/** จำนวนวันของกิจกรรม (นับวันเริ่มและวันสิ้นสุด) */
+export const actDays = (a: Pick<FundActivity, 'date' | 'endDate'>) => Math.max(1, Math.round((utc(a.endDate ?? a.date) - utc(a.date)) / 86_400_000) + 1)
+/** สิ้นสุดแล้ว = ปิดกิจกรรมแล้ว หรือผ่านวันสิ้นสุดไปแล้ว (การ์ดเป็นสีเทา) */
+export const actEnded = (a: FundActivity, today: string) => !!a.closed || (a.endDate ?? a.date) < today
+export function addActivity(t: IncomeType, name: string, date: string, endDate?: string): { activities: FundActivity[]; id: string } | { error: string } {
   const n = name.trim()
   if (!n) return { error: 'พิมพ์ชื่อกิจกรรม' }
   if (!ISO.test(date)) return { error: 'เลือกวันที่เริ่มกิจกรรม' }
+  if (endDate && (!ISO.test(endDate) || endDate < date)) return { error: 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม' }
   const acts = t.activities ?? []
   if (acts.some((a) => a.name === n && a.date === date)) return { error: 'มีกิจกรรมชื่อและวันที่นี้แล้ว' }
   const id = newId('ac')
-  return { activities: [...acts, { id, name: n, date }], id }
+  return { activities: [...acts, { id, name: n, date, ...(endDate && endDate !== date ? { endDate } : {}) }], id }
 }
 /** เปิดโหมดกิจกรรม: หมวดที่มีอยู่ทั้งหมดย้ายเข้ากิจกรรมแรก (ถ้ามีหมวด) · รายการเดิมไม่หาย */
 export function enableActivities(t: IncomeType, firstName: string, firstDate: string): Partial<IncomeType> | { error: string } {
