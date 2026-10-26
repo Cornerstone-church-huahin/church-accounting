@@ -25,9 +25,9 @@ try {
   for (const n of ['พืชผัก', 'โต๊ะจีน']) { await page.getByLabel('ชื่อหมวดใหม่').fill(n); await page.getByRole('button', { name: '＋ เพิ่มหมวด' }).click() }
   await addIncome(1000) // รายการเดิมในหมวด (ก่อนเปิดโหมดกิจกรรม)
   // เปิดโหมดกิจกรรม: หมวดเดิมย้ายเข้ากิจกรรมแรก
-  await page.getByRole('button', { name: /แบ่งเป็นกิจกรรม/ }).click()
-  await page.getByLabel('ชื่อกิจกรรมแรก').fill('วันขอบคุณพระเจ้า')
-  await page.getByLabel('วันที่เริ่มกิจกรรมแรก').fill('2026-10-25')
+  await page.getByRole('button', { name: 'แบ่งเป็นกิจกรรม', exact: true }).click()
+  await page.getByLabel('ชื่อกิจกรรมที่ 1').fill('วันขอบคุณพระเจ้า')
+  await page.getByLabel('วันเริ่มกิจกรรมที่ 1').fill('2026-10-25')
   await page.getByRole('button', { name: 'เปิดโหมดกิจกรรม' }).click()
   await page.waitForTimeout(500)
   must(await page.getByRole('list', { name: 'กิจกรรมของกองทุน' }).count() === 1 && await page.getByRole('tablist', { name: /กองทุนนี้: รับ จ่าย/ }).count() === 0, 'activity cards come first (no tabs yet)')

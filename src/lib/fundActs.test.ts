@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actDays, actEnded, actAccount, actSubIds, addActivity, addGoal, enableActivities, goalProgress, lockedSubIds, sortedActs, toggleGoal, validScore } from './fundActs'
+import { applyWizard, looksLikeActivity, actDays, actEnded, actAccount, actSubIds, addActivity, addGoal, enableActivities, goalProgress, lockedSubIds, sortedActs, toggleGoal, validScore } from './fundActs'
 import type { FundAccount } from './fundAccounts'
 import type { IncomeType } from './types'
 
@@ -52,5 +52,20 @@ describe('fundActs', () => {
   it('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม', () => {
     expect(addActivity(t, 'งานใหม่', '2027-01-10', '2027-01-09')).toEqual({ error: 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม' })
     const r = addActivity(t, 'งานใหม่', '2027-01-10', '2027-01-12'); expect('activities' in r && r.activities.at(-1)?.endDate).toBe('2027-01-12')
+  })
+  it('ตัวช่วยแบ่งเป็นกิจกรรม: หมวดชื่อกิจกรรมแปลงเป็นกิจกรรมเอง หมวดอื่นย้ายตามที่เลือก', () => {
+    expect(looksLikeActivity('วันคริสต์มาส') && looksLikeActivity('งานอีสเตอร์') && !looksLikeActivity('พืชผัก')).toBe(true)
+    const base = { id: 'f', name: 'กองทุนกิจกรรม', order: 1, active: true, updated: 1, subs: [
+      { id: 'v', name: 'พืชผัก', active: true, order: 1 }, { id: 'tg', name: 'วันขอบคุณพระเจ้า', active: true, order: 2 }, { id: 'xm', name: 'วันคริสต์มาส', active: true, order: 3 }] } as IncomeType
+    const rows = [{ key: 'a', name: 'วันขอบคุณพระเจ้า', date: '2026-10-25', selfSub: 'tg' }, { key: 'b', name: 'วันคริสต์มาส', date: '2026-12-25', selfSub: 'xm' }]
+    const r = applyWizard(base, rows, { v: 'a' }) as Partial<IncomeType>
+    expect(r.activities).toHaveLength(2)
+    const [aTg, aXm] = r.activities!
+    const byId = Object.fromEntries(r.subs!.map((s) => [s.id, s]))
+    expect(byId.v.actId).toBe(aTg.id)
+    expect(byId.tg).toMatchObject({ actId: aTg.id, name: 'รายการทั่วไป' })
+    expect(byId.xm).toMatchObject({ actId: aXm.id, name: 'รายการทั่วไป' })
+    expect(applyWizard(base, [], {})).toEqual({ error: 'ต้องมีอย่างน้อย 1 กิจกรรม' })
+    expect(applyWizard(base, [{ key: 'z', name: ' ', date: '2026-01-01' }], {})).toEqual({ error: 'พิมพ์ชื่อกิจกรรมให้ครบทุกแถว' })
   })
 })
