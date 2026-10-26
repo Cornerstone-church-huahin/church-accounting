@@ -64,10 +64,10 @@ export function AddActivity({ onAdd }: { onAdd: (name: string, date: string, end
 }
 
 /** ส่วนหัวของกิจกรรม: ชื่อ สถานะ ช่วงวันที่ · ไอคอน ✏️ แก้ชื่อ/วันเริ่ม/วันสิ้นสุดได้ทันที (แอดมิน) — วันที่นี้แสดงที่การ์ดและใช้เรียงลำดับ (ใหม่อยู่บนสุด) */
-export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onTeam?: (team: ActMember[]) => void; onEdit?: (patch: { name: string; date: string; endDate?: string }) => string | null }) {
+export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onTeam?: (team: ActMember[]) => void; onEdit?: (patch: { name: string; date: string; endDate?: string; purpose?: string; committee?: string; note?: string }) => string | null }) {
   const ended = actEnded(act, todayISO()), end = act.endDate ?? act.date
   const [edit, setEdit] = useState(false)
-  const [d, setD] = useState({ name: act.name, date: act.date, endDate: end })
+  const [d, setD] = useState({ name: act.name, date: act.date, endDate: end, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' })
   const [err, setErr] = useState('')
   const [teamEdit, setTeamEdit] = useState<ActMember[] | null>(null)
   const team = act.team ?? []
@@ -75,18 +75,21 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
     <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <p style={{ margin: 0, flex: 1 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
-        {onEdit && !edit && <button type="button" className="mini no-print" aria-label="แก้ชื่อและวันที่ของกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date }); setEdit(true) }}>✏️ แก้วันที่</button>}
+        {onEdit && !edit && <button type="button" className="mini no-print" aria-label="แก้ไขกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', committee: act.committee ?? '', note: act.note ?? '' }); setEdit(true) }}>✏️ แก้ไข</button>}
       </div>
       <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}{end !== act.date ? ` · สิ้นสุด ${fmtDate(end)}` : ''} · รวม {actDays(act)} วัน</p>
       {edit && (
-        <div className="no-print" role="group" aria-label="แก้ชื่อและวันที่ของกิจกรรม" style={{ marginTop: 6 }}>
+        <div className="no-print" role="group" aria-label="ฟอร์มแก้ไขกิจกรรม" style={{ marginTop: 6 }}>
           <div className="field"><label htmlFor="ah-name">ชื่อกิจกรรม</label><input id="ah-name" className="input" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} /></div>
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>วันเริ่มกิจกรรม<input className="input" type="date" aria-label="แก้วันเริ่มกิจกรรม" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value, endDate: d.endDate < e.target.value ? e.target.value : d.endDate })} /></label>
             <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>วันสิ้นสุดกิจกรรม<input className="input" type="date" aria-label="แก้วันสิ้นสุดกิจกรรม" min={d.date} value={d.endDate} onChange={(e) => setD({ ...d, endDate: e.target.value })} /></label>
           </div>
+          <div className="field"><label htmlFor="ah-purpose">เหตุผล / วัตถุประสงค์</label><textarea id="ah-purpose" className="input" rows={2} value={d.purpose} onChange={(e) => setD({ ...d, purpose: e.target.value })} /></div>
+          <div className="field"><label htmlFor="ah-committee">อนุกรรมการ (โน้ตข้อความ)</label><textarea id="ah-committee" className="input" rows={2} value={d.committee} onChange={(e) => setD({ ...d, committee: e.target.value })} /></div>
+          <div className="field"><label htmlFor="ah-note">หมายเหตุ</label><textarea id="ah-note" className="input" rows={2} value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></div>
           <div className="row" style={{ gap: 6, marginTop: 6 }}>
-            <button type="button" className="btn btn--gold" onClick={() => { const r = onEdit?.({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึกวันที่</button>
+            <button type="button" className="btn btn--gold" onClick={() => { const r = onEdit?.({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined, purpose: d.purpose.trim() || undefined, committee: d.committee.trim() || undefined, note: d.note.trim() || undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึกการแก้ไข</button>
             <button type="button" className="btn btn--ghost" onClick={() => { setEdit(false); setErr('') }}>ยกเลิก</button>
           </div>
           {err && <p className="err" role="alert">{err}</p>}
