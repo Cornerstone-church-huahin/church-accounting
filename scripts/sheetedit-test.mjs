@@ -16,7 +16,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
   // รับ: ใบอยู่ใต้แถบสัปดาห์ทันที (ยังไม่ต้องกดแท็บย่อย)
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
-  const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ })
+  const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ })
   await inc.waitFor()
   must(await page.getByLabel('สัปดาห์ถัดไป').isVisible(), 'week bar above the sheet')
   must(/อาทิตย์ที่ \d ของเดือน\S+ \d{4}\s+ระหว่างวันที่ \d+(–| [^\s]+ – )\d+ \S+ \d{2}/.test((await page.locator('.weekbar').first().innerText()).replace(/\n/g, ' ')), 'week bar reads: อาทิตย์ที่ N ของเดือน … ระหว่างวันที่ …')
@@ -36,7 +36,7 @@ try {
   await page.locator('.field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('2000')
   await page.getByRole('button', { name: 'บันทึกการแก้ไข' }).click()
   await page.waitForFunction(() => document.querySelector('table[aria-label*="ใบบันทึกการถวาย"]')?.textContent?.includes('2,000'))
-  must(!/1,234/.test(await sheetText(/ใบบันทึกการถวาย \(A4 แนวนอน\)/)), 'edited number replaced')
+  must(!/1,234/.test(await sheetText(/ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/)), 'edited number replaced')
   // เพิ่มรายการที่ 2 ย้อนวัน (จันทร์) → ระบบเรียงตามวันที่ให้ (จันทร์อยู่ก่อน) · แต่ละรายการมีปุ่มแก้ไข/ลบของตัวเอง
   const sunD = new Date(); sunD.setDate(sunD.getDate() + ((7 - sunD.getDay()) % 7))
   const monD = new Date(sunD); monD.setDate(monD.getDate() - 6)

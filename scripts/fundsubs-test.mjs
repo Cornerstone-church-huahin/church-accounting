@@ -23,7 +23,7 @@ try {
   const addIncome = async (cat, amt) => {
     await page.getByRole('tab', { name: cat }).click()
     await page.getByRole('tab', { name: /💚 รับ/ }).click()
-    await page.getByRole('table', { name: /ใบบันทึกการถวาย/ }).locator('tbody tr').nth(0).click()
+    await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4/ }).locator('tbody tr').nth(0).click()
     must(await page.locator('#ire-sub').inputValue() !== '', `editor preselects the chosen category (${cat})`)
     await page.locator('.field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill(String(amt))
     await page.getByRole('button', { name: 'เพิ่มลงใบ' }).click()
@@ -39,7 +39,7 @@ try {
   must((await store('acct.income.')).filter((x) => x.typeId === 'tt9').every((x) => x.fz === true), 'entries made on the fund page are marked as fund-zone')
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForTimeout(600)
   await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.waitForTimeout(500)
-  must(!/กองทุนศึกษา/.test(await page.getByRole('table', { name: /ใบบันทึกการถวาย/ }).innerText()), 'fund-zone income is not on the circulating weekly income sheet')
+  must(!/กองทุนศึกษา/.test(await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4/ }).innerText()), 'fund-zone income is not on the circulating weekly income sheet')
   await page.goto(`http://localhost:${PORT}/#/funds/tt9`); await page.waitForTimeout(600)
   // จ่ายเกินยอดหมวด → ถามยืนยัน
   await page.getByRole('tab', { name: 'พืชผัก' }).click()

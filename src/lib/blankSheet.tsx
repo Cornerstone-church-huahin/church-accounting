@@ -15,7 +15,7 @@ export async function downloadBlankSheet(kind: 'offering' | 'voucher', church: s
     root.render(kind === 'offering' ? <IncomeSheetPaper church={church} entries={[]} types={[]} sunday={sun} blank /> : <VoucherPaper church={church} entries={[]} sunday={sun} blank />)
     await new Promise<void>((r) => setTimeout(r, 150))
     const pages = Array.from(host.querySelectorAll<HTMLDivElement>('.a4page'))
-    await downloadSheetPdf(pages, kind === 'offering' ? 'offering-sheet-blank.pdf' : 'cash-voucher-blank.pdf', kind === 'offering' ? 'landscape' : 'full')
+    await downloadSheetPdf(pages, kind === 'offering' ? 'offering-sheet-blank.pdf' : 'cash-voucher-blank.pdf', 'full')
   } finally {
     root.unmount()
     host.remove()

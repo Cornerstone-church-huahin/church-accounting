@@ -16,7 +16,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
   // รับ: เพิ่มประเภทจากป๊อปอัพแก้ไขแถว
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
-  await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).locator('tbody tr').nth(0).click()
+  await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ }).locator('tbody tr').nth(0).click()
   const opts0 = await page.locator('#ire-type option').allInnerTexts()
   must(opts0.length === 9, 'popup lists every income type like settings: ' + opts0.join('|'))
   await page.locator('summary', { hasText: /รายการรับ \(/ }).click()
@@ -27,7 +27,7 @@ try {
   await page.locator('#ire-label').fill('ถวายค่าไฟ')
   await page.locator('.field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('300')
   await page.getByRole('button', { name: 'เพิ่มลงใบ' }).click()
-  must((await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).innerText()).includes('ถวายค่าไฟ'), 'typed new item saved as a row on the sheet')
+  must((await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ }).innerText()).includes('ถวายค่าไฟ'), 'typed new item saved as a row on the sheet')
   await page.goto(`http://localhost:${PORT}/#/settings`)
   await page.getByText(/🙏 รายการรับ/).click()
   must((await page.locator('#h-types').locator('xpath=ancestor::details[1]').innerText()).includes('ถวายค่าไฟ'), 'typed item joins the normal income list in settings')

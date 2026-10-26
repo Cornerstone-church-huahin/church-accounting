@@ -24,7 +24,7 @@ try {
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   await page.locator('.entryrow .field', { hasText: 'เงินสด (บาท)' }).locator('input').fill('10000')
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
-  must(await page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ }).getByText('สิบลด').isVisible(), 'saved row appears on the A4 sheet')
+  must(await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ }).getByText('สิบลด').isVisible(), 'saved row appears on the A4 sheet')
   // 2 สลิป: เลือกรูป → ระบบอ่านเอง → ฟอร์มถูกใส่ค่าให้ (ใช้สลิปจริงจาก SLIP_FIXTURE ถ้ามี — ไม่เก็บสลิปจริงใน repo)
   await page.getByRole('tab', { name: /บันทึกสลิป/ }).click()
   must(await page.getByRole('button', { name: 'ถ่ายรูปสลิป' }).count() + await page.getByLabel('ถ่ายรูปสลิป').count() >= 1, 'camera button exists for slips')

@@ -90,18 +90,73 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
   const isFund = (x: IncomeEntry) => !!types.find((t) => t.id === x.typeId)?.fund
   const split = !scope && (!!blank || types.some((t) => t.fund))
-  const groups = split ? [{ key: 'circ', label: 'เงินหมุนเวียน', xs: all.filter((x) => !isFund(x)) }, { key: 'fund', label: 'เงินกองทุน', xs: all.filter(isFund) }].filter((g) => g.key === 'circ' || blank || g.xs.length > 0) : [{ key: 'all', label: '', xs: all }]
-  const pages = groups.flatMap((g) => chunk(g.xs, ROWS).map((rows, gi, a) => ({ rows, g, gi, gn: a.length })))
+  const pages = chunk(all, ROWS).map((rows, gi, arr) => ({ rows, gi, gn: arr.length }))
   const name = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? UNKNOWN_INCOME_LABEL : '(รายการที่ถูกลบ)')
   const sum = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + x.amount, 0)
   const cnt = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + (x.count ?? 1), 0)
   const heading = blank ? BLANK_HEADING : (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์')
+  if (split) {
+    const CR = 24, FR = 7
+    const circ = all.filter((x) => !isFund(x)), fund = all.filter(isFund)
+    const np = Math.max(1, Math.ceil(circ.length / CR), Math.ceil(fund.length / FR))
+    const tbl = (xs: IncomeEntry[], k: number, per: number, title: string, color: string, tint: string) => {
+      const rows = xs.slice(k * per, (k + 1) * per)
+      return (
+        <>
+          <div style={{ fontWeight: 800, fontSize: 13.5, background: tint, borderLeft: `6px solid ${color}`, padding: '2px 8px', margin: '4px 0 2px' }}>{title}</div>
+          <table className="sheetpaper sheetpaper--full sheetpaper--inc" aria-label={`ใบบันทึกการถวาย ${title} (A4)`}>
+            <colgroup><col style={{ width: '11%' }} /><col style={{ width: '6%' }} /><col style={{ width: '25%' }} /><col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /><col style={{ width: '6%' }} /></colgroup>
+            <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>ซอง</th><th>เงินสด</th><th>โอน</th><th>เงินโอน</th><th>รวม</th><th style={{ fontSize: 10 }}>ไฟล์แนบ</th></tr></thead>
+            <tbody>
+              {Array.from({ length: per }, (_, i) => {
+                const x = rows[i]
+                return (
+                  <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
+                    <td style={{ fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td>
+                    <td>{k * per + i + 1}.</td>
+                    <td>{x ? name(x.typeId) : ''}</td>
+                    <td className="num">{x && x.method === 'cash' ? x.count ?? 1 : ''}</td>
+                    <td className="num">{x && x.method === 'cash' ? m(x.amount) : ''}</td>
+                    <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
+                    <td className="num">{x && x.method === 'transfer' ? m(x.amount) : ''}</td>
+                    <td className="num"><b>{x ? m(x.amount) : ''}</b></td>
+                    <AttachCell n={x ? (x.photos?.length ?? 0) + (x.slip ? 1 : 0) : 0} onClick={x && onFileClick ? () => onFileClick(x) : undefined} />
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot><tr><td colSpan={3}>รวมทั้งสิ้น ({title.replace('รายรับเงิน', '')}){np > 1 ? ' แผ่นนี้' : ''}</td>{blank ? <><td /><td /><td /><td /><td /></> : <><td className="num">{cnt(rows, 'cash')}</td><td className="num">{m(sum(rows, 'cash'))}</td><td className="num">{cnt(rows, 'transfer')}</td><td className="num">{m(sum(rows, 'transfer'))}</td><td className="num">{m(sum(rows, 'cash') + sum(rows, 'transfer'))}</td></>}<td /></tr></tfoot>
+          </table>
+        </>
+      )
+    }
+    const tot = (xs: IncomeEntry[]) => sum(xs, 'cash') + sum(xs, 'transfer')
+    return (
+      <div>
+        {Array.from({ length: np }, (_, k) => (
+          <ScaledPage key={k} ref={(el) => { refs.current[k] = el }}>
+            <>
+              <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${np > 1 ? ` · แผ่นที่ ${k + 1}/${np}` : ''}`} compact />
+              <div style={{ flex: 3, minHeight: 0 }}>{tbl(circ, k, CR, 'รายรับเงินหมุนเวียน', '#1a2b4c', '#eef1f7')}</div>
+              <div style={{ flex: 1, minHeight: 0 }}>{tbl(fund, k, FR, 'รายรับเงินกองทุน', '#b8860b', '#fbf3d9')}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginTop: 6 }}>
+                <div>{blank ? <>รวมจากตู้ถวาย .......................... บาท · รวมจากการโอน .......................... บาท<br /><b>ยอดรวมทั้งตู้ถวาย (หมุนเวียน + กองทุน) .......................... บาท</b></> : <>รวมจากตู้ถวาย {m(sum(all, 'cash'))} บาท · รวมจากการโอน {m(sum(all, 'transfer'))} บาท<br /><b>ยอดรวมทั้งตู้ถวาย (หมุนเวียน + กองทุน) {m(tot(all))} บาท</b> <span className="small">(หมุนเวียน {m(tot(circ))} · กองทุน {m(tot(fund))})</span></>}</div>
+                <div>ลงชื่อผู้ตรวจนับ 1 ..........................................<br />ลงชื่อผู้ตรวจนับ 2 ..........................................</div>
+              </div>
+            </>
+            {onRowClick && !blank && k === 0 && circ.length <= CR / 2 && <SheetHint />}
+          </ScaledPage>
+        ))}
+        {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />}
+      </div>
+    )
+  }
   return (
     <div>
-      {pages.map(({ rows, g, gi, gn }, pi) => (
+      {pages.map(({ rows, gi, gn }, pi) => (
         <ScaledPage key={pi} landscape className="a4page a4page--sheet" ref={(el) => { refs.current[pi] = el }}>
           <>
-            <PaperHead church={church} title={`ใบบันทึกการถวาย${g.label ? ` · ${g.label}` : ''}`} sub={`${heading}${gn > 1 ? ` · แผ่นที่ ${gi + 1}/${gn}` : ''}`} compact />
+            <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${gn > 1 ? ` · แผ่นที่ ${gi + 1}/${gn}` : ''}`} compact />
             <table className="sheetpaper sheetpaper--land" aria-label="ใบบันทึกการถวาย (A4 แนวนอน)">
               <colgroup><col style={{ width: '9%' }} /><col style={{ width: '5%' }} /><col style={{ width: '26%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '14%' }} /><col style={{ width: '8%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th><th>ไฟล์แนบ</th></tr></thead>
@@ -126,7 +181,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
               <tfoot><tr><td colSpan={3}>รวมทั้งสิ้น{gn > 1 ? ' (แผ่นนี้)' : ''}</td>{blank ? <><td /><td /><td /><td /><td /></> : <><td className="num">{cnt(rows, 'cash')}</td><td className="num">{m(sum(rows, 'cash'))}</td><td className="num">{cnt(rows, 'transfer')}</td><td className="num">{m(sum(rows, 'transfer'))}</td><td className="num">{m(sum(rows, 'cash') + sum(rows, 'transfer'))}</td></>}<td /></tr></tfoot>
             </table>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 'auto' }}>
-              <div>{blank ? <>รวมจากตู้ถวาย .................................. บาท<br />รวมจากการโอน .................................. บาท</> : <>รวมจากตู้ถวาย {m(sum(rows, 'cash'))} บาท<br />รวมจากการโอน {m(sum(rows, 'transfer'))} บาท{gn > 1 && gi === gn - 1 ? <><br />ยอดรวมทุกแผ่น{g.label ? `${g.label}` : ''} {m(sum(g.xs, 'cash') + sum(g.xs, 'transfer'))} บาท</> : null}{split && !blank && g.key === 'fund' && gi === gn - 1 && <><br /><b>ยอดรวมทั้งตู้ถวาย (หมุนเวียน + กองทุน) {m(sum(all, 'cash') + sum(all, 'transfer'))} บาท</b></>}</>}</div>
+              <div>{blank ? <>รวมจากตู้ถวาย .................................. บาท<br />รวมจากการโอน .................................. บาท</> : <>รวมจากตู้ถวาย {m(sum(rows, 'cash'))} บาท<br />รวมจากการโอน {m(sum(rows, 'transfer'))} บาท{gn > 1 && gi === gn - 1 ? <><br />ยอดรวมทุกแผ่น {m(sum(all, 'cash') + sum(all, 'transfer'))} บาท</> : null}</>}</div>
               <div>ลงชื่อผู้ตรวจนับ 1 ................................................<br />ลงชื่อผู้ตรวจนับ 2 ................................................</div>
             </div>
           </>
