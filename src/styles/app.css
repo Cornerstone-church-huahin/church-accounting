@@ -338,6 +338,7 @@ ul.plain > li { padding: 0.25rem 0; }
 .sheetpaper--half td { height: 16.2px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sheetpaper--full td { height: 18px; font-size: 12.5px; padding-top: 0; padding-bottom: 0; line-height: 1.25; }
 .sheetpaper th { font-size: 12px; }
+.sheetpaper--inc td { height: 23px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sheetpaper tfoot td { background: #eef1f7; font-weight: 700; }
 @media print { .a4wrap--half { height: 148.5mm !important; } }
 

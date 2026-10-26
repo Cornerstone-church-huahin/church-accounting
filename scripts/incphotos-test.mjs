@@ -15,7 +15,7 @@ const png = (c) => page.evaluate(async (c) => { const cv = document.createElemen
 try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
-  const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย \(A4 แนวนอน\)/ })
+  const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ })
   await inc.waitFor()
   await inc.locator('tbody tr').nth(0).click()
   await page.locator('#ire-photos').waitFor()
