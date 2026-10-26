@@ -110,8 +110,8 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const expRows = useMemo(() => a.expenses.filter((x) => !x.deleted && !x.fundId && sheetSunday(effDate(x)) === sunday), [a.expenses, sunday])
   const L = useMemo(() => computeLedger({ range: week, ...a } as Parameters<typeof computeLedger>[0]), [a, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
   const wf = useMemo(() => computeLedger({ range: week, income: a.income, rounds: a.rounds, vouchers: [], lines: [], funds: [], entries: [], types: a.types, cats: a.cats, expenses: [], passbook: a.passbook, withFunds: true }).fundRows, [a, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
-  const fundRowsE: ExpenseEntry[] = wf.map((r, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: r.cash.amt + r.transfer.amt, desc: r.label, status: 'paid', requester: 'กองทุน · รอเบิก', updated: 1e15 + i }) as ExpenseEntry)
-  const entries = [...expRows.map(sheetOf), ...fundRowsE]
+  const fundRowsE: ExpenseEntry[] = wf.map((r, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: r.cash.amt + r.transfer.amt, desc: r.label, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
+  const entries = [...expRows.map(sheetOf)]
   const ordered = [...entries].sort((x, y) => x.date.localeCompare(y.date) || x.updated - y.updated)
   const expPhotos = ordered.map((x, i) => ({ x, no: i + 1 })).filter((p) => p.x.file?.path)
   // รูปหลักฐานของรายรับ (แนบหลายรูปต่อรายการ) ต่อท้าย: ติดป้าย "รับ"
@@ -154,7 +154,7 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
       <div ref={box}>
         <Cover church={church} sunday={sunday} week={sundaysOf(year).indexOf(sunday) + 1} asOf={asOf} nInc={Math.max(1, Math.ceil(incomeRows.length / 20))} nOut={Math.max(1, Math.ceil(ordered.length / 25))} nPhoto={pages.length} tiles={tiles} tot={{ inn: L.inSum.cash + L.inSum.transfer, out: L.outSum.cash + L.outSum.transfer + L.outSum.pending }} />
         <IncomeSheetPaper church={church} entries={incomeRows} types={types} sunday={sunday} noDownload />
-        <VoucherPaper church={church} entries={entries} sunday={sunday} summary={summary} noDownload />
+        <VoucherPaper church={church} fundRows={fundRowsE} entries={entries} sunday={sunday} summary={summary} noDownload />
         {pages.map((ps, pi) => (
           <ScaledPage key={pi}>
             <>

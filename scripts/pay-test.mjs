@@ -113,7 +113,7 @@ try {
   // 3 กรอบสรุปประจำสัปดาห์ใต้ตารางใบเบิก
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const box = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\n/g, ' ')
-  must(/สรุปรับประจำสัปดาห์/.test(box) && /สรุปจ่ายประจำสัปดาห์/.test(box) && /เงินหมุนเวียนทั้งหมดปัจจุบัน/.test(box) && /กองทุน/.test(box), 'three summary boxes: ' + box)
+  must(/สรุปรับประจำสัปดาห์/.test(box) && /สรุปจ่ายประจำสัปดาห์/.test(box) && /เงินหมุนเวียนทั้งหมดปัจจุบัน/.test(box), 'three summary boxes: ' + box)
   // สรุป: หักลบกับรายรับอัตโนมัติ (ไม่มีรายรับ → คงเหลือติดลบเท่ารายจ่าย)
   await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()

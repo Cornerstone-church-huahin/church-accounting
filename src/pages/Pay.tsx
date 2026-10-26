@@ -126,7 +126,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
   const wf = useMemo(() => fid ? [] : computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items.filter((x) => !isFundZone(x)), rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, cats: cats.list, expenses: [], passbook: passbook.items, withFunds: true }).fundRows, [year, sunday, fid, passbook.items, income.items, rounds.items, types.list, cats.list])
   const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
-  const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', requester: 'กองทุน · รอเบิก', updated: 1e15 + i }) as ExpenseEntry)
+  const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
   const ofAll = (c: Channel) => all.filter((x) => x.channel === c)
@@ -236,7 +236,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
     return (
       <>
         <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} entries={can(role, 'detail') ? [...weekAll.map(sheetOf), ...fundRowsE] : [...maskExpenses(weekAll.map(sheetOf)), ...fundRowsE]} sunday={sunday} summary={can(role, 'detail') ? weekSummary : { ...weekSummary, pending: maskPending(weekSummary.pending) }} noDownload noBalance={!canSeeBalances(role)} /></div>
+        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} entries={can(role, 'detail') ? [...weekAll.map(sheetOf)] : [...maskExpenses(weekAll.map(sheetOf))]} sunday={sunday} summary={can(role, 'detail') ? weekSummary : { ...weekSummary, pending: maskPending(weekSummary.pending) }} noDownload noBalance={!canSeeBalances(role)} /></div>
       </>
     )
   }
@@ -244,7 +244,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
     <>
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} entries={[...weekAll.map(sheetOf), ...fundRowsE, ...(fund && (fcat === 'all' || fcat === '') ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onScan={canWrite && !fid ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} entries={[...weekAll.map(sheetOf), ...(fund && (fcat === 'all' || fcat === '') ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onScan={canWrite && !fid ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && !fid && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         {!fid && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
           onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />}

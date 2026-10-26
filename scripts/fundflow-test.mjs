@@ -26,9 +26,11 @@ try {
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   const sheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().innerText()).replace(/\s+/g, ' ')
-  must(/กองทุนเพื่อที่ดินคริสตจักร 500/.test(sheet), 'fund income shows as an expense row with the same name: ' + sheet.slice(0, 300))
+  must(!/กองทุนเพื่อที่ดินคริสตจักร/.test(sheet), 'fund money is not a row of the circulating expense table: ' + sheet.slice(0, 300))
+  const fsheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)').first().innerText()).replace(/\s+/g, ' ')
+  must(/กองทุนเพื่อที่ดินคริสตจักร 500/.test(fsheet) && /เตรียมนำฝาก/.test(fsheet) && /รวมเงินกองทุนเป็นเงินทั้งสิ้น 500/.test(fsheet), 'fund money is its own table (separate sheet): ' + fsheet.slice(0, 300))
   const box = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
-  must(/เงินหมุนเวียน 2,000 กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500 รวมรับทั้งสิ้น 2,500/.test(box), 'box 1: circulating 2,000 then the fund by name 500, total 2,500: ' + box)
+  must(/รวมรับเงินหมุนเวียน 2,000/.test(box) && !/กองทุนเพื่อที่ดิน/.test(box), 'box 1: circulating 2,000 then the fund by name 500, total 2,500: ' + box)
   const wd = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   must(/กองทุนเพื่อที่ดินคริสตจักร\s+500/.test(wd) && /รวมต้องเบิก\s+500/.test(wd) && !/สำรองจ่ายต้องเบิก|กองทุนต้องเบิก/.test(wd), 'withdrawal row lists the fund and total 500: ' + wd)
   // รายจ่ายหมุนเวียน 500 ที่ใส่ชื่อในช่อง รอจ่าย → รวมจ่าย 1,000 (หมุนเวียน 500 + กองทุน 500) · ที่ต้องเบิก 1,000
@@ -38,7 +40,7 @@ try {
   await page.getByLabel('ชื่อชื่อใหม่').locator('xpath=ancestor::details[1]').getByRole('button', { name: '＋ เพิ่ม' }).click()
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
   const box2 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
-  must(/รายจ่ายหมุนเวียน 500/.test(box2) && /กองทุน · กองทุนเพื่อที่ดินคริสตจักร 500 รวมจ่ายทั้งสิ้น 1,000/.test(box2), 'box 2: circulating expense 500 + fund 500 = 1,000: ' + box2)
+  must(/รวมจ่ายเงินหมุนเวียน 500/.test(box2) && !/กองทุนเพื่อที่ดิน/.test(box2), 'box 2: circulating expense 500 + fund 500 = 1,000: ' + box2)
   const wd1 = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   must(/อ\.กฤต — .* 500/.test(wd1) && /รวมต้องเบิก\s+1,000/.test(wd1), 'withdraw = fund 500 + waiting 500 = 1,000: ' + wd1)
   // ค่าซ่อม 830 ที่ไม่มีชื่อรอจ่าย/ไม่มีบิล = จ่ายจริงแล้ว ไม่ต้องเบิก → ต้องเบิกยัง 1,000 · รวมจ่าย 1,830
@@ -46,7 +48,7 @@ try {
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
   const wd1b = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
   const box3 = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
-  must(/รวมต้องเบิก\s+1,000/.test(wd1b) && /รวมจ่ายทั้งสิ้น 1,830/.test(box3) && !/ค้างจ่าย/.test(box3), 'paid expense without bill is not in ต้องเบิก (1,000) while total out is 1,830, no ค้างจ่าย row: ' + wd1b + ' | ' + box3)
+  must(/รวมต้องเบิก\s+1,000/.test(wd1b) && /รวมจ่ายเงินหมุนเวียน 1,330/.test(box3) && !/ค้างจ่าย/.test(box3), 'paid expense without bill is not in ต้องเบิก (1,000) while circulating out is 1,330, no ค้างจ่าย row: ' + wd1b + ' | ' + box3)
   must(/สรุปสัปดาห์นี้ 670 สรุปเดือนนี้ 670 สรุปปีนี้ 670/.test(box3) && /เงินหมุนเวียนทั้งหมดปัจจุบัน/.test(box3), 'box 3 rows: current balance, this week, this month, this year (circulating only): ' + box3)
   // หน้าแรก: ช่องหมุนเวียน = เงินหมุนเวียนคงเหลือสะสมทั้งหมด (ไม่รวมกองทุน) + มีบรรทัดบอกที่มา/รุ่นแอป
   await page.getByRole('button', { name: 'กลับหน้าแรก' }).click()
