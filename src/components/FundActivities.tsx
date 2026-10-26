@@ -62,13 +62,33 @@ export function AddActivity({ onAdd }: { onAdd: (name: string, date: string, end
   )
 }
 
-/** ส่วนหัวของกิจกรรม: ชื่อ สถานะ วันที่เริ่ม */
-export function ActHeader({ act, onReport, onDelete }: { act: FundActivity; onReport?: () => void; onDelete?: () => void }) {
+/** ส่วนหัวของกิจกรรม: ชื่อ สถานะ ช่วงวันที่ · ไอคอน ✏️ แก้ชื่อ/วันเริ่ม/วันสิ้นสุดได้ทันที (แอดมิน) — วันที่นี้แสดงที่การ์ดและใช้เรียงลำดับ (ใหม่อยู่บนสุด) */
+export function ActHeader({ act, onReport, onDelete, onEdit }: { act: FundActivity; onReport?: () => void; onDelete?: () => void; onEdit?: (patch: { name: string; date: string; endDate?: string }) => string | null }) {
   const ended = actEnded(act, todayISO()), end = act.endDate ?? act.date
+  const [edit, setEdit] = useState(false)
+  const [d, setD] = useState({ name: act.name, date: act.date, endDate: end })
+  const [err, setErr] = useState('')
   return (
     <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
-      <p style={{ margin: 0 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <p style={{ margin: 0, flex: 1 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
+        {onEdit && !edit && <button type="button" className="mini no-print" aria-label="แก้ชื่อและวันที่ของกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date }); setEdit(true) }}>✏️ แก้วันที่</button>}
+      </div>
       <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}{end !== act.date ? ` · สิ้นสุด ${fmtDate(end)}` : ''} · รวม {actDays(act)} วัน</p>
+      {edit && (
+        <div className="no-print" role="group" aria-label="แก้ชื่อและวันที่ของกิจกรรม" style={{ marginTop: 6 }}>
+          <div className="field"><label htmlFor="ah-name">ชื่อกิจกรรม</label><input id="ah-name" className="input" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} /></div>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>วันเริ่มกิจกรรม<input className="input" type="date" aria-label="แก้วันเริ่มกิจกรรม" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value, endDate: d.endDate < e.target.value ? e.target.value : d.endDate })} /></label>
+            <label className="small" style={{ display: 'grid', gap: 2, flex: 1 }}>วันสิ้นสุดกิจกรรม<input className="input" type="date" aria-label="แก้วันสิ้นสุดกิจกรรม" min={d.date} value={d.endDate} onChange={(e) => setD({ ...d, endDate: e.target.value })} /></label>
+          </div>
+          <div className="row" style={{ gap: 6, marginTop: 6 }}>
+            <button type="button" className="btn btn--gold" onClick={() => { const r = onEdit?.({ name: d.name.trim(), date: d.date, endDate: d.endDate && d.endDate !== d.date ? d.endDate : undefined }); if (r) setErr(r); else { setEdit(false); setErr('') } }}>บันทึกวันที่</button>
+            <button type="button" className="btn btn--ghost" onClick={() => { setEdit(false); setErr('') }}>ยกเลิก</button>
+          </div>
+          {err && <p className="err" role="alert">{err}</p>}
+        </div>
+      )}
       <div className="row no-print" style={{ marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
         {onReport && <button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
         {onDelete && <button type="button" className="btn btn--ghost" onClick={onDelete}>🗑️ ลบกิจกรรมนี้</button>}

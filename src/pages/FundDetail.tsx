@@ -131,7 +131,12 @@ export default function FundDetailPage() {
   return (
     <>
       {act && <div className="no-print" style={{ margin: '6px 0' }}><button type="button" className="btn btn--ghost" onClick={() => { setActId(null); setPick(null); setSheetPick(null) }}>‹ ทุกกิจกรรม</button></div>}
-      {act && <ActHeader act={act} onReport={() => setReport('all')} onDelete={canManage ? () => {
+      {act && <ActHeader act={act} onReport={() => setReport('all')} onEdit={canManage ? (patch) => {
+        if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date)) return 'เลือกวันที่เริ่มกิจกรรม'
+        if (patch.endDate && patch.endDate < patch.date) return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม'
+        patchAct(act.id, patch); return null
+      } : undefined} onDelete={canManage ? () => {
         if (!t) return
         const ids = actSubIds(t, act.id)
         if (f.moves.some((m) => m.subId && ids.includes(m.subId))) { alert('กิจกรรมนี้มีรายการรับ-จ่ายแล้ว ลบไม่ได้ — ใช้ “ปิดกิจกรรม” แทน (ข้อมูลบัญชียังอยู่ครบ)'); return }
