@@ -131,7 +131,7 @@ export default function FundDetailPage() {
   return (
     <>
       {act && <div className="no-print" style={{ margin: '6px 0' }}><button type="button" className="btn btn--ghost" onClick={() => { setActId(null); setPick(null); setSheetPick(null) }}>‹ ทุกกิจกรรม</button></div>}
-      {act && <ActHeader act={act} onReport={() => setReport('all')} onEdit={canManage ? (patch) => {
+      {act && <ActHeader act={act} onReport={() => setReport('all')} onTeam={canManage ? (team) => patchAct(act.id, { team: team.length ? team : undefined }) : undefined} onEdit={canManage ? (patch) => {
         if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'
         if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date)) return 'เลือกวันที่เริ่มกิจกรรม'
         if (patch.endDate && patch.endDate < patch.date) return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม'

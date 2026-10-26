@@ -30,7 +30,8 @@ function Info({ act }: { act: FundActivity }) {
         {row('ระยะเวลา', `${fmtDate(act.date)}${end !== act.date ? ` – ${fmtDate(end)}` : ''} · ${actDays(act)} วัน`)}
         {row('สถานะ', status)}
         {act.purpose && row('เหตุผล / วัตถุประสงค์', act.purpose)}
-        {act.committee && row('อนุกรรมการ', act.committee)}
+        {(act.team ?? []).length > 0 && row('คณะกรรมการ', (act.team ?? []).map((m) => `${m.name}${m.duty ? ` — ${m.duty}` : ''}`).join('\n'))}
+        {act.committee && row('อนุกรรมการ (โน้ต)', act.committee)}
         {act.note && row('หมายเหตุ', act.note)}
       </tbody>
     </table>
