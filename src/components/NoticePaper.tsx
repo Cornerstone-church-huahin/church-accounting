@@ -12,7 +12,7 @@ const blank = (x: number) => (x ? m(x) : '')
 
 type Piece =
   | { t: 'inc'; title: string; note?: string; rows: NoticeLine[]; start: number; total?: { label: string; cash: number; tr: number; all: number; cn: number; tn: number } }
-  | { t: 'out'; title: string; rows: NoticeExpense[]; start: number; total?: number }
+  | { t: 'out'; title: string; rows: NoticeExpense[]; start: number; total?: number; label?: string }
   | { t: 'sum' }
 
 /** จัดแถวลงหน้า A4 (นับเป็น "ช่องแถว"): หน้าแรกมีหัวใบใหญ่ หน้าต่อไปหัวเล็ก · ตารางยาวเกินหน้าต่อหน้าถัดไปพร้อมหัวตารางซ้ำ */
@@ -34,9 +34,13 @@ function paginate(n: Notice): Piece[][] {
     }
   }
   const tot = (xs: NoticeLine[]) => ({ cash: xs.reduce((s, x) => s + x.cash, 0), tr: xs.reduce((s, x) => s + x.tr, 0), all: xs.reduce((s, x) => s + x.amt, 0), cn: xs.reduce((s, x) => s + x.cashN, 0), tn: xs.reduce((s, x) => s + x.trN, 0) })
-  section(n.inc, (rows, start, last) => ({ t: 'inc', title: 'รายรับ', rows, start, ...(last ? { total: { label: 'รวมรายรับ', ...tot(n.inc) } } : {}) }))
-  if (n.fund.length > 0) section(n.fund, (rows, start, last) => ({ t: 'inc', title: 'เงินถวายกองทุน', note: FUND_NOTE, rows, start, ...(last ? { total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } } : {}) }))
-  section(n.out, (rows, start, last) => ({ t: 'out', title: 'รายจ่าย', rows, start, ...(last ? { total: n.totalOut } : {}) }))
+  section(n.inc, (rows, start, last) => ({ t: 'inc', title: 'รายรับเงินหมุนเวียน', rows, start, ...(last ? { total: { label: 'รวมรายรับ', ...tot(n.inc) } } : {}) }))
+  section(n.out, (rows, start, last) => ({ t: 'out', title: 'รายจ่ายเงินหมุนเวียน', rows, start, ...(last ? { total: n.totalOut } : {}) }))
+  if (n.fund.length > 0) {
+    section(n.fund, (rows, start, last) => ({ t: 'inc', title: 'รายรับเงินกองทุน', note: FUND_NOTE, rows, start, ...(last ? { total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } } : {}) }))
+    const fundOut: NoticeExpense[] = n.fund.map((f) => ({ key: `fo:${f.key}`, date: '', desc: `${f.label} · เบิกแล้ว เตรียมนำฝาก`, amount: f.amt }))
+    section(fundOut, (rows, start, last) => ({ t: 'out', title: 'รายจ่ายเงินกองทุน (เบิกพร้อมเงินหมุนเวียน เตรียมนำฝากเข้าบัญชีกองทุน)', rows, start, ...(last ? { total: n.totalFund, label: 'รวมเงินกองทุนที่เบิก' } : {}) }))
+  }
   if (cap - used < 6) newPage()
   cur().push({ t: 'sum' })
   return pages
@@ -72,9 +76,9 @@ function OutTable({ p, noNames }: { p: Extract<Piece, { t: 'out' }>; noNames?: b
         <thead><tr><th style={th}>ที่</th><th style={th}>วันที่</th><th style={th}>รายการ</th><th style={th}>จำนวนเงิน</th></tr></thead>
         <tbody>
           {p.rows.length === 0 && <tr><td /><td /><td>— ไม่มีรายการ —</td><td /></tr>}
-          {p.rows.map((r, i) => <tr key={r.key} data-comp={isCompensation(r) ? '1' : undefined} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDate(r.date)}</td><td data-c="desc">{r.desc}{r.by && !noNames ? <span className="pname">{` (${r.by})`}</span> : ''}</td><td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr>)}
+          {p.rows.map((r, i) => <tr key={r.key} data-comp={isCompensation(r) ? '1' : undefined} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{r.date ? fmtDate(r.date) : ''}</td><td data-c="desc">{r.desc}{r.by && !noNames ? <span className="pname">{` (${r.by})`}</span> : ''}</td><td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr>)}
         </tbody>
-        {p.total !== undefined && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมรายจ่ายทั้งสิ้น</td><td className="num">{m(p.total)}</td></tr></tfoot>}
+        {p.total !== undefined && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>{p.label ?? 'รวมรายจ่ายทั้งสิ้น'}</td><td className="num">{m(p.total)}</td></tr></tfoot>}
       </table>
     </>
   )
@@ -97,8 +101,8 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
             <PaperHead church={church} title="สรุปรายรับ - รายจ่ายประจำสัปดาห์" sub={`${weekHeading(sunday)}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact={pi > 0} />
             {pcs.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : (
               <div key={i} style={{ border: '1px solid #1a2b4c', padding: '8px 12px', marginTop: 10, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
-                <span>รวมรายรับ</span><span className="num">{m(n.totalInc)}</span>
-                <span>หัก รวมรายจ่าย</span><span className="num">{m(n.totalOut)}</span>
+                <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(n.totalInc)}</span>
+                <span>หัก รวมรายจ่ายเงินหมุนเวียน</span><span className="num">{m(n.totalOut)}</span>
                 <b style={{ fontSize: 17 }}>{n.net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{n.net < 0 ? '−' : ''}{m(Math.abs(n.net))} บาท</b>
                 {n.totalFund > 0 && <><span className="small">เงินถวายกองทุน (รายงานให้ทราบ ไม่รวมในยอดข้างบน)</span><span className="num small">{m(n.totalFund)}</span></>}
               </div>
