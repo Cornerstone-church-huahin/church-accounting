@@ -71,11 +71,15 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
   const fcat = subsOn ? fund?.sub ?? 'all' : 'all'
   const inSub = (x: { subId?: string }) => fcat === 'all' || (x.subId ?? '') === fcat
   /** บันทึกรายรับของกองทุนที่มีหมวด: ติดหมวดที่เลือกอยู่ให้รายการใหม่ (ทุกช่องทางบันทึก) · ทุกหมวด/ส่วนกลาง = ส่วนกลาง */
-  const putInc = (xs: IncomeEntry[]) => inc.put(fid ? xs.map((x) => {
+  const putInc = (xs: IncomeEntry[]) => {
+    const ys = fid ? xs.map((x) => {
     if (inc.items.some((i) => i.id === x.id)) return x
     const y = subsOn && x.subId === undefined && fcat && fcat !== 'all' ? { ...x, subId: fcat } : x
     return { ...y, fz: true } // บันทึกจากหน้ากองทุน = โซนกองทุนล้วน
-  }) : xs)
+    }) : xs
+    if (fid && ys.some((x) => x.subId && fund?.lockedSubs?.includes(x.subId))) { alert('กิจกรรมนี้ปิดแล้ว — บันทึกหรือแก้รายการไม่ได้ (เปิดกิจกรรมอีกครั้งก่อน)'); return false }
+    return inc.put(ys)
+  }
   const allEnt = useMemo(() => inc.items.filter((x) => !x.roundId && (fid ? x.typeId === fid && inSub(x) : !isFundZone(x))).sort(byDateDesc), [inc.items, fid, fcat])
   const scopeTypes = useMemo(() => (fid ? types.list.filter((t) => t.id === fid) : types.list), [types.list, fid])
   const week = useMemo(() => allEnt.filter((x) => sheetSunday(x.date) === sunday), [allEnt, sunday])

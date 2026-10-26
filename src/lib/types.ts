@@ -3,10 +3,18 @@ import type { SharedItem } from './sync'
 /** ทุกจำนวนเงินเป็นสตางค์ (จำนวนเต็ม) · ทุกวันที่เป็น YYYY-MM-DD (ค.ศ.) */
 
 /** หมวดย่อยภายในกองทุน (เช่น พืชผัก โต๊ะจีน) — รายรับ/รายจ่ายของกองทุนระบุหมวดได้ แยกยอด/รายงานตามหมวด */
-export interface FundSub { id: string; name: string; active: boolean; order: number }
+export interface FundSub { id: string; name: string; active: boolean; order: number; /** กิจกรรมของกองทุนที่หมวดนี้อยู่ (กองทุนโหมดกิจกรรม) */ actId?: string }
+/** กิจกรรมในกองทุน (เช่น วันขอบคุณพระเจ้า คริสต์มาส): วันที่ = วันเริ่มกิจกรรม · ปิดกิจกรรมแล้วบันทึกเพิ่มไม่ได้ และมีคะแนนประเมิน 0-10 พร้อมเหตุผล */
+export interface ActGoal { id: string; text: string; done: boolean; doneDate?: string }
+/** ประเมินผลกิจกรรม: ความพึงพอใจ 0–100 (แสดงเป็นขีดปรอทที่การ์ด) + ข้อดี/ข้อเสีย/สรุป */
+export interface ActEval { score: number; pros?: string; cons?: string; summary?: string }
+export interface FundActivity { id: string; name: string; date: string; purpose?: string; committee?: string; note?: string; /** เป้าหมาย/ขั้นตอนของงาน: ทำแล้ว/ยังไม่ทำ */ goals?: ActGoal[]; eval?: ActEval; closed?: { date: string } }
 export interface IncomeType extends SharedItem { name: string; order: number; active: boolean
   /** หมวดย่อยของกองทุนนี้ (ไม่มี = กองทุนไม่แบ่งหมวด) */
   subs?: FundSub[]
+  /** โหมดกิจกรรม: กองทุนแบ่งเป็นกิจกรรม แต่ละกิจกรรมมีหมวดของตัวเอง */
+  actMode?: boolean
+  activities?: FundActivity[]
   /** เป็นกองทุนวัตถุประสงค์ (ไม่ตั้ง = เดาจากชื่อ เช่น "กองทุน…" "สร้างอาคาร") */
   fund?: boolean }
 export interface BankAccount extends SharedItem { name: string; bank: string; last4: string

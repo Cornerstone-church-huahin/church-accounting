@@ -26,12 +26,12 @@ export function subSummary(f: FundAccount, t?: IncomeType) {
   return { rows, central }
 }
 
-export function addSub(t: IncomeType, name: string): { subs: FundSub[] } | { error: string } {
+export function addSub(t: IncomeType, name: string, actId?: string): { subs: FundSub[] } | { error: string } {
   const n = name.trim()
   if (!n) return { error: 'พิมพ์ชื่อหมวด' }
   const subs = t.subs ?? []
-  if (subs.some((s) => s.name === n && s.active)) return { error: 'มีหมวดชื่อนี้แล้ว' }
-  return { subs: [...subs, { id: newId('sb'), name: n, active: true, order: subs.length ? Math.max(...subs.map((s) => s.order)) + 1 : 1 }] }
+  if (subs.some((s) => s.name === n && s.active && s.actId === actId)) return { error: 'มีหมวดชื่อนี้แล้ว' }
+  return { subs: [...subs, { id: newId('sb'), name: n, active: true, order: subs.length ? Math.max(...subs.map((s) => s.order)) + 1 : 1, ...(actId ? { actId } : {}) }] }
 }
 /** ลบหมวด: ไม่มีรายการ = ลบจริง · มีรายการแล้ว = เก็บถาวร (ซ่อนจากตัวเลือก แต่รายงานยังเห็น) */
 export function removeSub(t: IncomeType, id: string, hasMoves: boolean): FundSub[] {
