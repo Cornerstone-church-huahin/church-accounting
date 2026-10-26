@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fmtBaht, fmtDate } from '../lib/money'
 import { useYear } from '../lib/year'
@@ -14,6 +14,8 @@ import type { CatalogOps } from '../components/CatalogManager'
 import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fundSubs'
 import { actAccount, actSubIds, addActivity, enableActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
 import { ActEvaluation, ActHeader, ActivityCards, ActProgress, AddActivity } from '../components/FundActivities'
+import ActReportPages, { type ActReportKind } from '../components/ActReport'
+import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import Pay from './Pay'
 import Receive from './Receive'
 
@@ -33,6 +35,9 @@ export default function FundDetailPage() {
   const [sheetPick, setSheetPick] = useState<string | null>(null) // ใบกองทุน: หมวดที่เลือกดู (null = ยังไม่เลือก)
   const [subErr, setSubErr] = useState('')
   const [actId, setActId] = useState<string | null>(null) // โหมดกิจกรรม: กิจกรรมที่เปิดอยู่ (null = หน้าการ์ดกิจกรรม)
+  const [report, setReport] = useState<ActReportKind | null>(null)
+  const [busy, setBusy] = useState(false)
+  const repRef = useRef<HTMLDivElement[]>([])
   const [actTab, setActTab] = useState<'acct' | 'prog' | 'eval'>('acct')
   const [enable, setEnable] = useState<{ name: string; date: string } | null>(null)
   const f = rows.find((r) => r.id === id)
@@ -82,17 +87,47 @@ export default function FundDetailPage() {
             <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
           </section>
         )}
-        {canManage && <AddActivity onAdd={(name, date) => { if (!t) return 'ไม่พบกองทุน'; const r = addActivity(t, name, date); if ('error' in r) return r.error; saveActs(r.activities); return null }} />}
+        {canManage && <AddActivity onAdd={(name, date, end) => { if (!t) return 'ไม่พบกองทุน'; const r = addActivity(t, name, date, end); if ('error' in r) return r.error; saveActs(r.activities); return null }} />}
         <h2 className="no-print" style={{ margin: '8px 0 0', fontSize: '1.05rem' }}>กิจกรรมของกองทุน (ใหม่อยู่บนสุด)</h2>
         <ActivityCards acts={visibleActs} stat={(a) => actAccount(f, actSubIds(t, a.id).filter((i) => !keeperOnly || keeperOnly.includes(i)))} onOpen={(id) => { setActId(id); setPick(null); setSheetPick(null); setTab('in'); setActTab('acct') }} />
         {canManage && (sum.central.moneyIn > 0 || sum.central.moneyOut > 0 || sum.central.opening !== 0) && <p className="muted small no-print" style={{ margin: '4px 0' }}>ส่วนกลางของกองทุน (ยังไม่แบ่งกิจกรรม) คงเหลือ {fmtBaht(sum.central.balance)} บาท · รวมอยู่ในยอดกองทุนด้านบนแล้ว</p>}
       </>
     )
   }
+  if (act && report) {
+    const ids = only ?? actIds ?? []
+    const nameOf = (id?: string) => (t?.subs ?? []).find((q) => q.id === id)?.name ?? 'ส่วนกลาง'
+    const items = f.moves.filter((m) => m.subId && ids.includes(m.subId)).sort((a, b) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key)).map((m) => ({ date: m.date, cat: nameOf(m.subId), label: m.label, amount: m.amount }))
+    const total = actAccount(f, ids)
+    const acctData = { cats: sum.rows.filter((q) => ids.includes(q.id)).map((q) => ({ name: q.name, moneyIn: q.acc.moneyIn, moneyOut: q.acc.moneyOut, balance: q.acc.balance })), items, total: { moneyIn: total.moneyIn, moneyOut: total.moneyOut, balance: total.balance } }
+    const file = `กิจกรรม-${act.name}-${report}.pdf`
+    const church = settings.churchName.split(' ')[0]
+    const run = async (share: boolean) => {
+      if (repRef.current.length === 0) return
+      setBusy(true)
+      try {
+        if (share) { if ((await sharePdf(repRef.current, file, 'full', `${act.name} ${church}`)) === 'unsupported') { await downloadSheetPdf(repRef.current, file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แทนแล้ว') } } else await downloadSheetPdf(repRef.current, file, 'full')
+      } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+      setBusy(false)
+    }
+    return (
+      <>
+        <div className="row no-print" style={{ margin: '8px 0', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn--ghost" onClick={() => setReport(null)}>‹ กลับ</button>
+          <span className="grow" />
+          <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run(false)} aria-label="ดาวน์โหลดรายงานกิจกรรมเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
+          <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run(true)} aria-label="แชร์รายงานกิจกรรมเป็น PDF" title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ PDF</button>
+          <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์รายงานกิจกรรม">🖨️ พิมพ์</button>
+        </div>
+        <ActReportPages kind={report} church={church} fundName={f.name} act={act} acct={acctData} pagesRef={repRef} />
+        <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ) · พิมพ์/PDF ขนาด A4 มีเครดิตผู้พัฒนาท้ายทุกแผ่น</p>
+      </>
+    )
+  }
   return (
     <>
       {act && <div className="no-print" style={{ margin: '6px 0' }}><button type="button" className="btn btn--ghost" onClick={() => { setActId(null); setPick(null); setSheetPick(null) }}>‹ ทุกกิจกรรม</button></div>}
-      {act && <ActHeader act={act} />}
+      {act && <ActHeader act={act} onReport={() => setReport('all')} />}
       {act && (
         <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="หมวดงานของกิจกรรม" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <button type="button" role="tab" aria-selected={actTab === 'acct'} className={`home-tab home-tab--in${actTab === 'acct' ? ' on' : ''}`} onClick={() => setActTab('acct')}><i className="hn">1</i><span>📒 ระบบบัญชี</span></button>
@@ -101,13 +136,14 @@ export default function FundDetailPage() {
         </div>
       )}
       {act && actTab === 'prog' && <ActProgress act={act} canManage={canManage} locked={!!act.closed}
-        onSave={(patch) => { if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'; if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date ?? '')) return 'เลือกวันที่เริ่มกิจกรรม'; patchAct(act.id, patch); return null }}
-        onGoals={(goals) => patchAct(act.id, { goals })} />}
-      {act && actTab === 'eval' && <ActEvaluation act={act} canManage={canManage}
+        onSave={(patch) => { if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'; if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date ?? '')) return 'เลือกวันที่เริ่มกิจกรรม'; if (patch.endDate && patch.endDate < (patch.date ?? '')) return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม'; patchAct(act.id, patch); return null }}
+        onReport={() => setReport('prog')} onGoals={(goals) => patchAct(act.id, { goals })} />}
+      {act && actTab === 'eval' && <ActEvaluation act={act} canManage={canManage} onReport={() => setReport('eval')}
         onSaveEval={(ev) => patchAct(act.id, { eval: ev })}
         onClose={() => patchAct(act.id, { closed: { date: new Date().toISOString().slice(0, 10) } })}
         onReopen={() => patchAct(act.id, { closed: undefined })} />}
       {(!act || actTab === 'acct') && (<>
+      {act && <div className="no-print" style={{ margin: '4px 0' }}><button type="button" className="btn btn--ghost" onClick={() => setReport('acct')}>🧾 รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)</button></div>}
       {act?.closed && <p className="role-bar no-print" role="status">🔒 กิจกรรมนี้ปิดแล้ว — ดูได้อย่างเดียว (แอดมินเปิดกิจกรรมอีกครั้งได้เพื่อบันทึกเพิ่ม)</p>}
       <div className="page-head no-print"><h1>💰 {f.name}</h1>{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</div>
       {only ? (

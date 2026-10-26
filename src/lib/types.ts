@@ -8,7 +8,7 @@ export interface FundSub { id: string; name: string; active: boolean; order: num
 export interface ActGoal { id: string; text: string; done: boolean; doneDate?: string }
 /** ประเมินผลกิจกรรม: ความพึงพอใจ 0–100 (แสดงเป็นขีดปรอทที่การ์ด) + ข้อดี/ข้อเสีย/สรุป */
 export interface ActEval { score: number; pros?: string; cons?: string; summary?: string }
-export interface FundActivity { id: string; name: string; date: string; purpose?: string; committee?: string; note?: string; /** เป้าหมาย/ขั้นตอนของงาน: ทำแล้ว/ยังไม่ทำ */ goals?: ActGoal[]; eval?: ActEval; closed?: { date: string } }
+export interface FundActivity { id: string; name: string; /** วันเริ่มกิจกรรม */ date: string; /** วันสิ้นสุด (ไม่ใส่ = วันเดียวกับวันเริ่ม) */ endDate?: string; purpose?: string; committee?: string; note?: string; /** เป้าหมาย/ขั้นตอนของงาน: ทำแล้ว/ยังไม่ทำ */ goals?: ActGoal[]; eval?: ActEval; closed?: { date: string } }
 export interface IncomeType extends SharedItem { name: string; order: number; active: boolean
   /** หมวดย่อยของกองทุนนี้ (ไม่มี = กองทุนไม่แบ่งหมวด) */
   subs?: FundSub[]
