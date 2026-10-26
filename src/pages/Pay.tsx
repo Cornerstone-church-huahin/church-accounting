@@ -61,6 +61,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
     ...expRaw,
     put: (xs: ExpenseEntry[]) => {
       if (!subsOn || !fund) return expRaw.put(xs)
+      if (xs.some((x) => x.subId && fund.lockedSubs?.includes(x.subId))) { alert('กิจกรรมนี้ปิดแล้ว — บันทึกหรือแก้รายการไม่ได้ (เปิดกิจกรรมอีกครั้งก่อน)'); return false }
       const out: ExpenseEntry[] = []
       for (const x of xs) {
         if (x.subId !== undefined || expRaw.items.some((i) => i.id === x.id)) { out.push(x); continue }

@@ -944,3 +944,17 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .a4page .sheet-hint span { font-size: 32px; }
 
 .a4page .attach { cursor: pointer; color: #1a5fb4; text-decoration: underline; }
+
+/* การ์ดกิจกรรมของกองทุน: ยาวบาง ฟ้า = กำลังดำเนินการ · เทา = ปิดแล้ว */
+.actlist { list-style: none; margin: 0.4rem 0; padding: 0; display: grid; gap: 8px; }
+.actcard { width: 100%; display: grid; gap: 3px; text-align: left; padding: 10px 14px; border-radius: 12px; border: 1px solid transparent; border-left-width: 8px; cursor: pointer; font: inherit; }
+.actcard--open { background: #e8f0fc; border-color: #b9d0f5; border-left-color: #1f5fc4; color: #12305f; }
+.actcard--closed { background: #eceef1; border-color: #d3d6db; border-left-color: #8a8f98; color: #555b66; }
+.actcard__top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.actcard__name { font-size: 1.05rem; }
+.actcard__date { font-size: 0.85rem; opacity: 0.85; }
+.actcard__nums { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.85rem; }
+.actcard__done { display: grid; gap: 2px; margin-top: 2px; }
+.actcard__review { opacity: 0.9; }
+.actnote--open { border-left: 8px solid #1f5fc4; background: #f3f7fe; }
+.actnote--closed { border-left: 8px solid #8a8f98; background: #f4f5f7; }
