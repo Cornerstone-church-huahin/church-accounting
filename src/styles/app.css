@@ -967,3 +967,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .zone--fund .sheetpaper th, .zone--fund .sheetpaper tfoot td { background: #f6e3a8; }
 .zone--circ .sheetpaper td { background: #fff; } .zone--fund .sheetpaper td { background: #fffdf5; }
 .zone--circ .sheetpaper th, .zone--circ .sheetpaper td { border-color: #1a2b4c; } .zone--fund .sheetpaper th, .zone--fund .sheetpaper td { border-color: #b8860b; }
+/* ใบประกาศแผ่นเดียว: ข้อมูลมาก → บีบความสูงแถว (ระดับ 1 → 2) ก่อนย่อทั้งใบ */
+.fit--d1 .sheetpaper td { height: 14.5px; font-size: 11px; line-height: 1.1; } .fit--d1 .sheetpaper th { font-size: 11px; padding-top: 1px; padding-bottom: 1px; }
+.fit--d1 .zone { margin: 4px 0; padding-bottom: 3px; } .fit--d1 .zone__head { font-size: 12.5px; padding: 2px 8px; }
+.fit--d2 .sheetpaper td { height: 11.5px; font-size: 9.5px; line-height: 1; } .fit--d2 .sheetpaper th { font-size: 9.5px; padding-top: 0; padding-bottom: 0; }
+.fit--d2 .zone { margin: 3px 0; padding-bottom: 2px; } .fit--d2 .zone__head { font-size: 11px; padding: 1px 8px; }
