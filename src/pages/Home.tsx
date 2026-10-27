@@ -15,7 +15,8 @@ import BalanceStrip from '../components/BalanceStrip'
 import WithdrawPrep from '../components/WithdrawPrep'
 import DepositPrep from '../components/DepositPrep'
 
-type Tab = 'in' | 'out' | 'adj' | 'sum' | 'wd' | 'dep' | null
+export type HomeTab = 'in' | 'out' | 'adj' | 'sum' | 'wd' | 'dep' | null
+type Tab = HomeTab
 const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; /** ชื่อสั้นในแถบเมนูตอนเปิดเต็มจอ */ short: string; sub: string }[] = [
   { k: 'in', n: 1, icon: '💚', name: 'รับ', short: 'รับ', sub: 'ใบบันทึกการถวาย' },
   { k: 'out', n: 2, icon: '🔴', name: 'จ่าย', short: 'จ่าย', sub: 'ใบเบิก-จ่ายเงินสด' },
@@ -26,9 +27,12 @@ const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; /**
 ]
 
 /** หน้าแรก 2 ส่วน: (1) ช่องเงินคริสตจักร 6 ช่อง (2) ปุ่มขั้นตอน 2×2 — กดขั้นตอนแล้วเปิดเต็มจอ (ซ่อนส่วนบน) เพื่อเห็นใบทันทีไม่ต้องเลื่อน · ‹ หน้าแรก กลับหน้าแรก */
-export default function Home() {
+/** tab/onTab: ให้หน้าที่ครอบ (งานเหรัญญิก) ควบคุมว่าเปิดขั้นตอนไหนอยู่ — ไม่ส่งมา = จัดการเอง */
+export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (t: HomeTab) => void } = {}) {
   const { year } = useYear()
-  const [tab, setTab] = useState<Tab>(null)
+  const [tabState, setTabState] = useState<Tab>(null)
+  const tab = tabProp !== undefined ? tabProp : tabState
+  const setTab = (t: Tab) => { if (onTab) onTab(t); else setTabState(t) }
   const { balances: b, input, opening } = useBalances(year)
   const op = useOpening()
   const role = useRole()

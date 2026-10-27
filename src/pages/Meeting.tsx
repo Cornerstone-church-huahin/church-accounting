@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
-import Home from './Home'
+import Home, { type HomeTab } from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
@@ -35,7 +35,7 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
  * หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ หน้าแรก ตำแหน่งเดียวกันทุกงาน (กลับหน้าแรก = ห้องทำงาน)
  * แอดมิน → กลับหน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เลขา อนุชน ฯลฯ) → กลับหน้าหลักของงานตัวเอง (เริ่มใหม่ตั้งแต่ต้น)
  */
-function WorkHead({ n, name }: { n: number; name: string }) {
+function WorkHead({ n, name, back }: { n: number; name: string; /** เปิดขั้นตอนอยู่ในงาน: ปุ่มกลับเป็น หน้าแรกของงาน (ปิดขั้นตอน) แทนหน้าแรกของแอป */ back?: () => void }) {
   useRole() // สิทธิ์/งานที่รับผิดชอบเปลี่ยนเมื่อรายชื่อซิงก์ → วาดใหม่
   const to = workHomePath(myWorks())
   return (
@@ -43,7 +43,7 @@ function WorkHead({ n, name }: { n: number; name: string }) {
       <div className="page-head no-print">
         <h1>{name}</h1>
         <WorkBell n={n} />
-        <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>
+        {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ หน้าแรกงาน</button> : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
       </div>
       <WorkTeam n={n} name={name} />
     </>
@@ -138,12 +138,13 @@ function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 
 
 function MeetingRoom() {
   const { n, k, s } = useParams()
+  const [step, setStep] = useState<HomeTab>(null) // งานเหรัญญิก: ขั้นตอนที่เปิดอยู่ (รับ จ่าย ปรับ …)
   const tab = MEETING_TABS.find((x) => String(x.n) === n)
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
-  if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} /><CalToggle n={3} /><Home /></>
+  if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><AccountLinks n={2} /><CalToggle n={2} /><Members /></>
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
