@@ -50,6 +50,7 @@ export default function Adjust({ year }: { year: number }) {
   const from = addDays(sunday, -6)
   const [shots, setShots] = useState<{ path: string; name: string }[]>(() => loadDraft(year, sunday)?.shots ?? []) // รูปที่อัปโหลดแล้ว รอกดบันทึก
   const [drafts, setDrafts] = useState<Draft[] | null>(() => loadDraft(year, sunday)?.drafts ?? null)
+  const [jump, setJump] = useState(false)
   const [editLine, setEditLine] = useState<{ l: PassbookLine; kind: string; date: string; desc: string; amount: number | null; balance: number | null } | null>(null)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
@@ -57,6 +58,7 @@ export default function Adjust({ year }: { year: number }) {
   const token = useRef(0)
   useEffect(() => { storeDraft(year, sunday, drafts, shots) }, [year, sunday, drafts, shots])
   /** เปลี่ยนสัปดาห์: โหลดแบบร่างของสัปดาห์นั้นกลับมา (ถ้ามี) */
+  useEffect(() => { if (jump) { document.getElementById('adj-lines')?.scrollIntoView({ block: 'start' }); setJump(false) } }, [jump, sunday])
   const gotoWeek = (sd: string) => { const d = loadDraft(year, sd); setSunday(sd); setDrafts(d?.drafts ?? null); setShots(d?.shots ?? []); setMsg(d ? 'มีแบบร่างที่ยังไม่ได้บันทึกของสัปดาห์นี้ — ตรวจแล้วกดบันทึก' : '') }
   const typeName = (id: string) => types.list.find((t) => t.id === id)?.name ?? 'ไม่ระบุประเภท'
 
@@ -253,7 +255,7 @@ export default function Adjust({ year }: { year: number }) {
               </>
             )}
 
-            <h3>📒 รายการสมุดที่บันทึกไว้ (แก้ไข/ลบได้)</h3>
+            <h3 id="adj-lines">📒 รายการสมุดที่บันทึกไว้ (แก้ไข/ลบได้)</h3>
             <ul className="list" aria-label="รายการสมุดที่บันทึกไว้">{weekLines.map((l) => (
               <li key={l.id} className="row row--between">
                 <span>{row(l)}<br /><span className="small muted">{KIND_OPTS.find((k) => k.v === kindV(l))?.label ?? l.kind}{l.link ? ' · ลงเป็นรายรับแล้ว' : ''}</span></span>
@@ -272,16 +274,25 @@ export default function Adjust({ year }: { year: number }) {
       </section>
       <section className="card no-print" aria-label="รูปสมุดบัญชีที่สแกนแล้ว">
         <h2>🖼 รูปสมุดบัญชีที่สแกนแล้ว</h2>
-        {scans.items.length === 0 ? <p className="muted small">ยังไม่มีรูป — รูปที่สแกนจะมาเก็บที่นี่ ใหม่สุดอยู่บน เก่าสุดอยู่ล่าง</p> : (
+        {scans.items.filter((x) => !x.deleted).length === 0 ? <p className="muted small">ยังไม่มีรูป — รูปที่สแกนจะมาเก็บที่นี่ ใหม่สุดอยู่บน เก่าสุดอยู่ล่าง</p> : (
           <ul className="scanlist">
-            {[...scans.items].sort((a, b) => b.updated - a.updated).map((x) => (
-              <li key={x.id}>
-                <button type="button" className="scancard" onClick={() => setViewer(x)} aria-label={`เปิดรูปสมุด ${weekTitle(x.week)}`}>
-                  <span className="scancard__img"><Thumb path={x.path} alt="รูปหน้าสมุดบัญชี" /></span>
-                  <span className="scancard__txt"><b>{weekTitle(x.week)}</b><br /><span className="small muted">วันที่ {weekRange(x.week)} · สแกน {x.updated ? new Date(x.updated).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : 'เมื่อสักครู่'}</span></span>
-                </button>
-              </li>
-            ))}
+            {[...scans.items].filter((x) => !x.deleted).sort((a, b) => b.updated - a.updated).map((x) => {
+              const n = pb.items.filter((l) => !l.deleted && lineWeek(l) === x.week).length
+              return (
+                <li key={x.id}>
+                  <button type="button" className="scancard" onClick={() => setViewer(x)} aria-label={`เปิดรูปสมุด ${weekTitle(x.week)}`}>
+                    <span className="scancard__img"><Thumb path={x.path} alt="รูปหน้าสมุดบัญชี" /></span>
+                    <span className="scancard__txt"><b>{weekTitle(x.week)}</b><br /><span className="small muted">วันที่ {weekRange(x.week)} · สแกน {x.updated ? new Date(x.updated).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : 'เมื่อสักครู่'} · {n} รายการในสมุด</span></span>
+                  </button>
+                  {canWrite && (
+                    <div className="row scanact" style={{ gap: 6, marginTop: 4 }}>
+                      <button type="button" className="mini" aria-label={`แก้ไขรายการ ${weekTitle(x.week)}`} onClick={() => { gotoWeek(x.week); setMsg(''); setJump(true) }}>✏️ แก้ไขรายการ</button>
+                      <button type="button" className="mini" aria-label={`ลบรูป ${weekTitle(x.week)}`} onClick={() => { if (window.confirm('ลบรูปสมุดนี้ออกจากรายการ? (รายการสมุดที่บันทึกไว้ไม่ถูกลบ)')) { scans.put([{ ...x, deleted: true }]); void removeMemberPhotoFile(x.path) } }}>🗑 ลบรูป</button>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </section>

@@ -23,6 +23,7 @@ try {
   await page.getByRole('tab', { name: /ปรับ/ }).first().click()
   await page.getByLabel('แนบรูปสมุดบัญชี').setInputFiles('public/icon-512.png')
   await page.getByLabel('รายการ บรรทัด 2').waitFor({ timeout: 20000 })
+  await page.waitForTimeout(1500) // รอเก็บรูปเสร็จ
   // ออกจากหน้าโดยยังไม่บันทึก แล้วกลับมา → แบบร่างยังอยู่
   await page.goto(`http://localhost:${PORT}/#/income`); await page.waitForLoadState('networkidle')
   await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.reload()
@@ -41,10 +42,17 @@ try {
   must(await page.getByText(/Unkonw 1 รายการ/).first().isVisible(), 'edited transfer counts as unknown source')
   await page.goto(`http://localhost:${PORT}/#/income`)
   must(/โอน \(ไม่แจ้งวัตถุประสงค์\) Unkonw/.test(await page.locator('section[aria-label="รายการรายรับ"]').innerText()), 'unknown row now appears on the income page')
+  // การ์ดรูปที่สแกนแล้ว: ปุ่มแก้ไขรายการพาไปสัปดาห์นั้นและรายการสมุดทันที (แม้หน้าเปิดที่สัปดาห์อื่น)
   await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.reload()
   await page.getByRole('tab', { name: /ปรับ/ }).first().click()
+  await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click()
+  must(await page.getByRole('list', { name: 'รายการสมุดที่บันทึกไว้' }).count() === 0, 'previous week has no lines')
+  await page.getByLabel(/แก้ไขรายการ อาทิตย์/).first().click()
+  must(await page.getByRole('list', { name: 'รายการสมุดที่บันทึกไว้' }).locator('li').count() === 2, 'edit button on the scan card jumps to that week lines')
   await page.getByRole('list', { name: 'รายการสมุดที่บันทึกไว้' }).getByRole('button', { name: /ลบรายการ.*200/ }).click()
   must(await page.getByRole('list', { name: 'รายการสมุดที่บันทึกไว้' }).locator('li').count() === 1, 'line deleted')
+  await page.getByLabel(/ลบรูป อาทิตย์/).first().click()
+  must(await page.getByLabel(/เปิดรูปสมุด/).count() === 0, 'scan card deleted')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('adjustkeep-test OK')
 } finally { await browser.close(); server.kill() }
