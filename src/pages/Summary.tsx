@@ -9,6 +9,8 @@ import { useSettings } from '../lib/data'
 import { fmtBaht, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import { summarizeLoans } from '../lib/loans'
 import { useWeekWithdraw } from '../lib/useWeekWithdraw'
+import { buildPeriod, type PeriodKind } from '../lib/periodData'
+import PeriodPaper from '../components/PeriodPaper'
 import { expenseLines, weekNotice } from '../lib/notice'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { periodReport } from '../lib/report'
@@ -41,12 +43,15 @@ export default function Summary({ year }: { year: number }) {
   const [tab, setTab] = useState<Tab>('week')
   const [sunday, setSunday] = useState(latest)
   const [month, setMonth] = useState(() => Number(sheetSunday(latest).slice(5, 7)))
-  const [notice, setNotice] = useState(false)
+  const [notice, setNotice] = useState<PeriodKind | null>(null)
   const [busy, setBusy] = useState(false)
   const [copy, setCopy] = useState<'evidence' | 'report' | 'public' | 'file'>(detail ? 'evidence' : 'public')
   const kind = detail ? copy : 'public'
-  const fileMode = kind === 'file'
-  const tag = kind === 'evidence' ? 'ต้นฉบับ' : kind === 'report' ? 'รายงานที่ประชุม' : 'ประกาศ'
+  const periodic = notice === 'month' || notice === 'year'
+  const fileMode = kind === 'file' && !periodic
+  const pad2 = (x: number) => String(x).padStart(2, '0')
+  const stamp = notice === 'month' ? `${year}-${pad2(month)}` : notice === 'year' ? String(year) : sunday
+  const tag = (kind === 'evidence' ? 'ต้นฉบับ' : kind === 'report' ? 'รายงานที่ประชุม' : 'ประกาศ')
   const paper = useRef<HTMLDivElement[]>([])
   const asOf = sunday <= today ? sunday : today
   const bw = useBalances(year, asOf).balances
@@ -56,6 +61,7 @@ export default function Summary({ year }: { year: number }) {
     const f = (x: number) => fmtBaht(x, { dec: false })
     return { tiles: [['🏠 หมุนเวียน', f(bw.own.balance)], ['💰 กองทุน', f(bw.fundTotal)], ['🧮 รวมเงินสด', f(bw.total)], ['🔁 หนี้ภายใน', f(ls.fromFunds)], ['🧾 หนี้ภายนอก', f(ls.external)], ['🏞️ ภาระที่ดิน', '6,000,000']] as [string, string][], withdraw: { totalC: wd.totalC, totalF: wd.totalF, total: wd.total }, follow: periodReport(rangeOf('week', year, { sunday }), a).follow.map((x) => x.text) }
   }, [bw, wd, loans, asOf, a, year, sunday])
+  const pd = useMemo(() => (notice === 'month' || notice === 'year' ? buildPeriod(notice, year, month, a, loans) : null), [notice, year, month, a, loans])
   const n = useMemo(() => {
     const range = rangeOf('week', year, { sunday })
     const L = computeLedger({ range, ...a, withFunds: false })
@@ -64,14 +70,14 @@ export default function Summary({ year }: { year: number }) {
   const download = async () => {
     if (paper.current.length === 0) return
     setBusy(true)
-    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${tag}-${sunday}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
+    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${tag}-${stamp}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
     setBusy(false)
   }
   const share = async () => {
     if (paper.current.length === 0) return
     setBusy(true)
     try {
-      const file = `สรุปรับจ่าย-${tag}-${sunday}.pdf`
+      const file = `สรุปรับจ่าย-${tag}-${stamp}.pdf`
       const r = await sharePdf(paper.current, file, 'full', `สรุปรายรับ-รายจ่าย ${church}`)
       if (r === 'unsupported') { await downloadSheetPdf(paper.current, file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แทนแล้ว นำไปแชร์ต่อจากไฟล์ที่ดาวน์โหลดได้') }
     } catch (e) { console.error('share', e); alert('แชร์ไม่สำเร็จ — ลองกด “ดาวน์โหลด PDF” แทน') }
@@ -82,7 +88,7 @@ export default function Summary({ year }: { year: number }) {
     return (
       <>
         <div className="row no-print" style={{ margin: '8px 0', gap: 8 }}>
-          <button type="button" className="btn btn--ghost" onClick={() => setNotice(false)}>‹ สรุปและรายงาน</button>
+          <button type="button" className="btn btn--ghost" onClick={() => setNotice(null)}>‹ สรุปและรายงาน</button>
           <span className="grow" />
           {canExport && !fileMode && <>
             <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void download()} aria-label="ดาวน์โหลดใบสรุปเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
@@ -90,16 +96,20 @@ export default function Summary({ year }: { year: number }) {
             <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
           </>}
         </div>
+        <div className="rtabs no-print" role="tablist" aria-label="ช่วงเวลาของใบสรุป">
+          {([['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'รายปี']] as [PeriodKind, string][]).map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={notice === k} className={`rtab${notice === k ? ' on' : ''}`} onClick={() => setNotice(k)}>{t}</button>)}
+        </div>
+        {notice === 'month' && <div className="row no-print" style={{ justifyContent: 'center', gap: 10, margin: '4px 0' }}><button type="button" className="mini" aria-label="เดือนก่อน" disabled={month <= 1} onClick={() => setMonth(month - 1)}>‹</button><b>{pd?.label}</b><button type="button" className="mini" aria-label="เดือนถัดไป" disabled={month >= 12} onClick={() => setMonth(month + 1)}>›</button></div>}
         {detail && (
           <div className="rtabs no-print" role="tablist" aria-label="ฉบับของใบสรุป">
             <button type="button" role="tab" aria-selected={copy === 'evidence'} className={`rtab${copy === 'evidence' ? ' on' : ''}`} onClick={() => setCopy('evidence')}>🔒 สำหรับแอดมินและเหรัญญิก</button>
-            <button type="button" role="tab" aria-selected={copy === 'file'} className={`rtab${copy === 'file' ? ' on' : ''}`} onClick={() => setCopy('file')}>🗂️ แฟ้มประจำสัปดาห์</button>
+            {!periodic && <button type="button" role="tab" aria-selected={copy === 'file'} className={`rtab${copy === 'file' ? ' on' : ''}`} onClick={() => setCopy('file')}>🗂️ แฟ้มประจำสัปดาห์</button>}
             <button type="button" role="tab" aria-selected={copy === 'report'} className={`rtab${copy === 'report' ? ' on' : ''}`} onClick={() => setCopy('report')}>📑 รายงานที่ประชุม</button>
             <button type="button" role="tab" aria-selected={copy === 'public'} className={`rtab${copy === 'public' ? ' on' : ''}`} onClick={() => setCopy('public')}>📢 สำหรับประกาศสมาชิก</button>
           </div>
         )}
         {detail && !fileMode && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'report' ? 'รายงานเสนอที่ประชุม (ใช้ภายในคณะทำงาน): ข้อมูลครบ มีชื่อและเงินเดือนรายคน + เงินคริสตจักรสิ้นสัปดาห์ · ต้องเบิก · เรื่องต้องติดตาม · ช่องลงนาม — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
-        {fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind === 'report' ? 'evidence' : (kind as 'evidence' | 'public')} meeting={kind === 'report' ? meeting : undefined} />}
+        {periodic && pd ? <PeriodPaper key={`${notice}-${kind}`} church={church} d={pd} variant={kind === 'report' ? 'report' : kind === 'evidence' ? 'evidence' : 'public'} pagesRef={paper} /> : fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind === 'report' ? 'evidence' : (kind as 'evidence' | 'public')} meeting={kind === 'report' ? meeting : undefined} />}
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )
@@ -110,9 +120,9 @@ export default function Summary({ year }: { year: number }) {
       <div className="rtabs no-print" role="tablist" aria-label="ระดับรายงาน">
         {TABS.map((x) => <button key={x.k} type="button" role="tab" aria-selected={tab === x.k} className={`rtab${tab === x.k ? ' on' : ''}`} onClick={() => setTab(x.k)}>{x.t}</button>)}
       </div>
-      {tab === 'week' && <WeekTab year={year} a={a} detail={detail} sunday={sunday} setSunday={setSunday} openNotice={() => setNotice(true)} />}
-      {tab === 'month' && <MonthTab year={year} a={a} detail={detail} month={month} setMonth={setMonth} openWeek={(s) => { setSunday(s); setTab('week') }} />}
-      {tab === 'year' && <YearTab year={year} a={a} detail={detail} loans={loans} openMonth={(m) => { setMonth(m); setTab('month') }} />}
+      {tab === 'week' && <WeekTab year={year} a={a} detail={detail} sunday={sunday} setSunday={setSunday} openNotice={() => setNotice('week')} />}
+      {tab === 'month' && <MonthTab year={year} a={a} detail={detail} month={month} setMonth={setMonth} openWeek={(s) => { setSunday(s); setTab('week') }} openNotice={() => setNotice('month')} />}
+      {tab === 'year' && <YearTab year={year} a={a} detail={detail} loans={loans} openMonth={(m) => { setMonth(m); setTab('month') }} openNotice={() => setNotice('year')} />}
     </section>
   )
 }
