@@ -23,6 +23,7 @@ try {
   const n = (await page.getByLabel('เดือนพฤศจิกายน 2569').first().innerText()).replace(/\s+/g, ' ')
   must(/1\/11\/69/.test(n) && /29\/11\/69/.test(n), 'November 2569 has five Sundays 1…29: ' + n)
   must((await page.locator('.a4page').count()) === 1, 'two months = one A4 sheet')
+  must((await page.locator('.a4page section svg').count()) === 4, 'each month header carries two food pictures (burger/taco, donut/sandwich)')
   const fit = await page.evaluate(() => [...document.querySelectorAll('.a4page')].every((e) => e.scrollHeight <= e.clientHeight + 1 && [...e.querySelectorAll('section')].every((x) => x.getBoundingClientRect().bottom <= e.getBoundingClientRect().bottom - 20)))
   must(fit, 'both month blocks fit inside the A4 page with room for the credit line')
   // บันทึกชื่อ

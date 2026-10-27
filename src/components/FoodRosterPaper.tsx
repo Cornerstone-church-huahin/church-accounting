@@ -1,10 +1,12 @@
 import { forwardRef } from 'react'
+import FoodIcon, { type FoodKind } from './FoodIcons'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import { be, monthName } from '../lib/money'
 import { sundaysOfMonth, shortThaiDate, type YM } from '../lib/foodRoster'
 import type { FoodSlot } from '../lib/types'
 
+const ICONS: [FoodKind, FoodKind][] = [['burger', 'taco'], ['donut', 'sandwich']] // เดือนที่ 1 / 2 ของแผ่น
 const ROWS = 5 // เดือนหนึ่งมีวันอาทิตย์ได้ 4–5 วัน — เว้นแถวไว้ 5 เสมอเพื่อให้ทุกเดือนหน้าตาเหมือนกัน
 
 /**
@@ -23,7 +25,11 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
             const sun = sundaysOfMonth(x.y, x.m)
             return (
               <section key={`${x.y}-${x.m}`} aria-label={`เดือน${monthName(x.m)} ${be(x.y)}`} style={{ border: '2.5px solid #1a2b4c', borderRadius: 14, padding: '8px 10px 10px', background: '#eef5fb' }}>
-                <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 17, background: '#fff', border: '2px solid #1a2b4c', borderRadius: 999, padding: '3px 12px', margin: '0 auto 8px', width: 'fit-content', minWidth: '58%' }}>เดือน{monthName(x.m)} {be(x.y)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 6px' }}>
+                  <FoodIcon kind={ICONS[months.indexOf(x) % 2][0]} />
+                  <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18, background: '#fff', border: '2px solid #1a2b4c', borderRadius: 999, padding: '4px 14px', flex: 1, maxWidth: '62%' }}>เดือน{monthName(x.m)} {be(x.y)}</div>
+                  <FoodIcon kind={ICONS[months.indexOf(x) % 2][1]} />
+                </div>
                 <table className="sheetpaper sheetpaper--foodrow" aria-label={`ตารางถวายอาหาร เดือน${monthName(x.m)} ${be(x.y)}`} style={{ background: '#fff' }}>
                   <colgroup><col style={{ width: '17%' }} /><col style={{ width: '41%' }} /><col style={{ width: '42%' }} /></colgroup>
                   <thead><tr><th>วันที่</th><th>ชื่อผู้ถวาย</th><th>เนื่องในโอกาส</th></tr></thead>
