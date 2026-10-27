@@ -19,7 +19,7 @@ try {
   const tiles = page.locator('nav[aria-label^="โหมดประชุม"] a.btile')
   must((await tiles.count()) === 18, 'eighteen tabs: ' + await tiles.count())
   const texts = await tiles.allInnerTexts()
-  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน', 'งานนมัสการ', 'งานต่างชาติ', 'งานรวี', 'งานอนุชน', 'งานสตรี', 'งานประกาศ', 'งานทรัพย์สิน', 'งานมีเดีย', 'แท็บ 14', 'แท็บ 15', 'แท็บ 16', 'แท็บ 17', 'แท็บ 18'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
+  must(['งานเลขา', 'งานทะเบียน', 'งานเหรัญญิก', 'งานอภิบาล', 'งานสุสาน', 'งานนมัสการ', 'งานต่างชาติ', 'งานรวี', 'งานอนุชน', 'งานสตรี', 'งานประกาศ', 'งานทรัพย์สิน', 'งานมีเดีย', 'งานโรงครัว', 'แท็บ 15', 'แท็บ 16', 'แท็บ 17', 'แท็บ 18'].every((n, i) => texts[i].includes(n)), 'tab names: ' + texts.join('|'))
   await page.screenshot({ path: '/tmp/meeting.png' })
   // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
@@ -87,7 +87,7 @@ try {
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), 'other work tabs open their own calendar from the top button')
   // ปุ่ม ‹ ทุกแท็บ อยู่ตำแหน่งเดียวกันในทุกงาน (1–12) และกดแล้วกลับหน้าห้องทำงาน
   // งานประกาศ / งานทรัพย์สิน / งานมีเดีย / แท็บ 14–18: เมนูมาตรฐานครบเหมือนงานอื่น (ปุ่มตารางงาน + ช่องแท็บ 1–6 เปิดหน้าเต็ม)
-  for (const [k, nm] of [[11, 'งานประกาศ'], [12, 'งานทรัพย์สิน'], [13, 'งานมีเดีย'], [14, 'แท็บ 14'], [15, 'แท็บ 15'], [16, 'แท็บ 16'], [17, 'แท็บ 17'], [18, 'แท็บ 18']]) {
+  for (const [k, nm] of [[11, 'งานประกาศ'], [12, 'งานทรัพย์สิน'], [13, 'งานมีเดีย'], [14, 'งานโรงครัว'], [15, 'แท็บ 15'], [16, 'แท็บ 16'], [17, 'แท็บ 17'], [18, 'แท็บ 18']]) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
     await page.getByRole('heading', { name: nm, exact: true }).waitFor({ timeout: 8000 })
     const t = await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').allInnerTexts()
