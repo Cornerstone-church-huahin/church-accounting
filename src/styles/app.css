@@ -1045,3 +1045,12 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .bellpanel__list li.bellpanel__chip { padding: 0; background: rgba(0, 0, 0, 0.03); }
 .bellpanel__chip button { display: flex; align-items: center; gap: 0.35rem; width: 100%; min-height: 2rem; padding: 0.2rem 0.5rem; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.85rem; text-align: left; cursor: pointer; }
 .bellpanel__hl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ช่องงานในห้องทำงาน: แถวบน = เลขแท็บ + ชื่อ (แถวเดียว) · แถวสอง = ตัววัด % ที่พัฒนาแล้ว (จำนวนแท็บที่ตั้งชื่อ ÷ 6) */
+.hubgrid .btile { gap: 0.2rem; }
+.hubgrid .btile__top { display: flex; align-items: center; justify-content: center; gap: 0.3rem; min-width: 0; width: 100%; }
+.hubgrid .btile__top small { flex: none; min-width: 1.35em; height: 1.35em; padding: 0 0.2em; border-radius: 999px; background: rgba(255, 255, 255, 0.25); display: inline-flex; align-items: center; justify-content: center; font-size: clamp(0.62rem, 2.6vw, 0.78rem); font-weight: 700; opacity: 1; line-height: 1; }
+.hubgrid .btile__top b { min-width: 0; font-size: clamp(0.8rem, 3.4vw, 1rem); text-align: left; overflow-wrap: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hubgrid .btile__prog { display: flex; align-items: center; gap: 0.3rem; width: 86%; }
+.hubgrid .btile__meter { flex: 1; height: 0.4rem; border-radius: 999px; background: rgba(0, 0, 0, 0.3); overflow: hidden; }
+.hubgrid .btile__meter i { display: block; height: 100%; border-radius: 999px; background: #ffe27a; }
+.hubgrid .btile__pct { flex: none; font-size: 0.62rem; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0.95; min-width: 2.2em; text-align: right; }
