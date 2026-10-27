@@ -959,3 +959,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .actcard__review { opacity: 0.9; }
 .actnote--open { border-left: 5px solid #9bbcf0; background: #f3f7fe; }
 .actnote--closed { border-left: 5px solid #b4b9c0; background: #f4f5f7; }
+
+/* ใบประกาศ: สองโซนต่างกันชัด — กรอบทึบสีกรม (หมุนเวียน) / กรอบประสีทอง (กองทุน) · พิมพ์ขาวดำแยกได้จากชนิดเส้นกรอบและป้ายหัวโซน */
+.zone { border-radius: 8px; padding: 0 8px 6px; margin: 8px 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.zone__head { color: #fff; font-weight: 800; font-size: 14.5px; margin: 0 -8px 2px; padding: 4px 10px; border-radius: 4px 4px 0 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.zone--circ .sheetpaper th, .zone--circ .sheetpaper tfoot td { background: #dfe7f6; }
+.zone--fund .sheetpaper th, .zone--fund .sheetpaper tfoot td { background: #f6e3a8; }
+.zone--circ .sheetpaper td { background: #fff; } .zone--fund .sheetpaper td { background: #fffdf5; }
+.zone--circ .sheetpaper th, .zone--circ .sheetpaper td { border-color: #1a2b4c; } .zone--fund .sheetpaper th, .zone--fund .sheetpaper td { border-color: #b8860b; }
