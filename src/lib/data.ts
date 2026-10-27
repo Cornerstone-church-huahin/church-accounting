@@ -116,9 +116,12 @@ export function useFoodSlots() {
 }
 
 /** บัญชีธนาคารที่แสดงท้ายตารางถวายอาหาร (รายการเดียว) */
+/** ค่าตั้งต้น (เมื่อยังไม่เคยบันทึกในหน้า): บัญชีรับถวายของคริสตจักร — แก้/เอาออกได้ในหน้า ตารางถวายอาหาร */
+export const DEFAULT_FOOD_PAY: FoodPay = { id: 'food-pay', updated: 0, bank: 'กรุงเทพ', accName: 'คริสตจักรศิลาเอก', accNo: '7770359144', note: 'หลังจากโอนแล้ว “แจ้งการถวายทรัพย์”' }
 export function useFoodPay() {
   const s = useSharedStore<FoodPay>({ localKey: k('foodpay'), file: 'food-pay.json', label: 'บัญชีรับถวายอาหาร' })
-  const pay = s.items.find((x) => x.id === 'food-pay' && !x.deleted)
+  const saved = s.items.find((x) => x.id === 'food-pay' && !x.deleted)
+  const pay = saved ?? DEFAULT_FOOD_PAY
   return { ...s, pay, save: (p: Omit<FoodPay, 'id' | 'updated'>) => s.put([{ id: 'food-pay', updated: 0, ...p }]) }
 }
 
