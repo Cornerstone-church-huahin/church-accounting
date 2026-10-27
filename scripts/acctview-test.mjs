@@ -35,11 +35,13 @@ try {
   await page.reload()
   for (const n of [1, 2, 4, 5]) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${n}`); await page.waitForLoadState('networkidle')
+    must(await page.getByRole('link', { name: /สถานะการเงินคริสตจักร/ }).isVisible(), `work ${n} has the single health button`)
+    await page.getByRole('link', { name: /สถานะการเงินคริสตจักร/ }).click()
     const nav = page.getByRole('navigation', { name: 'บัญชีรับ บัญชีจ่าย และภาพรวม (ดูอย่างเดียว)' })
     await nav.waitFor({ timeout: 8000 })
     must(await nav.getByRole('link', { name: /บัญชีรับ/ }).isVisible() && await nav.getByRole('link', { name: /บัญชีจ่าย/ }).isVisible() && await nav.getByRole('link', { name: /ภาพรวม/ }).isVisible(), `work ${n} has the three buttons`)
   }
-  await page.goto(`http://localhost:${PORT}/#/meeting/4`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/health`); await page.waitForLoadState('networkidle')
   await page.getByRole('link', { name: /บัญชีรับ/ }).click()
   await page.getByRole('heading', { name: /บัญชีรับ/, level: 1 }).waitFor({ timeout: 8000 })
   const inTxt = (await page.locator('.a4page').allInnerTexts()).join('\n')
@@ -53,7 +55,7 @@ try {
   must(await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).isEnabled(), 'can browse earlier weeks')
   await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click()
   must((await page.locator('.a4page').first().innerText()) !== sheetIn || true, 'week changes')
-  await page.getByRole('link', { name: /^‹ / }).first().click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/health`)
   await page.getByRole('link', { name: /บัญชีจ่าย/ }).click()
   await page.getByRole('heading', { name: /บัญชีจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
   const outTxt = (await page.locator('.a4page').allInnerTexts()).join('\n')
@@ -62,7 +64,7 @@ try {
   await lock('expense view')
   await page.screenshot({ path: 'shots/acctview-out.png' })
   // ภาพรวม: โซน 1 ช่องเงิน · โซน 2 ใบสรุปประจำสัปดาห์ · โซน 3 แถบสัปดาห์ย้อนหลัง — ดูอย่างเดียว
-  await page.goto(`http://localhost:${PORT}/#/meeting/5`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/5/health`)
   await page.getByRole('link', { name: /ภาพรวม/ }).click()
   await page.getByRole('heading', { name: /ภาพรวมรายรับ-รายจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
   const z1 = page.getByRole('region', { name: /โซน 1/ }), z2 = page.getByRole('region', { name: /โซน 2/ }), z3 = page.getByRole('region', { name: /โซน 3/ })
@@ -80,8 +82,8 @@ try {
   await page.screenshot({ path: 'shots/acctview-overview.png' })
   // งานทะเบียน: ปุ่มอยู่แถวเดียวกับหัวข้อ "สมาชิก"
   await page.goto(`http://localhost:${PORT}/#/meeting/2`)
-  const navBox = await page.getByRole('navigation', { name: /บัญชีรับ บัญชีจ่าย/ }).boundingBox(), calBox = await page.getByRole('button', { name: /ตารางงาน/ }).boundingBox()
-  must(navBox && calBox && navBox.y < calBox.y, 'registry: account buttons sit above the calendar button')
+  const navBox = await page.getByRole('navigation', { name: 'สถานะการเงินคริสตจักร' }).boundingBox(), calBox = await page.getByRole('button', { name: /ตารางงาน/ }).boundingBox()
+  must(navBox && calBox && navBox.y < calBox.y, 'registry: health button sits above the calendar button')
   await page.screenshot({ path: 'shots/acctview-registry.png' })
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('acctview-test OK')
