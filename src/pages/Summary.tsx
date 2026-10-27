@@ -6,7 +6,9 @@ import { can } from '../lib/access'
 import { useLoans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { useSettings } from '../lib/data'
-import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import { fmtBaht, sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import { summarizeLoans } from '../lib/loans'
+import { useWeekWithdraw } from '../lib/useWeekWithdraw'
 import { expenseLines, weekNotice } from '../lib/notice'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { periodReport } from '../lib/report'
@@ -41,11 +43,19 @@ export default function Summary({ year }: { year: number }) {
   const [month, setMonth] = useState(() => Number(sheetSunday(latest).slice(5, 7)))
   const [notice, setNotice] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [copy, setCopy] = useState<'evidence' | 'public' | 'file'>(detail ? 'evidence' : 'public')
+  const [copy, setCopy] = useState<'evidence' | 'report' | 'public' | 'file'>(detail ? 'evidence' : 'public')
   const kind = detail ? copy : 'public'
   const fileMode = kind === 'file'
-  const tag = kind === 'evidence' ? 'ต้นฉบับ' : 'ประกาศ'
+  const tag = kind === 'evidence' ? 'ต้นฉบับ' : kind === 'report' ? 'รายงานที่ประชุม' : 'ประกาศ'
   const paper = useRef<HTMLDivElement[]>([])
+  const asOf = sunday <= today ? sunday : today
+  const bw = useBalances(year, asOf).balances
+  const wd = useWeekWithdraw(year, sunday)
+  const meeting = useMemo(() => {
+    const ls = summarizeLoans(loans, asOf)
+    const f = (x: number) => fmtBaht(x, { dec: false })
+    return { tiles: [['🏠 หมุนเวียน', f(bw.own.balance)], ['💰 กองทุน', f(bw.fundTotal)], ['🧮 รวมเงินสด', f(bw.total)], ['🔁 หนี้ภายใน', f(ls.fromFunds)], ['🧾 หนี้ภายนอก', f(ls.external)], ['🏞️ ภาระที่ดิน', '6,000,000']] as [string, string][], withdraw: { totalC: wd.totalC, totalF: wd.totalF, total: wd.total }, follow: periodReport(rangeOf('week', year, { sunday }), a).follow.map((x) => x.text) }
+  }, [bw, wd, loans, asOf, a, year, sunday])
   const n = useMemo(() => {
     const range = rangeOf('week', year, { sunday })
     const L = computeLedger({ range, ...a, withFunds: false })
@@ -84,11 +94,12 @@ export default function Summary({ year }: { year: number }) {
           <div className="rtabs no-print" role="tablist" aria-label="ฉบับของใบสรุป">
             <button type="button" role="tab" aria-selected={copy === 'evidence'} className={`rtab${copy === 'evidence' ? ' on' : ''}`} onClick={() => setCopy('evidence')}>🔒 สำหรับแอดมินและเหรัญญิก</button>
             <button type="button" role="tab" aria-selected={copy === 'file'} className={`rtab${copy === 'file' ? ' on' : ''}`} onClick={() => setCopy('file')}>🗂️ แฟ้มประจำสัปดาห์</button>
+            <button type="button" role="tab" aria-selected={copy === 'report'} className={`rtab${copy === 'report' ? ' on' : ''}`} onClick={() => setCopy('report')}>📑 รายงานที่ประชุม</button>
             <button type="button" role="tab" aria-selected={copy === 'public'} className={`rtab${copy === 'public' ? ' on' : ''}`} onClick={() => setCopy('public')}>📢 สำหรับประกาศสมาชิก</button>
           </div>
         )}
-        {detail && !fileMode && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
-        {fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind as 'evidence' | 'public'} />}
+        {detail && !fileMode && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'report' ? 'รายงานเสนอที่ประชุม (ใช้ภายในคณะทำงาน): ข้อมูลครบ มีชื่อและเงินเดือนรายคน + เงินคริสตจักรสิ้นสัปดาห์ · ต้องเบิก · เรื่องต้องติดตาม · ช่องลงนาม — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
+        {fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind === 'report' ? 'evidence' : (kind as 'evidence' | 'public')} meeting={kind === 'report' ? meeting : undefined} />}
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )
