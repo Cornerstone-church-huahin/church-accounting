@@ -118,7 +118,7 @@ async function geminiJson(file: Blob & { name?: string }, prompt: string, schema
   const { key, model } = getGemini()
   if (!key) throw new Error('ยังไม่ได้ใส่รหัส Gemini API')
   const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
-  const { data } = await compressImage(f, 1800, 0.8)
+  const { data } = await compressImage(f, 1800, 0.8, 0)
   const body = JSON.stringify({
     contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },

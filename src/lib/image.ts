@@ -1,19 +1,36 @@
-/** ย่อรูปใบเสร็จก่อนอัปโหลด (ด้านยาวสุด 1600px · JPEG) เพื่อไม่ให้ repo ข้อมูลโตเร็วและอัปโหลดบนมือถือไม่ช้า */
-export async function compressImage(file: File, maxSide = 1600, quality = 0.72): Promise<{ data: ArrayBuffer; ext: string }> {
+/** มาตรฐานรูปแนบ (สลิป บิล สมุด ใบถวาย): ด้านยาวไม่เกิน 1600px · JPEG · ไฟล์ไม่เกิน ~350KB — ภาพยังคมพอให้อ่านตัวเลข แต่โหลดเร็วบนมือถือทุกเครื่อง */
+export const TARGET_BYTES = 350_000
+/** ลำดับที่ลองเมื่อไฟล์ยังใหญ่เกินเป้า: ลดคุณภาพก่อน แล้วค่อยลดพิกเซลลงทีละน้อย (ไม่ต่ำกว่า 1200px / q0.5) */
+export function compressSteps(maxSide: number, quality: number): { side: number; q: number }[] {
+  return [
+    { side: maxSide, q: quality },
+    { side: maxSide, q: Math.max(0.5, quality - 0.1) },
+    { side: maxSide, q: 0.5 },
+    { side: Math.min(maxSide, 1400), q: 0.55 },
+    { side: Math.min(maxSide, 1200), q: 0.5 },
+  ]
+}
+/** target = 0 ปิดการบีบให้เล็กลงตามเป้า (ใช้ตอนส่งรูปให้ Gemini อ่าน) */
+export async function compressImage(file: File, maxSide = 1600, quality = 0.72, target = TARGET_BYTES): Promise<{ data: ArrayBuffer; ext: string }> {
   if (!file.type.startsWith('image/')) return { data: await file.arrayBuffer(), ext: (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '') }
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height))
-  const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale)
-  const canvas = document.createElement('canvas')
-  canvas.width = w; canvas.height = h
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('ย่อรูปไม่ได้บนเครื่องนี้')
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h)
-  ctx.drawImage(bmp, 0, 0, w, h)
-  bmp.close()
-  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', quality))
-  if (!blob) throw new Error('ย่อรูปไม่ได้')
-  return { data: await blob.arrayBuffer(), ext: 'jpg' }
+  try {
+    let blob: Blob | null = null
+    for (const st of target > 0 ? compressSteps(maxSide, quality) : compressSteps(maxSide, quality).slice(0, 1)) {
+      const scale = Math.min(1, st.side / Math.max(bmp.width, bmp.height))
+      const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('ย่อรูปไม่ได้บนเครื่องนี้')
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h)
+      ctx.drawImage(bmp, 0, 0, w, h)
+      blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', st.q))
+      if (!blob) throw new Error('ย่อรูปไม่ได้')
+      if (target <= 0 || blob.size <= target) break
+    }
+    return { data: await (blob as Blob).arrayBuffer(), ext: 'jpg' }
+  } finally { bmp.close() }
 }
 
 /** หมุนรูปตามเข็ม (90/180/270 องศา) แล้วคืนเป็นไฟล์ JPEG ใหม่ — ใช้ลองอ่านซ้ำเมื่อรูปมาตะแคง/กลับหัว */
