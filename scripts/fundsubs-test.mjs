@@ -37,7 +37,7 @@ try {
   must(/พืชผัก\D*5,000\.00 0\.00 5,000\.00/.test(tbl) && /โต๊ะจีน\D*3,000\.00 0\.00 3,000\.00/.test(tbl), 'per-category totals: ' + tbl)
   // รายรับที่บันทึกจากโซนกองทุนไม่ปนในใบ/สรุปรายสัปดาห์ของบัญชีหมุนเวียน
   must((await store('acct.income.')).filter((x) => x.typeId === 'tt9').every((x) => x.fz === true), 'entries made on the fund page are marked as fund-zone')
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForTimeout(600)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForTimeout(600)
   await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.waitForTimeout(500)
   must(!/กองทุนศึกษา/.test(await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4/ }).innerText()), 'fund-zone income is not on the circulating weekly income sheet')
   await page.goto(`http://localhost:${PORT}/#/funds/tt9`); await page.waitForTimeout(600)

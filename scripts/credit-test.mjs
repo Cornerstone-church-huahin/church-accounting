@@ -21,7 +21,7 @@ try {
     const page = await ctx.newPage()
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e)))
-    await page.goto(`http://localhost:${PORT}/#/`)
+    await page.goto(`http://localhost:${PORT}/#/meeting/3`)
     await page.evaluate(([Y, d]) => {
       localStorage.setItem(`acct.income.${Y}.v1`, JSON.stringify([{ id: 'i1', date: d, typeId: 'tt1', amount: 285500, method: 'cash', source: 'manual', updated: 1 }]))
       localStorage.setItem(`acct.expenses.${Y}.v1`, JSON.stringify(Array.from({ length: 40 }, (_, i) => ({ id: 'm' + i, channel: 'manual', date: d, amount: 1000, desc: 'รายการ ' + (i + 1), status: 'paid', method: 'cash', updated: 1 }))))
@@ -40,7 +40,7 @@ try {
       must(pos !== 'fixed' && pos !== 'absolute', `${r}: credit does not float (position ${pos})`)
     }
     // ใบ A4: ทุกหน้ามีเครดิตเอกสาร ครั้งเดียวต่อหน้า (ใบสรุปแผ่นเดียวเสมอ)
-    await page.goto(`http://localhost:${PORT}/#/`)
+    await page.goto(`http://localhost:${PORT}/#/meeting/3`)
     await page.getByRole('tab', { name: /สรุป/ }).first().click()
     await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
     const pages = page.locator('.a4page')

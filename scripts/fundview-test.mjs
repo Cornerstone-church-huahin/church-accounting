@@ -15,7 +15,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const now = new Date(), Y = now.getFullYear(), T = iso(now)
 const o = new Date(now); o.setDate(o.getDate() - 20)
 try {
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.evaluate(([T, Y, O]) => {
     const set = (k, v) => localStorage.setItem(`acct.${k}.v1`, JSON.stringify(v))
     set('opening', [{ id: 'opening', updated: 1, date: O, accounts: {}, cash: 0, unmoved: {}, funds: { tt4: 500000, tt9: 20000 }, own: 100000 }])
@@ -62,13 +62,13 @@ try {
   await page.getByRole('button', { name: 'บันทึกเงินยืม' }).click()
   await page.getByText('ผู้ยืม: กองทุนศึกษา').waitFor()
   await page.screenshot({ path: 'shots/balance-debt.png', fullPage: true })
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await tiles.getByRole("link", { name: /รวมเงินสด/ }).click()
   must(await page.getByRole('heading', { name: /รวมเงินคริสตจักร/ }).isVisible(), 'total detail page opens')
   await page.getByRole('tab', { name: /หมุนเวียน/ }).click()
   must(await page.getByText('เงินหมุนเวียนคงเหลือ').first().isVisible() && (await page.locator('svg[aria-label="คงเหลือสะสม"]').count()) >= 0, 'own detail page opens')
   await page.screenshot({ path: 'shots/balance-own.png', fullPage: true })
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   // หน้ากองทุน
   await page.getByRole('link', { name: /เพิ่มเติม/ }).click()
   await page.getByRole('link', { name: /^กองทุน/ }).click()
@@ -84,7 +84,7 @@ try {
   must(/ยืมมา 100,000 .*มน.เสาวคน|ยืมมา 100,000 .*จาก มน\.เสาวคน/.test((await cardOf('กองทุนศึกษา').locator('summary').innerText()).replace(/\n/g, ' ')), 'study fund shows the loan added from the debt page')
   await page.screenshot({ path: 'shots/fundview-funds.png', fullPage: true })
   // เงินกองทุนไม่ปนรายรับปกติ: ใบสรุปประกาศ
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.getByRole('tab', { name: /สรุป/ }).click()
   await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
   const sum = (await page.locator('.a4page').first().innerText()).replace(/\n/g, ' ')
@@ -149,7 +149,7 @@ try {
   must(/ให้ กองทุนศึกษา ยืม/.test(lendSheet), 'lender fund expense sheet lists the loan given: ' + lendSheet.slice(0, 300))
   must(/ให้ยืมไป .* รอรับคืน/.test(await page.getByRole('alert').filter({ hasText: 'ให้ยืมไป' }).first().innerText()) && (await page.locator('.debtbanner--lent').count()) >= 1, 'lender fund page shows a green banner that money is lent out')
   // บัญชีหมุนเวียนไม่เห็นรายการของกองทุน
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.locator('.stepbtn', { hasText: 'ใบเบิก-จ่ายเงินสด' }).click()
   const circ = (await page.getByRole('table', { name: /ใบเบิก-จ่ายเงินสด \(A4\)/ }).innerText()).replace(/\s+/g, ' ')
   must(/ค่าไฟ/.test(circ) && !/(^|\s)300(\s|$)/.test(circ), 'circulating voucher sheet shows its own rows only, not the fund expense: ' + circ.slice(0, 300))
@@ -159,7 +159,7 @@ try {
   await bars.getByRole('link', { name: /^กองทุนศึกษา/ }).click()
   await page.getByRole('heading', { name: /กองทุนศึกษา/ }).waitFor()
   await page.screenshot({ path: 'shots/fund-detail.png', fullPage: true })
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   must(/กองทุน\s+−?[\d,]+/.test((await page.getByRole('navigation', { name: /เงินคริสตจักร/ }).innerText()).replace(/\n/g, ' ')), 'home fund tile still renders')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('FUNDVIEW OK')

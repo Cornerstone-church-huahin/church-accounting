@@ -17,7 +17,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7))
 const S = iso(sun), Y = sun.getFullYear()
 const day = (n) => { const d = new Date(sun); d.setDate(d.getDate() - n); return iso(d) }
-await page.goto(`http://localhost:${PORT}/#/`)
+await page.goto(`http://localhost:${PORT}/#/meeting/3`)
 await page.evaluate(([Y, d3, d2]) => {
   const set = (k, v) => localStorage.setItem(`acct.${k}.v1`, JSON.stringify(v))
   set(`income.${Y}`, [
@@ -35,7 +35,7 @@ await page.route('**/generativelanguage.googleapis.com/**', (route) => {
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows }) }] } }] }) })
 })
 try {
-  await page.goto(`http://localhost:${PORT}/#/settings`); await page.goto(`http://localhost:${PORT}/#/`); await page.reload()
+  await page.goto(`http://localhost:${PORT}/#/settings`); await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.reload()
   await page.getByRole('tab', { name: /ปรับ/ }).first().click()
   must(!(await page.getByText(/ต้องเตรียมเบิก/).count()), 'old content removed')
   must(await page.getByText('ระหว่างวันที่').first().isVisible(), 'week picker shown')

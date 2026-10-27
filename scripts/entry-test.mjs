@@ -17,7 +17,7 @@ const monD = new Date(sunD); monD.setDate(sunD.getDate() - 6)
 const midD = new Date(sunD); midD.setDate(sunD.getDate() - 3)
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   // ---- รับ ----
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
@@ -80,7 +80,7 @@ try {
   await page.getByLabel('ชื่อรายการจ่ายใหม่').locator('xpath=following-sibling::button').click()
   await page.getByLabel('ชื่อประเภทถวายใหม่').fill('ถวายพิเศษ')
   await page.getByLabel('ชื่อประเภทถวายใหม่').locator('xpath=following-sibling::button').click()
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   must((await page.locator('#me-item option').allInnerTexts()).includes('ค่าน้ำมันรถสีขาว'), 'item added in settings appears in the entry list')
   await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()

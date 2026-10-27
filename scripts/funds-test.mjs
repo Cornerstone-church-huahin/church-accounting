@@ -50,7 +50,7 @@ try {
   must((await page.getByRole('button', { name: 'ลบกองทุน กองทุนสุสาน' }).count()) === 0, 'deleted fund stays deleted after reload')
   must(await page.getByRole('button', { name: 'ลบกองทุน กองทุนเยาวชน' }).isVisible(), 'new fund persists')
   // ลบ/แก้ชื่อประเภทจากฟอร์มรับเงินโดยตรง (ตัวเลือกแบบเลื่อนลงใส่ปุ่มไม่ได้)
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   await page.locator('details.editlist summary', { hasText: 'รายการรับ (' }).click()
   must((await page.locator('#mi-type option', { hasText: 'อาหารวันอาทิตย์' }).count()) === 1, 'food type present before delete')
@@ -87,7 +87,7 @@ try {
   must(await page.getByText('ถวายทดสอบหน้าฟอร์ม').first().isVisible(), 'type created from the form shows in settings')
   await page.getByLabel('ชื่อประเภทถวายใหม่').fill('สร้างจากตั้งค่า')
   await page.getByLabel('ชื่อประเภทถวายใหม่').locator('xpath=following-sibling::button').click()
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.getByRole('tab', { name: /💚 รับ/ }).click(); await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   must((await page.locator('#mi-type option', { hasText: 'สร้างจากตั้งค่า' }).count()) === 1, 'type created in settings shows in the form')
   // รายจ่าย: เพิ่มจากฟอร์ม → ขึ้นในตั้งค่า

@@ -17,7 +17,7 @@ const add = async (type, cash) => {
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
 }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   await add('ประจำสัปดาห์', 1000)

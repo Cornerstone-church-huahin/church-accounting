@@ -13,7 +13,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('dialog', (d) => d.accept())
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   // รับ: เพิ่มประเภทจากป๊อปอัพแก้ไขแถว
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   await page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ }).locator('tbody tr').nth(0).click()
@@ -39,7 +39,7 @@ try {
   await page.getByText(/🙏 รายการรับ/).scrollIntoViewIfNeeded()
   must((await page.getByRole('button', { name: 'ลบ ถวายซ่อมรถตู้' }).count()) === 1, 'moved item exists only once in settings (expense side)')
   // จ่าย: ป๊อปอัพแถวมีรายการนั้น และเพิ่มจากป๊อปอัพได้
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await page.getByRole('table', { name: /ใบเบิก-จ่ายเงินสด \(A4\)/ }).locator('tbody tr').nth(0).click()
   must((await page.locator('#ere-item option', { hasText: 'ถวายซ่อมรถตู้' }).count()) === 1, 'expense popup has the moved item')

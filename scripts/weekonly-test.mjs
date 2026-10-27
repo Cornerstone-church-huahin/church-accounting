@@ -15,7 +15,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7)); sun.setHours(12)
 const at = (n) => { const d = new Date(sun); d.setDate(d.getDate() + n); return iso(d) }
 const Y = sun.getFullYear()
-await page.goto(`http://localhost:${PORT}/#/`)
+await page.goto(`http://localhost:${PORT}/#/meeting/3`)
 await page.evaluate(async ([Y, days]) => {
   const png = await new Promise((res) => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const g = c.getContext('2d'); g.fillStyle = '#c33'; g.fillRect(0, 0, 40, 30); c.toBlob(res, 'image/png') })
   const db = await new Promise((res) => { const r = indexedDB.open('acct-images', 1); r.onupgradeneeded = () => r.result.createObjectStore('img'); r.onsuccess = () => res(r.result) })

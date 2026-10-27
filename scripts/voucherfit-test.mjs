@@ -17,7 +17,7 @@ const d1 = new Date(sun); d1.setDate(d1.getDate() - 2)
 const Y = sun.getFullYear()
 const fits = async () => page.evaluate(() => [...document.querySelectorAll('.a4page')].map((e) => { const t = [...e.querySelectorAll('table[aria-label="หมายเหตุ ต้องเบิก"] tfoot')][0]; const c = e.getBoundingClientRect(); const tr = t?.getBoundingClientRect(); return { over: e.scrollHeight > e.clientHeight + 1, hasTotal: !!t, bottomOk: t ? tr.bottom <= c.bottom - 0.5 : true } }))
 for (const n of [14, 26, 60]) {
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.evaluate(([Y, a, n]) => {
     localStorage.setItem(`acct.expenses.${Y}.v1`, JSON.stringify(Array.from({ length: n }, (_, i) => ({ id: 'e' + i, channel: 'manual', date: a, amount: 10000 + i, desc: 'รายการทดสอบยาว ๆ เพื่อดูการตัดบรรทัด ' + (i + 1), status: 'paid', method: 'cash', biller: 'พี่ผู้วางบิล', updated: i }))))
   }, [Y, iso(d1), n])

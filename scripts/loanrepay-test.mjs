@@ -11,7 +11,7 @@ const page = await (await browser.newContext({ viewport: { width: 390, height: 9
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
-await page.goto(`http://localhost:${PORT}/#/`)
+await page.goto(`http://localhost:${PORT}/#/meeting/3`)
 await page.evaluate(() => localStorage.setItem('acct.loans.v1', JSON.stringify([
   { id: 'l1', updated: 1, lender: { kind: 'person', name: 'พี่ก' }, purpose: 'ทำสุสาน', borrower: 'tt8', date: '2026-10-01', principal: 5000000, repayments: [] },
   { id: 'l2', updated: 1, lender: { kind: 'person', name: 'พี่ข' }, purpose: '', borrower: 'own', date: '2026-10-02', principal: 1000000, repayments: [] },

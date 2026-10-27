@@ -14,6 +14,7 @@ import { useYear } from '../lib/year'
 import AccountLinks from '../components/AccountLinks'
 import WorkBell from '../components/WorkBell'
 import AnnounceAdmin from '../components/AnnounceAdmin'
+import BalanceStrip from '../components/BalanceStrip'
 import Receive from './Receive'
 import Pay from './Pay'
 import OverviewView from '../components/OverviewView'
@@ -150,17 +151,21 @@ function MeetingRoom() {
 }
 
 /** หน้าเลือกงาน: แอดมินเห็นทุกงาน · ผู้รับผิดชอบงานเดียวถูกพาเข้าหน้าหลักของงานตนเลย */
-function Hub() {
+function Hub({ home }: { home?: boolean }) {
   const role = useRole()
   const works = myWorks()
-  if (works.length === 1) return <Navigate to={`/meeting/${works[0]}`} replace />
+  if (works.length === 1 && !home) return <Navigate to={`/meeting/${works[0]}`} replace />
   return (
-    <>
+    <div className={home ? 'hubhome' : undefined}>
       <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1>{can(role, 'settings') && <AnnounceAdmin />}<Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
-      <nav className="balance-tiles" aria-label="โหมดประชุม แท็บ 1 ถึง 18">
+      {home && <BalanceStrip compact />}
+      <nav className={`balance-tiles${home ? ' hubgrid' : ''}`} aria-label="โหมดประชุม แท็บ 1 ถึง 18">
         {visibleWorks(works).map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
       </nav>
-    </>
+    </div>
   )
 }
+
+/** หน้าแรก = ห้องทำงาน (แท็บ 1–18) มีแถบเงินคริสตจักร 6 ช่องอยู่บนสุด · หน้าบัญชีเดิม (รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก) อยู่ที่ แท็บ 3 งานเหรัญญิก */
+export function HomeHub() { return <Hub home /> }
