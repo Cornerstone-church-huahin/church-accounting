@@ -63,6 +63,9 @@ const WORK_LABELS: Record<number, string[]> = {
   4: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
+/** ความคืบหน้าการพัฒนา: จำนวนแท็บ (จาก 6) ที่ตั้งชื่อ/มีหน้าใช้งานแล้ว — งานที่มีหน้าพิเศษระบุเองตรงนี้ */
+const DEV_FIXED: Record<number, number> = { 2: 1, 3: 6 }
+export const devDone = (n: number) => DEV_FIXED[n] ?? (WORK_LABELS[n] ?? DEFAULT_LABELS).filter((l) => !/^แท็บ \d+$/.test(l)).length
 const labelsOf = (n: number) => WORK_LABELS[n] ?? DEFAULT_LABELS
 const iconOf = (label: string, i: number) => NAMED_ICONS[label] ?? TAB_ICONS[i % TAB_ICONS.length]
 const TILE_TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
@@ -165,7 +168,15 @@ function Hub({ home }: { home?: boolean }) {
       {home && <BalanceStrip compact />}
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
       <nav className={`balance-tiles${home ? ' hubgrid' : ''}`} aria-label="โหมดประชุม แท็บ 1 ถึง 18">
-        {visibleWorks(works).map((t) => <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`}><small>{t.n}</small><b>{t.name}</b></Link>)}
+        {visibleWorks(works).map((t) => {
+          const d = devDone(t.n)
+          return (
+            <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`} aria-label={`${t.n} ${t.name} · พัฒนาแล้ว ${d} จาก 6 แท็บ`}>
+              <span className="btile__top"><small>{t.n}</small><b>{t.name}</b></span>
+              <span className="btile__prog" aria-hidden="true"><span className="btile__meter"><i style={{ width: `${(d / 6) * 100}%` }} /></span><span className="btile__pct">{Math.round((d / 6) * 100)}%</span></span>
+            </Link>
+          )
+        })}
       </nav>
     </div>
   )
