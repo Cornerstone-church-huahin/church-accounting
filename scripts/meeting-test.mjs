@@ -24,7 +24,7 @@ try {
   // งานเหรัญญิก = หน้าแรกบัญชีเต็ม ใช้งานได้จริง
   await tiles.nth(2).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).count() === 0, 'treasurer page is untouched; calendar is collapsed')
-  must(await page.getByRole('link', { name: '‹ ทุกแท็บ' }).isVisible(), 'back link to ทุกแท็บ on the treasurer work too')
+  must(await page.getByRole('link', { name: '‹ หน้าแรก' }).isVisible(), 'back link to ทุกแท็บ on the treasurer work too')
   must(await page.getByText('ขั้นตอนทำบัญชีประจำสัปดาห์').isVisible() && await page.locator('.balance-tiles .btile').count() === 6, 'treasurer tab shows the whole home page')
   await page.getByRole('button', { name: /ตารางงาน/ }).click()
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).isVisible(), '📅 button at the top opens the calendar')
@@ -91,7 +91,7 @@ try {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
     await page.getByRole('heading', { name: nm, exact: true }).waitFor({ timeout: 8000 })
     const t = await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').allInnerTexts()
-    must(t.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'แท็บ 1|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6' && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible() && await page.getByRole('link', { name: '‹ ทุกแท็บ' }).isVisible() && await page.locator('.workteam').count() === 1, nm + ' has the standard work menu')
+    must(t.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'แท็บ 1|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6' && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible() && await page.getByRole('link', { name: '‹ หน้าแรก' }).isVisible() && await page.locator('.workteam').count() === 1, nm + ' has the standard work menu')
     await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').nth(2).click()
     await page.getByRole('heading', { name: 'แท็บ 3', exact: true }).waitFor({ timeout: 5000 })
     must(/แท็บ 3 — ยังว่าง/.test(await page.locator('main').innerText()), nm + ' tab opens a full empty page')
@@ -99,12 +99,12 @@ try {
   const boxes = []
   for (let k = 1; k <= 18; k++) {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
-    const l = page.getByRole('link', { name: '‹ ทุกแท็บ' }); await l.waitFor({ timeout: 8000 })
+    const l = page.getByRole('link', { name: '‹ หน้าแรก' }); await l.waitFor({ timeout: 8000 })
     const b = await l.boundingBox(); boxes.push(`${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.width)}`)
   }
   must(new Set(boxes).size === 1, 'same position of the back link in every work: ' + boxes.join(' | '))
   must(await page.getByRole('link', { name: '🏠 หน้างาน' }).count() === 0, 'no 🏠 หน้างาน button in the work header any more')
-  await page.getByRole('link', { name: '‹ ทุกแท็บ' }).click()
+  await page.getByRole('link', { name: '‹ หน้าแรก' }).click()
   must(await page.getByRole('heading', { name: /ห้องทำงาน/ }).isVisible(), 'back link returns to the work room')
   // งานเหรัญญิก: เข้าหน้ารายละเอียดที่อยู่นอกห้องทำงาน (ยอดเงิน/กองทุน) แล้วมีปุ่มกลับหน้างานเหรัญญิก
   await page.goto(`http://localhost:${PORT}/#/meeting/3`)

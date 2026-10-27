@@ -32,7 +32,7 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
 }
 
 /**
- * หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ ทุกแท็บ ตำแหน่งเดียวกันทุกงาน
+ * หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ หน้าแรก ตำแหน่งเดียวกันทุกงาน (กลับหน้าแรก = ห้องทำงาน)
  * แอดมิน → กลับหน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เลขา อนุชน ฯลฯ) → กลับหน้าหลักของงานตัวเอง (เริ่มใหม่ตั้งแต่ต้น)
  */
 function WorkHead({ n, name }: { n: number; name: string }) {
@@ -43,7 +43,7 @@ function WorkHead({ n, name }: { n: number; name: string }) {
       <div className="page-head no-print">
         <h1>{name}</h1>
         <WorkBell n={n} />
-        <Link to={to} state={{ home: Date.now() }} className="mini">‹ ทุกแท็บ</Link>
+        <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>
       </div>
       <WorkTeam n={n} name={name} />
     </>
