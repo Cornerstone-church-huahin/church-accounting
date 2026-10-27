@@ -13,13 +13,17 @@ import Receive from './Receive'
 import Summary from './Summary'
 import Pay from './Pay'
 import Adjust from './Adjust'
+import WithdrawPrep from '../components/WithdrawPrep'
+import DepositPrep from '../components/DepositPrep'
 
-type Tab = 'in' | 'out' | 'adj' | 'sum' | null
+type Tab = 'in' | 'out' | 'adj' | 'sum' | 'wd' | 'dep' | null
 const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; sub: string }[] = [
   { k: 'in', n: 1, icon: '💚', name: 'รับ', sub: 'ใบบันทึกการถวาย' },
   { k: 'out', n: 2, icon: '🔴', name: 'จ่าย', sub: 'ใบเบิก-จ่ายเงินสด' },
   { k: 'adj', n: 3, icon: '🏦', name: 'ปรับ', sub: 'ตรวจกับสมุดบัญชี' },
   { k: 'sum', n: 4, icon: '📊', name: 'สรุป', sub: 'สรุปและรายงาน' },
+  { k: 'wd', n: 5, icon: '📋', name: 'เตรียมเบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
+  { k: 'dep', n: 6, icon: '🧺', name: 'เตรียมนำฝาก', sub: 'นำเข้าบัญชีกองทุน' },
 ]
 
 /** หน้าแรก 2 ส่วน: (1) ช่องเงินคริสตจักร 6 ช่อง (2) ปุ่มขั้นตอน 2×2 — กดขั้นตอนแล้วเปิดเต็มจอ (ซ่อนส่วนบน) เพื่อเห็นใบทันทีไม่ต้องเลื่อน · ‹ หน้าแรก กลับหน้าแรก */
@@ -65,7 +69,7 @@ export default function Home() {
             </div>
           )}
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
-          <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
+          <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
             {STEPS.map((x) => (
               <button key={x.k} type="button" role="tab" aria-selected={false} className={`stepbtn stepbtn--${x.k}`} onClick={() => setTab(x.k)}>
                 <span className="stepbtn__top"><i className="hn">{x.n}</i><span>{x.icon} {x.name}</span></span>
@@ -78,7 +82,7 @@ export default function Home() {
       {full && (
         <div className="fullbar no-print">
           <button type="button" className="fullbar__back" onClick={() => setTab(null)} aria-label="กลับหน้าแรก">‹ หน้าแรก</button>
-          <div className="home-tabs home-tabs--mini" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป">
+          <div className="home-tabs home-tabs--mini" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
             {STEPS.map((x) => <button key={x.k} type="button" role="tab" aria-selected={tab === x.k} className={`home-tab home-tab--${x.k}${tab === x.k ? ' on' : ''}`} onClick={() => setTab(x.k)}><i className="hn">{x.n}</i><span>{x.icon} {x.name}</span></button>)}
           </div>
         </div>
@@ -88,6 +92,8 @@ export default function Home() {
       {tab === 'adj' && <Adjust key={year} year={year} />}
       {tab === 'sum' && <Summary key={year} year={year} />}
       {tab === 'out' && <Pay key={year} year={year} />}
+      {tab === 'wd' && <WithdrawPrep key={year} year={year} />}
+      {tab === 'dep' && <DepositPrep />}
       </div>
     </div>
   )

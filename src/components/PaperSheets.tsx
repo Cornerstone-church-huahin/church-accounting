@@ -213,7 +213,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
   const sig = `${entries.length}:${summary?.pending.length ?? -1}:${summary?.funds.length ?? -1}:${summary?.pending.map((x) => x.desc.length + x.person.length).join(',') ?? ''}`
   useEffect(() => { setTrim(0); setSplit(false) }, [sig])
   const wl = { ...wl0, own: wl0.own && !split }
-  const ROWS = wl.own ? Math.max(12, 25 - Math.ceil(Math.max(0, wl0.rows - 3) * 1.8) - trim) : 25
+  const ROWS = wl.own ? Math.max(12, 25 - Math.ceil(Math.max(0, wl0.rows - 4) * 1.8) - trim) : 25
   useLayoutEffect(() => {
     if (blank) return
     // เนื้อหาต้องจบก่อนแถบเครดิตท้ายหน้า (เผื่อ 22px จากขอบล่าง) — ไม่ทับกัน
