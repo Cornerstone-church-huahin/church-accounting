@@ -1068,3 +1068,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .healthnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; text-align: center; }
 .healthnums small { display: block; font-size: 0.75rem; } .healthnums b { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .healthtips { margin: 0.3rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem; }
+/* แถบไอคอนสลับ รายรับ/รายจ่าย/สรุป (ลอยค้าง) */
+.accttabs { position: sticky; z-index: 9; display: flex; justify-content: center; gap: 0.5rem; padding: 0.3rem 0; margin: 0 0 0.3rem; background: var(--bg, #faf8f4); }
+.accttab { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 4.2rem; min-height: 2.7rem; padding: 0.1rem 0.5rem; border-radius: 0.9rem; border: 2px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; line-height: 1.1; }
+.accttab span { font-size: 1.15rem; } .accttab small { font-size: 0.72rem; font-weight: 700; }
+.accttab--on { border-color: #1a2b4c; background: #1a2b4c; color: #fff; }
