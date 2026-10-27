@@ -13,6 +13,7 @@ import WorkCalendar from '../components/WorkCalendar'
 import { can, myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
 import { useYear } from '../lib/year'
+import AccountTabs from '../components/AccountTabs'
 import ChurchHealth, { HealthButton } from '../components/ChurchHealth'
 import WorkBell from '../components/WorkBell'
 import AnnounceAdmin from '../components/AnnounceAdmin'
@@ -122,6 +123,7 @@ function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 
   if (kind === 'all') {
     return (
       <>
+        <AccountTabs n={n} active="all" />
         <div className="page-head no-print">
           <h1>📊 ภาพรวมรายรับ-รายจ่าย</h1>
           <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
@@ -132,6 +134,7 @@ function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 
   }
   return (
     <>
+      <AccountTabs n={n} active={kind} />
       <div className="page-head no-print">
         <h1>{kind === 'in' ? '💚 บัญชีรับ' : '🔴 บัญชีจ่าย'}</h1>
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>

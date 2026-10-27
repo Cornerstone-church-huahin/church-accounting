@@ -48,15 +48,19 @@ try {
   must(/ใบบันทึกการถวาย/.test(inTxt) && /ประจำวันอาทิตย์/.test(inTxt), 'income sheet shown')
   const sheetIn = await page.locator('.a4page').first().innerText()
   const lock = async (what) => {
-    const acts = await page.locator('main button, main a, main input, main select, main textarea').evaluateAll((els) => els.filter((e) => !e.closest('.weekbar') && !e.closest('.page-head')).map((e) => e.tagName + ':' + (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 30)))
+    const acts = await page.locator('main button, main a, main input, main select, main textarea').evaluateAll((els) => els.filter((e) => !e.closest('.weekbar') && !e.closest('.page-head') && !e.closest('.accttabs')).map((e) => e.tagName + ':' + (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 30)))
     must(acts.length === 0, `${what}: no editable controls or links besides week bar/back: ` + acts.join(' | '))
   }
   await lock('income view')
   must(await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).isEnabled(), 'can browse earlier weeks')
   await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click()
   must((await page.locator('.a4page').first().innerText()) !== sheetIn || true, 'week changes')
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/health`)
-  await page.getByRole('link', { name: /บัญชีจ่าย/ }).click()
+  // แถบไอคอนลอย: สลับ รายรับ → รายจ่าย → สรุป ทันที ไม่ต้องย้อนกลับ · ค้างอยู่ใต้แถบบนเมื่อเลื่อนลง
+  const tabs = page.getByRole('navigation', { name: 'สลับรายรับ รายจ่าย สรุป' })
+  must(await tabs.getByRole('link', { name: /รายรับ/ }).getAttribute('aria-current') === 'page', 'income tab is active')
+  await page.evaluate(() => window.scrollTo(0, 400))
+  must((await tabs.boundingBox()).y < 140, 'icon bar floats while scrolled')
+  await tabs.getByRole('link', { name: /รายจ่าย/ }).click()
   await page.getByRole('heading', { name: /บัญชีจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
   const outTxt = (await page.locator('.a4page').allInnerTexts()).join('\n')
   must(/ใบเบิก - จ่ายเงินสด/.test(outTxt), 'voucher sheet shown')
@@ -64,8 +68,7 @@ try {
   await lock('expense view')
   await page.screenshot({ path: 'shots/acctview-out.png' })
   // ภาพรวม: โซน 1 ช่องเงิน · โซน 2 ใบสรุปประจำสัปดาห์ · โซน 3 แถบสัปดาห์ย้อนหลัง — ดูอย่างเดียว
-  await page.goto(`http://localhost:${PORT}/#/meeting/5/health`)
-  await page.getByRole('link', { name: /ภาพรวม/ }).click()
+  await page.getByRole('navigation', { name: 'สลับรายรับ รายจ่าย สรุป' }).getByRole('link', { name: /สรุป/ }).click()
   await page.getByRole('heading', { name: /ภาพรวมรายรับ-รายจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
   const z1 = page.getByRole('region', { name: /โซน 1/ }), z2 = page.getByRole('region', { name: /โซน 2/ }), z3 = page.getByRole('region', { name: /โซน 3/ })
   const t1 = (await z1.innerText()).replace(/\s+/g, ' ')
@@ -77,7 +80,7 @@ try {
   await rows.nth(1).click()
   await page.waitForFunction((b) => document.querySelector('[aria-label^="โซน 2"]').innerText !== b, before)
   must(await rows.nth(1).getAttribute('aria-pressed') === 'true', 'tapping a week shows that week in zone 2')
-  const other = await page.locator('main a, main select, main input').evaluateAll((els) => els.filter((e) => !e.closest('.page-head')).length)
+  const other = await page.locator('main a, main select, main input').evaluateAll((els) => els.filter((e) => !e.closest('.page-head') && !e.closest('.accttabs')).length)
   must(other === 0, 'overview has no links or inputs')
   await page.screenshot({ path: 'shots/acctview-overview.png' })
   // งานทะเบียน: ปุ่มอยู่แถวเดียวกับหัวข้อ "สมาชิก"
