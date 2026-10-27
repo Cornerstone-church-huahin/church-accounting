@@ -68,13 +68,18 @@ export default function FundDetailPage() {
   const subName = sub === 'all' ? '' : sub === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === sub)?.name ?? ''
   const saveSubs = (next: ReturnType<typeof removeSub>) => { if (t) types.put([{ ...t, subs: next }]) }
   const subOps: CatalogOps | undefined = canManage && t ? {
-    add: (name) => { const r = addSub(t, name, act?.id); if ('error' in r) return r; const id = r.subs[r.subs.length - 1].id; saveSubs(r.subs); return { id } },
+    add: (name, scope) => { const r = addSub(t, name, scope ?? act?.id); if ('error' in r) return r; const id = r.subs[r.subs.length - 1].id; saveSubs(r.subs); return { id } },
     rename: (id, cur) => { const n = prompt('แก้ชื่อหมวด', cur)?.trim(); if (n && n !== cur) saveSubs((t.subs ?? []).map((q) => (q.id === id ? { ...q, name: n } : q))) },
     remove: (id, nm) => { const has = f.moves.some((m) => m.subId === id); if (confirm(has ? `หมวด “${nm}” มีรายการแล้ว จะเก็บถาวร (ซ่อนจากตัวเลือก แต่รายงานยังเห็น) — ต้องการหรือไม่?` : `ลบหมวด “${nm}” ?`)) { saveSubs(removeSub(t, id, has)); if (pick === id) setPick(null) } },
   } : undefined
+  // โหมดกิจกรรม: ฟอร์มบันทึกเลือกได้ว่า กิจกรรมไหน → หมวดอะไรของกิจกรรมนั้น (กิจกรรมที่ปิดแล้วไม่แสดง)
+  const lockedIds = lockedSubIds(t)
+  const pickSubs = actMode ? activeSubs(t).filter((q) => !lockedIds.includes(q.id) && (!keeperOnly || keeperOnly.includes(q.id))) : undefined
+  const formActs = actMode ? acts.filter((a) => !a.closed && (!keeperOnly || (pickSubs ?? []).some((q) => q.actId === a.id))) : []
   const fund: FundScope = {
     id: f.id, name: f.name, balance: acct.balance,
     loanMoves: sub === 'all' || sub === '' ? f.moves.filter(isLoanMove) : [],
+    ...(actMode && formActs.length ? { acts: formActs, pickSubs } : {}),
     ...(subs.length || subOps ? { subs, subOps, lockedSubs: lockedSubIds(t), subsOnly: !!only, sub, subLabel: subName, subBal: { '': sum.central.balance, ...Object.fromEntries(sum.rows.map((r) => [r.id, r.acc.balance])) } } : {}),
   }
   const add = () => { if (!t) return; const r = addSub(t, newSub, act?.id); if ('error' in r) return setSubErr(r.error); saveSubs(r.subs); setNewSub(''); setSubErr('') }

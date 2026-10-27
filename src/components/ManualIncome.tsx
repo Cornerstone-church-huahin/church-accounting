@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import MoneyInput from './MoneyInput'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
-import type { FundSub, IncomeEntry, IncomeType } from '../lib/types'
+import type { FundActivity, FundSub, IncomeEntry, IncomeType } from '../lib/types'
 import { SubField } from './RowEditors'
 
 const intOrNull = (s: string) => { const n = parseInt(s.replace(/\D/g, ''), 10); return Number.isFinite(n) && n > 0 ? n : null }
@@ -13,8 +13,8 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 /**
  * ช่อง 1 ของฝั่งรับ: แถวบันทึก 1 บรรทัด (เลือกประเภทจากรายชื่อที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบบันทึกการถวายด้านล่าง พร้อมยอดรวม
  */
-export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage, withNote, subs, subOps, defaultSub, subsOnly }: {
-  subsOnly?: boolean;
+export default function ManualIncome({ types, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, onManage, withNote, subs, subOps, defaultSub, subsOnly, acts }: {
+  subsOnly?: boolean; /** โหมดกิจกรรม: เลือกกิจกรรม → หมวด */ acts?: FundActivity[];
   /** หน้ากองทุนที่มีหมวด: ช่องเลือกหมวดต่อจากช่องรายการ + เพิ่ม/ลบหมวด */ subs?: FundSub[]; subOps?: CatalogOps; defaultSub?: string
   /** หน้ากองทุน: มีช่อง "รายการ / รายละเอียด" (เก็บเป็นหมายเหตุของแถว) */ withNote?: boolean
   types: IncomeType[]; entries: IncomeEntry[]; defaultDate: string; canWrite: boolean
@@ -36,6 +36,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
 
   const save = () => {
     if (!typeId) return setErr('เลือกรายการ')
+    if (acts?.length && !subId) return setErr('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
     if (!(cash && cash > 0) && !(transfer && transfer > 0)) return setErr('ใส่จำนวนเงินสดหรือเงินโอนอย่างน้อยหนึ่งช่อง')
     const out: IncomeEntry[] = []
@@ -53,7 +54,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
           <div className="field"><label htmlFor="mi-date">วันที่</label><input id="mi-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label htmlFor="mi-type">รายการ</label>
             <select id="mi-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-          {(subs?.length || subOps) && <SubField id="mi-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} />}
+          {(subs?.length || subOps) && <SubField id="mi-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} acts={acts} />}
           {withNote && <div className="field"><label htmlFor="mi-note">รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)</label><input id="mi-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
           <div className="entryrow__pair">
             <div className="field"><label htmlFor="mi-env">จำนวนซอง</label><input id="mi-env" className="input" inputMode="numeric" value={env} onChange={(e) => setEnv(e.target.value)} placeholder="0" /></div>
