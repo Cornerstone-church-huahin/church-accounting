@@ -47,7 +47,7 @@ export function WeekTab({ year, a, detail, sunday, setSunday, openNotice }: TabP
   )
 }
 
-export function MonthTab({ year, a, detail, month, setMonth, openWeek }: TabProps & { month: number; setMonth: (m: number) => void; openWeek: (sunday: string) => void }) {
+export function MonthTab({ year, a, detail, month, setMonth, openWeek, openNotice }: TabProps & { month: number; setMonth: (m: number) => void; openWeek: (sunday: string) => void; openNotice: () => void }) {
   const [wk, setWk] = useState<string | null>(null), [cat, setCat] = useState<string | null>(null)
   const range = monthRange(year, month)
   const r = useMemo(() => periodReport(range, a), [a, year, month]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -60,6 +60,9 @@ export function MonthTab({ year, a, detail, month, setMonth, openWeek }: TabProp
   return (
     <>
       <PeriodBar label={`${monthName(month)} ${be(year)}`} rangeText={`${fmtDate(range.from)} – ${fmtDate(range.to)}`} canPrev={month > 1} canNext={month < curM} onPrev={() => { setMonth(month - 1); setWk(null); setCat(null) }} onNext={() => { setMonth(month + 1); setWk(null); setCat(null) }} />
+      <div className="row no-print" style={{ gap: 8, flexWrap: 'wrap', margin: '6px 0' }}>
+        <button type="button" className="btn btn--gold" onClick={openNotice} disabled={r.empty}>📄 เปิดใบสรุปรายเดือน (ติดประกาศ / พิมพ์ / PDF)</button>
+      </div>
       <StatusLine r={r} range={range} />
       {r.empty ? <p className="empty">ยังไม่มีรายการในเดือนนี้</p> : <>
         <Kpis items={[{ label: 'รายรับหมุนเวียนรวมเดือน', value: money(r.inTotal), tone: 'in' }, { label: 'เงินจ่ายออกรวมเดือน', value: money(r.outTotal), tone: 'out', sub: r.advance > 0 ? `ค่าใช้จ่าย ${money(r.expenseTotal)} + สำรองจ่ายรอคืน ${money(r.advance)}` : undefined }, { label: 'ส่วนต่าง', value: money(r.net), tone: 'bal' }, { label: 'เงินถวายเข้ากองทุน', value: money(r.fundTotal), sub: 'แยกจากรายรับหมุนเวียน' }]} />
@@ -90,7 +93,7 @@ export function MonthTab({ year, a, detail, month, setMonth, openWeek }: TabProp
   )
 }
 
-export function YearTab({ year, a, detail, loans, openMonth }: TabProps & { loans: Loan[]; openMonth: (m: number) => void }) {
+export function YearTab({ year, a, detail, loans, openMonth, openNotice }: TabProps & { loans: Loan[]; openMonth: (m: number) => void; openNotice: () => void }) {
   const [cat, setCat] = useState<string | null>(null)
   const today = todayISO(), endY = `${year}-12-31`
   const ref = today < endY ? (today < `${year}-01-01` ? `${year}-01-01` : today) : endY
@@ -107,6 +110,9 @@ export function YearTab({ year, a, detail, loans, openMonth }: TabProps & { loan
   return (
     <>
       <h3 style={{ margin: '0.75rem 0 0' }}>{title}</h3>
+      <div className="row no-print" style={{ gap: 8, flexWrap: 'wrap', margin: '6px 0' }}>
+        <button type="button" className="btn btn--gold" onClick={openNotice} disabled={yr.empty}>📄 เปิดใบสรุปรายปี (ติดประกาศ / พิมพ์ / PDF)</button>
+      </div>
       <StatusLine empty={yr.empty} range={{ from: `${year}-01-01`, to: ref }} />
       {yr.empty && <p className="empty">ยังไม่มีรายการในปี {be(year)}</p>}
       {!yr.empty && <>

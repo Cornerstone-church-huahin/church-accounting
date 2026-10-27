@@ -30,7 +30,7 @@ function piecesOf(n: Notice): Piece[] {
 }
 
 /** กล่องเนื้อหาที่ยืดถึงท้ายหน้า: ล้น → บีบแถว 2 ระดับ (fit--d1/d2) → ยังล้นก็ย่อทั้งก้อนให้พอดี (ต่ำสุด 35%) */
-function FitBox({ sig, children }: { sig: string; children: ReactNode }) {
+export function FitBox({ sig, children }: { sig: string; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null), inner = useRef<HTMLDivElement>(null)
   const [d, setD] = useState(0), [k, setK] = useState(1)
   useEffect(() => { setD(0); setK(1) }, [sig])
