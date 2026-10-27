@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -106,6 +106,13 @@ export function useNotes() {
 export function useVisits() {
   const s = useSharedStore<Visit>({ localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', write: 'detail' })
   return { ...s, list: [...s.items].filter((x) => !x.deleted).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated) }
+}
+
+/** ตารางถวายอาหารของงานโรงครัว (ไฟล์เดียว ไม่แบ่งปี · วันอาทิตย์ละหนึ่งรายการ) */
+export function useFoodSlots() {
+  const s = useSharedStore<FoodSlot>({ localKey: k('foodslots'), file: 'food-slots.json', label: 'ตารางถวายอาหาร' })
+  const byDate = new Map(s.items.filter((x) => !x.deleted).map((x) => [x.date, x]))
+  return { ...s, byDate }
 }
 
 /** ข่าวจากแอดมินถึงงานต่าง ๆ (กระดิ่ง): แอดมินเป็นคนส่ง ทุกงานอ่านได้ */
