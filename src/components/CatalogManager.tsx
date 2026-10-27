@@ -2,17 +2,17 @@ import { useState } from 'react'
 
 export interface CatalogOps {
   /** เพิ่มรายการใหม่ — คืน id ของรายการที่เพิ่ม หรือข้อความผิดพลาด */
-  add: (name: string) => { id: string } | { error: string }
+  add: (name: string, scope?: string) => { id: string } | { error: string }
   rename: (id: string, current: string) => void
   remove: (id: string, name: string) => void
 }
 
 /** เพิ่ม / แก้ชื่อ / ลบรายการ ใต้ฟอร์มบันทึก (ตัวเลือกแบบเลื่อนลงของมือถือใส่ปุ่มไม่ได้) — ใช้ข้อมูลชุดเดียวกับหน้าตั้งค่า */
-export default function CatalogManager({ noun, items, ops, onAdded }: { noun: string; items: { id: string; name: string }[]; ops: CatalogOps; onAdded?: (id: string) => void }) {
+export default function CatalogManager({ noun, items, ops, onAdded, scope }: { noun: string; items: { id: string; name: string }[]; ops: CatalogOps; onAdded?: (id: string) => void; /** ขอบเขตของรายการใหม่ (เช่น กิจกรรมที่เลือกอยู่ ที่หมวดใหม่จะอยู่ใต้) */ scope?: string }) {
   const [name, setName] = useState('')
   const [msg, setMsg] = useState('')
   const add = () => {
-    const r = ops.add(name)
+    const r = ops.add(name, scope)
     if ('error' in r) return setMsg(r.error)
     setMsg(`เพิ่ม “${name.trim()}” แล้ว — ขึ้นในตั้งค่าด้วย`); setName(''); onAdded?.(r.id)
   }

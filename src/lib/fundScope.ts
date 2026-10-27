@@ -1,4 +1,4 @@
-import type { ExpenseEntry, FundSub, IncomeEntry } from './types'
+import type { ExpenseEntry, FundActivity, FundSub, IncomeEntry } from './types'
 import type { FundMove } from './fundAccounts'
 import type { CatalogOps } from '../components/CatalogManager'
 
@@ -10,7 +10,7 @@ export interface FundScope {
   /** รายการเงินยืม/คืน ของกองทุนนี้ (จาก fundAccounts: key ขึ้นต้น ln: lr: lb: lq:) — + เข้า · − ออก */
   loanMoves?: FundMove[]
   /** หมวดย่อยของกองทุน (ถ้ามี) · sub = หมวดที่กำลังดู/บันทึก (all = ทุกหมวด · '' = ส่วนกลาง) · subBal = ยอดคงเหลือแต่ละหมวด ('' = ส่วนกลาง) · subLabel = ชื่อหมวดที่แสดงบนหัวใบ */
-  subs?: FundSub[]; /** หมวดของกิจกรรมที่ปิดแล้ว: บันทึก/แก้รายการไม่ได้ */ lockedSubs?: string[]; /** ผู้ดูแลกองทุนที่จำกัดเฉพาะบางหมวด: ต้องเลือกหมวดเสมอ ไม่มีตัวเลือกส่วนกลาง/ทุกหมวด */ subsOnly?: boolean; /** เพิ่ม/แก้ชื่อ/ลบหมวด (เฉพาะผู้มีสิทธิ์ตั้งค่า) */ subOps?: CatalogOps; sub?: string; subBal?: Record<string, number>; subLabel?: string
+  subs?: FundSub[]; /** โหมดกิจกรรม: ฟอร์มบันทึกเลือก กิจกรรม → หมวดของกิจกรรม · acts = กิจกรรมที่เปิดอยู่ · pickSubs = หมวดที่เลือกได้ทั้งหมด (ไม่จำกัดเฉพาะกิจกรรมที่เปิดดูอยู่) */ acts?: FundActivity[]; pickSubs?: FundSub[]; /** หมวดของกิจกรรมที่ปิดแล้ว: บันทึก/แก้รายการไม่ได้ */ lockedSubs?: string[]; /** ผู้ดูแลกองทุนที่จำกัดเฉพาะบางหมวด: ต้องเลือกหมวดเสมอ ไม่มีตัวเลือกส่วนกลาง/ทุกหมวด */ subsOnly?: boolean; /** เพิ่ม/แก้ชื่อ/ลบหมวด (เฉพาะผู้มีสิทธิ์ตั้งค่า) */ subOps?: CatalogOps; sub?: string; subBal?: Record<string, number>; subLabel?: string
 }
 
 export const isLoanMove = (m: FundMove) => /^l[nrbq]:/.test(m.key)

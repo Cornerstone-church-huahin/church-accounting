@@ -4,14 +4,14 @@ import MoneyInput from './MoneyInput'
 import PersonField from './PersonField'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
-import type { ExpenseCat, ExpenseEntry, FundSub } from '../lib/types'
+import type { ExpenseCat, ExpenseEntry, FundActivity, FundSub } from '../lib/types'
 import { SubField } from './RowEditors'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 
 /** ช่อง 1 ของฝั่งจ่าย: แถวบันทึก 1 บรรทัดตามใบเบิก-จ่ายเงินสด (เลือกรายการที่ตั้งไว้ใน ตั้งค่า) → ขึ้นเป็นแผ่น A4 ใบเบิกด้านล่าง พร้อมยอดรวม */
-export default function ManualExpense({ cats, onManage, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, subs, subOps, defaultSub, subsOnly }: {
-  subsOnly?: boolean;
+export default function ManualExpense({ cats, onManage, entries, defaultDate, canWrite, onAdd, onEdit, onDelete, subs, subOps, defaultSub, subsOnly, acts }: {
+  subsOnly?: boolean; /** โหมดกิจกรรม: เลือกกิจกรรม → หมวด */ acts?: FundActivity[];
   /** หน้ากองทุนที่มีหมวด: ช่องเลือกหมวดต่อจากช่องรายการ + เพิ่ม/ลบหมวด */ subs?: FundSub[]; subOps?: CatalogOps; defaultSub?: string
   cats: ExpenseCat[]; /** แอดมิน: เพิ่ม/แก้ชื่อ/ลบรายการจ่ายได้จากหน้านี้ */ onManage?: CatalogOps; entries: ExpenseEntry[]; defaultDate: string; canWrite: boolean
   onAdd: (e: ExpenseEntry) => boolean; onEdit: (x: ExpenseEntry) => void; onDelete: (x: ExpenseEntry) => void
@@ -30,6 +30,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
     const q = items.find((x) => x.id === item)
     if (!q) return setErr('เลือกรายการ')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
+    if (acts?.length && !subId) return setErr('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงิน')
     const ok = onAdd({ id: newId('ex'), updated: 0, channel: 'manual', date, amount, desc: q.name, catId: q.id, ...(subs?.length ? { subId } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(requester.trim() ? { requester: requester.trim() } : {}), ...(biller ? { biller } : {}), status: 'paid', paidDate: date, method: 'cash' })
     if (!ok) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
@@ -44,7 +45,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
           <div className="field"><label htmlFor="me-date">วันที่</label><input id="me-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label htmlFor="me-item">รายการ</label>
             <select id="me-item" className="input" value={item} onChange={(e) => setItem(e.target.value)}>{items.map((q) => <option key={q.id} value={q.id}>{q.name}</option>)}</select></div>
-          {(subs?.length || subOps) && <SubField id="me-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} />}
+          {(subs?.length || subOps) && <SubField id="me-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} acts={acts} />}
           <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
           <div className="entryrow__pair">
             <div className="field"><label htmlFor="me-req">หมายเหตุ</label><input id="me-req" className="input" value={requester} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setRequester(e.target.value)} /></div>

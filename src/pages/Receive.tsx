@@ -190,7 +190,7 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
       </div>
       {scanFiles && <IncomeScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} types={scopeTypes} existing={inc.items} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = putInc(es); if (ok) goWeek(es[0].date); return ok }} />}
       {viewAtt && <AttachViewer title={`${viewAtt.note || fmtDate(viewAtt.date)} · ${fmtBaht(viewAtt.amount)} บาท`} files={[...(viewAtt.slip ? [viewAtt.slip] : []), ...(viewAtt.photos ?? [])]} onClose={() => setViewAtt(null)} />}
-      {rowEdit && <IncomeRowEditor subs={fund?.subs} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} onUpload={canWrite ? uploadPic : undefined} onDropPhoto={(p) => void dropFile(p)} onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
+      {rowEdit && <IncomeRowEditor subs={fund?.pickSubs ?? fund?.subs} acts={fund?.acts} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} onUpload={canWrite ? uploadPic : undefined} onDropPhoto={(p) => void dropFile(p)} onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}
         onSave={(e) => { if (yearOf(e.date) !== year) return `วันที่ต้องอยู่ในปี ${year + 543} (เปลี่ยนปีบัญชีที่มุมขวาบนก่อน)`; if (!putInc([e])) return 'สิทธิ์ของท่านบันทึกไม่ได้'; goWeek(e.date); return null }} />}
 
       {!fid && <div className="subtabs no-print" role="tablist" aria-label="ช่องบันทึกเงินรับ">
@@ -204,7 +204,7 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกรายการตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
-          <ManualIncome subs={fund?.subs} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} withNote={!!fid} types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+          <ManualIncome subs={fund?.pickSubs ?? fund?.subs} acts={fund?.acts} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} withNote={!!fid} types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onManage={incomeOps}
             onAdd={(items) => { const ok = putInc(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => (fid ? setRowEdit({ entry: x }) : setForm({ entry: x, preset: 'manual' }))} onDelete={delEntry} />
           {canWrite && !fid && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
