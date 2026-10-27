@@ -21,8 +21,8 @@ const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; sub
   { k: 'in', n: 1, icon: '💚', name: 'รับ', sub: 'ใบบันทึกการถวาย' },
   { k: 'out', n: 2, icon: '🔴', name: 'จ่าย', sub: 'ใบเบิก-จ่ายเงินสด' },
   { k: 'adj', n: 3, icon: '🏦', name: 'ปรับ', sub: 'ตรวจกับสมุดบัญชี' },
-  { k: 'sum', n: 4, icon: '📊', name: 'สรุป', sub: 'สรุปและรายงาน' },
-  { k: 'wd', n: 5, icon: '📋', name: 'เตรียมเบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
+  { k: 'wd', n: 4, icon: '📋', name: 'เตรียมเบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
+  { k: 'sum', n: 5, icon: '📊', name: 'สรุป', sub: 'สรุปและรายงาน' },
   { k: 'dep', n: 6, icon: '🧺', name: 'เตรียมนำฝาก', sub: 'นำเข้าบัญชีกองทุน' },
 ]
 
