@@ -20,17 +20,21 @@ function paginate(n: Notice): Piece[][] {
   const FIRST = 46, NEXT = 54
   const pages: Piece[][] = [[]]
   let used = 0, cap = FIRST
-  const newPage = () => { pages.push([]); used = 0; cap = NEXT }
+  const newPage = () => { pages.push([]); used = 0; cap = NEXT; zoneOn = new Set() }
   const cur = () => pages[pages.length - 1]
+  let zoneOn = new Set<string>()
+  const zoneOf = (title: string) => (title.includes('กองทุน') ? 'fund' : 'circ')
   const section = <R,>(rows: R[], mk: (chunk: R[], start: number, last: boolean) => Piece) => {
-    if (rows.length === 0) { if (cap - used < 5) newPage(); cur().push(mk([], 0, true)); used += 5; return }
+    const zoneHead = (pc: Piece) => { const z = zoneOf(pc.t === 'sum' ? '' : pc.title); if (zoneOn.has(z)) return 0; zoneOn.add(z); return 4 } // แถบหัวโซน + กรอบ
+    const zh0 = () => { const z = zoneOf(mk([], 0, true).t === 'sum' ? '' : (mk([], 0, true) as { title: string }).title); return zoneOn.has(z) ? 0 : 4 }
+    if (rows.length === 0) { if (cap - used < 5 + zh0()) newPage(); const pc = mk([], 0, true); cur().push(pc); used += 5 + zoneHead(pc); return }
     let start = 0
     while (start < rows.length) {
-      const avail = cap - used - 3 // หัวข้อ + หัวตาราง + เว้นบรรทัด
+      const avail = cap - used - 3 - zh0() // หัวข้อ + หัวตาราง + เว้นบรรทัด + หัวโซน
       if (avail < 3) { newPage(); continue }
       const rest = rows.length - start
-      if (rest + 1 <= avail) { cur().push(mk(rows.slice(start), start, true)); used += 3 + rest + 1; return }
-      cur().push(mk(rows.slice(start, start + avail), start, false)); newPage(); start += avail
+      if (rest + 1 <= avail) { const pc = mk(rows.slice(start), start, true); cur().push(pc); used += 3 + rest + 1 + zoneHead(pc); return }
+      const pc = mk(rows.slice(start, start + avail), start, false); cur().push(pc); zoneHead(pc); newPage(); start += avail
     }
   }
   const tot = (xs: NoticeLine[]) => ({ cash: xs.reduce((s, x) => s + x.cash, 0), tr: xs.reduce((s, x) => s + x.tr, 0), all: xs.reduce((s, x) => s + x.amt, 0), cn: xs.reduce((s, x) => s + x.cashN, 0), tn: xs.reduce((s, x) => s + x.trN, 0) })
@@ -48,6 +52,17 @@ function paginate(n: Notice): Piece[][] {
 
 const FUND_NOTE = 'เงินส่วนกองทุน — แสดงเป็นรายงานให้ทราบเท่านั้น ไม่รวมกับเงินหมุนเวียน และไม่นำไปคำนวณรวมกับยอดรายรับ รายจ่าย หรือผลต่างของสัปดาห์นี้'
 const th: React.CSSProperties = { fontSize: 13 }
+/** จัดชิ้นเรียงกันในหน้าเดียวให้อยู่ในกรอบโซนเดียวกัน (หมุนเวียน / กองทุน) — sum อยู่นอกกรอบ · cont = โซนนี้ต่อจากหน้าก่อน */
+function groupZones(pcs: Piece[]): { zone: 'circ' | 'fund' | 'sum'; pieces: Piece[]; cont: boolean }[] {
+  const out: { zone: 'circ' | 'fund' | 'sum'; pieces: Piece[]; cont: boolean }[] = []
+  for (const p of pcs) {
+    const zone = p.t === 'sum' ? 'sum' : p.title.includes('กองทุน') ? 'fund' : 'circ'
+    const last = out[out.length - 1]
+    if (last && last.zone === zone && zone !== 'sum') last.pieces.push(p)
+    else out.push({ zone, pieces: [p], cont: p.t !== 'sum' && p.start > 0 })
+  }
+  return out
+}
 function IncTable({ p }: { p: Extract<Piece, { t: 'inc' }> }) {
   return (
     <>
@@ -99,12 +114,19 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
         <ScaledPage key={pi} ref={(el) => { if (el) pagesRef.current[pi] = el }}>
           <div data-keep={evidence ? '1' : undefined} style={{ display: 'contents' }}>
             <PaperHead church={church} title="สรุปรายรับ - รายจ่ายประจำสัปดาห์" sub={`${weekHeading(sunday)}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact={pi > 0} />
-            {pcs.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : (
-              <div key={i} style={{ border: '1px solid #1a2b4c', padding: '8px 12px', marginTop: 10, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
-                <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(n.totalInc)}</span>
-                <span>หัก รวมรายจ่ายเงินหมุนเวียน</span><span className="num">{m(n.totalOut)}</span>
-                <b style={{ fontSize: 17 }}>{n.net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{n.net < 0 ? '−' : ''}{m(Math.abs(n.net))} บาท</b>
-                {n.totalFund > 0 && <><span className="small">เงินถวายกองทุน (รายงานให้ทราบ ไม่รวมในยอดข้างบน)</span><span className="num small">{m(n.totalFund)}</span></>}
+            {groupZones(pcs).map((g, gi) => g.zone === 'sum' ? (
+              <div key={gi}>
+                <div style={{ border: '2px solid #1a2b4c', borderRadius: 6, background: '#f4f7fd', padding: '8px 12px', marginTop: 10, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
+                  <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(n.totalInc)}</span>
+                  <span>หัก รวมรายจ่ายเงินหมุนเวียน</span><span className="num">{m(n.totalOut)}</span>
+                  <b style={{ fontSize: 17 }}>{n.net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{n.net < 0 ? '−' : ''}{m(Math.abs(n.net))} บาท</b>
+                </div>
+                {n.totalFund > 0 && <div style={{ border: '2px dashed #b8860b', borderRadius: 6, background: '#fff8e6', padding: '6px 12px', marginTop: 8, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}><span className="small">เงินถวายกองทุน (รายงานให้ทราบ ไม่รวมในยอดข้างบน)</span><span className="num small">{m(n.totalFund)}</span></div>}
+              </div>
+            ) : (
+              <div key={gi} className={`zone zone--${g.zone}`} style={g.zone === 'circ' ? { border: '3px solid #1a2b4c', background: '#f4f7fd' } : { border: '3px dashed #b8860b', background: '#fff8e6' }}>
+                <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? '■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)' : '▲ ส่วนที่ 2 · เงินกองทุน (รายงานให้ทราบ ไม่รวมกับเงินหมุนเวียน)'}{g.cont ? ' · (ต่อ)' : ''}</div>
+                {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : null)}
               </div>
             ))}
           </div>
