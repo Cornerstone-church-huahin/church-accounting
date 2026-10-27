@@ -31,6 +31,7 @@ import { circulatingOnly } from '../lib/balances'
 import { ownLent } from '../lib/loans'
 import { isFundZone } from '../lib/funds'
 import { ownLoanLines } from '../lib/weekLoans'
+import { computeWeekWithdraw } from '../lib/useWeekWithdraw'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
 import type { ExpenseEntry } from '../lib/types'
@@ -124,8 +125,8 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   const { balances: bal } = useBalances(year, asOf)
   const loansAll = useLoans()
   // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
-  const wf = useMemo(() => fid ? [] : computeLedger({ range: rangeOf('week', year, { sunday }), income: income.items.filter((x) => !isFundZone(x)), rounds: rounds.items, vouchers: [], lines: [], funds: [], entries: [], types: types.list, cats: cats.list, expenses: [], passbook: passbook.items, withFunds: true }).fundRows, [year, sunday, fid, passbook.items, income.items, rounds.items, types.list, cats.list])
-  const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
+  const wd = useMemo(() => fid ? null : computeWeekWithdraw({ expenses: exp.items, income: income.items, rounds: rounds.items, passbook: passbook.items, types: types.list, cats: cats.list, loans: loansAll.items }, year, sunday), [fid, exp.items, income.items, rounds.items, passbook.items, types.list, cats.list, loansAll.items, year, sunday]) // ชุดคำนวณเดียวกับหน้า เตรียมเบิก
+  const fundOut = wd ? wd.fund : []
   const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
   const of = (c: Channel) => all.filter((x) => x.channel === c && (allWeeks || inWeek(x)))
@@ -135,7 +136,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   const weekAll = all.filter(inWeek)
   const fundNm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : types.byId(id ?? '')?.name ?? 'กองทุน')
   const loanLines = fid ? [] : ownLoanLines(loansAll.items, fundNm, weekRange.from, weekRange.to)
-  const pendingBills = [...weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount })), ...loanLines]
+  const pendingBills = wd ? wd.circ : [...weekAll.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount })), ...loanLines]
   const weekLoan = loanFlows(fund, weekRange.from, weekRange.to)
   const weekSummary = { inn: { ...weekL.inSum, cash: weekL.inSum.cash + weekLoan.inn }, funds: fundOut, pending: pendingBills, out: { ...weekL.outSum, cash: weekL.outSum.cash + weekLoan.out }, balance: fund ? fund.balance : circulatingOnly(bal, loansAll.items), asOf, net: { week: netOf(weekL, weekRange), month: netMonth, year: netYear }, ...(fid ? {} : { lent: ownLent(loansAll.items, asOf) }), ...(fund ? { scopeName: fund.name } : {}) }
   /** เพิ่ม/แก้ชื่อ/ลบรายการจ่าย จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการจ่าย */
