@@ -185,15 +185,56 @@ export async function putBinary(cfg: SyncConfig, path: string, data: ArrayBuffer
   if (!r.ok) throw new Error(r.status === 422 ? 'มีไฟล์ชื่อนี้อยู่แล้ว ลองอัปโหลดใหม่อีกครั้ง' : explain(r.status))
 }
 
-import { cachedImage } from './imageCache'
+import { cacheImage, cachedImage } from './imageCache'
 const MIME: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }
 const withType = (b: Blob, path: string) => new Blob([b], { type: MIME[path.split('.').pop()?.toLowerCase() ?? ''] ?? (b.type || 'application/octet-stream') })
 const readFail = (status: number) => (status === 404 ? 'ไม่พบไฟล์นี้ใน repo' : status === 401 ? 'รหัสเข้าใช้ร่วมไม่ถูกต้องหรือหมดอายุ' : `GitHub ไม่ให้ดึงรูปนี้ (${status}) — รหัสอาจไม่มีสิทธิ์อ่านไฟล์ (Contents: Read) หรือเรียกถี่เกินโควต้า ลองใหม่อีกครั้งภายหลัง`)
 
-/** ดึงไฟล์จาก repo ข้อมูลเมื่อกดเปิด · ลองหลายทาง: contents raw → รายชื่อโฟลเดอร์หา sha แล้วดึง git blob → contents JSON (base64) · ถ้าไม่ได้บอกสถานะของแต่ละทาง */
-export async function getBinary(cfg: SyncConfig, path: string): Promise<Blob> {
-  const local = await cachedImage(path)
-  if (local) return local
+/**
+ * ดึงไฟล์/รูปจาก repo ข้อมูล แบบเร็วและทนเครือข่ายช้า:
+ * 1) มีสำเนาในเครื่องแล้ว = ขึ้นทันที  2) ดึงมาแล้วเก็บสำเนาไว้ ครั้งต่อไปไม่ต้องโหลดใหม่ (ทุกเครื่อง ไม่ใช่แค่เครื่องที่อัปโหลด)
+ * 3) รูปเดียวกันที่ขอพร้อมกันหลายที่ ดึงครั้งเดียว  4) ดึงพร้อมกันไม่เกิน 3 รูป ไม่ท่วมเครือข่ายมือถือ  5) หลุดชั่วคราวลองใหม่ให้เอง
+ */
+const MAX_PARALLEL = 3
+let active = 0
+const waiting: (() => void)[] = []
+const inflight = new Map<string, Promise<Blob>>()
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+async function inSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (active >= MAX_PARALLEL) await new Promise<void>((r) => waiting.push(r))
+  active++
+  try { return await fn() } finally { active--; waiting.shift()?.() }
+}
+export function getBinary(cfg: SyncConfig, path: string): Promise<Blob> {
+  const hit = inflight.get(path)
+  if (hit) return hit
+  const p = (async () => {
+    const local = await cachedImage(path)
+    if (local) return local
+    let last: unknown
+    for (let i = 0; i < 3; i++) {
+      try {
+        const b = await inSlot(() => fetchBinary(cfg, path))
+        void b.arrayBuffer().then((d) => cacheImage(path, d, b.type || 'application/octet-stream')).catch(() => undefined)
+        return b
+      } catch (e) {
+        last = e
+        if (/ไม่พบไฟล์นี้|รหัสเข้าใช้ร่วมไม่ถูกต้อง/.test(e instanceof Error ? e.message : '')) break // ลองใหม่ก็ไม่ช่วย
+        await wait(700 * (i + 1))
+      }
+    }
+    throw last
+  })().finally(() => { inflight.delete(path) })
+  inflight.set(path, p)
+  return p
+}
+/** โหลดรูปล่วงหน้าเบื้องหลัง (เปิดสัปดาห์/หน้าที่ต้องใช้รูป) — เก็บไว้ในเครื่อง พอเปิดดูก็ขึ้นทันที */
+export function prefetchBinaries(cfg: SyncConfig | null, paths: string[]): void {
+  if (!cfg) return
+  for (const p of new Set(paths)) if (p) void getBinary(cfg, p).catch(() => undefined)
+}
+
+async function fetchBinary(cfg: SyncConfig, path: string): Promise<Blob> {
   const trace: string[] = []
   const raw = await api(cfg, `contents/${encPath(path)}`, { headers: { accept: 'application/vnd.github.raw' } }).catch(() => null)
   if (!raw) throw new Error('ไม่มีอินเทอร์เน็ต — เปิดไฟล์ไม่ได้')

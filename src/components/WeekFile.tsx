@@ -3,7 +3,7 @@ import { computeWeekWithdraw } from '../lib/useWeekWithdraw'
 import { IncomeSheetPaper, PaperHead, VoucherPaper, weekHeading } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import { circulatingOnly } from '../lib/balances'
-import { getBinary, getSync } from '../lib/sync'
+import { getBinary, getSync, prefetchBinaries } from '../lib/sync'
 import { cachedImage } from '../lib/imageCache'
 import { useIncomeTypes, useSettings } from '../lib/data'
 import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
@@ -127,6 +127,9 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const summary = { inn: L.inSum, funds: fundOut, pending, out: L.outSum, balance: circulatingOnly(balances, a.loans as never), asOf, net: { week: net(week), month: net(rangeOf('month', year, { month: Number(sunday.slice(5, 7)) })), year: net(rangeOf('year', year)) }, lent: ownLent(a.loans as never, asOf) }
   const ls = summarizeLoans(a.loans as never, asOf)
   const tiles: [string, string][] = [['🏠 หมุนเวียน', fmtBaht(balances.own.balance, { dec: false })], ['💰 กองทุน', fmtBaht(balances.fundTotal, { dec: false })], ['🧮 รวมเงินสด', fmtBaht(balances.total, { dec: false })], ['🔁 หนี้ภายใน', fmtBaht(ls.fromFunds, { dec: false })], ['🧾 หนี้ภายนอก', fmtBaht(ls.external, { dec: false })], ['🏞️ ภาระที่ดิน', '6,000,000']]
+  const [retry, setRetry] = useState(0)
+  const paths = photos.map((p) => p.x.file?.path ?? '').join('|')
+  useEffect(() => { prefetchBinaries(getSync(), paths.split('|')) }, [paths])
   const settled = photos.every((p) => p.x.id in loaded)
   const missing = photos.filter((p) => loaded[p.x.id] === false)
   const pagesEls = () => [...(box.current?.querySelectorAll<HTMLElement>('.a4page') ?? [])].map((el) => ({ el, landscape: el.classList.contains('a4page--land') }))
@@ -146,7 +149,7 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
         <p className="muted small" style={{ margin: '4px 0' }}>ใบปะหน้า (เลขแฟ้ม สัปดาห์ สารบัญ และเงินคริสตจักร 6 ช่อง) → รวมใบรับ → ใบเบิก-จ่ายเงินสด → ภาพสลิป/บิลที่แนบ (เฉพาะรายการที่มีรูป หน้าละ 4 รูป) เป็น PDF ไฟล์เดียว · ข้อมูลต้นฉบับครบ มีชื่อบุคคล — ห้ามนำไปติดประกาศหรือแชร์สมาชิก · ถ้าจะพิมพ์ ให้ดาวน์โหลดแล้วพิมพ์จากไฟล์ PDF</p>
         <p className="small" style={{ margin: '2px 0' }}>ใบปะหน้า 1 แผ่น · ใบรับ {nIncPg} แผ่น · ใบเบิก-จ่าย {Math.max(1, Math.ceil(ordered.length / 25)) + (fundRowsE.length > 0 ? 1 : 0)} แผ่น · {photos.length === 0 ? 'ไม่มีรูปแนบในสัปดาห์นี้ (ไม่มีหน้ารูป)' : `รูปแนบ ${photos.length} รูป ${pages.length} แผ่น`}</p>
         {!settled && <p className="small" role="status">กำลังโหลดรูป {Object.keys(loaded).length}/{photos.length}…</p>}
-        {settled && missing.length > 0 && <p className="small" role="alert" style={{ color: 'var(--danger, #c4332a)' }}>โหลดรูปไม่ได้ {missing.length} รูป (ลำดับที่ {missing.map((p) => p.no).join(', ')}) — ต้องออนไลน์จึงจะได้รูปครบ</p>}
+        {settled && missing.length > 0 && <p className="small" role="alert" style={{ color: 'var(--danger, #c4332a)' }}>โหลดรูปไม่ได้ {missing.length} รูป (ลำดับที่ {missing.map((p) => p.no).join(', ')}) — ต้องออนไลน์จึงจะได้รูปครบ <button type="button" className="mini" onClick={() => { setLoaded((m) => Object.fromEntries(Object.entries(m).filter(([, ok]) => ok))); setRetry((n) => n + 1) }}>🔄 ลองโหลดใหม่</button></p>}
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn--gold" disabled={busy || !settled} onClick={() => void run(false)} aria-label="ดาวน์โหลดแฟ้มประจำสัปดาห์เป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF แฟ้มประจำสัปดาห์'}</button>
           <button type="button" className="btn btn--gold" disabled={busy || !settled} onClick={() => void run(true)} aria-label="แชร์แฟ้มประจำสัปดาห์เป็น PDF" title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ PDF</button>
@@ -164,7 +167,7 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
                 {ps.map(({ x, no, inc }) => (
                   <figure key={x.id} style={{ margin: 0, border: '1px solid #1a2b4c', display: 'flex', flexDirection: 'column', minHeight: 0, padding: 4 }}>
                     <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-                      <Photo path={x.file!.path} label={x.desc} onDone={(ok) => setLoaded((m) => (x.id in m ? m : { ...m, [x.id]: ok }))} />
+                      <Photo key={`${x.id}-${retry}`} path={x.file!.path} label={x.desc} onDone={(ok) => setLoaded((m) => (x.id in m ? m : { ...m, [x.id]: ok }))} />
                     </div>
                     <figcaption style={{ fontSize: 12, textAlign: 'center', paddingTop: 3 }}><b>{inc ? 'รายรับ' : `ลำดับที่ ${no}`}</b> · {x.desc} · {fmtBaht(x.amount)} บาท · {fmtDate(x.date)}</figcaption>
                   </figure>
