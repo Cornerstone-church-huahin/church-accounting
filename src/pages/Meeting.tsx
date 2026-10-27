@@ -43,7 +43,7 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
       <div className="page-head no-print">
         <h1>{name}</h1>
         <WorkBell n={n} />
-        {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ หน้าแรกงาน</button> : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
+        {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ {name}</button> : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
       </div>
       <WorkTeam n={n} name={name} />
     </>
