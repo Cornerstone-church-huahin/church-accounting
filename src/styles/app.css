@@ -1054,3 +1054,17 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .hubgrid .btile__meter { flex: 1; height: 0.4rem; border-radius: 999px; background: rgba(0, 0, 0, 0.3); overflow: hidden; }
 .hubgrid .btile__meter i { display: block; height: 100%; border-radius: 999px; background: #ffe27a; }
 .hubgrid .btile__pct { flex: none; font-size: 0.62rem; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0.95; min-width: 2.2em; text-align: right; }
+/* สถานะการเงินคริสตจักร */
+.healthbtn { flex: 1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 0.4rem; padding: 0.45rem 0.8rem; border-radius: 1rem; color: #fff; text-decoration: none; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18); font-size: 1rem; }
+.healthbtn__s { grid-column: 2; font-size: 0.85rem; opacity: 0.95; }
+.healthbtn--good { background: #1b8a4b; } .healthbtn--watch { background: #a86a00; } .healthbtn--low { background: #b3261e; }
+.healthcard { border-left: 6px solid #1b8a4b; } .healthcard--watch { border-left-color: #d49a00; } .healthcard--low { border-left-color: #b3261e; }
+.healthcard__top { display: flex; gap: 0.6rem; align-items: flex-start; }
+.healthcard__icon { font-size: 2.2rem; line-height: 1; }
+.healthcard__title { font-size: 1.2rem; } .healthcard__msg { margin: 0.15rem 0 0.5rem; }
+.healthmeter { height: 0.85rem; border-radius: 999px; background: rgba(0, 0, 0, 0.12); overflow: hidden; }
+.healthmeter i { display: block; height: 100%; border-radius: 999px; background: #1b8a4b; }
+.healthcard--watch .healthmeter i { background: #d49a00; } .healthcard--low .healthmeter i { background: #b3261e; }
+.healthnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; text-align: center; }
+.healthnums small { display: block; font-size: 0.75rem; } .healthnums b { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.healthtips { margin: 0.3rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem; }
