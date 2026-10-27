@@ -14,6 +14,7 @@ import { fmtBaht, fmtDate, addDays, todayISO } from '../lib/money'
 import { computeSeries } from '../lib/seriesLedger'
 import { useBalances } from '../lib/useBalances'
 import { ownFrom } from '../lib/balances'
+import { explainTotal } from '../lib/totalExplain'
 import { fundColorMap, OWN_COLOR } from '../lib/fundColors'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { useYear } from '../lib/year'
@@ -128,6 +129,14 @@ export default function BalancePage() {
             </tbody>
             <tfoot><tr><td>รวมทั้งหมด</td><td className="num">{m(b.total)}</td></tr></tfoot>
           </table>
+          <details className="card totalwhy" open aria-label="ทำไมรวมเงินสดถึงเป็นยอดนี้">
+            <summary><b>❓ ทำไมรวมเงินสดถึงเป็น {m(b.total)} บาท</b></summary>
+            <ol className="totalwhy__list">
+              {explainTotal(b, loans.items.filter((l) => !l.deleted && l.borrower === 'own' && l.lender.kind === 'person').reduce((a, l) => a + loanBalance(l), 0), m).map((x) => (
+                <li key={x.title}><span aria-hidden="true">{x.icon}</span><div><b>{x.title}</b><p>{x.text}</p></div></li>
+              ))}
+            </ol>
+          </details>
           <div className="stat-title">สัดส่วนเงินทั้งหมด (บาท · %)</div>
           <Donut rows={[{ label: 'เงินหมุนเวียน', value: Math.max(0, b.own.balance), color: OWN_COLOR }, ...b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))].filter((r) => r.value > 0).sort((x, y) => y.value - x.value)} tone="in" />
           <p className="muted small">ยอดเหล่านี้คำนวณจากยอดตั้งต้น + รายการที่บันทึกในแอป ควรเทียบกับยอดในสมุดบัญชีธนาคารและเงินสดจริงที่ขั้น 3 ปรับ</p>

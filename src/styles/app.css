@@ -1073,3 +1073,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .accttab { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 4.2rem; min-height: 2.7rem; padding: 0.1rem 0.5rem; border-radius: 0.9rem; border: 2px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; line-height: 1.1; }
 .accttab span { font-size: 1.15rem; } .accttab small { font-size: 0.72rem; font-weight: 700; }
 .accttab--on { border-color: #1a2b4c; background: #1a2b4c; color: #fff; }
+.totalwhy { margin: 0.6rem 0; } .totalwhy summary { cursor: pointer; }
+.totalwhy__list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.totalwhy__list li { display: flex; gap: 0.5rem; align-items: flex-start; } .totalwhy__list li > span { font-size: 1.4rem; line-height: 1.2; }
+.totalwhy__list p { margin: 0.1rem 0 0; }
