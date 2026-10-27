@@ -11,7 +11,7 @@ const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 const blank = (x: number) => (x ? m(x) : '')
 
 type Piece =
-  | { t: 'inc'; title: string; note?: string; rows: NoticeLine[]; start: number; total?: { label: string; cash: number; tr: number; all: number; cn: number; tn: number } }
+  | { t: 'inc'; title: string; note?: string; /** ตารางเงินกองทุน: เพิ่มช่องสถานะ (เก็บไว้ เตรียมนำฝาก) */ status?: string; rows: NoticeLine[]; start: number; total?: { label: string; cash: number; tr: number; all: number; cn: number; tn: number } }
   | { t: 'out'; title: string; rows: NoticeExpense[]; start: number; total?: number; label?: string }
   | { t: 'sum' }
 
@@ -23,8 +23,7 @@ function piecesOf(n: Notice): Piece[] {
     { t: 'out', title: 'รายจ่ายเงินหมุนเวียน', rows: n.out, start: 0, total: n.totalOut },
   ]
   if (n.fund.length > 0) {
-    out.push({ t: 'inc', title: 'รายรับเงินกองทุน', note: FUND_NOTE, rows: n.fund, start: 0, total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } })
-    out.push({ t: 'out', title: 'รายจ่ายเงินกองทุน (เบิกพร้อมเงินหมุนเวียน เตรียมนำฝากเข้าบัญชีกองทุน)', rows: n.fund.map((f) => ({ key: `fo:${f.key}`, date: '', desc: `${f.label} · เบิกแล้ว เตรียมนำฝาก`, amount: f.amt })), start: 0, total: n.totalFund, label: 'รวมเงินกองทุนที่เบิก' })
+    out.push({ t: 'inc', title: 'เงินกองทุนที่รับสัปดาห์นี้', note: FUND_NOTE, status: 'เก็บไว้ เตรียมนำฝาก', rows: n.fund, start: 0, total: { label: 'รวมเงินถวายกองทุน · เตรียมนำฝากเข้าบัญชีกองทุน', ...tot(n.fund) } })
   }
   out.push({ t: 'sum' })
   return out
@@ -67,15 +66,15 @@ function IncTable({ p }: { p: Extract<Piece, { t: 'inc' }> }) {
       <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{p.title}</div>
       {p.note && <div style={{ fontSize: 12.5, margin: '0 0 3px', fontStyle: 'italic' }}>{p.note}</div>}
       <table className="sheetpaper sheetpaper--full" aria-label={p.title}>
-        <colgroup><col style={{ width: '6%' }} /><col style={{ width: '31%' }} /><col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} /></colgroup>
-        <thead><tr><th style={th}>ที่</th><th style={th}>รายการ</th><th style={th}>จำนวนซอง</th><th style={th}>จำนวนเงิน</th><th style={th}>จำนวนโอน</th><th style={th}>จำนวนเงิน</th><th style={th}>รวม</th></tr></thead>
+        <colgroup>{p.status ? <><col style={{ width: '5%' }} /><col style={{ width: '23%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /><col style={{ width: '18%' }} /></> : <><col style={{ width: '6%' }} /><col style={{ width: '31%' }} /><col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} /></>}</colgroup>
+        <thead><tr><th style={th}>ที่</th><th style={th}>รายการ</th><th style={th}>จำนวนซอง</th><th style={th}>จำนวนเงิน</th><th style={th}>จำนวนโอน</th><th style={th}>จำนวนเงิน</th><th style={th}>รวม</th>{p.status && <th style={th}>สถานะ</th>}</tr></thead>
         <tbody>
-          {p.rows.length === 0 && <tr><td /><td colSpan={6}>— ไม่มีรายการ —</td></tr>}
+          {p.rows.length === 0 && <tr><td /><td colSpan={p.status ? 7 : 6}>— ไม่มีรายการ —</td></tr>}
           {p.rows.map((r, i) => (
-            <tr key={r.key}><td style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td>{r.label}</td><td className="num">{r.cashN || ''}</td><td className="num">{blank(r.cash)}</td><td className="num">{r.trN || ''}</td><td className="num">{blank(r.tr)}</td><td className="num"><b>{m(r.amt)}</b></td></tr>
+            <tr key={r.key}><td style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td>{r.label}</td><td className="num">{r.cashN || ''}</td><td className="num">{blank(r.cash)}</td><td className="num">{r.trN || ''}</td><td className="num">{blank(r.tr)}</td><td className="num"><b>{m(r.amt)}</b></td>{p.status && <td style={{ fontSize: 12 }}>{p.status}</td>}</tr>
           ))}
         </tbody>
-        {p.total && <tfoot><tr><td colSpan={2}>{p.total.label}</td><td className="num">{p.total.cn || ''}</td><td className="num">{m(p.total.cash)}</td><td className="num">{p.total.tn || ''}</td><td className="num">{m(p.total.tr)}</td><td className="num">{m(p.total.all)}</td></tr></tfoot>}
+        {p.total && <tfoot><tr><td colSpan={2}>{p.total.label}</td><td className="num">{p.total.cn || ''}</td><td className="num">{m(p.total.cash)}</td><td className="num">{p.total.tn || ''}</td><td className="num">{m(p.total.tr)}</td><td className="num">{m(p.total.all)}</td>{p.status && <td />}</tr></tfoot>}
       </table>
     </>
   )
@@ -124,7 +123,7 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
               </div>
             ) : (
               <div key={gi} className={`zone zone--${g.zone}`} style={g.zone === 'circ' ? { border: '3px solid #1a2b4c', background: '#f4f7fd' } : { border: '3px dashed #b8860b', background: '#fff8e6' }}>
-                <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? '■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)' : '▲ ส่วนที่ 2 · เงินกองทุน (รายงานให้ทราบ ไม่รวมกับเงินหมุนเวียน)'}{g.cont ? ' · (ต่อ)' : ''}</div>
+                <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? '■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)' : '▲ ส่วนที่ 2 · เงินกองทุน (เงินของแต่ละกองทุน คริสตจักรเก็บรักษาไว้ ไม่ใช่รายรับ-รายจ่ายของคริสตจักร)'}{g.cont ? ' · (ต่อ)' : ''}</div>
                 {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : null)}
               </div>
             ))}</FitBox>

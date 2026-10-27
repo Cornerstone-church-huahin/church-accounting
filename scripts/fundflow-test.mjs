@@ -28,7 +28,7 @@ try {
   const sheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().innerText()).replace(/\s+/g, ' ')
   must(!/กองทุนเพื่อที่ดินคริสตจักร/.test(sheet), 'fund money is not a row of the circulating expense table: ' + sheet.slice(0, 300))
   const fsheet = (await page.getByLabel('ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)').first().innerText()).replace(/\s+/g, ' ')
-  must(/กองทุนเพื่อที่ดินคริสตจักร 500/.test(fsheet) && /เตรียมนำฝาก/.test(fsheet) && /รวมเงินกองทุนเป็นเงินทั้งสิ้น 500/.test(fsheet), 'fund money is its own table (separate sheet): ' + fsheet.slice(0, 300))
+  must(/กองทุนเพื่อที่ดินคริสตจักร 500/.test(fsheet) && /เตรียมนำฝาก/.test(fsheet) && /รวมเตรียมนำฝากทั้งสิ้น 500/.test(fsheet), 'fund money is its own table (separate sheet): ' + fsheet.slice(0, 300))
   const box = (await page.getByLabel('สรุปประจำสัปดาห์').first().innerText()).replace(/\s+/g, ' ')
   must(/รวมรับเงินหมุนเวียน 2,000/.test(box) && !/กองทุนเพื่อที่ดิน/.test(box), 'box 1: circulating 2,000 then the fund by name 500, total 2,500: ' + box)
   const wd = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ')
