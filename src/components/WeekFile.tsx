@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { computeWeekWithdraw } from '../lib/useWeekWithdraw'
 import { IncomeSheetPaper, PaperHead, VoucherPaper, weekHeading } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import { circulatingOnly } from '../lib/balances'
@@ -7,7 +8,6 @@ import { cachedImage } from '../lib/imageCache'
 import { useIncomeTypes, useSettings } from '../lib/data'
 import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import { ownLent, summarizeLoans } from '../lib/loans'
-import { ownLoanLines } from '../lib/weekLoans'
 import { canSharePdf, downloadPagesPdf, sharePagesPdf } from '../lib/pdf'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
@@ -110,8 +110,8 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const incomeRows = useMemo(() => a.income.filter((x) => !x.deleted && kindManual(x) && sheetSunday(x.date) === sunday), [a.income, sunday])
   const expRows = useMemo(() => a.expenses.filter((x) => !x.deleted && !x.fundId && sheetSunday(effDate(x)) === sunday), [a.expenses, sunday])
   const L = useMemo(() => computeLedger({ range: week, ...a } as Parameters<typeof computeLedger>[0]), [a, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
-  const wf = useMemo(() => computeLedger({ range: week, income: a.income, rounds: a.rounds, vouchers: [], lines: [], funds: [], entries: [], types: a.types, cats: a.cats, expenses: [], passbook: a.passbook, withFunds: true }).fundRows, [a, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
-  const fundRowsE: ExpenseEntry[] = wf.map((r, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: r.cash.amt + r.transfer.amt, desc: r.label, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
+  const wdk = useMemo(() => computeWeekWithdraw({ expenses: a.expenses, income: a.income, rounds: a.rounds, passbook: a.passbook, types: a.types, cats: a.cats, loans: a.loans } as Parameters<typeof computeWeekWithdraw>[0], year, sunday), [a, year, sunday]) // ชุดคำนวณเดียวกับหน้า เตรียมเบิก และใบเบิก-จ่าย
+  const fundRowsE: ExpenseEntry[] = wdk.fund.map((r, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: r.amount, desc: r.name, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
   const entries = [...expRows.map(sheetOf)]
   const nFundInc = incomeRows.filter((x) => types.find((t) => t.id === x.typeId)?.fund).length
   const nIncPg = Math.max(1, Math.ceil((incomeRows.length - nFundInc) / 20)) + (nFundInc > 0 ? Math.ceil(nFundInc / 20) : 0)
@@ -121,10 +121,8 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const incPhotos = incomeRows.flatMap((x) => (x.photos ?? []).map((ph, k) => ({ x: { id: `${x.id}#${k}`, desc: `${types.find((t) => t.id === x.typeId)?.name ?? ''}${x.note ? ` ${x.note}` : ''}`, amount: x.amount, date: x.date, file: ph } as ExpenseEntry, no: 0, inc: true as const })))
   const photos = [...expPhotos.map((p) => ({ ...p, inc: false as boolean })), ...incPhotos]
   const pages = Array.from({ length: Math.ceil(photos.length / PER_PAGE) }, (_, i) => photos.slice(i * PER_PAGE, (i + 1) * PER_PAGE))
-  const fundOut = wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt }))
-  const typeNames = useIncomeTypes().list
-  const loanLines = ownLoanLines(a.loans as never, (id) => (id === 'own' ? 'เงินหมุนเวียน' : typeNames.find((t) => t.id === id)?.name ?? 'กองทุน'), week.from, week.to)
-  const pending = [...expRows.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel, amount: x.amount })), ...loanLines]
+  const fundOut = wdk.fund
+  const pending = wdk.circ
   const net = (r: { from: string; to: string }) => { const l = computeLedger({ range: r, ...a } as Parameters<typeof computeLedger>[0]); return l.inSum.cash + l.inSum.transfer - l.outSum.cash - l.outSum.transfer - l.outSum.pending }
   const summary = { inn: L.inSum, funds: fundOut, pending, out: L.outSum, balance: circulatingOnly(balances, a.loans as never), asOf, net: { week: net(week), month: net(rangeOf('month', year, { month: Number(sunday.slice(5, 7)) })), year: net(rangeOf('year', year)) }, lent: ownLent(a.loans as never, asOf) }
   const ls = summarizeLoans(a.loans as never, asOf)

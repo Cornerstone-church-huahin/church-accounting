@@ -24,17 +24,32 @@ try {
   await add('กองทุนเพื่อที่ดินคริสตจักร', 500)
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
+  // รายจ่ายที่ระบุผู้วางบิล (ต้องเบิก 300) — เทียบตัวเลขใบเบิก-จ่าย กับหน้าเตรียมเบิก
+  await page.locator('.entryrow .field', { hasText: 'จำนวนเงิน (บาท)' }).locator('input').fill('300')
+  await page.locator('summary', { hasText: /ชื่อ \(/ }).click()
+  await page.getByLabel('ชื่อชื่อใหม่').fill('อ.กฤต')
+  await page.getByLabel('ชื่อชื่อใหม่').locator('xpath=ancestor::details[1]').getByRole('button', { name: '＋ เพิ่ม' }).click()
+  await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
+  const vTot = (await page.getByLabel('หมายเหตุ ต้องเบิก').first().innerText()).replace(/\s+/g, ' ').match(/รวมต้องเบิก\s+([\d,.]+)/)?.[1]
   await page.getByRole('button', { name: 'กลับหน้าแรก' }).click()
   // เตรียมเบิก
   await page.locator('.stepbtn--wd').click()
   const wd = (await page.getByLabel('เตรียมเบิกประจำสัปดาห์').innerText()).replace(/\s+/g, ' ')
-  must(/รวมต้องเบิกสัปดาห์นี้ 500/.test(wd) && /หมุนเวียน 0/.test(wd) && /กองทุน 500/.test(wd), 'withdraw prep total 500 = circulating 0 + fund 500: ' + wd.slice(0, 300))
+  must(/รวมต้องเบิกสัปดาห์นี้ 800/.test(wd) && /หมุนเวียน 300/.test(wd) && /กองทุน 500/.test(wd), 'withdraw prep total 800 = circulating 300 + fund 500: ' + wd.slice(0, 300))
+  must(Number((vTot ?? '').replace(/,/g, '')) === 800, 'voucher "รวมต้องเบิก" equals the prep page total (800): ' + vTot)
   must(/กองทุนเพื่อที่ดินคริสตจักร\s+500/.test(wd), 'fund row listed')
   await page.getByRole('button', { name: 'กลับหน้าแรก' }).click()
   // เตรียมนำฝาก
   await page.locator('.stepbtn--dep').click()
   const d0 = (await page.getByLabel('เตรียมนำฝากเข้าบัญชีกองทุน').innerText()).replace(/\s+/g, ' ')
   must(/ยังอยู่ระหว่างสะสม/.test(d0) && /500/.test(d0), 'deposit prep shows waiting 500: ' + d0.slice(0, 300))
+  const waitHere = (d0.match(/รอนำฝากรวม [\d]+ รายการ\s*([\d,.]+)/) ?? [])[1]
+  await page.getByRole('button', { name: 'กลับหน้าแรก' }).click()
+  await page.goto(`http://localhost:${PORT}/#/balance/fund`); await page.waitForLoadState('networkidle')
+  const badge = (await page.locator('.fundpend__badge').first().innerText()).replace(/,/g, '')
+  must(Number(badge) === 500, 'fund-page เตรียมนำฝาก badge equals the new tab (500): ' + badge)
+  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.locator('.stepbtn--dep').click()
   const bal = async () => (await page.getByLabel('เงินกองทุน ในบัญชี และเตรียมนำฝาก').locator('tfoot').innerText()).replace(/\s+/g, ' ')
   const t0 = await bal()
   must(/รวมทุกกองทุน.*500.*500/.test(t0), 'before deposit: in-account 0 / waiting 500 / total 500: ' + t0)
