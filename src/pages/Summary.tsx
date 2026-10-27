@@ -83,8 +83,8 @@ export default function Summary({ year }: { year: number }) {
         {detail && (
           <div className="rtabs no-print" role="tablist" aria-label="ฉบับของใบสรุป">
             <button type="button" role="tab" aria-selected={copy === 'evidence'} className={`rtab${copy === 'evidence' ? ' on' : ''}`} onClick={() => setCopy('evidence')}>🔒 สำหรับแอดมินและเหรัญญิก</button>
-            <button type="button" role="tab" aria-selected={copy === 'public'} className={`rtab${copy === 'public' ? ' on' : ''}`} onClick={() => setCopy('public')}>📢 สำหรับประกาศสมาชิก</button>
             <button type="button" role="tab" aria-selected={copy === 'file'} className={`rtab${copy === 'file' ? ' on' : ''}`} onClick={() => setCopy('file')}>🗂️ แฟ้มประจำสัปดาห์</button>
+            <button type="button" role="tab" aria-selected={copy === 'public'} className={`rtab${copy === 'public' ? ' on' : ''}`} onClick={() => setCopy('public')}>📢 สำหรับประกาศสมาชิก</button>
           </div>
         )}
         {detail && !fileMode && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
