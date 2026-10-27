@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -113,6 +113,13 @@ export function useFoodSlots() {
   const s = useSharedStore<FoodSlot>({ localKey: k('foodslots'), file: 'food-slots.json', label: 'ตารางถวายอาหาร' })
   const byDate = new Map(s.items.filter((x) => !x.deleted).map((x) => [x.date, x]))
   return { ...s, byDate }
+}
+
+/** บัญชีธนาคารที่แสดงท้ายตารางถวายอาหาร (รายการเดียว) */
+export function useFoodPay() {
+  const s = useSharedStore<FoodPay>({ localKey: k('foodpay'), file: 'food-pay.json', label: 'บัญชีรับถวายอาหาร' })
+  const pay = s.items.find((x) => x.id === 'food-pay' && !x.deleted)
+  return { ...s, pay, save: (p: Omit<FoodPay, 'id' | 'updated'>) => s.put([{ id: 'food-pay', updated: 0, ...p }]) }
 }
 
 /** ข่าวจากแอดมินถึงงานต่าง ๆ (กระดิ่ง): แอดมินเป็นคนส่ง ทุกงานอ่านได้ */

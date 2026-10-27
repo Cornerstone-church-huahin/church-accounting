@@ -3,7 +3,7 @@ import FoodRosterPaper from '../components/FoodRosterPaper'
 import { monthName, be } from './money'
 import { monthPages, shiftMonth, type YM } from './foodRoster'
 import { downloadSheetPdf, sharePdf } from './pdf'
-import type { FoodSlot } from './types'
+import type { FoodPay, FoodSlot } from './types'
 
 /** ชื่อไฟล์: ตารางถวายอาหาร-ต.ค.2569-ก.ย.2570-เปล่า.pdf */
 export const foodFile = (start: YM, count: number, blank: boolean) => {
@@ -12,7 +12,7 @@ export const foodFile = (start: YM, count: number, blank: boolean) => {
 }
 
 /** วาดแผ่นเปล่า (ไม่มีชื่อ มีเฉพาะวันอาทิตย์ถูกต้อง) นอกจอ แล้วดาวน์โหลด/แชร์เป็น PDF ขนาดจริง A4 */
-export async function exportBlankFood(mode: 'download' | 'share', church: string, start: YM, count: number): Promise<'done' | 'unsupported' | 'cancelled'> {
+export async function exportBlankFood(mode: 'download' | 'share', church: string, start: YM, count: number, pay?: FoodPay): Promise<'done' | 'unsupported' | 'cancelled'> {
   const host = document.createElement('div')
   host.setAttribute('aria-hidden', 'true')
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;pointer-events:none'
@@ -20,7 +20,7 @@ export async function exportBlankFood(mode: 'download' | 'share', church: string
   const root = createRoot(host)
   try {
     const pages = monthPages(start, count)
-    root.render(<div>{pages.map((mp, i) => <FoodRosterPaper key={i} church={church} months={mp} slots={new Map<string, FoodSlot>()} blank pageNo={pages.length > 1 ? `แผ่นที่ ${i + 1}/${pages.length}` : undefined} />)}</div>)
+    root.render(<div>{pages.map((mp, i) => <FoodRosterPaper key={i} church={church} months={mp} slots={new Map<string, FoodSlot>()} blank pay={pay} pageNo={pages.length > 1 ? `แผ่นที่ ${i + 1}/${pages.length}` : undefined} />)}</div>)
     await new Promise<void>((r) => setTimeout(r, 200))
     const els = Array.from(host.querySelectorAll<HTMLDivElement>('.a4page'))
     const file = foodFile(start, count, true)

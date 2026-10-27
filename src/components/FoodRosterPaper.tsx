@@ -4,7 +4,7 @@ import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import { be, monthName } from '../lib/money'
 import { sundaysOfMonth, shortThaiDate, type YM } from '../lib/foodRoster'
-import type { FoodSlot } from '../lib/types'
+import type { FoodPay, FoodSlot } from '../lib/types'
 
 const ICONS: [FoodKind, FoodKind][] = [['burger', 'taco'], ['donut', 'sandwich']] // เดือนที่ 1 / 2 ของแผ่น
 const ROWS = 5 // เดือนหนึ่งมีวันอาทิตย์ได้ 4–5 วัน — เว้นแถวไว้ 5 เสมอเพื่อให้ทุกเดือนหน้าตาเหมือนกัน
@@ -13,7 +13,7 @@ const ROWS = 5 // เดือนหนึ่งมีวันอาทิต�
  * ตารางถวายอาหาร A4 แนวตั้ง แผ่นละ 2 เดือน (ตามใบที่ติดบอร์ด): วันที่ (วันอาทิตย์ ถูกต้องตามปฏิทิน) · ชื่อผู้ถวาย · เนื่องในโอกาส
  * blank = ใบเปล่า (เหลือเฉพาะวันที่) สำหรับให้พี่น้องเขียนชื่อเอง · onRowClick = แตะแถวเพื่อบันทึก/แก้ชื่อ
  */
-const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[]; slots: Map<string, FoodSlot>; blank?: boolean; onRowClick?: (date: string) => void; pageNo?: string }>(function FoodRosterPaper({ church, months, slots, blank, onRowClick, pageNo }, ref) {
+const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[]; slots: Map<string, FoodSlot>; blank?: boolean; onRowClick?: (date: string) => void; pageNo?: string; /** บัญชีธนาคารรับถวาย (แสดงกรอบท้ายแผ่นเมื่อมีเลขที่บัญชี) */ pay?: FoodPay }>(function FoodRosterPaper({ church, months, slots, blank, onRowClick, pageNo, pay }, ref) {
   const title = months.map((x) => `${monthName(x.m)}`).join(' – ')
   const yrs = [...new Set(months.map((x) => be(x.y)))].join('–')
   return (
@@ -50,6 +50,18 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
             )
           })}
         </div>
+        {pay?.accNo.trim() && (
+          <aside aria-label="บัญชีรับถวายอาหาร" style={{ marginTop: 10, border: '2.5px solid #1a2b4c', borderRadius: 14, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 12, background: '#fff8e6' }}>
+            <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true" focusable="false" style={{ flex: 'none' }}>
+              <path d="M4 16 L22 5 L40 16 Z" fill="#1a2b4c" /><rect x="7" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="15" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="24" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="32" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="4" y="34" width="36" height="5" rx="1" fill="#b8860b" />
+            </svg>
+            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>ถวายด้วยการโอนเงิน{pay.note.trim() ? ` · ${pay.note.trim()}` : ''}</div>
+              <div style={{ fontSize: 13 }}>{[pay.bank.trim(), pay.accName.trim() && `ชื่อบัญชี ${pay.accName.trim()}`].filter(Boolean).join(' · ')}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1.5, color: '#1a2b4c' }} aria-label="เลขที่บัญชี">เลขที่บัญชี {pay.accNo.trim()}</div>
+            </div>
+          </aside>
+        )}
       </>
     </ScaledPage>
   )
