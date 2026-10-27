@@ -997,3 +997,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .stepbtn small { white-space: nowrap; font-size: 0.74rem; }
 .stepgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 340px) { .stepbtn__top { font-size: 1rem; gap: 0.3rem; } }
+
+/* แถบเมนูตอนเปิดเต็มจอ: แถวเดียว กะทัดรัด — ปุ่มกลับ + 6 แท็บขนาดเท่ากัน */
+.fullbar { gap: 4px; margin: 0.15rem 0 0.25rem; align-items: stretch; }
+.fullbar .fullbar__back { padding: 0 0.5rem; font-size: 0.85rem; border-width: 1.5px; border-radius: 0.6rem; min-width: 2.9rem; }
+.fullbar .home-tabs--mini { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.fullbar .home-tabs--mini .home-tab { min-height: 2.4rem; font-size: 0.72rem; font-weight: 700; border-width: 0 0 3px 0; border-radius: 0.45rem 0.45rem 0 0; padding: 0 0.05rem; justify-content: center; white-space: nowrap; }
+.fullbar .home-tabs--mini .home-tab.on { box-shadow: none; }
+.stepgrid { gap: 0.4rem; margin: 0.25rem 0 0.5rem; } .stepbtn { min-height: 3.7rem; padding: 0.25rem 0.3rem; }
