@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { visibleWorks, workHomePath } from './workTabs'
 
-describe('ปุ่ม ‹ ทุกแท็บ ตามงานที่รับผิดชอบ', () => {
-  it('แอดมิน/ไม่ได้กำหนด → หน้าเลือกงาน · งานเดียว → หน้าหลักของงานนั้น', () => {
-    expect(workHomePath([])).toBe('/meeting')
-    expect(workHomePath([1])).toBe('/meeting/1')
-    expect(workHomePath([9])).toBe('/meeting/9')
-    expect(workHomePath([1, 9])).toBe('/meeting')
+describe('ปุ่ม ‹ หน้าแรก ในหัวของทุกงาน', () => {
+  it('ทุกบทบาท ทุกงาน → หน้าแรก', () => {
+    for (const w of [[], [1], [9], [1, 9]]) expect(workHomePath(w)).toBe('/')
   })
   it('หน้าเลือกงานแสดงเฉพาะงานของตน (ไม่ได้กำหนด = ทุกงาน)', () => {
     expect(visibleWorks([]).length).toBe(18)
