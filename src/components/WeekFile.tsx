@@ -42,7 +42,7 @@ function Cover({ church, sunday, week, asOf, nInc, nOut, nPhoto, tiles, tot, fun
             <tr><td style={{ width: '30%', fontWeight: 700 }}>วันอาทิตย์ประจำสัปดาห์</td><td>{fmtDate(sunday)}</td></tr>
             <tr><td style={{ fontWeight: 700 }}>ข้อมูลเงินคงเหลือ ณ วันที่</td><td>{fmtDate(asOf)}</td></tr>
             <tr><td style={{ fontWeight: 700 }}>ยอดประจำสัปดาห์ (เงินหมุนเวียน)</td><td>รับ {fmtBaht(tot.inn)} · จ่าย {fmtBaht(tot.out)} · {net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'} {fmtBaht(Math.abs(net))} บาท</td></tr>
-            {fundTot > 0 && <tr><td style={{ fontWeight: 700 }}>เงินกองทุน (แยก ไม่รวมข้างบน)</td><td>เบิกพร้อมเงินหมุนเวียน เตรียมนำฝาก {fmtBaht(fundTot)} บาท</td></tr>}
+            {fundTot > 0 && <tr><td style={{ fontWeight: 700 }}>เงินกองทุน (แยก ไม่รวมข้างบน)</td><td>เก็บไว้ เตรียมนำฝาก {fmtBaht(fundTot)} บาท</td></tr>}
           </tbody>
         </table>
         <div style={{ fontWeight: 800, fontSize: 16, margin: '6px 0 2px' }}>สารบัญในแฟ้ม</div>

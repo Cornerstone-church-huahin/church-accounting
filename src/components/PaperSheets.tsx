@@ -272,17 +272,17 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
       {!scope && (blank || (fundRows?.length ?? 0) > 0) && (
         <ScaledPage ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el }}>
           <>
-            <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด · เงินกองทุน" sub={`${heading} · เบิกพร้อมเงินหมุนเวียน เตรียมนำฝากเข้าบัญชีกองทุน`} />
+            <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด · เงินกองทุน (เตรียมนำฝาก)" sub={`${heading} · ถอนพร้อมเงินหมุนเวียน เก็บไว้เตรียมนำฝากเข้าบัญชีกองทุน`} />
             <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)">
               <colgroup><col style={{ width: '12%' }} /><col style={{ width: '6%' }} /><col style={{ width: '38%' }} /><col style={{ width: '17%' }} /><col style={{ width: '27%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>กองทุน</th><th>จำนวนเงิน</th><th>หมายเหตุ</th></tr></thead>
               <tbody>
                 {Array.from({ length: 12 }, (_, i) => {
                   const x = blank ? undefined : fundRows?.[i]
-                  return <tr key={i}><td style={{ fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td><td style={{ textAlign: 'center' }}>{i + 1}</td><td>{x?.desc ?? ''}</td><td className="num">{x ? m(x.amount) : ''}</td><td style={{ fontSize: 11 }}>{x ? 'เบิกแล้ว · เตรียมนำฝาก' : ''}</td></tr>
+                  return <tr key={i}><td style={{ fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td><td style={{ textAlign: 'center' }}>{i + 1}</td><td>{x?.desc ?? ''}</td><td className="num">{x ? m(x.amount) : ''}</td><td style={{ fontSize: 11 }}>{x ? 'เก็บไว้ เตรียมนำฝาก' : ''}</td></tr>
                 })}
               </tbody>
-              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมเงินกองทุนเป็นเงินทั้งสิ้น</td><td className="num">{blank ? '' : m((fundRows ?? []).reduce((t, x) => t + x.amount, 0))}</td><td>บาท</td></tr></tfoot>
+              <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>รวมเตรียมนำฝากทั้งสิ้น</td><td className="num">{blank ? '' : m((fundRows ?? []).reduce((t, x) => t + x.amount, 0))}</td><td>บาท</td></tr></tfoot>
             </table>
             <div style={{ display: 'flex', gap: 18, marginTop: 'auto', fontSize: 12.5 }}>
               <div style={{ flex: 1, border: '1px solid #1a2b4c', padding: 6 }}><b>ผู้อนุมัติ / ตรวจสอบ</b><br />ลงชื่อ.................................................<br />(.................................................)<br />วันที่........../........../..........</div>

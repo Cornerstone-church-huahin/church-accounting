@@ -70,7 +70,7 @@ try {
   const printed = (await page.locator('.a4page').allInnerTexts()).join('\n')
   await page.emulateMedia({ media: 'screen' })
   must(/ค่าอาหาร/.test(printed) && !/อ\.ลับ/.test(printed), 'printed sheet hides personal names but keeps the item: ' + printed.slice(0, 200))
-  must(/เงินถวายกองทุน/.test(all) && /รายจ่ายเงินกองทุน/.test(all) && /เตรียมนำฝาก/.test(all) && /ไม่รวมกับเงินหมุนเวียน/.test(all) && /ไม่นำไปคำนวณ/.test(all), 'fund donations shown separately with the explanation')
+  must(/เงินถวายกองทุน/.test(all) && /เก็บไว้ เตรียมนำฝาก/.test(all) && !/รายจ่ายเงินกองทุน/.test(all) && /ไม่รวมกับเงินหมุนเวียน/.test(all) && /ไม่นำไปคำนวณ/.test(all), 'fund donations shown separately with the explanation')
   must(await page.getByRole('button', { name: /ดาวน์โหลดใบสรุป/ }).isVisible(), 'admin can download')
   await page.evaluate(() => { window.__shared = null; navigator.canShare = () => true; navigator.share = async (d) => { window.__shared = { n: d.files.length, name: d.files[0].name, type: d.files[0].type, size: d.files[0].size } } })
   await page.getByRole('button', { name: 'แชร์ใบสรุปเป็น PDF' }).click()
