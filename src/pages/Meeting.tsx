@@ -7,6 +7,7 @@ import WorkTeam from '../components/WorkTeam'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
+import AnnualPlan from '../components/AnnualPlan'
 import FoodRoster from '../components/FoodRoster'
 import WorkCalendar from '../components/WorkCalendar'
 import { can, myWorks } from '../lib/access'
@@ -55,10 +56,10 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️', 'ตารางถวายอาหาร': '🍽️' }
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️', 'ตารางถวายอาหาร': '🍽️', 'แผนงานประจำปี': '📅' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
-  1: ['การประชุม', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  1: ['การประชุม', 'แผนงานประจำปี', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   4: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -97,7 +98,7 @@ function WorkPage({ n, name, k, s }: { n: number; name: string; k: number; s?: n
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {!(n === 4 && k === 1) && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
-      {n === 4 && k === 1 ? <PastoralMembers /> : n === 4 && k === 2 ? <PastoralVisits /> : n === 14 && k === 1 ? <FoodRoster /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {n === 4 && k === 1 ? <PastoralMembers /> : n === 4 && k === 2 ? <PastoralVisits /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 2 ? <AnnualPlan /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

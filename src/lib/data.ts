@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -123,6 +123,13 @@ export function useFoodPay() {
   const saved = s.items.find((x) => x.id === 'food-pay' && !x.deleted)
   const pay = saved ?? DEFAULT_FOOD_PAY
   return { ...s, pay, save: (p: Omit<FoodPay, 'id' | 'updated'>) => s.put([{ id: 'food-pay', updated: 0, ...p }]) }
+}
+
+/** ตั้งค่าใบแผนงานประจำปี: คำขวัญ (รายการเดียว) */
+export function usePlanSettings() {
+  const s = useSharedStore<PlanSettings>({ localKey: k('plansettings'), file: 'plan-settings.json', label: 'ตั้งค่าแผนงานประจำปี' })
+  const motto = s.items.find((x) => x.id === 'plan-settings' && !x.deleted)?.motto ?? ''
+  return { ...s, motto, save: (m: string) => s.put([{ id: 'plan-settings', updated: 0, motto: m }]) }
 }
 
 /** ข่าวจากแอดมินถึงงานต่าง ๆ (กระดิ่ง): แอดมินเป็นคนส่ง ทุกงานอ่านได้ */
