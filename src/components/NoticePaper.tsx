@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { PaperHead, weekHeading } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import { fmtBaht, fmtDate } from '../lib/money'
@@ -15,39 +15,37 @@ type Piece =
   | { t: 'out'; title: string; rows: NoticeExpense[]; start: number; total?: number; label?: string }
   | { t: 'sum' }
 
-/** จัดแถวลงหน้า A4 (นับเป็น "ช่องแถว"): หน้าแรกมีหัวใบใหญ่ หน้าต่อไปหัวเล็ก · ตารางยาวเกินหน้าต่อหน้าถัดไปพร้อมหัวตารางซ้ำ */
-function paginate(n: Notice): Piece[][] {
-  const FIRST = 46, NEXT = 54
-  const pages: Piece[][] = [[]]
-  let used = 0, cap = FIRST
-  const newPage = () => { pages.push([]); used = 0; cap = NEXT; zoneOn = new Set() }
-  const cur = () => pages[pages.length - 1]
-  let zoneOn = new Set<string>()
-  const zoneOf = (title: string) => (title.includes('กองทุน') ? 'fund' : 'circ')
-  const section = <R,>(rows: R[], mk: (chunk: R[], start: number, last: boolean) => Piece) => {
-    const zoneHead = (pc: Piece) => { const z = zoneOf(pc.t === 'sum' ? '' : pc.title); if (zoneOn.has(z)) return 0; zoneOn.add(z); return 4 } // แถบหัวโซน + กรอบ
-    const zh0 = () => { const z = zoneOf(mk([], 0, true).t === 'sum' ? '' : (mk([], 0, true) as { title: string }).title); return zoneOn.has(z) ? 0 : 4 }
-    if (rows.length === 0) { if (cap - used < 5 + zh0()) newPage(); const pc = mk([], 0, true); cur().push(pc); used += 5 + zoneHead(pc); return }
-    let start = 0
-    while (start < rows.length) {
-      const avail = cap - used - 3 - zh0() // หัวข้อ + หัวตาราง + เว้นบรรทัด + หัวโซน
-      if (avail < 3) { newPage(); continue }
-      const rest = rows.length - start
-      if (rest + 1 <= avail) { const pc = mk(rows.slice(start), start, true); cur().push(pc); used += 3 + rest + 1 + zoneHead(pc); return }
-      const pc = mk(rows.slice(start, start + avail), start, false); cur().push(pc); zoneHead(pc); newPage(); start += avail
-    }
-  }
+/** ใบประกาศแผ่นเดียวเสมอ: ทุกตารางอยู่หน้าเดียวกัน (พี่น้องไม่สับสนว่าเป็นคนละส่วน) — ถ้าข้อมูลมากจะบีบความสูงแถวแล้วย่อทั้งใบให้พอดี (ดู FitBox) */
+function piecesOf(n: Notice): Piece[] {
   const tot = (xs: NoticeLine[]) => ({ cash: xs.reduce((s, x) => s + x.cash, 0), tr: xs.reduce((s, x) => s + x.tr, 0), all: xs.reduce((s, x) => s + x.amt, 0), cn: xs.reduce((s, x) => s + x.cashN, 0), tn: xs.reduce((s, x) => s + x.trN, 0) })
-  section(n.inc, (rows, start, last) => ({ t: 'inc', title: 'รายรับเงินหมุนเวียน', rows, start, ...(last ? { total: { label: 'รวมรายรับ', ...tot(n.inc) } } : {}) }))
-  section(n.out, (rows, start, last) => ({ t: 'out', title: 'รายจ่ายเงินหมุนเวียน', rows, start, ...(last ? { total: n.totalOut } : {}) }))
+  const out: Piece[] = [
+    { t: 'inc', title: 'รายรับเงินหมุนเวียน', rows: n.inc, start: 0, total: { label: 'รวมรายรับ', ...tot(n.inc) } },
+    { t: 'out', title: 'รายจ่ายเงินหมุนเวียน', rows: n.out, start: 0, total: n.totalOut },
+  ]
   if (n.fund.length > 0) {
-    section(n.fund, (rows, start, last) => ({ t: 'inc', title: 'รายรับเงินกองทุน', note: FUND_NOTE, rows, start, ...(last ? { total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } } : {}) }))
-    const fundOut: NoticeExpense[] = n.fund.map((f) => ({ key: `fo:${f.key}`, date: '', desc: `${f.label} · เบิกแล้ว เตรียมนำฝาก`, amount: f.amt }))
-    section(fundOut, (rows, start, last) => ({ t: 'out', title: 'รายจ่ายเงินกองทุน (เบิกพร้อมเงินหมุนเวียน เตรียมนำฝากเข้าบัญชีกองทุน)', rows, start, ...(last ? { total: n.totalFund, label: 'รวมเงินกองทุนที่เบิก' } : {}) }))
+    out.push({ t: 'inc', title: 'รายรับเงินกองทุน', note: FUND_NOTE, rows: n.fund, start: 0, total: { label: 'รวมเงินถวายกองทุน', ...tot(n.fund) } })
+    out.push({ t: 'out', title: 'รายจ่ายเงินกองทุน (เบิกพร้อมเงินหมุนเวียน เตรียมนำฝากเข้าบัญชีกองทุน)', rows: n.fund.map((f) => ({ key: `fo:${f.key}`, date: '', desc: `${f.label} · เบิกแล้ว เตรียมนำฝาก`, amount: f.amt })), start: 0, total: n.totalFund, label: 'รวมเงินกองทุนที่เบิก' })
   }
-  if (cap - used < 6) newPage()
-  cur().push({ t: 'sum' })
-  return pages
+  out.push({ t: 'sum' })
+  return out
+}
+
+/** กล่องเนื้อหาที่ยืดถึงท้ายหน้า: ล้น → บีบแถว 2 ระดับ (fit--d1/d2) → ยังล้นก็ย่อทั้งก้อนให้พอดี (ต่ำสุด 35%) */
+function FitBox({ sig, children }: { sig: string; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null), inner = useRef<HTMLDivElement>(null)
+  const [d, setD] = useState(0), [k, setK] = useState(1)
+  useEffect(() => { setD(0); setK(1) }, [sig])
+  useLayoutEffect(() => {
+    const b = box.current, i = inner.current
+    if (!b || !i || i.offsetHeight <= b.clientHeight + 1) return
+    if (d < 2) setD(d + 1)
+    else { const nk = Math.max(0.35, Math.min(k, b.clientHeight / i.offsetHeight)); if (Math.abs(nk - k) > 0.002) setK(nk) }
+  })
+  return (
+    <div ref={box} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div ref={inner} className={d ? `fit--d${d}` : undefined} style={k < 1 ? { transform: `scale(${k})`, transformOrigin: 'top left', width: `${100 / k}%` } : undefined}>{children}</div>
+    </div>
+  )
 }
 
 const FUND_NOTE = 'เงินส่วนกองทุน — แสดงเป็นรายงานให้ทราบเท่านั้น ไม่รวมกับเงินหมุนเวียน และไม่นำไปคำนวณรวมกับยอดรายรับ รายจ่าย หรือผลต่างของสัปดาห์นี้'
@@ -106,15 +104,16 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
   const evidence = variant === 'evidence'
   const pub = variant === 'public'
   const n = evidence || (!pub && detail) ? full : { ...full, out: maskNoticeOut(full.out) } // ผู้นำ/สมาชิกเห็นเงินเดือนเป็นแถวรวม · แอดมิน/ผู้บันทึก/ผู้ตรวจเห็นรายคน
-  const pages = paginate(n)
+  const pcs = piecesOf(n)
+  const sig = `${n.inc.length}:${n.out.length}:${n.fund.length}`
   pagesRef.current = []
   return (
     <div>
-      {pages.map((pcs, pi) => (
+      {[0].map((pi) => (
         <ScaledPage key={pi} ref={(el) => { if (el) pagesRef.current[pi] = el }}>
           <div data-keep={evidence ? '1' : undefined} style={{ display: 'contents' }}>
-            <PaperHead church={church} title="สรุปรายรับ - รายจ่ายประจำสัปดาห์" sub={`${weekHeading(sunday)}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact={pi > 0} />
-            {groupZones(pcs).map((g, gi) => g.zone === 'sum' ? (
+            <PaperHead church={church} title="สรุปรายรับ - รายจ่ายประจำสัปดาห์" sub={weekHeading(sunday)} />
+            <FitBox sig={sig}>{groupZones(pcs).map((g, gi) => g.zone === 'sum' ? (
               <div key={gi}>
                 <div style={{ border: '2px solid #1a2b4c', borderRadius: 6, background: '#f4f7fd', padding: '8px 12px', marginTop: 10, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
                   <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(n.totalInc)}</span>
@@ -128,7 +127,7 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
                 <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? '■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)' : '▲ ส่วนที่ 2 · เงินกองทุน (รายงานให้ทราบ ไม่รวมกับเงินหมุนเวียน)'}{g.cont ? ' · (ต่อ)' : ''}</div>
                 {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : null)}
               </div>
-            ))}
+            ))}</FitBox>
           </div>
         </ScaledPage>
       ))}
