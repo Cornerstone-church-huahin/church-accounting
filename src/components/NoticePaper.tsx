@@ -98,21 +98,23 @@ function OutTable({ p, noNames }: { p: Extract<Piece, { t: 'out' }>; noNames?: b
 
 /** ใบสรุปรับ-จ่ายรายสัปดาห์สำหรับติดประกาศ — A4 แนวตั้งแบบเดียวกับใบ PDF (ขาว-ดำ พิมพ์ได้) · รายการจริงครบ เกินหน้าต่อแผ่นถัดไป */
 /** variant: 'evidence' = ฉบับเก็บเป็นหลักฐาน (ชื่อ/เงินเดือนรายคนครบ ทั้งตอนพิมพ์/PDF) · 'public' = ฉบับติดประกาศ/แชร์สมาชิก (ไม่มีชื่อบุคคล เงินเดือนรวมแถวเดียว) · ไม่ระบุ = ตามสิทธิ์ผู้ใช้ */
-export default function NoticePaper({ church, sunday, n: full, pagesRef, variant }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]>; variant?: 'evidence' | 'public' }) {
+/** รายงานเสนอที่ประชุม (ฉบับมีชื่อ): ใบสรุปเดียวกัน + เงินคริสตจักร ณ สิ้นสัปดาห์ + ต้องเบิก + เรื่องต้องติดตาม + ช่องลงนาม */
+export interface MeetingExtra { tiles: [string, string][]; withdraw: { totalC: number; totalF: number; total: number }; follow: string[] }
+export default function NoticePaper({ church, sunday, n: full, pagesRef, variant, meeting }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]>; variant?: 'evidence' | 'public'; meeting?: MeetingExtra }) {
   const detail = can(useRole(), 'detail')
   const evidence = variant === 'evidence'
   const pub = variant === 'public'
   const n = evidence || (!pub && detail) ? full : { ...full, out: maskNoticeOut(full.out) } // ผู้นำ/สมาชิกเห็นเงินเดือนเป็นแถวรวม · แอดมิน/ผู้บันทึก/ผู้ตรวจเห็นรายคน
   const pcs = piecesOf(n)
-  const sig = `${n.inc.length}:${n.out.length}:${n.fund.length}`
+  const sig = `${n.inc.length}:${n.out.length}:${n.fund.length}:${meeting ? meeting.follow.length : -1}`
   pagesRef.current = []
   return (
     <div>
       {[0].map((pi) => (
         <ScaledPage key={pi} ref={(el) => { if (el) pagesRef.current[pi] = el }}>
           <div data-keep={evidence ? '1' : undefined} style={{ display: 'contents' }}>
-            <PaperHead church={church} title="สรุปรายรับ - รายจ่ายประจำสัปดาห์" sub={weekHeading(sunday)} />
-            <FitBox sig={sig}>{groupZones(pcs).map((g, gi) => g.zone === 'sum' ? (
+            <PaperHead church={church} title={meeting ? 'รายงานการเงินประจำสัปดาห์ · เสนอที่ประชุม' : 'สรุปรายรับ - รายจ่ายประจำสัปดาห์'} sub={weekHeading(sunday)} />
+            <FitBox sig={sig}>{meeting && <div aria-label="เงินคริสตจักรสิ้นสัปดาห์" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, margin: '4px 0' }}>{meeting.tiles.map(([k, v]) => <div key={k} style={{ border: '1.5px solid #1a2b4c', borderRadius: 6, padding: '3px 8px', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>{k}</span><b className="num">{v}</b></div>)}</div>}{groupZones(pcs).map((g, gi) => g.zone === 'sum' ? (
               <div key={gi}>
                 <div style={{ border: '2px solid #1a2b4c', borderRadius: 6, background: '#f4f7fd', padding: '8px 12px', marginTop: 10, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
                   <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(n.totalInc)}</span>
@@ -126,7 +128,11 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
                 <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? '■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)' : '▲ ส่วนที่ 2 · เงินกองทุน (เงินของแต่ละกองทุน คริสตจักรเก็บรักษาไว้ ไม่ใช่รายรับ-รายจ่ายของคริสตจักร)'}{g.cont ? ' · (ต่อ)' : ''}</div>
                 {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : null)}
               </div>
-            ))}</FitBox>
+            ))}{meeting && <>
+              <div aria-label="ต้องเบิกประจำสัปดาห์" style={{ border: '2px solid #5b3a8c', borderRadius: 6, background: '#f6f1fc', padding: '6px 12px', marginTop: 8, fontSize: 14, display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><b>ต้องเบิกสัปดาห์นี้ {m(meeting.withdraw.total)} บาท</b><span>หมุนเวียน {m(meeting.withdraw.totalC)} + กองทุน (เตรียมนำฝาก) {m(meeting.withdraw.totalF)}</span></div>
+              <div aria-label="เรื่องต้องติดตาม" style={{ border: '1.5px solid #555', borderRadius: 6, padding: '4px 10px', marginTop: 8, fontSize: 12.5 }}><b>เรื่องต้องติดตาม</b>{meeting.follow.length === 0 ? <div>ไม่พบรายการค้างตามสถานะที่ระบบบันทึกไว้</div> : meeting.follow.map((f, i) => <div key={i}>• {f}</div>)}</div>
+            </>}</FitBox>
+            {meeting && <div style={{ display: 'flex', gap: 14, fontSize: 12, marginTop: 6 }}>{['เหรัญญิก (ผู้จัดทำ)', 'ผู้ตรวจสอบ', 'ประธาน'].map((r) => <div key={r} style={{ flex: 1, border: '1px solid #1a2b4c', padding: 5 }}><b>{r}</b><br />ลงชื่อ.......................................<br />วันที่........../........../..........</div>)}</div>}
           </div>
         </ScaledPage>
       ))}
