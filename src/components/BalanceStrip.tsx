@@ -15,6 +15,8 @@ export default function BalanceStrip({ compact }: { compact?: boolean }) {
   const ls = summarizeLoans(useLoans().items)
   if (!can(role, 'detail')) return null
   return (
+    <section className={compact ? 'moneystrip no-print' : undefined} aria-label="เงินคริสตจักร ณ วันนี้">
+    {compact && <p className="moneystrip__cap">💰 เงินคริสตจักร ณ วันนี้ <span>(แตะดูรายละเอียด)</span></p>}
     <nav className={`balance-tiles no-print${compact ? ' balance-tiles--strip' : ''}`} aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
       <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>
       <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal, { dec: false })}</b></Link>
@@ -23,5 +25,6 @@ export default function BalanceStrip({ compact }: { compact?: boolean }) {
       <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
       <Link to="/land" className="btile btile--land"><small>🏞️ ภาระที่ดิน</small><b>6,000,000</b></Link>
     </nav>
+    </section>
   )
 }
