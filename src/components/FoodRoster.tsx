@@ -79,8 +79,8 @@ export default function FoodRoster() {
         </div>
         {msg && <p className="note" role="status" style={{ margin: '6px 0 0' }}>{msg}</p>}
       </section>
-      <details className="card no-print" style={{ margin: '0 0 8px' }} open={payOpen} onToggle={(e) => { const o = (e.currentTarget as HTMLDetailsElement).open; setPayOpen(o); if (o && foodPay.pay) setPf({ bank: foodPay.pay.bank, accName: foodPay.pay.accName, accNo: foodPay.pay.accNo, note: foodPay.pay.note }) }}>
-        <summary><b>💳 บัญชีรับถวาย (แสดงท้ายใบ)</b>{foodPay.pay?.accNo.trim() ? <span className="small muted"> · {foodPay.pay.accNo}</span> : <span className="small muted"> · ยังไม่ได้ใส่</span>}</summary>
+      <details className="card no-print" style={{ margin: '0 0 8px' }} open={payOpen} onToggle={(e) => { const o = (e.currentTarget as HTMLDetailsElement).open; setPayOpen(o); if (o) setPf({ bank: foodPay.pay.bank, accName: foodPay.pay.accName, accNo: foodPay.pay.accNo, note: foodPay.pay.note }) }}>
+        <summary><b>💳 บัญชีรับถวาย (แสดงท้ายใบ)</b>{foodPay.pay.accNo.trim() ? <span className="small muted"> · {foodPay.pay.accNo}</span> : <span className="small muted"> · ยังไม่ได้ใส่</span>}</summary>
         {canEdit ? (
           <div style={{ marginTop: 6 }}>
             <div className="field"><label htmlFor="fp-bank">ธนาคาร</label><input id="fp-bank" className="input" maxLength={40} value={pf.bank} onChange={(e) => setPf({ ...pf, bank: e.target.value })} placeholder="เช่น ธนาคารกสิกรไทย" /></div>
@@ -89,7 +89,7 @@ export default function FoodRoster() {
             <div className="field"><label htmlFor="fp-note">ข้อความสั้น ๆ (ไม่บังคับ)</label><input id="fp-note" className="input" maxLength={40} value={pf.note} onChange={(e) => setPf({ ...pf, note: e.target.value })} placeholder="เช่น โอนแล้วแจ้งงานโรงครัว" /></div>
             <div className="row" style={{ gap: 8 }}>
               <button type="button" className="btn btn--gold" onClick={() => { foodPay.save({ bank: pf.bank.trim(), accName: pf.accName.trim(), accNo: pf.accNo.trim(), note: pf.note.trim() }); setMsg('บันทึกบัญชีแล้ว — แสดงท้ายทุกแผ่น') }}>บันทึกบัญชี</button>
-              {foodPay.pay && <button type="button" className="btn btn--ghost" onClick={() => { foodPay.save({ bank: '', accName: '', accNo: '', note: '' }); setPf({ bank: '', accName: '', accNo: '', note: '' }); setMsg('เอาบัญชีออกจากใบแล้ว') }}>เอาออกจากใบ</button>}
+              {foodPay.pay.accNo.trim() && <button type="button" className="btn btn--ghost" onClick={() => { foodPay.save({ bank: '', accName: '', accNo: '', note: '' }); setPf({ bank: '', accName: '', accNo: '', note: '' }); setMsg('เอาบัญชีออกจากใบแล้ว') }}>เอาออกจากใบ</button>}
             </div>
             <p className="small muted" style={{ margin: '4px 0 0' }}>เลขที่บัญชีจะพิมพ์เป็นตัวใหญ่ในกรอบท้ายทุกแผ่น (ทั้งใบเปล่าและใบพร้อมชื่อ) — ตรวจเลขให้ถูกต้องก่อนพิมพ์แจก</p>
           </div>

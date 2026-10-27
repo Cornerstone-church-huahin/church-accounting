@@ -58,7 +58,7 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>ถวายด้วยการโอนเงิน{pay.note.trim() ? ` · ${pay.note.trim()}` : ''}</div>
               <div style={{ fontSize: 13 }}>{[pay.bank.trim(), pay.accName.trim() && `ชื่อบัญชี ${pay.accName.trim()}`].filter(Boolean).join(' · ')}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1.5, color: '#1a2b4c' }} aria-label="เลขที่บัญชี">เลขที่บัญชี {pay.accNo.trim()}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1.5, color: '#1a2b4c' }}>เลขที่บัญชี {pay.accNo.trim()}</div>
             </div>
           </aside>
         )}
