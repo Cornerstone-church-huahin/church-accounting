@@ -364,7 +364,12 @@ export interface CalEvent extends SharedItem { date: string; title: string; tab:
   /** วันที่อื่นที่เกิดกิจกรรมเดียวกัน (เลือกเองหลายวัน เช่น 23, 24, 25, 26) นอกจาก date */
   extra?: string[]
   /** วันที่ที่ยกเว้นออกจากชุดที่ทำซ้ำ (ลบเฉพาะวันนั้น) */
-  exdates?: string[] }
+  exdates?: string[]
+  /** แผนงานประจำปี: แสดงในใบแผนงาน · ผู้รับผิดชอบ (ข้อความ) · งบประมาณต่อครั้ง (สตางค์) · ทำเสร็จแล้ว (ขีดฆ่าวันที่) */
+  plan?: boolean; lead?: string; budget?: number; done?: boolean }
+
+/** ตั้งค่าใบแผนงานประจำปี (รายการเดียว id = plan-settings): คำขวัญประจำปี */
+export interface PlanSettings extends SharedItem { motto: string }
 /** ทำซ้ำแบบ Google: ทุก every วัน/สัปดาห์/เดือน/ปี · สัปดาห์เลือกวันได้หลายวัน (0=อาทิตย์) · เดือนเลือก วันที่เดิม / วันที่ n ของเดือน (เช่น พฤหัสที่ 3) / วันสุดท้าย · สิ้นสุดด้วยวันที่หรือจำนวนครั้ง */
 export interface Repeat { freq: 'day' | 'week' | 'month' | 'year'; every: number; days?: number[]; by?: 'date' | 'nth' | 'last'; until?: string; count?: number }
 

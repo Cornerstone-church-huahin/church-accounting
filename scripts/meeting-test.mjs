@@ -63,7 +63,7 @@ try {
   must(await page.getByRole('region', { name: 'ปฏิทินงาน' }).count() === 0 && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible(), '📅 ตารางงาน button on top, collapsed')
   const links = (nm) => page.getByRole('navigation', { name: nm, exact: true }).getByRole('link')
   const sec = await links('หมวดงานเลขา').allInnerTexts()
-  must(sec.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'การประชุม|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'six secretary tabs: ' + sec.join('|'))
+  must(sec.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'การประชุม|แผนงานประจำปี|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'six secretary tabs: ' + sec.join('|'))
   // กดช่องแท็บ = เปิดหน้าเต็ม ว่างไว้ก่อน ไม่มีเมนูแท็บรกบนหน้านั้น · ปุ่มบนขวากลับหน้าหลักของงาน
   await links('หมวดงานเลขา').filter({ hasText: 'แท็บ 5' }).click()
   await page.getByRole('heading', { name: 'แท็บ 5', exact: true }).waitFor({ timeout: 5000 })
@@ -91,7 +91,7 @@ try {
     await page.goto(`http://localhost:${PORT}/#/meeting/${k}`)
     await page.getByRole('heading', { name: nm, exact: true }).waitFor({ timeout: 8000 })
     const t = await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').allInnerTexts()
-    must(t.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === (k === 14 ? 'ตารางถวายอาหาร|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6' : 'แท็บ 1|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6') && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible() && await page.getByRole('link', { name: '‹ หน้าแรก' }).isVisible() && await page.locator('.workteam').count() === 1, nm + ' has the standard work menu')
+    must(t.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === (k === 14 ? 'ตารางถวายอาหาร|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6' : k === 1 ? 'การประชุม|แผนงานประจำปี|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6' : 'แท็บ 1|แท็บ 2|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6') && await page.getByRole('button', { name: /ตารางงาน/ }).isVisible() && await page.getByRole('link', { name: '‹ หน้าแรก' }).isVisible() && await page.locator('.workteam').count() === 1, nm + ' has the standard work menu')
     await page.getByRole('navigation', { name: `หมวด${nm}`, exact: true }).getByRole('link').nth(2).click()
     await page.getByRole('heading', { name: 'แท็บ 3', exact: true }).waitFor({ timeout: 5000 })
     must(/แท็บ 3 — ยังว่าง/.test(await page.locator('main').innerText()), nm + ' tab opens a full empty page')
