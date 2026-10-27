@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ImageViewer from '../components/ImageViewer'
 import MoneyInput from '../components/MoneyInput'
+import Sheet from '../components/Sheet'
 import Thumb from '../components/Thumb'
 import { Link } from 'react-router-dom'
 import WeekBar from '../components/WeekBar'
@@ -19,6 +20,20 @@ import { fixKinds, chainGap, checkChain, classify, dedupeLines, lineWeek, matchB
 import { UNKNOWN_INCOME_LABEL, type PassbookLine, type PassbookScan } from '../lib/types'
 
 interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
+/** แบบร่างที่ยังไม่ได้กดบันทึก: เก็บในเครื่องแยกตามสัปดาห์ เพื่อไม่หายเมื่อออกจากหน้า */
+const draftKey = (year: number, sunday: string) => `acct.adjdraft.${year}.${sunday}`
+function loadDraft(year: number, sunday: string): { drafts: Draft[]; shots: { path: string; name: string }[] } | null {
+  try { const j = JSON.parse(localStorage.getItem(draftKey(year, sunday)) ?? 'null'); return j && Array.isArray(j.drafts) && j.drafts.length ? { drafts: j.drafts, shots: Array.isArray(j.shots) ? j.shots : [] } : null } catch { return null }
+}
+function storeDraft(year: number, sunday: string, drafts: Draft[] | null, shots: { path: string; name: string }[]) {
+  try { if (drafts && drafts.length) localStorage.setItem(draftKey(year, sunday), JSON.stringify({ drafts, shots })); else localStorage.removeItem(draftKey(year, sunday)) } catch { /* ignore */ }
+}
+/** ชนิดบรรทัดสมุดที่แก้เองได้ */
+const KIND_OPTS: { v: string; label: string; kind: PassbookLine['kind']; dir?: 'in' | 'out' }[] = [
+  { v: 'deposit', label: 'ฝากเงินสด', kind: 'deposit' }, { v: 'in', label: 'โอนเข้า', kind: 'in' }, { v: 'withdraw', label: 'ถอนเงินสด', kind: 'withdraw' },
+  { v: 'out', label: 'โอนออก', kind: 'out' }, { v: 'other-in', label: 'อื่น ๆ (เงินเข้า เช่น ดอกเบี้ย)', kind: 'other', dir: 'in' }, { v: 'other-out', label: 'อื่น ๆ (เงินออก เช่น ค่าธรรมเนียม)', kind: 'other', dir: 'out' },
+]
+const kindV = (l: PassbookLine) => (l.kind === 'other' ? `other-${l.dir ?? 'in'}` : l.kind)
 const sameRow = (a: Draft, b: Draft) => a.date === b.date && a.deposit === b.deposit && a.withdraw === b.withdraw && a.balance === b.balance
 
 /** ขั้น "ปรับ": เลือกสัปดาห์ → ถ่าย/แนบรูปสมุดบัญชี (กี่รูปก็ได้ นับเป็นการสแกนครั้งเดียว) → จับคู่เงินโอนเข้ากับรายรับที่บันทึกไว้ */
@@ -29,16 +44,20 @@ export default function Adjust({ year }: { year: number }) {
   const income = useIncome(year)
   const types = useIncomeTypes()
   const scans = usePassbookScans(year)
-  const [shots, setShots] = useState<{ path: string; name: string }[]>([]) // รูปที่อัปโหลดแล้ว รอกดบันทึก
   const [viewer, setViewer] = useState<PassbookScan | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const from = addDays(sunday, -6)
-  const [drafts, setDrafts] = useState<Draft[] | null>(null)
+  const [shots, setShots] = useState<{ path: string; name: string }[]>(() => loadDraft(year, sunday)?.shots ?? []) // รูปที่อัปโหลดแล้ว รอกดบันทึก
+  const [drafts, setDrafts] = useState<Draft[] | null>(() => loadDraft(year, sunday)?.drafts ?? null)
+  const [editLine, setEditLine] = useState<{ l: PassbookLine; kind: string; date: string; desc: string; amount: number | null; balance: number | null } | null>(null)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
   const [pickType, setPickType] = useState<Record<string, string>>({})
   const token = useRef(0)
+  useEffect(() => { storeDraft(year, sunday, drafts, shots) }, [year, sunday, drafts, shots])
+  /** เปลี่ยนสัปดาห์: โหลดแบบร่างของสัปดาห์นั้นกลับมา (ถ้ามี) */
+  const gotoWeek = (sd: string) => { const d = loadDraft(year, sd); setSunday(sd); setDrafts(d?.drafts ?? null); setShots(d?.shots ?? []); setMsg(d ? 'มีแบบร่างที่ยังไม่ได้บันทึกของสัปดาห์นี้ — ตรวจแล้วกดบันทึก' : '') }
   const typeName = (id: string) => types.list.find((t) => t.id === id)?.name ?? 'ไม่ระบุประเภท'
 
   const weekLines = useMemo(() => fixKinds(pb.items).filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated), [pb.items, sunday])
@@ -118,6 +137,20 @@ export default function Adjust({ year }: { year: number }) {
     income.put([{ id, updated: 0, date: l.date, typeId, amount: l.amount, method: 'transfer', note: 'ลงจากสมุดบัญชี (ไม่มีสลิป)', source: 'manual' }])
     pb.put([{ ...l, link: { kind: 'income', id } }])
   }
+  const openEdit = (l: PassbookLine) => setEditLine({ l, kind: kindV(l), date: l.date, desc: l.desc ?? '', amount: l.amount, balance: l.balance ?? null })
+  const saveEdit = () => {
+    if (!editLine) return
+    const o = KIND_OPTS.find((k) => k.v === editLine.kind) ?? KIND_OPTS[0]
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editLine.date) || !editLine.amount) return setMsg('ใส่วันที่และจำนวนเงินให้ครบ')
+    const { dir: _d, ...base } = editLine.l
+    if (!pb.put([{ ...base, date: editLine.date, desc: editLine.desc.trim() || undefined, amount: editLine.amount, kind: o.kind, ...(o.dir ? { dir: o.dir } : {}), ...(editLine.balance !== null ? { balance: editLine.balance } : { balance: undefined }) }])) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
+    setEditLine(null); setMsg('แก้ไขรายการสมุดแล้ว')
+  }
+  const delLine = (l: PassbookLine) => {
+    if (!window.confirm(`ลบรายการสมุด ${fmtDate(l.date)} ${fmtBaht(l.amount)} ?`)) return
+    if (!pb.put([{ ...l, deleted: true }])) return setMsg('สิทธิ์ของท่านลบไม่ได้')
+    setMsg('ลบรายการแล้ว')
+  }
   const report: AdjReport = {
     title: weekTitle(sunday), range: weekRange(sunday),
     matched: matched.map(({ line, inc }) => ({ date: line.date, amount: line.amount, label: typeName(inc.typeId) })),
@@ -130,7 +163,7 @@ export default function Adjust({ year }: { year: number }) {
 
   return (
     <div className="stack">
-      <WeekBar sunday={sunday} sundays={sundays} onChange={(s) => { setSunday(s); setDrafts(null); setMsg('') }} />
+      <WeekBar sunday={sunday} sundays={sundays} onChange={gotoWeek} />
       <p className="muted small">เลือกสัปดาห์ แล้วแนบรูปสมุดบัญชีที่ปิดหัวท้ายให้เหลือเฉพาะวันที่ {fmtDate(from)} – {fmtDate(sunday)} (ถ่ายหลายรูปได้ ระบบนับเป็นการสแกนครั้งเดียว)</p>
 
       {canWrite && (
@@ -220,6 +253,13 @@ export default function Adjust({ year }: { year: number }) {
               </>
             )}
 
+            <h3>📒 รายการสมุดที่บันทึกไว้ (แก้ไข/ลบได้)</h3>
+            <ul className="list" aria-label="รายการสมุดที่บันทึกไว้">{weekLines.map((l) => (
+              <li key={l.id} className="row row--between">
+                <span>{row(l)}<br /><span className="small muted">{KIND_OPTS.find((k) => k.v === kindV(l))?.label ?? l.kind}{l.link ? ' · ลงเป็นรายรับแล้ว' : ''}</span></span>
+                <span className="row" style={{ gap: 6, alignItems: 'center' }}><b>{fmtBaht(l.amount)}</b>{canWrite && <><button type="button" className="mini" aria-label={`แก้ไขรายการ ${fmtDate(l.date)} ${fmtBaht(l.amount)}`} onClick={() => openEdit(l)}>✏️ แก้</button><button type="button" className="mini" aria-label={`ลบรายการ ${fmtDate(l.date)} ${fmtBaht(l.amount)}`} onClick={() => delLine(l)}>🗑</button></>}</span>
+              </li>
+            ))}</ul>
             <details>
               <summary>รายการอื่นในสมุดสัปดาห์นี้ (ฝากเงินสด {fmtBaht(sum(cash))} · ออก {fmtBaht(sum(outs))})</summary>
               <ul className="list">{[...cash, ...outs].map((l) => <li key={l.id} className="row row--between"><span>{row(l)}</span><b>{l.kind === 'deposit' ? '+' : '−'}{fmtBaht(l.amount)}</b></li>)}</ul>
@@ -245,6 +285,18 @@ export default function Adjust({ year }: { year: number }) {
           </ul>
         )}
       </section>
+      {editLine && (
+        <Sheet title="แก้ไขรายการสมุดบัญชี" onClose={() => setEditLine(null)}>
+          <div className="field"><label htmlFor="pe-kind">ชนิดรายการ</label>
+            <select id="pe-kind" className="input" value={editLine.kind} onChange={(e) => setEditLine({ ...editLine, kind: e.target.value })}>{KIND_OPTS.map((k) => <option key={k.v} value={k.v}>{k.label}</option>)}</select>
+            <span className="small muted">เงินโอนที่ไม่มีสลิป ให้เลือก “โอนเข้า” — จะนับเป็นรายรับ “{UNKNOWN_INCOME_LABEL}” จนกว่าจะระบุประเภท</span></div>
+          <div className="field"><label htmlFor="pe-date">วันที่</label><input id="pe-date" type="date" className="input" value={editLine.date} onChange={(e) => setEditLine({ ...editLine, date: e.target.value })} /></div>
+          <div className="field"><label htmlFor="pe-desc">รายการ</label><input id="pe-desc" className="input" value={editLine.desc} onChange={(e) => setEditLine({ ...editLine, desc: e.target.value })} /></div>
+          <div className="field"><label htmlFor="pe-amt">จำนวนเงิน (บาท)</label><MoneyInput id="pe-amt" value={editLine.amount} onChange={(v) => setEditLine({ ...editLine, amount: v })} /></div>
+          <div className="field"><label htmlFor="pe-bal">ยอดคงเหลือ (ถ้ามี)</label><MoneyInput id="pe-bal" value={editLine.balance} onChange={(v) => setEditLine({ ...editLine, balance: v })} /></div>
+          <div className="row" style={{ gap: 8 }}><button type="button" className="btn btn--gold" onClick={saveEdit}>บันทึก</button><button type="button" className="btn btn--ghost" onClick={() => setEditLine(null)}>ยกเลิก</button></div>
+        </Sheet>
+      )}
       {viewer && <ImageViewer path={viewer.path} name={viewer.name} title={`สมุดบัญชี ${weekTitle(viewer.week)}`} onClose={() => setViewer(null)} />}
     </div>
   )
