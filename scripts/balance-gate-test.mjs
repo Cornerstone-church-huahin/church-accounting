@@ -32,8 +32,11 @@ try {
   for (const [id, name, allowed] of [['vw1', 'ผู้ดู', false], ['ad1', 'แอดมิน', true], ['au1', 'ผู้ตรวจ', true], ['bk1', 'ผู้บันทึก', true]]) {
     const page = await open(id, name)
     await page.goto(`${U}/`); await page.waitForTimeout(600)
-    must((await page.locator('.balance-tiles').count() > 0) === allowed, `${name}: home money tiles ${allowed ? 'shown' : 'hidden'}`)
-    must(await page.locator('.stepgrid').count() > 0, `${name}: weekly steps still there`)
+    must((await page.locator('.balance-tiles--strip').count() > 0) === allowed, `${name}: home money tiles ${allowed ? 'shown' : 'hidden'}`)
+    must(await page.locator('.hubgrid a').count() === 18, `${name}: home is the work room with 18 tabs`)
+    await page.goto(`${U}/meeting/3`); await page.waitForTimeout(600)
+    must((await page.locator('.balance-tiles').count() > 0) === allowed, `${name}: treasurer page money tiles ${allowed ? 'shown' : 'hidden'}`)
+    must(await page.locator('.stepgrid').count() > 0, `${name}: weekly steps still there (tab 3)`)
     for (const route of ['balance/own', 'balance/indebt', 'funds', 'land']) {
       await page.goto(`${U}/${route}`); await page.waitForTimeout(500)
       const gated = /ดูได้เฉพาะแอดมิน ผู้บันทึกบัญชี และผู้ตรวจสอบ/.test(await page.locator('main').innerText())
@@ -51,7 +54,7 @@ try {
   {
     const page = await open('ld1', 'หัวหน้าทีม')
     await page.goto(`${U}/`); await page.waitForTimeout(600)
-    must(await page.locator('.balance-tiles').count() === 0, 'leader: home tiles hidden')
+    must(await page.locator('.balance-tiles--strip').count() === 0, 'leader: home money strip hidden')
     for (const route of ['balance/own', 'funds', 'land']) {
       await page.goto(`${U}/${route}`); await page.waitForTimeout(500)
       must(/ดูได้เฉพาะแอดมิน/.test(await page.locator('main').innerText()), `leader: /${route} blocked`)

@@ -13,7 +13,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 const png = (c) => page.evaluate(async (c) => { const cv = document.createElement('canvas'); cv.width = 80; cv.height = 60; const g = cv.getContext('2d'); g.fillStyle = c; g.fillRect(0, 0, 80, 60); const b = await new Promise((r) => cv.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())] }, c)
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ })
   await inc.waitFor()

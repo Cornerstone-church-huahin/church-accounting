@@ -12,7 +12,7 @@ const errors = []
 page.on('pageerror', (e) => errors.push(String(e))); page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text()) })
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.evaluate(() => {
     const members = Array.from({ length: 6 }, (_, i) => ({ id: `t${i}`, name: `ทดสอบ${i} สมมติ`, nick: `ช${i}`, status: i % 2 ? '3.สมาชิกสำรอง' : '1.สมบูรณ์  ( 1 )', updated: 1 }))
     localStorage.setItem('acct.church-members.v1', JSON.stringify(members))

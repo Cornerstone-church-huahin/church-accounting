@@ -16,7 +16,7 @@ const now = new Date(), Y = now.getFullYear(), T = iso(now)
 const O = iso(new Date(now.getFullYear(), 0, 1))
 const num = (t) => Number(t.replace(/[^\d.]/g, ''))
 try {
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.evaluate(([T, O]) => {
     const set = (k, v) => localStorage.setItem(`acct.${k}.v1`, JSON.stringify(v))
     set('opening', [{ id: 'opening', updated: 1, date: O, accounts: {}, cash: 0, unmoved: {}, funds: { tt4: 20000000, tt7: 0 }, own: 5000000 }])
@@ -39,7 +39,7 @@ try {
   must(/เงินหมุนเวียนให้/.test(prev) && /คืนหนี้/.test(prev) && /ค้างคืน .* เหลือ 195,000/.test(prev.replace(/\s+/g, ' ')), 'preview shows the three entries: ' + prev.replace(/\s+/g, ' '))
   await reg.getByRole('button', { name: 'ยืนยัน 3 รายการ' }).click()
   await reg.getByText(/ค้างคืนเงินหมุนเวียน/).waitFor({ timeout: 8000 })
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   must(await tile('own') === 45000, 'own money dropped once by 5,000: ' + await tile('own'))
   must(await tile('indebt') === 200000, 'internal debt: 195,000 to the fund + 5,000 to own money = 200,000: ' + await tile('indebt'))
   // หน้าเงินหมุนเวียน: ให้ยืมไป 5,000
@@ -57,7 +57,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/balance/indebt`)
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: 'ยกเลิกทั้งชุด' }).click()
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   must(await tile('own') === 50000 && await tile('indebt') === 200000, 'undo restores everything: ' + await tile('own'))
   // ฟอร์มเงินยืมปกติ: ผู้ให้ยืม = เงินหมุนเวียน
   await page.goto(`http://localhost:${PORT}/#/balance/indebt`)
@@ -71,7 +71,7 @@ try {
   await lp.locator('#ln-borrower').selectOption('tt7')
   await lp.getByRole('button', { name: 'บันทึกเงินยืม', exact: true }).click()
   await page.waitForFunction(() => /ยืมจากเงินหมุนเวียน/.test(document.body.innerText))
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   must(await tile('own') === 49000 && await tile('indebt') === 201000, 'lender = own money: own −1,000, internal debt +1,000: ' + await tile('own') + '/' + await tile('indebt'))
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('advance-test OK')

@@ -1,6 +1,5 @@
 import { HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell'
-import Home from './pages/Home'
 import Income from './pages/Income'
 import Rounds from './pages/Rounds'
 import RoundDetail from './pages/RoundDetail'
@@ -10,7 +9,7 @@ import VoucherDetail from './pages/VoucherDetail'
 import Budget from './pages/Budget'
 import Land from './pages/Land'
 import Notes from './pages/Notes'
-import Meeting from './pages/Meeting'
+import Meeting, { HomeHub } from './pages/Meeting'
 import FundAccountsPage from './pages/FundAccounts'
 import FundDetailPage from './pages/FundDetail'
 import BalancePage from './pages/Balance'
@@ -32,7 +31,7 @@ export default function App() {
     <Router {...(import.meta.env.VITE_EMBED ? { initialEntries: [startAt] } : {})}>
       <Routes>
         <Route element={<AppShell />}>
-          <Route index element={<Home />} />
+          <Route index element={<HomeHub />} />
           <Route path="income" element={<Income />} />
           <Route path="rounds" element={<Rounds />} />
           <Route path="rounds/statement" element={<Statement />} />

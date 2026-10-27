@@ -13,7 +13,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 const sheetText = async (name) => (await page.getByRole('table', { name }).innerText()).replace(/\s+/g, ' ')
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   // รับ: ใบอยู่ใต้แถบสัปดาห์ทันที (ยังไม่ต้องกดแท็บย่อย)
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   const inc = page.getByRole('table', { name: /ใบบันทึกการถวาย (?:รายรับเงินหมุนเวียน )?\(A4(?: แนวนอน)?\)/ })

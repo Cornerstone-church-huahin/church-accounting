@@ -17,7 +17,7 @@ const add = async (type, cash) => {
   await page.getByRole('button', { name: '＋ เพิ่มลงตาราง' }).click()
 }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   await page.getByRole('tab', { name: /บันทึกด้วยมือ/ }).click()
   await add('ประจำสัปดาห์', 1000)
@@ -48,7 +48,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/balance/fund`); await page.waitForLoadState('networkidle')
   const badge = (await page.locator('.fundpend__badge').first().innerText()).replace(/,/g, '')
   must(Number(badge) === 500, 'fund-page เตรียมนำฝาก badge equals the new tab (500): ' + badge)
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.locator('.stepbtn--dep').click()
   const bal = async () => (await page.getByLabel('เงินกองทุน ในบัญชี และเตรียมนำฝาก').locator('tfoot').innerText()).replace(/\s+/g, ' ')
   const t0 = await bal()

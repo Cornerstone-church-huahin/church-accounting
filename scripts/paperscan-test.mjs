@@ -16,7 +16,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7))
 const S = iso(sun)
 const d3 = new Date(sun); d3.setDate(d3.getDate() - 3)
-await page.goto(`http://localhost:${PORT}/#/`)
+await page.goto(`http://localhost:${PORT}/#/meeting/3`)
 await page.evaluate(() => localStorage.setItem('acct.gemini.v1', JSON.stringify({ key: 'TEST', model: 'gemini-flash-latest' })))
 await page.route('**/generativelanguage.googleapis.com/**', (route) => {
   const prompt = JSON.parse(route.request().postData() || '{}').contents?.[0]?.parts?.[0]?.text ?? ''

@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { fmtBaht, fmtDate } from '../lib/money'
-import { useLoans } from '../lib/data'
-import { summarizeLoans } from '../lib/loans'
 import { useBalances } from '../lib/useBalances'
 import { incomeBeforeCutoff } from '../lib/balances'
 import { useOpening } from '../lib/data'
@@ -13,6 +11,7 @@ import Receive from './Receive'
 import Summary from './Summary'
 import Pay from './Pay'
 import Adjust from './Adjust'
+import BalanceStrip from '../components/BalanceStrip'
 import WithdrawPrep from '../components/WithdrawPrep'
 import DepositPrep from '../components/DepositPrep'
 
@@ -38,7 +37,6 @@ export default function Home() {
   const DISMISS = 'acct.cutoff.dismissed'
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem(DISMISS) } catch { return null } })
   const pickSum = pick.reduce((a, i) => a + (skipped.items[i]?.amount ?? 0), 0)
-  const ls = summarizeLoans(useLoans().items)
   const full = tab !== null
   const inMeeting = useLocation().pathname.startsWith('/meeting') // ในห้องทำงานเองไม่ต้องมีปุ่มกลับเข้าห้องทำงาน
   return (
@@ -49,14 +47,7 @@ export default function Home() {
           {!inMeeting && <Link to="/meeting" className="worknav no-print"><span aria-hidden="true">🧑‍🤝‍🧑</span><span className="grow"><b>ห้องทำงาน</b><br /><small>ตารางงาน · บันทึกโน้ต · งานเลขา · ทะเบียน · เหรัญญิก</small></span><span aria-hidden="true">›</span></Link>}
           {can(role, 'detail') && <>
           <p className="home-label no-print">เงินคริสตจักร ณ วันนี้ <span>(แตะดูรายละเอียด)</span></p>
-          <nav className="balance-tiles no-print" aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
-            <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>
-            <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal, { dec: false })}</b></Link>
-            <Link to="/balance/total" className="btile btile--total"><small>🧮 รวมเงินสด</small><b>{fmtBaht(b.total, { dec: false })}</b></Link>
-            <Link to="/balance/indebt" className="btile btile--indebt"><small>🔁 หนี้ภายใน</small><b>{fmtBaht(ls.fromFunds, { dec: false })}</b></Link>
-            <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
-            <Link to="/land" className="btile btile--land"><small>🏞️ ภาระที่ดิน</small><b>6,000,000</b></Link>
-          </nav>
+          <BalanceStrip />
           </>}
           {skipped.count > 0 && dismissed !== String(skipped.total) && (
             <div className="card no-print" role="alert" style={{ margin: '8px 0', borderColor: '#c0392b' }}>

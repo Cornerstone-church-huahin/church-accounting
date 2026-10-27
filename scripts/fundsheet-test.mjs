@@ -15,7 +15,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7))
 const w1 = new Date(sun); w1.setDate(w1.getDate() - 7)
 const Y = sun.getFullYear()
-await page.goto(`http://localhost:${PORT}/#/`)
+await page.goto(`http://localhost:${PORT}/#/meeting/3`)
 await page.evaluate(([Y, a, b]) => {
   localStorage.setItem(`acct.income.${Y}.v1`, JSON.stringify([
     { id: 'f1', date: a, typeId: 'tt4', amount: 12000, method: 'cash', source: 'manual', updated: 1 },

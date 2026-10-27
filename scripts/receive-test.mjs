@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const sunStr = (() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   must(await page.getByRole('tab', { name: 'บันทึกด้วยมือ' }).count() === 0, 'sub tabs hidden before clicking รับ')
   await page.getByRole('tab', { name: '💚 รับ' }).click()
   for (const n of ['บันทึกด้วยมือ', 'บันทึกสลิป', 'ใบบันทึกการถวาย']) must(await page.getByRole('tab', { name: new RegExp(n) }).isVisible(), 'sub tab ' + n)
@@ -43,7 +43,7 @@ try {
     await page.screenshot({ path: 'shots/slip-confirm.png', fullPage: true })
   }
   await page.keyboard.press('Escape')
-  await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.getByRole('tab', { name: '💚 รับ' }).click()
   const rep = page.locator('.a4page').last()
   const readTotal = async () => { await page.getByRole('tab', { name: /รวมรับ/ }).click(); return (await rep.innerText()).replace(/\n/g, ' ') }
   const txt = await readTotal()
@@ -76,7 +76,7 @@ try {
   await page.getByLabel('รหัส Gemini API').fill('TEST-KEY-1234')
   await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
   must(await page.getByText('…1234').isVisible(), 'settings shows saved gemini key (last 4)')
-  await page.goto(`http://localhost:${PORT}/#/`); await page.getByRole('tab', { name: '💚 รับ' }).click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.getByRole('tab', { name: '💚 รับ' }).click()
   // 3 ใบบันทึกการถวาย: ให้ Gemini อ่าน (จำลองคำตอบด้วยค่าจากใบจริงของท่าน) → ตรวจ → ยืนยัน → เข้าใบสรุป 4
   let gcalls = 0
   await page.route('**/generativelanguage.googleapis.com/**', (route) => ++gcalls === 1 ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"message":"overloaded"}}' }) : gcalls === 2 ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ rows: [] }) }] } }] }) }) : route.fulfill({

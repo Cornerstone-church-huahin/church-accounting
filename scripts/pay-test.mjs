@@ -13,14 +13,14 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   // ตั้งรหัส Gemini (จำลอง) แล้วให้ระบบอ่านบิล
   await page.goto(`http://localhost:${PORT}/#/settings`)
   await page.evaluate(() => document.querySelectorAll('details.fold').forEach((d) => { d.open = true }))
   await page.getByLabel('รหัส Gemini API').fill('TEST-KEY-1234')
   await page.getByRole('button', { name: 'บันทึกรหัส' }).click()
   await page.route('**/generativelanguage.googleapis.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ kind: 'invoice', vendor: 'การประปา', date: today, total: 2000, summary: 'ค่าน้ำประปา ก.ย. 69', category: '11', ref: 'INV-77' }) }] } }] }) }))
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: '🔴 จ่าย' }).click()
   for (const n of ['บันทึกด้วยมือ', 'วางบิล', 'สำรองจ่าย', 'รวมจ่าย']) must(await page.getByRole('tab', { name: new RegExp(n) }).isVisible(), 'pay sub tab ' + n)
   const total = async () => { await page.getByRole('tab', { name: /รวมจ่าย/ }).click(); return (await page.locator('.a4page').last().innerText()).replace(/\n/g, ' ') }

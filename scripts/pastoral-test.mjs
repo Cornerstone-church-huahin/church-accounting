@@ -15,7 +15,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const now = new Date(), Y = now.getFullYear()
 const sundays = Array.from({ length: 14 }, (_, i) => { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 7) % 7) - i * 7); return iso(d) }) // ใหม่ → เก่า
 try {
-  await page.goto(`http://localhost:${PORT}/#/`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`)
   await page.evaluate(([Y, sundays]) => {
     const st = ['1.สมบูรณ์  ( 1 )', '2.สมบูรณ์  ( 2 )', '3.สมาชิกสำรอง', '4.ผู้ร่วมนมัสการ', '5.คนใหม่', '7.เสียชีวิต']
     const grp = ['4.สตรี', '2.อนุชน', '5.บรุษ', '7.ไม่มีกลุ่ม', '1.เด็กรวี', '3.วัยทำงาน']

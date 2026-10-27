@@ -20,7 +20,7 @@ try {
       { id: 'e2', channel: 'manual', date: t, amount: 10000, desc: 'ค่าน้ำมัน', status: 'paid', method: 'cash', updated: 2 },
     ]))
   })
-  await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   const sheet = page.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first()
   must(await sheet.getByLabel('ดูรูปแนบ').count() === 1, 'only the row with a picture is tappable')
@@ -62,7 +62,7 @@ try {
     navigator.canShare = () => true
     navigator.share = async (x) => { window.__shared = { files: (x.files || []).map((f) => f.name + ':' + f.type) } }
   })
-  await p2.goto(`http://localhost:${PORT}/#/`); await p2.waitForLoadState('networkidle')
+  await p2.goto(`http://localhost:${PORT}/#/meeting/3`); await p2.waitForLoadState('networkidle')
   await p2.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await p2.getByLabel('ดูรูปแนบ').click()
   const dlg2 = p2.getByRole('dialog', { name: /ดูรูปแนบ/ })
@@ -90,7 +90,7 @@ try {
     localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'o/r', token: 'x', name: 't' }))
     localStorage.setItem(`acct.expenses.${d.getFullYear()}.v1`, JSON.stringify([{ id: 'e1', channel: 'manual', date: t, amount: 40000, desc: 'ค่าล้างรถตู้', status: 'paid', method: 'cash', file: { path: 'attachments/2026/exp-a.png', name: 'bill1.png' }, updated: 1 }]))
   })
-  await p3.goto(`http://localhost:${PORT}/#/`); await p3.waitForLoadState('networkidle')
+  await p3.goto(`http://localhost:${PORT}/#/meeting/3`); await p3.waitForLoadState('networkidle')
   await p3.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await p3.getByLabel('ดูรูปแนบ').click()
   await p3.getByRole('dialog', { name: /ดูรูปแนบ/ }).locator('img').waitFor({ timeout: 10000 })
@@ -104,7 +104,7 @@ try {
     localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'me1' }))
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'me1', name: 't', role: 'admin', status: 'active', joined: 1, updated: 1 }]))
   })
-  await p4.goto(`http://localhost:${PORT}/#/`); await p4.waitForLoadState('networkidle')
+  await p4.goto(`http://localhost:${PORT}/#/meeting/3`); await p4.waitForLoadState('networkidle')
   await p4.getByRole('tab', { name: /🔴 จ่าย/ }).click()
   await p4.getByLabel('ใบเบิก-จ่ายเงินสด (A4)').first().locator('tbody tr').nth(0).click()
   await p4.locator('#ere-desc').fill('ค่าทดสอบรูป')

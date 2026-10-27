@@ -1005,3 +1005,16 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .fullbar .home-tabs--mini .home-tab { min-height: 2.4rem; font-size: 0.72rem; font-weight: 700; border-width: 0 0 3px 0; border-radius: 0.45rem 0.45rem 0 0; padding: 0 0.05rem; justify-content: center; white-space: nowrap; }
 .fullbar .home-tabs--mini .home-tab.on { box-shadow: none; }
 .stepgrid { gap: 0.4rem; margin: 0.25rem 0 0.5rem; } .stepbtn { min-height: 3.7rem; padding: 0.25rem 0.3rem; }
+
+/* หน้าแรก = ห้องทำงาน: แถบยอดเงิน 6 ช่อง + แท็บ 1–18 เติมความสูงจอพอดี ไม่ต้องเลื่อน (ทุกขนาดมือถือ) */
+.hubhome { display: flex; flex-direction: column; gap: 0.45rem; min-height: calc(100dvh - 12.8rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+.hubhome .page-head { margin: 0; }
+.hubhome .home-label { margin: 0; font-size: 0.78rem; line-height: 1.25; }
+.hubhome .balance-tiles--strip { gap: 0.3rem; margin: 0; }
+.hubhome .balance-tiles--strip .btile { padding: 0.28rem 0.2rem 0.32rem; gap: 0; border-radius: 0.5rem; }
+.hubhome .balance-tiles--strip .btile small { font-size: clamp(0.6rem, 2.6vw, 0.75rem); }
+.hubhome .balance-tiles--strip .btile b { font-size: clamp(0.82rem, 3.7vw, 1.05rem); }
+.hubhome .hubgrid { flex: 1; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(2.5rem, 1fr)); gap: 0.35rem; }
+.hubhome .hubgrid .btile { padding: 0.1rem 0.2rem; justify-content: center; align-items: center; gap: 0; border-radius: 0.65rem; min-height: 0; }
+.hubhome .hubgrid .btile small { font-size: clamp(0.6rem, 2.6vw, 0.78rem); }
+.hubhome .hubgrid .btile b { font-size: clamp(0.8rem, 3.7vw, 1.1rem); line-height: 1.15; overflow-wrap: anywhere; text-align: center; }
