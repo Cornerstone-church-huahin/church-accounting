@@ -34,6 +34,17 @@ try {
   must(await page.locator('.bellbtn--new').count() === 0 && !/ใหม่/.test(await bell.getAttribute('aria-label')), 'after reading the bell is normal')
   await page.reload(); await page.waitForLoadState('networkidle')
   must(await page.locator('.bellbtn--new').count() === 0, 'stays read after reload')
+  // ข่าวที่อ่านแล้ว = แท็บเล็ก ๆ มีหัวข้อ · แตะเปิดอ่านซ้ำ/พับ · ปุ่ม ✕ ปิดแผง
+  await page.getByRole('button', { name: /ข่าวจากแอดมิน/ }).click()
+  const reg = page.getByRole('region', { name: 'ข่าวจากแอดมิน' })
+  must(await reg.locator('li.bellpanel__chip').count() === 1 && await reg.locator('li.new').count() === 0, 'read news collapses to a small chip')
+  must(/ประชุมกรรมการวันอาทิตย์หน้า/.test(await reg.locator('li.bellpanel__chip').innerText()), 'chip keeps the headline')
+  await reg.getByRole('button', { name: /เปิดข่าวที่อ่านแล้ว/ }).click()
+  must(await reg.locator('li.bellpanel__open').count() === 1 && await page.locator('.bellbtn--new').count() === 0, 'tapping the chip reopens it; bell stays calm')
+  await reg.getByRole('button', { name: /พับข่าว/ }).click()
+  must(await reg.locator('li.bellpanel__chip').count() === 1, 'fold back to chip')
+  await reg.getByRole('button', { name: 'ปิดข่าว', exact: true }).click()
+  must(await page.getByRole('region', { name: 'ข่าวจากแอดมิน' }).count() === 0, '✕ closes the panel')
   // งานอื่น ไม่ได้รับ
   await page.goto(`http://localhost:${PORT}/#/meeting/6`)
   must(await page.locator('.bellbtn--new').count() === 0, 'other works get nothing')

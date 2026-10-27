@@ -1039,3 +1039,9 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .sheetpaper--plan .plan-month { text-align: center; font-weight: 800; background: #fff3c4; }
 .sheetpaper--plan .plan-first td { border-top: 2.5px solid #1a2b4c; }
 .sheetpaper--plan .plan-total td { background: #fff3c4; border-top: 2.5px solid #1a2b4c; }
+.bellpanel__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bellpanel__x { border: 2px solid var(--line); background: var(--surface); color: var(--ink); width: 2.2rem; height: 2.2rem; border-radius: 50%; font-size: 1rem; cursor: pointer; }
+.bellpanel__list li.bellpanel__open { background: rgba(0, 0, 0, 0.04); border-left: 4px solid var(--line); }
+.bellpanel__list li.bellpanel__chip { padding: 0; background: rgba(0, 0, 0, 0.03); }
+.bellpanel__chip button { display: flex; align-items: center; gap: 0.35rem; width: 100%; min-height: 2rem; padding: 0.2rem 0.5rem; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.85rem; text-align: left; cursor: pointer; }
+.bellpanel__hl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
