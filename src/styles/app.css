@@ -1033,4 +1033,4 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 /* ตารางถวายอาหาร: แถวสูงพอเขียนมือ ตัวหนังสือ 2 บรรทัดได้ */
 .sheetpaper--foodrow th { font-size: 14px; padding: 4px 4px; }
-.sheetpaper--foodrow td { height: 68px; font-size: 14px; line-height: 1.2; padding: 2px 6px; vertical-align: middle; overflow: hidden; }
+.sheetpaper--foodrow td { height: 60px; font-size: 14px; line-height: 1.2; padding: 2px 6px; vertical-align: middle; overflow: hidden; }

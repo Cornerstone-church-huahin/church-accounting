@@ -386,6 +386,9 @@ export interface Visit extends SharedItem { date: string; memberId: string; memb
 /** ผู้ถวายอาหารของวันอาทิตย์หนึ่ง: date = วันอาทิตย์ (ISO) · id = food-{date} (วันละหนึ่งรายการ) */
 export interface FoodSlot extends SharedItem { date: string; donor: string; occasion: string }
 
+/** บัญชีธนาคารรับถวายอาหาร (แสดงท้ายตารางถวายอาหาร) — รายการเดียว id = food-pay */
+export interface FoodPay extends SharedItem { bank: string; accName: string; accNo: string; note: string }
+
 // ---------- ข่าวจากแอดมินถึงแต่ละงาน (กระดิ่ง) ----------
 /** ข่าวที่แอดมินส่งถึงงาน: works = เลขงานที่รับ (0 = ทุกงาน) · at = เวลาที่ส่ง */
 export interface Announcement extends SharedItem { text: string; works: number[]; at: number }
