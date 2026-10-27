@@ -24,6 +24,9 @@ export function WeekTab({ year, a, detail, sunday, setSunday, openNotice }: TabP
   return (
     <>
       {all.length > 0 && <PeriodBar label={weekTitle(sunday).replace(' ของเดือน', ' · ')} rangeText={weekRange(sunday)} canPrev={i > 0} canNext={i >= 0 && i < all.length - 1} onPrev={() => { setSunday(all[i - 1]); setCat(null); setInc(null) }} onNext={() => { setSunday(all[i + 1]); setCat(null); setInc(null) }} />}
+      <div className="row no-print" style={{ gap: 8, flexWrap: 'wrap', margin: '6px 0' }}>
+        <button type="button" className="btn btn--gold" onClick={openNotice} disabled={r.empty}>📄 เปิดใบสรุปรายสัปดาห์ (ติดประกาศ / พิมพ์ / PDF)</button>
+      </div>
       <StatusLine r={r} range={r.range} />
       {r.empty ? <p className="empty">ยังไม่มีรายการรับ-จ่ายในสัปดาห์นี้</p> : <>
         <Kpis items={[{ label: 'รายรับหมุนเวียน', value: money(r.inTotal), tone: 'in' }, { label: 'เงินจ่ายออก', value: money(r.outTotal), tone: 'out', sub: r.advance > 0 ? `= ค่าใช้จ่าย ${money(r.expenseTotal)} + สำรองจ่ายรอคืน ${money(r.advance)}` : undefined }, { label: 'ส่วนต่างรับ–จ่าย', value: money(r.net), tone: 'bal' }, { label: 'เงินถวายเข้ากองทุน', value: money(r.fundTotal), sub: 'แยกจากรายรับหมุนเวียน' }]} />
@@ -40,9 +43,6 @@ export function WeekTab({ year, a, detail, sunday, setSunday, openNotice }: TabP
         {detail && <Card title="03 รายละเอียดรายการจ่ายทั้งหมด"><Fold title={`ดูทั้ง ${r.outLines.length} รายการ`}><OutTable title="รายการจ่ายทั้งหมด" lines={r.outLines} /></Fold></Card>}
         {detail && <Follow items={r.follow} />}
       </>}
-      <div className="row no-print" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn--gold" onClick={openNotice} disabled={r.empty}>📄 เปิดใบสรุปรายสัปดาห์ (ติดประกาศ / พิมพ์ / PDF)</button>
-      </div>
     </>
   )
 }
