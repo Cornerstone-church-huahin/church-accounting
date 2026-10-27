@@ -27,6 +27,9 @@ for (const n of [14, 26, 60]) {
   must(r.every((x) => !x.over), `${n} items: no A4 page overflows: ` + JSON.stringify(r))
   must(r.some((x) => x.hasTotal && x.bottomOk), `${n} items: the withdraw table incl. the total is fully inside a page: ` + JSON.stringify(r))
   must(/รวมต้องเบิก/.test((await page.locator('.a4page').allInnerTexts()).join('\n')), `${n} items: total shown`)
+  const clash = await page.evaluate(() => [...document.querySelectorAll('.a4page')].map((e) => { const t = e.querySelector('table[aria-label="หมายเหตุ ต้องเบิก"]'); const c = e.querySelector('.doccredit'); return t && c ? t.getBoundingClientRect().bottom - c.getBoundingClientRect().top : -99 }).filter((x) => x > -99))
+  must(clash.every((x) => x <= 0.5), `${n} items: the withdraw box never overlaps the credit line: ` + JSON.stringify(clash))
+  if (n === 26) await page.locator('.a4page').first().screenshot({ path: 'shots/voucher-withdraw.png' })
 }
 must(errors.length === 0, 'no page errors: ' + errors.join('|'))
 console.log('voucherfit-test OK')

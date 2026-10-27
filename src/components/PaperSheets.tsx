@@ -196,10 +196,12 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
 /** ใบเบิก - จ่ายเงินสด เต็มแผ่น A4 ขนาดจริง 25 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 25 แถวขึ้นแผ่นถัดไป */
 /** ขนาดช่อง "หมายเหตุ · ต้องเบิก": รายการมากขึ้นใช้ 5 คอลัมน์ · ยาวเกิน 8 แถวแยกไปอีกหน้า เพื่อให้เห็นครบและรวมต้องเบิกไม่ถูกตัด */
 const withdrawLayout = (summary?: WeekSummary) => {
-  const n = summary ? summary.funds.length + summary.pending.length : 0
+  const nF = summary?.funds.length ?? 0, nC = summary?.pending.length ?? 0
+  const n = nF + nC
   const cols = n > 16 ? 5 : 4
-  const rows = Math.max(3, Math.ceil(n / cols))
-  return { n, cols, rows, own: rows <= 8 }
+  const rC = Math.max(nF ? 1 : 3, Math.ceil(nC / cols)), rF = nF ? Math.ceil(nF / cols) : 0
+  const rows = rC + rF + 1 + (nF ? 1 : 0) // + แถบป้ายโซน
+  return { n, cols, rows, rC, rF, own: rows <= 11 }
 }
 export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance }: { /** เงินกองทุนที่เบิกพร้อมเงินหมุนเวียน เตรียมนำฝาก — ตารางแยกอีกแผ่น ไม่รวมในรายจ่ายหมุนเวียน */ fundRows?: ExpenseEntry[]; /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   // แถวในตารางลดลงตามความสูงของช่องต้องเบิก (ใบเดียวต้องพอดี A4 เห็นครบถึงยอดรวมต้องเบิก)
@@ -214,7 +216,16 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
   const ROWS = wl.own ? Math.max(12, 25 - Math.ceil(Math.max(0, wl0.rows - 3) * 1.8) - trim) : 25
   useLayoutEffect(() => {
     if (blank) return
-    const over = refs.current.some((el) => el && el.scrollHeight > el.clientHeight + 1)
+    // เนื้อหาต้องจบก่อนแถบเครดิตท้ายหน้า (เผื่อ 22px จากขอบล่าง) — ไม่ทับกัน
+    const over = refs.current.some((el) => {
+      if (!el) return false
+      if (el.scrollHeight > el.clientHeight + 1) return true
+      const kids = [...el.children].filter((c) => !c.classList.contains('doccredit') && getComputedStyle(c).position !== 'absolute')
+      const last = kids[kids.length - 1]
+      if (!last || !el.offsetHeight) return false
+      const r = el.getBoundingClientRect(), k = r.height / el.offsetHeight
+      return (last.getBoundingClientRect().bottom - r.top) / k > el.offsetHeight - 22
+    })
     if (!over) return
     if (wl.own && ROWS > 12) setTrim((t) => t + 1)
     else if (wl.own) setSplit(true)
@@ -431,24 +442,30 @@ function WeekSummaryBoxes({ summary, noBalance }: { summary?: WeekSummary; noBal
 
 /** หมายเหตุ · ต้องเบิก (ล่างสุดของใบ): ตาราง 4 คอลัมน์ ชื่อรายการ+จำนวนเงินอยู่ช่องเดียวกัน เรียงลงทีละคอลัมน์จนเต็มแล้วขึ้นคอลัมน์ถัดไป (กองทุนก่อน ตามด้วยรายการรอจ่าย — ไม่แยกประเภท) · ขั้นต่ำ 3 แถว เกินขยายแถวเอง */
 function WithdrawNote({ summary }: { summary?: WeekSummary }) {
-  const items = summary ? [...summary.funds.map((f) => ({ desc: f.name, person: '', amt: f.amount, loan: false })), ...summary.pending.map((b) => ({ desc: b.desc, person: b.person, amt: b.amount, loan: b.kind === 'loan' }))] : []
-  const total = summary ? items.reduce((a, x) => a + x.amt, 0) : undefined
-  const { cols: COLS, rows } = withdrawLayout(summary)
+  const circ = summary ? summary.pending.map((b) => ({ desc: b.desc, person: b.person, amt: b.amount, loan: b.kind === 'loan' })) : []
+  const fund = summary ? summary.funds.map((f) => ({ desc: f.name, person: '', amt: f.amount, loan: false })) : []
+  const sumC = circ.reduce((a, x) => a + x.amt, 0), sumF = fund.reduce((a, x) => a + x.amt, 0)
+  const total = summary ? sumC + sumF : undefined
+  const { cols: COLS, rC, rF } = withdrawLayout(summary)
+  const many = circ.length + fund.length > 16
+  const cell = (x: { desc: string; person: string; amt: number; loan: boolean } | undefined, key: number, tint: string) => (
+    <td key={key} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top', background: tint }}>{x && <div data-pcomp={!x.loan && isCompensation(x) ? '1' : undefined} data-amt={x.amt} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span data-c="desc">{x.person && <><span className="pname">{x.person}</span>{x.desc ? ' — ' : ''}</>}{x.desc}</span><span data-c="amt" className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
+  )
+  const zone = (label: string, sub: number | undefined, items: typeof circ, rows: number, color: string, tint: string, key: string) => (
+    <>
+      <tr key={`${key}h`} data-zone={key}><td colSpan={COLS} style={{ background: color, color: '#fff', fontWeight: 800, borderColor: color }}><span style={{ display: 'flex', justifyContent: 'space-between' }}><span>{label}</span><span className="num">{sub === undefined ? '' : `รวม ${m(sub)}`}</span></span></td></tr>
+      {Array.from({ length: rows }, (_, r) => <tr key={`${key}${r}`} style={{ height: 22 }}>{Array.from({ length: COLS }, (_, c) => cell(items[c * rows + r], c, tint))}</tr>)}
+    </>
+  )
   return (
-    <table className="sheetpaper" style={{ marginTop: 6, fontSize: items.length > 16 ? 10.5 : undefined }} aria-label="หมายเหตุ ต้องเบิก">
+    <table className="sheetpaper" style={{ marginTop: 6, fontSize: many ? 10.5 : undefined, border: '2px solid #1a2b4c' }} aria-label="หมายเหตุ ต้องเบิก">
       <colgroup>{Array.from({ length: COLS }, (_, c) => <col key={c} style={{ width: `${100 / COLS}%` }} />)}</colgroup>
       <thead><tr><th colSpan={COLS} style={{ textAlign: 'left' }}>หมายเหตุ · ต้องเบิก</th></tr></thead>
       <tbody>
-        {Array.from({ length: rows }, (_, r) => (
-          <tr key={r} style={{ height: 22 }}>
-            {Array.from({ length: COLS }, (_, c) => {
-              const x = items[c * rows + r]
-              return <td key={c} style={{ whiteSpace: 'normal', wordBreak: 'break-word', height: 'auto', verticalAlign: 'top' }}>{x && <div data-pcomp={!x.loan && isCompensation(x) ? '1' : undefined} data-amt={x.amt} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><span data-c="desc">{x.person && <><span className="pname">{x.person}</span>{x.desc ? ' — ' : ''}</>}{x.desc}</span><span data-c="amt" className="num" style={{ flex: 'none' }}>{m(x.amt)}</span></div>}</td>
-            })}
-          </tr>
-        ))}
+        {zone('■ เงินหมุนเวียน', summary ? sumC : undefined, circ, rC, '#1a2b4c', '#f4f7fd', 'c')}
+        {fund.length > 0 && zone('▲ เงินกองทุน (เตรียมนำฝากเข้าบัญชีกองทุน)', sumF, fund, rF, '#b8860b', '#fff8e6', 'f')}
       </tbody>
-      <tfoot><tr><td colSpan={COLS} style={{ textAlign: 'right' }}>{summary && summary.funds.length > 0 && <span style={{ fontWeight: 400, marginRight: 14 }}>เงินหมุนเวียน <span className="num">{m(total! - summary.funds.reduce((a, f) => a + f.amount, 0))}</span> + เงินกองทุน (เตรียมนำฝาก) <span className="num">{m(summary.funds.reduce((a, f) => a + f.amount, 0))}</span></span>}รวมต้องเบิก&nbsp;&nbsp;<span className="num">{total === undefined ? '..............' : m(total)}</span> บาท</td></tr></tfoot>
+      <tfoot><tr><td colSpan={COLS} style={{ textAlign: 'right', fontSize: many ? 12 : 14, background: '#eef1f7' }}>รวมต้องเบิก&nbsp;&nbsp;<span className="num">{total === undefined ? '..............' : m(total)}</span> บาท{summary && fund.length > 0 && <span style={{ fontWeight: 400, fontSize: 11.5 }}> (หมุนเวียน {m(sumC)} + กองทุน {m(sumF)})</span>}</td></tr></tfoot>
     </table>
   )
 }
