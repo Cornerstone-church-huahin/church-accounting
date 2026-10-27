@@ -1030,3 +1030,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .moneystrip .btile--indebt { --tone: #1b6b6b; } .moneystrip .btile--debt { --tone: #5b2a6e; } .moneystrip .btile--land { --tone: #8a3b12; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .hubhome .moneystrip .balance-tiles--strip .btile { background: #1f2430; color: #ddd; } :root:not([data-theme='light']) .hubhome .moneystrip .balance-tiles--strip .btile small { color: #ccc; } :root:not([data-theme='light']) .hubhome .moneystrip .balance-tiles--strip .btile b { color: #fff; } }
 :root[data-theme='dark'] .hubhome .moneystrip .balance-tiles--strip .btile { background: #1f2430; color: #ddd; } :root[data-theme='dark'] .hubhome .moneystrip .balance-tiles--strip .btile b { color: #fff; }
+
+/* ตารางถวายอาหาร: แถวสูงพอเขียนมือ ตัวหนังสือ 2 บรรทัดได้ */
+.sheetpaper--foodrow th { font-size: 14px; padding: 4px 4px; }
+.sheetpaper--foodrow td { height: 68px; font-size: 14px; line-height: 1.2; padding: 2px 6px; vertical-align: middle; overflow: hidden; }
