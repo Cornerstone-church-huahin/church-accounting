@@ -84,13 +84,13 @@ function OutTable({ p, noNames }: { p: Extract<Piece, { t: 'out' }>; noNames?: b
     <>
       <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{p.title}</div>
       <table className="sheetpaper sheetpaper--full" aria-label={p.title}>
-        <colgroup><col style={{ width: '7%' }} /><col style={{ width: '16%' }} /><col style={{ width: '55%' }} /><col style={{ width: '22%' }} /></colgroup>
-        <thead><tr><th style={th}>ที่</th><th style={th}>วันที่</th><th style={th}>รายการ</th><th style={th}>จำนวนเงิน</th></tr></thead>
+        <colgroup>{noNames ? <><col style={{ width: '7%' }} /><col style={{ width: '16%' }} /><col style={{ width: '55%' }} /><col style={{ width: '22%' }} /></> : <><col style={{ width: '6%' }} /><col style={{ width: '14%' }} /><col style={{ width: '39%' }} /><col style={{ width: '20%' }} /><col style={{ width: '21%' }} /></>}</colgroup>
+        <thead><tr><th style={th}>ที่</th><th style={th}>วันที่</th><th style={th}>รายการ</th>{!noNames && <th style={th}>ผู้วางบิล</th>}<th style={th}>จำนวนเงิน</th></tr></thead>
         <tbody>
-          {p.rows.length === 0 && <tr><td /><td /><td>— ไม่มีรายการ —</td><td /></tr>}
-          {p.rows.map((r, i) => <tr key={r.key} data-comp={isCompensation(r) ? '1' : undefined} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{r.date ? fmtDate(r.date) : ''}</td><td data-c="desc">{r.desc}{r.by && !noNames ? <span className="pname">{` (${r.by})`}</span> : ''}</td><td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr>)}
+          {p.rows.length === 0 && <tr><td /><td /><td>— ไม่มีรายการ —</td>{!noNames && <td />}<td /></tr>}
+          {p.rows.map((r, i) => <tr key={r.key} data-comp={isCompensation(r) ? '1' : undefined} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{r.date ? fmtDate(r.date) : ''}</td><td data-c="desc">{r.desc}</td>{!noNames && <td data-c="x" style={{ fontSize: 12 }}>{r.by ? <span className="pname">{r.by}</span> : ''}</td>}<td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr>)}
         </tbody>
-        {p.total !== undefined && <tfoot><tr><td colSpan={3} style={{ textAlign: 'center' }}>{p.label ?? 'รวมรายจ่ายทั้งสิ้น'}</td><td className="num">{m(p.total)}</td></tr></tfoot>}
+        {p.total !== undefined && <tfoot><tr><td colSpan={noNames ? 3 : 4} style={{ textAlign: 'center' }}>{p.label ?? 'รวมรายจ่ายทั้งสิ้น'}</td><td className="num">{m(p.total)}</td></tr></tfoot>}
       </table>
     </>
   )

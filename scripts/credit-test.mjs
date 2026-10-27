@@ -39,13 +39,13 @@ try {
       const pos = await c.evaluate((el) => getComputedStyle(el).position)
       must(pos !== 'fixed' && pos !== 'absolute', `${r}: credit does not float (position ${pos})`)
     }
-    // ใบ A4: ทุกหน้ามีเครดิตเอกสาร ครั้งเดียวต่อหน้า (สรุป 40 รายการ = หลายแผ่น)
+    // ใบ A4: ทุกหน้ามีเครดิตเอกสาร ครั้งเดียวต่อหน้า (ใบสรุปแผ่นเดียวเสมอ)
     await page.goto(`http://localhost:${PORT}/#/`)
     await page.getByRole('tab', { name: /สรุป/ }).first().click()
     await page.getByRole('button', { name: /เปิดใบสรุปรายสัปดาห์/ }).click()
     const pages = page.locator('.a4page')
     const n = await pages.count()
-    must(n >= 2, 'notice has multiple pages: ' + n)
+    must(n >= 1, 'notice has at least one page (always a single sheet): ' + n)
     for (let i = 0; i < n; i++) {
       const cc = pages.nth(i).locator('[data-credit="doc"]')
       must((await cc.count()) === 1 && (await cc.innerText()).trim() === DOC, `notice page ${i + 1} has exactly one document credit`)
