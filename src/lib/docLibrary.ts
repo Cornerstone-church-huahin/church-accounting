@@ -79,3 +79,9 @@ export const canSeeDoc = (access: DocAccess, who: { admin: boolean; editor: bool
 export const fileExt = (name: string) => (name.split('.').pop() ?? 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
 export const titleFromFile = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim()
 export const fmtSize = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
+
+/** ส่งต่อเอกสารที่เพิ่งสร้างไปคลังเอกสาร (รวมไฟล์): หน้าคลังเปิดฟอร์มเพิ่มเอกสารให้เติมไว้แล้ว · ใช้ครั้งเดียว */
+export interface PendingDoc { title: string; date: string; note: string; no?: string; category?: string; file?: File }
+let pendingDoc: PendingDoc | null = null
+export const setPendingDoc = (d: PendingDoc) => { pendingDoc = d }
+export const takePendingDoc = (): PendingDoc | null => { const d = pendingDoc; pendingDoc = null; return d }
