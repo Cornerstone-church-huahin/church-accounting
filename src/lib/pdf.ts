@@ -119,3 +119,31 @@ export async function sharePagesPdf(pages: { el: HTMLElement; landscape?: boolea
   if (!navigator.canShare({ files: [file] })) return 'unsupported'
   try { await navigator.share({ files: [file], title: title ?? filename }); return 'shared' } catch (e) { return (e as Error).name === 'AbortError' ? 'cancelled' : 'unsupported' }
 }
+
+/** หน้ากระดาษ A4 แนวตั้งหนึ่งหน้า → ไฟล์ PNG (สำหรับบันทึก/แชร์/ดาวน์โหลดเป็นรูปภาพ) */
+export async function buildPageImage(el: HTMLElement): Promise<Blob> {
+  const { default: html2canvas } = await import('html2canvas')
+  const canvas = await html2canvas(el, {
+    scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(el),
+    onclone: (_d, cloned) => { cloned.style.width = '794px'; cloned.style.maxWidth = '794px'; cloned.style.boxShadow = 'none'; cloned.style.position = 'relative'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+  })
+  return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('สร้างรูปภาพไม่สำเร็จ'))), 'image/png'))
+}
+/** หน้ากระดาษ A4 หนึ่งหน้า → ไฟล์ PDF */
+export async function buildPagePdf(el: HTMLElement): Promise<Blob> {
+  const pdf = await buildPagesPdf([{ el }])
+  if (!pdf) throw new Error('สร้างไฟล์ PDF ไม่สำเร็จ')
+  return pdf.output('blob')
+}
+/** ดาวน์โหลดไฟล์ลงเครื่อง */
+export function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a')
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+}
+/** แชร์ไฟล์ผ่านเมนูแชร์ของเครื่อง (ไม่รองรับ = unsupported) */
+export async function shareBlob(blob: Blob, filename: string, title: string): Promise<'shared' | 'cancelled' | 'unsupported'> {
+  const file = new File([blob], filename, { type: blob.type })
+  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function' || !navigator.canShare({ files: [file] })) return 'unsupported'
+  try { await navigator.share({ files: [file], title }); return 'shared' } catch (e) { return (e as Error).name === 'AbortError' ? 'cancelled' : 'unsupported' }
+}
