@@ -25,6 +25,14 @@ export const DEFAULT_CFG: Cfg = {
   contact: 'ติดต่อ 080-582-0777 มน.สมเจต เสมาทอง ประธานธรรมกิจ, 095-779-9382 คศ.กฤตุ รุ่งโรจน์ร่มเย็น ศิษยาภิบาล,\n093-476-5585 คศ.พิชิต เผ่าดี ศิษยาภิบาลฝ่ายอภิบาลและพัฒนา,\n081-889-6490 อ.ดารา ผลจันทร์ คณะธรรมกิจ',
 }
 const FILENAME = 'หนังสือเชิญร่วมงาน.pdf'
+type Sec = 'head' | 'sign' | 'contact'
+type TextKey = 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
+/** 3 ส่วนที่แก้ได้ (ตามเลขลำดับบนหน้า): ช่องข้อความของแต่ละส่วน */
+const SECTIONS: { sec: Sec; no: string; name: string; keys: TextKey[] }[] = [
+  { sec: 'head', no: '1', name: 'หัวจดหมาย', keys: ['thName', 'enName', 'addr'] },
+  { sec: 'sign', no: '7', name: 'ข้อความปิดท้าย · ลงนาม', keys: ['proceed', 'bless', 'signName', 'signRole'] },
+  { sec: 'contact', no: '8', name: 'ข้อมูลติดต่อ', keys: ['contact'] },
+]
 
 /** ข้อความล้วนของหนังสือ (คัดลอกไปวางในโปรแกรมอื่น) */
 export function letterText(l: Draft, c: Cfg): string {
@@ -79,7 +87,7 @@ export default function InviteLetterPage() {
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), date: saved?.date || todayISO() }))
   const [pick, setPick] = useState(false)
-  const [edit, setEdit] = useState(false)
+  const [edit, setEdit] = useState<Sec | null>(null)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -125,16 +133,30 @@ export default function InviteLetterPage() {
     setBusy(false)
   }
 
+  const putCfg = (c: Cfg) => cfgStore.put([{ ...c, id: 'settings', updated: Date.now() }])
+  /** ➕ ใส่ข้อความ: ใส่ข้อความตั้งต้นของส่วนนั้น (ถ้ามีข้อความที่แก้ไว้ถามก่อนเขียนทับ) */
+  const fill = (x: (typeof SECTIONS)[number]) => {
+    const same = x.keys.every((k) => cfg[k] === DEFAULT_CFG[k])
+    if (same) return setMsg(`${x.name} ใช้ข้อความตั้งต้นอยู่แล้ว — กด ✏️ เพื่อแก้ไข`)
+    if (!window.confirm(`ใส่ข้อความตั้งต้นของ “${x.name}” ทับข้อความที่แก้ไว้ ?`)) return
+    setMsg(putCfg({ ...cfg, ...Object.fromEntries(x.keys.map((k) => [k, DEFAULT_CFG[k]])) }) ? `ใส่ข้อความตั้งต้นของ “${x.name}” แล้ว` : 'ไม่มีสิทธิ์บันทึก')
+  }
+  const secRow = (x: (typeof SECTIONS)[number]) => (
+    <div key={x.sec} className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'nowrap' }}>
+      <span style={{ minWidth: 0 }}><b>{x.no}. {x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cfg[x.keys[0]].split('\n')[0]}</span></span>
+      <span className="row" style={{ gap: 4, flex: 'none', flexWrap: 'nowrap' }}>
+        <button type="button" className="mini" aria-label={`ใส่ข้อความ ${x.name}`} title="ใส่ข้อความตั้งต้น" onClick={() => fill(x)}>➕</button>
+        <button type="button" className="mini" aria-label={`แก้ข้อความ ${x.name}`} title="แก้ข้อความ" onClick={() => setEdit(x.sec)}>✏️</button>
+      </span>
+    </div>
+  )
+
   return (
     <>
       <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
-        <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <span><b>1. หัวจดหมาย · 7. ลงนาม · 8. ข้อมูลติดต่อ</b><br /><span className="small muted">ใส่ให้ในตำแหน่งที่ถูกต้องแล้ว ใช้กับทุกฉบับ</span></span>
-          <button type="button" className="btn btn--ghost" onClick={() => setEdit(true)}>✏️ แก้ไข</button>
-        </div>
-
+        {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
         <div className="field"><label htmlFor="il-no">2. เลขที่หนังสือ</label>
           <div className="row" style={{ gap: 6 }}>
             <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} placeholder="เช่น ศอช.003" />
@@ -158,6 +180,8 @@ export default function InviteLetterPage() {
         <div className="field"><label htmlFor="il-att">สิ่งที่ส่งมาด้วย (ถ้ามี)</label><input id="il-att" className="input" value={l.attach ?? ''} onChange={(e) => set({ attach: e.target.value })} placeholder="เช่น กำหนดการงาน" /></div>
         <div className="field"><label htmlFor="il-body">6. ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
+        {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
+
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn--ghost" onClick={copy}>📋 9. คัดลอกข้อความทั้งหมด</button>
           <button type="button" className="btn" onClick={pdf}>⬇️ 10. ดาวน์โหลด PDF</button>
@@ -173,32 +197,34 @@ export default function InviteLetterPage() {
         <button type="button" className="btn btn--gold" disabled={busy} onClick={toLibrary}>🗄️ 11. เก็บเข้าคลังเอกสาร</button>
         <span className="small muted"> สร้าง PDF จากหนังสือนี้ แล้วไปหน้าคลังเอกสารพร้อมเลขที่ วันที่ และไฟล์ กดบันทึกได้ทันที</span>
       </section>
-      {edit && <CfgForm cfg={cfg} onClose={() => setEdit(false)} onSave={(c) => { const ok = cfgStore.put([{ ...c, id: 'settings', updated: Date.now() }]); if (ok) setEdit(false); return ok }} />}
+      {edit && <CfgForm sec={edit} cfg={cfg} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
     </>
   )
 }
 
-/** แก้ค่าตั้งต้น: หัวจดหมาย (3 บรรทัด) · ข้อความปิดท้ายและลงนาม · ข้อมูลติดต่อท้ายกระดาษ */
-function CfgForm({ cfg, onClose, onSave }: { cfg: Cfg; onClose: () => void; onSave: (c: Cfg) => boolean }) {
+/** แก้ข้อความของส่วนเดียว (หัวจดหมาย / ปิดท้าย·ลงนาม / ข้อมูลติดต่อ) — บันทึกแล้วใช้กับหนังสือทุกฉบับทันที */
+function CfgForm({ sec, cfg, onClose, onSave }: { sec: Sec; cfg: Cfg; onClose: () => void; onSave: (c: Cfg) => boolean }) {
+  const def = SECTIONS.find((x) => x.sec === sec)!
   const [c, setC] = useState<Cfg>(cfg)
   const [msg, setMsg] = useState('')
-  const f = (k: 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact', label: string, rows?: number) => (
+  const f = (k: TextKey, label: string, rows?: number) => (
     <div className="field"><label htmlFor={`cf-${k}`}>{label}</label>
       {rows ? <textarea id={`cf-${k}`} className="input" rows={rows} value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} /> : <input id={`cf-${k}`} className="input" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} />}</div>
   )
   return (
-    <Sheet title="แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ" onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>โลโก้คริสตจักรใส่ให้ที่หัวจดหมายแล้ว · แก้ที่นี่ครั้งเดียว ใช้กับหนังสือทุกฉบับ</p>
-      <b>หัวจดหมาย</b>
-      {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}
-      <b>ข้อความปิดท้ายและลงนาม</b>
-      {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}{f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
-      <b>ข้อมูลติดต่อ (ท้ายกระดาษ)</b>
-      {f('contact', 'ข้อมูลติดต่อ หากมีข้อสงสัย (บรรทัดละหนึ่งชุด)', 4)}
+    <Sheet title={`แก้ข้อความ: ${def.name}`} onClose={onClose}>
+      {sec === 'head' && <>
+        <p className="small muted" style={{ margin: 0 }}>โลโก้คริสตจักรใส่ให้ที่หัวจดหมายแล้ว</p>
+        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}
+      </>}
+      {sec === 'sign' && <>
+        {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}{f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
+      </>}
+      {sec === 'contact' && f('contact', 'ข้อมูลติดต่อ หากมีข้อสงสัย (บรรทัดละหนึ่งชุด)', 5)}
       {msg && <p className="error" role="alert">{msg}</p>}
       <div className="row">
         <button type="button" className="btn btn--gold" onClick={() => { if (!onSave(c)) setMsg('ไม่มีสิทธิ์บันทึก') }}>บันทึก</button>
-        <button type="button" className="btn btn--ghost" onClick={() => { if (window.confirm('คืนค่าตั้งต้นตามหนังสือเดิมของคริสตจักร ?')) setC(DEFAULT_CFG) }}>↺ คืนค่าตั้งต้น</button>
+        <button type="button" className="btn btn--ghost" onClick={() => { if (window.confirm('คืนข้อความตั้งต้นของส่วนนี้ ?')) setC({ ...c, ...Object.fromEntries(def.keys.map((k) => [k, DEFAULT_CFG[k]])) }) }}>↺ คืนค่าตั้งต้น</button>
         <button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button>
       </div>
     </Sheet>
