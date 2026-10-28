@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { canRole, canWork } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
@@ -34,7 +35,11 @@ export default function DocLibrary() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
-  const [form, setForm] = useState<DocItem | 'new' | null>(null)
+  const loc = useLocation(), navigate = useNavigate()
+  /** ส่งต่อจากศูนย์จัดการประชุม (ขั้น 10): เปิดฟอร์มเพิ่มเอกสารพร้อมชื่อ/วันที่ของการประชุมให้เลย */
+  const [preset] = useState(() => (loc.state as { importMeeting?: DocPreset } | null)?.importMeeting)
+  const [form, setForm] = useState<DocItem | 'new' | null>(preset ? 'new' : null)
+  useEffect(() => { if (preset) navigate(loc.pathname, { replace: true, state: null }) }, [preset, navigate, loc.pathname])
   const [manage, setManage] = useState(false)
   const visible = useMemo(() => lib.list.filter((d) => canSeeDoc(d.access, { admin, editor })), [lib.list, admin, editor])
   const cats = categoriesOf(visible, catStore.list.map((c) => c.name))
@@ -77,7 +82,7 @@ export default function DocLibrary() {
         </ul>
       )}
       {open && !form && <DocSheet doc={open} editor={editor} admin={admin} onClose={() => setOpenId(null)} onEdit={() => setForm(open)} onDelete={() => { if (window.confirm(`ลบ “${open.title}” ?`)) { lib.put([{ ...open, deleted: true }]); setOpenId(null) } }} />}
-      {form && <DocForm doc={form === 'new' ? null : form} cats={cats.map((c) => c.name).filter((c) => c !== NO_CATEGORY)} defCat={cat === NO_CATEGORY ? '' : cat} nextFor={nextFor} prefixOf={prefixOf} onClose={() => setForm(null)} onSave={(d) => { if (lib.put([d])) { setForm(null); setOpenId(d.id); return true } return false }} />}
+      {form && <DocForm doc={form === 'new' ? null : form} preset={form === 'new' ? preset : undefined} cats={cats.map((c) => c.name).filter((c) => c !== NO_CATEGORY)} defCat={cat === NO_CATEGORY ? '' : cat} nextFor={nextFor} prefixOf={prefixOf} onClose={() => setForm(null)} onSave={(d) => { if (lib.put([d])) { setForm(null); setOpenId(d.id); return true } return false }} />}
       {manage && <CatManager cats={cats} onClose={() => setManage(false)} docs={lib.list} putDocs={lib.put} catStore={catStore} onRenamed={(a, b) => { if (cat === a) setCat(b) }} />}
     </div>
   )
@@ -128,10 +133,12 @@ function DocSheet({ doc, editor, admin, onClose, onEdit, onDelete }: { doc: DocI
   )
 }
 
-function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { doc: DocItem | null; cats: string[]; defCat: string; nextFor: (c: string, exclude?: string) => string; prefixOf: (c: string) => string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
+export interface DocPreset { title: string; date: string; note: string }
+
+function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave }: { doc: DocItem | null; preset?: DocPreset; cats: string[]; defCat: string; nextFor: (c: string, exclude?: string) => string; prefixOf: (c: string) => string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
   const [file, setFile] = useState<File | null>(null)
   const [noTouched, setNoTouched] = useState(false)
-  const [f, setF] = useState({ title: doc?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? (doc ? '' : nextFor(defCat)), date: doc?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? '' })
+  const [f, setF] = useState({ title: doc?.title ?? preset?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? (doc ? '' : nextFor(defCat)), date: doc?.date ?? preset?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? preset?.note ?? '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const pick = (x: File | null) => { setFile(x); if (x && !f.title.trim()) setF((p) => ({ ...p, title: titleFromFile(x.name) })) }

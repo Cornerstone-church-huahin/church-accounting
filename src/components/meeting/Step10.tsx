@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { StepProps } from './Step1'
 import { assignedTasks, letterDate, stepStatuses } from '../../lib/meetings'
 
@@ -7,6 +8,8 @@ const ACC = { ทั่วไป: 'ทุกคนที่เข้าระบ
 /** ขั้น 10: เก็บเอกสาร — รายการไฟล์ ทะเบียนมติ/งาน ระดับการเข้าถึง ค้นย้อนหลัง และปิดแฟ้ม */
 export default function Step10({ m, save, list }: StepProps) {
   const [q, setQ] = useState('')
+  const navigate = useNavigate()
+  const toLibrary = () => navigate('/meeting/1/3', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
   const st = stepStatuses(m, list)
   const files = [
     { t: 'ระเบียบวาระ', ok: st[2].state === 'done' }, { t: 'หนังสือแจ้งประชุม', ok: st[3].state === 'done' }, { t: 'ใบลงชื่อ/บันทึกประชุม', ok: st[6].state === 'done' },
@@ -38,8 +41,8 @@ export default function Step10({ m, save, list }: StepProps) {
       <section className="card" aria-label="10.4 ปิดแฟ้ม">
         <h2 style={{ margin: 0 }}>10.4 ปิดแฟ้ม</h2>
         {m.archived
-          ? <p role="status" style={{ margin: 0 }}>✅ เก็บเอกสารแล้ว เมื่อ {letterDate(new Date(m.archived.at).toISOString().slice(0, 10))} <button type="button" className="mini" onClick={() => save({ archived: undefined })}>เปิดแฟ้มอีกครั้ง</button></p>
-          : <button type="button" className="btn btn--gold" disabled={!ready} onClick={() => save({ archived: { at: Date.now() } })}>🗄️ เก็บเอกสารเข้าแฟ้ม</button>}
+          ? <><p role="status" style={{ margin: 0 }}>✅ เก็บเอกสารแล้ว เมื่อ {letterDate(new Date(m.archived.at).toISOString().slice(0, 10))} <button type="button" className="mini" onClick={() => save({ archived: undefined })}>เปิดแฟ้มอีกครั้ง</button></p><button type="button" className="btn btn--gold" onClick={toLibrary}>📚 นำเข้าคลังเอกสาร ›</button></>
+          : <button type="button" className="btn btn--gold" disabled={!ready} onClick={() => { save({ archived: { at: Date.now() } }); toLibrary() }}>🗄️ เก็บเอกสารเข้าแฟ้ม แล้วนำเข้าคลังเอกสาร</button>}
         {!ready && !m.archived && <p className="muted small" style={{ margin: 0 }}>ต้องรับรองและลงนามฉบับสมบูรณ์ (ขั้นที่ 9) ก่อน</p>}
         {open > 0 && <p className="small" style={{ margin: 0 }}>มีงานที่มอบหมายยังไม่เสร็จ {open} รายการ (ติดตามต่อที่ขั้นที่ 8)</p>}
       </section>
