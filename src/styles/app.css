@@ -1081,3 +1081,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .docbar__ico { font-size: 1.4rem; flex: none; }
 .docbar__txt { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
 .docbar__txt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* กรอบแดง: ช่องที่ไม่ผ่านการตรวจ + ข้อความใต้ช่อง (ใช้เหมือนกันทั้งแอป · ติดตั้งใน lib/fieldErrors.ts) */
+.input[aria-invalid='true'], select[aria-invalid='true'], textarea[aria-invalid='true'], input[aria-invalid='true'] { border-color: var(--bad, #c0261b) !important; box-shadow: 0 0 0 3px rgba(192, 38, 27, 0.28); background-image: none; }
+.field-err { color: var(--bad, #c0261b); font-weight: 700; font-size: 0.9rem; margin: 0.25rem 0 0; }

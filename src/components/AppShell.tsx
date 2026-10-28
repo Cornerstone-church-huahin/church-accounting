@@ -8,6 +8,7 @@ import { useIncomeTypes, useSettings, useVouchers } from '../lib/data'
 import { tasksFor } from '../lib/ledger'
 import { be, todayISO, yearOf } from '../lib/money'
 import { refreshSharedGemini } from '../lib/gemini'
+import { installFieldErrors } from '../lib/fieldErrors'
 import { SYNC_EVENT } from '../lib/sync'
 import { initialYear, saveYear, YearContext } from '../lib/year'
 import OpenInChrome from './OpenInChrome'
@@ -62,6 +63,7 @@ export default function AppShell() {
     return () => { window.removeEventListener(READONLY_EVENT, on); window.clearTimeout(t) }
   }, [])
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  useEffect(() => { installFieldErrors() }, [])
   // ผู้ใช้ที่อนุมัติแล้ว (ไม่ใช่ผู้ดูอย่างเดียว/รออนุมัติ) ดึงรหัส Gemini ร่วมที่แอดมินแชร์ไว้
   const canRead = can(role, 'income') || can(role, 'voucherPay')
   useEffect(() => {
