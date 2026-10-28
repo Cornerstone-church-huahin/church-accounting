@@ -1,4 +1,4 @@
-// งานเลขา › คลังเอกสาร: สร้างเอกสาร (ร่าง) → ออกเป็นเอกสารจริง (A4 แก้ไม่ได้) → ออกฉบับใหม่เก็บฉบับเก่า · หมวด ค้นหา เรียงเก่า→ใหม่ · PDF
+// งานเลขา › คลังเอกสาร (ไฟล์สำเร็จรูป): จัดการหมวด (เพิ่ม/แก้ชื่อ/ลบ) → เพิ่มเอกสารพร้อมไฟล์ → แถบเรียงใหม่สุดอยู่บน → ค้นหา → เปิด/ดาวน์โหลด
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -10,63 +10,73 @@ const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const page = await (await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH', acceptDownloads: true })).newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
-page.on('dialog', (d) => d.accept())
+page.on('dialog', async (d) => { if (d.type() === 'prompt') await d.accept(d.defaultValue() + 'X'); else await d.accept() })
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
-const make = async (title, cat, date, kind, body) => {
-  await page.getByRole('button', { name: /เอกสารใหม่/ }).click()
-  await page.locator('#dd-title').fill(title); await page.locator('#dd-cat').fill(cat); await page.locator('#dd-date').fill(date)
-  if (kind) await page.locator('#dd-kind').selectOption(kind)
-  await page.locator('#dd-body').fill(body)
-  await page.getByRole('button', { name: /บันทึกร่าง/ }).click()
-  await page.getByText('บันทึกร่างแล้ว').waitFor()
+// จำลอง GitHub: เก็บไฟล์ที่อัป แล้วส่งคืนตอนดึง
+const store = new Map()
+await page.route('**/api.github.com/**', async (route) => {
+  const req = route.request(), url = new URL(req.url()), m = /\/contents\/(.+)$/.exec(decodeURIComponent(url.pathname))
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
+  if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
+  if (req.method() === 'PUT' && m) { store.set(m[1], Buffer.from(JSON.parse(req.postData()).content, 'base64')); return route.fulfill({ status: 201, headers: cors, contentType: 'application/json', body: JSON.stringify({ content: { sha: 'x' } }) }) }
+  if (req.method() === 'GET' && m && store.has(m[1])) return route.fulfill({ status: 200, headers: cors, body: store.get(m[1]) })
+  return route.fulfill({ status: 404, headers: cors, contentType: 'application/json', body: '{}' })
+})
+const pdf = (name, text) => ({ name, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.1\n${text}\n%%EOF`) })
+const addDoc = async (file, title, cat, date) => {
+  await page.getByRole('button', { name: /เพิ่มเอกสาร/ }).click()
+  await page.locator('#df-file').setInputFiles(file)
+  await page.locator('#df-title').fill(title); await page.locator('#df-cat').selectOption(cat); await page.locator('#df-date').fill(date)
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  await page.getByRole('dialog', { name: title }).waitFor({ timeout: 10000 })
+  await page.getByRole('dialog').getByRole('button', { name: 'ปิด', exact: true }).click()
 }
 try {
-  await page.goto(`http://localhost:${PORT}/#/meeting/1`); await page.waitForLoadState('networkidle')
-  must(/คลังเอกสาร/.test(await page.locator('.tiletabs').innerText()), 'secretary tab 3 = คลังเอกสาร')
+  await page.goto(`http://localhost:${PORT}/#/meeting/1`)
+  await page.evaluate(() => {
+    localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'o/r', token: 't', name: 'x' }))
+    localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'me1' }))
+    localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'me1', name: 'x', role: 'admin', status: 'active', joined: 1, updated: 1 }]))
+  })
+  await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('link', { name: /คลังเอกสาร/ }).click()
   must(await page.getByText(/ยังไม่มีเอกสาร/).isVisible(), 'empty library')
-  await make('เชิญประชุมกรรมการ ครั้งที่ 2', 'ประชุมกรรมการ', '2026-03-10', 'เชิญประชุม', 'วาระ 1 เรื่องแจ้งเพื่อทราบ')
-  await page.getByRole('button', { name: /คลังเอกสาร/ }).first().click()
-  await make('เชิญประชุมกรรมการ ครั้งที่ 1', 'ประชุมกรรมการ', '2026-01-05', 'เชิญประชุม', 'ฉบับแรก')
-  // ใส่แบบฟอร์มตามประเภท
-  await page.getByRole('button', { name: /ใส่แบบฟอร์ม/ }).click()
-  must(/วาระการประชุม/.test(await page.locator('#dd-body').inputValue()), 'template inserted')
-  await page.getByRole('button', { name: /บันทึกร่าง/ }).click()
-  // ออกเป็นเอกสารจริง
-  await page.getByRole('button', { name: /ออกเป็นเอกสารจริง/ }).click()
-  await page.getByRole('region', { name: 'เอกสารจริง' }).waitFor()
-  const a4 = (await page.locator('.a4page').first().innerText()).replace(/\s+/g, ' ')
-  must(/ที่ 002\/2569|ที่ 001\/2569/.test(a4) && /เชิญประชุมกรรมการ ครั้งที่ 1/.test(a4) && /วาระการประชุม/.test(a4), 'A4 final shows number, title, body: ' + a4)
-  must(/แก้ไขไม่ได้/.test(await page.getByRole('region', { name: 'เอกสารจริง' }).innerText() + await page.locator('main').innerText()), 'final is read-only evidence')
-  // แก้ร่างแล้วออกฉบับใหม่ ฉบับเก่าเก็บไว้
-  await page.getByRole('tab', { name: /ร่างเอกสาร/ }).click()
-  await page.locator('#dd-body').fill('เนื้อหาแก้ไขฉบับที่ 2')
-  await page.getByRole('button', { name: /ออกเป็นเอกสารจริง/ }).click()
-  await page.getByLabel('ดูฉบับ').waitFor()
-  must(/เนื้อหาแก้ไขฉบับที่ 2/.test(await page.locator('.a4page').first().innerText()), 'v2 shown')
-  await page.getByLabel('ดูฉบับ').selectOption('1')
-  must(/วาระการประชุม/.test(await page.locator('.a4page').first().innerText()), 'v1 kept as evidence')
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
-  must(fs.statSync(await dl.path()).size > 3000, 'pdf downloaded')
-  // รายการ: หมวด · เรียงเก่า→ใหม่ · ค้นหา
-  await page.getByRole('button', { name: /คลังเอกสาร/ }).first().click()
-  const items = await page.locator('.doclink b').allInnerTexts()
-  must(items.join('|') === 'เชิญประชุมกรรมการ ครั้งที่ 1|เชิญประชุมกรรมการ ครั้งที่ 2', 'sorted old→new: ' + items.join('|'))
-  must(await page.getByRole('region', { name: 'หมวด ประชุมกรรมการ' }).count() === 1, 'grouped by category')
-  await page.locator('#dl-q').fill('ครั้งที่ 002')
-  must(await page.locator('.doclink').count() === 1, 'search narrows to 1')
-  // ค้นจากเนื้อหาในเอกสาร + แสดงข้อความรอบคำที่เจอ
-  await page.locator('#dl-q').fill('แก้ไขฉบับที่ 2')
-  must(await page.locator('.doclink').count() === 1 && /แก้ไขฉบับที่ 2/.test(await page.locator('.doclink__snip').innerText()), 'content search finds the doc and shows a snippet')
-  await page.locator('#dl-q').fill('วาระการประชุม')
-  must(await page.locator('.doclink').count() === 1, 'finds text that exists only in the older issued version')
-  await page.locator('#dl-q').fill('')
-  // เลือกตามรายชื่อหมวด
-  await page.locator('#dl-cat').selectOption('ประชุมกรรมการ')
-  must(await page.locator('.doclink').count() === 2, 'category select lists the docs of that category')
+  // จัดการหมวด: เพิ่ม → แก้ชื่อ → ลบ
+  await page.getByRole('button', { name: 'จัดการหมวดเอกสาร' }).click()
+  for (const c of ['ประชุมธรรมกิจ', 'จดหมายเชิญ', 'หมวดที่จะลบ']) { await page.getByLabel('ชื่อหมวดใหม่').fill(c); await page.getByRole('button', { name: /เพิ่ม$/ }).click() }
+  await page.getByRole('button', { name: 'แก้ชื่อหมวด หมวดที่จะลบ' }).click()
+  await page.getByRole('list', { name: 'รายชื่อหมวด' }).getByText(/หมวดที่จะลบX/).waitFor()
+  await page.getByRole('button', { name: 'ลบหมวด หมวดที่จะลบX' }).click()
+  must(await page.getByRole('list', { name: 'รายชื่อหมวด' }).locator('li').count() === 2, 'two categories after delete')
+  await page.getByRole('dialog').getByRole('button', { name: 'ปิด', exact: true }).click()
+  // เพิ่มเอกสาร 3 ฉบับ (วาระ 1–3) ในหมวดประชุมธรรมกิจ + 1 ฉบับจดหมายเชิญ
+  await addDoc(pdf('v1.pdf', 'one'), 'วาระที่ 1', 'ประชุมธรรมกิจ', '2026-03-01')
+  await addDoc(pdf('v3.pdf', 'three'), 'วาระที่ 3', 'ประชุมธรรมกิจ', '2026-03-03')
+  await addDoc(pdf('v2.pdf', 'two'), 'วาระที่ 2', 'ประชุมธรรมกิจ', '2026-03-02')
+  await addDoc(pdf('invite.pdf', 'inv'), 'เชิญอาจารย์สมชาย', 'จดหมายเชิญ', '2026-02-01')
+  await page.locator('#dl-cat').selectOption('ประชุมธรรมกิจ')
+  const names = await page.locator('.docbar b').allInnerTexts()
+  must(names.join('|') === 'วาระที่ 3|วาระที่ 2|วาระที่ 1', 'newest on top, oldest at the bottom: ' + names.join('|'))
+  await page.locator('#dl-cat').selectOption('จดหมายเชิญ')
+  must(await page.locator('.docbar').count() === 1, 'category select shows only that category')
   await page.locator('#dl-cat').selectOption('')
-  await page.locator('#dl-q').fill('ไม่มีแน่นอน')
-  must(await page.getByText('ไม่พบเอกสารที่ค้นหา').isVisible(), 'no match message')
+  await page.locator('#dl-q').fill('สมชาย')
+  must(await page.locator('.docbar').count() === 1, 'search by name')
+  await page.locator('#dl-q').fill('v2.pdf')
+  must(await page.locator('.docbar').count() === 1, 'search by file name')
+  await page.locator('#dl-q').fill('')
+  // เปิดเอกสาร: ดาวน์โหลดได้ไฟล์เดิม
+  await page.getByRole('button', { name: 'เปิดเอกสาร วาระที่ 2' }).click()
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /ดาวน์โหลด/ }).click()])
+  must(fs.readFileSync(await dl.path()).toString().includes('two'), 'downloaded the same file content')
+  must(await page.getByRole('button', { name: /เปิดดู/ }).isVisible() && await page.getByRole('button', { name: /แชร์/ }).isVisible(), 'view/share buttons')
+  await page.getByRole('dialog').getByRole('button', { name: 'ปิด', exact: true }).click()
+  // แก้ชื่อหมวดแล้วเอกสารตามไป · ลบหมวดแล้วเอกสารย้ายไปไม่ระบุหมวด
+  await page.getByRole('button', { name: 'จัดการหมวดเอกสาร' }).click()
+  await page.getByRole('button', { name: 'ลบหมวด จดหมายเชิญ' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'ปิด', exact: true }).click()
+  await page.locator('#dl-cat').selectOption('ไม่ระบุหมวด')
+  must(await page.locator('.docbar').count() === 1, 'doc moved to no-category, not deleted')
   await page.screenshot({ path: 'shots/doclib.png' })
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('doclib-test OK')

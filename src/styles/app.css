@@ -1076,3 +1076,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .doclink { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; text-align: left; padding: 0.4rem 0.5rem; border-radius: 0.6rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .mini.on { background: #1a2b4c; color: #fff; border-color: #1a2b4c; }
 .doclink__snip { color: var(--ink-soft, #555); font-style: italic; }
+.doclist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.docbar { display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2.8rem; padding: 0.3rem 0.6rem; border-radius: 0.7rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.docbar__ico { font-size: 1.4rem; flex: none; }
+.docbar__txt { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+.docbar__txt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

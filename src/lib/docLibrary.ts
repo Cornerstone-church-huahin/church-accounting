@@ -1,7 +1,8 @@
 import type { DocAccess, DocItem } from './types'
 
-export const DOC_KINDS = ['หนังสือเชิญ', 'เชิญประชุม', 'รายงานการประชุม', 'ประกาศ', 'บันทึกข้อความ', 'อื่น ๆ'] as const
 export const ACCESS_LEVELS: DocAccess[] = ['ทั่วไป', 'ภายใน', 'ลับ']
+export const NO_CATEGORY = 'ไม่ระบุหมวด'
+export const MAX_DOC_BYTES = 15 * 1024 * 1024
 
 /** เลขที่เอกสารถัดไปของปี (พ.ศ.) เช่น 003/2569 — นับต่อจากเลขสูงสุดของปีนั้น */
 export function nextDocNo(docs: Pick<DocItem, 'no'>[], beYear: number): string {
@@ -10,25 +11,26 @@ export function nextDocNo(docs: Pick<DocItem, 'no'>[], beYear: number): string {
   return `${String(max + 1).padStart(3, '0')}/${beYear}`
 }
 
-/** เรียงจากเก่าไปใหม่: วันที่ → เลขที่ (เลขตามตัวเลข) → ชื่อ */
+const num = (no: string) => { const m = /^(\d+)/.exec(no.trim()); return m ? Number(m[1]) : Infinity }
+/** เรียงจากเก่าไปใหม่: วันที่ → เลขที่ (ตามตัวเลข) → ชื่อ */
 export function sortDocs<T extends Pick<DocItem, 'date' | 'no' | 'title'>>(docs: T[]): T[] {
-  const num = (no: string) => { const m = /^(\d+)/.exec(no.trim()); return m ? Number(m[1]) : Infinity }
   return [...docs].sort((a, b) => a.date.localeCompare(b.date) || num(a.no) - num(b.no) || a.title.localeCompare(b.title, 'th'))
 }
+/** ใหม่สุดอยู่บน เก่าสุดอยู่ล่าง (แสดงในคลัง) */
+export const sortNewestFirst = <T extends Pick<DocItem, 'date' | 'no' | 'title'>>(docs: T[]): T[] => sortDocs(docs).reverse()
 
-/** ข้อความทั้งหมดของเอกสารที่ค้นหาได้: ชื่อ เลขที่ หมวด ประเภท + เนื้อหาร่าง + เนื้อหาเอกสารจริงทุกฉบับ */
-const bodyOf = (d: DocItem) => [d.draft, ...(d.finals ?? []).map((f) => f.body)].join('\n')
-const headOf = (d: DocItem) => `${d.title} ${d.no} ${d.category} ${d.kind}`
-/** ค้นหาจากชื่อ เลขที่ หมวด ประเภท และ "เนื้อหา" (พิมพ์หลายคำ = ต้องมีครบทุกคำ ไม่จำเป็นต้องอยู่ที่เดียวกัน) + กรองหมวด */
+const bodyOf = (d: DocItem) => [d.note ?? '', d.draft ?? '', ...(d.finals ?? []).map((f) => f.body), d.file?.name ?? ''].join('\n')
+const headOf = (d: DocItem) => `${d.title} ${d.no} ${d.category} ${d.kind ?? ''}`
+/** ค้นหาจากชื่อ เลขที่ หมวด หมายเหตุ ชื่อไฟล์ (พิมพ์หลายคำ = ต้องมีครบทุกคำ) + กรองหมวด */
 export function filterDocs(docs: DocItem[], q: string, category: string): DocItem[] {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   return docs.filter((d) => {
-    if (category && (d.category || 'ไม่ระบุหมวด') !== category) return false
+    if (category && (d.category || NO_CATEGORY) !== category) return false
     const all = `${headOf(d)}\n${bodyOf(d)}`.toLowerCase()
     return words.every((w) => all.includes(w))
   })
 }
-/** ข้อความสั้น ๆ รอบคำที่เจอในเนื้อหา (เฉพาะเมื่อคำนั้นไม่อยู่ในชื่อ/เลขที่/หมวด) ไว้แสดงใต้ชื่อในผลค้นหา */
+/** ข้อความสั้น ๆ รอบคำที่เจอนอกชื่อ/เลขที่/หมวด (เช่น ในหมายเหตุ) ไว้แสดงใต้ชื่อในผลค้นหา */
 export function snippetOf(d: DocItem, q: string, radius = 28): string {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const head = headOf(d).toLowerCase()
@@ -41,32 +43,18 @@ export function snippetOf(d: DocItem, q: string, radius = 28): string {
   }
   return ''
 }
-export function categoriesOf(docs: Pick<DocItem, 'category'>[]): { name: string; n: number }[] {
+
+/** รายชื่อหมวดทั้งหมด: หมวดที่ตั้งไว้ + หมวดที่มีเอกสารใช้อยู่ (กันหมวดเก่าหาย) พร้อมจำนวนเอกสาร */
+export function categoriesOf(docs: Pick<DocItem, 'category'>[], managed: string[] = []): { name: string; n: number }[] {
   const m = new Map<string, number>()
-  for (const d of docs) m.set(d.category || 'ไม่ระบุหมวด', (m.get(d.category || 'ไม่ระบุหมวด') ?? 0) + 1)
-  return [...m.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => a.name.localeCompare(b.name, 'th'))
+  for (const c of managed) m.set(c, 0)
+  for (const d of docs) { const k = d.category || NO_CATEGORY; m.set(k, (m.get(k) ?? 0) + 1) }
+  return [...m.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => (a.name === NO_CATEGORY ? 1 : b.name === NO_CATEGORY ? -1 : a.name.localeCompare(b.name, 'th')))
 }
 
 /** ใครเห็นเอกสารได้: ทั่วไป = ทุกคน · ภายใน = แอดมินและผู้ทำงานเลขา · ลับ = แอดมินเท่านั้น */
 export const canSeeDoc = (access: DocAccess, who: { admin: boolean; editor: boolean }) => access === 'ทั่วไป' || (access === 'ภายใน' && (who.admin || who.editor)) || who.admin
 
-/** แบ่งเนื้อหาเป็นหน้า A4 โดยประมาณ (หน้าแรกมีหัวเรื่อง จึงจุได้น้อยกว่า) */
-export function splitPages(body: string, firstLines = 24, otherLines = 32, perLine = 62): string[] {
-  const paras = body.replace(/\r/g, '').split('\n')
-  const pages: string[][] = [[]]
-  let used = 0, cap = firstLines
-  for (const p of paras) {
-    const need = Math.max(1, Math.ceil(p.length / perLine))
-    if (used + need > cap && pages[pages.length - 1].length > 0) { pages.push([]); used = 0; cap = otherLines }
-    pages[pages.length - 1].push(p); used += need
-  }
-  return pages.map((x) => x.join('\n'))
-}
-
-export const TEMPLATES: Record<string, string> = {
-  'หนังสือเชิญ': 'เรียน ……………………………………\n\nด้วยคริสตจักรศิลาเอกจะจัด ……………………………………\nในวันที่ ……………… เวลา ……………… ณ ………………………………\n\nจึงขอเรียนเชิญท่านเข้าร่วม ตามวัน เวลา และสถานที่ดังกล่าว\n\nขอแสดงความนับถือ\n\n(……………………………………)\nตำแหน่ง ……………………………',
-  'เชิญประชุม': 'เรียน กรรมการและผู้เกี่ยวข้องทุกท่าน\n\nคริสตจักรศิลาเอกขอเชิญประชุม ………………………………… ครั้งที่ ……/……\nวันที่ ……………… เวลา ……………… ณ ………………………………\n\nวาระการประชุม\n1. เรื่องแจ้งเพื่อทราบ\n2. รับรองรายงานการประชุมครั้งก่อน\n3. เรื่องเสนอเพื่อพิจารณา\n4. เรื่องอื่น ๆ\n\nจึงเรียนมาเพื่อโปรดเข้าร่วมประชุมตามวัน เวลา ดังกล่าว',
-  'รายงานการประชุม': 'รายงานการประชุม ………………………………… ครั้งที่ ……/……\nวันที่ ……………… เวลา ……………… ณ ………………………………\n\nผู้เข้าประชุม\n1. ……………………………\n\nเริ่มประชุมเวลา ……………\n\nวาระที่ 1 เรื่องแจ้งเพื่อทราบ\nมติ/ข้อสรุป ……………………………\n\nวาระที่ 2 รับรองรายงานการประชุมครั้งก่อน\nมติ ……………………………\n\nเลิกประชุมเวลา ……………\n\nผู้บันทึกรายงาน ……………………………',
-  'ประกาศ': 'ประกาศคริสตจักรศิลาเอก\nเรื่อง ……………………………………\n\nด้วย ………………………………………………………\n\nจึงประกาศมาเพื่อทราบโดยทั่วกัน\n\nประกาศ ณ วันที่ ………………',
-  'บันทึกข้อความ': 'เรื่อง ……………………………………\nเรียน ……………………………………\n\n……………………………………………………………………\n\n(……………………………………)',
-}
+export const fileExt = (name: string) => (name.split('.').pop() ?? 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
+export const titleFromFile = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim()
+export const fmtSize = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
