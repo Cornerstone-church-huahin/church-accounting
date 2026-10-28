@@ -9,6 +9,7 @@ import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
 import AnnualPlan from '../components/AnnualPlan'
 import InviteLetterPage from '../components/InviteLetter'
+import AdminNotes from '../components/AdminNotes'
 import { FlowPage, WorkflowMenu } from '../components/WorkFlow'
 import DocLibrary from '../components/DocLibrary'
 import FoodRoster from '../components/FoodRoster'
@@ -42,12 +43,13 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
  * แอดมิน → กลับหน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เลขา อนุชน ฯลฯ) → กลับหน้าหลักของงานตัวเอง (เริ่มใหม่ตั้งแต่ต้น)
  */
 function WorkHead({ n, name, back }: { n: number; name: string; /** เปิดขั้นตอนอยู่ในงาน: ปุ่มกลับเป็น หน้าแรกของงาน (ปิดขั้นตอน) แทนหน้าแรกของแอป */ back?: () => void }) {
-  useRole() // สิทธิ์/งานที่รับผิดชอบเปลี่ยนเมื่อรายชื่อซิงก์ → วาดใหม่
+  const role = useRole() // สิทธิ์/งานที่รับผิดชอบเปลี่ยนเมื่อรายชื่อซิงก์ → วาดใหม่
   const to = workHomePath(myWorks())
   return (
     <>
       <div className="page-head no-print">
         <h1>{name}</h1>
+        {can(role, 'settings') && <Link to={`/meeting/${n}/admin`} className="topbar__go" aria-label="สมุดส่วนตัวแอดมิน" title="สมุดส่วนตัวแอดมิน (เห็นเฉพาะแอดมิน)">📔</Link>}
         <WorkBell n={n} />
         {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ {name}</button> : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
       </div>
@@ -155,6 +157,7 @@ function MeetingRoom() {
   if (n && !tab) return <><div className="page-head"><h1>โหมดประชุม</h1><Link to="/meeting" className="mini">‹ โหมดประชุม</Link></div><p className="empty">ไม่พบแท็บนี้</p></>
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เงินคริสตจักร + ขั้นตอน รับ/จ่าย/ปรับ/สรุป) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ)
   // งานเหรัญญิก = หน้าแรกบัญชีทั้งหมด (เหมือนเดิมทุกอย่าง) · งานทะเบียน = หน้าสมาชิกทั้งหมด (เปิดที่แท็บ ลงชื่อ) — ทุกหน้ามีปุ่ม 📅 ตารางงานไว้บนสุด
+  if (tab && k === 'admin') return <AdminNotes n={tab.n} name={tab.name} />
   if (tab && k === 'health') return <ChurchHealth n={tab.n} name={tab.name} />
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
