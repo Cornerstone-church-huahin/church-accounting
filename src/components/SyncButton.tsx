@@ -27,7 +27,7 @@ export default function SyncButton() {
   return (
     <>
       <button type="button" className={`topbar__sync${g.syncing > 0 ? ' topbar__sync--spin' : ''}${warn ? ' topbar__sync--warn' : ''}`} onClick={() => setOpen(true)} aria-label={bad ? 'ซิงก์ผิดพลาด แตะดูสาเหตุ' : g.connected ? 'รีเฟรชข้อมูล' : 'ยังไม่ได้เชื่อมต่อออนไลน์'} title="รีเฟรชข้อมูล">
-        <IconRefresh />
+        <IconRefresh /><span className="topbar__synchint" aria-hidden="true">กดรีเฟรช<br />เพื่ออัปเดต</span>
       </button>
       {open && (
         <Sheet title="สถานะข้อมูลออนไลน์" onClose={() => setOpen(false)}>
