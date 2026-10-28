@@ -94,8 +94,8 @@ export default function AppShell() {
           ) : (
             <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="ย้อนกลับ"><IconBack /></button>
           )}
-          <span className="grow" />
           <SyncButton />
+          <span className="grow" />
           <label className="sr-only" htmlFor="year-sel">ปีบัญชี</label>
           <select id="year-sel" className="topbar__year" value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {[...years].sort((a, b) => b - a).map((y) => <option key={y} value={y}>ปี {be(y)}</option>)}
