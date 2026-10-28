@@ -9,6 +9,9 @@ describe('ข้อความเชิญ 2 ขั้น', () => {
     expect(m).toMatch(/Android.*iPhone/)
     expect(m.indexOf('#/install')).toBeLessThan(m.indexOf('#/join'))
   })
+  it('ใส่ระดับการใช้งานในข้อความ (ถ้ามี)', () => {
+    expect(buildInviteMessage({ installUrl: 'a', inviteUrl: 'b', level: 'ผู้ดู — ดูรายงานได้' })).toContain('ระดับการใช้งานที่ตั้งไว้ให้: ผู้ดู — ดูรายงานได้')
+  })
   it('ไม่ใส่ชื่อ = ไม่มีวงเล็บ · ลิงก์ติดตั้งมี openExternalBrowser (เปิดนอกแอป LINE)', () => {
     expect(buildInviteMessage({ installUrl: 'a', inviteUrl: 'b' })).not.toContain('(ถึง')
     expect(installUrlOf('https://x', '/app/')).toBe('https://x/app/?openExternalBrowser=1#/install')
