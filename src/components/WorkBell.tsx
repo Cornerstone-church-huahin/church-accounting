@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useAnnouncements } from '../lib/data'
+import RoomChat from './RoomChat'
+import { myRole, myWorks } from '../lib/access'
+import { useAnnouncements, useRoomChat } from '../lib/data'
+import { canChatIn, getSeen, unreadChat } from '../lib/roomChat'
 import { forWork, markRead, readIds, unreadOf } from '../lib/announce'
 
 const Bell = () => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 17h12l-1.5-2.2V10a4.5 4.5 0 0 0-9 0v4.8z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
@@ -20,16 +23,23 @@ export default function WorkBell({ n }: { n: number }) {
   const [fresh, setFresh] = useState<Set<string>>(new Set())
   const [openOld, setOpenOld] = useState<Set<string>>(new Set())
   useEffect(() => { if (!open) setOpenOld(new Set()) }, [open])
+  const chat = useRoomChat()
+  const [, setTick] = useState(0)
+  const admin = myRole() === 'admin'
+  const side = admin ? 'admin' : 'room'
+  const canWrite = canChatIn(n, { admin, works: myWorks() })
   const list = forWork(ann.list, n)
+  const unreadChatN = unreadChat(chat.list, n, side, getSeen(side, n)).length
   const unread = unreadOf(list, read)
+  const total = unread.length + unreadChatN
   const toggle = () => {
     if (!open) { setFresh(new Set(unread.map((x) => x.id))); markRead(n, unread.map((x) => x.id)); setRead(readIds(n)) }
     setOpen(!open)
   }
   return (
     <span className="bellwrap no-print">
-      <button type="button" className={`bellbtn${unread.length > 0 ? ' bellbtn--new' : ''}`} aria-expanded={open} aria-label={unread.length > 0 ? `ข่าวจากแอดมิน มีข้อความใหม่ ${unread.length}` : 'ข่าวจากแอดมิน'} onClick={toggle}>
-        <Bell />{unread.length > 0 && <i className="bellbtn__n" aria-hidden="true">{unread.length}</i>}
+      <button type="button" className={`bellbtn${total > 0 ? ' bellbtn--new' : ''}`} aria-expanded={open} aria-label={total > 0 ? `ข่าวจากแอดมิน มีข้อความใหม่ ${total}` : 'ข่าวจากแอดมิน'} onClick={toggle}>
+        <Bell />{total > 0 && <i className="bellbtn__n" aria-hidden="true">{total}</i>}
       </button>
       {open && (
         <div className="bellpanel card" role="region" aria-label="ข่าวจากแอดมิน">
@@ -54,6 +64,12 @@ export default function WorkBell({ n }: { n: number }) {
                 )
               })}
             </ul>
+          )}
+          {(canWrite || chat.list.some((m) => m.n === n)) && (
+            <>
+              <b className="small" style={{ display: 'block', marginTop: 8 }}>💬 {admin ? 'ข้อความกับห้องนี้' : 'ข้อความกับแอดมิน'}</b>
+              <RoomChat n={n} side={side} canWrite={canWrite} onSeen={() => setTick((x) => x + 1)} />
+            </>
           )}
         </div>
       )}

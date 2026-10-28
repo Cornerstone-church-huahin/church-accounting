@@ -378,6 +378,8 @@ export interface DocItem extends SharedItem {
   /** หมายเหตุ/คำค้น (ไม่บังคับ) */ note?: string
   /** (เวอร์ชันเก่า) ประเภท · ร่าง · เอกสารที่ออกในแอป — คงไว้ให้ค้นหาได้ ไม่แสดงให้แก้แล้ว */ kind?: string; draft?: string; finals?: DocFinal[]
 }
+/** แชทห้องงาน ↔ แอดมิน: n = เลขห้องงาน · fromAdmin = แอดมินเป็นผู้เขียน (ไม่ใช่คนในห้อง) · byId/by = ผู้เขียน */
+export interface ChatMsg extends SharedItem { n: number; text: string; at: number; fromAdmin: boolean; byId: string; by: string }
 /** หมวดเอกสาร (รายชื่อที่แก้ไข/ลบได้) */
 /** prefix = ตัวย่อเลขที่ของหมวด เช่น ปศอ → เลขที่ ปศอ.001, ปศอ.002 … (นับต่อเรื่อย ๆ ตามตัวย่อ) */
 export interface DocCategory extends SharedItem { name: string; prefix?: string }
