@@ -3,7 +3,7 @@ import Sheet from './Sheet'
 import { can, myWorks } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
 import { useDocCategories, useDocLibrary } from '../lib/data'
-import { ACCESS_LEVELS, canSeeDoc, categoriesOf, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
+import { ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
 import { getBinary, getSync, putBinary } from '../lib/sync'
@@ -40,6 +40,8 @@ export default function DocLibrary() {
   const cats = categoriesOf(visible, catStore.list.map((c) => c.name))
   const shown = sortNewestFirst(filterDocs(visible, q, cat))
   const open = visible.find((d) => d.id === openId)
+  const prefixOf = (c: string) => cleanPrefix(catStore.list.find((x) => x.name === c)?.prefix ?? '')
+  const nextFor = (c: string) => nextDocNo(lib.list, prefixOf(c) || be(Number(todayISO().slice(0, 4))))
   return (
     <div aria-label="คลังเอกสาร">
       <section className="card no-print" style={{ margin: '0 0 8px' }}>
@@ -75,7 +77,7 @@ export default function DocLibrary() {
         </ul>
       )}
       {open && !form && <DocSheet doc={open} editor={editor} admin={admin} onClose={() => setOpenId(null)} onEdit={() => setForm(open)} onDelete={() => { if (window.confirm(`ลบ “${open.title}” ?`)) { lib.put([{ ...open, deleted: true }]); setOpenId(null) } }} />}
-      {form && <DocForm doc={form === 'new' ? null : form} cats={cats.map((c) => c.name).filter((c) => c !== NO_CATEGORY)} defCat={cat === NO_CATEGORY ? '' : cat} nextNo={nextDocNo(lib.list, be(Number(todayISO().slice(0, 4))))} onClose={() => setForm(null)} onSave={(d) => { if (lib.put([d])) { setForm(null); setOpenId(d.id); return true } return false }} />}
+      {form && <DocForm doc={form === 'new' ? null : form} cats={cats.map((c) => c.name).filter((c) => c !== NO_CATEGORY)} defCat={cat === NO_CATEGORY ? '' : cat} nextFor={nextFor} prefixOf={prefixOf} onClose={() => setForm(null)} onSave={(d) => { if (lib.put([d])) { setForm(null); setOpenId(d.id); return true } return false }} />}
       {manage && <CatManager cats={cats} onClose={() => setManage(false)} docs={lib.list} putDocs={lib.put} catStore={catStore} onRenamed={(a, b) => { if (cat === a) setCat(b) }} />}
     </div>
   )
@@ -126,9 +128,10 @@ function DocSheet({ doc, editor, admin, onClose, onEdit, onDelete }: { doc: DocI
   )
 }
 
-function DocForm({ doc, cats, defCat, nextNo, onClose, onSave }: { doc: DocItem | null; cats: string[]; defCat: string; nextNo: string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
+function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { doc: DocItem | null; cats: string[]; defCat: string; nextFor: (c: string) => string; prefixOf: (c: string) => string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
   const [file, setFile] = useState<File | null>(null)
-  const [f, setF] = useState({ title: doc?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? '', date: doc?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? '' })
+  const [noTouched, setNoTouched] = useState(!!doc)
+  const [f, setF] = useState({ title: doc?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? (doc ? '' : nextFor(defCat)), date: doc?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const pick = (x: File | null) => { setFile(x); if (x && !f.title.trim()) setF((p) => ({ ...p, title: titleFromFile(x.name) })) }
@@ -160,15 +163,15 @@ function DocForm({ doc, cats, defCat, nextNo, onClose, onSave }: { doc: DocItem 
         {doc?.file && !file && <span className="small muted">ไฟล์ปัจจุบัน: {doc.file.name}</span>}</div>
       <div className="field"><label htmlFor="df-title">ชื่อเอกสาร</label><input id="df-title" className="input" maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
       <div className="field"><label htmlFor="df-cat">หมวด</label>
-        <select id="df-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+        <select id="df-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value, ...(noTouched ? {} : { no: nextFor(e.target.value) }) })}>
           <option value="">{NO_CATEGORY}</option>
           {[...new Set([...cats, f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
         </select><span className="small muted">เพิ่มหมวดใหม่ได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง</span></div>
       <div className="row" style={{ gap: 8 }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
-        <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">เลขที่ (ถ้ามี)</label><input id="df-no" className="input" value={f.no} onChange={(e) => setF({ ...f, no: e.target.value })} placeholder={nextNo} /></div>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">เลขที่ (ถ้ามี)</label><input id="df-no" className="input" value={f.no} onChange={(e) => { setNoTouched(true); setF({ ...f, no: e.target.value }) }} /></div>
       </div>
-      {!f.no.trim() && <button type="button" className="mini" onClick={() => setF({ ...f, no: nextNo })} style={{ marginBottom: 8 }}>ใส่เลขที่ถัดไป {nextNo}</button>}
+      <p className="small muted" style={{ margin: '0 0 8px' }}>{prefixOf(f.category) ? `เลขที่เติมตามหมวดนี้ (ตัวย่อ ${prefixOf(f.category)}) นับต่อจากฉบับล่าสุด · แก้เองได้` : 'หมวดนี้ยังไม่ได้ตั้งตัวย่อเลขที่ — ตั้งได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง'}{noTouched && !doc ? <> · <button type="button" className="mini" onClick={() => { setNoTouched(false); setF({ ...f, no: nextFor(f.category) }) }}>ใช้เลขอัตโนมัติ</button></> : null}</p>
       <div className="field"><label htmlFor="df-acc">ระดับ</label><select id="df-acc" className="input" value={f.access} onChange={(e) => setF({ ...f, access: e.target.value as DocAccess })}>{ACCESS_LEVELS.map((a) => <option key={a}>{a}</option>)}</select>
         <span className="small muted">ทั่วไป = ทุกคนเห็น · ภายใน = แอดมินและผู้ทำงานเลขา · ลับ = แอดมินเท่านั้น</span></div>
       <div className="field"><label htmlFor="df-note">หมายเหตุ/คำค้น (ไม่บังคับ)</label><textarea id="df-note" className="input" rows={2} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="เช่น เชิญวิทยากร · วาระที่ 1–3" /></div>
@@ -180,10 +183,22 @@ function DocForm({ doc, cats, defCat, nextNo, onClose, onSave }: { doc: DocItem 
 
 function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cats: { name: string; n: number }[]; docs: DocItem[]; putDocs: (xs: DocItem[]) => boolean; catStore: ReturnType<typeof useDocCategories>; onClose: () => void; onRenamed: (a: string, b: string) => void }) {
   const [name, setName] = useState('')
+  const [prefix, setPrefix] = useState('')
   const [msg, setMsg] = useState('')
   const names = new Set(cats.map((c) => c.name))
-  const ensure = (n: string) => { if (!catStore.list.some((c) => c.name === n)) catStore.put([{ id: newId('dcat'), updated: 0, name: n }]) }
-  const add = () => { const n = name.trim(); if (!n) return; if (names.has(n) || n === NO_CATEGORY) return setMsg('มีหมวดชื่อนี้แล้ว'); ensure(n); setName(''); setMsg(`เพิ่มหมวด “${n}” แล้ว`) }
+  const ensure = (n: string, pre?: string) => { if (!catStore.list.some((c) => c.name === n)) catStore.put([{ id: newId('dcat'), updated: 0, name: n, ...(pre ? { prefix: pre } : {}) }]) }
+  const prefixOf = (n: string) => cleanPrefix(catStore.list.find((c) => c.name === n)?.prefix ?? '')
+  const prefixTaken = (pre: string, except?: string) => !!pre && catStore.list.some((c) => c.name !== except && cleanPrefix(c.prefix ?? '') === pre)
+  const add = () => { const n = name.trim(); if (!n) return; if (names.has(n) || n === NO_CATEGORY) return setMsg('มีหมวดชื่อนี้แล้ว'); const pre = cleanPrefix(prefix); if (prefixTaken(pre)) return setMsg(`ตัวย่อ “${pre}” ถูกใช้โดยหมวดอื่นแล้ว`); ensure(n, pre); setName(''); setPrefix(''); setMsg(`เพิ่มหมวด “${n}” แล้ว${pre ? ` (เลขที่ ${pre}.001, ${pre}.002 …)` : ''}`) }
+  const setPre = (c: string) => {
+    const v = prompt(`ตัวย่อเลขที่ของหมวด “${c}” (เช่น ปศอ → ปศอ.001) · เว้นว่าง = ไม่ใช้ตัวย่อ`, prefixOf(c))
+    if (v === null) return
+    const pre = cleanPrefix(v)
+    if (prefixTaken(pre, c)) return setMsg(`ตัวย่อ “${pre}” ถูกใช้โดยหมวดอื่นแล้ว`)
+    const item = catStore.list.find((x) => x.name === c)
+    if (item) catStore.put([{ ...item, prefix: pre || undefined }]); else ensure(c, pre)
+    setMsg(pre ? `ตั้งตัวย่อหมวด “${c}” เป็น ${pre} แล้ว — เอกสารใหม่จะได้เลขที่ ${pre}.001 ต่อไป (เอกสารเดิมไม่เปลี่ยนเลข)` : `เลิกใช้ตัวย่อของหมวด “${c}” แล้ว`)
+  }
   const rename = (old: string) => {
     const n = prompt('ชื่อหมวดใหม่', old)?.trim()
     if (!n || n === old) return
@@ -206,13 +221,14 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     <Sheet title="จัดการหมวดเอกสาร" onClose={onClose}>
       <div className="row" style={{ gap: 8 }}>
         <input className="input" style={{ flex: 1 }} aria-label="ชื่อหมวดใหม่" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="ชื่อหมวดใหม่ เช่น จดหมายเชิญ" />
+        <input className="input" style={{ width: '7.5rem' }} aria-label="ตัวย่อเลขที่ของหมวดใหม่" maxLength={12} value={prefix} onChange={(e) => setPrefix(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="ตัวย่อ เช่น ปศอ" />
         <button type="button" className="btn btn--gold" onClick={add}>➕ เพิ่ม</button>
       </div>
       <ul className="list" aria-label="รายชื่อหมวด" style={{ marginTop: 8 }}>
         {cats.filter((c) => c.name !== NO_CATEGORY).map((c) => (
           <li key={c.name} className="row row--between" style={{ alignItems: 'center' }}>
-            <span>📁 {c.name} <span className="small muted">({c.n})</span></span>
-            <span className="row" style={{ gap: 6 }}><button type="button" className="mini" aria-label={`แก้ชื่อหมวด ${c.name}`} onClick={() => rename(c.name)}>✏️ แก้ชื่อ</button><button type="button" className="mini" aria-label={`ลบหมวด ${c.name}`} onClick={() => del(c)}>🗑</button></span>
+            <span>📁 {c.name} <span className="small muted">({c.n}){prefixOf(c.name) ? ` · เลขที่ ${prefixOf(c.name)}.###` : ' · ยังไม่มีตัวย่อเลขที่'}</span></span>
+            <span className="row" style={{ gap: 6 }}><button type="button" className="mini" aria-label={`ตั้งตัวย่อเลขที่ หมวด ${c.name}`} onClick={() => setPre(c.name)}>🔢 ตัวย่อ</button><button type="button" className="mini" aria-label={`แก้ชื่อหมวด ${c.name}`} onClick={() => rename(c.name)}>✏️ แก้ชื่อ</button><button type="button" className="mini" aria-label={`ลบหมวด ${c.name}`} onClick={() => del(c)}>🗑</button></span>
           </li>
         ))}
       </ul>

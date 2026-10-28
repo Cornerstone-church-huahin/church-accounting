@@ -23,10 +23,12 @@ await page.route('**/api.github.com/**', async (route) => {
   return route.fulfill({ status: 404, headers: cors, contentType: 'application/json', body: '{}' })
 })
 const pdf = (name, text) => ({ name, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.1\n${text}\n%%EOF`) })
+const numbers = []
 const addDoc = async (file, title, cat, date) => {
   await page.getByRole('button', { name: /เพิ่มเอกสาร/ }).click()
   await page.locator('#df-file').setInputFiles(file)
   await page.locator('#df-title').fill(title); await page.locator('#df-cat').selectOption(cat); await page.locator('#df-date').fill(date)
+  numbers.push(await page.locator('#df-no').inputValue())
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('dialog', { name: title }).waitFor({ timeout: 10000 })
   await page.getByRole('dialog').getByRole('button', { name: 'ปิด', exact: true }).click()
@@ -43,7 +45,8 @@ try {
   must(await page.getByText(/ยังไม่มีเอกสาร/).isVisible(), 'empty library')
   // จัดการหมวด: เพิ่ม → แก้ชื่อ → ลบ
   await page.getByRole('button', { name: 'จัดการหมวดเอกสาร' }).click()
-  for (const c of ['ประชุมธรรมกิจ', 'จดหมายเชิญ', 'หมวดที่จะลบ']) { await page.getByLabel('ชื่อหมวดใหม่').fill(c); await page.getByRole('button', { name: /เพิ่ม$/ }).click() }
+  for (const [c, pre] of [['ประชุมธรรมกิจ', 'ปศอ.'], ['จดหมายเชิญ', 'ชศอ'], ['หมวดที่จะลบ', '']]) { await page.getByLabel('ชื่อหมวดใหม่').fill(c); await page.getByLabel('ตัวย่อเลขที่ของหมวดใหม่').fill(pre); await page.getByRole('button', { name: /เพิ่ม$/ }).click() }
+  must(/เลขที่ ปศอ\.###/.test(await page.getByRole('list', { name: 'รายชื่อหมวด' }).innerText()) && /เลขที่ ชศอ\.###/.test(await page.getByRole('list', { name: 'รายชื่อหมวด' }).innerText()), 'prefixes shown in the manager')
   await page.getByRole('button', { name: 'แก้ชื่อหมวด หมวดที่จะลบ' }).click()
   await page.getByRole('list', { name: 'รายชื่อหมวด' }).getByText(/หมวดที่จะลบX/).waitFor()
   await page.getByRole('button', { name: 'ลบหมวด หมวดที่จะลบX' }).click()
@@ -54,6 +57,7 @@ try {
   await addDoc(pdf('v3.pdf', 'three'), 'วาระที่ 3', 'ประชุมธรรมกิจ', '2026-03-03')
   await addDoc(pdf('v2.pdf', 'two'), 'วาระที่ 2', 'ประชุมธรรมกิจ', '2026-03-02')
   await addDoc(pdf('invite.pdf', 'inv'), 'เชิญอาจารย์สมชาย', 'จดหมายเชิญ', '2026-02-01')
+  must(numbers.join('|') === 'ปศอ.001|ปศอ.002|ปศอ.003|ชศอ.001', 'numbers follow the category prefix: ' + numbers.join('|'))
   await page.locator('#dl-cat').selectOption('ประชุมธรรมกิจ')
   const names = await page.locator('.docbar b').allInnerTexts()
   must(names.join('|') === 'วาระที่ 3|วาระที่ 2|วาระที่ 1', 'newest on top, oldest at the bottom: ' + names.join('|'))

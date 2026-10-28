@@ -4,8 +4,21 @@ export const ACCESS_LEVELS: DocAccess[] = ['ทั่วไป', 'ภายใ�
 export const NO_CATEGORY = 'ไม่ระบุหมวด'
 export const MAX_DOC_BYTES = 15 * 1024 * 1024
 
-/** เลขที่เอกสารถัดไปของปี (พ.ศ.) เช่น 003/2569 — นับต่อจากเลขสูงสุดของปีนั้น */
-export function nextDocNo(docs: Pick<DocItem, 'no'>[], beYear: number): string {
+/** ตัวย่อเลขที่: ตัดจุด/ช่องว่างท้าย (พิมพ์ "ปศอ." หรือ "ปศอ" ได้เหมือนกัน) */
+export const cleanPrefix = (p: string) => p.trim().replace(/[.\s]+$/, '')
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/**
+ * เลขที่เอกสารถัดไป: มีตัวย่อ (เช่น ปศอ) → ปศอ.001, ปศอ.002 … นับต่อจากเลขสูงสุดของตัวย่อนั้นในทุกเอกสาร
+ * ไม่มีตัวย่อ → แบบเดิม เลข/ปี พ.ศ. เช่น 003/2569
+ */
+export function nextDocNo(docs: Pick<DocItem, 'no'>[], prefixOrYear: string | number): string {
+  if (typeof prefixOrYear === 'string' && cleanPrefix(prefixOrYear)) {
+    const pre = cleanPrefix(prefixOrYear), re = new RegExp(`^${esc(pre)}[.\\s-]*(\\d+)$`)
+    let max = 0
+    for (const d of docs) { const m = re.exec(d.no.trim()); if (m) max = Math.max(max, Number(m[1])) }
+    return `${pre}.${String(max + 1).padStart(3, '0')}`
+  }
+  const beYear = typeof prefixOrYear === 'number' ? prefixOrYear : 0
   let max = 0
   for (const d of docs) { const m = /^(\d+)\s*\/\s*(\d{4})$/.exec(d.no.trim()); if (m && Number(m[2]) === beYear) max = Math.max(max, Number(m[1])) }
   return `${String(max + 1).padStart(3, '0')}/${beYear}`
