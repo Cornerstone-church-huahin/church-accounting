@@ -14,6 +14,12 @@ const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/`); await page.waitForLoadState('networkidle')
   must(await page.getByRole('heading', { name: /ห้องทำงาน/ }).isVisible(), 'home is the work room')
+  // ตารางงานรวมทุกงาน (แอดมิน) อยู่บนสุด เหนือแถบเงิน
+  const calBtn = page.getByRole('button', { name: /ตารางงาน/ })
+  must(await calBtn.count() === 1 && (await calBtn.boundingBox()).y < (await page.locator('.moneystrip').boundingBox()).y, 'admin home has the all-works calendar bar above the money strip')
+  await calBtn.click(); await page.getByRole('region', { name: 'ปฏิทินงาน' }).waitFor({ timeout: 5000 })
+  must(await page.getByLabel('แสดง').count() >= 1, 'the calendar can filter by work')
+  await calBtn.click()
   const hrefs = await page.locator('.balance-tiles--strip a').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   must(JSON.stringify(hrefs) === JSON.stringify(['#/balance/own', '#/balance/fund', '#/balance/total', '#/balance/indebt', '#/balance/debt', '#/land']), 'six money tiles on top with the right links: ' + hrefs)
   const tabs = await page.locator('.hubgrid a').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
