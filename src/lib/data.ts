@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -128,6 +128,12 @@ export function useFoodPay() {
 /** คลังเอกสารงานเลขา (ไฟล์เดียว ไม่แบ่งปี) */
 export function useDocLibrary() {
   const s = useSharedStore<DocItem>({ localKey: k('doclib'), file: 'doc-library.json', label: 'คลังเอกสาร' })
+  return { ...s, list: s.items.filter((x) => !x.deleted) }
+}
+
+/** แชทห้องงาน ↔ แอดมิน (ไฟล์เดียว · ทุกห้อง) */
+export function useRoomChat() {
+  const s = useSharedStore<ChatMsg>({ localKey: k('roomchat'), file: 'room-chat.json', label: 'แชทห้องงาน' })
   return { ...s, list: s.items.filter((x) => !x.deleted) }
 }
 

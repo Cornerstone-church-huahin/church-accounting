@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { BellIcon } from './WorkBell'
-import { useAnnouncements } from '../lib/data'
+import RoomChat from './RoomChat'
+import { useAnnouncements, useRoomChat } from '../lib/data'
+import { getSeen, roomSummaries } from '../lib/roomChat'
 import { ALL_WORKS } from '../lib/announce'
 import { newId } from '../lib/money'
 import { MEETING_TABS } from '../lib/workTabs'
@@ -10,6 +12,9 @@ const when = (t: number) => new Date(t).toLocaleString('th-TH', { day: 'numeric'
 /** กระดิ่งของแอดมินที่หน้าห้องทำงาน: เขียนข่าว เลือกงานที่จะส่ง (หรือทุกงาน) → ขึ้นที่กระดิ่งของงานนั้น ๆ */
 export default function AnnounceAdmin() {
   const ann = useAnnouncements()
+  const chat = useRoomChat()
+  const [, setTick] = useState(0)
+  const [room, setRoom] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [to, setTo] = useState<number[]>([])
@@ -22,12 +27,31 @@ export default function AnnounceAdmin() {
     if (!ann.put([{ id: newId('ann'), text: text.trim(), works: to, at: Date.now(), updated: 0 }])) { setErr('ส่งไม่ได้ — สิทธิ์ของท่านไม่พอ'); return }
     setText(''); setTo([]); setErr('')
   }
+  const rooms = roomSummaries(chat.list, (n) => getSeen('admin', n))
+  const unreadAll = rooms.reduce((a, r) => a + r.unread, 0)
   const name = (n: number) => MEETING_TABS.find((t) => t.n === n)?.name ?? `งาน ${n}`
   return (
     <span className="bellwrap no-print">
-      <button type="button" className="bellbtn" aria-expanded={open} aria-label="ส่งข่าวถึงแต่ละงาน" onClick={() => setOpen(!open)}><BellIcon /></button>
+      <button type="button" className={`bellbtn${unreadAll > 0 ? ' bellbtn--new' : ''}`} aria-expanded={open} aria-label={unreadAll > 0 ? `ส่งข่าวถึงแต่ละงาน · มีข้อความจากห้องงาน ${unreadAll}` : 'ส่งข่าวถึงแต่ละงาน'} onClick={() => setOpen(!open)}><BellIcon />{unreadAll > 0 && <i className="bellbtn__n" aria-hidden="true">{unreadAll}</i>}</button>
       {open && (
         <div className="bellpanel bellpanel--admin card" role="region" aria-label="ส่งข่าวถึงแต่ละงาน">
+          {rooms.length > 0 && (
+            <section aria-label="ข้อความจากห้องงาน">
+              <b>💬 ข้อความจากห้องงาน</b>
+              <ul className="roomlist">
+                {rooms.map((r) => (
+                  <li key={r.n}>
+                    <button type="button" className={`roomlist__row${r.unread ? ' roomlist__row--new' : ''}`} aria-expanded={room === r.n} aria-label={`ห้อง ${name(r.n)}${r.unread ? ` มีข้อความใหม่ ${r.unread}` : ''}`} onClick={() => setRoom(room === r.n ? null : r.n)}>
+                      <b>{name(r.n)}</b>
+                      <span className="small muted roomlist__last">{r.last.fromAdmin ? 'แอดมิน: ' : `${r.last.by}: `}{r.last.text}</span>
+                      {r.unread > 0 && <i className="bellbtn__n roomlist__n" aria-hidden="true">{r.unread}</i>}
+                    </button>
+                    {room === r.n && <RoomChat n={r.n} side="admin" canWrite onSeen={() => setTick((x) => x + 1)} />}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <b>ส่งข่าวถึงแต่ละงาน</b>
           <div className="field"><label htmlFor="ann-text">ข้อความ</label><textarea id="ann-text" className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="เช่น ประชุมกรรมการวันอาทิตย์หน้า" /></div>
           <fieldset className="bellpanel__to"><legend className="small">ส่งถึง</legend>
