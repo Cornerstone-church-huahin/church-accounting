@@ -462,6 +462,6 @@ export interface FlowStep { id: string; t: string; hint?: string; to?: string; t
 export interface FlowTicks extends SharedItem { ticks: string[]; title?: string; icon?: string; steps?: FlowStep[]; /** ติ๊กขั้นสุดท้ายแล้วส่งต่อไปคลังเอกสาร */ toLibrary?: boolean; created?: number; /** วันที่เบื้องต้นของหนังสือ (ขั้นที่ kind = date) */ date?: string }
 
 /** หนังสือเชิญร่วมงาน (ฉบับที่กำลังทำ): ข้อมูลทุกช่องของหน้าเดียว · id = draft */
-export interface InviteLetter extends SharedItem { no: string; date: string; subject: string; to: string; /** สิ่งที่ส่งมาด้วย (ไม่บังคับ) */ attach?: string; body: string }
+export interface InviteLetter extends SharedItem { no: string; date: string; subject: string; to: string; /** สิ่งที่ส่งมาด้วย · แสดงบนหนังสือเมื่อ showAttach = true (ต้องพิมพ์ข้อความเอง) */ attach?: string; showAttach?: boolean; body: string }
 /** ค่าตั้งต้นของคริสตจักรสำหรับหนังสือเชิญ: หัวจดหมาย · ข้อความปิดท้าย/ลงนาม · ข้อมูลติดต่อท้ายกระดาษ (แก้ได้ ใช้กับทุกฉบับทันที) · id = settings */
 export interface InviteSettings extends SharedItem { thName: string; enName: string; addr: string; proceed: string; bless: string; signName: string; signRole: string; contact: string }
