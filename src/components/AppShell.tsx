@@ -104,7 +104,6 @@ export default function AppShell() {
 
         <OpenInChrome />
         {isSolo() && <p className="role-bar" role="status">🧪 โหมดทดลองคนเดียว — ข้อมูลอยู่ในเครื่องนี้ และข้ามกฎ “ต้องเป็นคนละคน” ให้ลองครบทุกขั้นตอน</p>}
-        {role === 'viewer' && ms.myName && <p className="role-bar" role="status">👁️ สิทธิ์ของท่าน: <b>ดูอย่างเดียว</b> — เห็นรายงานและงบประมาณ</p>}
         {ms.needAdmin && (
           <section className="card role-first" role="alertdialog" aria-label="ตั้งแอดมินคนแรก">
             <h2>ยังไม่มีแอดมินของการใช้ร่วมกัน</h2>
