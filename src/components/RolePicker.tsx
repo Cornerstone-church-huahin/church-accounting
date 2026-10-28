@@ -3,7 +3,7 @@ import Sheet from './Sheet'
 import { normalizeRoles, ROLE_HELP, ROLE_LABEL, ROLES, rolesLabel, type Role } from '../lib/access'
 
 /** เลือกสิทธิ์ได้มากกว่า 1 อย่าง (เช่น ผู้บันทึกบัญชี + ผู้บันทึกการนมัสการ) · แอดมินรวมทุกอย่างอยู่แล้ว · ดูอย่างเดียวใช้ร่วมกับอื่นไม่ได้ */
-export default function RolePicker({ value, onChange, label, disabled, confirmText = 'ตกลง' }: { value: Role[]; onChange: (rs: Role[]) => void; label: string; disabled?: boolean; confirmText?: string }) {
+export default function RolePicker({ value, onChange, label, disabled, confirmText = 'ตกลง', only }: { only?: Role[]; value: Role[]; onChange: (rs: Role[]) => void; label: string; disabled?: boolean; confirmText?: string }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Role[]>(value)
   const start = () => { setDraft(value); setOpen(true) }
@@ -23,7 +23,7 @@ export default function RolePicker({ value, onChange, label, disabled, confirmTe
         <Sheet title={label} onClose={() => setOpen(false)}>
           <p className="pagehint" style={{ margin: 0 }}>เลือกได้มากกว่า 1 อย่าง เครื่องของคนนั้นจะเห็นเมนูและทำได้ตามทุกสิทธิ์ที่เลือก</p>
           <ul className="list">
-            {ROLES.map((r) => {
+            {(only ?? ROLES).map((r) => {
               const on = draft.includes(r)
               const off = adminOn && r !== 'admin'
               return (

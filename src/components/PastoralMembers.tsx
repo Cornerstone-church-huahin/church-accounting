@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { can, canWork } from '../lib/access'
+import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
@@ -76,7 +76,7 @@ export default function PastoralMembers() {
   const joins = useMemo(() => joinYears(sel).slice(-6), [sel])
   const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
-  if (!can(role, 'detail') && !canWork(4, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
+  if (!canRole(role, 'detail') && !canWork(4, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
   const gName = STATUS_GROUPS.find((x) => x.key === g)!.label
 
   const TONES = ['own', 'fund', 'total', 'indebt'] as const

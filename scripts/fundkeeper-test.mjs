@@ -79,14 +79,14 @@ try {
   // ตัวเลือกสิทธิ์: ติ๊กผู้ดูแลกองทุนได้แม้มีสิทธิ์อื่นอยู่ (แทนที่ทั้งหมด) และติ๊กสิทธิ์อื่นเพื่อออกจากผู้ดูแลกองทุนได้
   await page.evaluate(() => {
     const ms = JSON.parse(localStorage.getItem('acct.members.v1'))
-    ms.find((m) => m.id === 'fk1').role = 'bookkeeper'; ms.find((m) => m.id === 'fk1').roles = ['bookkeeper', 'worship', 'auditor']
+    ms.find((m) => m.id === 'fk1').role = 'worship'; ms.find((m) => m.id === 'fk1').roles = undefined
     localStorage.setItem('acct.members.v1', JSON.stringify(ms))
   })
   await page.reload(); await page.waitForTimeout(1200)
   await page.locator('#h-mem').click()
-  await page.getByRole('button', { name: /สิทธิ์ของ ผู้ดูแล/ }).click()
+  await page.getByRole('button', { name: /สิทธิ์เฉพาะทางของ ผู้ดูแล/ }).click()
   await page.getByRole('checkbox', { name: /ผู้ดูแลกองทุน/ }).check()
-  must(await page.getByRole('checkbox', { name: /ผู้ดูแลกองทุน/ }).isChecked() && await page.getByRole('checkbox', { name: /^ผู้บันทึกบัญชี/ }).isChecked() === false && await page.getByRole('checkbox', { name: /^ผู้ตรวจสอบ/ }).isChecked() === false, 'ticking ผู้ดูแลกองทุน replaces the other roles')
+  must(await page.getByRole('checkbox', { name: /ผู้ดูแลกองทุน/ }).isChecked() && await page.getByRole('checkbox', { name: /^ผู้บันทึกการนมัสการ/ }).isChecked() === false, 'ticking ผู้ดูแลกองทุน replaces the other specialist role')
   await page.getByRole('checkbox', { name: /^ผู้บันทึกการนมัสการ/ }).check()
   must(await page.getByRole('checkbox', { name: /^ผู้บันทึกการนมัสการ/ }).isChecked() && await page.getByRole('checkbox', { name: /ผู้ดูแลกองทุน/ }).isChecked() === false, 'ticking another role leaves ผู้ดูแลกองทุน')
   await page.getByRole('button', { name: 'ยกเลิก' }).click()

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { INVITE_FOR_KEY, INVITE_ROLE_KEY, ME_KEY } from '../lib/access'
+import { INVITE_FOR_KEY, INVITE_ROLE_KEY, INVITE_WORK_KEY, ME_KEY, WORK_LEVELS, type WorkLevel } from '../lib/access'
 import { isIOS, isInstalled } from '../lib/install'
 import { DEFAULT_REPO, getSync, saveSync, testSync } from '../lib/sync'
 
@@ -15,7 +15,8 @@ export default function Join() {
   const [repo] = useState(params.get('r') || DEFAULT_REPO)
   const [forName] = useState(params.get('for') ?? '')
   const [role] = useState(['bookkeeper', 'auditor', 'worship'].includes(params.get('role') ?? '') ? (params.get('role') as string) : 'viewer')
-  const [name, setName] = useState(getSync()?.name ?? '')
+  const [work] = useState<{ n: number; level: WorkLevel } | null>(() => { const n = Number(params.get('w')), lv = params.get('lv') as WorkLevel; return Number.isInteger(n) && n >= 1 && n <= 18 && WORK_LEVELS.includes(lv) ? { n, level: lv } : null })
+  const [name, setName] = useState(forName || getSync()?.name || '')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -32,6 +33,7 @@ export default function Join() {
     try {
       localStorage.setItem(INVITE_ROLE_KEY, role)
       localStorage.setItem(INVITE_FOR_KEY, forName)
+      if (work) localStorage.setItem(INVITE_WORK_KEY, JSON.stringify(work)); else localStorage.removeItem(INVITE_WORK_KEY)
       localStorage.setItem('acct.rejoin', '1')
       localStorage.removeItem(ME_KEY) // ตัวตนใหม่คำนวณจากชื่อที่ใส่ตอนเข้าร่วม
     } catch { /* ignore */ }

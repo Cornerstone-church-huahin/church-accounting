@@ -59,12 +59,12 @@ try {
   // แอดมินตั้งงานให้คนในตั้งค่า
   page = await open('ad1', 'แอดมิน')
   await page.goto(`http://localhost:${PORT}/#/settings`); await page.waitForTimeout(600)
-  if (!(await page.getByText(/งานที่รับผิดชอบในห้องทำงาน/).first().isVisible().catch(() => false))) await page.getByText('ผู้ใช้ร่วมและสิทธิ์').first().click()
+  if (!(await page.getByText(/ตำแหน่งในงาน:/).first().isVisible().catch(() => false))) await page.getByText('ผู้ใช้ร่วมและสิทธิ์').first().click()
   await page.locator('li', { hasText: 'เลขาธิการ' }).locator('summary').click()
-  const g = page.getByRole('group', { name: 'งานที่รับผิดชอบของ เลขาธิการ' })
-  must(await g.getByRole('button', { name: 'งานเลขา' }).getAttribute('aria-pressed') === 'true', 'secretary is assigned งานเลขา in settings')
-  await g.getByRole('button', { name: 'งานสตรี' }).click()
-  must(await g.getByRole('button', { name: 'งานสตรี' }).getAttribute('aria-pressed') === 'true', 'admin can add a work to a person')
+  const secSel = page.getByLabel('ตำแหน่งของ เลขาธิการ ใน งานเลขา')
+  must(await secSel.inputValue() === 'lead', 'secretary is assigned งานเลขา (ผู้ดูแลหลัก) in settings')
+  await page.getByLabel('ตำแหน่งของ เลขาธิการ ใน งานสตรี').selectOption('helper')
+  must(await page.getByLabel('ตำแหน่งของ เลขาธิการ ใน งานสตรี').inputValue() === 'helper', 'admin can add a work to a person from the same picker')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('works-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
