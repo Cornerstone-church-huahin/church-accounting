@@ -132,8 +132,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 }
 .btn svg { width: 1.2rem; height: 1.2rem; flex: none; }
 
-.topbar__logo { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; }
-.topbar__logo img { width: 2.4rem; height: 2.4rem; object-fit: contain; filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5)); }
+.topbar__logo { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; }
+.topbar__logo img { width: 2.6rem; height: 2.6rem; padding: 0.25rem; box-sizing: border-box; object-fit: contain; background: #fff; border-radius: 50%; }
 .install-steps { margin: 0.2rem 0 0; padding-left: 1.2rem; font-size: 0.92rem; }
 .install-banner { display: flex; gap: 0.6rem; align-items: center; background: var(--navy); color: var(--bar-ink); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
 .install-banner b { color: var(--gold); }
@@ -551,9 +551,9 @@ button.newcomer { all: unset; cursor: pointer; color: #1f6fff; font-weight: 700;
 /* หมายเหตุในการ์ดลงชื่อ: ตัวเล็ก ไม่เกิน 2 บรรทัด */
 .cardNote { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.72rem; line-height: 1.3; color: var(--muted, #5a6478); margin-top: 0.1rem; }
 /* ปุ่มรีเฟรชข้อมูลที่หัวแอป */
-.topbar__sync { display: inline-flex; align-items: center; gap: 0.4rem; justify-content: center; min-width: 2.6rem; height: 2.6rem; padding: 0 0.7rem 0 0.55rem; border-radius: 999px; background: transparent; color: var(--bar-ink); border: 2px solid rgba(249, 248, 245, 0.35); position: relative; cursor: pointer; flex: none; }
+.topbar__sync { display: inline-flex; align-items: center; gap: 0.4rem; justify-content: center; min-width: 2.6rem; height: 2.6rem; padding: 0 0.3rem; border-radius: 999px; background: transparent; color: var(--bar-ink); border: 0; position: relative; cursor: pointer; flex: none; }
 .topbar__sync svg { width: 1.3rem; height: 1.3rem; }
-.topbar__sync--warn::after { content: ""; position: absolute; top: 0.1rem; right: 0.1rem; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: #ff6b5e; border: 2px solid var(--bar-bg); }
+.topbar__sync--warn::after { content: ""; position: absolute; top: 0; right: 0; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: #ff6b5e; border: 2px solid var(--bar-bg); }
 .topbar__sync--spin svg { animation: syncspin 1s linear infinite; }
 @keyframes syncspin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .topbar__sync--spin svg { animation: none; } }
@@ -1106,4 +1106,4 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .roomlist__last { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roomlist__n { position: static; flex: none; }
 
-.topbar__synchint { font-size: 0.72rem; line-height: 1.1; text-align: left; white-space: nowrap; }
+.topbar__synchint { font-size: 0.8rem; line-height: 1; white-space: nowrap; }
