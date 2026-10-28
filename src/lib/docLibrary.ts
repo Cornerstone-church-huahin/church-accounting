@@ -24,6 +24,14 @@ export function nextDocNo(docs: Pick<DocItem, 'no'>[], prefixOrYear: string | nu
   return `${String(max + 1).padStart(3, '0')}/${beYear}`
 }
 
+/** เปลี่ยนตัวย่อของเลขที่เดิม: ปศอ.001 → นอสออ.001 (เลขลำดับคงเดิม) · เลขที่ที่ไม่ได้ขึ้นต้นด้วยตัวย่อเดิมคืนค่าเดิม */
+export function renumberWithPrefix(no: string, oldPre: string, newPre: string): string {
+  const o = cleanPrefix(oldPre), n = cleanPrefix(newPre)
+  if (!o || !n) return no
+  const m = new RegExp(`^${esc(o)}[.\\s-]*(\\d+)$`).exec(no.trim())
+  return m ? `${n}.${m[1]}` : no
+}
+
 const num = (no: string) => { const m = /^(\d+)/.exec(no.trim()); return m ? Number(m[1]) : Infinity }
 /** เรียงจากเก่าไปใหม่: วันที่ → เลขที่ (ตามตัวเลข) → ชื่อ */
 export function sortDocs<T extends Pick<DocItem, 'date' | 'no' | 'title'>>(docs: T[]): T[] {
