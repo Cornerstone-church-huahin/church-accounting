@@ -38,7 +38,7 @@ const dmY = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth(
 }
 await go('/')
 await must((await page.getByRole('link', { name: 'เปิดใน Chrome' }).count()) === 0, 'no in-app banner in a normal browser')
-await must(await page.getByText('โหมดทดลองคนเดียว').isVisible(), 'solo banner')
+await must((await page.getByText('โหมดทดลองคนเดียว').count()) === 0, 'no solo banner')
 await shot('01-home-empty')
 
 // ตั้งค่า: บัญชี + ประเภทถวาย
