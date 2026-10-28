@@ -2,7 +2,7 @@ import { calendarWritable } from './access'
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { AdminNote, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { VaultItem, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -188,8 +188,7 @@ export function useInviteSettings() {
   return useSharedStore<InviteSettings>({ localKey: k('invitesettings'), file: 'invite-settings.json', label: 'ค่าตั้งต้นหนังสือเชิญ', write: 'detail' })
 }
 
-/** สมุดส่วนตัวของแอดมิน (ซ่อนจากผู้ใช้อื่นในแอป · แอดมินเท่านั้นที่เขียนได้) */
+/** ไฟล์สมุดส่วนตัวของแอดมิน (เนื้อหาเข้ารหัสด้วยรหัสผ่านของแอดมิน · ดูผ่าน useAdminBook) */
 export function useAdminNotes() {
-  const s = useSharedStore<AdminNote>({ localKey: k('adminnotes'), file: 'admin-notes.json', label: 'สมุดส่วนตัวแอดมิน', write: 'settings' })
-  return { ...s, list: s.items }
+  return useSharedStore<VaultItem>({ localKey: k('adminnotes'), file: 'admin-notes.json', label: 'สมุดส่วนตัวแอดมิน', write: 'settings' })
 }

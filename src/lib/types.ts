@@ -469,3 +469,6 @@ export interface InviteSettings extends SharedItem { thName: string; enName: str
 /** สมุดส่วนตัวของแอดมินต่อหนึ่งงาน: gain = สิ่งที่แบ่งเบาได้/ประโยชน์ที่ได้ (มีน้ำหนักและสถานะ) · note = บันทึกอิสระรายวัน */
 export type GainStatus = 'todo' | 'part' | 'done'
 export interface AdminNote extends SharedItem { work: number; kind: 'gain' | 'note'; title: string; detail?: string; weight?: number; status?: GainStatus; hours?: number; date?: string }
+
+/** รายการในไฟล์สมุดแอดมิน: id = vault (salt + check ตรวจรหัส) หรือรายการที่เข้ารหัส (enc) · field ที่เหลือเป็นของรุ่นก่อนเข้ารหัส (ย้ายให้เองเมื่อตั้งรหัส) */
+export interface VaultItem extends SharedItem { enc?: string; salt?: string; check?: string; work?: number; kind?: 'gain' | 'note'; title?: string; detail?: string; weight?: number; status?: GainStatus; hours?: number; date?: string }
