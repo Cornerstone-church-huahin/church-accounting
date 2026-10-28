@@ -450,6 +450,8 @@ export interface Meeting extends SharedItem {
   /** ลงนามบนกระดาษแล้ว (ไม่ใช้ลายเซ็นในระบบ) */ paperSigned?: boolean
   /** ระดับเอกสาร: ทั่วไป · ภายใน (กรรมการ) · ลับ (แอดมินเท่านั้น) */ access?: 'ทั่วไป' | 'ภายใน' | 'ลับ'
   archived?: { at: number }
+  /** เช็คลิสต์ลำดับงานบนหน้าศูนย์ (ติ๊กเอง บอกว่าทำถึงขั้นไหน · ไม่ใช่ข้อมูลของขั้น) */
+  flow?: number[]
 }
 /** หัวจดหมาย/ท้ายจดหมายของคริสตจักร (รูปที่ผู้ดูแลอัปโหลด เก็บใน repo ข้อมูลส่วนตัว) */
 export interface Letterhead extends SharedItem { header?: { path: string }; footer?: { path: string } }
