@@ -121,6 +121,7 @@ function InviteEditor({ id }: { id: string }) {
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
   const [editNo, setEditNo] = useState(false)
   const [signSetup, setSignSetup] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [menu, setMenu] = useState<'share' | 'download' | null>(null)
   /** ส่งเข้าคลังสำเร็จ: แสดงป๊อปอัพ แล้วพาไปหน้าคลังเอกสาร (เปิดรายการที่เพิ่งส่งให้เห็น) */
   const [done, setDone] = useState<{ id: string; title: string; no: string; again: boolean } | null>(null)
@@ -181,9 +182,10 @@ function InviteEditor({ id }: { id: string }) {
       try { ok = document.execCommand('copy') } catch { ok = false }
       ta.remove()
     }
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2500) }
     setMsg(ok ? 'คัดลอกข้อความทั้งหมดแล้ว — นำไปวางในโปรแกรมอื่นได้' : 'คัดลอกไม่สำเร็จ — ลองกดค้างที่ข้อความแล้วเลือกคัดลอกเอง')
   }
-  /** 11. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ผ่านเมนูแชร์ของเครื่อง (LINE ฯลฯ) · ประธานกดลิงก์แล้วเข้าหน้านี้ทันที */
+  /** 10. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ผ่านเมนูแชร์ของเครื่อง (LINE ฯลฯ) · ประธานกดลิงก์แล้วเข้าหน้านี้ทันที */
   const notify = async () => {
     if (!ready()) return
     const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/1/invite-${id}`)
@@ -220,7 +222,7 @@ function InviteEditor({ id }: { id: string }) {
     } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
     setBusy(false)
   }
-  /** 13. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
+  /** 12. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
     if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
@@ -293,14 +295,15 @@ function InviteEditor({ id }: { id: string }) {
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn--ghost" onClick={copy}>📋 10. คัดลอกข้อความทั้งหมด</button>
-        </div>
       </section>
 
+      <div className="row no-print" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, margin: '0.5rem 0 0.2rem' }}>
+        <span><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></span>
+        <button type="button" className="mini" onClick={copy} aria-label="คัดลอกข้อความทั้งหมด">{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ'}</button>
+      </div>
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
-        <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 11. แจ้งประธานตรวจสอบ</button>
+        <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 10. แจ้งประธานตรวจสอบ</button>
         {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''}</p>}
         {l.signed && (
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
@@ -309,16 +312,16 @@ function InviteEditor({ id }: { id: string }) {
           </div>
         )}
         {/* ปุ่มลงลายเซ็น: เห็นและกดได้เฉพาะแอดมิน (ประธาน) เท่านั้น · ผู้ใช้อื่นไม่เห็นปุ่มและไม่มีข้อความเกี่ยวกับปุ่มนี้ */}
-        {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ 12. ลงลายเซ็น</button>}
+        {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ 11. ลงลายเซ็น</button>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
           </select></div>
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 13. ส่งเข้าคลังเอกสาร</button>
+        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 12. ส่งเข้าคลังเอกสาร</button>
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
-        <b className="small" style={{ marginTop: 4 }}>14. แชร์ / ดาวน์โหลดไฟล์หนังสือ</b> <span className="small muted">(ไม่จำเป็นมาก — ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง)</span>
+        <b className="small" style={{ marginTop: 4 }}>13. แชร์ / ดาวน์โหลดไฟล์หนังสือ</b> <span className="small muted">(ไม่จำเป็นมาก — ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง)</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
