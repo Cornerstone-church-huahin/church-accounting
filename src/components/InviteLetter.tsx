@@ -219,7 +219,7 @@ function InviteEditor({ id }: { id: string }) {
     } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
     setBusy(false)
   }
-  /** 14. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
+  /** 13. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
     if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
@@ -309,7 +309,15 @@ function InviteEditor({ id }: { id: string }) {
         )}
         {/* ปุ่มลงลายเซ็น: เห็นและกดได้เฉพาะแอดมิน (ประธาน) เท่านั้น · ผู้ใช้อื่นไม่เห็นปุ่มและไม่มีข้อความเกี่ยวกับปุ่มนี้ */}
         {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ 12. ลงลายเซ็น</button>}
-        <b className="small">13. แชร์ / ดาวน์โหลดไฟล์หนังสือ</b>
+        <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
+          <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
+            <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
+            <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
+            <option value="ลับ">ลับ — แอดมินคนเดียว</option>
+          </select></div>
+        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 13. ส่งเข้าคลังเอกสาร</button>
+        <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
+        <b className="small" style={{ marginTop: 4 }}>14. แชร์ / ดาวน์โหลดไฟล์หนังสือ</b> <span className="small muted">(ไม่จำเป็นมาก — ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง)</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
@@ -322,14 +330,6 @@ function InviteEditor({ id }: { id: string }) {
           </div>
         )}
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
-        <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
-          <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
-            <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
-            <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
-            <option value="ลับ">ลับ — แอดมินคนเดียว</option>
-          </select></div>
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 14. ส่งเข้าคลังเอกสาร</button>
-        <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
       </section>
       {done && (
         <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/2', { state: { openDoc: done.id } })}>
