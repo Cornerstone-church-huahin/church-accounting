@@ -460,3 +460,8 @@ export interface Letterhead extends SharedItem { header?: { path: string }; foot
 export interface FlowStep { id: string; t: string; hint?: string; to?: string; toLabel?: string; /** ช่วยพิเศษในหน้าเช็คลิสต์: number = ดึงเลขที่ถัดไปจากคลังเอกสาร · date = ตั้งวันที่เบื้องต้น */ kind?: 'number' | 'date' }
 /** ลำดับงาน (การ์ดในงานเลขา › ลำดับงาน): ชื่อ ขั้นตอน และขั้นที่ติ๊กแล้ว · แอดมิน/ผู้มีสิทธิ์เพิ่ม แก้ ลบได้ */
 export interface FlowTicks extends SharedItem { ticks: string[]; title?: string; icon?: string; steps?: FlowStep[]; /** ติ๊กขั้นสุดท้ายแล้วส่งต่อไปคลังเอกสาร */ toLibrary?: boolean; created?: number; /** วันที่เบื้องต้นของหนังสือ (ขั้นที่ kind = date) */ date?: string }
+
+/** หนังสือเชิญร่วมงาน (ฉบับที่กำลังทำ): ข้อมูลทุกช่องของหน้าเดียว · id = draft */
+export interface InviteLetter extends SharedItem { no: string; date: string; subject: string; to: string; body: string; closing: string; signName: string; signRole: string; contact: string }
+/** ชุดข้อมูลติดต่อสำเร็จรูป (ใช้ซ้ำในหนังสือเชิญครั้งหน้า) */
+export interface ContactPreset extends SharedItem { name: string; text: string }

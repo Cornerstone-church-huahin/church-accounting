@@ -8,6 +8,7 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
 import AnnualPlan from '../components/AnnualPlan'
+import InviteLetterPage from '../components/InviteLetter'
 import { FlowPage, WorkflowMenu } from '../components/WorkFlow'
 import DocLibrary from '../components/DocLibrary'
 import FoodRoster from '../components/FoodRoster'
@@ -95,7 +96,7 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
 function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; s?: number; raw?: string }) {
   const label = labelsOf(n)[k - 1]
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
-  if (n === 1 && k === 1) return raw === 'invite' || raw?.startsWith('f-') ? <FlowPage id={raw === 'invite' ? 'invite' : raw!.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
+  if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterPage /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
   return (
     <>

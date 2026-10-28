@@ -4,7 +4,7 @@ import Sheet from './Sheet'
 import { canRole, canWork } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
 import { useDocCategories, useDocLibrary } from '../lib/data'
-import { ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, renumberWithPrefix, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
+import { takePendingDoc, ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, renumberWithPrefix, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
 import { getBinary, getSync, putBinary } from '../lib/sync'
@@ -37,7 +37,7 @@ export default function DocLibrary() {
   const [openId, setOpenId] = useState<string | null>(null)
   const loc = useLocation(), navigate = useNavigate()
   /** ส่งต่อจากศูนย์จัดการประชุม (ขั้น 10): เปิดฟอร์มเพิ่มเอกสารพร้อมชื่อ/วันที่ของการประชุมให้เลย */
-  const [preset] = useState(() => (loc.state as { importMeeting?: DocPreset } | null)?.importMeeting)
+  const [preset] = useState(() => (loc.state as { importMeeting?: DocPreset } | null)?.importMeeting ?? takePendingDoc() ?? undefined)
   const [form, setForm] = useState<DocItem | 'new' | null>(preset ? 'new' : null)
   useEffect(() => { if (preset) navigate(loc.pathname, { replace: true, state: null }) }, [preset, navigate, loc.pathname])
   const [manage, setManage] = useState(false)
@@ -133,12 +133,12 @@ function DocSheet({ doc, editor, admin, onClose, onEdit, onDelete }: { doc: DocI
   )
 }
 
-export interface DocPreset { title: string; date: string; note: string }
+export interface DocPreset { title: string; date: string; note: string; no?: string; category?: string; file?: File }
 
 function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave }: { doc: DocItem | null; preset?: DocPreset; cats: string[]; defCat: string; nextFor: (c: string, exclude?: string) => string; prefixOf: (c: string) => string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
-  const [file, setFile] = useState<File | null>(null)
-  const [noTouched, setNoTouched] = useState(false)
-  const [f, setF] = useState({ title: doc?.title ?? preset?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? (doc ? '' : nextFor(defCat)), date: doc?.date ?? preset?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? preset?.note ?? '' })
+  const [file, setFile] = useState<File | null>(preset?.file ?? null)
+  const [noTouched, setNoTouched] = useState(!!preset?.no)
+  const [f, setF] = useState({ title: doc?.title ?? preset?.title ?? '', category: doc?.category ?? (preset?.category && cats.includes(preset.category) ? preset.category : defCat), no: doc?.no ?? preset?.no ?? (doc ? '' : nextFor(preset?.category && cats.includes(preset.category) ? preset.category : defCat)), date: doc?.date ?? preset?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? preset?.note ?? '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const pick = (x: File | null) => { setFile(x); if (x && !f.title.trim()) setF((p) => ({ ...p, title: titleFromFile(x.name) })) }
@@ -171,7 +171,7 @@ function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave
     <Sheet title={doc ? 'แก้ไขข้อมูลเอกสาร' : 'เพิ่มเอกสาร'} onClose={onClose}>
       <div className="field"><label htmlFor="df-file">{doc?.file ? 'เปลี่ยนไฟล์ (ไม่บังคับ)' : 'ไฟล์เอกสารสำเร็จรูป (PDF รูป Word ฯลฯ)'}</label>
         <input id="df-file" type="file" className="input" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
-        {doc?.file && !file && <span className="small muted">ไฟล์ปัจจุบัน: {doc.file.name}</span>}</div>
+        {doc?.file && !file && <span className="small muted">ไฟล์ปัจจุบัน: {doc.file.name}</span>}{file && <span className="small muted">ไฟล์ที่เลือก: {file.name} ({fmtSize(file.size)})</span>}</div>
       <div className="field"><label htmlFor="df-title">ชื่อเอกสาร</label><input id="df-title" className="input" maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
       <div className="field"><label htmlFor="df-cat">หมวด</label>
         <select id="df-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value, ...(noTouched ? {} : { no: nextFor(e.target.value, doc?.id) }) })}>
