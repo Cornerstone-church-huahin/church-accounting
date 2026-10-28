@@ -1164,3 +1164,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .il-signprev { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; padding: 0.4rem; border: 1px dashed var(--line); border-radius: 0.6rem; background: repeating-conic-gradient(#f1f1f1 0% 25%, #fff 0% 50%) 50% / 14px 14px; }
 .il-signprev img { max-height: 70px; max-width: 60%; }
 .il-bar { width: 100%; justify-content: center; }
+.il-no { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; padding: 0 0.15em; margin-right: 0.4em; border-radius: 999px; background: #e6e3da; color: #8d8a80; font-weight: 700; font-size: 0.85em; line-height: 1; vertical-align: 0.05em; transition: background 0.2s, color 0.2s; }
+.il-no::before { content: attr(data-n); }
+.il-no--ok { background: #1f8a4c; color: #fff; }

@@ -21,6 +21,10 @@ type Cfg = Omit<InviteSettings, 'id' | 'updated'>
 const BLANK: Draft = { toName: '', no: '', date: '', subject: '', to: '', attach: '', showAttach: false, body: '' }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
 const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, c.proceed, c.bless, c.signName, c.signRole])
+/** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
+function No({ n, ok }: { n: string; ok: boolean }) {
+  return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
+}
 /** ชื่อสั้นของหนังสือ (รายการ/คลังเอกสาร): หนังสือเชิญร่วมงาน + ผู้รับ */
 export const letterTitle = (x: { toName?: string }) => `หนังสือเชิญร่วมงาน${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
 /** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
@@ -251,9 +255,15 @@ function InviteEditor({ id }: { id: string }) {
     if (!window.confirm(`ใส่ข้อความตั้งต้นของ “${x.name}” ทับข้อความที่แก้ไว้ ?`)) return
     setMsg(putCfg({ ...cfg, ...Object.fromEntries(x.keys.map((k) => [k, DEFAULT_CFG[k]])) }) ? `ใส่ข้อความตั้งต้นของ “${x.name}” แล้ว` : 'ไม่มีสิทธิ์บันทึก')
   }
+  const filled = (v?: string) => !!v?.trim()
+  const okOf: Record<string, boolean> = {
+    '1': filled(l.toName), '2': filled(cfg.thName) && filled(cfg.addr), '3': filled(l.no), '4': filled(l.date), '5': filled(l.subject), '6': filled(l.to),
+    '6.1': !!l.showAttach && filled(l.attach), '7': filled(l.body), '8': filled(cfg.proceed) && filled(cfg.signName) && filled(cfg.signRole), '9': filled(cfg.contact),
+    '10': !!l.notified, '11': !!l.signed, '12': !!l.docId && lib.list.some((d) => d.id === l.docId),
+  }
   const secRow = (x: (typeof SECTIONS)[number]) => (
     <div key={x.sec} className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'nowrap' }}>
-      <span style={{ minWidth: 0 }}><b>{x.no}. {x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cfg[x.keys[0]] ?? '').split('\n')[0]}</span></span>
+      <span style={{ minWidth: 0 }}><b><No n={x.no} ok={okOf[x.no]} />{x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cfg[x.keys[0]] ?? '').split('\n')[0]}</span></span>
       <span className="row" style={{ gap: 4, flex: 'none', flexWrap: 'nowrap' }}>
         <button type="button" className="mini" aria-label={`ใส่ข้อความ ${x.name}`} title="ใส่ข้อความตั้งต้น" onClick={() => fill(x)}>➕</button>
         <button type="button" className="mini" aria-label={`แก้ข้อความ ${x.name}`} title="แก้ข้อความ" onClick={() => setEdit(x.sec)}>✏️</button>
@@ -266,10 +276,10 @@ function InviteEditor({ id }: { id: string }) {
       <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
-        <div className="field"><label htmlFor="il-tn">1. ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
+        <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
 
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
-        <div className="field"><label htmlFor="il-no">3. เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
+        <div className="field"><label htmlFor="il-no"><No n="3" ok={okOf['3']} />เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
           <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
             {editNo
               ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={() => setEditNo(false)} autoFocus />
@@ -280,10 +290,10 @@ function InviteEditor({ id }: { id: string }) {
           {dupNo && <span className="error" role="alert">เลขนี้ซ้ำกับหนังสือฉบับอื่น</span>}
         </div>
 
-        <div className="field"><label htmlFor="il-date">4. วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
-        <div className="field"><label htmlFor="il-sub">5. เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
-        <div className="field"><label htmlFor="il-to">6. เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
-        <div className="field"><label htmlFor="il-att">6.1 สิ่งที่ส่งมาด้วย</label>
+        <div className="field"><label htmlFor="il-date"><No n="4" ok={okOf['4']} />วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
+        <div className="field"><label htmlFor="il-sub"><No n="5" ok={okOf['5']} />เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
+        <div className="field"><label htmlFor="il-to"><No n="6" ok={okOf['6']} />เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
+        <div className="field"><label htmlFor="il-att"><No n="6.1" ok={okOf['6.1']} />สิ่งที่ส่งมาด้วย</label>
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <button type="button" role="switch" aria-checked={!!l.showAttach} aria-label="แสดงสิ่งที่ส่งมาด้วยบนหนังสือ" className={l.showAttach ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ showAttach: !l.showAttach })}>{l.showAttach ? '✅ แสดงบนหนังสือ' : '🚫 ไม่แสดง'}</button>
             <span className="small muted">{l.showAttach ? 'พิมพ์ข้อความด้านล่างเอง' : 'กด “แสดง” ถ้าหนังสือนี้มีสิ่งที่แนบ'}</span>
@@ -291,7 +301,7 @@ function InviteEditor({ id }: { id: string }) {
           {l.showAttach && <input id="il-att" className="input" style={{ marginTop: 6 }} value={l.attach ?? ''} onChange={(e) => set({ attach: e.target.value })} placeholder="พิมพ์สิ่งที่แนบ เช่น กำหนดการงาน" aria-invalid={!attachOf(l)} />}
           {l.showAttach && !attachOf(l) && <span className="error" role="alert">เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความ</span>}
         </div>
-        <div className="field"><label htmlFor="il-body">7. ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
+        <div className="field"><label htmlFor="il-body"><No n="7" ok={okOf['7']} />ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
@@ -303,7 +313,7 @@ function InviteEditor({ id }: { id: string }) {
       </div>
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
-        <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 10. แจ้งประธานตรวจสอบ</button>
+        <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 <No n="10" ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
         {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''}</p>}
         {l.signed && (
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
@@ -312,14 +322,14 @@ function InviteEditor({ id }: { id: string }) {
           </div>
         )}
         {/* ปุ่มลงลายเซ็น: เห็นและกดได้เฉพาะแอดมิน (ประธาน) เท่านั้น · ผู้ใช้อื่นไม่เห็นปุ่มและไม่มีข้อความเกี่ยวกับปุ่มนี้ */}
-        {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ 11. ลงลายเซ็น</button>}
+        {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n="11" ok={okOf['11']} />ลงลายเซ็น</button>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
           </select></div>
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 12. ส่งเข้าคลังเอกสาร</button>
+        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
         <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
