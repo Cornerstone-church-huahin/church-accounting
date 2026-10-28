@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { INVITE_FOR_KEY, INVITE_ROLE_KEY, ME_KEY } from '../lib/access'
+import { isIOS, isInstalled } from '../lib/install'
 import { DEFAULT_REPO, getSync, saveSync, testSync } from '../lib/sync'
 
 /**
@@ -42,6 +43,13 @@ export default function Join() {
   return (
     <>
       <div className="page-head"><h1>☁️ ขอร่วมใช้แอปบัญชี</h1></div>
+      {isIOS() && !isInstalled() && (
+        <div className="card instl-warn" role="note" aria-label="คำแนะนำสำหรับ iPhone">
+          <b>📱 iPhone: แนะนำให้ติดตั้งแอปก่อน</b>
+          <p className="small" style={{ margin: '0.3rem 0' }}>Safari กับแอปที่ติดตั้งแยกกัน ถ้าส่งคำขอตรงนี้แล้วค่อยติดตั้ง ต้องทำซ้ำในแอปอีกครั้ง — ติดตั้งก่อนแล้ววางลิงก์เชิญในแอปจะไม่ต้องทำสองรอบ</p>
+          <Link className="btn btn--gold" to="/install">📲 วิธีติดตั้ง (3 ขั้น)</Link>
+        </div>
+      )}
       <form className="card" onSubmit={(e) => { e.preventDefault(); join() }}>
         <p>พิมพ์ชื่อของท่านแล้วส่งคำขอ แอดมินจะเห็นชื่อและกดอนุมัติพร้อมกำหนดสิทธิ์ ท่านใช้แอปได้หลังอนุมัติ · ถ้าเคยใช้จากเครื่องอื่น ให้ใส่ชื่อเดิม</p>
         <div className="field">
