@@ -275,12 +275,8 @@ try {
     await fp.getByRole('group', { name: /เลือกชนิดไฟล์ที่จะดาวน์โหลด/ }).getByRole('button', { name: ext === 'pdf' ? /PDF/ : /รูปภาพ/ }).click()
     must(!!(await dlp).suggestedFilename(), `download as ${ext}`)
   }
-  // 12. ส่งเข้าคลังเอกสาร: ออโต้ — ต้องออนไลน์ (เครื่องทดสอบไม่ได้ตั้งค่า → แจ้งเตือน)
-  await fp.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).click()
-  await fp.getByText(/ใส่ชื่อในช่อง “1\. ส่งถึง”/).waitFor({ timeout: 5000 })
-  await fp.getByLabel(/^1\. ส่งถึง/).fill('นพพร')
-  await fp.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).click()
-  await fp.getByText(/ต้องเชื่อมต่อออนไลน์ก่อน/).waitFor({ timeout: 5000 })
+  // 12. ส่งเข้าคลังเอกสาร: ต้องรอประธานเซ็นก่อน
+  must(await fp.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).isDisabled() && await fp.getByText(/รอประธานเซ็นก่อน/).count() >= 1, 'sending to the library waits for the signature')
   // ส่งจริง (จำลอง GitHub) → รายการในคลังเอกสารพร้อมไฟล์
   const sp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
   sp.on('pageerror', (e) => errors.push(String(e)))
@@ -296,6 +292,12 @@ try {
   await sp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
   await sp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await sp.locator('#il-date').waitFor({ timeout: 5000 })
   await sp.getByLabel(/^5\. เรื่อง/).fill('ขอเชิญงานทดสอบส่งคลัง'); await sp.getByLabel(/^6\. เรียน/).fill('ท่านผู้ใหญ่')
+  const spPng = await sp.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 200; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 400, 200); x.strokeStyle = '#111'; x.lineWidth = 6; x.beginPath(); x.moveTo(40, 150); x.bezierCurveTo(120, 20, 200, 180, 360, 60); x.stroke(); return c.toDataURL('image/png').split(',')[1] })
+  await sp.getByRole('button', { name: /✍️ 11\. ลงลายเซ็น/ }).click()
+  await sp.locator('#sf-file').setInputFiles({ name: 'sign.png', mimeType: 'image/png', buffer: Buffer.from(spPng, 'base64') })
+  await sp.getByAltText('ตัวอย่างลายเซ็น').waitFor({ timeout: 8000 })
+  await sp.getByRole('button', { name: /ใช้ลายเซ็นนี้และลงนาม/ }).click()
+  await sp.getByText(/ลงนามแล้ว/).first().waitFor({ timeout: 5000 })
   must(await sp.getByLabel('ใครเห็นในคลังเอกสาร').inputValue() === 'ภายใน', 'default access is ภายใน')
   await sp.getByLabel('ใครเห็นในคลังเอกสาร').selectOption('ลับ')
   await sp.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).click()
@@ -397,7 +399,14 @@ try {
   await secp.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
   await secp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
   await secp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await secp.locator('#il-date').waitFor({ timeout: 8000 })
-  must(await secp.getByRole('button', { name: /✍️ 11\. ลงลายเซ็น/ }).count() === 0 && await secp.getByText(/ลงลายเซ็น/).count() === 0 && await secp.getByRole('button', { name: /📨 10\. แจ้งประธานตรวจสอบ/ }).count() === 1, 'the secretary sees no sign button or sign text, but can notify the president')
+  must(await secp.getByRole('button', { name: /✍️ 11\. ลงลายเซ็น/ }).count() === 0 && await secp.getByText(/ลงลายเซ็น/).count() === 0 && await secp.getByText(/รอประธานเซ็น/).count() >= 1 && await secp.getByRole('button', { name: /📨 10\. แจ้งประธานตรวจสอบ/ }).count() === 1 && await secp.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).isDisabled(), 'the secretary sees no sign button, only the waiting bar, can notify, and cannot send to the library yet')
+  // เลขาเปิดหนังสือที่ประธานเซ็นแล้ว: แถบเขียว "ประธานเซ็นแล้ว" + ส่งเข้าคลังได้
+  const secB = await (await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
+  await secB.addInitScript(([v]) => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'เลขาธิการ' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'sec1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }, { id: 'sec1', name: 'เลขาธิการ', role: 'bookkeeper', joined: 2, updated: 1, works: [1] }])); if (!localStorage.getItem('acct.inviteletter.v1')) localStorage.setItem('acct.inviteletter.v1', v) }, [lsLetters])
+  await secB.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+  await secB.goto(link.replace(/^https?:\/\/[^/]+\/?/, `http://localhost:${PORT}/`))
+  await secB.getByText(/ประธานเซ็นแล้ว/).first().waitFor({ timeout: 8000 })
+  must(await secB.getByText(/รอประธานเซ็น/).count() === 0 && await secB.getByRole('button', { name: /✍️/ }).count() === 0 && !(await secB.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).isDisabled()), 'after the president signs the secretary sees the green bar and can continue')
   // รายการหนังสือ: การ์ดต่อฉบับ ใหม่สุดบน · ค้นหา · ลบ · เปิดการ์ดเข้าหน้ากรอก
   const lp = await mk(390, 844)
   await lp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
