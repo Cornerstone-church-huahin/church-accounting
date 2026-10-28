@@ -338,9 +338,9 @@ function InviteEditor({ id }: { id: string }) {
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
           </select></div>
-        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
         {!l.signed && <span className="small" role="note">⏳ รอประธานเซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
+        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
         <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
