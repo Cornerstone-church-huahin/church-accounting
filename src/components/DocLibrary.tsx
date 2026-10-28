@@ -173,7 +173,7 @@ function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { do
         </select><span className="small muted">เพิ่มหมวดใหม่ได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง</span></div>
       <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">ใส่/เช็ค เลขที่เอกสาร</label><input id="df-no" className="input" value={f.no} onChange={(e) => { setNoTouched(true); setF({ ...f, no: e.target.value }) }} /></div>
-        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร (ต้องตรงกับเอกสาร)</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร/ตรงกับไฟล์</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
       </div>
       {prefixOf(f.category) ? (
         <div style={{ margin: '0 0 8px' }}>
