@@ -12,7 +12,9 @@ import type { InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
-const BLANK: Draft = { no: '', date: '', subject: '', to: '', attach: '', body: '' }
+const BLANK: Draft = { no: '', date: '', subject: '', to: '', attach: '', showAttach: false, body: '' }
+/** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
+const attachOf = (l: Draft) => (l.showAttach && l.attach?.trim() ? l.attach.trim() : '')
 /** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
 export const DEFAULT_CFG: Cfg = {
   thName: 'คริสตจักรศิลาเอก ภาค 7 สภาคริสตจักรในประเทศไทย',
@@ -39,7 +41,7 @@ export function letterText(l: Draft, c: Cfg): string {
   return [
     c.thName, c.enName, c.addr, '',
     l.no ? `ที่ ${l.no}` : '', letterDate(l.date), '',
-    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, l.attach?.trim() ? `สิ่งที่ส่งมาด้วย  ${l.attach}` : '', '', l.body, '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
+    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, attachOf(l) ? `สิ่งที่ส่งมาด้วย  ${attachOf(l)}` : '', '', l.body, '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
   ].filter((x, i, a) => !(x === '' && (a[i - 1] === '' || i === 0))).join('\n').trim()
 }
 
@@ -61,7 +63,7 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
           <div className="letter__row"><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
-          {l.attach?.trim() && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{l.attach}</span></div>}
+          {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
           <p className="letter__p">{c.proceed}</p>
         </div>
@@ -88,7 +90,7 @@ export default function InviteLetterPage() {
   const navigate = useNavigate()
   const saved = store.items.find((x) => x.id === 'draft')
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
-  const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), date: saved?.date || todayISO() }))
+  const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
   const [pick, setPick] = useState(false)
   const [edit, setEdit] = useState<Sec | null>(null)
   const [msg, setMsg] = useState('')
@@ -109,7 +111,9 @@ export default function InviteLetterPage() {
   const nextNo = nextDocNo(pool, cleanPrefix(cat?.prefix ?? '') || be(Number(todayISO().slice(0, 4))))
   const recent = sortNewestFirst(pool).filter((d) => d.no.trim()).slice(0, 6)
 
+  const ready = () => { if (l.showAttach && !attachOf(l)) { setMsg('เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความก่อน (หรือกด “ไม่แสดง”)'); return false } return true }
   const copy = async () => {
+    if (!ready()) return
     const text = letterText(l, cfg)
     let ok = false
     try { await Promise.race([navigator.clipboard.writeText(text), new Promise((_, no) => setTimeout(no, 1500))]); ok = true } catch { /* ลองวิธีสำรอง */ }
@@ -121,10 +125,10 @@ export default function InviteLetterPage() {
     }
     setMsg(ok ? 'คัดลอกข้อความทั้งหมดแล้ว — นำไปวางในโปรแกรมอื่นได้' : 'คัดลอกไม่สำเร็จ — ลองกดค้างที่ข้อความแล้วเลือกคัดลอกเอง')
   }
-  const pdf = async () => { if (ref.current) await downloadSheetPdf([ref.current], FILENAME, 'full') }
+  const pdf = async () => { if (ready() && ref.current) await downloadSheetPdf([ref.current], FILENAME, 'full') }
   /** เก็บเข้าคลังเอกสาร: สร้าง PDF จากหนังสือนี้ → ไปหน้าคลังพร้อมไฟล์ เลขที่ วันที่ ชื่อเรื่อง (กดบันทึกได้ทันที) */
   const toLibrary = async () => {
-    if (!ref.current) return
+    if (!ready() || !ref.current) return
     setBusy(true); setMsg('')
     try {
       const doc = await buildPagesPdf([{ el: ref.current }])
@@ -180,7 +184,14 @@ export default function InviteLetterPage() {
         <div className="field"><label htmlFor="il-date">3. วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
         <div className="field"><label htmlFor="il-sub">4. เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
         <div className="field"><label htmlFor="il-to">5. เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
-        <div className="field"><label htmlFor="il-att">สิ่งที่ส่งมาด้วย (ถ้ามี)</label><input id="il-att" className="input" value={l.attach ?? ''} onChange={(e) => set({ attach: e.target.value })} placeholder="เช่น กำหนดการงาน" /></div>
+        <div className="field"><label htmlFor="il-att">5.1 สิ่งที่ส่งมาด้วย</label>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" role="switch" aria-checked={!!l.showAttach} aria-label="แสดงสิ่งที่ส่งมาด้วยบนหนังสือ" className={l.showAttach ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ showAttach: !l.showAttach })}>{l.showAttach ? '✅ แสดงบนหนังสือ' : '🚫 ไม่แสดง'}</button>
+            <span className="small muted">{l.showAttach ? 'พิมพ์ข้อความด้านล่างเอง' : 'กด “แสดง” ถ้าหนังสือนี้มีสิ่งที่แนบ'}</span>
+          </div>
+          {l.showAttach && <input id="il-att" className="input" style={{ marginTop: 6 }} value={l.attach ?? ''} onChange={(e) => set({ attach: e.target.value })} placeholder="พิมพ์สิ่งที่แนบ เช่น กำหนดการงาน" aria-invalid={!attachOf(l)} />}
+          {l.showAttach && !attachOf(l) && <span className="error" role="alert">เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความ</span>}
+        </div>
         <div className="field"><label htmlFor="il-body">6. ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
