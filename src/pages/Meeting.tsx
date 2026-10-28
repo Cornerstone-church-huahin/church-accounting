@@ -169,7 +169,7 @@ function Hub({ home }: { home?: boolean }) {
   if (works.length === 1 && !home) return <Navigate to={`/meeting/${works[0]}`} replace />
   return (
     <div className={home ? 'hubhome' : undefined}>
-      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงาน</h1>{can(role, 'settings') && <AnnounceAdmin />}<Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
+      <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงานคริสตจักร</h1>{can(role, 'settings') && <AnnounceAdmin />}<Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
       {home && <BalanceStrip compact />}
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
       <nav className={`balance-tiles${home ? ' hubgrid' : ''}`} aria-label="โหมดประชุม แท็บ 1 ถึง 18">
