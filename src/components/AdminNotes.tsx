@@ -4,7 +4,7 @@ import Sheet from './Sheet'
 import NoAccess from './NoAccess'
 import { can } from '../lib/access'
 import { DEFAULT_WEIGHT, gainsOf, nextStatus, relief, STATUS_LABEL, STATUS_ORDER } from '../lib/adminNotes'
-import { useAdminNotes } from '../lib/data'
+import { MIN_PASS, useAdminBook } from '../lib/adminBook'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { useRole } from '../lib/members'
 import { MEETING_TABS } from '../lib/workTabs'
@@ -19,20 +19,21 @@ function Bar({ pct, label }: { pct: number; label: string }) {
 /** สมุดส่วนตัวของแอดมินต่อหนึ่งงาน: สิ่งที่แบ่งเบาให้ผู้อื่นได้ (+ แถบ %) และบันทึกอิสระ · เห็นเฉพาะแอดมิน */
 export default function AdminNotes({ n, name }: { n: number; name: string }) {
   const role = useRole()
-  const store = useAdminNotes()
+  const book = useAdminBook()
   const [form, setForm] = useState<AdminNote | 'gain' | 'note' | null>(null)
   const [msg, setMsg] = useState('')
   if (!can(role, 'settings')) return <NoAccess />
-  const gains = gainsOf(store.list, n)
+  if (book.state !== 'open') return <Gate n={n} name={name} book={book} />
+  const gains = gainsOf(book.list, n)
   const r = relief(gains)
-  const notes = store.list.filter((x) => !x.deleted && x.work === n && x.kind === 'note').sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
-  const put = (x: AdminNote) => { const ok = store.put([{ ...x, updated: Date.now() }]); setMsg(ok ? '' : 'ไม่มีสิทธิ์บันทึก'); return ok }
-  const del = (x: AdminNote) => { if (window.confirm(`ลบ “${x.title || x.detail?.slice(0, 20) || 'รายการนี้'}” ?`)) put({ ...x, deleted: true }) }
-  const overview = MEETING_TABS.map((t) => ({ t, r: relief(gainsOf(store.list, t.n)), has: gainsOf(store.list, t.n).length > 0 })).filter((x) => x.has)
+  const notes = book.list.filter((x) => !x.deleted && x.work === n && x.kind === 'note').sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
+  const put = async (x: AdminNote) => { const ok = await book.put(x); setMsg(ok ? '' : 'ไม่มีสิทธิ์บันทึก'); return ok }
+  const del = (x: AdminNote) => { if (window.confirm(`ลบ “${x.title || x.detail?.slice(0, 20) || 'รายการนี้'}” ?`)) void put({ ...x, deleted: true }) }
+  const overview = MEETING_TABS.map((t) => ({ t, r: relief(gainsOf(book.list, t.n)), has: gainsOf(book.list, t.n).length > 0 })).filter((x) => x.has)
   return (
     <>
       <div className="page-head no-print"><h1>📔 สมุดส่วนตัว · {name}</h1><Link to={`/meeting/${n}`} className="mini">‹ {name}</Link></div>
-      <p className="muted small" style={{ margin: '0 0 0.5rem' }}>🔒 เห็นเฉพาะแอดมิน (ซ่อนจากผู้ใช้อื่นในแอป) — จดว่าท่านแบ่งเบาอะไรให้ผู้อื่นได้บ้าง</p>
+      <p className="muted small" style={{ margin: '0 0 0.5rem' }}>🔒 เข้ารหัสด้วยรหัสผ่านของแอดมิน — คนอื่นอ่านไม่ได้แม้เปิดไฟล์ข้อมูลโดยตรง · จดว่าท่านแบ่งเบาอะไรให้ผู้อื่นได้บ้าง <button type="button" className="mini" onClick={book.lock}>🔒 ล็อกสมุด</button></p>
       {msg && <p className="error" role="alert">{msg}</p>}
 
       <section className="card" aria-label="สรุปที่แบ่งเบา">
@@ -46,7 +47,7 @@ export default function AdminNotes({ n, name }: { n: number; name: string }) {
         <ul className="nlist" aria-label="รายการที่แบ่งเบา">
           {gains.map((g) => (
             <li key={g.id} className="nitem">
-              <button type="button" className={`nitem__st nitem__st--${g.status ?? 'todo'}`} aria-label={`${g.title}: ${STATUS_LABEL[g.status ?? 'todo']} (กดเพื่อเปลี่ยนสถานะ)`} onClick={() => put({ ...g, status: nextStatus(g.status) })}>{MARK[g.status ?? 'todo']}</button>
+              <button type="button" className={`nitem__st nitem__st--${g.status ?? 'todo'}`} aria-label={`${g.title}: ${STATUS_LABEL[g.status ?? 'todo']} (กดเพื่อเปลี่ยนสถานะ)`} onClick={() => void put({ ...g, status: nextStatus(g.status) })}>{MARK[g.status ?? 'todo']}</button>
               <span className="nitem__t"><b>{g.title}</b>{g.detail && <small>{g.detail}</small>}<small className="muted">{STATUS_LABEL[g.status ?? 'todo']} · น้ำหนัก {g.weight ?? DEFAULT_WEIGHT}{g.hours ? ` · ${g.hours} ชม./เดือน` : ''}</small></span>
               <span className="nitem__act"><button type="button" className="mini" aria-label={`แก้ ${g.title}`} onClick={() => setForm(g)}>✏️</button><button type="button" className="mini" aria-label={`ลบ ${g.title}`} onClick={() => del(g)}>🗑️</button></span>
             </li>
@@ -79,12 +80,12 @@ export default function AdminNotes({ n, name }: { n: number; name: string }) {
           ))}
         </section>
       )}
-      {form && <NoteForm work={n} item={form} onClose={() => setForm(null)} onSave={(x) => { if (put(x)) setForm(null) }} />}
+      {form && <NoteForm work={n} item={form} onClose={() => setForm(null)} onSave={async (x) => { if (await put(x)) setForm(null) }} />}
     </>
   )
 }
 
-function NoteForm({ work, item, onClose, onSave }: { work: number; item: AdminNote | 'gain' | 'note'; onClose: () => void; onSave: (x: AdminNote) => void }) {
+function NoteForm({ work, item, onClose, onSave }: { work: number; item: AdminNote | 'gain' | 'note'; onClose: () => void; onSave: (x: AdminNote) => void | Promise<void> }) {
   const cur = typeof item === 'string' ? null : item
   const kind = cur?.kind ?? (item as 'gain' | 'note')
   const [title, setTitle] = useState(cur?.title ?? '')
@@ -121,5 +122,34 @@ function NoteForm({ work, item, onClose, onSave }: { work: number; item: AdminNo
       {msg && <p className="error" role="alert">{msg}</p>}
       <div className="row"><button type="button" className="btn btn--gold" onClick={save}>บันทึก</button><button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button></div>
     </Sheet>
+  )
+}
+
+/** หน้าก่อนเปิดสมุด: ตั้งรหัสครั้งแรก หรือใส่รหัสเพื่อปลดล็อก (ทุกเครื่องของแอดมินใช้รหัสเดียวกัน) */
+function Gate({ n, name, book }: { n: number; name: string; book: ReturnType<typeof useAdminBook> }) {
+  const [pass, setPass] = useState('')
+  const [again, setAgain] = useState('')
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  const first = book.state === 'nopass'
+  const go = async () => {
+    if (first && pass !== again) return setMsg('รหัสผ่านสองช่องไม่ตรงกัน')
+    setBusy(true); setMsg('')
+    setMsg(await (first ? book.setup(pass) : book.unlock(pass)))
+    setBusy(false)
+  }
+  return (
+    <>
+      <div className="page-head no-print"><h1>📔 สมุดส่วนตัว · {name}</h1><Link to={`/meeting/${n}`} className="mini">‹ {name}</Link></div>
+      <section className="card" aria-label={first ? 'ตั้งรหัสสมุดส่วนตัว' : 'ปลดล็อกสมุดส่วนตัว'}>
+        <b>{first ? '🔐 ตั้งรหัสผ่านของสมุดส่วนตัว (ครั้งแรก)' : '🔒 ใส่รหัสผ่านเพื่อเปิดสมุด'}</b>
+        {first && <p className="small" style={{ margin: '0.3rem 0' }}>สมุดนี้เข้ารหัสในเครื่องก่อนส่งขึ้นที่เก็บข้อมูลกลาง มีแต่แอดมินที่รู้รหัสเท่านั้นที่อ่านได้ ทุกเครื่องที่แอดมินใช้ ใช้รหัสเดียวกัน<br /><b>⚠️ ถ้าลืมรหัส กู้ข้อมูลในสมุดคืนไม่ได้ ไม่มีใครช่วยได้ — จดรหัสเก็บไว้ในที่ปลอดภัย</b></p>}
+        <div className="field"><label htmlFor="vp">รหัสผ่าน{first ? ` (ยาวอย่างน้อย ${MIN_PASS} ตัว)` : ''}</label><input id="vp" className="input" type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !first && go()} /></div>
+        {first && <div className="field"><label htmlFor="vp2">พิมพ์รหัสผ่านอีกครั้ง</label><input id="vp2" className="input" type="password" autoComplete="off" value={again} onChange={(e) => setAgain(e.target.value)} /></div>}
+        {msg && <p className="error" role="alert">{msg}</p>}
+        <button type="button" className="btn btn--gold" disabled={busy || !pass} onClick={go}>{first ? 'ตั้งรหัสและเปิดสมุด' : 'ปลดล็อก'}</button>
+        {first && <p className="small muted" style={{ margin: '0.4rem 0 0' }}>ข้อมูลที่เคยจดไว้ก่อนตั้งรหัส จะถูกเข้ารหัสให้ทันที (แต่ฉบับเก่าที่ยังไม่เข้ารหัสอาจยังค้างในประวัติของที่เก็บข้อมูล)</p>}
+      </section>
+    </>
   )
 }
