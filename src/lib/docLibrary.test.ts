@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canSeeDoc, categoriesOf, cleanPrefix, filterDocs, fileExt, fmtSize, nextDocNo, snippetOf, sortDocs, sortNewestFirst, titleFromFile } from './docLibrary'
+import { canSeeDoc, categoriesOf, cleanPrefix, renumberWithPrefix, filterDocs, fileExt, fmtSize, nextDocNo, snippetOf, sortDocs, sortNewestFirst, titleFromFile } from './docLibrary'
 import type { DocItem } from './types'
 
 const d = (id: string, title: string, category: string, no: string, date: string, extra: Partial<DocItem> = {}): DocItem => ({ id, updated: 1, title, category, no, date, access: 'ภายใน', ...extra })
@@ -18,6 +18,17 @@ describe('คลังเอกสารงานเลขา (ไฟล์ส�
     expect(nextDocNo(w, 'ภศอ')).toBe('ภศอ.001')
     expect(nextDocNo(w, '')).toBe('001/0')
     expect(cleanPrefix(' ปศอ. ')).toBe('ปศอ')
+  })
+  it('ลบฉบับล่าสุดแล้วสร้างใหม่ ได้เลขเดิมซ้ำ (เลข 3 ถูกลบ → ฉบับใหม่เป็น 3)', () => {
+    const w = [d('1', 'ก', 'c', 'ปศอ.001', '2026-01-01'), d('2', 'ข', 'c', 'ปศอ.002', '2026-01-02'), d('3', 'ค', 'c', 'ปศอ.003', '2026-01-03')]
+    expect(nextDocNo(w, 'ปศอ')).toBe('ปศอ.004')
+    expect(nextDocNo(w.slice(0, 2), 'ปศอ')).toBe('ปศอ.003')
+  })
+  it('เปลี่ยนตัวย่อ: เลขลำดับคงเดิม · เลขอื่นไม่แตะ', () => {
+    expect(renumberWithPrefix('ปศอ.002', 'ปศอ', 'นอสออ')).toBe('นอสออ.002')
+    expect(renumberWithPrefix('ชศอ.002', 'ปศอ', 'นอสออ')).toBe('ชศอ.002')
+    expect(renumberWithPrefix('001/2569', 'ปศอ', 'นอสออ')).toBe('001/2569')
+    expect(renumberWithPrefix('ปศอ.002', 'ปศอ', '')).toBe('ปศอ.002')
   })
   it('เรียงเก่า→ใหม่ และใหม่สุดอยู่บน (010 ใหม่กว่า 002)', () => {
     expect(sortDocs(docs).map((x) => x.id)).toEqual(['c', 'a', 'b'])

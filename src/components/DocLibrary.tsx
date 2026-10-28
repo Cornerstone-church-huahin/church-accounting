@@ -3,7 +3,7 @@ import Sheet from './Sheet'
 import { can, myWorks } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
 import { useDocCategories, useDocLibrary } from '../lib/data'
-import { ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
+import { ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, renumberWithPrefix, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
 import { getBinary, getSync, putBinary } from '../lib/sync'
@@ -195,8 +195,12 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     if (v === null) return
     const pre = cleanPrefix(v)
     if (prefixTaken(pre, c)) return setMsg(`ตัวย่อ “${pre}” ถูกใช้โดยหมวดอื่นแล้ว`)
+    const was = prefixOf(c)
     const item = catStore.list.find((x) => x.name === c)
     if (item) catStore.put([{ ...item, prefix: pre || undefined }]); else ensure(c, pre)
+    // เปลี่ยนตัวย่อ: ถามว่าจะเปลี่ยนเลขที่ของเอกสารเดิมตามไปด้วยไหม
+    const old = was && pre ? docs.filter((d) => d.category === c && renumberWithPrefix(d.no, was, pre) !== d.no) : []
+    if (old.length && window.confirm(`เปลี่ยนเลขที่ของเอกสารเดิมในหมวดนี้ ${old.length} ฉบับตามไปด้วยไหม?\nเช่น ${old[0].no} → ${renumberWithPrefix(old[0].no, was, pre)}\n\nตกลง = เปลี่ยนตาม · ยกเลิก = คงเลขเดิมไว้`)) { putDocs(old.map((d) => ({ ...d, no: renumberWithPrefix(d.no, was, pre) }))); setMsg(`เปลี่ยนตัวย่อเป็น ${pre} และเปลี่ยนเลขที่เอกสารเดิม ${old.length} ฉบับแล้ว`); return }
     setMsg(pre ? `ตั้งตัวย่อหมวด “${c}” เป็น ${pre} แล้ว — เอกสารใหม่จะได้เลขที่ ${pre}.001 ต่อไป (เอกสารเดิมไม่เปลี่ยนเลข)` : `เลิกใช้ตัวย่อของหมวด “${c}” แล้ว`)
   }
   const rename = (old: string) => {
