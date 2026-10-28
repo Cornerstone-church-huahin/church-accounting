@@ -229,6 +229,7 @@ function InviteEditor({ id }: { id: string }) {
   /** 12. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
+    if (!l.signed) return setMsg('รอประธานเซ็นก่อน จึงส่งเข้าคลังเอกสารได้')
     if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
     const cfgSync = getSync()
     if (!cfgSync) return setMsg('ต้องเชื่อมต่อออนไลน์ก่อน จึงส่งเข้าคลังเอกสารได้ (ไฟล์เก็บใน repo ข้อมูล)')
@@ -307,29 +308,34 @@ function InviteEditor({ id }: { id: string }) {
 
       </section>
 
-      <div className="row no-print" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, margin: '0.5rem 0 0.2rem' }}>
-        <span><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></span>
+      <div className="row no-print" style={{ margin: '0.5rem 0 0' }}>
         <button type="button" className="mini" onClick={copy} aria-label="คัดลอกข้อความทั้งหมด">{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ'}</button>
       </div>
+      <div className="no-print" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
         <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 <No n="10" ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
         {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''}</p>}
-        {l.signed && (
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-            <span role="status">✅ <b>ลงนามแล้ว</b><br /><span className="small muted">{new Date(l.signed.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} · {l.signed.by}</span></span>
-            {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
-          </div>
-        )}
-        {/* ปุ่มลงลายเซ็น: เห็นและกดได้เฉพาะแอดมิน (ประธาน) เท่านั้น · ผู้ใช้อื่นไม่เห็นปุ่มและไม่มีข้อความเกี่ยวกับปุ่มนี้ */}
-        {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n="11" ok={okOf['11']} />ลงลายเซ็น</button>}
+        {/* ขั้น 11: แอดมิน (ประธาน) เห็นปุ่มลงลายเซ็น · เลขาเห็นแถบ "รอประธานเซ็น" แล้วเปลี่ยนเป็นเขียว "ประธานเซ็นแล้ว" เมื่อประธานลงนาม (ซิงก์ข้ามเครื่อง) */}
+        {l.signed ? (
+          <>
+            <div className="il-bar il-bar--ok" role="status">✅ <No n="11" ok={okOf['11']} />{canSign ? 'ลงนามแล้ว' : 'ประธานเซ็นแล้ว'}</div>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+              <span className="small muted">{new Date(l.signed.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} · {l.signed.by}{canSign ? '' : ' — ทำขั้นตอนต่อไปได้'}</span>
+              {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
+            </div>
+          </>
+        ) : canSign
+          ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n="11" ok={okOf['11']} />ลงลายเซ็น</button>
+          : <div className="il-bar il-bar--wait" role="status">⏳ <No n="11" ok={false} />รอประธานเซ็น</div>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
           </select></div>
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
+        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
+        {!l.signed && <span className="small" role="note">⏳ รอประธานเซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
         <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
