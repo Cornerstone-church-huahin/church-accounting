@@ -51,7 +51,7 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
         <h1>{name}</h1>
         {can(role, 'settings') && <Link to={`/meeting/${n}/admin`} className="topbar__go" aria-label="สมุดส่วนตัวแอดมิน" title="สมุดส่วนตัวแอดมิน (เห็นเฉพาะแอดมิน)">📔</Link>}
         <WorkBell n={n} />
-        {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ {name}</button> : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
+        {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ {name}</button> : myWorks().length === 1 ? null : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
       </div>
       <WorkTeam n={n} name={name} />
     </>
@@ -171,7 +171,8 @@ function MeetingRoom() {
 function Hub({ home }: { home?: boolean }) {
   const role = useRole()
   const works = myWorks()
-  if (works.length === 1 && !home) return <Navigate to={`/meeting/${works[0]}`} replace />
+  // ผู้ดูแลงานเดียว: เข้าหน้าแรกแล้วเข้าห้องงานของตัวเองทันที (ไม่ผ่านหน้า "ห้องทำงานคริสตจักร" ที่เป็นของแอดมิน/หลายงาน)
+  if (works.length === 1) return <Navigate to={`/meeting/${works[0]}`} replace />
   return (
     <div className={home ? 'hubhome' : undefined}>
       <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงานคริสตจักร</h1>{can(role, 'settings') && <AnnounceAdmin />}<Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
