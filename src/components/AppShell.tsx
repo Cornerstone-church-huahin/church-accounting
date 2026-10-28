@@ -9,7 +9,8 @@ import { tasksFor } from '../lib/ledger'
 import { be, todayISO, yearOf } from '../lib/money'
 import { refreshSharedGemini } from '../lib/gemini'
 import { installFieldErrors } from '../lib/fieldErrors'
-import { SYNC_EVENT } from '../lib/sync'
+import { getSync, SYNC_EVENT } from '../lib/sync'
+import ConnectGate from './ConnectGate'
 import { initialYear, saveYear, YearContext } from '../lib/year'
 import OpenInChrome from './OpenInChrome'
 import SyncButton from './SyncButton'
@@ -31,6 +32,9 @@ const VIEW = [
   { to: '/reports', label: 'รายงาน', Icon: IconChart, end: false },
   { to: '/more', label: 'เพิ่มเติม', Icon: IconMore, end: false },
 ]
+const GATE_OPEN = ['/join', '/install', '/settings']
+/** เฉพาะบิลด์สำหรับทดสอบ/พรีวิว (VITE_ALLOW_SOLO=1) ที่เปิดใช้งานได้โดยไม่เชื่อมต่อ · บิลด์ใช้งานจริงไม่มีค่านี้ */
+const SOLO_OK = !!import.meta.env.VITE_ALLOW_SOLO || !!import.meta.env.VITE_EMBED
 const ROOTS = ['/', '/income', '/rounds', '/vouchers', '/members', '/more', '/budget', '/reports']
 
 export default function AppShell() {
@@ -42,6 +46,8 @@ export default function AppShell() {
   else if (pathname.startsWith('/meeting') || ROOTS.includes(pathname)) workCtx.current = null
   const workBack = workCtx.current !== null && !pathname.startsWith('/meeting') ? MEETING_TABS.find((t) => t.n === workCtx.current) : undefined
   const navigate = useNavigate()
+  const [, bumpSync] = useState(0)
+  useEffect(() => { const f = () => bumpSync((n) => n + 1); window.addEventListener(SYNC_EVENT, f); return () => window.removeEventListener(SYNC_EVENT, f) }, [])
   const role = useRole()
   const ms = useMembership()
   const [year, setYearState] = useState(initialYear)
@@ -78,6 +84,8 @@ export default function AppShell() {
   const years = useMemo(() => { const y = yearOf(todayISO()); return [y + 1, y, y - 1, y - 2, y - 3, y - 4] }, [])
   if (!years.includes(year)) years.push(year)
 
+  // เครื่องที่ยังไม่ได้เชื่อมต่อ (ไม่มีลิงก์เชิญ) ไม่แสดงหน้างานใดเลย: เห็นเฉพาะหน้าให้วางลิงก์เชิญ (ทั้ง Safari และแอปที่เพิ่มไว้หน้าจอโฮม)
+  if (!SOLO_OK && !getSync() && !GATE_OPEN.includes(pathname)) return <ConnectGate />
   if (role === 'worship' && pathname !== '/members' && pathname !== '/join') return <Navigate to="/members" replace />
   if (fk) {
     const fid = pathname.match(/^\/funds\/([^/]+)$/)?.[1]
@@ -104,7 +112,6 @@ export default function AppShell() {
         </header>
 
         <OpenInChrome />
-        {isSolo() && <p className="role-bar" role="status">🧪 โหมดทดลองคนเดียว — ข้อมูลอยู่ในเครื่องนี้ และข้ามกฎ “ต้องเป็นคนละคน” ให้ลองครบทุกขั้นตอน</p>}
         {ms.needAdmin && (
           <section className="card role-first" role="alertdialog" aria-label="ตั้งแอดมินคนแรก">
             <h2>ยังไม่มีแอดมินของการใช้ร่วมกัน</h2>
