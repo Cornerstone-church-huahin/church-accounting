@@ -52,8 +52,10 @@ export default function AnnualPlan() {
   }
   const save = () => {
     if (!edit) return
-    if (!title.trim()) return setFerr('ใส่รายละเอียดกิจกรรม')
-    if (!isISO(date)) return setFerr('เลือกวันที่')
+    const errs: string[] = []
+    if (!title.trim()) errs.push('ใส่รายละเอียดกิจกรรม')
+    if (!isISO(date)) errs.push('เลือกวันที่')
+    if (errs.length) return setFerr(errs.join('\n'))
     setFerr('')
     const base: CalEvent = edit === 'new' ? { id: newId('cal'), updated: 0, date, title: '', tab: 1 } : edit
     const dates: string[] = []

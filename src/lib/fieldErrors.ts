@@ -68,21 +68,31 @@ function clearMarks(alert: Element) {
 
 function apply(alert: HTMLElement) {
   clearMarks(alert)
-  const msg = (alert.textContent ?? '').trim()
-  if (!msg || alert.classList.contains('role-toast')) return
+  if (alert.classList.contains('role-toast')) return
+  // ข้อความผิดพลาดหลายข้อ (บรรทัดละข้อ) → ทำกรอบแดงทุกช่องที่ผิดพร้อมกัน
+  const msgs = (alert.textContent ?? '').split('\n').map((x) => x.trim()).filter(Boolean)
   const scope = alert.closest('[role=dialog], .sheet, form, .card, section') ?? alert.parentElement
-  if (!scope) return
+  if (!msgs.length || !scope) return
   const ctrls = [...scope.querySelectorAll<HTMLElement>(CONTROLS)].filter((c) => visible(c) && !alert.contains(c) && !c.hasAttribute('data-no-field-error'))
-  const i = pickField(msg, ctrls.map((c) => ({ label: labelOf(c), empty: isEmpty(c) })))
-  if (i < 0) return
-  const ctrl = ctrls[i]
-  ctrl.setAttribute('aria-invalid', 'true')
-  const note = document.createElement('p')
-  note.className = 'field-err'; note.setAttribute('data-field-err', ''); note.textContent = `⚠ ${msg}`
-  ctrl.after(note)
-  marks.set(alert, [{ ctrl, note }])
-  ctrl.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  if (!(ctrl instanceof HTMLInputElement && ctrl.type === 'file')) ctrl.focus({ preventScroll: true })
+  const used = new Set<HTMLElement>()
+  const made: { ctrl: HTMLElement; note: HTMLElement }[] = []
+  for (const msg of msgs) {
+    const free = ctrls.filter((c) => !used.has(c))
+    const i = pickField(msg, free.map((c) => ({ label: labelOf(c), empty: isEmpty(c) })))
+    if (i < 0) continue
+    const ctrl = free[i]
+    used.add(ctrl)
+    ctrl.setAttribute('aria-invalid', 'true')
+    const note = document.createElement('p')
+    note.className = 'field-err'; note.setAttribute('data-field-err', ''); note.textContent = `⚠ ${msg}`
+    ctrl.after(note)
+    made.push({ ctrl, note })
+  }
+  if (!made.length) return
+  marks.set(alert, made)
+  const first = made.map((m) => m.ctrl).sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)[0]
+  first.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  if (!(first instanceof HTMLInputElement && first.type === 'file')) first.focus({ preventScroll: true })
 }
 
 let installed = false

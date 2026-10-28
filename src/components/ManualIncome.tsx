@@ -35,10 +35,12 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
   const typeName = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? UNKNOWN_INCOME_LABEL : '(รายการที่ถูกลบ)')
 
   const save = () => {
-    if (!typeId) return setErr('เลือกรายการ')
-    if (acts?.length && !subId) return setErr('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
-    if (!(cash && cash > 0) && !(transfer && transfer > 0)) return setErr('ใส่จำนวนเงินสดหรือเงินโอนอย่างน้อยหนึ่งช่อง')
+    const errs: string[] = []
+    if (!typeId) errs.push('เลือกรายการ')
+    if (acts?.length && !subId) errs.push('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errs.push('เลือกวันที่')
+    if (!(cash && cash > 0) && !(transfer && transfer > 0)) errs.push('ใส่จำนวนเงินสดหรือเงินโอนอย่างน้อยหนึ่งช่อง')
+    if (errs.length) return setErr(errs.join('\n'))
     const out: IncomeEntry[] = []
     if (cash && cash > 0) out.push({ id: newId('in'), updated: 0, date, typeId, amount: cash, method: 'cash', source: 'manual', ...(subs?.length ? { subId } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(intOrNull(env) ? { count: intOrNull(env) as number } : {}) })
     if (transfer && transfer > 0) out.push({ id: newId('in'), updated: 0, date, typeId, amount: transfer, method: 'transfer', source: 'manual', ...(subs?.length ? { subId } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(intOrNull(tcount) ? { count: intOrNull(tcount) as number } : {}) })
