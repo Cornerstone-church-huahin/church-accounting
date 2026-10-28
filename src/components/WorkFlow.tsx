@@ -21,11 +21,15 @@ const INVITE_DEFAULT: FlowTicks = {
     { id: 'layout', t: 'ตรวจข้อความและจัดหน้าให้พอดีรอลงนาม', hint: 'ตรวจคำผิด ชื่อ วันที่ แล้วจัดให้พอดีหน้ากระดาษ เว้นที่ให้ประธานธรรมกิจลงนาม' },
     { id: 'contact', t: 'หมายเหตุการติดต่อด้านล่าง', hint: 'ชื่อผู้ประสานงาน เบอร์โทร ช่องทางตอบรับ ให้ครบถ้วน' },
     { id: 'sign', t: 'ประธานธรรมกิจลงนาม', hint: 'ส่งให้ประธานตรวจและลงนามตามที่จัดไว้' },
+    { id: 'pdf', t: 'สร้างไฟล์ PDF', hint: 'ทำหนังสือที่ลงนามแล้วให้เป็นไฟล์ PDF (พิมพ์เป็น PDF หรือสแกน) เพื่อส่งและเก็บ' },
     { id: 'send', t: 'ส่งหนังสือและติดตามการตอบรับ', hint: 'ส่งตามช่องทางที่ตกลง และจดว่าผู้ใหญ่ตอบรับหรือไม่' },
   ],
 }
 /** หนังสือเชิญรุ่นแรกเคยบันทึกไว้เป็นหนังสือเชิญประชุม: ถ้าขั้นตอนยังเป็นของเดิมทุกขั้น ให้เปลี่ยนเป็นลำดับใหม่ (ชื่อที่แก้เองยังคงไว้ถ้าไม่ใช่ชื่อเดิม) */
 const OLD_INVITE = ['topic', 'draft', 'agenda', 'sign', 'send', 'reply']
+/** ลำดับรุ่นที่สอง (ยังไม่มีขั้นสร้างไฟล์ PDF): แทรก PDF เป็นขั้นที่ 9 โดยคงชื่อ/ติ๊กเดิม */
+const V2_INVITE = ['head', 'number', 'date', 'subject', 'body', 'layout', 'contact', 'sign', 'send']
+const isV2Invite = (x?: FlowTicks) => !!x?.steps && x.steps.length === V2_INVITE.length && V2_INVITE.every((id, i) => x.steps![i]?.id === id)
 const isOldInvite = (x?: FlowTicks) => !!x?.steps && x.steps.length >= OLD_INVITE.length && OLD_INVITE.every((id, i) => x.steps![i]?.id === id)
 
 /** ขั้นสุดท้ายของทุกลำดับงาน (ใส่ให้เสมอ แก้/ลบไม่ได้): เก็บเอกสาร — ติ๊กแล้วไปคลังเอกสาร */
@@ -38,7 +42,9 @@ function useFlows() {
   const inv = stored.find((x) => x.id === 'invite')
   const invite: FlowTicks = isOldInvite(inv)
     ? { ...INVITE_DEFAULT, ...inv, title: ['หนังสือเชิญ', 'ทำหนังสือเชิญ'].includes(inv!.title ?? '') ? INVITE_DEFAULT.title : inv!.title, steps: INVITE_DEFAULT.steps, ticks: (inv!.ticks ?? []).filter((id) => id === 'file' || INVITE_DEFAULT.steps!.some((s) => s.id === id)) }
-    : { ...INVITE_DEFAULT, ...(inv ?? {}) }
+    : isV2Invite(inv)
+      ? { ...INVITE_DEFAULT, ...inv, steps: [...inv!.steps!.slice(0, 8), INVITE_DEFAULT.steps!.find((x) => x.id === 'pdf')!, inv!.steps![8]] }
+      : { ...INVITE_DEFAULT, ...(inv ?? {}) }
   const rows = [invite, ...stored.filter((x) => x.id !== 'invite')]
     .map((x) => ({ ...x, steps: x.steps ?? [] } as FlowTicks & { steps: FlowStep[] }))
     .filter((x) => !x.deleted)
