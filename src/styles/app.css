@@ -1160,7 +1160,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .nover { display: grid; grid-template-columns: 1fr 4.5rem 2.6rem; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 0.9rem; }
 .nover .nbar { margin: 0; }
 .il-numbadge { display: inline-block; flex: 1; font-size: 1.35rem; font-weight: 700; letter-spacing: 0.03em; padding: 0.35rem 0.8rem; border-radius: 0.8rem; background: var(--navy); color: #fff; text-align: center; }
-.il__sign { position: absolute; left: 50%; top: -16px; transform: translateX(-50%); max-height: 74px; max-width: 70%; object-fit: contain; }
+.il__sign { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%); max-height: 78px; max-width: 64%; object-fit: contain; }
 .il-signprev { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; padding: 0.4rem; border: 1px dashed var(--line); border-radius: 0.6rem; background: repeating-conic-gradient(#f1f1f1 0% 25%, #fff 0% 50%) 50% / 14px 14px; }
 .il-signprev img { max-height: 70px; max-width: 60%; }
 .il-bar { width: 100%; justify-content: center; }
