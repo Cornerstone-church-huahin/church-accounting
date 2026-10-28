@@ -89,7 +89,8 @@ export default function AppShell() {
     <YearContext.Provider value={{ year, setYear }}>
       <div className="app">
         <header className="topbar">
-          {ROOTS.includes(pathname) ? (
+          {/* โลโก้คริสตจักรซ้ายบน: หน้าหลัก ห้องงานทุกห้อง และหน้าที่ไม่มีที่ให้ย้อนกลับ (กดแล้วไปหน้าแรก) · หน้าอื่นเป็นปุ่มย้อนกลับ */}
+          {ROOTS.includes(pathname) || pathname.startsWith('/meeting') || ((window.history.state as { idx?: number } | null)?.idx ?? 0) < 1 ? (
             <Link to="/" className="topbar__logo" aria-label="หน้าแรก บัญชีคริสตจักร"><Logo /></Link>
           ) : (
             <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="ย้อนกลับ"><IconBack /></button>
