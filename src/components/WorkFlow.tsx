@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
-import { useFlowTicks } from '../lib/data'
-import { newId, todayISO } from '../lib/money'
+import { useDocCategories, useDocLibrary, useFlowTicks } from '../lib/data'
+import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
+import { be, newId, todayISO } from '../lib/money'
 import type { FlowStep, FlowTicks } from '../lib/types'
 
 /** ลำดับงานในตัว: ประชุมธรรมกิจเป็นหน้าเฉพาะ (แก้ไม่ได้) · หนังสือเชิญเป็นลำดับงานปกติที่แก้/ลบได้ */
@@ -10,16 +11,22 @@ const FIXED = [
   { key: 'meeting', to: '/meeting/1/1/meeting', icon: '🗓️', title: 'ประชุมธรรมกิจ', blurb: 'เช็คลิสต์ 10 ขั้น ตั้งแต่เตรียมประชุมจนเก็บเอกสาร', created: 0 },
 ]
 const INVITE_DEFAULT: FlowTicks = {
-  id: 'invite', updated: 0, created: 1, ticks: [], icon: '✉️', title: 'หนังสือเชิญ',
+  id: 'invite', updated: 0, created: 1, ticks: [], icon: '✉️', title: 'หนังสือเชิญร่วมงาน',
   steps: [
-    { id: 'topic', t: 'กำหนดเรื่อง วัน เวลา และสถานที่', hint: 'สร้างหรือเลือกการประชุมก่อน เพื่อให้หนังสือเชิญใช้ข้อมูลชุดเดียวกัน', to: '/meeting/1/1/meeting', toLabel: 'ไปประชุมธรรมกิจ ›' },
-    { id: 'draft', t: 'ร่างหนังสือเชิญ', hint: 'ใช้ขั้น “แจ้งประชุม” ในเช็คลิสต์การประชุม สร้างหนังสือและดูตัวอย่างหน้ากระดาษ', to: '/meeting/1/1/3', toLabel: 'ไปขั้นแจ้งประชุม ›' },
-    { id: 'agenda', t: 'แนบระเบียบวาระที่ประธานตรวจแล้ว', hint: 'ให้ประธานเห็นชอบวาระก่อนส่ง' },
-    { id: 'sign', t: 'ประธานตรวจและลงนาม', hint: 'ตรวจชื่อ วันที่ เวลา สถานที่ ให้ถูกต้อง' },
-    { id: 'send', t: 'ส่งให้ผู้รับ', hint: 'LINE อีเมล หรือเอกสารกระดาษ ตามที่ตกลง' },
-    { id: 'reply', t: 'ติดตามการตอบรับและการลา', hint: 'จดว่าใครมา ใครลา ใครยังไม่ตอบ' },
+    { id: 'head', t: 'หัวจดหมาย (ถ้ามี)', hint: 'ใช้หัว-ท้ายจดหมายของคริสตจักรที่แอดมินตั้งไว้ · ไม่มีก็ใช้หัวแบบข้อความ', to: '/meeting/1/1/meeting', toLabel: 'ตั้งค่าหัวจดหมาย ›' },
+    { id: 'number', t: 'เลขที่หนังสือและลำดับ', hint: 'ดูเลขล่าสุดและเลขถัดไปจากคลังเอกสาร เพื่อไม่ให้เลขซ้ำ', kind: 'number', to: '/meeting/1/3', toLabel: 'เปิดคลังเอกสาร ›' },
+    { id: 'date', t: 'วันที่ของหนังสือ', hint: 'ตั้งวันที่เบื้องต้นไว้ก่อนได้ แก้ภายหลังก่อนลงนามได้', kind: 'date' },
+    { id: 'subject', t: 'เรื่อง และเรียน', hint: 'ระบุเรื่อง (เช่น ขอเชิญร่วมงาน…) และชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ' },
+    { id: 'body', t: 'เนื้อหาการเชิญ', hint: 'ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ (เช่น กำหนดการ การแต่งกาย)' },
+    { id: 'layout', t: 'ตรวจข้อความและจัดหน้าให้พอดีรอลงนาม', hint: 'ตรวจคำผิด ชื่อ วันที่ แล้วจัดให้พอดีหน้ากระดาษ เว้นที่ให้ประธานธรรมกิจลงนาม' },
+    { id: 'contact', t: 'หมายเหตุการติดต่อด้านล่าง', hint: 'ชื่อผู้ประสานงาน เบอร์โทร ช่องทางตอบรับ ให้ครบถ้วน' },
+    { id: 'sign', t: 'ประธานธรรมกิจลงนาม', hint: 'ส่งให้ประธานตรวจและลงนามตามที่จัดไว้' },
+    { id: 'send', t: 'ส่งหนังสือและติดตามการตอบรับ', hint: 'ส่งตามช่องทางที่ตกลง และจดว่าผู้ใหญ่ตอบรับหรือไม่' },
   ],
 }
+/** หนังสือเชิญรุ่นแรกเคยบันทึกไว้เป็นหนังสือเชิญประชุม: ถ้าขั้นตอนยังเป็นของเดิมทุกขั้น ให้เปลี่ยนเป็นลำดับใหม่ (ชื่อที่แก้เองยังคงไว้ถ้าไม่ใช่ชื่อเดิม) */
+const OLD_INVITE = ['topic', 'draft', 'agenda', 'sign', 'send', 'reply']
+const isOldInvite = (x?: FlowTicks) => !!x?.steps && x.steps.length >= OLD_INVITE.length && OLD_INVITE.every((id, i) => x.steps![i]?.id === id)
 
 /** ขั้นสุดท้ายของทุกลำดับงาน (ใส่ให้เสมอ แก้/ลบไม่ได้): เก็บเอกสาร — ติ๊กแล้วไปคลังเอกสาร */
 const FILE_STEP: FlowStep = { id: 'file', t: 'เก็บเอกสาร', hint: 'นำเข้าไฟล์เข้าคลังเอกสาร หรือดาวน์โหลดเก็บเป็นเอกสารจริงไว้ด้วย · ติ๊กแล้วระบบพาไปคลังเอกสาร' }
@@ -28,7 +35,11 @@ const FILE_STEP: FlowStep = { id: 'file', t: 'เก็บเอกสาร', h
 function useFlows() {
   const t = useFlowTicks()
   const stored = t.all
-  const rows = [INVITE_DEFAULT, ...stored.filter((x) => x.id !== 'invite')].map((d) => (d.id === 'invite' ? { ...INVITE_DEFAULT, ...(stored.find((x) => x.id === 'invite') ?? {}) } : d))
+  const inv = stored.find((x) => x.id === 'invite')
+  const invite: FlowTicks = isOldInvite(inv)
+    ? { ...INVITE_DEFAULT, ...inv, title: ['หนังสือเชิญ', 'ทำหนังสือเชิญ'].includes(inv!.title ?? '') ? INVITE_DEFAULT.title : inv!.title, steps: INVITE_DEFAULT.steps, ticks: (inv!.ticks ?? []).filter((id) => id === 'file' || INVITE_DEFAULT.steps!.some((s) => s.id === id)) }
+    : { ...INVITE_DEFAULT, ...(inv ?? {}) }
+  const rows = [invite, ...stored.filter((x) => x.id !== 'invite')]
     .map((x) => ({ ...x, steps: x.steps ?? [] } as FlowTicks & { steps: FlowStep[] }))
     .filter((x) => !x.deleted)
   return { ...t, flows: rows }
@@ -119,16 +130,22 @@ function FlowForm({ flow, onClose, onSave }: { flow: FlowTicks | null; onClose: 
 /** หน้าเช็คลิสต์ของลำดับงานหนึ่งใบ — ติ๊กทีละข้อ (บันทึกร่วมกัน) · ถ้าตั้งไว้ ขั้นสุดท้ายส่งต่อคลังเอกสาร */
 export function FlowPage({ id }: { id: string }) {
   const f = useFlows()
+  const lib = useDocLibrary(), cats = useDocCategories()
   const navigate = useNavigate()
   const x = f.flows.find((y) => y.id === id)
   if (!x) return <><div className="page-head no-print"><h1>ลำดับงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
   const steps = [...x.steps, FILE_STEP]
   const done = steps.filter((s) => x.ticks.includes(s.id)).length
   const set = (next: string[]) => f.put([{ ...x, ticks: next, updated: Date.now() }])
+  /** เลขที่หนังสือจากคลังเอกสาร: หมวดที่ชื่อมี “เชิญ” (ถ้าไม่มีใช้ทั้งคลัง) → เลขล่าสุดและเลขถัดไป */
+  const cat = cats.list.find((c) => c.name.includes('เชิญ'))
+  const pool = cat ? lib.list.filter((d) => d.category === cat.name) : lib.list
+  const latest = [...pool].sort((a, b) => b.date.localeCompare(a.date))[0]?.no
+  const nextNo = nextDocNo(pool, cleanPrefix(cat?.prefix ?? '') || be(Number(todayISO().slice(0, 4))))
   const toggle = (s: FlowStep) => {
     const on = !x.ticks.includes(s.id)
     if (!set(on ? [...x.ticks, s.id] : x.ticks.filter((k) => k !== s.id))) return
-    if (on && s.id === 'file') navigate('/meeting/1/3', { state: { importMeeting: { title: x.title, date: todayISO(), note: `จากลำดับงาน ${x.title}` } } })
+    if (on && s.id === 'file') navigate('/meeting/1/3', { state: { importMeeting: { title: x.title, date: x.date || todayISO(), note: `จากลำดับงาน ${x.title}` } } })
   }
   return (
     <>
@@ -142,7 +159,7 @@ export function FlowPage({ id }: { id: string }) {
               <li key={s.id}>
                 <div className={`mcheck__row mcheck__row--${on ? 'done' : 'todo'}`}>
                   <button type="button" className="mcheck__box" role="checkbox" aria-checked={on} aria-label={`${i + 1}. ${s.t}`} onClick={() => toggle(s)}>{on ? '✓' : ''}</button>
-                  <span className="mcheck__t"><b>{i + 1}. {s.t}</b>{s.hint && <small>{s.hint}</small>}{s.to && <Link to={s.to} className="small">{s.toLabel}</Link>}</span>
+                  <span className="mcheck__t"><b>{i + 1}. {s.t}</b>{s.hint && <small>{s.hint}</small>}{s.to && <Link to={s.to} className="small">{s.toLabel}</Link>}{s.kind === 'number' && <small role="note">{cat ? `หมวด “${cat.name}”` : 'ทั้งคลังเอกสาร'} · เลขล่าสุด: <b>{latest || 'ยังไม่มี'}</b> · เลขถัดไป: <b>{nextNo}</b></small>}{s.kind === 'date' && <input type="date" className="input" aria-label="วันที่ของหนังสือ (เบื้องต้น)" value={x.date ?? ''} onChange={(e) => f.put([{ ...x, date: e.target.value, updated: Date.now() }])} style={{ maxWidth: '11rem', minHeight: '2.2rem' }} />}</span>
                 </div>
               </li>
             )

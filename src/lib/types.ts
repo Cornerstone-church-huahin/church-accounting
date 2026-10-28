@@ -457,6 +457,6 @@ export interface Meeting extends SharedItem {
 export interface Letterhead extends SharedItem { header?: { path: string }; footer?: { path: string } }
 
 /** ขั้นหนึ่งของลำดับงาน · id คงที่เพื่อให้ติ๊กไม่หายเมื่อแก้ชื่อ · to = ลิงก์ไปทำต่อในแอป */
-export interface FlowStep { id: string; t: string; hint?: string; to?: string; toLabel?: string }
+export interface FlowStep { id: string; t: string; hint?: string; to?: string; toLabel?: string; /** ช่วยพิเศษในหน้าเช็คลิสต์: number = ดึงเลขที่ถัดไปจากคลังเอกสาร · date = ตั้งวันที่เบื้องต้น */ kind?: 'number' | 'date' }
 /** ลำดับงาน (การ์ดในงานเลขา › ลำดับงาน): ชื่อ ขั้นตอน และขั้นที่ติ๊กแล้ว · แอดมิน/ผู้มีสิทธิ์เพิ่ม แก้ ลบได้ */
-export interface FlowTicks extends SharedItem { ticks: string[]; title?: string; icon?: string; steps?: FlowStep[]; /** ติ๊กขั้นสุดท้ายแล้วส่งต่อไปคลังเอกสาร */ toLibrary?: boolean; created?: number }
+export interface FlowTicks extends SharedItem { ticks: string[]; title?: string; icon?: string; steps?: FlowStep[]; /** ติ๊กขั้นสุดท้ายแล้วส่งต่อไปคลังเอกสาร */ toLibrary?: boolean; created?: number; /** วันที่เบื้องต้นของหนังสือ (ขั้นที่ kind = date) */ date?: string }
