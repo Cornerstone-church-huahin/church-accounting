@@ -2,7 +2,7 @@ import { calendarWritable } from './access'
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -172,4 +172,9 @@ export function useMeetings() {
 export function useLetterhead() {
   const s = useSharedStore<Letterhead>({ localKey: k('letterhead'), file: 'letterhead.json', label: 'หัวจดหมาย', write: 'settings' })
   return { ...s, value: s.items.find((x) => x.id === 'letterhead'), save: (v: Pick<Letterhead, 'header' | 'footer'>) => s.put([{ id: 'letterhead', updated: 0, ...v }]) }
+}
+
+/** เช็คลิสต์ของลำดับงานที่ไม่ผูกกับการประชุม (หนังสือเชิญ ฯลฯ) · ทุกคนที่แก้ข้อมูลรายละเอียดได้ติ๊กได้ */
+export function useFlowTicks() {
+  return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', write: 'detail' })
 }

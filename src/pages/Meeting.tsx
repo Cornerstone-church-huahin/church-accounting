@@ -8,6 +8,7 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
 import AnnualPlan from '../components/AnnualPlan'
+import { InviteFlow, WorkflowMenu } from '../components/WorkFlow'
 import DocLibrary from '../components/DocLibrary'
 import FoodRoster from '../components/FoodRoster'
 import WorkCalendar from '../components/WorkCalendar'
@@ -58,10 +59,10 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️', 'ตารางถวายอาหาร': '🍽️', 'แผนงานประจำปี': '📅', 'คลังเอกสาร': '🗄️' }
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️', 'ตารางถวายอาหาร': '🍽️', 'แผนงานประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
-  1: ['การประชุม', 'แผนงานประจำปี', 'คลังเอกสาร', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  1: ['ลำดับงาน', 'แผนงานประจำปี', 'คลังเอกสาร', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   4: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -91,10 +92,10 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
 }
 
 /** หน้าเต็มของแท็บหนึ่ง (ว่างไว้ก่อน รอพัฒนา) — ปุ่มบนขวากลับไปหน้าหลักของงาน */
-function WorkPage({ n, name, k, s }: { n: number; name: string; k: number; s?: number }) {
+function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; s?: number; raw?: string }) {
   const label = labelsOf(n)[k - 1]
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
-  if (n === 1 && k === 1) return <MeetingCenter step={s} />
+  if (n === 1 && k === 1) return raw === 'invite' ? <InviteFlow /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
   return (
     <>
@@ -157,7 +158,7 @@ function MeetingRoom() {
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><HealthButton n={2} /><CalToggle n={2} /><Members /></>
-  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} />
+  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
   return <Hub />
 }

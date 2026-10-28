@@ -453,3 +453,6 @@ export interface Meeting extends SharedItem {
 }
 /** หัวจดหมาย/ท้ายจดหมายของคริสตจักร (รูปที่ผู้ดูแลอัปโหลด เก็บใน repo ข้อมูลส่วนตัว) */
 export interface Letterhead extends SharedItem { header?: { path: string }; footer?: { path: string } }
+
+/** เช็คลิสต์ลำดับงานแบบเรียบง่าย (เช่น หนังสือเชิญ): id = ชื่อลำดับงาน · ticks = รหัสข้อที่ติ๊กแล้ว */
+export interface FlowTicks extends SharedItem { ticks: string[] }

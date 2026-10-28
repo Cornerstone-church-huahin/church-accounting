@@ -18,6 +18,9 @@ try {
   // เปิดจาก งานเลขา › การประชุม
   await page.goto(`http://localhost:${PORT}/#/meeting/1`)
   await page.getByRole('navigation', { name: 'หมวดงานเลขา', exact: true }).getByRole('link').first().click()
+  await page.getByRole('heading', { name: 'ลำดับงาน', level: 1 }).waitFor({ timeout: 8000 })
+  must(await page.getByRole('navigation', { name: 'เลือกลำดับงาน' }).getByRole('link').count() === 3, 'workflow menu has three options')
+  await page.getByRole('link', { name: /ประชุมธรรมกิจ/ }).click()
   await page.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 8000 })
   must(await page.getByText('ลำดับงานเลขานุการ ตั้งแต่เตรียมประชุมจนถึงจัดเก็บเอกสาร').isVisible(), 'subtitle')
   must(await page.getByText(/ยังไม่มีการประชุม/).first().isVisible() && await page.locator('.mcard').count() === 0, 'no meeting: hint only, no cards')
@@ -40,7 +43,7 @@ try {
   }
   // ===== ใช้งานจริง ขั้น 1–3 =====
   const wp = await mk(390, 844)
-  const U = `http://localhost:${PORT}/#/meeting/1/1`
+  const U = `http://localhost:${PORT}/#/meeting/1/1/meeting`
   await wp.goto(U)
   must(await wp.getByText(/ยังไม่มีการประชุม/).first().isVisible() && await wp.locator('.mcbar').count() === 0, 'no meeting yet: hint shown, no check bar')
   await wp.getByRole('button', { name: '＋ สร้างการประชุมใหม่' }).click()
@@ -183,7 +186,7 @@ try {
   await wp.locator('img[alt="จดหมายตัวอย่าง"]').waitFor({ timeout: 5000 })
   await wp.getByRole('button', { name: 'บันทึกหัว-ท้ายจดหมาย' }).click()
   await wp.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 5000 })
-  await wp.goto(`${U}/2`); await wp.locator('.letter__head img[alt="หัวจดหมาย"]').waitFor({ timeout: 8000 })
+  await wp.goto(`http://localhost:${PORT}/#/meeting/1/1/2`); await wp.locator('.letter__head img[alt="หัวจดหมาย"]').waitFor({ timeout: 8000 })
   must(await wp.locator('.letter__foot img[alt="ท้ายจดหมาย"]').count() >= 1, 'letterhead header+footer images are used on the documents')
   // ก่อนหน้า/ถัดไป/กลับ
   await page.goto(`http://localhost:${PORT}/#/meeting/1/1/4`); await page.getByText('คำอธิบายขั้นตอนนี้').click()
@@ -191,7 +194,7 @@ try {
   await page.getByRole('link', { name: /ขั้นตอนถัดไป/ }).click(); await page.getByRole('heading', { name: '5. เริ่มประชุม', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: /ขั้นตอนก่อนหน้า/ }).click(); await page.getByRole('heading', { name: '4. เตรียมเอกสาร / พิมพ์', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: 'กลับศูนย์จัดการประชุม', exact: true }).click(); await page.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 5000 })
-  await page.getByRole('link', { name: '‹ งานเลขา' }).click(); await page.getByRole('heading', { name: 'งานเลขา', exact: true }).waitFor({ timeout: 5000 })
+  await page.getByRole('link', { name: '‹ ลำดับงาน' }).click(); await page.getByRole('heading', { name: /ลำดับงาน/, level: 1 }).waitFor({ timeout: 5000 })
   // การ์ดต่อการประชุม + เช็คลิสต์ 10 ขั้น
   await wp.goto(U)
   const card = wp.locator('.mcard').first(); await card.waitFor({ timeout: 8000 })
@@ -202,6 +205,21 @@ try {
   must((await wp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('รายงานการประชุม'), 'hub card forwards to the library')
   await wp.goto(U); await wp.locator('.mcard').first().locator('.mcheck li').nth(2).getByRole('link').click()
   await wp.getByRole('heading', { name: '3. แจ้งประชุม', level: 1 }).waitFor({ timeout: 5000 })
+  // ลำดับงาน: หนังสือเชิญ + เก็บเอกสาร
+  const fp = await mk(390, 844)
+  await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
+  await fp.getByRole('link', { name: /หนังสือเชิญ/ }).click()
+  await fp.getByRole('heading', { name: /หนังสือเชิญ/, level: 1 }).waitFor({ timeout: 5000 })
+  must(await fp.getByRole('checkbox').count() === 7, 'invite flow has seven steps')
+  await fp.getByRole('checkbox').first().click()
+  must(await fp.getByRole('checkbox').first().getAttribute('aria-checked') === 'true', 'tick sticks')
+  await fp.reload(); await fp.getByRole('checkbox').first().waitFor({ timeout: 5000 })
+  must(await fp.getByRole('checkbox').first().getAttribute('aria-checked') === 'true', 'tick survives reload')
+  await fp.getByRole('checkbox').last().click()
+  await fp.getByRole('dialog').waitFor({ timeout: 5000 })
+  must((await fp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('หนังสือเชิญ'), 'last invite step forwards to the library')
+  await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`); await fp.getByRole('navigation', { name: 'เลือกลำดับงาน' }).waitFor({ timeout: 5000 }); await fp.getByRole('link', { name: /^เก็บเอกสาร/ }).click()
+  await fp.getByRole('heading', { name: /คลังเอกสาร/ }).first().waitFor({ timeout: 5000 })
   // ขั้นที่ไม่มี
   await page.goto(`http://localhost:${PORT}/#/meeting/1/1/11`); must(await page.getByText('ไม่พบขั้นตอนนี้').isVisible(), 'unknown step handled')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
