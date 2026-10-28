@@ -41,7 +41,7 @@ export default function DocLibrary() {
   const shown = sortNewestFirst(filterDocs(visible, q, cat))
   const open = visible.find((d) => d.id === openId)
   const prefixOf = (c: string) => cleanPrefix(catStore.list.find((x) => x.name === c)?.prefix ?? '')
-  const nextFor = (c: string) => nextDocNo(lib.list, prefixOf(c) || be(Number(todayISO().slice(0, 4))))
+  const nextFor = (c: string, exclude?: string) => nextDocNo(lib.list.filter((d) => d.id !== exclude), prefixOf(c) || be(Number(todayISO().slice(0, 4))))
   return (
     <div aria-label="คลังเอกสาร">
       <section className="card no-print" style={{ margin: '0 0 8px' }}>
@@ -128,9 +128,9 @@ function DocSheet({ doc, editor, admin, onClose, onEdit, onDelete }: { doc: DocI
   )
 }
 
-function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { doc: DocItem | null; cats: string[]; defCat: string; nextFor: (c: string) => string; prefixOf: (c: string) => string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
+function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { doc: DocItem | null; cats: string[]; defCat: string; nextFor: (c: string, exclude?: string) => string; prefixOf: (c: string) => string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
   const [file, setFile] = useState<File | null>(null)
-  const [noTouched, setNoTouched] = useState(!!doc)
+  const [noTouched, setNoTouched] = useState(false)
   const [f, setF] = useState({ title: doc?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? (doc ? '' : nextFor(defCat)), date: doc?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -163,15 +163,20 @@ function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { do
         {doc?.file && !file && <span className="small muted">ไฟล์ปัจจุบัน: {doc.file.name}</span>}</div>
       <div className="field"><label htmlFor="df-title">ชื่อเอกสาร</label><input id="df-title" className="input" maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
       <div className="field"><label htmlFor="df-cat">หมวด</label>
-        <select id="df-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value, ...(noTouched ? {} : { no: nextFor(e.target.value) }) })}>
+        <select id="df-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value, ...(noTouched ? {} : { no: nextFor(e.target.value, doc?.id) }) })}>
           <option value="">{NO_CATEGORY}</option>
           {[...new Set([...cats, f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
         </select><span className="small muted">เพิ่มหมวดใหม่ได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง</span></div>
       <div className="row" style={{ gap: 8 }}>
-        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
         <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">เลขที่ (ถ้ามี)</label><input id="df-no" className="input" value={f.no} onChange={(e) => { setNoTouched(true); setF({ ...f, no: e.target.value }) }} /></div>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
       </div>
-      <p className="small muted" style={{ margin: '0 0 8px' }}>{prefixOf(f.category) ? `เลขที่เติมตามหมวดนี้ (ตัวย่อ ${prefixOf(f.category)}) นับต่อจากฉบับล่าสุด · แก้เองได้` : 'หมวดนี้ยังไม่ได้ตั้งตัวย่อเลขที่ — ตั้งได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง'}{noTouched && !doc ? <> · <button type="button" className="mini" onClick={() => { setNoTouched(false); setF({ ...f, no: nextFor(f.category) }) }}>ใช้เลขอัตโนมัติ</button></> : null}</p>
+      {prefixOf(f.category) ? (
+        <div style={{ margin: '0 0 8px' }}>
+          {f.no.trim() !== nextFor(f.category, doc?.id) && <button type="button" className="btn btn--gold" style={{ width: '100%' }} onClick={() => { setNoTouched(false); setF({ ...f, no: nextFor(f.category, doc?.id) }) }}>🔢 ใช้เลขที่อัตโนมัติ {nextFor(f.category, doc?.id)}</button>}
+          <p className="small muted" style={{ margin: '4px 0 0' }}>เลขที่เติมตามหมวดนี้ (ตัวย่อ {prefixOf(f.category)}) นับต่อจากฉบับล่าสุด · แก้เองได้</p>
+        </div>
+      ) : <p className="small muted" style={{ margin: '0 0 8px' }}>หมวดนี้ยังไม่ได้ตั้งตัวย่อเลขที่ — ตั้งได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง</p>}
       <div className="field"><label htmlFor="df-acc">ระดับ</label><select id="df-acc" className="input" value={f.access} onChange={(e) => setF({ ...f, access: e.target.value as DocAccess })}>{ACCESS_LEVELS.map((a) => <option key={a}>{a}</option>)}</select>
         <span className="small muted">ทั่วไป = ทุกคนเห็น · ภายใน = แอดมินและผู้ทำงานเลขา · ลับ = แอดมินเท่านั้น</span></div>
       <div className="field"><label htmlFor="df-note">หมายเหตุ/คำค้น (ไม่บังคับ)</label><textarea id="df-note" className="input" rows={2} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="เช่น เชิญวิทยากร · วาระที่ 1–3" /></div>
