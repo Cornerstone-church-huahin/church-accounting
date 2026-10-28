@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canSeeDoc, categoriesOf, filterDocs, fileExt, fmtSize, nextDocNo, snippetOf, sortDocs, sortNewestFirst, titleFromFile } from './docLibrary'
+import { canSeeDoc, categoriesOf, cleanPrefix, filterDocs, fileExt, fmtSize, nextDocNo, snippetOf, sortDocs, sortNewestFirst, titleFromFile } from './docLibrary'
 import type { DocItem } from './types'
 
 const d = (id: string, title: string, category: string, no: string, date: string, extra: Partial<DocItem> = {}): DocItem => ({ id, updated: 1, title, category, no, date, access: 'ภายใน', ...extra })
@@ -9,6 +9,15 @@ describe('คลังเอกสารงานเลขา (ไฟล์ส�
   it('เลขที่ถัดไปนับต่อจากสูงสุดของปีนั้น', () => {
     expect(nextDocNo(docs, 2569)).toBe('011/2569')
     expect(nextDocNo(docs, 2570)).toBe('001/2570')
+  })
+  it('เลขที่ตามตัวย่อของหมวด: ปศอ.001 นับต่อ · แต่ละตัวย่อแยกกัน · ตัวย่อมีจุดท้ายก็ได้', () => {
+    const w = [d('1', 'ก', 'ประชุมธรรมกิจ', 'ปศอ.001', '2026-01-01'), d('2', 'ข', 'ประชุมธรรมกิจ', 'ปศอ.002', '2026-01-02'), d('3', 'ค', 'หนังสือเชิญ', 'ชศอ.001', '2026-01-03'), d('4', 'ง', 'x', '5/2569', '2026-01-04')]
+    expect(nextDocNo(w, 'ปศอ')).toBe('ปศอ.003')
+    expect(nextDocNo(w, 'ปศอ.')).toBe('ปศอ.003')
+    expect(nextDocNo(w, 'ชศอ')).toBe('ชศอ.002')
+    expect(nextDocNo(w, 'ภศอ')).toBe('ภศอ.001')
+    expect(nextDocNo(w, '')).toBe('001/0')
+    expect(cleanPrefix(' ปศอ. ')).toBe('ปศอ')
   })
   it('เรียงเก่า→ใหม่ และใหม่สุดอยู่บน (010 ใหม่กว่า 002)', () => {
     expect(sortDocs(docs).map((x) => x.id)).toEqual(['c', 'a', 'b'])
