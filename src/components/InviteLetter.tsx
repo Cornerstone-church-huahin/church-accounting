@@ -82,7 +82,7 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
         <div className="il__bottom">
           <div className="letter__sign">
             {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
-            <div style={{ height: 62, position: 'relative' }}>{signed && <img src={c.signImg} alt="ลายเซ็น" className="il__sign" />}</div>
+            <div style={{ height: 88, position: 'relative' }}>{signed && <img src={c.signImg} alt="ลายเซ็น" className="il__sign" />}</div>
             <div>{c.signName ? `(${c.signName})` : '(………………………)'}</div>
             <div>{c.signRole}</div>
           </div>
