@@ -24,7 +24,7 @@ export default function WorkTeam({ n, name }: { n: number; name: string }) {
         ? <span className="muted">ยังไม่ระบุผู้รับผิดชอบ</span>
         : <ol className="workteam__list">{people.map((p, i) => <li key={i}><span>{p.role}</span> <b>{p.name}</b>{' '}</li>)}</ol>}
       {canEdit && <button type="button" className="workteam__edit" aria-label={`${people.length ? 'แก้ไข' : 'ใส่'}ผู้รับผิดชอบ`} title={`${people.length ? 'แก้ไข' : 'ใส่'}ผู้รับผิดชอบ`} onClick={() => setEditing(true)}>✏️</button>}
-      {lv && lv !== 'admin' && <p className="small" style={{ margin: '0.2rem 0 0' }} aria-label="ตำแหน่งของคุณในงานนี้">🪪 ตำแหน่งของคุณ: <b>{WORK_LEVEL_LABEL[lv]}</b> <span className="muted">— {WORK_LEVEL_HELP[lv]}</span></p>}
+      {lv && lv !== 'admin' && <p className="small" style={{ margin: '0.2rem 0 0' }} aria-label="ตำแหน่งของคุณในงานนี้">🪪 ตำแหน่งของคุณ: <b>{WORK_LEVEL_LABEL[lv]}</b> <span className="muted workteam__help">— {WORK_LEVEL_HELP[lv]}</span></p>}
       {editing && <TeamEditor name={name} initial={people} onClose={() => setEditing(false)} onSave={(rows) => teams.save(n, rows)} />}
     </div>
   )
