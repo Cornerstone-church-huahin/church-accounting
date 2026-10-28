@@ -25,7 +25,7 @@ export const ROLE_HELP: Record<Role, string> = {
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
 /** role = สิทธิ์หลัก (สูงสุดในรายการ) · roles = สิทธิ์ทั้งหมดถ้ามีมากกว่า 1 (เครื่องรุ่นเก่าอ่านแค่ role ได้ จึงไม่พัง) */
 export interface FundAssign { id: string; /** จำกัดเฉพาะหมวดเหล่านี้ (ว่าง = ทุกหมวดของกองทุน) */ subs?: string[] }
-export interface Member extends SharedItem { /** ตำแหน่งในแต่ละห้องงาน (เลขห้อง → ระดับ) · ไม่ระบุแต่อยู่ใน works = ผู้ดูแลหลัก (ข้อมูลเดิม) */ workRoles?: Record<string, WorkLevel>; /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
+export interface Member extends SharedItem { /** ตำแหน่งที่แอดมินตั้งใจให้ตามลิงก์เชิญ (ใช้ตอนอนุมัติ) */ invitedWork?: { n: number; level: WorkLevel }; /** ตำแหน่งในแต่ละห้องงาน (เลขห้อง → ระดับ) · ไม่ระบุแต่อยู่ใน works = ผู้ดูแลหลัก (ข้อมูลเดิม) */ workRoles?: Record<string, WorkLevel>; /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'
@@ -41,6 +41,20 @@ const PERMS: Record<Role, Perm[]> = {
   auditor: ['verifyCount', 'signoffRecon', 'voucherReview', 'detail'],
   viewer: [],
 }
+/** งานเหรัญญิก = งานที่ 3: ตำแหน่งในงานนี้ให้สิทธิ์งานบัญชี (แก้ตารางเดียว) · ผู้ดูแลหลัก = ทำงานบัญชีครบ · ผู้ช่วย/ที่ปรึกษา = ดูรายละเอียดอย่างเดียว · ยืนยันยอด/รับรองใบเบิก = แอดมิน (เพิ่ม "ผู้ตรวจ" เฉพาะจุดภายหลัง) */
+export const FINANCE_WORK = 3
+export const FINANCE_PERMS: Record<WorkLevel, Perm[]> = {
+  lead: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry', 'worship'],
+  helper: ['detail'],
+  advisor: ['detail'],
+}
+const financeLevel = (): WorkLevel | null => {
+  if (!getSync()) return null
+  const me = getMe()
+  const mine = me && readAllMembers().find((m) => m.id === me.id)
+  return mine && !mine.deleted && !mine.paused && mine.status !== 'pending' ? workLevelOf(mine, FINANCE_WORK) : null
+}
+
 /** ลำดับความสูงของสิทธิ์ ใช้เลือกสิทธิ์หลักเมื่อมีหลายสิทธิ์ */
 const RANK: Role[] = ['admin', 'bookkeeper', 'auditor', 'worship', 'fundkeeper', 'viewer']
 export const rolesOf = (m: { role: Role; roles?: Role[] }): Role[] => {
@@ -62,16 +76,29 @@ export const rolesLabel = (rs: Role[]) => rs.map((r) => ROLE_LABEL[r]).join(' + 
 /** สิทธิ์ของเครื่องนี้ (หลายสิทธิ์ได้) — can() รวมสิทธิ์ทุกอันของเครื่องนี้ */
 let MY_ROLES: Role[] = []
 /** ผู้ใช้ที่มีสิทธิ์หลายอย่าง: can() ของสิทธิ์หลักรวมสิทธิ์ที่เหลือด้วย (can ใช้กับเครื่องนี้เสมอ) */
-export const can = (role: AccessRole, p: Perm) => {
+/** สิทธิ์ตามบทบาทเท่านั้น (ไม่รวมตำแหน่งในงานเหรัญญิก) — ใช้กับห้องงานอื่นที่ "ดูรายละเอียด" ไม่ได้แปลว่าแก้ได้ */
+export const canRole = (role: AccessRole, p: Perm) => {
   if (role === 'pending' || role === 'paused') return false
   if (PERMS[role].includes(p)) return true
   return MY_ROLES.length > 1 && primaryRole(MY_ROLES) === role && MY_ROLES.some((r) => PERMS[r].includes(p))
+}
+export const can = (role: AccessRole, p: Perm) => {
+  if (canRole(role, p)) return true
+  if (role === 'pending' || role === 'paused') return false
+  if (MY_ROLES.length > 0 && primaryRole(MY_ROLES) === role) {
+    // ตำแหน่งในงานเหรัญญิก (งาน 3) ให้สิทธิ์งานบัญชีตามระดับ — มาตรฐานเดียวกับทุกงาน
+    const fl = financeLevel()
+    if (fl && FINANCE_PERMS[fl].includes(p)) return true
+  }
+  return false
 }
 
 export const ME_KEY = 'acct.me.v1'
 export const MEMBERS_KEY = 'acct.members.v1'
 export const INVITE_ROLE_KEY = 'acct.inviteRole'
 export const INVITE_FOR_KEY = 'acct.inviteFor'
+/** ลิงก์เชิญต่องาน: เก็บ {n: งาน, level: ตำแหน่ง} ที่ตั้งใจให้ไว้ในเครื่องผู้รับจนกว่าจะส่งคำขอ */
+export const INVITE_WORK_KEY = 'acct.inviteWork'
 export const READONLY_EVENT = 'acct-readonly'
 export const ROLE_EVENT = 'acct-role'
 export const STORE_EVENT = 'acct-store'
@@ -170,10 +197,10 @@ export function myWorkLevel(n: number): 'admin' | WorkLevel | null {
 /** เครื่องนี้ทำ perm ในห้อง n ได้ไหม (ตามตำแหน่งในห้อง — ไม่รวมสิทธิ์ตามบทบาทบัญชี) */
 export const canWork = (n: number, p: WorkPerm): boolean => { const l = myWorkLevel(n); return l === 'admin' || (!!l && levelCan(l, p)) }
 /** ลงปฏิทินของงาน n ได้: บทบาทที่มีสิทธิ์ดูรายละเอียด หรือเป็นผู้ดูแลหลัก/ผู้ช่วยของงานนั้น (ทั่วไป n=0 = เฉพาะบทบาทที่มีสิทธิ์) */
-export const canCalendarFor = (n: number): boolean => can(myRole(), 'detail') || (n > 0 && canWork(n, 'calendar'))
+export const canCalendarFor = (n: number): boolean => canRole(myRole(), 'detail') || (n > 0 && canWork(n, 'calendar'))
 /** เขียนปฏิทินได้บ้างไหม (ไว้ตรวจก่อนบันทึก) */
 export const calendarWritable = (): boolean => {
-  if (can(myRole(), 'detail')) return true
+  if (canRole(myRole(), 'detail')) return true
   if (!myWorks().some((n) => canWork(n, 'calendar'))) { window.dispatchEvent(new Event(READONLY_EVENT)); return false }
   return true
 }

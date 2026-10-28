@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role, type WorkLevel } from './access'
+import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, INVITE_WORK_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role, type WorkLevel } from './access'
 import { useSharedStore } from './sharedStore'
 import { getSync, saveSync, SYNC_EVENT } from './sync'
 
@@ -51,7 +51,10 @@ export function useMembers() {
       const m = pending.find((x) => x.id === id)
       if (!m) return false
       const rs = normalizeRoles(Array.isArray(roles) ? roles : [roles])
-      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined }])
+      const iw = m.invitedWork
+      const works = iw ? [...new Set([...(m.works ?? []), iw.n])].sort((a, b) => a - b) : m.works
+      const workRoles = iw ? { ...(m.workRoles ?? {}), [String(iw.n)]: iw.level } : m.workRoles
+      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined, ...(iw ? { works, workRoles, invitedWork: undefined } : {}) }])
       announce()
       return true
     },
@@ -67,7 +70,9 @@ export function useMembers() {
     register: (role: Role, status: 'active' | 'pending' = 'active', invitedFor = '') => {
       const cfg = getSync()
       if (!me || !cfg) return
-      store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, ...(invitedFor ? { invitedFor } : {}), updated: 0 }])
+      let invitedWork: { n: number; level: WorkLevel } | undefined
+      try { const w = JSON.parse(localStorage.getItem(INVITE_WORK_KEY) ?? 'null'); if (w && Number.isInteger(w.n) && ['lead', 'helper', 'advisor'].includes(w.level)) invitedWork = { n: w.n, level: w.level } } catch { /* ignore */ }
+      store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, ...(invitedFor ? { invitedFor } : {}), ...(invitedWork ? { invitedWork } : {}), updated: 0 }])
       announce()
     },
     rename: (name: string) => {
@@ -104,6 +109,18 @@ export function useMembers() {
       const roles: Record<string, WorkLevel> = {}
       for (const n of next ?? []) roles[String(n)] = m.workRoles?.[String(n)] ?? (m.works?.includes(n) ? 'lead' : 'helper')
       store.put([{ ...m, works: next, workRoles: next ? roles : undefined }])
+      announce()
+      return true
+    },
+    /** แอดมินตั้งตำแหน่งของคนนั้นในทุกงานพร้อมกัน (ตัวเลือกเหมือนกันทุกงาน) · null = ไม่อยู่ในงานนั้น */
+    setPositions: (id: string, positions: Record<number, WorkLevel | null>) => {
+      if (!isAdmin) return false
+      const m = active.find((x) => x.id === id)
+      if (!m) return false
+      const roles: Record<string, WorkLevel> = {}
+      for (const [k, v] of Object.entries(positions)) if (v) roles[k] = v
+      const works = Object.keys(roles).map(Number).sort((a, b) => a - b)
+      store.put([{ ...m, works: works.length ? works : undefined, workRoles: works.length ? roles : undefined }])
       announce()
       return true
     },

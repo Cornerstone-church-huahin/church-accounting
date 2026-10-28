@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
-import { can, canWork } from '../lib/access'
+import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
 import { absence, isLive, visitStats } from '../lib/pastoral'
@@ -26,7 +26,7 @@ const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays(sun, 6
  */
 export default function PastoralVisits() {
   const role = useRole()
-  const canWrite = can(role, 'detail') || canWork(4, 'edit')
+  const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
   const { settings } = useSettings()
   const visits = useVisits()
   const team = useWorkTeams().of(4)

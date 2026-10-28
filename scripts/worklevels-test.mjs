@@ -50,7 +50,7 @@ try {
   const a = await open('me1', '/settings')
   await a.getByText(/ผู้ใช้ร่วมและสิทธิ์/).first().click()
   const sel = a.getByLabel('ตำแหน่งของ ผู้ช่วยโรงครัว ใน งานโรงครัว')
-  await a.getByText(/งานที่รับผิดชอบในห้องทำงาน: งานโรงครัว/).first().waitFor()
+  await a.getByText(/ตำแหน่งในงาน: งานโรงครัว/).first().waitFor()
   await a.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true }))
   await sel.selectOption('advisor')
   const saved = await a.evaluate(() => JSON.parse(localStorage.getItem('acct.members.v1')).find((m) => m.id === 'u2').workRoles)

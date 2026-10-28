@@ -12,8 +12,7 @@ import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
-import { WORK_LEVELS, WORK_LEVEL_HELP, WORK_LEVEL_LABEL, workLevelOf } from '../lib/access'
-import { INVITE_LEVELS, LEVEL_EXTRAS, levelOf } from '../lib/inviteLevels'
+import { WORK_LEVELS, WORK_LEVEL_HELP, WORK_LEVEL_LABEL, workLevelOf, type WorkLevel } from '../lib/access'
 import { buildInstallOnlyMessage, buildInviteMessage, installUrlOf } from '../lib/inviteMessage'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
@@ -99,14 +98,15 @@ function Members() {
   const m = useMembers()
   const fundTypes = useIncomeTypes().list.filter((t) => t.active && isFundType(t))
   const cfg = getSync()
-  const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'worship' | 'auditor' | 'viewer'>('viewer')
+  const [inviteWork, setInviteWork] = useState(0)
+  const [inviteLevel, setInviteLevel] = useState<WorkLevel>('helper')
   const [inviteFor, setInviteFor] = useState('')
-  const [want, setWant] = useState<Record<string, Role[]>>({})
+  const [want] = useState<Record<string, Role[]>>({})
   const [delId, setDelId] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   if (!cfg) return null
   const flash = (t: string) => { setMsg(t); window.setTimeout(() => setMsg(''), 3000) }
-  const link = `${location.origin}${location.pathname}?openExternalBrowser=1#/join?t=${encodeURIComponent(cfg.token)}${cfg.repo !== DEFAULT_REPO ? `&r=${encodeURIComponent(cfg.repo)}` : ''}&role=${inviteRole}${inviteFor.trim() ? `&for=${encodeURIComponent(inviteFor.trim())}` : ''}`
+  const link = `${location.origin}${location.pathname}?openExternalBrowser=1#/join?t=${encodeURIComponent(cfg.token)}${cfg.repo !== DEFAULT_REPO ? `&r=${encodeURIComponent(cfg.repo)}` : ''}&role=viewer${inviteWork ? `&w=${inviteWork}&lv=${inviteLevel}` : ''}${inviteFor.trim() ? `&for=${encodeURIComponent(inviteFor.trim())}` : ''}`
   const send = async (text: string, title: string, okText: string) => {
     try {
       if (navigator.share) await navigator.share({ title, text })
@@ -114,7 +114,7 @@ function Members() {
     } catch { /* ผู้ใช้ปิดหน้าต่างแชร์ */ }
   }
   const installUrl = installUrlOf(location.origin, location.pathname)
-  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link, level: `ระดับ ${levelOf(inviteRole).n} ${levelOf(inviteRole).title} — ${levelOf(inviteRole).can[0]}` }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
+  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link, level: inviteWork ? `${WORK_LEVEL_LABEL[inviteLevel]} ของ${MEETING_TABS.find((t) => t.n === inviteWork)?.name} — ${WORK_LEVEL_HELP[inviteLevel]}` : 'ผู้ดู (ดูข้อมูลทั่วไป ยังไม่ได้ระบุงาน)' }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
   const shareInstall = () => send(buildInstallOnlyMessage(installUrl), 'ติดตั้งแอปบัญชีคริสตจักร', 'คัดลอกลิงก์ติดตั้งแล้ว')
   return (
     <Fold id="h-mem" open={m.isAdmin && m.pending.length > 0} title={<>👤 ผู้ใช้ร่วมและสิทธิ์ {m.isAdmin && m.pending.length > 0 && <span className="badge badge--gold">รออนุมัติ {m.pending.length}</span>}</>}>
@@ -122,25 +122,30 @@ function Members() {
         <div className="stack">
           <h3>① ส่งลิงก์เชิญ</h3>
           <div className="field"><label htmlFor="inv-for">ส่งให้ใคร (ชื่อ — ไว้เทียบตอนอนุมัติ)</label><input id="inv-for" className="input" value={inviteFor} maxLength={40} onChange={(e) => setInviteFor(e.target.value)} placeholder="เช่น พี่สมชาย" /></div>
-          <div className="field" role="radiogroup" aria-label="ระดับการใช้งานที่ตั้งใจให้">
-            <label>ระดับการใช้งานที่ตั้งไว้ในลิงก์ <span className="small muted">(เปลี่ยนได้ทุกเมื่อภายหลัง)</span></label>
-            <div className="stack" style={{ gap: 6 }}>
-              {INVITE_LEVELS.map((l) => (
-                <button key={l.role} type="button" role="radio" aria-checked={inviteRole === l.role} className={`lvlcard${inviteRole === l.role ? ' lvlcard--on' : ''}`} onClick={() => setInviteRole(l.role)}>
-                  <b>{l.icon} ระดับ {l.n} · {l.title}</b>
-                  <span className="small">{l.forWho}</span>
-                  <span className="small">✓ {l.can.join(' · ')}</span>
-                  <span className="small muted">✗ {l.cannot.join(' · ')}</span>
-                </button>
-              ))}
+          <div className="field"><label htmlFor="inv-work">เชิญเข้างานไหน</label>
+            <select id="inv-work" className="input" value={inviteWork} onChange={(e) => setInviteWork(Number(e.target.value))}>
+              <option value={0}>ไม่ระบุงาน (ผู้ดูทั่วไป)</option>
+              {MEETING_TABS.map((t) => <option key={t.n} value={t.n}>{t.name}</option>)}
+            </select></div>
+          {inviteWork > 0 && (
+            <div className="field" role="radiogroup" aria-label="ตำแหน่งที่ตั้งใจให้ในงานนี้">
+              <label>ตำแหน่งในงานนี้ <span className="small muted">(เหมือนกันทุกงาน · เปลี่ยนได้ทุกเมื่อภายหลัง)</span></label>
+              <div className="stack" style={{ gap: 6 }}>
+                {WORK_LEVELS.map((l) => (
+                  <button key={l} type="button" role="radio" aria-checked={inviteLevel === l} className={`lvlcard${inviteLevel === l ? ' lvlcard--on' : ''}`} onClick={() => setInviteLevel(l)}>
+                    <b>{WORK_LEVEL_LABEL[l]}</b>
+                    <span className="small">{WORK_LEVEL_HELP[l]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <details className="lvlhelp"><summary><b>ℹ️ สรุประดับสิทธิ์ (ไว้ดูกันลืม)</b></summary>
+          )}
+          <details className="lvlhelp"><summary><b>ℹ️ สรุปตำแหน่ง (ไว้ดูกันลืม · ใช้เหมือนกันทุกงาน)</b></summary>
             <ul className="list">
-              {INVITE_LEVELS.map((l) => <li key={l.role} style={{ display: 'block' }}><b>{l.icon} ระดับ {l.n} · {l.title}</b> <span className="small muted">({ROLE_LABEL[l.role]})</span><br /><span className="small">ทำได้: {l.can.join(' · ')}</span><br /><span className="small muted">ทำไม่ได้: {l.cannot.join(' · ')}</span></li>)}
+              {WORK_LEVELS.map((l) => <li key={l} style={{ display: 'block' }}><b>{WORK_LEVEL_LABEL[l]}</b><br /><span className="small">{WORK_LEVEL_HELP[l]}</span></li>)}
             </ul>
-            <p className="small muted">{LEVEL_EXTRAS}</p>
-            <p className="small"><b>เปลี่ยนระดับของใครก็ได้ทุกเมื่อ:</b> ที่รายชื่อ “ผู้ใช้ร่วม” ด้านล่าง แตะช่องสิทธิ์ของคนนั้นแล้วเลือกใหม่ ทันทีที่บันทึกมีผลกับเขา · พักสิทธิ์หรือลบได้เช่นกัน · ถ้าให้ช่วยงานห้องใด ให้กำหนดเขาเป็นผู้รับผิดชอบงานนั้นในห้องทำงาน</p>
+            <p className="small muted">แอดมินอยู่เหนือทุกงาน · ผู้ดูแลหลักเชิญหรือตั้งตำแหน่งเองไม่ได้ ต้องให้แอดมินตั้งให้ · งานเหรัญญิก: ผู้ดูแลหลัก = ทำงานบัญชีครบ · ผู้ช่วย/ที่ปรึกษา = ดูรายละเอียดอย่างเดียว · ยืนยันยอดนับ/รับรองใบเบิก ตอนนี้เป็นของแอดมิน (เพิ่ม “ผู้ตรวจ” ได้ภายหลัง) · สิทธิ์เฉพาะทาง (นมัสการ ดูแลกองทุน แอดมิน) ตั้งที่รายชื่อผู้ใช้ร่วม</p>
+            <p className="small"><b>เปลี่ยนตำแหน่งของใครก็ได้ทุกเมื่อ:</b> ที่รายชื่อ “ผู้ใช้ร่วม” ด้านล่าง เปิด “ตำแหน่งในงาน” ของคนนั้นแล้วเลือกใหม่ ทันทีที่เลือกมีผลกับเขา · พักสิทธิ์หรือลบได้เช่นกัน</p>
           </details>
           <button type="button" className="btn btn--gold" onClick={share}>📤 ส่งชุดเชิญ (ติดตั้ง + เข้าร่วม)</button>
           <button type="button" className="btn btn--ghost" onClick={shareInstall}>📲 ส่งเฉพาะลิงก์ติดตั้ง</button>
@@ -157,7 +162,7 @@ function Members() {
                 <li key={x.id} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div><b>{x.name}</b><br /><span className="small muted">{x.invitedFor ? (matches ? `✓ ตรงกับชื่อที่ส่งลิงก์ให้ (${x.invitedFor})` : `⚠️ ลิงก์นี้ส่งให้ “${x.invitedFor}” แต่ผู้ขอใช้ชื่อ “${x.name}” — ตรวจให้แน่ใจก่อนอนุมัติ`) : 'ลิงก์ไม่ได้ระบุชื่อผู้รับ — ตรวจว่าเป็นคนที่ท่านส่งไปหรือไม่'}</span></div>
                   <div className="row">
-                    <div className="grow" style={{ minWidth: 0 }}><RolePicker label={`สิทธิ์ที่จะให้ ${x.name}`} value={w} onChange={(rs) => setWant({ ...want, [x.id]: rs })} /></div>
+                    <div className="grow small" style={{ minWidth: 0 }}>{x.invitedWork ? <>ตั้งใจให้เป็น <b>{WORK_LEVEL_LABEL[x.invitedWork.level]}</b> ของ <b>{MEETING_TABS.find((t) => t.n === x.invitedWork!.n)?.name}</b></> : <>ยังไม่ระบุงาน — เป็นผู้ดูทั่วไป (ตั้งตำแหน่งในงานได้หลังอนุมัติ)</>}</div>
                     <button type="button" className="btn btn--gold" onClick={() => { m.approve(x.id, w); flash(`อนุมัติ ${x.name} แล้ว (${rolesLabel(normalizeRoles(w))})`) }}>✓ อนุมัติ</button>
                     <button type="button" className="btn btn--ghost" onClick={() => { m.reject(x.id); flash(`ไม่อนุมัติ ${x.name}`) }}>✕</button>
                   </div>
@@ -177,7 +182,7 @@ function Members() {
               <span className="grow" style={{ flexBasis: '100%' }}><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
               {m.isAdmin ? (
                 <>
-                  <div style={{ width: '12.5rem', maxWidth: '100%' }}><RolePicker label={`สิทธิ์ของ ${x.name}`} value={rolesOf(x)} disabled={lastAdmin} onChange={(rs) => { if (m.setRole(x.id, rs)) flash(`ตั้งสิทธิ์ ${x.name}: ${rolesLabel(rs)}`); else flash('ต้องมีแอดมินอย่างน้อย 1 คน') }} /></div>
+                  <div style={{ width: '12.5rem', maxWidth: '100%' }}><RolePicker only={['viewer', 'worship', 'fundkeeper', 'admin']} label={`สิทธิ์เฉพาะทางของ ${x.name}`} value={rolesOf(x)} disabled={lastAdmin} onChange={(rs) => { if (m.setRole(x.id, rs)) flash(`ตั้งสิทธิ์ ${x.name}: ${rolesLabel(rs)}`); else flash('ต้องมีแอดมินอย่างน้อย 1 คน') }} /></div>
                   {!rolesOf(x).includes('admin') && <button type="button" className="mini" onClick={() => m.setPaused(x.id, !x.paused)} aria-label={`${x.paused ? 'เปิดสิทธิ์คืน' : 'พักสิทธิ์'} ${x.name}`}>{x.paused ? '▶ เปิดคืน' : '⏸ พัก'}</button>}
                   {delId === x.id ? (
                     <span className="row"><button type="button" className="btn btn--danger" onClick={() => { if (!m.removeMember(x.id)) flash('ลบแอดมินคนสุดท้ายไม่ได้'); setDelId(null) }}>ลบ {x.name}</button><button type="button" className="btn btn--ghost" onClick={() => setDelId(null)}>ไม่ลบ</button></span>
@@ -209,32 +214,27 @@ function Members() {
                     </details>
                   )}
                   <details style={{ flexBasis: '100%' }}>
-                    <summary className="small">งานที่รับผิดชอบในห้องทำงาน: {x.works?.length ? x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ') : 'ไม่จำกัด (เห็นทุกงาน)'}</summary>
-                    <p className="small muted" style={{ margin: '0.3rem 0' }}>กำหนดงานให้คนที่ดูแลงานนั้น: ปุ่ม “‹ ทุกแท็บ” ของเขาจะกลับหน้าหลักของงานตัวเอง (ถ้ามีงานเดียว) · ไม่ได้เปลี่ยนสิทธิ์ใช้งานอื่นของเขา</p>
-                    <div className="row" role="group" aria-label={`งานที่รับผิดชอบของ ${x.name}`}>
+                    <summary className="small">ตำแหน่งในงาน: {x.works?.length ? x.works.map((n) => `${MEETING_TABS.find((t) => t.n === n)?.name} (${WORK_LEVEL_LABEL[workLevelOf(x, n) ?? 'lead']})`).join(', ') : 'ยังไม่มี (ผู้ดูทั่วไป)'}</summary>
+                    <p className="small muted" style={{ margin: '0.3rem 0' }}>ตัวเลือกเหมือนกันทุกงาน: ผู้ดูแลหลัก · ผู้ช่วย · ที่ปรึกษา · เปลี่ยนได้ทุกเมื่อ มีผลทันที</p>
+                    <ul className="list" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
                       {MEETING_TABS.map((t) => {
-                        const on = x.works?.includes(t.n) ?? false
-                        return <button key={t.n} type="button" className="wchip" style={{ padding: '0 0.7rem' }} aria-pressed={on} onClick={() => { const next = on ? (x.works ?? []).filter((n) => n !== t.n) : [...(x.works ?? []), t.n]; if (m.setWorks(x.id, next)) flash(`ตั้งงานของ ${x.name}: ${next.length ? next.map((n) => MEETING_TABS.find((z) => z.n === n)?.name).join(', ') : 'ไม่จำกัด'}`) }}>{t.name}</button>
+                        const lv = workLevelOf(x, t.n)
+                        return (
+                          <li key={t.n} className="row row--between" style={{ alignItems: 'center' }}>
+                            <span>{t.name}</span>
+                            <select className="input" style={{ width: '9.5rem' }} aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} value={lv ?? ''} onChange={(e) => {
+                              const next: Record<number, WorkLevel | null> = {}
+                              for (const z of MEETING_TABS) next[z.n] = workLevelOf(x, z.n)
+                              next[t.n] = (e.target.value || null) as WorkLevel | null
+                              if (m.setPositions(x.id, next)) flash(e.target.value ? `${x.name} เป็น${WORK_LEVEL_LABEL[e.target.value as WorkLevel]}ของ${t.name}` : `เอา ${x.name} ออกจาก${t.name}`)
+                            }}>
+                              <option value="">— ไม่อยู่ในงานนี้</option>
+                              {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
+                            </select>
+                          </li>
+                        )
                       })}
-                    </div>
-                    {(x.works ?? []).length > 0 && (
-                      <ul className="list" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`} style={{ marginTop: 6 }}>
-                        {(x.works ?? []).map((n) => {
-                          const lv = workLevelOf(x, n) ?? 'lead'
-                          return (
-                            <li key={n} style={{ display: 'block' }}>
-                              <div className="row row--between" style={{ alignItems: 'center' }}>
-                                <b>{MEETING_TABS.find((t) => t.n === n)?.name}</b>
-                                <select className="input" style={{ width: '9.5rem' }} aria-label={`ตำแหน่งของ ${x.name} ใน ${MEETING_TABS.find((t) => t.n === n)?.name}`} value={lv} onChange={(e) => { if (m.setWorkLevel(x.id, n, e.target.value as typeof lv)) flash(`${x.name} เป็น${WORK_LEVEL_LABEL[e.target.value as typeof lv]}ของ${MEETING_TABS.find((t) => t.n === n)?.name}`) }}>
-                                  {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
-                                </select>
-                              </div>
-                              <span className="small muted">{WORK_LEVEL_HELP[lv]}</span>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
+                    </ul>
                   </details>
                 </>
               ) : <span className="badge">{rolesLabel(rolesOf(x))}{x.works?.length ? ` · ${x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ')}` : ''}</span>}
