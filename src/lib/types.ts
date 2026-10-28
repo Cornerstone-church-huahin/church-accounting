@@ -368,14 +368,18 @@ export interface CalEvent extends SharedItem { date: string; title: string; tab:
   /** แผนงานประจำปี: แสดงในใบแผนงาน · ผู้รับผิดชอบ (ข้อความ) · งบประมาณต่อครั้ง (สตางค์) · ทำเสร็จแล้ว (ขีดฆ่าวันที่) */
   plan?: boolean; lead?: string; budget?: number; done?: boolean }
 
-/** คลังเอกสารงานเลขา: เอกสารหนึ่งฉบับมี "ร่าง" (แก้ได้) และ "เอกสารจริง" (ออกแล้วแก้ไม่ได้ เก็บเป็นหลักฐาน · ออกฉบับใหม่ได้ ฉบับเก่าเก็บไว้) */
+/** คลังเอกสารงานเลขา: เก็บไฟล์สำเร็จรูป (PDF/รูป/เอกสาร) ที่เลขาทำมาแล้ว แยกตามหมวด · เปิดดู ดาวน์โหลด แชร์ได้ — ไม่ร่างเอกสารในแอป */
 export type DocAccess = 'ทั่วไป' | 'ภายใน' | 'ลับ'
 export interface DocFinal { v: number; at: number; by: string; no: string; date: string; title: string; body: string }
+export interface DocFile { path: string; name: string; type: string; size: number }
 export interface DocItem extends SharedItem {
-  title: string; category: string; kind: string; no: string; date: string; access: DocAccess
-  /** เนื้อหาฉบับร่าง */ draft: string
-  /** เอกสารจริงที่ออกแล้ว (เรียงฉบับเก่า→ใหม่) */ finals?: DocFinal[]
+  title: string; category: string; no: string; date: string; access: DocAccess
+  /** ไฟล์สำเร็จรูป */ file?: DocFile
+  /** หมายเหตุ/คำค้น (ไม่บังคับ) */ note?: string
+  /** (เวอร์ชันเก่า) ประเภท · ร่าง · เอกสารที่ออกในแอป — คงไว้ให้ค้นหาได้ ไม่แสดงให้แก้แล้ว */ kind?: string; draft?: string; finals?: DocFinal[]
 }
+/** หมวดเอกสาร (รายชื่อที่แก้ไข/ลบได้) */
+export interface DocCategory extends SharedItem { name: string }
 
 /** ตั้งค่าใบแผนงานประจำปี (รายการเดียว id = plan-settings): คำขวัญประจำปี */
 export interface PlanSettings extends SharedItem { motto: string }

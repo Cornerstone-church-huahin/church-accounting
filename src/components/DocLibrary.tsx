@@ -1,149 +1,223 @@
 import { useMemo, useState } from 'react'
-import DocPreview from './meeting/DocPreview'
-import { can, myWorks, whoAmI } from '../lib/access'
-import { useDocLibrary } from '../lib/data'
-import { ACCESS_LEVELS, canSeeDoc, categoriesOf, DOC_KINDS, filterDocs, nextDocNo, snippetOf, sortDocs, splitPages, TEMPLATES } from '../lib/docLibrary'
+import Sheet from './Sheet'
+import { can, myWorks } from '../lib/access'
+import { cachedImage, cacheImage } from '../lib/imageCache'
+import { useDocCategories, useDocLibrary } from '../lib/data'
+import { ACCESS_LEVELS, canSeeDoc, categoriesOf, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
+import { getBinary, getSync, putBinary } from '../lib/sync'
 import type { DocAccess, DocItem } from '../lib/types'
 
+const iconOf = (d: DocItem) => (!d.file ? '📄' : /pdf/i.test(d.file.type) || fileExt(d.file.name) === 'pdf' ? '📕' : /^image\//.test(d.file.type) ? '🖼️' : /word|doc/i.test(d.file.type + d.file.name) ? '📘' : /sheet|xls/i.test(d.file.type + d.file.name) ? '📗' : '📎')
+
+async function loadFile(d: DocItem): Promise<File> {
+  const f = d.file
+  if (!f) throw new Error('เอกสารนี้ยังไม่มีไฟล์')
+  const cfg = getSync()
+  const b = cfg ? await getBinary(cfg, f.path) : await cachedImage(f.path)
+  if (!b) throw new Error('เปิดไฟล์ไม่ได้ — ต้องออนไลน์ก่อน')
+  return new File([b], f.name, { type: f.type || b.type || 'application/octet-stream' })
+}
+const saveToDevice = (file: File) => { const u = URL.createObjectURL(file); const a = document.createElement('a'); a.href = u; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 30_000) }
+
 /**
- * งานเลขา › คลังเอกสาร: ค้นหาเอกสารจากชื่อ/เลขที่/หมวด · แยกหมวด (เช่น ประชุมกรรมการ) · เรียงเก่า→ใหม่ตามวันที่และเลขที่
- * เปิดเอกสาร = 2 เมนู: ✏️ ร่าง (แก้ได้ มีแบบฟอร์มให้) · 📄 เอกสารจริง (ออกแล้วแก้ไม่ได้ เก็บเป็นหลักฐาน ออกฉบับใหม่ได้ ฉบับเก่าเก็บไว้)
+ * งานเลขา › คลังเอกสาร: เก็บไฟล์สำเร็จรูปที่เลขาทำมาแล้ว (PDF/รูป/เอกสาร) แยกตามหมวด · ค้นหา · เลือกหมวด (เพิ่ม/แก้ชื่อ/ลบได้)
+ * แถบเอกสารเรียงใหม่สุดอยู่บน เก่าสุดอยู่ล่าง · แตะเอกสาร = เปิดดู ดาวน์โหลด แชร์ได้เลย (ไม่มีหน้าร่างเอกสารในแอป)
  */
 export default function DocLibrary() {
   const role = useRole()
   const admin = role === 'admin'
   const editor = admin || can(role, 'detail') || myWorks().includes(1)
   const lib = useDocLibrary()
+  const catStore = useDocCategories()
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [form, setForm] = useState<DocItem | 'new' | null>(null)
+  const [manage, setManage] = useState(false)
   const visible = useMemo(() => lib.list.filter((d) => canSeeDoc(d.access, { admin, editor })), [lib.list, admin, editor])
-  const cats = categoriesOf(visible)
-  const shown = sortDocs(filterDocs(visible, q, cat))
-  const groups = useMemo(() => { const m = new Map<string, DocItem[]>(); for (const d of shown) { const k = d.category || 'ไม่ระบุหมวด'; m.set(k, [...(m.get(k) ?? []), d]) } return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'th')) }, [shown])
+  const cats = categoriesOf(visible, catStore.list.map((c) => c.name))
+  const shown = sortNewestFirst(filterDocs(visible, q, cat))
   const open = visible.find((d) => d.id === openId)
-  if (open) return <DocView doc={open} editor={editor} admin={admin} cats={cats.map((c) => c.name)} onClose={() => setOpenId(null)} lib={lib} />
-  const add = () => {
-    const y = be(Number(todayISO().slice(0, 4)))
-    const d: DocItem = { id: newId('doc'), updated: 0, title: 'เอกสารใหม่', category: cat, kind: DOC_KINDS[0], no: nextDocNo(lib.list, y), date: todayISO(), access: 'ภายใน', draft: '' }
-    if (lib.put([d])) setOpenId(d.id)
-  }
   return (
     <div aria-label="คลังเอกสาร">
       <section className="card no-print" style={{ margin: '0 0 8px' }}>
-        <div className="field"><label htmlFor="dl-q">🔎 ค้นหาเอกสาร</label><input id="dl-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นจากชื่อ เลขที่ หมวด และเนื้อหาในเอกสาร" /></div>
-        <div className="field"><label htmlFor="dl-cat">📁 เลือกหมวดเอกสาร</label>
-          <select id="dl-cat" className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
-            <option value="">ทุกหมวด ({visible.length})</option>
-            {cats.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.n})</option>)}
-          </select></div>
+        <div className="field"><label htmlFor="dl-q">🔎 ค้นหาเอกสาร</label><input id="dl-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นจากชื่อ เลขที่ หมวด หมายเหตุ ชื่อไฟล์" /></div>
+        <div className="row" style={{ gap: 8, alignItems: 'end' }}>
+          <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="dl-cat">📁 เลือกหมวดเอกสาร</label>
+            <select id="dl-cat" className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
+              <option value="">ทุกหมวด ({visible.length})</option>
+              {cats.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.n})</option>)}
+            </select></div>
+          {editor && <button type="button" className="btn btn--ghost" onClick={() => setManage(true)} aria-label="จัดการหมวดเอกสาร">⚙️ หมวด</button>}
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
-          {editor && <button type="button" className="btn btn--gold" onClick={add}>➕ เอกสารใหม่</button>}
-          <span className="small muted">{shown.length} เอกสาร · เรียงเก่า → ใหม่</span>
+          {editor && <button type="button" className="btn btn--gold" onClick={() => setForm('new')}>➕ เพิ่มเอกสาร</button>}
+          <span className="small muted">{shown.length} เอกสาร · ใหม่สุดอยู่บน</span>
         </div>
       </section>
-      {groups.length === 0 ? <p className="empty">{visible.length === 0 ? 'ยังไม่มีเอกสาร' : 'ไม่พบเอกสารที่ค้นหา'}{editor && visible.length === 0 ? ' — กด “เอกสารใหม่” เพื่อเริ่ม' : ''}</p> : groups.map(([name, items]) => (
-        <section key={name} className="card" aria-label={`หมวด ${name}`} style={{ margin: '0 0 8px' }}>
-          <h2 style={{ margin: '0 0 4px', fontSize: '1.05rem' }}>📁 {name} <span className="small muted">({items.length})</span></h2>
-          <ul className="list">
-            {items.map((d) => {
-              const f = d.finals?.[d.finals.length - 1]
-              return (
-                <li key={d.id}>
-                  <button type="button" className="doclink" onClick={() => setOpenId(d.id)} aria-label={`เปิดเอกสาร ${d.title}`}>
-                    <span className="small muted">{d.no} · {fmtDate(d.date)} · {d.kind}</span>
-                    <b>{d.title}</b>
-                    {snippetOf(d, q) && <span className="small doclink__snip">“{snippetOf(d, q)}”</span>}
-                    <span className="small">{f ? <span className="badge">📄 เอกสารจริง ฉบับที่ {f.v}</span> : <span className="muted">✏️ ร่าง</span>}{d.access !== 'ทั่วไป' ? ` · ${d.access === 'ลับ' ? '🔒' : '🔐'} ${d.access}` : ''}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ))}
+      {shown.length === 0 ? <p className="empty">{visible.length === 0 ? 'ยังไม่มีเอกสาร' : 'ไม่พบเอกสาร'}{editor && visible.length === 0 ? ' — กด “เพิ่มเอกสาร” แล้วเลือกไฟล์สำเร็จรูป' : ''}</p> : (
+        <ul className="doclist" aria-label="รายการเอกสาร">
+          {shown.map((d) => (
+            <li key={d.id}>
+              <button type="button" className="docbar" onClick={() => setOpenId(d.id)} aria-label={`เปิดเอกสาร ${d.title}`}>
+                <span className="docbar__ico" aria-hidden="true">{iconOf(d)}</span>
+                <span className="docbar__txt">
+                  <b>{d.title}</b>
+                  <span className="small muted">{[d.no, fmtDate(d.date), !cat ? d.category || NO_CATEGORY : '', d.access !== 'ทั่วไป' ? `${d.access === 'ลับ' ? '🔒' : '🔐'}${d.access}` : ''].filter(Boolean).join(' · ')}</span>
+                  {snippetOf(d, q) && <span className="small doclink__snip">“{snippetOf(d, q)}”</span>}
+                </span>
+                <span aria-hidden="true">›</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && !form && <DocSheet doc={open} editor={editor} admin={admin} onClose={() => setOpenId(null)} onEdit={() => setForm(open)} onDelete={() => { if (window.confirm(`ลบ “${open.title}” ?`)) { lib.put([{ ...open, deleted: true }]); setOpenId(null) } }} />}
+      {form && <DocForm doc={form === 'new' ? null : form} cats={cats.map((c) => c.name).filter((c) => c !== NO_CATEGORY)} defCat={cat === NO_CATEGORY ? '' : cat} nextNo={nextDocNo(lib.list, be(Number(todayISO().slice(0, 4))))} onClose={() => setForm(null)} onSave={(d) => { if (lib.put([d])) { setForm(null); setOpenId(d.id); return true } return false }} />}
+      {manage && <CatManager cats={cats} onClose={() => setManage(false)} docs={lib.list} putDocs={lib.put} catStore={catStore} onRenamed={(a, b) => { if (cat === a) setCat(b) }} />}
     </div>
   )
 }
 
-function DocView({ doc, editor, admin, cats, onClose, lib }: { doc: DocItem; editor: boolean; admin: boolean; cats: string[]; onClose: () => void; lib: ReturnType<typeof useDocLibrary> }) {
-  const [tab, setTab] = useState<'draft' | 'final'>(doc.finals?.length && !editor ? 'final' : 'draft')
-  const [f, setF] = useState({ title: doc.title, category: doc.category, kind: doc.kind, no: doc.no, date: doc.date, access: doc.access, draft: doc.draft })
+function DocSheet({ doc, editor, admin, onClose, onEdit, onDelete }: { doc: DocItem; editor: boolean; admin: boolean; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+  const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
-  const [ver, setVer] = useState(0)
-  const finals = doc.finals ?? []
-  const cur = finals.find((x) => x.v === ver) ?? finals[finals.length - 1]
-  const dirty = f.title !== doc.title || f.category !== doc.category || f.kind !== doc.kind || f.no !== doc.no || f.date !== doc.date || f.access !== doc.access || f.draft !== doc.draft
-  const save = () => { if (!f.title.trim()) return setMsg('ใส่ชื่อเอกสารก่อน'); if (lib.put([{ ...doc, ...f, title: f.title.trim(), category: f.category.trim(), no: f.no.trim() }])) setMsg('บันทึกร่างแล้ว'); else setMsg('ไม่มีสิทธิ์บันทึก') }
-  const issue = () => {
-    if (!f.title.trim() || !f.draft.trim()) return setMsg('ต้องมีชื่อและเนื้อหาก่อนออกเป็นเอกสารจริง')
-    const v = (finals[finals.length - 1]?.v ?? 0) + 1
-    if (!window.confirm(`ออกเป็นเอกสารจริง ฉบับที่ ${v} ?\nออกแล้วแก้ไขฉบับนี้ไม่ได้ (ถ้าต้องแก้ ให้ออกฉบับใหม่ ฉบับเก่าเก็บไว้เป็นหลักฐาน)`)) return
-    const fin = { v, at: Date.now(), by: whoAmI().name, no: f.no.trim(), date: f.date, title: f.title.trim(), body: f.draft }
-    if (lib.put([{ ...doc, ...f, title: f.title.trim(), category: f.category.trim(), no: f.no.trim(), finals: [...finals, fin] }])) { setVer(0); setTab('final'); setMsg('') } else setMsg('ไม่มีสิทธิ์บันทึก')
+  const run = async (what: 'view' | 'download' | 'share') => {
+    setBusy(what); setMsg('')
+    try {
+      const file = await loadFile(doc)
+      if (what === 'download') saveToDevice(file)
+      else if (what === 'share') {
+        const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
+        if (nav.share && nav.canShare?.({ files: [file] })) { try { await nav.share({ files: [file], title: doc.title }) } catch { /* ยกเลิก */ } } else { saveToDevice(file); setMsg('เครื่องนี้แชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
+      } else {
+        const u = URL.createObjectURL(file)
+        if (!window.open(u, '_blank')) { saveToDevice(file); setMsg('เปิดหน้าต่างใหม่ไม่ได้ — ดาวน์โหลดให้แล้ว') }
+        setTimeout(() => URL.revokeObjectURL(u), 60_000)
+      }
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'เปิดไฟล์ไม่ได้') }
+    setBusy('')
   }
-  const del = () => {
-    if (finals.length && !admin) return setMsg('เอกสารที่ออกเป็นเอกสารจริงแล้วลบได้เฉพาะแอดมิน (เก็บเป็นหลักฐาน)')
-    if (window.confirm(`ลบ “${doc.title}” ${finals.length ? `(รวมเอกสารจริง ${finals.length} ฉบับ) ` : ''}?`)) { lib.put([{ ...doc, deleted: true }]); onClose() }
-  }
-  const pages = cur ? splitPages(cur.body).map((body, i) => (
-    <div key={i} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 15 }}>
-      {i === 0 && <div style={{ marginBottom: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span>ที่ {cur.no}</span><span>วันที่ {fmtDate(cur.date)}</span></div><div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18, margin: '10px 0 8px' }}>{cur.title}</div></div>}
-      {body}
-    </div>
-  )) : []
   return (
-    <div aria-label={`เอกสาร ${doc.title}`}>
-      <div className="row no-print" style={{ gap: 8, alignItems: 'center', marginBottom: 6 }}>
-        <button type="button" className="mini" onClick={onClose}>‹ คลังเอกสาร</button>
-        <b style={{ flex: 1, minWidth: 0 }}>{doc.title}</b>
-      </div>
-      <div className="subtabs no-print" role="tablist" aria-label="ร่างหรือเอกสารจริง" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-        <button type="button" role="tab" aria-selected={tab === 'draft'} className={`subtab${tab === 'draft' ? ' on' : ''}`} onClick={() => setTab('draft')}>✏️ ร่างเอกสาร</button>
-        <button type="button" role="tab" aria-selected={tab === 'final'} className={`subtab${tab === 'final' ? ' on' : ''}`} onClick={() => setTab('final')}>📄 เอกสารจริง{finals.length ? ` (${finals.length})` : ''}</button>
-      </div>
-      {tab === 'draft' && (
-        <section className="card no-print" aria-label="ร่างเอกสาร">
-          {!editor ? <p className="muted small">ดูได้อย่างเดียว</p> : null}
-          <div className="field"><label htmlFor="dd-title">ชื่อเอกสาร</label><input id="dd-title" className="input" disabled={!editor} maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
-          <div className="field"><label htmlFor="dd-cat">หมวด (เลือกหรือพิมพ์ใหม่ เช่น ประชุมกรรมการ)</label><input id="dd-cat" className="input" disabled={!editor} maxLength={60} list="dd-cats" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} /><datalist id="dd-cats">{cats.filter((c) => c !== 'ไม่ระบุหมวด').map((c) => <option key={c} value={c} />)}</datalist></div>
-          <div className="row" style={{ gap: 8 }}>
-            <div className="field" style={{ flex: 1 }}><label htmlFor="dd-kind">ประเภท</label><select id="dd-kind" className="input" disabled={!editor} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{[...new Set([...DOC_KINDS, f.kind])].map((k) => <option key={k}>{k}</option>)}</select></div>
-            <div className="field" style={{ flex: 1 }}><label htmlFor="dd-no">เลขที่เอกสาร</label><input id="dd-no" className="input" disabled={!editor} value={f.no} onChange={(e) => setF({ ...f, no: e.target.value })} /></div>
+    <Sheet title={doc.title} onClose={onClose}>
+      <p className="small muted" style={{ margin: '0 0 6px' }}>{[doc.no && `เลขที่ ${doc.no}`, fmtDate(doc.date), doc.category || NO_CATEGORY, doc.access].filter(Boolean).join(' · ')}</p>
+      {doc.note && <p style={{ margin: '0 0 6px', whiteSpace: 'pre-wrap' }}>{doc.note}</p>}
+      {doc.file ? (
+        <>
+          <p className="small" style={{ margin: '0 0 8px' }}>{iconOf(doc)} {doc.file.name} · {fmtSize(doc.file.size)}</p>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn--gold" disabled={!!busy} onClick={() => void run('view')}>{busy === 'view' ? 'กำลังโหลด…' : '👁 เปิดดู'}</button>
+            <button type="button" className="btn btn--gold" disabled={!!busy} onClick={() => void run('download')}>{busy === 'download' ? 'กำลังโหลด…' : '⬇️ ดาวน์โหลด'}</button>
+            <button type="button" className="btn btn--ghost" disabled={!!busy} onClick={() => void run('share')}>{busy === 'share' ? 'กำลังโหลด…' : '📤 แชร์'}</button>
           </div>
-          <div className="row" style={{ gap: 8 }}>
-            <div className="field" style={{ flex: 1 }}><label htmlFor="dd-date">วันที่เอกสาร</label><input id="dd-date" type="date" className="input" disabled={!editor} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
-            <div className="field" style={{ flex: 1 }}><label htmlFor="dd-acc">ระดับ</label><select id="dd-acc" className="input" disabled={!editor} value={f.access} onChange={(e) => setF({ ...f, access: e.target.value as DocAccess })}>{ACCESS_LEVELS.map((a) => <option key={a}>{a}</option>)}</select></div>
-          </div>
-          <p className="small muted" style={{ margin: '0 0 6px' }}>ทั่วไป = ทุกคนเห็น · ภายใน = แอดมินและผู้ทำงานเลขา · ลับ = แอดมินเท่านั้น</p>
-          <div className="field"><label htmlFor="dd-body">เนื้อหา (ร่าง)</label><textarea id="dd-body" className="input" rows={12} disabled={!editor} value={f.draft} onChange={(e) => setF({ ...f, draft: e.target.value })} placeholder="พิมพ์เนื้อหา หรือกด “ใส่แบบฟอร์ม” ด้านล่าง" /></div>
-          {editor && (
-            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-              {TEMPLATES[f.kind] && <button type="button" className="btn btn--ghost" onClick={() => { if (!f.draft.trim() || window.confirm('แทนที่เนื้อหาร่างด้วยแบบฟอร์ม?')) setF({ ...f, draft: TEMPLATES[f.kind] }) }}>📋 ใส่แบบฟอร์ม “{f.kind}”</button>}
-              <button type="button" className="btn btn--gold" onClick={save} disabled={!dirty}>💾 บันทึกร่าง</button>
-              <button type="button" className="btn btn--gold" onClick={issue}>📄 ออกเป็นเอกสารจริง</button>
-              <button type="button" className="btn btn--ghost" onClick={del}>🗑 ลบ</button>
-            </div>
-          )}
-          {msg && <p className="note" role="status" style={{ margin: '6px 0 0' }}>{msg}</p>}
-          {dirty && editor && <p className="small muted" style={{ margin: '4px 0 0' }}>มีการแก้ไขที่ยังไม่ได้บันทึก</p>}
-        </section>
+        </>
+      ) : <p className="muted">ยังไม่มีไฟล์ในเอกสารนี้{editor ? ' — กด “แก้ไขข้อมูล” แล้วแนบไฟล์' : ''}</p>}
+      {msg && <p className="note" role="status" style={{ margin: '6px 0 0' }}>{msg}</p>}
+      {editor && (
+        <div className="row" style={{ gap: 8, marginTop: 10 }}>
+          <button type="button" className="btn btn--ghost" onClick={onEdit}>✏️ แก้ไขข้อมูล</button>
+          {(admin || !doc.file) && <button type="button" className="btn btn--ghost" onClick={onDelete}>🗑 ลบ</button>}
+        </div>
       )}
-      {tab === 'final' && (
-        <section aria-label="เอกสารจริง">
-          {!cur ? <p className="empty">ยังไม่ได้ออกเป็นเอกสารจริง — ไปที่แท็บ “ร่างเอกสาร” แล้วกด “ออกเป็นเอกสารจริง”</p> : (
-            <>
-              <div className="card no-print" style={{ margin: '0 0 8px' }}>
-                <p className="small" style={{ margin: 0 }}>ฉบับที่ <b>{cur.v}</b> · ออกเมื่อ {new Date(cur.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} โดย {cur.by} · <b>เก็บเป็นหลักฐาน แก้ไขไม่ได้</b></p>
-                {finals.length > 1 && <div className="field"><label htmlFor="dd-ver">ดูฉบับ</label><select id="dd-ver" className="input" value={cur.v} onChange={(e) => setVer(Number(e.target.value))}>{[...finals].reverse().map((x) => <option key={x.v} value={x.v}>ฉบับที่ {x.v} · {new Date(x.at).toLocaleDateString('th-TH')}{x === finals[finals.length - 1] ? ' (ล่าสุด)' : ''}</option>)}</select></div>}
-              </div>
-              <DocPreview pages={pages} filename={`${cur.no.replace(/\//g, '-')}-${cur.title}-ฉบับ${cur.v}.pdf`} label="เอกสาร" />
-            </>
-          )}
-        </section>
-      )}
-    </div>
+      {editor && !admin && doc.file && <p className="small muted" style={{ margin: '6px 0 0' }}>เอกสารที่มีไฟล์แล้ว ลบได้เฉพาะแอดมิน (เก็บเป็นหลักฐาน)</p>}
+    </Sheet>
+  )
+}
+
+function DocForm({ doc, cats, defCat, nextNo, onClose, onSave }: { doc: DocItem | null; cats: string[]; defCat: string; nextNo: string; onClose: () => void; onSave: (d: DocItem) => boolean }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [f, setF] = useState({ title: doc?.title ?? '', category: doc?.category ?? defCat, no: doc?.no ?? '', date: doc?.date ?? todayISO(), access: (doc?.access ?? 'ภายใน') as DocAccess, note: doc?.note ?? '' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const pick = (x: File | null) => { setFile(x); if (x && !f.title.trim()) setF((p) => ({ ...p, title: titleFromFile(x.name) })) }
+  const save = async () => {
+    if (!f.title.trim()) return setMsg('ใส่ชื่อเอกสารก่อน')
+    if (!doc && !file) return setMsg('เลือกไฟล์เอกสารสำเร็จรูปก่อน')
+    if (file && file.size > MAX_DOC_BYTES) return setMsg(`ไฟล์ใหญ่เกินไป (${fmtSize(file.size)}) — ไม่เกิน ${fmtSize(MAX_DOC_BYTES)}`)
+    setBusy(true); setMsg('')
+    try {
+      let fileInfo = doc?.file
+      if (file) {
+        const cfg = getSync()
+        if (!cfg) { setBusy(false); return setMsg('ต้องเชื่อมต่อออนไลน์ก่อนจึงแนบไฟล์ได้ (ไฟล์เก็บใน repo ข้อมูล)') }
+        const data = await file.arrayBuffer()
+        const path = `attachments/docs/${new Date().getFullYear()}/doc-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}.${fileExt(file.name)}`
+        await putBinary(cfg, path, data, 'คลังเอกสาร')
+        void cacheImage(path, data, file.type || 'application/octet-stream')
+        fileInfo = { path, name: file.name, type: file.type, size: file.size }
+      }
+      const d: DocItem = { ...(doc ?? { id: newId('doc'), updated: 0 }), title: f.title.trim(), category: f.category.trim(), no: f.no.trim(), date: f.date, access: f.access, note: f.note.trim() || undefined, ...(fileInfo ? { file: fileInfo } : {}) }
+      if (!onSave(d)) setMsg('ไม่มีสิทธิ์บันทึก')
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ') }
+    setBusy(false)
+  }
+  return (
+    <Sheet title={doc ? 'แก้ไขข้อมูลเอกสาร' : 'เพิ่มเอกสาร'} onClose={onClose}>
+      <div className="field"><label htmlFor="df-file">{doc?.file ? 'เปลี่ยนไฟล์ (ไม่บังคับ)' : 'ไฟล์เอกสารสำเร็จรูป (PDF รูป Word ฯลฯ)'}</label>
+        <input id="df-file" type="file" className="input" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
+        {doc?.file && !file && <span className="small muted">ไฟล์ปัจจุบัน: {doc.file.name}</span>}</div>
+      <div className="field"><label htmlFor="df-title">ชื่อเอกสาร</label><input id="df-title" className="input" maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+      <div className="field"><label htmlFor="df-cat">หมวด</label>
+        <select id="df-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+          <option value="">{NO_CATEGORY}</option>
+          {[...new Set([...cats, f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+        </select><span className="small muted">เพิ่มหมวดใหม่ได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง</span></div>
+      <div className="row" style={{ gap: 8 }}>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">เลขที่ (ถ้ามี)</label><input id="df-no" className="input" value={f.no} onChange={(e) => setF({ ...f, no: e.target.value })} placeholder={nextNo} /></div>
+      </div>
+      {!f.no.trim() && <button type="button" className="mini" onClick={() => setF({ ...f, no: nextNo })} style={{ marginBottom: 8 }}>ใส่เลขที่ถัดไป {nextNo}</button>}
+      <div className="field"><label htmlFor="df-acc">ระดับ</label><select id="df-acc" className="input" value={f.access} onChange={(e) => setF({ ...f, access: e.target.value as DocAccess })}>{ACCESS_LEVELS.map((a) => <option key={a}>{a}</option>)}</select>
+        <span className="small muted">ทั่วไป = ทุกคนเห็น · ภายใน = แอดมินและผู้ทำงานเลขา · ลับ = แอดมินเท่านั้น</span></div>
+      <div className="field"><label htmlFor="df-note">หมายเหตุ/คำค้น (ไม่บังคับ)</label><textarea id="df-note" className="input" rows={2} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="เช่น เชิญวิทยากร · วาระที่ 1–3" /></div>
+      <div className="row" style={{ gap: 8 }}><button type="button" className="btn btn--gold" disabled={busy} onClick={() => void save()}>{busy ? 'กำลังบันทึก…' : 'บันทึก'}</button><button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button></div>
+      {msg && <p className="err" role="alert" style={{ margin: '6px 0 0' }}>{msg}</p>}
+    </Sheet>
+  )
+}
+
+function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cats: { name: string; n: number }[]; docs: DocItem[]; putDocs: (xs: DocItem[]) => boolean; catStore: ReturnType<typeof useDocCategories>; onClose: () => void; onRenamed: (a: string, b: string) => void }) {
+  const [name, setName] = useState('')
+  const [msg, setMsg] = useState('')
+  const names = new Set(cats.map((c) => c.name))
+  const ensure = (n: string) => { if (!catStore.list.some((c) => c.name === n)) catStore.put([{ id: newId('dcat'), updated: 0, name: n }]) }
+  const add = () => { const n = name.trim(); if (!n) return; if (names.has(n) || n === NO_CATEGORY) return setMsg('มีหมวดชื่อนี้แล้ว'); ensure(n); setName(''); setMsg(`เพิ่มหมวด “${n}” แล้ว`) }
+  const rename = (old: string) => {
+    const n = prompt('ชื่อหมวดใหม่', old)?.trim()
+    if (!n || n === old) return
+    if (names.has(n) || n === NO_CATEGORY) return setMsg('มีหมวดชื่อนี้แล้ว')
+    const item = catStore.list.find((c) => c.name === old)
+    if (item) catStore.put([{ ...item, name: n }]); else ensure(n)
+    const moved = docs.filter((d) => d.category === old).map((d) => ({ ...d, category: n }))
+    if (moved.length) putDocs(moved)
+    onRenamed(old, n); setMsg(`เปลี่ยนชื่อเป็น “${n}” แล้ว (${moved.length} เอกสารตามไปด้วย)`)
+  }
+  const del = (c: { name: string; n: number }) => {
+    if (!window.confirm(c.n ? `ลบหมวด “${c.name}” ? เอกสาร ${c.n} ฉบับจะย้ายไป “${NO_CATEGORY}” (ไม่ลบเอกสาร)` : `ลบหมวด “${c.name}” ?`)) return
+    const item = catStore.list.find((x) => x.name === c.name)
+    if (item) catStore.put([{ ...item, deleted: true }])
+    const moved = docs.filter((d) => d.category === c.name).map((d) => ({ ...d, category: '' }))
+    if (moved.length) putDocs(moved)
+    onRenamed(c.name, ''); setMsg(`ลบหมวด “${c.name}” แล้ว`)
+  }
+  return (
+    <Sheet title="จัดการหมวดเอกสาร" onClose={onClose}>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input" style={{ flex: 1 }} aria-label="ชื่อหมวดใหม่" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="ชื่อหมวดใหม่ เช่น จดหมายเชิญ" />
+        <button type="button" className="btn btn--gold" onClick={add}>➕ เพิ่ม</button>
+      </div>
+      <ul className="list" aria-label="รายชื่อหมวด" style={{ marginTop: 8 }}>
+        {cats.filter((c) => c.name !== NO_CATEGORY).map((c) => (
+          <li key={c.name} className="row row--between" style={{ alignItems: 'center' }}>
+            <span>📁 {c.name} <span className="small muted">({c.n})</span></span>
+            <span className="row" style={{ gap: 6 }}><button type="button" className="mini" aria-label={`แก้ชื่อหมวด ${c.name}`} onClick={() => rename(c.name)}>✏️ แก้ชื่อ</button><button type="button" className="mini" aria-label={`ลบหมวด ${c.name}`} onClick={() => del(c)}>🗑</button></span>
+          </li>
+        ))}
+      </ul>
+      {cats.filter((c) => c.name !== NO_CATEGORY).length === 0 && <p className="muted small">ยังไม่มีหมวด — เพิ่มหมวดแรกด้านบน</p>}
+      {msg && <p className="note" role="status" style={{ margin: '6px 0 0' }}>{msg}</p>}
+    </Sheet>
   )
 }

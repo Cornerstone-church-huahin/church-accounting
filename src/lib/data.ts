@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -129,6 +129,12 @@ export function useFoodPay() {
 export function useDocLibrary() {
   const s = useSharedStore<DocItem>({ localKey: k('doclib'), file: 'doc-library.json', label: 'คลังเอกสาร' })
   return { ...s, list: s.items.filter((x) => !x.deleted) }
+}
+
+/** หมวดเอกสารของคลังเอกสาร */
+export function useDocCategories() {
+  const s = useSharedStore<DocCategory>({ localKey: k('doccats'), file: 'doc-categories.json', label: 'หมวดเอกสาร' })
+  return { ...s, list: s.items.filter((x) => !x.deleted).sort((a, b) => a.name.localeCompare(b.name, 'th')) }
 }
 
 /** ตั้งค่าใบแผนงานประจำปี: คำขวัญ (รายการเดียว) */
