@@ -1,10 +1,11 @@
 /** ข้อความเชิญสมาชิก: ขั้น ① ติดตั้งแอป (ลิงก์ติดตั้งเดียว ตรวจ Android/iPhone ให้เอง) · ขั้น ② เปิดจากไอคอนแล้ววางลิงก์เชิญ */
 export const installUrlOf = (origin: string, pathname: string) => `${origin}${pathname}?openExternalBrowser=1#/install`
 
-export function buildInviteMessage(o: { forName?: string; installUrl: string; inviteUrl: string }): string {
+export function buildInviteMessage(o: { forName?: string; installUrl: string; inviteUrl: string; level?: string }): string {
   const who = o.forName?.trim() ? ` (ถึง ${o.forName.trim()})` : ''
   return [
     `ขอเชิญร่วมใช้แอปบัญชีคริสตจักร${who}`,
+    ...(o.level ? [`ระดับการใช้งานที่ตั้งไว้ให้: ${o.level}`] : []),
     '',
     '① ติดตั้งแอป (ทำครั้งเดียว) — เปิดลิงก์นี้แล้วทำตามหน้าจอ',
     'Android: กดปุ่ม “ติดตั้งแอป” · iPhone: เปิดด้วย Safari แล้วกดแชร์ ▸ เพิ่มลงหน้าจอโฮม',

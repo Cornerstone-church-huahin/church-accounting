@@ -12,6 +12,7 @@ import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
+import { INVITE_LEVELS, LEVEL_EXTRAS, levelOf } from '../lib/inviteLevels'
 import { buildInstallOnlyMessage, buildInviteMessage, installUrlOf } from '../lib/inviteMessage'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
@@ -97,7 +98,7 @@ function Members() {
   const m = useMembers()
   const fundTypes = useIncomeTypes().list.filter((t) => t.active && isFundType(t))
   const cfg = getSync()
-  const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'worship' | 'auditor' | 'viewer'>('bookkeeper')
+  const [inviteRole, setInviteRole] = useState<'bookkeeper' | 'worship' | 'auditor' | 'viewer'>('viewer')
   const [inviteFor, setInviteFor] = useState('')
   const [want, setWant] = useState<Record<string, Role[]>>({})
   const [delId, setDelId] = useState<string | null>(null)
@@ -112,7 +113,7 @@ function Members() {
     } catch { /* ผู้ใช้ปิดหน้าต่างแชร์ */ }
   }
   const installUrl = installUrlOf(location.origin, location.pathname)
-  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
+  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link, level: `ระดับ ${levelOf(inviteRole).n} ${levelOf(inviteRole).title} — ${levelOf(inviteRole).can[0]}` }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
   const shareInstall = () => send(buildInstallOnlyMessage(installUrl), 'ติดตั้งแอปบัญชีคริสตจักร', 'คัดลอกลิงก์ติดตั้งแล้ว')
   return (
     <Fold id="h-mem" open={m.isAdmin && m.pending.length > 0} title={<>👤 ผู้ใช้ร่วมและสิทธิ์ {m.isAdmin && m.pending.length > 0 && <span className="badge badge--gold">รออนุมัติ {m.pending.length}</span>}</>}>
@@ -120,12 +121,26 @@ function Members() {
         <div className="stack">
           <h3>① ส่งลิงก์เชิญ</h3>
           <div className="field"><label htmlFor="inv-for">ส่งให้ใคร (ชื่อ — ไว้เทียบตอนอนุมัติ)</label><input id="inv-for" className="input" value={inviteFor} maxLength={40} onChange={(e) => setInviteFor(e.target.value)} placeholder="เช่น พี่สมชาย" /></div>
-          <div className="field">
-            <label htmlFor="inv-role">สิทธิ์ที่ตั้งใจให้ (เปลี่ยนได้ตอนอนุมัติ)</label>
-            <select id="inv-role" className="input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}>
-              {(['bookkeeper', 'worship', 'auditor', 'viewer'] as const).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-            </select>
+          <div className="field" role="radiogroup" aria-label="ระดับการใช้งานที่ตั้งใจให้">
+            <label>ระดับการใช้งานที่ตั้งไว้ในลิงก์ <span className="small muted">(เปลี่ยนได้ทุกเมื่อภายหลัง)</span></label>
+            <div className="stack" style={{ gap: 6 }}>
+              {INVITE_LEVELS.map((l) => (
+                <button key={l.role} type="button" role="radio" aria-checked={inviteRole === l.role} className={`lvlcard${inviteRole === l.role ? ' lvlcard--on' : ''}`} onClick={() => setInviteRole(l.role)}>
+                  <b>{l.icon} ระดับ {l.n} · {l.title}</b>
+                  <span className="small">{l.forWho}</span>
+                  <span className="small">✓ {l.can.join(' · ')}</span>
+                  <span className="small muted">✗ {l.cannot.join(' · ')}</span>
+                </button>
+              ))}
+            </div>
           </div>
+          <details className="lvlhelp"><summary><b>ℹ️ สรุประดับสิทธิ์ (ไว้ดูกันลืม)</b></summary>
+            <ul className="list">
+              {INVITE_LEVELS.map((l) => <li key={l.role} style={{ display: 'block' }}><b>{l.icon} ระดับ {l.n} · {l.title}</b> <span className="small muted">({ROLE_LABEL[l.role]})</span><br /><span className="small">ทำได้: {l.can.join(' · ')}</span><br /><span className="small muted">ทำไม่ได้: {l.cannot.join(' · ')}</span></li>)}
+            </ul>
+            <p className="small muted">{LEVEL_EXTRAS}</p>
+            <p className="small"><b>เปลี่ยนระดับของใครก็ได้ทุกเมื่อ:</b> ที่รายชื่อ “ผู้ใช้ร่วม” ด้านล่าง แตะช่องสิทธิ์ของคนนั้นแล้วเลือกใหม่ ทันทีที่บันทึกมีผลกับเขา · พักสิทธิ์หรือลบได้เช่นกัน · ถ้าให้ช่วยงานห้องใด ให้กำหนดเขาเป็นผู้รับผิดชอบงานนั้นในห้องทำงาน</p>
+          </details>
           <button type="button" className="btn btn--gold" onClick={share}>📤 ส่งชุดเชิญ (ติดตั้ง + เข้าร่วม)</button>
           <button type="button" className="btn btn--ghost" onClick={shareInstall}>📲 ส่งเฉพาะลิงก์ติดตั้ง</button>
           <p className="small muted" style={{ margin: 0 }}>ชุดเชิญมี 2 ขั้น: ① ลิงก์ติดตั้ง (ตรวจ Android/iPhone ให้เอง) ② ลิงก์เชิญเข้าร่วม — iPhone ต้องติดตั้งก่อนแล้ววางลิงก์เชิญในแอป</p>
