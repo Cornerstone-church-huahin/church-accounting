@@ -368,6 +368,15 @@ export interface CalEvent extends SharedItem { date: string; title: string; tab:
   /** แผนงานประจำปี: แสดงในใบแผนงาน · ผู้รับผิดชอบ (ข้อความ) · งบประมาณต่อครั้ง (สตางค์) · ทำเสร็จแล้ว (ขีดฆ่าวันที่) */
   plan?: boolean; lead?: string; budget?: number; done?: boolean }
 
+/** คลังเอกสารงานเลขา: เอกสารหนึ่งฉบับมี "ร่าง" (แก้ได้) และ "เอกสารจริง" (ออกแล้วแก้ไม่ได้ เก็บเป็นหลักฐาน · ออกฉบับใหม่ได้ ฉบับเก่าเก็บไว้) */
+export type DocAccess = 'ทั่วไป' | 'ภายใน' | 'ลับ'
+export interface DocFinal { v: number; at: number; by: string; no: string; date: string; title: string; body: string }
+export interface DocItem extends SharedItem {
+  title: string; category: string; kind: string; no: string; date: string; access: DocAccess
+  /** เนื้อหาฉบับร่าง */ draft: string
+  /** เอกสารจริงที่ออกแล้ว (เรียงฉบับเก่า→ใหม่) */ finals?: DocFinal[]
+}
+
 /** ตั้งค่าใบแผนงานประจำปี (รายการเดียว id = plan-settings): คำขวัญประจำปี */
 export interface PlanSettings extends SharedItem { motto: string }
 /** ทำซ้ำแบบ Google: ทุก every วัน/สัปดาห์/เดือน/ปี · สัปดาห์เลือกวันได้หลายวัน (0=อาทิตย์) · เดือนเลือก วันที่เดิม / วันที่ n ของเดือน (เช่น พฤหัสที่ 3) / วันสุดท้าย · สิ้นสุดด้วยวันที่หรือจำนวนครั้ง */

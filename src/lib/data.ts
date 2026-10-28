@@ -1,7 +1,7 @@
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -123,6 +123,12 @@ export function useFoodPay() {
   const saved = s.items.find((x) => x.id === 'food-pay' && !x.deleted)
   const pay = saved ?? DEFAULT_FOOD_PAY
   return { ...s, pay, save: (p: Omit<FoodPay, 'id' | 'updated'>) => s.put([{ id: 'food-pay', updated: 0, ...p }]) }
+}
+
+/** คลังเอกสารงานเลขา (ไฟล์เดียว ไม่แบ่งปี) */
+export function useDocLibrary() {
+  const s = useSharedStore<DocItem>({ localKey: k('doclib'), file: 'doc-library.json', label: 'คลังเอกสาร' })
+  return { ...s, list: s.items.filter((x) => !x.deleted) }
 }
 
 /** ตั้งค่าใบแผนงานประจำปี: คำขวัญ (รายการเดียว) */
