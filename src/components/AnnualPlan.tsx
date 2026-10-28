@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import AnnualPlanPaper from './AnnualPlanPaper'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
-import { can, myWorks } from '../lib/access'
+import { can, canWork } from '../lib/access'
 import { planRows, quarterLabel } from '../lib/annualPlan'
 import { exportBlankPlan, planFile } from '../lib/blankPlan'
 import { useCalendar, usePlanSettings, useSettings } from '../lib/data'
@@ -20,7 +20,7 @@ const qOf = (iso: string): Q => (Math.floor((Number(iso.slice(5, 7)) - 1) / 3) +
  */
 export default function AnnualPlan() {
   const role = useRole()
-  const canEdit = can(role, 'detail') || myWorks().includes(1)
+  const canEdit = can(role, 'detail') || canWork(1, 'edit')
   const { settings } = useSettings()
   const church = settings.churchName.split(' ')[0]
   const cal = useCalendar()

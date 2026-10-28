@@ -17,6 +17,8 @@ export function useSharedStore<T extends SharedItem>(opts: {
   scope?: 'shared' | 'members'
   /** สิทธิ์ที่ต้องมีเพื่อเขียน (ค่าเริ่มต้น: ไม่ตรวจ) */
   write?: Perm
+  /** ตรวจสิทธิ์เขียนแบบกำหนดเอง (ใช้แทน write) — คืน false = ถูกกัน */
+  writeCheck?: () => boolean
   /** ซิงก์ซ้ำทุกนาที (ค่าเริ่มต้นใช่) · false = ซิงก์เฉพาะตอนเปิดและตอนกลับมาที่แอป (ข้อมูลเก่าที่แทบไม่เปลี่ยน) */
   poll?: boolean
 }) {
@@ -110,7 +112,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
   /** บันทึกรายการ (เพิ่ม/แก้ไข) แล้วส่งขึ้นออนไลน์ทันที · คืน false ถ้าสิทธิ์ไม่พอ */
   const put = useCallback(
     (items: T[]): boolean => {
-      if (opts.write && blocked(opts.write)) return false
+      if (opts.writeCheck ? !opts.writeCheck() : opts.write && blocked(opts.write)) return false
       const by = getSync() ? whoAmI().name : undefined
       const now = Date.now()
       const stamped = items.map((x, i) => ({ ...x, updated: now + i, by: by ?? x.by }))
@@ -123,7 +125,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
       }
       return true
     },
-    [setLocal, syncNow, opts.write],
+    [setLocal, syncNow, opts.write, opts.writeCheck],
   )
 
   /**

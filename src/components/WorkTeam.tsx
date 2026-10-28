@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { can } from '../lib/access'
+import { can, myWorkLevel, WORK_LEVEL_HELP, WORK_LEVEL_LABEL } from '../lib/access'
 import { useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
 import type { TeamMember } from '../lib/types'
@@ -17,12 +17,14 @@ export default function WorkTeam({ n, name }: { n: number; name: string }) {
   const people = teams.of(n)
   const [editing, setEditing] = useState(false)
   const canEdit = can(role, 'settings')
+  const lv = myWorkLevel(n)
   return (
     <div className="workteam no-print" aria-label={`ผู้รับผิดชอบ${name}`}>
       {people.length === 0
         ? <span className="muted">ยังไม่ระบุผู้รับผิดชอบ</span>
         : <ol className="workteam__list">{people.map((p, i) => <li key={i}><span>{p.role}</span> <b>{p.name}</b>{' '}</li>)}</ol>}
       {canEdit && <button type="button" className="workteam__edit" aria-label={`${people.length ? 'แก้ไข' : 'ใส่'}ผู้รับผิดชอบ`} title={`${people.length ? 'แก้ไข' : 'ใส่'}ผู้รับผิดชอบ`} onClick={() => setEditing(true)}>✏️</button>}
+      {lv && lv !== 'admin' && <p className="small" style={{ margin: '0.2rem 0 0' }} aria-label="ตำแหน่งของคุณในงานนี้">🪪 ตำแหน่งของคุณ: <b>{WORK_LEVEL_LABEL[lv]}</b> <span className="muted">— {WORK_LEVEL_HELP[lv]}</span></p>}
       {editing && <TeamEditor name={name} initial={people} onClose={() => setEditing(false)} onSave={(rows) => teams.save(n, rows)} />}
     </div>
   )

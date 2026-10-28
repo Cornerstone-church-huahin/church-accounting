@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import Sheet from './Sheet'
-import { myRole, whoAmI } from '../lib/access'
+import { canCalendarFor, myRole, whoAmI } from '../lib/access'
 import { canTouchEvent, dateRange, DAY_SHORT, describeDates, describeRepeat, kindLabel, kindOf, occurrences, presetRepeat, type RepeatKind } from '../lib/calendar'
 import { useCalendar } from '../lib/data'
 import { MEETING_TABS } from '../lib/workTabs'
@@ -17,6 +17,8 @@ const byTime = (a: CalEvent, b: CalEvent) => (a.time ?? '').localeCompare(b.time
 
 /** งานเลขาเป็นศูนย์กลางของตารางงาน: เห็นของทุกงาน · งานอื่นเห็นเฉพาะของตัวเองกับของงานเลขา */
 const SECRETARY = 1
+/** เขียนปฏิทินได้บ้างไหม (ไม่แจ้งเตือน) */
+const calendarWritableQuiet = () => canCalendarFor(0) || MEETING_TABS.some((t) => canCalendarFor(t.n))
 const canTouch = (e: CalEvent) => canTouchEvent(e, whoAmI().id, myRole() === 'admin')
 
 /**
@@ -106,7 +108,8 @@ const KINDS: RepeatKind[] = ['none', 'dates', 'daily', 'weekly', 'weekdays', 'mo
 function DaySheet({ date, list, tab, all, onClose, put, remove }: { date: string; list: CalEvent[]; tab: number; all: boolean; onClose: () => void; put: (x: CalEvent[]) => boolean; remove: (id: string) => boolean }) {
   const [editing, setEditing] = useState<CalEvent | null>(null)
   const [title, setTitle] = useState('')
-  const [owner, setOwner] = useState(tab)
+  const writable = calendarWritableQuiet()
+  const [owner, setOwner] = useState(canCalendarFor(tab) ? tab : (MEETING_TABS.find((t) => canCalendarFor(t.n))?.n ?? tab))
   const [when, setWhen] = useState(date)
   const [allDay, setAllDay] = useState(true)
   const [time, setTime] = useState('09:00')
@@ -140,6 +143,7 @@ function DaySheet({ date, list, tab, all, onClose, put, remove }: { date: string
     return { ...base, ...(endType === 'until' && until ? { until } : {}), ...(endType === 'count' ? { count: Math.max(1, Math.floor(count) || 1) } : {}) }
   }
   const save = () => {
+    if (!canCalendarFor(owner)) return setMsg('ไม่มีสิทธิ์ลงปฏิทินของงานนี้')
     if (!title.trim()) return setMsg('ใส่ชื่อกิจกรรมก่อน')
     const dates = [...new Set(picked)].sort()
     if (kind === 'dates' ? dates.length === 0 : !isISO(when)) return setMsg(kind === 'dates' ? 'แตะเลือกวันที่อย่างน้อย 1 วัน' : 'เลือกวันที่ให้ถูกต้อง')
@@ -173,13 +177,15 @@ function DaySheet({ date, list, tab, all, onClose, put, remove }: { date: string
           </li>
         ))}
       </ul>
+      {writable ? (
+        <>
       <h3 style={{ marginTop: '0.8rem' }}>{editing ? (editing.repeat || editing.extra?.length ? 'แก้ไขกิจกรรม (ทั้งชุด)' : 'แก้ไขกิจกรรม') : 'เพิ่มกิจกรรม'}</h3>
       <div className="field"><label htmlFor="ce-t">ชื่อกิจกรรม</label><input id="ce-t" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ประชุมคณะกรรมการ" /></div>
       <div className="row" style={{ alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor="ce-o">งาน</label>
           <select id="ce-o" className="input" value={owner} onChange={(e) => setOwner(Number(e.target.value))}>
-            {all && <option value={0}>ทั่วไป</option>}
-            {(all ? MEETING_TABS : MEETING_TABS.filter((t) => t.n === tab || t.n === SECRETARY)).map((t) => <option key={t.n} value={t.n}>{t.name}</option>)}
+            {all && canCalendarFor(0) && <option value={0}>ทั่วไป</option>}
+            {(all ? MEETING_TABS : MEETING_TABS.filter((t) => t.n === tab || t.n === SECRETARY)).filter((t) => canCalendarFor(t.n) || t.n === editing?.tab).map((t) => <option key={t.n} value={t.n}>{t.name}</option>)}
           </select></div>
         {kind !== 'dates' && <div className="field" style={{ flex: 1 }}><label htmlFor="ce-d">วันที่{editing?.repeat ? 'เริ่ม' : ''}</label><input id="ce-d" className="input" type="date" value={when} onChange={(e) => setWhen(e.target.value)} /></div>}
       </div>
@@ -228,6 +234,8 @@ function DaySheet({ date, list, tab, all, onClose, put, remove }: { date: string
         <button type="button" className="btn btn--gold" onClick={save}>{editing ? 'บันทึกการแก้ไข' : '＋ เพิ่ม'}</button>
         {editing && <button type="button" className="btn" onClick={reset}>ยกเลิกแก้ไข</button>}
       </div>
+        </>
+      ) : <p className="muted small" style={{ marginTop: '0.6rem' }}>ดูอย่างเดียว — ตำแหน่งของคุณลงปฏิทินเองไม่ได้</p>}
     </Sheet>
   )
 }

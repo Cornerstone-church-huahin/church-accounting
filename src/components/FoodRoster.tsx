@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import FoodRosterPaper from './FoodRosterPaper'
 import Sheet from './Sheet'
-import { can, myWorks } from '../lib/access'
+import { can, canWork } from '../lib/access'
 import { useFoodPay, useFoodSlots, useSettings } from '../lib/data'
 import { exportBlankFood, foodFile } from '../lib/blankFood'
 import { monthPages, shiftMonth, shortThaiDate, type YM } from '../lib/foodRoster'
@@ -18,7 +18,7 @@ const COUNTS = [2, 4, 6, 12]
  */
 export default function FoodRoster() {
   const role = useRole()
-  const canEdit = can(role, 'detail') || myWorks().includes(14)
+  const canEdit = can(role, 'detail') || canWork(14, 'edit')
   const { settings } = useSettings()
   const church = settings.churchName.split(' ')[0]
   const slots = useFoodSlots()

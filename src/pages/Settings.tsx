@@ -12,6 +12,7 @@ import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
+import { WORK_LEVELS, WORK_LEVEL_HELP, WORK_LEVEL_LABEL, workLevelOf } from '../lib/access'
 import { INVITE_LEVELS, LEVEL_EXTRAS, levelOf } from '../lib/inviteLevels'
 import { buildInstallOnlyMessage, buildInviteMessage, installUrlOf } from '../lib/inviteMessage'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
@@ -216,6 +217,24 @@ function Members() {
                         return <button key={t.n} type="button" className="wchip" style={{ padding: '0 0.7rem' }} aria-pressed={on} onClick={() => { const next = on ? (x.works ?? []).filter((n) => n !== t.n) : [...(x.works ?? []), t.n]; if (m.setWorks(x.id, next)) flash(`ตั้งงานของ ${x.name}: ${next.length ? next.map((n) => MEETING_TABS.find((z) => z.n === n)?.name).join(', ') : 'ไม่จำกัด'}`) }}>{t.name}</button>
                       })}
                     </div>
+                    {(x.works ?? []).length > 0 && (
+                      <ul className="list" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`} style={{ marginTop: 6 }}>
+                        {(x.works ?? []).map((n) => {
+                          const lv = workLevelOf(x, n) ?? 'lead'
+                          return (
+                            <li key={n} style={{ display: 'block' }}>
+                              <div className="row row--between" style={{ alignItems: 'center' }}>
+                                <b>{MEETING_TABS.find((t) => t.n === n)?.name}</b>
+                                <select className="input" style={{ width: '9.5rem' }} aria-label={`ตำแหน่งของ ${x.name} ใน ${MEETING_TABS.find((t) => t.n === n)?.name}`} value={lv} onChange={(e) => { if (m.setWorkLevel(x.id, n, e.target.value as typeof lv)) flash(`${x.name} เป็น${WORK_LEVEL_LABEL[e.target.value as typeof lv]}ของ${MEETING_TABS.find((t) => t.n === n)?.name}`) }}>
+                                  {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
+                                </select>
+                              </div>
+                              <span className="small muted">{WORK_LEVEL_HELP[lv]}</span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
                   </details>
                 </>
               ) : <span className="badge">{rolesLabel(rolesOf(x))}{x.works?.length ? ` · ${x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ')}` : ''}</span>}

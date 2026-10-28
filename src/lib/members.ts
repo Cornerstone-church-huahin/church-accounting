@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role } from './access'
+import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role, type WorkLevel } from './access'
 import { useSharedStore } from './sharedStore'
 import { getSync, saveSync, SYNC_EVENT } from './sync'
 
@@ -95,12 +95,24 @@ export function useMembers() {
       announce()
       return true
     },
-    /** แอดมินกำหนดงานที่คนนั้นรับผิดชอบในห้องทำงาน (ว่าง = ไม่จำกัด) */
+    /** แอดมินกำหนดงานที่คนนั้นอยู่ในห้องทำงาน (ว่าง = ไม่จำกัด) · งานที่เพิ่มใหม่เริ่มที่ "ผู้ช่วย" (ปลอดภัย) · งานที่ถอดออกลบตำแหน่งด้วย */
     setWorks: (id: string, works: number[]) => {
       if (!isAdmin) return false
       const m = active.find((x) => x.id === id)
       if (!m) return false
-      store.put([{ ...m, works: works.length ? [...new Set(works)].sort((a, b) => a - b) : undefined }])
+      const next = works.length ? [...new Set(works)].sort((a, b) => a - b) : undefined
+      const roles: Record<string, WorkLevel> = {}
+      for (const n of next ?? []) roles[String(n)] = m.workRoles?.[String(n)] ?? (m.works?.includes(n) ? 'lead' : 'helper')
+      store.put([{ ...m, works: next, workRoles: next ? roles : undefined }])
+      announce()
+      return true
+    },
+    /** แอดมินเปลี่ยนตำแหน่งของคนนั้นในห้องงาน n (ผู้ดูแลหลัก/ผู้ช่วย/ที่ปรึกษา) — เปลี่ยนได้ทุกเมื่อ */
+    setWorkLevel: (id: string, n: number, level: WorkLevel) => {
+      if (!isAdmin) return false
+      const m = active.find((x) => x.id === id)
+      if (!m || !m.works?.includes(n)) return false
+      store.put([{ ...m, workRoles: { ...(m.workRoles ?? {}), [String(n)]: level } }])
       announce()
       return true
     },
