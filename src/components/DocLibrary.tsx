@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import Sheet from './Sheet'
-import { can, myWorks } from '../lib/access'
+import { can, canWork } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
 import { useDocCategories, useDocLibrary } from '../lib/data'
 import { ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, renumberWithPrefix, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
@@ -28,7 +28,7 @@ const saveToDevice = (file: File) => { const u = URL.createObjectURL(file); cons
 export default function DocLibrary() {
   const role = useRole()
   const admin = role === 'admin'
-  const editor = admin || can(role, 'detail') || myWorks().includes(1)
+  const editor = admin || can(role, 'detail') || canWork(1, 'edit')
   const lib = useDocLibrary()
   const catStore = useDocCategories()
   const [q, setQ] = useState('')

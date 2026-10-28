@@ -1,3 +1,4 @@
+import { calendarWritable } from './access'
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
@@ -92,7 +93,7 @@ export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('record
 
 /** ปฏิทินงานของห้องทำงาน (ไม่แบ่งปี · ทุกแท็บบันทึกลงไฟล์เดียวกัน เพื่อให้เห็นความสัมพันธ์รวมกัน) */
 export function useCalendar() {
-  const s = useSharedStore<CalEvent>({ localKey: k('calendar'), file: 'calendar.json', label: 'ปฏิทินงาน', write: 'detail' })
+  const s = useSharedStore<CalEvent>({ localKey: k('calendar'), file: 'calendar.json', label: 'ปฏิทินงาน', writeCheck: calendarWritable })
   return { ...s, list: s.items }
 }
 

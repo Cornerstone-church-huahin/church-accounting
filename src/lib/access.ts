@@ -25,7 +25,7 @@ export const ROLE_HELP: Record<Role, string> = {
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
 /** role = สิทธิ์หลัก (สูงสุดในรายการ) · roles = สิทธิ์ทั้งหมดถ้ามีมากกว่า 1 (เครื่องรุ่นเก่าอ่านแค่ role ได้ จึงไม่พัง) */
 export interface FundAssign { id: string; /** จำกัดเฉพาะหมวดเหล่านี้ (ว่าง = ทุกหมวดของกองทุน) */ subs?: string[] }
-export interface Member extends SharedItem { /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
+export interface Member extends SharedItem { /** ตำแหน่งในแต่ละห้องงาน (เลขห้อง → ระดับ) · ไม่ระบุแต่อยู่ใน works = ผู้ดูแลหลัก (ข้อมูลเดิม) */ workRoles?: Record<string, WorkLevel>; /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'
@@ -136,6 +136,45 @@ export function myRole(): AccessRole {
 export function blocked(p: Perm): boolean {
   if (can(myRole(), p)) return false
   window.dispatchEvent(new Event(READONLY_EVENT))
+  return true
+}
+
+/**
+ * ตำแหน่งในห้องงาน (ต่อห้อง): ผู้ดูแลหลัก = แก้ไขได้ทุกอย่างของงานนั้น · ผู้ช่วย = ลงปฏิทินได้ + แชท ที่เหลือดูอย่างเดียว · ที่ปรึกษา = แชท ที่เหลือดูอย่างเดียว
+ * แอดมินอยู่เหนือทุกงาน · แก้ตารางนี้ที่เดียว สิทธิ์เปลี่ยนทุกห้องพร้อมกัน
+ */
+export type WorkLevel = 'lead' | 'helper' | 'advisor'
+export type WorkPerm = 'view' | 'edit' | 'calendar' | 'chat'
+export const WORK_LEVELS: WorkLevel[] = ['lead', 'helper', 'advisor']
+export const WORK_LEVEL_LABEL: Record<WorkLevel, string> = { lead: 'ผู้ดูแลหลัก', helper: 'ผู้ช่วย', advisor: 'ที่ปรึกษา' }
+export const WORK_LEVEL_HELP: Record<WorkLevel, string> = {
+  lead: 'เสมือนเลขาของแอดมินในงานนี้: เพิ่ม แก้ไข ลบ ข้อมูลของงานได้ทุกอย่าง รวมปฏิทิน และแชทกับแอดมิน',
+  helper: 'ลงปฏิทินงานและแชทกับแอดมินได้ · ข้อมูลอื่นของงานดูอย่างเดียว',
+  advisor: 'แชทกับแอดมินได้ · ที่เหลือดูอย่างเดียว (ลงปฏิทินเองไม่ได้)',
+}
+export const WORK_PERMS: Record<WorkLevel, WorkPerm[]> = { lead: ['view', 'edit', 'calendar', 'chat'], helper: ['view', 'calendar', 'chat'], advisor: ['view', 'chat'] }
+export const levelCan = (l: WorkLevel, p: WorkPerm) => WORK_PERMS[l].includes(p)
+/** ตำแหน่งของคนนั้นในห้อง n (null = ไม่ได้อยู่ในห้องนี้) · อยู่ใน works แต่ไม่ได้ระบุตำแหน่ง = ผู้ดูแลหลัก */
+export const workLevelOf = (m: { works?: number[]; workRoles?: Record<string, WorkLevel> }, n: number): WorkLevel | null => {
+  const r = m.workRoles?.[String(n)]
+  if (r && WORK_LEVELS.includes(r) && m.works?.includes(n)) return r
+  return m.works?.includes(n) ? 'lead' : null
+}
+/** ตำแหน่งของเครื่องนี้ในห้อง n: 'admin' (แอดมิน/โหมดทดลอง) · ผู้ดูแลหลัก/ผู้ช่วย/ที่ปรึกษา · null */
+export function myWorkLevel(n: number): 'admin' | WorkLevel | null {
+  if (!getSync() || myRole() === 'admin') return 'admin'
+  const me = getMe()
+  const mine = me && readAllMembers().find((m) => m.id === me.id)
+  return mine && !mine.deleted ? workLevelOf(mine, n) : null
+}
+/** เครื่องนี้ทำ perm ในห้อง n ได้ไหม (ตามตำแหน่งในห้อง — ไม่รวมสิทธิ์ตามบทบาทบัญชี) */
+export const canWork = (n: number, p: WorkPerm): boolean => { const l = myWorkLevel(n); return l === 'admin' || (!!l && levelCan(l, p)) }
+/** ลงปฏิทินของงาน n ได้: บทบาทที่มีสิทธิ์ดูรายละเอียด หรือเป็นผู้ดูแลหลัก/ผู้ช่วยของงานนั้น (ทั่วไป n=0 = เฉพาะบทบาทที่มีสิทธิ์) */
+export const canCalendarFor = (n: number): boolean => can(myRole(), 'detail') || (n > 0 && canWork(n, 'calendar'))
+/** เขียนปฏิทินได้บ้างไหม (ไว้ตรวจก่อนบันทึก) */
+export const calendarWritable = (): boolean => {
+  if (can(myRole(), 'detail')) return true
+  if (!myWorks().some((n) => canWork(n, 'calendar'))) { window.dispatchEvent(new Event(READONLY_EVENT)); return false }
   return true
 }
 

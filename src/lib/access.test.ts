@@ -60,3 +60,20 @@ describe('ผู้ดูแลกองทุน', () => {
     expect(normalizeRoles(['admin', 'fundkeeper'])).toEqual(['admin'])
   })
 })
+
+import { levelCan, WORK_PERMS, workLevelOf } from './access'
+describe('ตำแหน่งในห้องงาน (ผู้ดูแลหลัก / ผู้ช่วย / ที่ปรึกษา)', () => {
+  it('ตารางสิทธิ์: ผู้ดูแลแก้ไขทุกอย่าง · ผู้ช่วยลงปฏิทิน+แชท · ที่ปรึกษาแชทอย่างเดียว · ทุกคนดูได้', () => {
+    expect(WORK_PERMS.lead).toEqual(['view', 'edit', 'calendar', 'chat'])
+    expect(levelCan('helper', 'calendar') && levelCan('helper', 'chat') && !levelCan('helper', 'edit')).toBe(true)
+    expect(levelCan('advisor', 'chat') && !levelCan('advisor', 'calendar') && !levelCan('advisor', 'edit')).toBe(true)
+    for (const l of ['lead', 'helper', 'advisor'] as const) expect(levelCan(l, 'view')).toBe(true)
+  })
+  it('workLevelOf: ไม่ระบุตำแหน่งแต่อยู่ใน works = ผู้ดูแลหลัก (ข้อมูลเดิม) · ไม่อยู่ในงาน = null · ตำแหน่งที่ระบุใช้ได้เฉพาะงานที่อยู่ใน works', () => {
+    expect(workLevelOf({ works: [4] }, 4)).toBe('lead')
+    expect(workLevelOf({ works: [4] }, 5)).toBeNull()
+    expect(workLevelOf({ works: [4, 5], workRoles: { '4': 'helper', '5': 'advisor' } }, 5)).toBe('advisor')
+    expect(workLevelOf({ works: [4], workRoles: { '5': 'advisor' } }, 5)).toBeNull()
+    expect(workLevelOf({}, 4)).toBeNull()
+  })
+})
