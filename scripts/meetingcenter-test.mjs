@@ -20,23 +20,11 @@ try {
   await page.getByRole('navigation', { name: 'หมวดงานเลขา', exact: true }).getByRole('link').first().click()
   await page.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 8000 })
   must(await page.getByText('ลำดับงานเลขานุการ ตั้งแต่เตรียมประชุมจนถึงจัดเก็บเอกสาร').isVisible(), 'subtitle')
-  const btns = page.getByRole('navigation', { name: 'ขั้นตอนการประชุม 10 ขั้น' }).getByRole('link')
-  must(await btns.count() === 10, 'ten buttons')
-  for (let i = 0; i < 10; i++) {
-    const t = (await btns.nth(i).innerText()).replace(/\s+/g, ' ')
-    must(t.includes(String(i + 1)) && t.includes(TITLES[i]) && t.includes(BLURBS[i]), `button ${i + 1}: ` + t)
-  }
-  const cols = async (p) => (await p.locator('.mcbtn').evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))).size && els.filter((e) => Math.round(e.getBoundingClientRect().top) === Math.round(els[0].getBoundingClientRect().top)).length))
-  must(await cols(page) === 2, 'two per row on a phone')
-  await noOverflow(page, 'hub 390'); await page.screenshot({ path: '/tmp/mc-hub.png', fullPage: true })
-  const wide = await mk(1280, 900); await wide.goto(`http://localhost:${PORT}/#/meeting/1/1`); await wide.locator('.mcbtn').first().waitFor({ timeout: 8000 })
-  must(await cols(wide) === 4, 'four per row on a wide screen')
-  const tiny = await mk(320, 700); await tiny.goto(`http://localhost:${PORT}/#/meeting/1/1`); await tiny.locator('.mcbtn').first().waitFor({ timeout: 8000 })
-  must(await cols(tiny) === 1, 'one per row on a very narrow screen'); await noOverflow(tiny, 'hub 320')
+  must(await page.getByText(/ยังไม่มีการประชุม/).first().isVisible() && await page.locator('.mcard').count() === 0, 'no meeting: hint only, no cards')
+  await noOverflow(page, 'hub 390')
   // รายละเอียดแต่ละขั้น
   for (let n = 1; n <= 10; n++) {
-    await page.goto(`http://localhost:${PORT}/#/meeting/1/1`)
-    await btns.nth(n - 1).click()
+    await page.goto(`http://localhost:${PORT}/#/meeting/1/1/${n}`)
     if (n <= 10) await page.getByText('คำอธิบายขั้นตอนนี้').click()
     await page.getByRole('heading', { name: `${n}. ${TITLES[n - 1]}`, level: 1 }).waitFor({ timeout: 5000 })
     const items = await page.getByRole('list', { name: `หัวข้อของ ${TITLES[n - 1]}` }).locator('li').allInnerTexts()
@@ -183,6 +171,9 @@ try {
   await wp.getByLabel('ค้นหามติ').fill('ผู้รับผิดชอบ ทดสอบ')
   must(/ขออนุมัติงบซ่อมแซมหลังคา/.test(await wp.locator('main').innerText()), 'resolution register search')
   await wp.getByRole('button', { name: /เก็บเอกสารเข้าแฟ้ม/ }).click()
+  await wp.getByRole('dialog').waitFor({ timeout: 5000 })
+  must((await wp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('รายงานการประชุม'), 'closing the file forwards to the library with a prefilled form')
+  await wp.goto(`http://localhost:${PORT}/#/meeting/1/1/10`); await wp.locator('.mcbar__dot').first().waitFor({ timeout: 8000 })
   must(await wp.locator('.mcbar__dot--done').count() === 10, 'archived → all ten steps ✓')
   must(await wp.locator('[data-credit="app"]').count() === 1, 'app credit on step 10')
   // หัวจดหมาย: แอดมินตั้งจากรูปจดหมายตัวอย่าง → หัวขึ้นบนเอกสาร
@@ -201,6 +192,16 @@ try {
   await page.getByRole('link', { name: /ขั้นตอนก่อนหน้า/ }).click(); await page.getByRole('heading', { name: '4. เตรียมเอกสาร / พิมพ์', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: 'กลับศูนย์จัดการประชุม', exact: true }).click(); await page.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: '‹ งานเลขา' }).click(); await page.getByRole('heading', { name: 'งานเลขา', exact: true }).waitFor({ timeout: 5000 })
+  // การ์ดต่อการประชุม + เช็คลิสต์ 10 ขั้น
+  await wp.goto(U)
+  const card = wp.locator('.mcard').first(); await card.waitFor({ timeout: 8000 })
+  must(await card.locator('.mcheck li').count() === 10, 'card has a 10-row checklist')
+  must(/ครั้งที่/.test(await card.innerText()) && /\d+\/10/.test(await card.locator('.mcard__n').innerText()), 'card shows meeting + progress')
+  await card.getByRole('link', { name: /นำเข้าคลังเอกสาร/ }).click()
+  await wp.getByRole('dialog').waitFor({ timeout: 5000 })
+  must((await wp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('รายงานการประชุม'), 'hub card forwards to the library')
+  await wp.goto(U); await wp.locator('.mcard').first().locator('.mcheck li').nth(2).getByRole('link').click()
+  await wp.getByRole('heading', { name: '3. แจ้งประชุม', level: 1 }).waitFor({ timeout: 5000 })
   // ขั้นที่ไม่มี
   await page.goto(`http://localhost:${PORT}/#/meeting/1/1/11`); must(await page.getByText('ไม่พบขั้นตอนนี้').isVisible(), 'unknown step handled')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
