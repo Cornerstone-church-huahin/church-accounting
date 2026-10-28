@@ -64,14 +64,17 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
           {l.attach?.trim() && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{l.attach}</span></div>}
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
           <p className="letter__p">{c.proceed}</p>
-          <div className="letter__sign" style={{ marginTop: 22 }}>
+        </div>
+        {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
+        <div className="il__bottom">
+          <div className="letter__sign">
             {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
             <div style={{ height: 62 }} />
             <div>{c.signName ? `(${c.signName})` : '(………………………)'}</div>
             <div>{c.signRole}</div>
           </div>
+          <footer className="il__foot">{c.contact.split('\n').map((x, i) => <div key={i}>{x}</div>)}</footer>
         </div>
-        <footer className="il__foot">{c.contact.split('\n').map((x, i) => <div key={i}>{x}</div>)}</footer>
       </div>
     </ScaledPage>
   )

@@ -1143,4 +1143,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .il__en { font-size: 16.5px; color: #2f6fd6; line-height: 1.25; }
 .il__addr { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
 .il__body { flex: 1; padding: 18px 64px 0; }
-.il__foot { margin-top: auto; padding: 0 56px 30px; font-size: 12.5px; line-height: 1.7; }
+.il__bottom { margin-top: auto; padding: 0 64px 0 0; }
+.il__bottom .letter__sign { margin-bottom: 26px; margin-right: 0; }
+.il__foot { padding: 0 56px 30px; font-size: 12.5px; line-height: 1.7; }
