@@ -44,7 +44,7 @@ try {
   must(!(await invalid('#df-title')), 'typing clears the red border')
   await page.getByRole('dialog').getByRole('button', { name: 'ยกเลิก' }).click()
   // แผนงานประจำปี: รายละเอียดว่าง
-  await page.goto(`http://localhost:${PORT}/#/meeting/1/2`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/1/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: /เพิ่มกิจกรรม/ }).click()
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.locator('#ap-t[aria-invalid=true]').waitFor({ timeout: 3000 })

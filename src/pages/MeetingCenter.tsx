@@ -95,7 +95,7 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
         const toggle = (n: number) => {
           const on = !manual.includes(n)
           if (!c.put([{ ...m, flow: on ? [...manual, n] : manual.filter((x) => x !== n), updated: Date.now() }])) return
-          if (on && n === 10) navigate('/meeting/1/3', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
+          if (on && n === 10) navigate('/meeting/1/2', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
         }
         return (
           <>

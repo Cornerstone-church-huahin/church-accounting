@@ -62,10 +62,10 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
 const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️', 'ตารางถวายอาหาร': '🍽️', 'แผนงานประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ตารางเยี่ยม': '🗓️', 'ตารางถวายอาหาร': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
-  1: ['ลำดับงาน', 'แผนงานประจำปี', 'คลังเอกสาร', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  1: ['ลำดับงาน', 'คลังเอกสาร', 'แผนประจำปี', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   4: ['สมาชิก', 'ตารางเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -107,7 +107,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {!(n === 4 && k === 1) && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
-      {n === 4 && k === 1 ? <PastoralMembers /> : n === 4 && k === 2 ? <PastoralVisits /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 2 ? <AnnualPlan /> : n === 1 && k === 3 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {n === 4 && k === 1 ? <PastoralMembers /> : n === 4 && k === 2 ? <PastoralVisits /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

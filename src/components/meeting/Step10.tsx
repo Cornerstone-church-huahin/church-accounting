@@ -9,7 +9,7 @@ const ACC = { ทั่วไป: 'ทุกคนที่เข้าระบ
 export default function Step10({ m, save, list }: StepProps) {
   const [q, setQ] = useState('')
   const navigate = useNavigate()
-  const toLibrary = () => navigate('/meeting/1/3', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
+  const toLibrary = () => navigate('/meeting/1/2', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
   const st = stepStatuses(m, list)
   const files = [
     { t: 'ระเบียบวาระ', ok: st[2].state === 'done' }, { t: 'หนังสือแจ้งประชุม', ok: st[3].state === 'done' }, { t: 'ใบลงชื่อ/บันทึกประชุม', ok: st[6].state === 'done' },

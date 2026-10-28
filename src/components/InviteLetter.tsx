@@ -135,7 +135,7 @@ export default function InviteLetterPage() {
       if (!doc) throw new Error('สร้างไฟล์ไม่สำเร็จ')
       const file = new File([doc.output('blob')], `หนังสือเชิญ ${l.no ? l.no.replace(/[\\/:*?"<>|]/g, '-') : todayISO()}.pdf`, { type: 'application/pdf' })
       setPendingDoc({ title: l.subject ? `หนังสือเชิญ ${l.subject}` : 'หนังสือเชิญร่วมงาน', date: l.date, note: `เรียน ${l.to}`.trim(), no: l.no.trim() || undefined, category: cat?.name, file })
-      navigate('/meeting/1/3')
+      navigate('/meeting/1/2')
     } catch (e) { setMsg(e instanceof Error ? e.message : 'สร้างไฟล์ไม่สำเร็จ') }
     setBusy(false)
   }

@@ -14,8 +14,8 @@ page.on('pageerror', (e) => errors.push(String(e)))
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/meeting/1`); await page.waitForLoadState('networkidle')
-  must(/แผนงานประจำปี/.test(await page.locator('.tiletabs').innerText()), 'งานเลขา tab 2 = แผนงานประจำปี')
-  await page.getByRole('link', { name: /แผนงานประจำปี/ }).click()
+  must(/แผนประจำปี/.test(await page.locator('.tiletabs').innerText()), 'งานเลขา tab 3 = แผนประจำปี')
+  await page.getByRole('link', { name: /แผนประจำปี/ }).click()
   await page.getByLabel('ปี พ.ศ.').first().selectOption('2026'); await page.getByLabel('ไตรมาส', { exact: true }).selectOption('4')
   await page.getByLabel('คำขวัญประจำปี (แสดงหัวแผ่น)').fill('ก้าวต่อไปในนิมิต'); await page.getByLabel('คำขวัญประจำปี (แสดงหัวแผ่น)').blur()
   must(/ก้าวต่อไปในนิมิต/.test(await page.locator('.a4page').innerText()), 'motto on sheet')
