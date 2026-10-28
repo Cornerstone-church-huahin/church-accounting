@@ -1112,9 +1112,13 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .mcard__n { flex: none; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--navy); color: #fff; font-size: 0.85rem; }
 .mcheck { list-style: none; margin: 0; padding: 0; }
 .mcheck li { border-top: 1px solid var(--line); }
-.mcheck__row { display: flex; align-items: center; gap: 0.6rem; min-height: 2.6rem; padding: 0.3rem 0.1rem; color: var(--ink); text-decoration: none; }
-.mcheck__box { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 0.4rem; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 700; line-height: 1; }
+.mcheck__row { display: flex; align-items: center; gap: 0.55rem; min-height: 2.1rem; padding: 0.15rem 0.1rem; color: var(--ink); text-decoration: none; }
+.mcheck__box { flex: none; width: 1.35rem; height: 1.35rem; background: transparent; cursor: pointer; padding: 0; border-radius: 0.4rem; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 700; line-height: 1; }
 .mcheck__row--done .mcheck__box { background: #1f8a4c; border-color: #1f8a4c; color: #fff; }
 .mcheck__row--partial .mcheck__box { border-color: #c99a14; color: #c99a14; }
 .mcheck__t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
 .mcheck__t small { color: var(--muted, #6b6f76); font-size: 0.78rem; }
+.mcheck__t b { font-size: 0.95rem; }
+.mcheck__t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.74rem; }
+.mcheck__go { flex: none; padding: 0.3rem 0.5rem; color: var(--navy); font-size: 1.2rem; text-decoration: none; }
+.mcard { padding-block: 0.6rem; }

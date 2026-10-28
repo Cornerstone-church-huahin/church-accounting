@@ -13,7 +13,7 @@ import Step9 from '../components/meeting/Step9'
 import Step10 from '../components/meeting/Step10'
 import { can } from '../lib/access'
 import { useLetterhead, useMeetings } from '../lib/data'
-import { blankMeeting, letterDate, nextNo, stepStatuses, type StepState } from '../lib/meetings'
+import { blankMeeting, letterDate, nextNo, stepStatuses } from '../lib/meetings'
 import { CENTER_SUB, CENTER_TITLE, MEETING_STEPS, stepOf } from '../lib/meetingCenter'
 import { useRole } from '../lib/members'
 import { todayISO, yearOf } from '../lib/money'
@@ -22,7 +22,6 @@ import type { Meeting } from '../lib/types'
 const BASE = '/meeting/1/1'
 const HUB = `${BASE}/meeting`
 const CUR_KEY = 'acct.mc.cur'
-const MARK: Record<StepState, string> = { done: '✓', partial: '•', todo: '' }
 
 /** การประชุมที่กำลังจัดการ (จำไว้ในเครื่อง) + บันทึกแก้ไขทับข้อมูลล่าสุดเสมอ */
 function useCurrentMeeting() {
@@ -60,7 +59,7 @@ export default function MeetingCenter({ step }: { step?: number }) {
   return (
     <div className={`mcenter${c.cur ? ' mcenter--bar' : ''}`}>
       {step === undefined ? <Hub c={c} canSetup={can(role, 'settings')} /> : <Step n={step} c={c} />}
-      {c.cur && status && <StatusBar m={c.cur} status={status} step={step} />}
+      {c.cur && status && step !== undefined && <StatusBar m={c.cur} status={status} step={step} />}
     </div>
   )
 }
@@ -70,7 +69,6 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
   const [setup, setSetup] = useState(false)
   const lh = useLetterhead().value
   const navigate = useNavigate()
-  const meetings = [...c.list].sort((x, y) => y.year - x.year || y.no - x.no)
   return (
     <>
       <div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ ลำดับงาน</Link></div>
@@ -84,34 +82,48 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
         {!lh?.header && <p className="muted small" style={{ margin: '0.4rem 0 0' }}>เอกสารยังใช้หัวแบบข้อความ — แอดมินตั้งหัว-ท้ายจดหมายจริงของคริสตจักรได้ที่ปุ่ม “ตั้งค่าหัวจดหมาย”</p>}
       </section>
       {c.list.length === 0 && <p className="empty">ยังไม่มีการประชุม — กด “＋ สร้างการประชุมใหม่” เพื่อเริ่มขั้นที่ 1</p>}
-      {meetings.map((m) => {
-        const st = stepStatuses(m, c.list)
-        const done = MEETING_STEPS.filter((s) => st[s.n].state === 'done').length
-        const label = `ครั้งที่ ${m.no}/${m.year} · ${m.name || 'ยังไม่ตั้งชื่อ'}`
+      {c.cur && (() => {
+        const m = c.cur
+        const label = (x: Meeting) => `ครั้งที่ ${x.no}/${x.year} · ${x.name || 'ยังไม่ตั้งชื่อ'}`
+        const ticks = m.flow ?? []
+        const toggle = (n: number) => {
+          const on = !ticks.includes(n)
+          if (!c.put([{ ...m, flow: on ? [...ticks, n] : ticks.filter((x) => x !== n), updated: Date.now() }])) return
+          if (on && n === 10) navigate('/meeting/1/3', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
+        }
         return (
-          <section key={m.id} className="card mcard" aria-label={`การประชุม ${label}`}>
-            <div className="mcard__head">
-              <div><b>{label}</b><div className="small muted">{letterDate(m.date) || 'ยังไม่กำหนดวัน'}{m.place ? ` · ${m.place}` : ''}</div></div>
-              <span className="mcard__n" aria-label={`ทำแล้ว ${done} จาก 10 ขั้น`}>{done}/10</span>
-            </div>
-            <ol className="mcheck" aria-label={`เช็คลิสต์ ${label}`}>
-              {MEETING_STEPS.map((s) => (
-                <li key={s.n}>
-                  <Link to={`${BASE}/${s.n}`} onClick={() => c.select(m.id)} className={`mcheck__row mcheck__row--${st[s.n].state}`}>
-                    <span className="mcheck__box" aria-hidden="true">{MARK[st[s.n].state]}</span>
-                    <span className="mcheck__t"><b>{s.n}. {s.title}</b><small>{st[s.n].hint}</small></span>
-                    <span aria-hidden="true">›</span>
-                  </Link>
-                </li>
-              ))}
-            </ol>
-            <div className="row" style={{ marginTop: '0.4rem' }}>
-              {st[10].state === 'done' && <Link to="/meeting/1/3" state={{ importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } }} className="btn btn--gold">📚 นำเข้าคลังเอกสาร ›</Link>}
-              <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบการประชุม “${m.name || `ครั้งที่ ${m.no}/${m.year}`}” ?`)) c.remove(m.id) }}>🗑️ ลบการประชุมนี้</button>
-            </div>
-          </section>
+          <>
+            <div className="field" style={{ margin: '0 0 0.4rem' }}><label htmlFor="mc-cur">เลือกการประชุม</label>
+              <select id="mc-cur" className="input" value={m.id} onChange={(e) => c.select(e.target.value)}>
+                {c.list.map((x) => <option key={x.id} value={x.id}>{label(x)}{x.date ? ` · ${letterDate(x.date)}` : ''}</option>)}
+              </select></div>
+            <section className="card mcard" aria-label={`การประชุม ${label(m)}`}>
+              <div className="mcard__head">
+                <div><b>{label(m)}</b><div className="small muted">{letterDate(m.date) || 'ยังไม่กำหนดวัน'}{m.place ? ` · ${m.place}` : ''}</div></div>
+                <span className="mcard__n" aria-label={`ทำถึงแล้ว ${ticks.length} จาก 10 ขั้น`}>{ticks.length}/10</span>
+              </div>
+              <p className="small muted" style={{ margin: '0 0 0.2rem' }}>ติ๊กเองเพื่อบอกว่าทำถึงขั้นไหนแล้ว (ทำงานนอกแอปก็ใช้ดูลำดับได้)</p>
+              <ol className="mcheck" aria-label={`เช็คลิสต์ ${label(m)}`}>
+                {MEETING_STEPS.map((s) => {
+                  const on = ticks.includes(s.n)
+                  return (
+                    <li key={s.n}>
+                      <div className={`mcheck__row mcheck__row--${on ? 'done' : 'todo'}`}>
+                        <button type="button" className="mcheck__box" role="checkbox" aria-checked={on} aria-label={`${s.n}. ${s.title}`} onClick={() => toggle(s.n)}>{on ? '✓' : ''}</button>
+                        <span className="mcheck__t"><b>{s.n}. {s.title}</b><small>{s.n === 10 ? 'ติ๊กแล้วส่งเอกสารเข้าคลังเอกสาร' : s.blurb}</small></span>
+                        <Link to={`${BASE}/${s.n}`} onClick={() => c.select(m.id)} className="mcheck__go" aria-label={`เปิดขั้น ${s.n} ${s.title}`}>›</Link>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+              <div className="row" style={{ marginTop: '0.3rem' }}>
+                <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบการประชุม “${m.name || `ครั้งที่ ${m.no}/${m.year}`}” ?`)) c.remove(m.id) }}>🗑️ ลบการประชุมนี้</button>
+              </div>
+            </section>
+          </>
         )
-      })}
+      })()}
       {setup && <LetterheadSetup onClose={() => setSetup(false)} />}
     </>
   )
