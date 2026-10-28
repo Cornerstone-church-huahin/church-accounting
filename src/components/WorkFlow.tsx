@@ -124,7 +124,7 @@ export function FlowPage({ id }: { id: string }) {
   const toggle = (s: FlowStep) => {
     const on = !x.ticks.includes(s.id)
     if (!set(on ? [...x.ticks, s.id] : x.ticks.filter((k) => k !== s.id))) return
-    if (on && s.id === 'file') navigate('/meeting/1/3', { state: { importMeeting: { title: x.title, date: x.date || todayISO(), note: `จากลำดับงาน ${x.title}` } } })
+    if (on && s.id === 'file') navigate('/meeting/1/2', { state: { importMeeting: { title: x.title, date: x.date || todayISO(), note: `จากลำดับงาน ${x.title}` } } })
   }
   return (
     <>
