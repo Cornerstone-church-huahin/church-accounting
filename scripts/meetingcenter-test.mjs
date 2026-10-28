@@ -228,6 +228,9 @@ try {
   await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
   await fp.locator('#wf-pick').selectOption({ label: '✉️ หนังสือเชิญร่วมงาน' }); await fp.getByRole('link', { name: /^เปิด หนังสือเชิญร่วมงาน/ }).click()
   await fp.getByRole('heading', { name: /หนังสือเชิญร่วมงาน/, level: 1 }).waitFor({ timeout: 5000 })
+  must(await fp.getByText(/ยังไม่มีหนังสือ/).count() === 1 && await fp.getByLabel('ค้นหาหรือเพิ่มหนังสือ').count() === 1, 'letters page: search + add zone, empty list hint')
+  await fp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click()
+  await fp.locator('#il-date').waitFor({ timeout: 5000 })
   must(/^\d{4}-\d{2}-\d{2}$/.test(await fp.locator('#il-date').inputValue()), 'date defaults to the day it is made')
   // เลขที่จากคลัง: ไม่มีเอกสาร → เลขถัดไป
   await fp.getByRole('button', { name: /ดึงเลขจากคลังเอกสาร/ }).click()
@@ -270,6 +273,25 @@ try {
   await fp.getByRole('button', { name: /เก็บเข้าคลังเอกสาร/ }).click()
   await fp.getByRole('dialog').waitFor({ timeout: 30000 })
   must((await fp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('ขอเชิญร่วมงานคริสต์มาส') && (await fp.getByRole('dialog').getByLabel(/เลขที่เอกสาร/).inputValue()).length > 0 && /\.pdf/.test(await fp.getByRole('dialog').innerText()), 'library form opens with title, number and the generated PDF')
+  // รายการหนังสือ: การ์ดต่อฉบับ ใหม่สุดบน · ค้นหา · ลบ · เปิดการ์ดเข้าหน้ากรอก
+  const lp = await mk(390, 844)
+  await lp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  for (const [subj, day] of [['งานคริสต์มาส', '2026-12-25'], ['งานปีใหม่', '2027-01-01'], ['งานวันขอบคุณพระเจ้า', '2026-11-15']]) {
+    await lp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await lp.locator('#il-date').waitFor({ timeout: 5000 })
+    await lp.locator('#il-date').fill(day); await lp.getByLabel(/^4\. เรื่อง/).fill(subj); await lp.waitForTimeout(1000)
+    await lp.getByRole('link', { name: '‹ รายการหนังสือ' }).click(); await lp.getByLabel('ค้นหาหรือเพิ่มหนังสือ').waitFor({ timeout: 5000 })
+  }
+  const cards = lp.getByRole('list', { name: 'รายการหนังสือเชิญ' }).locator('li')
+  const order = await cards.allInnerTexts()
+  must(order.length === 3 && order[0].includes('งานปีใหม่') && order[1].includes('งานคริสต์มาส') && order[2].includes('งานวันขอบคุณพระเจ้า'), 'cards: newest date on top: ' + order.map((x) => x.slice(0, 12)).join('|'))
+  await lp.getByLabel(/^🔎 ค้นหาหนังสือ/).fill('ขอบคุณ')
+  must(await cards.count() === 1, 'search filters the cards')
+  await lp.getByLabel(/^🔎 ค้นหาหนังสือ/).fill('')
+  await lp.getByRole('link', { name: /^เปิด งานคริสต์มาส/ }).click()
+  must(await lp.getByLabel(/^4\. เรื่อง/).inputValue() === 'งานคริสต์มาส', 'opening a card loads that letter into the form')
+  await lp.getByRole('link', { name: '‹ รายการหนังสือ' }).click()
+  lp.once('dialog', (d) => d.accept()); await lp.getByRole('button', { name: 'ลบ งานปีใหม่' }).click()
+  must(await cards.count() === 2, 'delete removes a card')
   // เพิ่ม/แก้/ลบการ์ดลำดับงาน
   const cp = await mk(390, 844)
   await cp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
