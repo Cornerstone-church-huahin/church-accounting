@@ -2,7 +2,7 @@ import { calendarWritable } from './access'
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { ContactPreset, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -183,8 +183,7 @@ export function useFlowTicks() {
 export function useInviteLetter() {
   return useSharedStore<InviteLetter>({ localKey: k('inviteletter'), file: 'invite-letter.json', label: 'หนังสือเชิญร่วมงาน', write: 'detail' })
 }
-/** ข้อมูลติดต่อสำเร็จรูปของหนังสือเชิญ */
-export function useContactPresets() {
-  const s = useSharedStore<ContactPreset>({ localKey: k('contactpresets'), file: 'contact-presets.json', label: 'ข้อมูลติดต่อสำเร็จรูป', write: 'detail' })
-  return { ...s, list: [...s.items].sort((a, b) => a.name.localeCompare(b.name, 'th')) }
+/** ค่าตั้งต้นหนังสือเชิญ (รายการเดียว id = settings) */
+export function useInviteSettings() {
+  return useSharedStore<InviteSettings>({ localKey: k('invitesettings'), file: 'invite-settings.json', label: 'ค่าตั้งต้นหนังสือเชิญ', write: 'detail' })
 }

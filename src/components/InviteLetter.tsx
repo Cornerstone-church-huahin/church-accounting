@@ -1,67 +1,90 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import LetterheadSetup from './LetterheadSetup'
-import LetterPage from './LetterPage'
-import { can } from '../lib/access'
-import { useContactPresets, useDocCategories, useDocLibrary, useInviteLetter } from '../lib/data'
+import ScaledPage from './ScaledPage'
+import Sheet from './Sheet'
+import logoUrl from '../assets/logo.png'
+import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
 import { cleanPrefix, nextDocNo, setPendingDoc, sortNewestFirst } from '../lib/docLibrary'
 import { letterDate } from '../lib/meetings'
-import { be, newId, todayISO } from '../lib/money'
-import { useRole } from '../lib/members'
+import { be, todayISO } from '../lib/money'
 import { buildPagesPdf, downloadSheetPdf } from '../lib/pdf'
-import type { InviteLetter as Letter } from '../lib/types'
+import type { InviteLetter as Letter, InviteSettings } from '../lib/types'
 
-const BLANK: Omit<Letter, 'id' | 'updated'> = {
-  no: '', date: '', subject: '', to: '', body: '',
-  closing: 'ขอพระเจ้าทรงอวยพรท่านและครอบครัวอย่างอุดม', signName: '', signRole: 'ประธานธรรมกิจ', contact: '',
+type Draft = Omit<Letter, 'id' | 'updated'>
+type Cfg = Omit<InviteSettings, 'id' | 'updated'>
+const BLANK: Draft = { no: '', date: '', subject: '', to: '', attach: '', body: '' }
+/** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
+export const DEFAULT_CFG: Cfg = {
+  thName: 'คริสตจักรศิลาเอก ภาค 7 สภาคริสตจักรในประเทศไทย',
+  enName: 'Cornerstone Church 7th District, The Church of Christ in Thailand',
+  addr: '23/490 ซ.หัวหิน 94 ต.หัวหิน อ.หัวหิน จ.ประจวบคีรีขันธ์ 77110 อีเมล : doothailand@gmail.com',
+  proceed: 'จึงเรียนมาเพื่อโปรดพิจารณาและดำเนินการต่อไป',
+  bless: 'ขอพระเจ้าโปรดอวยพรท่านและครอบครัว\nขอแสดงความนับถือในพระคริสต์',
+  signName: 'มน.สมเจต เสมาทอง',
+  signRole: 'ประธานคณะธรรมกิจคริสตจักรศิลาเอก',
+  contact: 'ติดต่อ 080-582-0777 มน.สมเจต เสมาทอง ประธานธรรมกิจ, 095-779-9382 คศ.กฤตุ รุ่งโรจน์ร่มเย็น ศิษยาภิบาล,\n093-476-5585 คศ.พิชิต เผ่าดี ศิษยาภิบาลฝ่ายอภิบาลและพัฒนา,\n081-889-6490 อ.ดารา ผลจันทร์ คณะธรรมกิจ',
 }
 const FILENAME = 'หนังสือเชิญร่วมงาน.pdf'
 
 /** ข้อความล้วนของหนังสือ (คัดลอกไปวางในโปรแกรมอื่น) */
-export function letterText(l: Omit<Letter, 'id' | 'updated'>): string {
+export function letterText(l: Draft, c: Cfg): string {
   return [
-    l.no ? `ที่ ${l.no}` : '', letterDate(l.date),
-    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, '', l.body, '', l.closing,
-    '', '', l.signName ? `(${l.signName})` : '', l.signRole, '', l.contact ? `หมายเหตุ/ติดต่อสอบถาม\n${l.contact}` : '',
-  ].filter((x, i, a) => !(x === '' && a[i - 1] === '')).join('\n').trim()
+    c.thName, c.enName, c.addr, '',
+    l.no ? `ที่ ${l.no}` : '', letterDate(l.date), '',
+    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, l.attach?.trim() ? `สิ่งที่ส่งมาด้วย  ${l.attach}` : '', '', l.body, '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
+  ].filter((x, i, a) => !(x === '' && (a[i - 1] === '' || i === 0))).join('\n').trim()
 }
 
-/** เนื้อหาหนังสือเชิญร่วมงานบนหน้า A4 (ใส่ใน LetterPage) */
-function LetterBody({ l }: { l: Omit<Letter, 'id' | 'updated'> }) {
+/** หน้า A4: หัวจดหมาย (โลโก้ + ข้อความ) บน · เนื้อหากลาง · ลงนามขวา · ข้อมูลติดต่อล็อกท้ายกระดาษ */
+function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement> }) {
   return (
-    <>
-      <div style={{ textAlign: 'right', fontWeight: 700, marginBottom: 6 }}>ที่ {l.no || '………'}</div>
-      <div style={{ textAlign: 'center', margin: '0 0 12px' }}>{letterDate(l.date) || '………………'}</div>
-      <div className="letter__row"><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
-      <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
-      <div style={{ margin: '12px 0', minHeight: 120 }}>{(l.body || '………').split(/\n\s*\n|\n/).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
-      <div className="letter__sign">
-        <div>{l.closing}</div>
-        <div style={{ height: 54 }} />
-        <div>({l.signName || '………………………'})</div>
-        <div>{l.signRole}</div>
+    <ScaledPage ref={paperRef} className="a4page a4page--letter">
+      <div className="il">
+        <header className="il__head">
+          <img src={logoUrl} alt="" className="il__logo" />
+          <div className="il__heads">
+            <div className="il__th">{c.thName}</div>
+            <div className="il__en">{c.enName}</div>
+            <div className="il__addr">{c.addr}</div>
+          </div>
+        </header>
+        <div className="il__body">
+          <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no || '………'}</div>
+          <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
+          <div className="letter__row"><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
+          <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
+          {l.attach?.trim() && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{l.attach}</span></div>}
+          <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
+          <p className="letter__p">{c.proceed}</p>
+          <div className="letter__sign" style={{ marginTop: 22 }}>
+            {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
+            <div style={{ height: 62 }} />
+            <div>{c.signName ? `(${c.signName})` : '(………………………)'}</div>
+            <div>{c.signRole}</div>
+          </div>
+        </div>
+        <footer className="il__foot">{c.contact.split('\n').map((x, i) => <div key={i}>{x}</div>)}</footer>
       </div>
-      {l.contact.trim() && <div style={{ marginTop: 18, fontSize: 13.5, whiteSpace: 'pre-wrap', borderTop: '1px solid #999', paddingTop: 6 }}><b>หมายเหตุ</b> {l.contact}</div>}
-    </>
+    </ScaledPage>
   )
 }
 
-/** หนังสือเชิญร่วมงาน (หน้าเดียว): กรอกทุกช่อง → ดูตัวอย่างบนกระดาษ → คัดลอกข้อความ / PDF / เก็บเข้าคลังเอกสาร */
+/** หนังสือเชิญร่วมงาน (หน้าเดียว): กรอกช่องที่ต่างกันในแต่ละฉบับ · หัวจดหมาย/ลงนาม/ข้อมูลติดต่อเป็นค่าตั้งต้นที่แก้ครั้งเดียวใช้ทุกฉบับ */
 export default function InviteLetterPage() {
-  const role = useRole()
   const store = useInviteLetter()
-  const presets = useContactPresets()
+  const cfgStore = useInviteSettings()
   const lib = useDocLibrary(), cats = useDocCategories()
   const navigate = useNavigate()
   const saved = store.items.find((x) => x.id === 'draft')
-  const [l, setL] = useState<Omit<Letter, 'id' | 'updated'>>(() => ({ ...BLANK, ...(saved ?? {}), date: saved?.date || todayISO() }))
+  const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
+  const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), date: saved?.date || todayISO() }))
   const [pick, setPick] = useState(false)
-  const [setup, setSetup] = useState(false)
+  const [edit, setEdit] = useState(false)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const first = useRef(true)
-  const set = (patch: Partial<typeof l>) => setL((p) => ({ ...p, ...patch }))
+  const set = (patch: Partial<Draft>) => setL((p) => ({ ...p, ...patch }))
   // บันทึกอัตโนมัติ (หน่วงเล็กน้อย) — ร่วมกันทุกเครื่อง
   useEffect(() => {
     if (first.current) { first.current = false; return }
@@ -76,7 +99,7 @@ export default function InviteLetterPage() {
   const recent = sortNewestFirst(pool).filter((d) => d.no.trim()).slice(0, 6)
 
   const copy = async () => {
-    const text = letterText(l)
+    const text = letterText(l, cfg)
     let ok = false
     try { await Promise.race([navigator.clipboard.writeText(text), new Promise((_, no) => setTimeout(no, 1500))]); ok = true } catch { /* ลองวิธีสำรอง */ }
     if (!ok) { // วิธีสำรอง (เบราว์เซอร์ที่ไม่ให้สิทธิ์คลิปบอร์ด)
@@ -101,21 +124,16 @@ export default function InviteLetterPage() {
     } catch (e) { setMsg(e instanceof Error ? e.message : 'สร้างไฟล์ไม่สำเร็จ') }
     setBusy(false)
   }
-  const savePreset = () => {
-    const text = l.contact.trim(); if (!text) return setMsg('พิมพ์ข้อมูลติดต่อก่อนบันทึกเป็นชุดสำเร็จรูป')
-    const name = window.prompt('ตั้งชื่อชุดข้อมูลติดต่อ (เช่น เลขาคริสตจักร)', text.split('\n')[0].slice(0, 30)); if (!name?.trim()) return
-    setMsg(presets.put([{ id: newId('cp'), name: name.trim(), text, updated: Date.now() }]) ? `บันทึกชุด “${name.trim()}” แล้ว` : 'ไม่มีสิทธิ์บันทึก')
-  }
-  const curPreset = presets.list.find((p) => p.text === l.contact)
 
   return (
     <>
       <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
-        <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}><b>1. หัวจดหมาย</b>
-          {can(role, 'settings') && <button type="button" className="mini" onClick={() => setSetup(true)}>⚙️ ตั้งค่าหัวจดหมาย</button>}</div>
-        <p className="small muted" style={{ margin: '0 0 0.5rem' }}>แสดงบนตัวอย่างด้านล่าง (ถ้าไม่ตั้ง ใช้ชื่อคริสตจักรเป็นหัว)</p>
+        <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+          <span><b>1. หัวจดหมาย · 7. ลงนาม · 8. ข้อมูลติดต่อ</b><br /><span className="small muted">ใส่ให้ในตำแหน่งที่ถูกต้องแล้ว ใช้กับทุกฉบับ</span></span>
+          <button type="button" className="btn btn--ghost" onClick={() => setEdit(true)}>✏️ แก้ไข</button>
+        </div>
 
         <div className="field"><label htmlFor="il-no">2. เลขที่หนังสือ</label>
           <div className="row" style={{ gap: 6 }}>
@@ -137,44 +155,52 @@ export default function InviteLetterPage() {
         <div className="field"><label htmlFor="il-date">3. วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
         <div className="field"><label htmlFor="il-sub">4. เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
         <div className="field"><label htmlFor="il-to">5. เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
-        <div className="field"><label htmlFor="il-body">6. ข้อความในหนังสือ (เนื้อหาทั้งหมด)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
-
-        <fieldset className="card" style={{ margin: 0 }}><legend><b>7. ข้อความปิดท้าย · ลงชื่อ</b></legend>
-          <div className="field"><label htmlFor="il-close">ข้อความปิดท้าย</label><input id="il-close" className="input" value={l.closing} onChange={(e) => set({ closing: e.target.value })} /></div>
-          <div className="row" style={{ gap: 8 }}>
-            <div className="field" style={{ flex: 1 }}><label htmlFor="il-sn">ชื่อผู้ลงนาม</label><input id="il-sn" className="input" value={l.signName} onChange={(e) => set({ signName: e.target.value })} placeholder="ชื่อประธานธรรมกิจ" /></div>
-            <div className="field" style={{ flex: 1 }}><label htmlFor="il-sr">ตำแหน่ง</label><input id="il-sr" className="input" value={l.signRole} onChange={(e) => set({ signRole: e.target.value })} /></div>
-          </div>
-          <span className="small muted">เว้นที่ให้ลงนามบนกระดาษแล้ว</span>
-        </fieldset>
-
-        <div className="field"><label htmlFor="il-contact">8. ข้อมูลติดต่อ หากมีข้อสงสัย</label>
-          <div className="row" style={{ gap: 6 }}>
-            <select aria-label="ชุดข้อมูลติดต่อสำเร็จรูป" className="input" style={{ flex: 1 }} value={curPreset?.id ?? ''} onChange={(e) => { const p = presets.list.find((x) => x.id === e.target.value); if (p) set({ contact: p.text }) }}>
-              <option value="">— ชุดสำเร็จรูป ({presets.list.length}) —</option>
-              {presets.list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <button type="button" className="mini" onClick={savePreset}>💾 บันทึกเป็นชุด</button>
-            {curPreset && <button type="button" className="mini" aria-label={`ลบชุด ${curPreset.name}`} onClick={() => { if (window.confirm(`ลบชุด “${curPreset.name}” ?`)) presets.remove(curPreset.id) }}>🗑️</button>}
-          </div>
-          <textarea id="il-contact" className="input" rows={3} value={l.contact} onChange={(e) => set({ contact: e.target.value })} placeholder={'ชื่อผู้ประสานงาน โทร. 08x-xxx-xxxx\nLINE / อีเมล'} /></div>
+        <div className="field"><label htmlFor="il-att">สิ่งที่ส่งมาด้วย (ถ้ามี)</label><input id="il-att" className="input" value={l.attach ?? ''} onChange={(e) => set({ attach: e.target.value })} placeholder="เช่น กำหนดการงาน" /></div>
+        <div className="field"><label htmlFor="il-body">6. ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn--ghost" onClick={copy}>📋 9. คัดลอกข้อความทั้งหมด</button>
           <button type="button" className="btn" onClick={pdf}>⬇️ 10. ดาวน์โหลด PDF</button>
-          <button type="button" className="mini" onClick={() => { if (window.confirm('เริ่มฉบับใหม่ (ล้างข้อความทุกช่อง ยกเว้นข้อมูลติดต่อและผู้ลงนาม) ?')) setL({ ...BLANK, date: todayISO(), signName: l.signName, signRole: l.signRole, contact: l.contact }) }}>↺ เริ่มฉบับใหม่</button>
+          <button type="button" className="mini" onClick={() => { if (window.confirm('เริ่มฉบับใหม่ (ล้างข้อความทุกช่อง) ?')) setL({ ...BLANK, date: todayISO() }) }}>↺ เริ่มฉบับใหม่</button>
         </div>
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
 
-      <div aria-label="ตัวอย่างหนังสือ"><LetterPage ref={ref}><LetterBody l={l} /></LetterPage></div>
-      <p className="small muted no-print" style={{ margin: '0.3rem 0' }}>ตัวอย่างหน้ากระดาษ A4 หนึ่งหน้า — ถ้าเนื้อหายาวเกินหน้า ให้ย่อข้อความ · ต่อไปจะใช้ฉบับนี้ออกหนังสือได้เลย</p>
+      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
+      <p className="small muted no-print" style={{ margin: '0.3rem 0' }}>ตัวอย่างหน้ากระดาษ A4 หนึ่งหน้า — ถ้าเนื้อหายาวเกินหน้า ให้ย่อข้อความ</p>
 
       <section className="card no-print" aria-label="เก็บเข้าคลังเอกสาร">
         <button type="button" className="btn btn--gold" disabled={busy} onClick={toLibrary}>🗄️ 11. เก็บเข้าคลังเอกสาร</button>
         <span className="small muted"> สร้าง PDF จากหนังสือนี้ แล้วไปหน้าคลังเอกสารพร้อมเลขที่ วันที่ และไฟล์ กดบันทึกได้ทันที</span>
       </section>
-      {setup && <LetterheadSetup onClose={() => setSetup(false)} />}
+      {edit && <CfgForm cfg={cfg} onClose={() => setEdit(false)} onSave={(c) => { const ok = cfgStore.put([{ ...c, id: 'settings', updated: Date.now() }]); if (ok) setEdit(false); return ok }} />}
     </>
+  )
+}
+
+/** แก้ค่าตั้งต้น: หัวจดหมาย (3 บรรทัด) · ข้อความปิดท้ายและลงนาม · ข้อมูลติดต่อท้ายกระดาษ */
+function CfgForm({ cfg, onClose, onSave }: { cfg: Cfg; onClose: () => void; onSave: (c: Cfg) => boolean }) {
+  const [c, setC] = useState<Cfg>(cfg)
+  const [msg, setMsg] = useState('')
+  const f = (k: 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact', label: string, rows?: number) => (
+    <div className="field"><label htmlFor={`cf-${k}`}>{label}</label>
+      {rows ? <textarea id={`cf-${k}`} className="input" rows={rows} value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} /> : <input id={`cf-${k}`} className="input" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} />}</div>
+  )
+  return (
+    <Sheet title="แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ" onClose={onClose}>
+      <p className="small muted" style={{ margin: 0 }}>โลโก้คริสตจักรใส่ให้ที่หัวจดหมายแล้ว · แก้ที่นี่ครั้งเดียว ใช้กับหนังสือทุกฉบับ</p>
+      <b>หัวจดหมาย</b>
+      {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}
+      <b>ข้อความปิดท้ายและลงนาม</b>
+      {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}{f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
+      <b>ข้อมูลติดต่อ (ท้ายกระดาษ)</b>
+      {f('contact', 'ข้อมูลติดต่อ หากมีข้อสงสัย (บรรทัดละหนึ่งชุด)', 4)}
+      {msg && <p className="error" role="alert">{msg}</p>}
+      <div className="row">
+        <button type="button" className="btn btn--gold" onClick={() => { if (!onSave(c)) setMsg('ไม่มีสิทธิ์บันทึก') }}>บันทึก</button>
+        <button type="button" className="btn btn--ghost" onClick={() => { if (window.confirm('คืนค่าตั้งต้นตามหนังสือเดิมของคริสตจักร ?')) setC(DEFAULT_CFG) }}>↺ คืนค่าตั้งต้น</button>
+        <button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button>
+      </div>
+    </Sheet>
   )
 }

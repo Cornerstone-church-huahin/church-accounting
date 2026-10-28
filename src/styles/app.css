@@ -1134,3 +1134,13 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .wfitem .wfcard { flex: 1; min-width: 0; margin-top: 0; }
 .wfitem__act { display: flex; gap: 0.2rem; flex: none; width: 4.6rem; justify-content: flex-end; }
 .wfitem__act .mini { padding-inline: 0.5rem; }
+/* หนังสือเชิญร่วมงาน: หัวโลโก้+ข้อความ · เนื้อหา · ข้อมูลติดต่อล็อกท้ายกระดาษ */
+.il { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; font-family: 'Sarabun', 'Noto Sans Thai', system-ui, sans-serif; color: #111; font-size: 16px; line-height: 1.55; }
+.il__head { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 30px 40px 0; }
+.il__logo { width: 62px; height: 62px; object-fit: contain; flex: none; }
+.il__heads { text-align: center; }
+.il__th { font-size: 21px; font-weight: 700; color: #1a2b4c; line-height: 1.25; }
+.il__en { font-size: 16.5px; color: #2f6fd6; line-height: 1.25; }
+.il__addr { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+.il__body { flex: 1; padding: 18px 64px 0; }
+.il__foot { margin-top: auto; padding: 0 56px 30px; font-size: 12.5px; line-height: 1.7; }
