@@ -10,7 +10,7 @@ import { letterDate } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
-import type { DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
+import type { DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
@@ -93,7 +93,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
   const [editNo, setEditNo] = useState(false)
-  const [menu, setMenu] = useState<'save' | 'share' | 'download' | null>(null)
+  const [menu, setMenu] = useState<'share' | 'download' | null>(null)
   const [sent, setSent] = useState(false)
   const [edit, setEdit] = useState<Sec | null>(null)
   const [msg, setMsg] = useState('')
@@ -135,8 +135,8 @@ export default function InviteLetterPage({ id }: { id: string }) {
     if (!ref.current) throw new Error('ยังไม่พบหน้ากระดาษ')
     return fmt === 'pdf' ? { blob: await buildPagePdf(ref.current), name: `${baseName}.pdf` } : { blob: await buildPageImage(ref.current), name: `${baseName}.png` }
   }
-  /** 💾 บันทึก (เลือกที่เก็บได้ถ้าเครื่องรองรับ) · 📤 แชร์ · ⬇️ ดาวน์โหลด — เป็น PDF หรือรูปภาพ */
-  const output = async (act: 'save' | 'share' | 'download', fmt: 'pdf' | 'png') => {
+  /** 📤 แชร์ · ⬇️ ดาวน์โหลด — เป็น PDF หรือรูปภาพ */
+  const output = async (act: 'share' | 'download', fmt: 'pdf' | 'png') => {
     if (!ready()) return
     setMenu(null); setBusy(true); setMsg('')
     try {
@@ -144,12 +144,6 @@ export default function InviteLetterPage({ id }: { id: string }) {
       if (act === 'share') {
         const r = await shareBlob(blob, name, l.subject || 'หนังสือเชิญ')
         if (r === 'unsupported') { saveBlob(blob, name); setMsg('เครื่องนี้แชร์ไฟล์ตรงๆ ไม่ได้ — ดาวน์โหลดไฟล์ให้แทนแล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') } else if (r === 'shared') setMsg('แชร์แล้ว')
-      } else if (act === 'save') {
-        const w = window as unknown as { showSaveFilePicker?: (o: { suggestedName: string; types: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }> }> }
-        if (w.showSaveFilePicker) {
-          const h = await w.showSaveFilePicker({ suggestedName: name, types: [{ description: fmt === 'pdf' ? 'PDF' : 'รูปภาพ', accept: fmt === 'pdf' ? { 'application/pdf': ['.pdf'] } : { 'image/png': ['.png'] } }] })
-          const ws = await h.createWritable(); await ws.write(blob); await ws.close(); setMsg('บันทึกไฟล์แล้ว')
-        } else { saveBlob(blob, name); setMsg(`บันทึกไฟล์ ${name} ลงเครื่องแล้ว`) }
       } else { saveBlob(blob, name); setMsg(`ดาวน์โหลด ${name} แล้ว`) }
     } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
     setBusy(false)
@@ -167,7 +161,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
       await putBinary(cfgSync, path, data, 'คลังเอกสาร')
       void cacheImage(path, data, 'application/pdf')
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
-      const d: DocItem = { id: docId, updated: Date.now(), title: l.subject.trim() ? `หนังสือเชิญ ${l.subject.trim()}` : 'หนังสือเชิญร่วมงาน', category: cat?.name ?? '', no: l.no.trim(), date: l.date, access: 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
+      const d: DocItem = { id: docId, updated: Date.now(), title: l.subject.trim() ? `หนังสือเชิญ ${l.subject.trim()}` : 'หนังสือเชิญร่วมงาน', category: cat?.name ?? '', no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
       set({ docId }); setSent(true); setMsg(l.docId === docId ? 'ส่งเข้าคลังเอกสารแล้ว (ทับฉบับเดิมของหนังสือนี้)' : 'ส่งเข้าคลังเอกสารแล้ว')
     } catch (e) { setMsg(e instanceof Error ? e.message : 'ส่งเข้าคลังเอกสารไม่สำเร็จ') }
@@ -232,17 +226,23 @@ export default function InviteLetterPage({ id }: { id: string }) {
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
-          {([['save', '💾', 'บันทึก'], ['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
+          {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
           ))}
         </div>
         {menu && (
-          <div className="row" role="group" aria-label={`เลือกชนิดไฟล์ที่จะ${menu === 'save' ? 'บันทึก' : menu === 'share' ? 'แชร์' : 'ดาวน์โหลด'}`} style={{ gap: 8, justifyContent: 'center' }}>
+          <div className="row" role="group" aria-label={`เลือกชนิดไฟล์ที่จะ${menu === 'share' ? 'แชร์' : 'ดาวน์โหลด'}`} style={{ gap: 8, justifyContent: 'center' }}>
             <button type="button" className="btn" onClick={() => output(menu, 'pdf')}>📄 PDF</button>
             <button type="button" className="btn" onClick={() => output(menu, 'png')}>🖼️ รูปภาพ</button>
           </div>
         )}
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}{sent && <> <Link to="/meeting/1/2" className="small">เปิดคลังเอกสาร ›</Link></>}</p>}
+        <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
+          <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
+            <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
+            <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
+            <option value="ลับ">ลับ — แอดมินคนเดียว</option>
+          </select></div>
         <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 11. ส่งเข้าคลังเอกสาร</button>
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
       </section>
