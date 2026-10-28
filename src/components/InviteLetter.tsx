@@ -6,6 +6,7 @@ import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
 import { can } from '../lib/access'
 import { nextDocNo } from '../lib/docLibrary'
+import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
@@ -95,6 +96,23 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
 /** หนังสือเชิญร่วมงาน (หน้าเดียว): กรอกช่องที่ต่างกันในแต่ละฉบับ · หัวจดหมาย/ลงนาม/ข้อมูลติดต่อเป็นค่าตั้งต้นที่แก้ครั้งเดียวใช้ทุกฉบับ */
 export default function InviteLetterPage({ id }: { id: string }) {
   const store = useInviteLetter()
+  const exists = store.items.some((x) => x.id === id)
+  const { syncNow } = store
+  // เปิดจากลิงก์ที่แชร์มา (เครื่องที่ยังไม่ได้ดึงข้อมูล): รอดึงหนังสือก่อน ห้ามสร้างฉบับเปล่าทับของจริง
+  useEffect(() => { if (!exists) void syncNow() }, [exists]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!exists) {
+    return (
+      <>
+        <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini">‹ รายการหนังสือ</Link></div>
+        <section className="card"><p style={{ margin: 0 }}>⏳ กำลังดึงหนังสือจากระบบ…</p><p className="small muted" style={{ margin: '0.3rem 0 0' }}>ถ้าไม่ขึ้นภายในไม่กี่วินาที ให้กด “กดรีเฟรชเพื่ออัปเดต” ที่แถบด้านบน หรือตรวจว่าเข้าระบบด้วยบัญชีของคุณแล้ว (หนังสือฉบับนี้อาจถูกลบไปแล้ว)</p></section>
+      </>
+    )
+  }
+  return <InviteEditor key={id} id={id} />
+}
+
+function InviteEditor({ id }: { id: string }) {
+  const store = useInviteLetter()
   const role = useRole()
   const cfgStore = useInviteSettings()
   const lib = useDocLibrary(), cats = useDocCategories()
@@ -164,6 +182,25 @@ export default function InviteLetterPage({ id }: { id: string }) {
     }
     setMsg(ok ? 'คัดลอกข้อความทั้งหมดแล้ว — นำไปวางในโปรแกรมอื่นได้' : 'คัดลอกไม่สำเร็จ — ลองกดค้างที่ข้อความแล้วเลือกคัดลอกเอง')
   }
+  /** 11. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ผ่านเมนูแชร์ของเครื่อง (LINE ฯลฯ) · ประธานกดลิงก์แล้วเข้าหน้านี้ทันที */
+  const notify = async () => {
+    if (!ready()) return
+    const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/1/invite-${id}`)
+    const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
+    let how: 'shared' | 'copied' | '' = ''
+    if (typeof navigator.share === 'function') {
+      try { await navigator.share({ title: 'ขอให้ตรวจสอบหนังสือเชิญ', text }); how = 'shared' } catch (e) { if ((e as Error).name === 'AbortError') return }
+    }
+    if (!how) {
+      let ok = false
+      try { await Promise.race([navigator.clipboard.writeText(text), new Promise((_, no) => setTimeout(no, 1500))]); ok = true } catch { /* ลองวิธีสำรอง */ }
+      if (!ok) { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy') } catch { ok = false } ta.remove() }
+      if (!ok) return setMsg('คัดลอกข้อความไม่สำเร็จ — ลองใหม่อีกครั้ง')
+      how = 'copied'
+    }
+    set({ notified: { at: Date.now(), by: getSync()?.name || '' } })
+    setMsg(how === 'shared' ? 'แจ้งประธานแล้ว' : 'คัดลอกข้อความแจ้งประธานแล้ว — นำไปวางส่งใน LINE หรือช่องทางอื่นได้เลย')
+  }
   const baseName = `หนังสือเชิญ ${l.no.trim() ? l.no.trim().replace(/[\\/:*?"<>|]/g, '-') : todayISO()}`
   const makeFile = async (fmt: 'pdf' | 'png') => {
     if (!ref.current) throw new Error('ยังไม่พบหน้ากระดาษ')
@@ -182,7 +219,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
     } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
     setBusy(false)
   }
-  /** 11. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
+  /** 14. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
     if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
@@ -262,14 +299,17 @@ export default function InviteLetterPage({ id }: { id: string }) {
 
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
-        {l.signed ? (
+        <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 11. แจ้งประธานตรวจสอบ</button>
+        {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''}</p>}
+        {l.signed && (
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
             <span role="status">✅ <b>ลงนามแล้ว</b><br /><span className="small muted">{new Date(l.signed.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} · {l.signed.by}</span></span>
             {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
           </div>
-        ) : canSign
-          ? <button type="button" className="btn btn--gold" onClick={sign}>✍️ ลงลายเซ็น</button>
-          : <p className="small muted" style={{ margin: 0 }}>✍️ การลงลายเซ็นทำโดยผู้ลงนาม (แอดมิน) — หนังสือนี้ยังไม่ได้ลงนาม</p>}
+        )}
+        {/* ปุ่มลงลายเซ็น: เห็นและกดได้เฉพาะแอดมิน (ประธาน) เท่านั้น · ผู้ใช้อื่นไม่เห็นปุ่มและไม่มีข้อความเกี่ยวกับปุ่มนี้ */}
+        {canSign && !l.signed && <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ 12. ลงลายเซ็น</button>}
+        <b className="small">13. แชร์ / ดาวน์โหลดไฟล์หนังสือ</b>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
@@ -288,7 +328,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
           </select></div>
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 11. ส่งเข้าคลังเอกสาร</button>
+        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 14. ส่งเข้าคลังเอกสาร</button>
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
       </section>
       {done && (
