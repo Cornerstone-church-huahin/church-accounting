@@ -25,7 +25,7 @@ try {
   await page.locator('#df-title[aria-invalid=true]').waitFor({ timeout: 3000 })
   for (const id of ['#df-file', '#df-no', '#df-date']) must(await invalid(id), `${id} is red at the same time`)
   must(await page.locator('.field-err').count() === 4, 'four messages under four fields: ' + await page.locator('.field-err').count())
-  must(/ต้องตรงกับเอกสาร/.test(await page.locator('label[for=df-date]').innerText()) && /ใส่\/เช็ค เลขที่เอกสาร/.test(await page.locator('label[for=df-no]').innerText()), 'new labels')
+  must(/ตรงกับไฟล์/.test(await page.locator('label[for=df-date]').innerText()) && /ใส่\/เช็ค เลขที่เอกสาร/.test(await page.locator('label[for=df-no]').innerText()), 'new labels')
   await page.locator('#df-no').fill('X.001'); await page.locator('#df-date').fill('2026-03-01')
   await page.locator('#df-title').fill('หนังสือทดสอบ')
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click()
