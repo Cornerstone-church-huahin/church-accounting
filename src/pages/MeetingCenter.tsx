@@ -85,10 +85,16 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
       {c.cur && (() => {
         const m = c.cur
         const label = (x: Meeting) => `ครั้งที่ ${x.no}/${x.year} · ${x.name || 'ยังไม่ตั้งชื่อ'}`
-        const ticks = m.flow ?? []
+        const st = stepStatuses(m, c.list)
+        /** ขั้นที่นับว่าทำแล้ว = ผู้ใช้ติ๊กเอง (ทำนอกแอป) หรือข้อมูลในแอปครบแล้ว */
+        const manual = m.flow ?? []
+        const auto = (n: number) => st[n].state === 'done'
+        const isDone = (n: number) => manual.includes(n) || auto(n)
+        const ticks = MEETING_STEPS.map((x) => x.n).filter(isDone)
+        const current = MEETING_STEPS.find((x) => !isDone(x.n))
         const toggle = (n: number) => {
-          const on = !ticks.includes(n)
-          if (!c.put([{ ...m, flow: on ? [...ticks, n] : ticks.filter((x) => x !== n), updated: Date.now() }])) return
+          const on = !manual.includes(n)
+          if (!c.put([{ ...m, flow: on ? [...manual, n] : manual.filter((x) => x !== n), updated: Date.now() }])) return
           if (on && n === 10) navigate('/meeting/1/3', { state: { importMeeting: { title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, date: m.date || '', note: `ฉบับสมบูรณ์ที่ลงนามแล้ว · ${m.name} ครั้งที่ ${m.no}/${m.year}` } } })
         }
         return (
@@ -99,18 +105,18 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
               </select></div>
             <section className="card mcard" aria-label={`การประชุม ${label(m)}`}>
               <div className="mcard__head">
-                <div><b>{label(m)}</b><div className="small muted">{letterDate(m.date) || 'ยังไม่กำหนดวัน'}{m.place ? ` · ${m.place}` : ''}</div></div>
+                <div><b>{label(m)}</b><div className="small muted">{m.type} · {letterDate(m.date) || 'ยังไม่กำหนดวัน'}{m.place ? ` · ${m.place}` : ''} · <Link to={`${BASE}/1`} onClick={() => c.select(m.id)}>✏️ แก้ข้อมูลพื้นฐาน</Link></div></div>
                 <span className="mcard__n" aria-label={`ทำถึงแล้ว ${ticks.length} จาก 10 ขั้น`}>{ticks.length}/10</span>
               </div>
-              <p className="small muted" style={{ margin: '0 0 0.2rem' }}>ติ๊กเองเพื่อบอกว่าทำถึงขั้นไหนแล้ว (ทำงานนอกแอปก็ใช้ดูลำดับได้)</p>
+              <p className="small" style={{ margin: '0 0 0.2rem' }} role="status">{current ? <>ตอนนี้ถึง <b>ขั้นที่ {current.n} {current.title}</b></> : '✅ ครบทุกขั้นแล้ว'} <span className="muted">· ข้อมูลในแอปครบ = ติ๊กให้เอง · ทำนอกแอปติ๊กเองได้</span></p>
               <ol className="mcheck" aria-label={`เช็คลิสต์ ${label(m)}`}>
                 {MEETING_STEPS.map((s) => {
-                  const on = ticks.includes(s.n)
+                  const on = isDone(s.n)
                   return (
                     <li key={s.n}>
-                      <div className={`mcheck__row mcheck__row--${on ? 'done' : 'todo'}`}>
-                        <button type="button" className="mcheck__box" role="checkbox" aria-checked={on} aria-label={`${s.n}. ${s.title}`} onClick={() => toggle(s.n)}>{on ? '✓' : ''}</button>
-                        <span className="mcheck__t"><b>{s.n}. {s.title}</b><small>{s.n === 10 ? 'ติ๊กแล้วส่งเอกสารเข้าคลังเอกสาร' : s.blurb}</small></span>
+                      <div className={`mcheck__row mcheck__row--${on ? 'done' : 'todo'}${current?.n === s.n ? ' mcheck__row--cur' : ''}`}>
+                        <button type="button" className="mcheck__box" role="checkbox" aria-checked={on} aria-label={`${s.n}. ${s.title}`} disabled={auto(s.n)} onClick={() => toggle(s.n)}>{on ? '✓' : ''}</button>
+                        <span className="mcheck__t"><b>{s.n}. {s.title}</b><small>{auto(s.n) ? `✓ ${st[s.n].hint}` : s.n === 10 ? 'ติ๊กแล้วส่งเอกสารเข้าคลังเอกสาร' : s.blurb}</small></span>
                         <Link to={`${BASE}/${s.n}`} onClick={() => c.select(m.id)} className="mcheck__go" aria-label={`เปิดขั้น ${s.n} ${s.title}`}>›</Link>
                       </div>
                     </li>
