@@ -16,10 +16,30 @@ export function sortDocs<T extends Pick<DocItem, 'date' | 'no' | 'title'>>(docs:
   return [...docs].sort((a, b) => a.date.localeCompare(b.date) || num(a.no) - num(b.no) || a.title.localeCompare(b.title, 'th'))
 }
 
-/** ค้นหาจากชื่อ เลขที่ หมวด ประเภท (พิมพ์หลายคำ = ต้องมีครบทุกคำ) + กรองหมวด */
+/** ข้อความทั้งหมดของเอกสารที่ค้นหาได้: ชื่อ เลขที่ หมวด ประเภท + เนื้อหาร่าง + เนื้อหาเอกสารจริงทุกฉบับ */
+const bodyOf = (d: DocItem) => [d.draft, ...(d.finals ?? []).map((f) => f.body)].join('\n')
+const headOf = (d: DocItem) => `${d.title} ${d.no} ${d.category} ${d.kind}`
+/** ค้นหาจากชื่อ เลขที่ หมวด ประเภท และ "เนื้อหา" (พิมพ์หลายคำ = ต้องมีครบทุกคำ ไม่จำเป็นต้องอยู่ที่เดียวกัน) + กรองหมวด */
 export function filterDocs(docs: DocItem[], q: string, category: string): DocItem[] {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  return docs.filter((d) => (!category || d.category === category) && words.every((w) => `${d.title} ${d.no} ${d.category} ${d.kind}`.toLowerCase().includes(w)))
+  return docs.filter((d) => {
+    if (category && (d.category || 'ไม่ระบุหมวด') !== category) return false
+    const all = `${headOf(d)}\n${bodyOf(d)}`.toLowerCase()
+    return words.every((w) => all.includes(w))
+  })
+}
+/** ข้อความสั้น ๆ รอบคำที่เจอในเนื้อหา (เฉพาะเมื่อคำนั้นไม่อยู่ในชื่อ/เลขที่/หมวด) ไว้แสดงใต้ชื่อในผลค้นหา */
+export function snippetOf(d: DocItem, q: string, radius = 28): string {
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const head = headOf(d).toLowerCase()
+  const text = bodyOf(d).replace(/\s+/g, ' ')
+  const low = text.toLowerCase()
+  for (const w of words) {
+    if (head.includes(w)) continue
+    const i = low.indexOf(w)
+    if (i >= 0) return `${i > radius ? '…' : ''}${text.slice(Math.max(0, i - radius), i + w.length + radius)}${i + w.length + radius < text.length ? '…' : ''}`
+  }
+  return ''
 }
 export function categoriesOf(docs: Pick<DocItem, 'category'>[]): { name: string; n: number }[] {
   const m = new Map<string, number>()

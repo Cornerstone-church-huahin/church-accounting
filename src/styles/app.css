@@ -1075,3 +1075,4 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .accttab--on { border-color: #1a2b4c; background: #1a2b4c; color: #fff; }
 .doclink { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; text-align: left; padding: 0.4rem 0.5rem; border-radius: 0.6rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .mini.on { background: #1a2b4c; color: #fff; border-color: #1a2b4c; }
+.doclink__snip { color: var(--ink-soft, #555); font-style: italic; }

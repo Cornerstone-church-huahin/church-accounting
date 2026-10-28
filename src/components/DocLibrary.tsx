@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import DocPreview from './meeting/DocPreview'
 import { can, myWorks, whoAmI } from '../lib/access'
 import { useDocLibrary } from '../lib/data'
-import { ACCESS_LEVELS, canSeeDoc, categoriesOf, DOC_KINDS, filterDocs, nextDocNo, sortDocs, splitPages, TEMPLATES } from '../lib/docLibrary'
+import { ACCESS_LEVELS, canSeeDoc, categoriesOf, DOC_KINDS, filterDocs, nextDocNo, snippetOf, sortDocs, splitPages, TEMPLATES } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
 import type { DocAccess, DocItem } from '../lib/types'
@@ -33,11 +33,12 @@ export default function DocLibrary() {
   return (
     <div aria-label="คลังเอกสาร">
       <section className="card no-print" style={{ margin: '0 0 8px' }}>
-        <div className="field"><label htmlFor="dl-q">🔎 ค้นหาเอกสาร</label><input id="dl-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ชื่อเอกสาร เลขที่ หมวด เช่น เชิญประชุม" /></div>
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }} role="group" aria-label="หมวดเอกสาร">
-          <button type="button" className={`mini${cat === '' ? ' on' : ''}`} aria-pressed={cat === ''} onClick={() => setCat('')}>ทั้งหมด ({visible.length})</button>
-          {cats.map((c) => <button key={c.name} type="button" className={`mini${cat === c.name ? ' on' : ''}`} aria-pressed={cat === c.name} onClick={() => setCat(c.name)}>{c.name} ({c.n})</button>)}
-        </div>
+        <div className="field"><label htmlFor="dl-q">🔎 ค้นหาเอกสาร</label><input id="dl-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นจากชื่อ เลขที่ หมวด และเนื้อหาในเอกสาร" /></div>
+        <div className="field"><label htmlFor="dl-cat">📁 เลือกหมวดเอกสาร</label>
+          <select id="dl-cat" className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
+            <option value="">ทุกหมวด ({visible.length})</option>
+            {cats.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.n})</option>)}
+          </select></div>
         <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
           {editor && <button type="button" className="btn btn--gold" onClick={add}>➕ เอกสารใหม่</button>}
           <span className="small muted">{shown.length} เอกสาร · เรียงเก่า → ใหม่</span>
@@ -54,6 +55,7 @@ export default function DocLibrary() {
                   <button type="button" className="doclink" onClick={() => setOpenId(d.id)} aria-label={`เปิดเอกสาร ${d.title}`}>
                     <span className="small muted">{d.no} · {fmtDate(d.date)} · {d.kind}</span>
                     <b>{d.title}</b>
+                    {snippetOf(d, q) && <span className="small doclink__snip">“{snippetOf(d, q)}”</span>}
                     <span className="small">{f ? <span className="badge">📄 เอกสารจริง ฉบับที่ {f.v}</span> : <span className="muted">✏️ ร่าง</span>}{d.access !== 'ทั่วไป' ? ` · ${d.access === 'ลับ' ? '🔒' : '🔐'} ${d.access}` : ''}</span>
                   </button>
                 </li>
