@@ -1129,3 +1129,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .wfcard__icon { font-size: 1.6rem; line-height: 1; }
 .wfcard__t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
 .wfcard__t small { opacity: 0.9; font-size: 0.8rem; }
+.wflist { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.wfitem { display: flex; align-items: center; gap: 0.3rem; }
+.wfitem .wfcard { flex: 1; min-width: 0; margin-top: 0; }
+.wfitem__act { display: flex; gap: 0.2rem; flex: none; width: 4.6rem; justify-content: flex-end; }
+.wfitem__act .mini { padding-inline: 0.5rem; }
