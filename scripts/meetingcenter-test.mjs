@@ -19,8 +19,8 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting/1`)
   await page.getByRole('navigation', { name: 'หมวดงานเลขา', exact: true }).getByRole('link').first().click()
   await page.getByRole('heading', { name: 'ลำดับงาน', level: 1 }).waitFor({ timeout: 8000 })
-  must(await page.getByRole('navigation', { name: 'เลือกลำดับงาน' }).getByRole('link').count() === 3, 'workflow menu has three options')
-  await page.getByRole('link', { name: /ประชุมธรรมกิจ/ }).click()
+  must(await page.locator('#wf-pick option').count() === 4 && await page.getByRole('link', { name: /^เปิด/ }).count() === 0, 'workflow picker has three options, no card until one is chosen')
+  await page.locator('#wf-pick').selectOption({ label: '🗓️ ประชุมธรรมกิจ' }); await page.getByRole('link', { name: /^เปิด ประชุมธรรมกิจ/ }).click()
   await page.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 8000 })
   must(await page.getByText('ลำดับงานเลขานุการ ตั้งแต่เตรียมประชุมจนถึงจัดเก็บเอกสาร').isVisible(), 'subtitle')
   must(await page.getByText(/ยังไม่มีการประชุม/).first().isVisible() && await page.locator('.mcard').count() === 0, 'no meeting: hint only, no cards')
@@ -222,7 +222,7 @@ try {
   // ลำดับงาน: หนังสือเชิญ + เก็บเอกสาร
   const fp = await mk(390, 844)
   await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
-  await fp.getByRole('link', { name: /หนังสือเชิญ/ }).click()
+  await fp.locator('#wf-pick').selectOption({ label: '✉️ หนังสือเชิญ' }); await fp.getByRole('link', { name: /^เปิด หนังสือเชิญ/ }).click()
   await fp.getByRole('heading', { name: /หนังสือเชิญ/, level: 1 }).waitFor({ timeout: 5000 })
   must(await fp.getByRole('checkbox').count() === 7, 'invite flow has seven steps')
   await fp.getByRole('checkbox').first().click()
@@ -232,7 +232,7 @@ try {
   await fp.getByRole('checkbox').last().click()
   await fp.getByRole('dialog').waitFor({ timeout: 5000 })
   must((await fp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('หนังสือเชิญ'), 'last invite step forwards to the library')
-  await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`); await fp.getByRole('navigation', { name: 'เลือกลำดับงาน' }).waitFor({ timeout: 5000 }); await fp.getByRole('link', { name: /^เก็บเอกสาร/ }).click()
+  await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`); await fp.locator('#wf-pick').selectOption({ label: '🗄️ เก็บเอกสาร' }); await fp.getByRole('link', { name: /^เปิด เก็บเอกสาร/ }).click()
   await fp.getByRole('heading', { name: /คลังเอกสาร/ }).first().waitFor({ timeout: 5000 })
   // ขั้นที่ไม่มี
   await page.goto(`http://localhost:${PORT}/#/meeting/1/1/11`); must(await page.getByText('ไม่พบขั้นตอนนี้').isVisible(), 'unknown step handled')
