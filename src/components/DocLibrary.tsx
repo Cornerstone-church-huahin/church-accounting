@@ -34,8 +34,11 @@ export default function DocLibrary() {
   const catStore = useDocCategories()
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
-  const [openId, setOpenId] = useState<string | null>(null)
   const loc = useLocation(), navigate = useNavigate()
+  /** ส่งมาจากหนังสือเชิญ: เปิดรายการที่เพิ่งส่งเข้าคลังให้เห็นทันที */
+  const [openFromState] = useState(() => (loc.state as { openDoc?: string } | null)?.openDoc)
+  const [openId, setOpenId] = useState<string | null>(openFromState ?? null)
+  useEffect(() => { if (openFromState) navigate(loc.pathname, { replace: true, state: null }) }, [openFromState, navigate, loc.pathname])
   /** ส่งต่อจากศูนย์จัดการประชุม (ขั้น 10): เปิดฟอร์มเพิ่มเอกสารพร้อมชื่อ/วันที่ของการประชุมให้เลย */
   const [preset] = useState(() => (loc.state as { importMeeting?: DocPreset } | null)?.importMeeting ?? takePendingDoc() ?? undefined)
   const [form, setForm] = useState<DocItem | 'new' | null>(preset ? 'new' : null)

@@ -94,7 +94,14 @@ export default function InviteLetterPage({ id }: { id: string }) {
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
   const [editNo, setEditNo] = useState(false)
   const [menu, setMenu] = useState<'share' | 'download' | null>(null)
-  const [sent, setSent] = useState(false)
+  /** ส่งเข้าคลังสำเร็จ: แสดงป๊อปอัพ แล้วพาไปหน้าคลังเอกสาร (เปิดรายการที่เพิ่งส่งให้เห็น) */
+  const [done, setDone] = useState<{ id: string; title: string; no: string; again: boolean } | null>(null)
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!done) return
+    const t = setTimeout(() => navigate('/meeting/1/2', { state: { openDoc: done.id } }), 2200)
+    return () => clearTimeout(t)
+  }, [done]) // eslint-disable-line react-hooks/exhaustive-deps
   const [edit, setEdit] = useState<Sec | null>(null)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
@@ -153,7 +160,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
     if (!ready()) return
     const cfgSync = getSync()
     if (!cfgSync) return setMsg('ต้องเชื่อมต่อออนไลน์ก่อน จึงส่งเข้าคลังเอกสารได้ (ไฟล์เก็บใน repo ข้อมูล)')
-    setBusy(true); setMsg(''); setSent(false)
+    setBusy(true); setMsg('')
     try {
       const { blob, name } = await makeFile('pdf')
       const data = await blob.arrayBuffer()
@@ -163,7 +170,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
       const d: DocItem = { id: docId, updated: Date.now(), title: l.subject.trim() ? `หนังสือเชิญ ${l.subject.trim()}` : 'หนังสือเชิญร่วมงาน', category: cat?.name ?? '', no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
-      set({ docId }); setSent(true); setMsg(l.docId === docId ? 'ส่งเข้าคลังเอกสารแล้ว (ทับฉบับเดิมของหนังสือนี้)' : 'ส่งเข้าคลังเอกสารแล้ว')
+      set({ docId }); setDone({ id: docId, title: d.title, no: d.no, again: l.docId === docId })
     } catch (e) { setMsg(e instanceof Error ? e.message : 'ส่งเข้าคลังเอกสารไม่สำเร็จ') }
     setBusy(false)
   }
@@ -236,7 +243,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
             <button type="button" className="btn" onClick={() => output(menu, 'png')}>🖼️ รูปภาพ</button>
           </div>
         )}
-        {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}{sent && <> <Link to="/meeting/1/2" className="small">เปิดคลังเอกสาร ›</Link></>}</p>}
+        {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
@@ -246,6 +253,13 @@ export default function InviteLetterPage({ id }: { id: string }) {
         <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 11. ส่งเข้าคลังเอกสาร</button>
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
       </section>
+      {done && (
+        <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/2', { state: { openDoc: done.id } })}>
+          <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
+          <p className="small muted" style={{ margin: 0 }}>บันทึกเข้าคลังเอกสารเรียบร้อย กำลังพาไปหน้าคลังเอกสารให้ดู…</p>
+          <button type="button" className="btn btn--gold" onClick={() => navigate('/meeting/1/2', { state: { openDoc: done.id } })}>ไปที่คลังเอกสารเลย</button>
+        </Sheet>
+      )}
       {edit && <CfgForm sec={edit} cfg={cfg} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
     </>
   )
