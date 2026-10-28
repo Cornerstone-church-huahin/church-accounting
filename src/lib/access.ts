@@ -175,7 +175,7 @@ export type WorkPerm = 'view' | 'edit' | 'calendar' | 'chat'
 export const WORK_LEVELS: WorkLevel[] = ['lead', 'helper', 'advisor']
 export const WORK_LEVEL_LABEL: Record<WorkLevel, string> = { lead: 'ผู้ดูแลหลัก', helper: 'ผู้ช่วย', advisor: 'ที่ปรึกษา' }
 export const WORK_LEVEL_HELP: Record<WorkLevel, string> = {
-  lead: 'เสมือนเลขาของแอดมินในงานนี้: เพิ่ม แก้ไข ลบ ข้อมูลของงานได้ทุกอย่าง รวมปฏิทิน และแชทกับแอดมิน',
+  lead: 'เพิ่ม แก้ไข ลบ ข้อมูลของงานได้ทุกอย่าง รวมปฏิทิน และแชทกับแอดมิน',
   helper: 'ลงปฏิทินงานและแชทกับแอดมินได้ · ข้อมูลอื่นของงานดูอย่างเดียว',
   advisor: 'แชทกับแอดมินได้ · ที่เหลือดูอย่างเดียว (ลงปฏิทินเองไม่ได้)',
 }
