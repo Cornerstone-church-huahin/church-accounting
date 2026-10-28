@@ -55,6 +55,16 @@ try {
   must(await page.getByRole('region', { name: 'หมวด ประชุมกรรมการ' }).count() === 1, 'grouped by category')
   await page.locator('#dl-q').fill('ครั้งที่ 002')
   must(await page.locator('.doclink').count() === 1, 'search narrows to 1')
+  // ค้นจากเนื้อหาในเอกสาร + แสดงข้อความรอบคำที่เจอ
+  await page.locator('#dl-q').fill('แก้ไขฉบับที่ 2')
+  must(await page.locator('.doclink').count() === 1 && /แก้ไขฉบับที่ 2/.test(await page.locator('.doclink__snip').innerText()), 'content search finds the doc and shows a snippet')
+  await page.locator('#dl-q').fill('วาระการประชุม')
+  must(await page.locator('.doclink').count() === 1, 'finds text that exists only in the older issued version')
+  await page.locator('#dl-q').fill('')
+  // เลือกตามรายชื่อหมวด
+  await page.locator('#dl-cat').selectOption('ประชุมกรรมการ')
+  must(await page.locator('.doclink').count() === 2, 'category select lists the docs of that category')
+  await page.locator('#dl-cat').selectOption('')
   await page.locator('#dl-q').fill('ไม่มีแน่นอน')
   must(await page.getByText('ไม่พบเอกสารที่ค้นหา').isVisible(), 'no match message')
   await page.screenshot({ path: 'shots/doclib.png' })
