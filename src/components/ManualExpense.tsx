@@ -28,10 +28,13 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
 
   const save = () => {
     const q = items.find((x) => x.id === item)
-    if (!q) return setErr('เลือกรายการ')
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
-    if (acts?.length && !subId) return setErr('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
-    if (!amount || amount <= 0) return setErr('ใส่จำนวนเงิน')
+    const errs: string[] = []
+    if (!q) errs.push('เลือกรายการ')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errs.push('เลือกวันที่')
+    if (acts?.length && !subId) errs.push('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
+    if (!amount || amount <= 0) errs.push('ใส่จำนวนเงิน')
+    if (errs.length) return setErr(errs.join('\n'))
+    if (!q || !amount) return
     const ok = onAdd({ id: newId('ex'), updated: 0, channel: 'manual', date, amount, desc: q.name, catId: q.id, ...(subs?.length ? { subId } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(requester.trim() ? { requester: requester.trim() } : {}), ...(biller ? { biller } : {}), status: 'paid', paidDate: date, method: 'cash' })
     if (!ok) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
     setErr(''); setAmount(null); setBiller('')

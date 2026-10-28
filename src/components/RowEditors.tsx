@@ -64,10 +64,12 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   const [picks, setPicks] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const save = async () => {
-    if (!typeId && !label.trim()) return setErr('เลือกรายการหรือพิมพ์ชื่อรายการใหม่')
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
-    if (acts?.length && !subId) return setErr('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
-    if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    const errs: string[] = []
+    if (!typeId && !label.trim()) errs.push('เลือกรายการหรือพิมพ์ชื่อรายการใหม่')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errs.push('เลือกวันที่')
+    if (acts?.length && !subId) errs.push('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
+    if (!amount || amount <= 0) errs.push('ใส่จำนวนเงินมากกว่า 0')
+    if (errs.length) return setErr(errs.join('\n'))
     // พิมพ์ชื่อที่ไม่มีในตัวเลือก (ไม่ได้ใช้บ่อย) → ใช้ประเภทที่ชื่อตรงกัน ไม่มีก็สร้างใหม่ในรายการปกติ (ขึ้นใน ตั้งค่า › รายการรับ ด้วย)
     let useType = typeId
     const typed = label.trim()
@@ -144,10 +146,12 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const save = async () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('เลือกวันที่')
-    if (!desc.trim()) return setErr('ใส่รายการ')
-    if (acts?.length && !subId) return setErr('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
-    if (!amount || amount <= 0) return setErr('ใส่จำนวนเงินมากกว่า 0')
+    const errs: string[] = []
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errs.push('เลือกวันที่')
+    if (!desc.trim()) errs.push('ใส่รายการ')
+    if (acts?.length && !subId) errs.push('เลือกกิจกรรมและหมวดของกิจกรรม (ถ้ากิจกรรมยังไม่มีหมวด ให้เพิ่มหมวดก่อน)')
+    if (!amount || amount <= 0) errs.push('ใส่จำนวนเงินมากกว่า 0')
+    if (errs.length) return setErr(errs.join('\n'))
     let file = entry?.file
     if (pic && onUpload) { setBusy(true); try { file = await onUpload(pic) } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบรูปไม่สำเร็จ') } setBusy(false) }
     const { requester: _r, who: _w, catId: _c, biller: _b, subId: _s, ...rest } = entry ?? ({} as ExpenseEntry)

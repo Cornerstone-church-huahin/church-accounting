@@ -136,9 +136,13 @@ function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { do
   const [msg, setMsg] = useState('')
   const pick = (x: File | null) => { setFile(x); if (x && !f.title.trim()) setF((p) => ({ ...p, title: titleFromFile(x.name) })) }
   const save = async () => {
-    if (!f.title.trim()) return setMsg('ใส่ชื่อเอกสารก่อน')
-    if (!doc && !file) return setMsg('เลือกไฟล์เอกสารสำเร็จรูปก่อน')
-    if (file && file.size > MAX_DOC_BYTES) return setMsg(`ไฟล์ใหญ่เกินไป (${fmtSize(file.size)}) — ไม่เกิน ${fmtSize(MAX_DOC_BYTES)}`)
+    const errs: string[] = []
+    if (!f.title.trim()) errs.push('ใส่ชื่อเอกสาร')
+    if (!doc && !file) errs.push('เลือกไฟล์เอกสารสำเร็จรูป')
+    if (file && file.size > MAX_DOC_BYTES) errs.push(`ไฟล์เอกสารสำเร็จรูปใหญ่เกินไป (${fmtSize(file.size)}) — ไม่เกิน ${fmtSize(MAX_DOC_BYTES)}`)
+    if (!f.no.trim()) errs.push('ใส่เลขที่เอกสาร')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) errs.push('เลือกวันที่เอกสาร')
+    if (errs.length) return setMsg(errs.join('\n'))
     setBusy(true); setMsg('')
     try {
       let fileInfo = doc?.file
@@ -167,9 +171,9 @@ function DocForm({ doc, cats, defCat, nextFor, prefixOf, onClose, onSave }: { do
           <option value="">{NO_CATEGORY}</option>
           {[...new Set([...cats, f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
         </select><span className="small muted">เพิ่มหมวดใหม่ได้ที่ปุ่ม ⚙️ หมวด หน้าคลัง</span></div>
-      <div className="row" style={{ gap: 8 }}>
-        <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">เลขที่ (ถ้ามี)</label><input id="df-no" className="input" value={f.no} onChange={(e) => { setNoTouched(true); setF({ ...f, no: e.target.value }) }} /></div>
-        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
+      <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-no">ใส่/เช็ค เลขที่เอกสาร</label><input id="df-no" className="input" value={f.no} onChange={(e) => { setNoTouched(true); setF({ ...f, no: e.target.value }) }} /></div>
+        <div className="field" style={{ flex: 1 }}><label htmlFor="df-date">วันที่เอกสาร (ต้องตรงกับเอกสาร)</label><input id="df-date" type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
       </div>
       {prefixOf(f.category) ? (
         <div style={{ margin: '0 0 8px' }}>
