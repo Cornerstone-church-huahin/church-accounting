@@ -44,7 +44,7 @@ try {
   const ys = await page.locator('.balance-tiles .btile').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
   must(ys[0] === ys[1] && ys[1] === ys[2] && ys[3] === ys[4] && ys[4] === ys[5] && ys[3] > ys[0], '3 x 2 layout: ' + ys)
   const hy = await page.locator('.stepbtn').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
-  must(hy.length === 6 && hy[0] === hy[1] && hy[2] === hy[3] && hy[4] === hy[5] && hy[2] > hy[0] && hy[4] > hy[2], 'step buttons are 2 x 3 (รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก): ' + hy)
+  must(hy.length === 6 && hy[0] === hy[1] && hy[1] === hy[2] && hy[3] === hy[4] && hy[4] === hy[5] && hy[3] > hy[0], 'step buttons are 3 x 2 (รับ จ่าย ปรับ / สรุป เตรียมเบิก เตรียมนำฝาก): ' + hy)
   // กดขั้นตอน → เต็มจอ (ซ่อนช่องบน) → ‹ หน้าแรก กลับ
   await page.getByRole('tab', { name: /💚 รับ/ }).click()
   must((await page.locator('.balance-tiles').count()) === 0 && await page.getByRole('button', { name: 'กลับหน้าแรก' }).isVisible(), 'full screen hides the top area')
