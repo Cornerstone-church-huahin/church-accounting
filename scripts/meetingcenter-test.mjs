@@ -372,11 +372,17 @@ try {
   must(await ft.getByRole('dialog').count() === 0, 'the next letter signs immediately, no picture asked')
   // 10. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ → ประธานเปิดลิงก์แล้วเข้าหน้านี้
   await sg.getByRole('link', { name: /^เปิด หนังสือเชิญร่วมงาน/ }).click(); await sg.getByLabel(/^5\. เรื่อง/).waitFor({ timeout: 5000 })
+  // ข้อ 1–9 ยังไม่ครบ (วงกลมซีด) → แจ้งประธานยังไม่ได้
+  const nb = sg.getByRole('button', { name: /📨 10\. แจ้งประธานตรวจสอบ/ })
+  must(await nb.isDisabled() && await sg.getByRole('note').filter({ hasText: /ทำข้อ .* ให้เสร็จ/ }).count() === 1, 'step 10 stays locked until steps 1-9 are filled')
+  await sg.getByLabel(/^1\. ส่งถึง/).fill('นพพร'); await sg.getByLabel(/^6\. เรียน/).fill('ท่านนพพร'); await sg.getByLabel(/^7\. ข้อความในหนังสือ/).fill('ขอเชิญร่วมงาน')
+  must(!(await nb.isDisabled()), 'step 10 unlocks once every step 1-9 is green')
   await sg.evaluate(() => { window.__shared = null; navigator.share = async (d) => { window.__shared = d } })
   await sg.getByRole('button', { name: /📨 10\. แจ้งประธานตรวจสอบ/ }).click()
   await sg.getByText(/แจ้งประธานแล้ว/).first().waitFor({ timeout: 5000 })
   const shared = await sg.evaluate(() => window.__shared)
   must(shared && /ขอให้ตรวจสอบหนังสือเชิญร่วมงาน/.test(shared.text) && /openExternalBrowser=1#\/meeting\/1\/1\/invite-letter-/.test(shared.text), 'share text asks the president to check and carries the deep link: ' + (shared && shared.text))
+  must(await sg.getByRole('button', { name: /↩︎ ล้างสถานะแจ้ง/ }).count() === 1, 'a reset button appears once the president has been notified')
   const link = shared.text.match(/https?:\/\/\S+/)[0]
   const lsLetters = await sg.evaluate(() => localStorage.getItem('acct.inviteletter.v1'))
   const pr = await (await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
@@ -393,6 +399,9 @@ try {
   await emp.getByText(/กำลังดึงหนังสือจากระบบ/).waitFor({ timeout: 8000 })
   await emp.waitForTimeout(1200)
   must(await emp.evaluate(() => !(localStorage.getItem('acct.inviteletter.v1') ?? '').includes('letter-notyet')), 'opening an unknown letter link never creates a blank letter')
+  sg.once('dialog', (d) => d.accept()); await sg.getByRole('button', { name: /↩︎ ล้างสถานะแจ้ง/ }).click()
+  await sg.getByText(/แจ้งประธานแล้วเมื่อ/).waitFor({ state: 'detached', timeout: 5000 })
+  must(await sg.getByRole('button', { name: /📨 10\. แจ้งประธานตรวจสอบ/ }).isEnabled(), 'after the reset step 10 can be pressed again')
   // เลขา (ไม่ใช่แอดมิน): ลงลายเซ็นไม่ได้
   const secp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
   await secp.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'เลขาธิการ' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'sec1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }, { id: 'sec1', name: 'เลขาธิการ', role: 'bookkeeper', joined: 2, updated: 1, works: [1] }])) })
