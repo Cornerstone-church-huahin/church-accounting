@@ -6,7 +6,7 @@ import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
 import { cleanPrefix, nextDocNo, setPendingDoc, sortNewestFirst } from '../lib/docLibrary'
 import { letterDate } from '../lib/meetings'
-import { be, todayISO } from '../lib/money'
+import { be, fmtDate, newId, todayISO } from '../lib/money'
 import { buildPagesPdf, downloadSheetPdf } from '../lib/pdf'
 import type { InviteLetter as Letter, InviteSettings } from '../lib/types'
 
@@ -83,12 +83,12 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
 }
 
 /** หนังสือเชิญร่วมงาน (หน้าเดียว): กรอกช่องที่ต่างกันในแต่ละฉบับ · หัวจดหมาย/ลงนาม/ข้อมูลติดต่อเป็นค่าตั้งต้นที่แก้ครั้งเดียวใช้ทุกฉบับ */
-export default function InviteLetterPage() {
+export default function InviteLetterPage({ id }: { id: string }) {
   const store = useInviteLetter()
   const cfgStore = useInviteSettings()
   const lib = useDocLibrary(), cats = useDocCategories()
   const navigate = useNavigate()
-  const saved = store.items.find((x) => x.id === 'draft')
+  const saved = store.items.find((x) => x.id === id)
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
   const [pick, setPick] = useState(false)
@@ -101,7 +101,7 @@ export default function InviteLetterPage() {
   // บันทึกอัตโนมัติ (หน่วงเล็กน้อย) — ร่วมกันทุกเครื่อง
   useEffect(() => {
     if (first.current) { first.current = false; return }
-    const t = setTimeout(() => { store.put([{ ...l, id: 'draft', updated: Date.now() }]) }, 700)
+    const t = setTimeout(() => { store.put([{ ...l, id, updated: Date.now() }]) }, 700)
     return () => clearTimeout(t)
   }, [l]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -160,7 +160,7 @@ export default function InviteLetterPage() {
 
   return (
     <>
-      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
+      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini">‹ รายการหนังสือ</Link></div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
@@ -242,5 +242,50 @@ function CfgForm({ sec, cfg, onClose, onSave }: { sec: Sec; cfg: Cfg; onClose: (
         <button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button>
       </div>
     </Sheet>
+  )
+}
+
+/** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
+export function InviteLetterList() {
+  const store = useInviteLetter()
+  const navigate = useNavigate()
+  const [q, setQ] = useState('')
+  const [msg, setMsg] = useState('')
+  const empty = (x: Letter) => !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
+  const letters = store.items.filter((x) => !(x.id === 'draft' && empty(x)))
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
+  const t = q.trim().toLowerCase()
+  const shown = t ? letters.filter((x) => `${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
+  const add = () => {
+    const id = newId('letter')
+    if (!store.put([{ ...BLANK, id, date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
+    navigate(`/meeting/1/1/invite-${id}`)
+  }
+  const del = (x: Letter) => { if (window.confirm(`ลบหนังสือ “${x.subject || x.no || 'ฉบับนี้'}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
+  return (
+    <>
+      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
+      <section className="card" aria-label="ค้นหาหรือเพิ่มหนังสือ">
+        <div className="row" style={{ gap: 6, alignItems: 'flex-end' }}>
+          <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="il-q">🔎 ค้นหาหนังสือ (เรื่อง เรียน เลขที่)</label><input id="il-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์เพื่อค้นหา" /></div>
+          <button type="button" className="btn btn--gold" aria-label="เพิ่มหนังสือฉบับใหม่" title="เพิ่มหนังสือฉบับใหม่" onClick={add}>➕ ใหม่</button>
+        </div>
+      </section>
+      {msg && <p className="error" role="alert">{msg}</p>}
+      {shown.length === 0 ? <p className="empty">{letters.length === 0 ? 'ยังไม่มีหนังสือ — กด ➕ ใหม่ เพื่อสร้างฉบับแรก' : 'ไม่พบหนังสือที่ค้นหา'}</p> : (
+        <ul className="wflist" aria-label="รายการหนังสือเชิญ">
+          {shown.map((x) => (
+            <li key={x.id} className="wfitem">
+              <Link to={`/meeting/1/1/invite-${x.id}`} className="wfcard" aria-label={`เปิด ${x.subject || x.no || 'หนังสือ'}`}>
+                <span className="wfcard__icon" aria-hidden="true">✉️</span>
+                <span className="wfcard__t"><b>{x.subject || '(ยังไม่มีเรื่อง)'}</b><small>{[x.no, x.to && `เรียน ${x.to}`, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
+                <span aria-hidden="true">›</span>
+              </Link>
+              <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${x.subject || x.no || 'หนังสือ'}`} onClick={() => del(x)}>🗑️</button></span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
