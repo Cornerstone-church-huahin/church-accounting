@@ -20,6 +20,7 @@ import { todayISO, yearOf } from '../lib/money'
 import type { Meeting } from '../lib/types'
 
 const BASE = '/meeting/1/1'
+const HUB = `${BASE}/meeting`
 const CUR_KEY = 'acct.mc.cur'
 const MARK: Record<StepState, string> = { done: '✓', partial: '•', todo: '' }
 
@@ -72,7 +73,7 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
   const meetings = [...c.list].sort((x, y) => y.year - x.year || y.no - x.no)
   return (
     <>
-      <div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
+      <div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ ลำดับงาน</Link></div>
       <p className="muted" style={{ margin: '0 0 0.7rem' }}>{CENTER_SUB}</p>
       {c.denied && <p className="error" role="alert">ไม่มีสิทธิ์บันทึกข้อมูลการประชุม</p>}
       <section className="card" aria-label="จัดการการประชุม">
@@ -118,7 +119,7 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
 
 function Step({ n, c }: { n: number; c: Cur }) {
   const s = stepOf(n)
-  if (!s) return <><div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div><p className="empty">ไม่พบขั้นตอนนี้</p><Link to={BASE} className="btn">กลับศูนย์จัดการประชุม</Link></>
+  if (!s) return <><div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ ลำดับงาน</Link></div><p className="empty">ไม่พบขั้นตอนนี้</p><Link to={HUB} className="btn">กลับศูนย์จัดการประชุม</Link></>
   const prev = stepOf(n - 1), next = stepOf(n + 1)
   const working = n >= 1 && n <= 10
   const props = c.cur ? { m: c.cur, save: c.save, list: c.list } : undefined
@@ -126,7 +127,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
     <>
       <div className="page-head no-print">
         <h1>{s.n}. {s.title}</h1>
-        <Link to={BASE} className="mini">‹ กลับศูนย์จัดการประชุม</Link>
+        <Link to={HUB} className="mini">‹ กลับศูนย์จัดการประชุม</Link>
       </div>
       <p className="mc__blurb"><span aria-hidden="true">{s.icon}</span> {s.blurb}</p>
       {c.denied && <p className="error" role="alert">ไม่มีสิทธิ์บันทึกข้อมูลการประชุม</p>}
@@ -150,7 +151,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
         {prev ? <Link to={`${BASE}/${prev.n}`} className="mc__step"><small>‹ ขั้นตอนก่อนหน้า</small><b>{prev.n}. {prev.title}</b></Link> : <span />}
         {next ? <Link to={`${BASE}/${next.n}`} className="mc__step mc__step--next"><small>ขั้นตอนถัดไป ›</small><b>{next.n}. {next.title}</b></Link> : <span />}
       </nav>
-      <p style={{ textAlign: 'center', margin: '0.6rem 0' }}><Link to={BASE} className="btn">กลับศูนย์จัดการประชุม</Link></p>
+      <p style={{ textAlign: 'center', margin: '0.6rem 0' }}><Link to={HUB} className="btn">กลับศูนย์จัดการประชุม</Link></p>
     </>
   )
 }
