@@ -38,6 +38,7 @@ export default function AnnualPlan() {
   const [done, setDone] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [ferr, setFerr] = useState('')
   const ref = useRef<HTMLDivElement | null>(null)
   const rows = planRows(cal.list, year, q, today)
   const years = Array.from({ length: 5 }, (_, i) => Number(today.slice(0, 4)) - 1 + i)
@@ -47,16 +48,19 @@ export default function AnnualPlan() {
     if (!canEdit) return
     if (e === 'new') { setTitle(''); setDate(`${year}-${String((q - 1) * 3 + 1).padStart(2, '0')}-01`); setEndDate(''); setLead(''); setBudget(null); setDone(false) }
     else { setTitle(e.title); setDate(e.date); setEndDate(''); setLead(e.lead ?? ''); setBudget(e.budget ?? null); setDone(!!e.done) }
-    setEdit(e)
+    setFerr(''); setEdit(e)
   }
   const save = () => {
-    if (!edit || !title.trim() || !isISO(date)) return setMsg('กรอกรายละเอียดและวันที่ให้ครบ')
+    if (!edit) return
+    if (!title.trim()) return setFerr('ใส่รายละเอียดกิจกรรม')
+    if (!isISO(date)) return setFerr('เลือกวันที่')
+    setFerr('')
     const base: CalEvent = edit === 'new' ? { id: newId('cal'), updated: 0, date, title: '', tab: 1 } : edit
     const dates: string[] = []
     if (edit === 'new' && endDate && isISO(endDate) && endDate > date) for (let d = new Date(`${date}T00:00:00Z`); d.toISOString().slice(0, 10) <= endDate && dates.length < 31; d.setUTCDate(d.getUTCDate() + 1)) dates.push(d.toISOString().slice(0, 10))
     const ev: CalEvent = { ...base, date: dates[0] ?? date, extra: edit === 'new' ? (dates.length > 1 ? dates.slice(1) : undefined) : base.extra, title: title.trim(), plan: true, lead: lead.trim() || undefined, budget: budget || undefined, done: done || undefined }
     if (edit === 'new' || edit.date !== date) ev.date = dates[0] ?? date
-    if (!cal.put([ev])) return setMsg('ไม่มีสิทธิ์บันทึกในปฏิทิน')
+    if (!cal.put([ev])) return setFerr('ไม่มีสิทธิ์บันทึกในปฏิทิน')
     setEdit(null); setMsg('บันทึกแล้ว — กิจกรรมนี้อยู่ในปฏิทินงานด้วย')
   }
   const remove = () => {
@@ -110,6 +114,7 @@ export default function AnnualPlan() {
           <div className="field"><label htmlFor="ap-b">งบประมาณ (บาท)</label><MoneyInput id="ap-b" value={budget} onChange={setBudget} /></div>
           {edit !== 'new' && <label className="row" style={{ gap: 6, margin: '4px 0' }}><input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} /> ทำเสร็จแล้ว (ขีดฆ่าวันที่)</label>}
           <p className="small muted" style={{ margin: '0 0 6px' }}>งบประมาณ = ตัวเลขตามแผน{budget ? ` (${fmtBaht(budget)} บาท)` : ''} · ทำซ้ำหรือแก้เวลาละเอียดได้ที่ปฏิทินงาน</p>
+          {ferr && <p className="err" role="alert">{ferr}</p>}
           <div className="row" style={{ gap: 8 }}>
             <button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>
             {edit !== 'new' && <button type="button" className="btn btn--ghost" onClick={remove}>ลบ</button>}
