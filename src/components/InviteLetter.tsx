@@ -6,7 +6,7 @@ import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
 import { cleanPrefix, nextDocNo, setPendingDoc, sortNewestFirst } from '../lib/docLibrary'
 import { letterDate } from '../lib/meetings'
-import { be, fmtDate, newId, todayISO } from '../lib/money'
+import { be, todayISO } from '../lib/money'
 import { buildPagesPdf, downloadSheetPdf } from '../lib/pdf'
 import type { InviteLetter as Letter, InviteSettings } from '../lib/types'
 
@@ -95,8 +95,6 @@ export default function InviteLetterPage() {
   const [edit, setEdit] = useState<Sec | null>(null)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  /** ฉบับที่บันทึกไว้ที่กำลังแก้อยู่ (ว่าง = ฉบับใหม่) */
-  const [editing, setEditing] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   const first = useRef(true)
   const set = (patch: Partial<Draft>) => setL((p) => ({ ...p, ...patch }))
@@ -129,26 +127,6 @@ export default function InviteLetterPage() {
   }
   const pdf = async () => { if (ready() && ref.current) await downloadSheetPdf([ref.current], FILENAME, 'full') }
   /** เก็บเข้าคลังเอกสาร: สร้าง PDF จากหนังสือนี้ → ไปหน้าคลังพร้อมไฟล์ เลขที่ วันที่ ชื่อเรื่อง (กดบันทึกได้ทันที) */
-  const savedList = store.items.filter((x) => x.id !== 'draft').sort((a, b) => b.updated - a.updated)
-  const bodyOf = (x: Draft): Draft => ({ no: x.no, date: x.date, subject: x.subject, to: x.to, attach: x.attach ?? '', showAttach: x.showAttach, body: x.body })
-  /** 💾 บันทึกฉบับนี้ไว้ในรายการ (กำลังแก้ฉบับที่บันทึกไว้ = ทับฉบับนั้น · ไม่งั้นเพิ่มเป็นฉบับใหม่) */
-  const saveLetter = () => {
-    if (!ready()) return
-    if (!l.subject.trim() && !l.body.trim()) return setMsg('ยังไม่มีเนื้อหา — กรอกเรื่องหรือข้อความก่อนบันทึก')
-    const id = editing || newId('letter')
-    const ok = store.put([{ ...bodyOf(l), id, updated: Date.now() }])
-    if (ok) setEditing(id)
-    setMsg(ok ? (editing ? 'บันทึกการแก้ไขแล้ว' : 'บันทึกฉบับนี้ไว้ในรายการแล้ว') : 'ไม่มีสิทธิ์บันทึก')
-  }
-  /** ✏️ เปิดฉบับที่บันทึกไว้มาแก้ไข */
-  const editLetter = (x: Letter) => { setL(bodyOf(x)); setEditing(x.id); setMsg(`กำลังแก้ไข “${x.subject || x.no || 'ฉบับที่บันทึกไว้'}” — แก้แล้วกด 💾 บันทึก`); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  /** 🗑️ ลบฉบับที่บันทึกไว้ */
-  const deleteLetter = (x: Letter) => {
-    if (!window.confirm(`ลบหนังสือ “${x.subject || x.no || 'ฉบับนี้'}” ออกจากรายการ ?`)) return
-    const ok = store.put([{ ...x, deleted: true, updated: Date.now() }])
-    if (ok && editing === x.id) setEditing('')
-    setMsg(ok ? 'ลบแล้ว' : 'ไม่มีสิทธิ์ลบ')
-  }
   const toLibrary = async () => {
     if (!ready() || !ref.current) return
     setBusy(true); setMsg('')
@@ -221,31 +199,13 @@ export default function InviteLetterPage() {
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn--ghost" onClick={copy}>📋 9. คัดลอกข้อความทั้งหมด</button>
           <button type="button" className="btn" onClick={pdf}>⬇️ 10. ดาวน์โหลด PDF</button>
-          <button type="button" className="mini" onClick={() => { if (window.confirm('เริ่มฉบับใหม่ (ล้างข้อความทุกช่อง) ?')) { setL({ ...BLANK, date: todayISO() }); setEditing('') } }}>↺ เริ่มฉบับใหม่</button>
+          <button type="button" className="mini" onClick={() => { if (window.confirm('เริ่มฉบับใหม่ (ล้างข้อความทุกช่อง) ?')) setL({ ...BLANK, date: todayISO() }) }}>↺ เริ่มฉบับใหม่</button>
         </div>
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
 
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <p className="small muted no-print" style={{ margin: '0.3rem 0' }}>ตัวอย่างหน้ากระดาษ A4 หนึ่งหน้า — ถ้าเนื้อหายาวเกินหน้า ให้ย่อข้อความ</p>
-
-      <section className="card no-print" aria-label="บันทึกหนังสือ">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-          <b>บันทึก · แก้ไข · ลบ</b>
-          <button type="button" className="btn btn--gold" onClick={saveLetter}>💾 บันทึก{editing ? 'การแก้ไข' : 'ฉบับนี้'}</button>
-        </div>
-        {editing && <p className="small" style={{ margin: 0 }}>✏️ กำลังแก้ไขฉบับที่บันทึกไว้ <button type="button" className="mini" onClick={() => { setEditing(''); setMsg('เริ่มเป็นฉบับใหม่ (ไม่ทับฉบับที่บันทึกไว้)') }}>เลิกแก้</button></p>}
-        {savedList.length === 0 ? <p className="small muted" style={{ margin: 0 }}>ยังไม่มีฉบับที่บันทึกไว้ — กด 💾 เพื่อเก็บฉบับนี้ไว้ในรายการ</p> : (
-          <ul className="nlist" aria-label="หนังสือที่บันทึกไว้">
-            {savedList.map((x) => (
-              <li key={x.id} className="nitem">
-                <span className="nitem__t"><b>{x.subject || '(ยังไม่มีเรื่อง)'}</b><small className="muted">{[x.no, x.to && `เรียน ${x.to}`, x.date && fmtDate(x.date)].filter(Boolean).join(' · ')}</small></span>
-                <span className="nitem__act"><button type="button" className="mini" aria-label={`แก้ไข ${x.subject || x.no}`} onClick={() => editLetter(x)}>✏️</button><button type="button" className="mini" aria-label={`ลบ ${x.subject || x.no}`} onClick={() => deleteLetter(x)}>🗑️</button></span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       <section className="card no-print" aria-label="เก็บเข้าคลังเอกสาร">
         <button type="button" className="btn btn--gold" disabled={busy} onClick={toLibrary}>🗄️ 11. เก็บเข้าคลังเอกสาร</button>
