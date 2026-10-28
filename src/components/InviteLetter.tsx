@@ -4,11 +4,13 @@ import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
-import { cleanPrefix, nextDocNo, setPendingDoc, sortNewestFirst } from '../lib/docLibrary'
+import { nextDocNo } from '../lib/docLibrary'
+import { cacheImage } from '../lib/imageCache'
 import { letterDate } from '../lib/meetings'
-import { be, fmtDate, newId, todayISO } from '../lib/money'
-import { buildPagesPdf, downloadSheetPdf } from '../lib/pdf'
-import type { InviteLetter as Letter, InviteSettings } from '../lib/types'
+import { fmtDate, newId, todayISO } from '../lib/money'
+import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
+import { getSync, putBinary } from '../lib/sync'
+import type { DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
@@ -17,6 +19,7 @@ const BLANK: Draft = { no: '', date: '', subject: '', to: '', attach: '', showAt
 const attachOf = (l: Draft) => (l.showAttach && l.attach?.trim() ? l.attach.trim() : '')
 /** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
 export const DEFAULT_CFG: Cfg = {
+  numPrefix: 'ศอช',
   thName: 'คริสตจักรศิลาเอก ภาค 7 สภาคริสตจักรในประเทศไทย',
   enName: 'Cornerstone Church 7th District, The Church of Christ in Thailand',
   addr: '23/490 ซ.หัวหิน 94 ต.หัวหิน อ.หัวหิน จ.ประจวบคีรีขันธ์ 77110 อีเมล : doothailand@gmail.com',
@@ -26,12 +29,11 @@ export const DEFAULT_CFG: Cfg = {
   signRole: 'ประธานคณะธรรมกิจคริสตจักรศิลาเอก',
   contact: 'ติดต่อ 080-582-0777 มน.สมเจต เสมาทอง ประธานธรรมกิจ, 095-779-9382 คศ.กฤตุ รุ่งโรจน์ร่มเย็น ศิษยาภิบาล,\n093-476-5585 คศ.พิชิต เผ่าดี ศิษยาภิบาลฝ่ายอภิบาลและพัฒนา,\n081-889-6490 อ.ดารา ผลจันทร์ คณะธรรมกิจ',
 }
-const FILENAME = 'หนังสือเชิญร่วมงาน.pdf'
 type Sec = 'head' | 'sign' | 'contact'
-type TextKey = 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
+type TextKey = 'numPrefix' | 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
 /** 3 ส่วนที่แก้ได้ (ตามเลขลำดับบนหน้า): ช่องข้อความของแต่ละส่วน */
 const SECTIONS: { sec: Sec; no: string; name: string; keys: TextKey[] }[] = [
-  { sec: 'head', no: '1', name: 'หัวจดหมาย', keys: ['thName', 'enName', 'addr'] },
+  { sec: 'head', no: '1', name: 'หัวจดหมาย', keys: ['thName', 'enName', 'addr', 'numPrefix'] },
   { sec: 'sign', no: '7', name: 'ข้อความปิดท้าย · ลงนาม', keys: ['proceed', 'bless', 'signName', 'signRole'] },
   { sec: 'contact', no: '8', name: 'ข้อมูลติดต่อ', keys: ['contact'] },
 ]
@@ -87,11 +89,12 @@ export default function InviteLetterPage({ id }: { id: string }) {
   const store = useInviteLetter()
   const cfgStore = useInviteSettings()
   const lib = useDocLibrary(), cats = useDocCategories()
-  const navigate = useNavigate()
   const saved = store.items.find((x) => x.id === id)
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
-  const [pick, setPick] = useState(false)
+  const [editNo, setEditNo] = useState(false)
+  const [menu, setMenu] = useState<'save' | 'share' | 'download' | null>(null)
+  const [sent, setSent] = useState(false)
   const [edit, setEdit] = useState<Sec | null>(null)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
@@ -105,11 +108,13 @@ export default function InviteLetterPage({ id }: { id: string }) {
     return () => clearTimeout(t)
   }, [l]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // เลขที่จากคลังเอกสาร: หมวดที่ชื่อมี “เชิญ” (ไม่มี = ทั้งคลัง)
+  // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
+  const prefix = (cfg.numPrefix ?? 'ศอช').trim() || 'ศอช'
+  const others = store.items.filter((x) => x.id !== id)
+  const nextNo = nextDocNo(others.map((x) => ({ no: x.no })), prefix)
+  const dupNo = !!l.no.trim() && others.some((x) => x.no.trim() === l.no.trim())
+  useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const cat = cats.list.find((c) => c.name.includes('เชิญ'))
-  const pool = cat ? lib.list.filter((d) => d.category === cat.name) : lib.list
-  const nextNo = nextDocNo(pool, cleanPrefix(cat?.prefix ?? '') || be(Number(todayISO().slice(0, 4))))
-  const recent = sortNewestFirst(pool).filter((d) => d.no.trim()).slice(0, 6)
 
   const ready = () => { if (l.showAttach && !attachOf(l)) { setMsg('เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความก่อน (หรือกด “ไม่แสดง”)'); return false } return true }
   const copy = async () => {
@@ -125,18 +130,47 @@ export default function InviteLetterPage({ id }: { id: string }) {
     }
     setMsg(ok ? 'คัดลอกข้อความทั้งหมดแล้ว — นำไปวางในโปรแกรมอื่นได้' : 'คัดลอกไม่สำเร็จ — ลองกดค้างที่ข้อความแล้วเลือกคัดลอกเอง')
   }
-  const pdf = async () => { if (ready() && ref.current) await downloadSheetPdf([ref.current], FILENAME, 'full') }
-  /** เก็บเข้าคลังเอกสาร: สร้าง PDF จากหนังสือนี้ → ไปหน้าคลังพร้อมไฟล์ เลขที่ วันที่ ชื่อเรื่อง (กดบันทึกได้ทันที) */
-  const toLibrary = async () => {
-    if (!ready() || !ref.current) return
-    setBusy(true); setMsg('')
+  const baseName = `หนังสือเชิญ ${l.no.trim() ? l.no.trim().replace(/[\\/:*?"<>|]/g, '-') : todayISO()}`
+  const makeFile = async (fmt: 'pdf' | 'png') => {
+    if (!ref.current) throw new Error('ยังไม่พบหน้ากระดาษ')
+    return fmt === 'pdf' ? { blob: await buildPagePdf(ref.current), name: `${baseName}.pdf` } : { blob: await buildPageImage(ref.current), name: `${baseName}.png` }
+  }
+  /** 💾 บันทึก (เลือกที่เก็บได้ถ้าเครื่องรองรับ) · 📤 แชร์ · ⬇️ ดาวน์โหลด — เป็น PDF หรือรูปภาพ */
+  const output = async (act: 'save' | 'share' | 'download', fmt: 'pdf' | 'png') => {
+    if (!ready()) return
+    setMenu(null); setBusy(true); setMsg('')
     try {
-      const doc = await buildPagesPdf([{ el: ref.current }])
-      if (!doc) throw new Error('สร้างไฟล์ไม่สำเร็จ')
-      const file = new File([doc.output('blob')], `หนังสือเชิญ ${l.no ? l.no.replace(/[\\/:*?"<>|]/g, '-') : todayISO()}.pdf`, { type: 'application/pdf' })
-      setPendingDoc({ title: l.subject ? `หนังสือเชิญ ${l.subject}` : 'หนังสือเชิญร่วมงาน', date: l.date, note: `เรียน ${l.to}`.trim(), no: l.no.trim() || undefined, category: cat?.name, file })
-      navigate('/meeting/1/2')
-    } catch (e) { setMsg(e instanceof Error ? e.message : 'สร้างไฟล์ไม่สำเร็จ') }
+      const { blob, name } = await makeFile(fmt)
+      if (act === 'share') {
+        const r = await shareBlob(blob, name, l.subject || 'หนังสือเชิญ')
+        if (r === 'unsupported') { saveBlob(blob, name); setMsg('เครื่องนี้แชร์ไฟล์ตรงๆ ไม่ได้ — ดาวน์โหลดไฟล์ให้แทนแล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') } else if (r === 'shared') setMsg('แชร์แล้ว')
+      } else if (act === 'save') {
+        const w = window as unknown as { showSaveFilePicker?: (o: { suggestedName: string; types: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }> }> }
+        if (w.showSaveFilePicker) {
+          const h = await w.showSaveFilePicker({ suggestedName: name, types: [{ description: fmt === 'pdf' ? 'PDF' : 'รูปภาพ', accept: fmt === 'pdf' ? { 'application/pdf': ['.pdf'] } : { 'image/png': ['.png'] } }] })
+          const ws = await h.createWritable(); await ws.write(blob); await ws.close(); setMsg('บันทึกไฟล์แล้ว')
+        } else { saveBlob(blob, name); setMsg(`บันทึกไฟล์ ${name} ลงเครื่องแล้ว`) }
+      } else { saveBlob(blob, name); setMsg(`ดาวน์โหลด ${name} แล้ว`) }
+    } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
+    setBusy(false)
+  }
+  /** 11. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
+  const sendToLibrary = async () => {
+    if (!ready()) return
+    const cfgSync = getSync()
+    if (!cfgSync) return setMsg('ต้องเชื่อมต่อออนไลน์ก่อน จึงส่งเข้าคลังเอกสารได้ (ไฟล์เก็บใน repo ข้อมูล)')
+    setBusy(true); setMsg(''); setSent(false)
+    try {
+      const { blob, name } = await makeFile('pdf')
+      const data = await blob.arrayBuffer()
+      const path = `attachments/docs/${new Date().getFullYear()}/doc-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}.pdf`
+      await putBinary(cfgSync, path, data, 'คลังเอกสาร')
+      void cacheImage(path, data, 'application/pdf')
+      const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
+      const d: DocItem = { id: docId, updated: Date.now(), title: l.subject.trim() ? `หนังสือเชิญ ${l.subject.trim()}` : 'หนังสือเชิญร่วมงาน', category: cat?.name ?? '', no: l.no.trim(), date: l.date, access: 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
+      if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
+      set({ docId }); setSent(true); setMsg(l.docId === docId ? 'ส่งเข้าคลังเอกสารแล้ว (ทับฉบับเดิมของหนังสือนี้)' : 'ส่งเข้าคลังเอกสารแล้ว')
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'ส่งเข้าคลังเอกสารไม่สำเร็จ') }
     setBusy(false)
   }
 
@@ -150,7 +184,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
   }
   const secRow = (x: (typeof SECTIONS)[number]) => (
     <div key={x.sec} className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'nowrap' }}>
-      <span style={{ minWidth: 0 }}><b>{x.no}. {x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cfg[x.keys[0]].split('\n')[0]}</span></span>
+      <span style={{ minWidth: 0 }}><b>{x.no}. {x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cfg[x.keys[0]] ?? '').split('\n')[0]}</span></span>
       <span className="row" style={{ gap: 4, flex: 'none', flexWrap: 'nowrap' }}>
         <button type="button" className="mini" aria-label={`ใส่ข้อความ ${x.name}`} title="ใส่ข้อความตั้งต้น" onClick={() => fill(x)}>➕</button>
         <button type="button" className="mini" aria-label={`แก้ข้อความ ${x.name}`} title="แก้ข้อความ" onClick={() => setEdit(x.sec)}>✏️</button>
@@ -164,21 +198,15 @@ export default function InviteLetterPage({ id }: { id: string }) {
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
-        <div className="field"><label htmlFor="il-no">2. เลขที่หนังสือ</label>
-          <div className="row" style={{ gap: 6 }}>
-            <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} placeholder="เช่น ศอช.003" />
-            <button type="button" className="btn btn--ghost" aria-expanded={pick} onClick={() => setPick(!pick)}>📚 ดึงเลขจากคลังเอกสาร</button>
+        <div className="field"><label htmlFor="il-no">2. เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
+          <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+            {editNo
+              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={() => setEditNo(false)} autoFocus />
+              : <output id="il-no" className="il-numbadge" aria-label={`เลขที่หนังสือ ${l.no}`}>{l.no || '…'}</output>}
+            <button type="button" className="mini" aria-label="แก้เลขที่หนังสือเอง" title="แก้เลขเอง" onClick={() => setEditNo(!editNo)}>{editNo ? '✓' : '✏️'}</button>
           </div>
-          {pick && (
-            <div className="card" role="group" aria-label="เลขที่จากคลังเอกสาร" style={{ margin: '0.4rem 0 0' }}>
-              <div className="small muted">{cat ? `หมวด “${cat.name}”` : 'ทั้งคลังเอกสาร'} · กดเพื่อใส่เลขที่</div>
-              <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                <button type="button" className="btn btn--gold" onClick={() => { set({ no: nextNo }); setPick(false) }}>เลขถัดไป {nextNo}</button>
-                {recent.map((d) => <button key={d.id} type="button" className="mini" title={d.title} onClick={() => { set({ no: d.no }); setPick(false) }}>{d.no} <span className="muted">· {d.title.slice(0, 18)}</span></button>)}
-              </div>
-              {recent.length === 0 && <div className="small muted">ยังไม่มีเอกสารในคลัง — ใช้เลขถัดไปได้เลย</div>}
-            </div>
-          )}
+          <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...others.map((x) => ({ no: x.no })), { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
+          {dupNo && <span className="error" role="alert">เลขนี้ซ้ำกับหนังสือฉบับอื่น</span>}
         </div>
 
         <div className="field"><label htmlFor="il-date">3. วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
@@ -198,18 +226,25 @@ export default function InviteLetterPage({ id }: { id: string }) {
 
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn--ghost" onClick={copy}>📋 9. คัดลอกข้อความทั้งหมด</button>
-          <button type="button" className="btn" onClick={pdf}>⬇️ 10. ดาวน์โหลด PDF</button>
-          <button type="button" className="mini" onClick={() => { if (window.confirm('เริ่มฉบับใหม่ (ล้างข้อความทุกช่อง) ?')) setL({ ...BLANK, date: todayISO() }) }}>↺ เริ่มฉบับใหม่</button>
         </div>
-        {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
 
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
-      <p className="small muted no-print" style={{ margin: '0.3rem 0' }}>ตัวอย่างหน้ากระดาษ A4 หนึ่งหน้า — ถ้าเนื้อหายาวเกินหน้า ให้ย่อข้อความ</p>
-
-      <section className="card no-print" aria-label="เก็บเข้าคลังเอกสาร">
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={toLibrary}>🗄️ 11. เก็บเข้าคลังเอกสาร</button>
-        <span className="small muted"> สร้าง PDF จากหนังสือนี้ แล้วไปหน้าคลังเอกสารพร้อมเลขที่ วันที่ และไฟล์ กดบันทึกได้ทันที</span>
+      <section className="card no-print" aria-label="ไฟล์หนังสือ">
+        <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
+          {([['save', '💾', 'บันทึก'], ['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
+            <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
+          ))}
+        </div>
+        {menu && (
+          <div className="row" role="group" aria-label={`เลือกชนิดไฟล์ที่จะ${menu === 'save' ? 'บันทึก' : menu === 'share' ? 'แชร์' : 'ดาวน์โหลด'}`} style={{ gap: 8, justifyContent: 'center' }}>
+            <button type="button" className="btn" onClick={() => output(menu, 'pdf')}>📄 PDF</button>
+            <button type="button" className="btn" onClick={() => output(menu, 'png')}>🖼️ รูปภาพ</button>
+          </div>
+        )}
+        {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}{sent && <> <Link to="/meeting/1/2" className="small">เปิดคลังเอกสาร ›</Link></>}</p>}
+        <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 11. ส่งเข้าคลังเอกสาร</button>
+        <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
       </section>
       {edit && <CfgForm sec={edit} cfg={cfg} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
     </>
@@ -229,7 +264,7 @@ function CfgForm({ sec, cfg, onClose, onSave }: { sec: Sec; cfg: Cfg; onClose: (
     <Sheet title={`แก้ข้อความ: ${def.name}`} onClose={onClose}>
       {sec === 'head' && <>
         <p className="small muted" style={{ margin: 0 }}>โลโก้คริสตจักรใส่ให้ที่หัวจดหมายแล้ว</p>
-        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}
+        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}{f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
       </>}
       {sec === 'sign' && <>
         {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}{f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
@@ -248,6 +283,7 @@ function CfgForm({ sec, cfg, onClose, onSave }: { sec: Sec; cfg: Cfg; onClose: (
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
 export function InviteLetterList() {
   const store = useInviteLetter()
+  const cfgStore = useInviteSettings()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
@@ -258,7 +294,8 @@ export function InviteLetterList() {
   const shown = t ? letters.filter((x) => `${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
   const add = () => {
     const id = newId('letter')
-    if (!store.put([{ ...BLANK, id, date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
+    const pre = (cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEFAULT_CFG.numPrefix ?? 'ศอช').trim() || 'ศอช'
+    if (!store.put([{ ...BLANK, id, no: nextDocNo(store.items.map((x) => ({ no: x.no })), pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
     navigate(`/meeting/1/1/invite-${id}`)
   }
   const del = (x: Letter) => { if (window.confirm(`ลบหนังสือ “${x.subject || x.no || 'ฉบับนี้'}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }

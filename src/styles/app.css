@@ -1159,3 +1159,4 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .nitem__act { display: flex; gap: 0.2rem; flex: none; }
 .nover { display: grid; grid-template-columns: 1fr 4.5rem 2.6rem; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 0.9rem; }
 .nover .nbar { margin: 0; }
+.il-numbadge { display: inline-block; flex: 1; font-size: 1.35rem; font-weight: 700; letter-spacing: 0.03em; padding: 0.35rem 0.8rem; border-radius: 0.8rem; background: var(--navy); color: #fff; text-align: center; }
