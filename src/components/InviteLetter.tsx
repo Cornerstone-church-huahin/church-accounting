@@ -321,7 +321,7 @@ function InviteEditor({ id }: { id: string }) {
           </select></div>
         <button type="button" className="btn btn--gold" disabled={busy} onClick={sendToLibrary}>🗄️ 12. ส่งเข้าคลังเอกสาร</button>
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
-        <b className="small" style={{ marginTop: 4 }}>13. แชร์ / ดาวน์โหลดไฟล์หนังสือ</b> <span className="small muted">(ไม่จำเป็นมาก — ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง)</span>
+        <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
