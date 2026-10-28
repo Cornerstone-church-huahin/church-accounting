@@ -18,6 +18,7 @@ import More from './pages/More'
 import Members from './pages/Members'
 import DetailGate from './components/DetailGate'
 import Settings from './pages/Settings'
+import Install from './pages/Install'
 import Join from './pages/Join'
 
 // HashRouter: ใช้ได้บนทุก Static Hosting (GitHub Pages) โดยไม่ต้องตั้งค่า rewrite
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="more" element={<More />} />
           <Route path="settings" element={<Settings />} />
           <Route path="join" element={<Join />} />
+          <Route path="install" element={<Install />} />
           <Route path="*" element={<p className="empty">ไม่พบหน้านี้</p>} />
         </Route>
       </Routes>

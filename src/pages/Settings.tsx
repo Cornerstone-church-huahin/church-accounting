@@ -12,6 +12,7 @@ import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
+import { buildInstallOnlyMessage, buildInviteMessage, installUrlOf } from '../lib/inviteMessage'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
 import { useYear } from '../lib/year'
@@ -104,13 +105,15 @@ function Members() {
   if (!cfg) return null
   const flash = (t: string) => { setMsg(t); window.setTimeout(() => setMsg(''), 3000) }
   const link = `${location.origin}${location.pathname}?openExternalBrowser=1#/join?t=${encodeURIComponent(cfg.token)}${cfg.repo !== DEFAULT_REPO ? `&r=${encodeURIComponent(cfg.repo)}` : ''}&role=${inviteRole}${inviteFor.trim() ? `&for=${encodeURIComponent(inviteFor.trim())}` : ''}`
-  const share = async () => {
-    const text = `ขอเชิญร่วมใช้แอปบัญชีคริสตจักร${inviteFor.trim() ? ` (ถึง ${inviteFor.trim()})` : ''} — เปิดลิงก์นี้ แล้วพิมพ์ชื่อของท่านเพื่อส่งคำขอ แอดมินอนุมัติแล้วจึงใช้ได้:\n${link}`
+  const send = async (text: string, title: string, okText: string) => {
     try {
-      if (navigator.share) await navigator.share({ title: 'เข้าร่วมแอปบัญชีคริสตจักร', text })
-      else { await navigator.clipboard.writeText(text); flash('คัดลอกลิงก์แล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)') }
+      if (navigator.share) await navigator.share({ title, text })
+      else { await navigator.clipboard.writeText(text); flash(okText) }
     } catch { /* ผู้ใช้ปิดหน้าต่างแชร์ */ }
   }
+  const installUrl = installUrlOf(location.origin, location.pathname)
+  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
+  const shareInstall = () => send(buildInstallOnlyMessage(installUrl), 'ติดตั้งแอปบัญชีคริสตจักร', 'คัดลอกลิงก์ติดตั้งแล้ว')
   return (
     <Fold id="h-mem" open={m.isAdmin && m.pending.length > 0} title={<>👤 ผู้ใช้ร่วมและสิทธิ์ {m.isAdmin && m.pending.length > 0 && <span className="badge badge--gold">รออนุมัติ {m.pending.length}</span>}</>}>
       {m.isAdmin && (
@@ -123,7 +126,9 @@ function Members() {
               {(['bookkeeper', 'worship', 'auditor', 'viewer'] as const).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             </select>
           </div>
-          <button type="button" className="btn btn--gold" onClick={share}>📤 ส่งลิงก์ทาง Line หรืออื่น ๆ</button>
+          <button type="button" className="btn btn--gold" onClick={share}>📤 ส่งชุดเชิญ (ติดตั้ง + เข้าร่วม)</button>
+          <button type="button" className="btn btn--ghost" onClick={shareInstall}>📲 ส่งเฉพาะลิงก์ติดตั้ง</button>
+          <p className="small muted" style={{ margin: 0 }}>ชุดเชิญมี 2 ขั้น: ① ลิงก์ติดตั้ง (ตรวจ Android/iPhone ให้เอง) ② ลิงก์เชิญเข้าร่วม — iPhone ต้องติดตั้งก่อนแล้ววางลิงก์เชิญในแอป</p>
           <p className="foot-note">ลิงก์มีรหัสเข้าใช้ร่วมอยู่ด้วย — ส่งเฉพาะแชตส่วนตัว อย่าโพสต์ในกลุ่ม · ผู้รับต้องรออนุมัติจากท่านก่อนจึงใช้ได้ · สิทธิ์แอดมินให้ได้ตอนอนุมัติเท่านั้น</p>
 
           <h3>② คำขอที่รออนุมัติ ({m.pending.length})</h3>
