@@ -456,5 +456,7 @@ export interface Meeting extends SharedItem {
 /** หัวจดหมาย/ท้ายจดหมายของคริสตจักร (รูปที่ผู้ดูแลอัปโหลด เก็บใน repo ข้อมูลส่วนตัว) */
 export interface Letterhead extends SharedItem { header?: { path: string }; footer?: { path: string } }
 
-/** เช็คลิสต์ลำดับงานแบบเรียบง่าย (เช่น หนังสือเชิญ): id = ชื่อลำดับงาน · ticks = รหัสข้อที่ติ๊กแล้ว */
-export interface FlowTicks extends SharedItem { ticks: string[] }
+/** ขั้นหนึ่งของลำดับงาน · id คงที่เพื่อให้ติ๊กไม่หายเมื่อแก้ชื่อ · to = ลิงก์ไปทำต่อในแอป */
+export interface FlowStep { id: string; t: string; hint?: string; to?: string; toLabel?: string }
+/** ลำดับงาน (การ์ดในงานเลขา › ลำดับงาน): ชื่อ ขั้นตอน และขั้นที่ติ๊กแล้ว · แอดมิน/ผู้มีสิทธิ์เพิ่ม แก้ ลบได้ */
+export interface FlowTicks extends SharedItem { ticks: string[]; title?: string; icon?: string; steps?: FlowStep[]; /** ติ๊กขั้นสุดท้ายแล้วส่งต่อไปคลังเอกสาร */ toLibrary?: boolean; created?: number }
