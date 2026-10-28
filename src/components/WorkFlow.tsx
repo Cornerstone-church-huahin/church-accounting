@@ -1,26 +1,33 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useFlowTicks } from '../lib/data'
 
 /** งานเลขา › ลำดับงาน: เลือกลำดับงานที่จะทำ — แต่ละอันมีเช็คลิสต์ของตัวเอง · เก็บเอกสารไปที่คลังเอกสารโดยตรง */
 export function WorkflowMenu() {
+  const [pick, setPick] = useState('')
   const opts = [
     { to: '/meeting/1/1/meeting', icon: '🗓️', title: 'ประชุมธรรมกิจ', blurb: 'เช็คลิสต์ 10 ขั้น ตั้งแต่เตรียมประชุมจนเก็บเอกสาร' },
     { to: '/meeting/1/1/invite', icon: '✉️', title: 'หนังสือเชิญ', blurb: 'ลำดับสิ่งที่ต้องทำ ตั้งแต่ร่างจนส่งและเก็บสำเนา' },
     { to: '/meeting/1/3', icon: '🗄️', title: 'เก็บเอกสาร', blurb: 'เข้าสู่คลังเอกสารโดยตรง' },
   ]
+  const chosen = opts.find((o) => o.to === pick)
   return (
     <>
       <div className="page-head no-print"><h1>📋 ลำดับงาน</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
-      <p className="muted" style={{ margin: '0 0 0.7rem' }}>เลือกลำดับงานที่ต้องการทำ</p>
-      <nav className="mcgrid" aria-label="เลือกลำดับงาน" style={{ gridTemplateColumns: '1fr' }}>
-        {opts.map((o, i) => (
-          <Link key={o.to} to={o.to} className={`mcbtn btile--${(['own', 'fund', 'total'] as const)[i]}`}>
-            <span className="mcbtn__icon" aria-hidden="true">{o.icon}</span>
-            <b>{o.title}</b>
-            <small>{o.blurb}</small>
-          </Link>
-        ))}
-      </nav>
+      <section className="card" aria-label="เลือกลำดับงาน">
+        <div className="field" style={{ margin: 0 }}><label htmlFor="wf-pick">เลือกลำดับงานที่ต้องการทำ</label>
+          <select id="wf-pick" className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">— เลือกลำดับงาน —</option>
+            {opts.map((o) => <option key={o.to} value={o.to}>{o.icon} {o.title}</option>)}
+          </select></div>
+      </section>
+      {chosen && (
+        <Link to={chosen.to} className="wfcard" aria-label={`เปิด ${chosen.title}`}>
+          <span className="wfcard__icon" aria-hidden="true">{chosen.icon}</span>
+          <span className="wfcard__t"><b>{chosen.title}</b><small>{chosen.blurb}</small></span>
+          <span aria-hidden="true">›</span>
+        </Link>
+      )}
     </>
   )
 }
