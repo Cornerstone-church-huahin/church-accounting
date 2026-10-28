@@ -120,6 +120,7 @@ function InviteEditor({ id }: { id: string }) {
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
   const [editNo, setEditNo] = useState(false)
+  const [signSetup, setSignSetup] = useState(false)
   const [menu, setMenu] = useState<'share' | 'download' | null>(null)
   /** ส่งเข้าคลังสำเร็จ: แสดงป๊อปอัพ แล้วพาไปหน้าคลังเอกสาร (เปิดรายการที่เพิ่งส่งให้เห็น) */
   const [done, setDone] = useState<{ id: string; title: string; no: string; again: boolean } | null>(null)
@@ -162,8 +163,8 @@ function InviteEditor({ id }: { id: string }) {
     if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
   }, [l, cfg.proceed, cfg.bless, cfg.signName, cfg.signRole]) // eslint-disable-line react-hooks/exhaustive-deps
   const sign = () => {
-    if (!cfg.signImg) return setMsg('ยังไม่ได้อัปโหลดรูปลายเซ็น — กด ✏️ ที่ “8. ข้อความปิดท้าย · ลงนาม” แล้วเลือกรูปลายเซ็นก่อน')
     if (!ready()) return
+    if (!cfg.signImg) return setSignSetup(true)   // ยังไม่มีรูปลายเซ็น: เปิดหน้าต่างให้เลือกรูปครั้งแรก แล้วลงนามต่อทันที
     set({ signed: { at: Date.now(), by: getSync()?.name || 'ผู้ลงนาม', snap: snapOf(l, cfg) } })
     setMsg('ลงลายเซ็นเรียบร้อย — แชร์ ดาวน์โหลด และส่งเข้าคลังเอกสาร จะมีลายเซ็นกำกับ')
   }
@@ -338,6 +339,13 @@ function InviteEditor({ id }: { id: string }) {
           <button type="button" className="btn btn--gold" onClick={() => navigate('/meeting/1/2', { state: { openDoc: done.id } })}>ไปที่คลังเอกสารเลย</button>
         </Sheet>
       )}
+      {signSetup && (
+        <SignFirstTime onClose={() => setSignSetup(false)} onUse={(img) => {
+          if (!putCfg({ ...cfg, signImg: img })) return false
+          set({ signed: { at: Date.now(), by: getSync()?.name || 'ผู้ลงนาม', snap: snapOf(l, cfg) } })
+          setSignSetup(false); setMsg('ลงลายเซ็นเรียบร้อย — ครั้งต่อไปกด ✍️ ลงลายเซ็นได้ทันที ไม่ต้องเลือกรูปอีก'); return true
+        }} />
+      )}
       {edit && <CfgForm sec={edit} cfg={cfg} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
     </>
   )
@@ -438,5 +446,30 @@ function SignUpload({ value, onChange }: { value?: string; onChange: (v: string 
       {value && <div className="il-signprev"><img src={value} alt="ตัวอย่างลายเซ็น" /><button type="button" className="mini" onClick={() => onChange(undefined)}>🗑️ ลบลายเซ็น</button></div>}
       {msg && <span className="small" role="status">{msg}</span>}
       <span className="small muted">ลายเซ็นใช้ได้เฉพาะเมื่อแอดมินกด “✍️ ลงลายเซ็น” ที่หนังสือแต่ละฉบับ</span></div>
+  )
+}
+
+/** ลงลายเซ็นครั้งแรก: เลือกรูปลายเซ็นจากเครื่อง → ลบพื้นให้โปร่งใส → ดูตัวอย่าง → ใช้แล้วลงนามทันที (ทำครั้งเดียว) */
+function SignFirstTime({ onClose, onUse }: { onClose: () => void; onUse: (img: string) => boolean }) {
+  const [img, setImg] = useState('')
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  const pick = async (f: File | null) => {
+    if (!f) return
+    setBusy(true); setMsg('')
+    try { setImg(await cleanSignature(f)) } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
+    setBusy(false)
+  }
+  return (
+    <Sheet title="ลงลายเซ็น — ใส่รูปลายเซ็นครั้งแรก" onClose={onClose}>
+      <p style={{ margin: 0 }}>ยังไม่มีรูปลายเซ็นในระบบ เลือกรูปลายเซ็นของท่าน (รูปที่เซ็นบนกระดาษขาว) ระบบลบพื้นขาวให้โปร่งใสและวางในช่องลงนามให้ <b>ทำครั้งเดียว</b> ครั้งต่อไปกดลงลายเซ็นได้ทันที</p>
+      <div className="field"><label htmlFor="sf-file">เลือกรูปลายเซ็นจากเครื่อง</label><input id="sf-file" className="input" type="file" accept="image/*" disabled={busy} onChange={(e) => void pick(e.target.files?.[0] ?? null)} /></div>
+      {img && <div className="il-signprev"><img src={img} alt="ตัวอย่างลายเซ็น" /></div>}
+      {msg && <p className="error" role="alert">{msg}</p>}
+      <div className="row">
+        <button type="button" className="btn btn--gold" disabled={!img} onClick={() => { if (!onUse(img)) setMsg('ไม่มีสิทธิ์บันทึกลายเซ็น') }}>✍️ ใช้ลายเซ็นนี้และลงนาม</button>
+        <button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button>
+      </div>
+    </Sheet>
   )
 }
