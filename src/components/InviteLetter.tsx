@@ -4,7 +4,10 @@ import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
+import { can } from '../lib/access'
 import { nextDocNo } from '../lib/docLibrary'
+import { cleanSignature } from '../lib/signature'
+import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
 import { letterDate } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
@@ -15,6 +18,8 @@ import type { DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
 const BLANK: Draft = { toName: '', no: '', date: '', subject: '', to: '', attach: '', showAttach: false, body: '' }
+/** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
+const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, c.proceed, c.bless, c.signName, c.signRole])
 /** ชื่อสั้นของหนังสือ (รายการ/คลังเอกสาร): หนังสือเชิญร่วมงาน + ผู้รับ */
 export const letterTitle = (x: { toName?: string }) => `หนังสือเชิญร่วมงาน${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
 /** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
@@ -51,6 +56,7 @@ export function letterText(l: Draft, c: Cfg): string {
 
 /** หน้า A4: หัวจดหมาย (โลโก้ + ข้อความ) บน · เนื้อหากลาง · ลงนามขวา · ข้อมูลติดต่อล็อกท้ายกระดาษ */
 function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement> }) {
+  const signed = !!l.signed && !!c.signImg
   return (
     <ScaledPage ref={paperRef} className="a4page a4page--letter">
       <div className="il">
@@ -75,7 +81,7 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
         <div className="il__bottom">
           <div className="letter__sign">
             {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
-            <div style={{ height: 62 }} />
+            <div style={{ height: 62, position: 'relative' }}>{signed && <img src={c.signImg} alt="ลายเซ็น" className="il__sign" />}</div>
             <div>{c.signName ? `(${c.signName})` : '(………………………)'}</div>
             <div>{c.signRole}</div>
           </div>
@@ -89,6 +95,7 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
 /** หนังสือเชิญร่วมงาน (หน้าเดียว): กรอกช่องที่ต่างกันในแต่ละฉบับ · หัวจดหมาย/ลงนาม/ข้อมูลติดต่อเป็นค่าตั้งต้นที่แก้ครั้งเดียวใช้ทุกฉบับ */
 export default function InviteLetterPage({ id }: { id: string }) {
   const store = useInviteLetter()
+  const role = useRole()
   const cfgStore = useInviteSettings()
   const lib = useDocLibrary(), cats = useDocCategories()
   const saved = store.items.find((x) => x.id === id)
@@ -111,11 +118,17 @@ export default function InviteLetterPage({ id }: { id: string }) {
   const first = useRef(true)
   const set = (patch: Partial<Draft>) => setL((p) => ({ ...p, ...patch }))
   // บันทึกอัตโนมัติ (หน่วงเล็กน้อย) — ร่วมกันทุกเครื่อง
+  const dirty = useRef(false), latest = useRef(l), putRef = useRef(store.put)
+  latest.current = l; putRef.current = store.put
   useEffect(() => {
     if (first.current) { first.current = false; return }
-    const t = setTimeout(() => { store.put([{ ...l, id, updated: Date.now() }]) }, 700)
+    dirty.current = true
+    const t = setTimeout(() => { store.put([{ ...l, id, updated: Date.now() }]); dirty.current = false }, 700)
     return () => clearTimeout(t)
   }, [l]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ออกจากหน้าก่อนครบเวลาหน่วง: บันทึกที่ค้างทันที (กดปุ่มกลับ = บันทึกก่อนเปลี่ยนหน้า เพื่อให้รายการเห็นฉบับล่าสุด)
+  const flush = () => { if (dirty.current) { putRef.current([{ ...latest.current, id, updated: Date.now() }]); dirty.current = false } }
+  useEffect(() => () => flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
   const prefix = (cfg.numPrefix ?? 'ศอช').trim() || 'ศอช'
@@ -124,6 +137,18 @@ export default function InviteLetterPage({ id }: { id: string }) {
   const dupNo = !!l.no.trim() && others.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const cat = cats.list.find((c) => c.name.includes('เชิญ'))
+
+  // ลงลายเซ็น (เฉพาะแอดมิน/ผู้ลงนาม): แก้หนังสือหลังลงนามแล้ว ลายเซ็นถูกถอน ต้องลงนามใหม่
+  const canSign = can(role, 'settings')
+  useEffect(() => {
+    if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
+  }, [l, cfg.proceed, cfg.bless, cfg.signName, cfg.signRole]) // eslint-disable-line react-hooks/exhaustive-deps
+  const sign = () => {
+    if (!cfg.signImg) return setMsg('ยังไม่ได้อัปโหลดรูปลายเซ็น — กด ✏️ ที่ “8. ข้อความปิดท้าย · ลงนาม” แล้วเลือกรูปลายเซ็นก่อน')
+    if (!ready()) return
+    set({ signed: { at: Date.now(), by: getSync()?.name || 'ผู้ลงนาม', snap: snapOf(l, cfg) } })
+    setMsg('ลงลายเซ็นเรียบร้อย — แชร์ ดาวน์โหลด และส่งเข้าคลังเอกสาร จะมีลายเซ็นกำกับ')
+  }
 
   const ready = () => { if (l.showAttach && !attachOf(l)) { setMsg('เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความก่อน (หรือกด “ไม่แสดง”)'); return false } return true }
   const copy = async () => {
@@ -198,7 +223,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
 
   return (
     <>
-      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini">‹ รายการหนังสือ</Link></div>
+      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
         <div className="field"><label htmlFor="il-tn">1. ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
@@ -237,6 +262,14 @@ export default function InviteLetterPage({ id }: { id: string }) {
 
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
+        {l.signed ? (
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+            <span role="status">✅ <b>ลงนามแล้ว</b><br /><span className="small muted">{new Date(l.signed.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} · {l.signed.by}</span></span>
+            {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
+          </div>
+        ) : canSign
+          ? <button type="button" className="btn btn--gold" onClick={sign}>✍️ ลงลายเซ็น</button>
+          : <p className="small muted" style={{ margin: 0 }}>✍️ การลงลายเซ็นทำโดยผู้ลงนาม (แอดมิน) — หนังสือนี้ยังไม่ได้ลงนาม</p>}
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
@@ -286,6 +319,7 @@ function CfgForm({ sec, cfg, onClose, onSave }: { sec: Sec; cfg: Cfg; onClose: (
         {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}{f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
       </>}
       {sec === 'sign' && <>
+        <SignUpload value={c.signImg} onChange={(v) => setC({ ...c, signImg: v })} />
         {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}{f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
       </>}
       {sec === 'contact' && f('contact', 'ข้อมูลติดต่อ หากมีข้อสงสัย (บรรทัดละหนึ่งชุด)', 5)}
@@ -334,7 +368,7 @@ export function InviteLetterList() {
             <li key={x.id} className="wfitem">
               <Link to={`/meeting/1/1/invite-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x)}`}>
                 <span className="wfcard__icon" aria-hidden="true">✉️</span>
-                <span className="wfcard__t"><b>{letterTitle(x)}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
+                <span className="wfcard__t"><b>{letterTitle(x)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
                 <span aria-hidden="true">›</span>
               </Link>
               <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x)}`} onClick={() => del(x)}>🗑️</button></span>
@@ -343,5 +377,26 @@ export function InviteLetterList() {
         </ul>
       )}
     </>
+  )
+}
+
+/** อัปโหลดรูปลายเซ็น (เฉพาะแอดมิน): ถ่าย/เลือกรูปที่เซ็นบนกระดาษขาว ระบบลบพื้นให้โปร่งใสและตัดขอบอัตโนมัติ */
+function SignUpload({ value, onChange }: { value?: string; onChange: (v: string | undefined) => void }) {
+  const role = useRole()
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (!can(role, 'settings')) return null
+  const pick = async (f: File | null) => {
+    if (!f) return
+    setBusy(true); setMsg('')
+    try { onChange(await cleanSignature(f)); setMsg('ทำลายเซ็นโปร่งใสแล้ว — กด “บันทึก” เพื่อใช้งาน') } catch (e) { setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
+    setBusy(false)
+  }
+  return (
+    <div className="field"><label htmlFor="cf-sign">ลายเซ็น (รูปเซ็นบนกระดาษขาว · ระบบลบพื้นให้เอง)</label>
+      <input id="cf-sign" className="input" type="file" accept="image/*" disabled={busy} onChange={(e) => void pick(e.target.files?.[0] ?? null)} />
+      {value && <div className="il-signprev"><img src={value} alt="ตัวอย่างลายเซ็น" /><button type="button" className="mini" onClick={() => onChange(undefined)}>🗑️ ลบลายเซ็น</button></div>}
+      {msg && <span className="small" role="status">{msg}</span>}
+      <span className="small muted">ลายเซ็นใช้ได้เฉพาะเมื่อแอดมินกด “✍️ ลงลายเซ็น” ที่หนังสือแต่ละฉบับ</span></div>
   )
 }
