@@ -191,6 +191,7 @@ function InviteEditor({ id }: { id: string }) {
   }
   /** 10. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ผ่านเมนูแชร์ของเครื่อง (LINE ฯลฯ) · ประธานกดลิงก์แล้วเข้าหน้านี้ทันที */
   const notify = async () => {
+    if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
     if (!ready()) return
     const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/1/invite-${id}`)
     const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
@@ -262,6 +263,8 @@ function InviteEditor({ id }: { id: string }) {
     '6.1': !!l.showAttach && filled(l.attach), '7': filled(l.body), '8': filled(cfg.proceed) && filled(cfg.signName) && filled(cfg.signRole), '9': filled(cfg.contact),
     '10': !!l.notified, '11': !!l.signed, '12': !!l.docId && lib.list.some((d) => d.id === l.docId),
   }
+  /** ข้อ 1–9 ที่ยังไม่ได้ใส่ (วงกลมยังซีด): ต้องครบก่อนจึงแจ้งประธานตรวจสอบได้ */
+  const missing = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].filter((k) => !okOf[k])
   const secRow = (x: (typeof SECTIONS)[number]) => (
     <div key={x.sec} className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'nowrap' }}>
       <span style={{ minWidth: 0 }}><b><No n={x.no} ok={okOf[x.no]} />{x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cfg[x.keys[0]] ?? '').split('\n')[0]}</span></span>
@@ -314,8 +317,9 @@ function InviteEditor({ id }: { id: string }) {
       <div className="no-print" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
-        <button type="button" className="btn btn--ghost il-bar" onClick={notify}>📨 <No n="10" ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
-        {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''}</p>}
+        <button type="button" className="btn btn--ghost il-bar" disabled={missing.length > 0 && !l.notified} onClick={notify}>📨 <No n="10" ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
+        {missing.length > 0 && !l.notified && <p className="small" role="note" style={{ margin: 0 }}>⏳ ทำข้อ {missing.join(', ')} ให้เสร็จ (วงกลมเขียวครบ) ก่อน จึงแจ้งประธานตรวจสอบได้</p>}
+        {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''} <button type="button" className="mini" onClick={() => { if (window.confirm('ล้างสถานะ “แจ้งประธานแล้ว” ของหนังสือฉบับนี้ ? (เพื่อให้เริ่มขั้นตอนใหม่ เลขากดแจ้งเองอีกครั้ง)')) set({ notified: undefined }) }}>↩︎ ล้างสถานะแจ้ง</button></p>}
         {/* ขั้น 11: แอดมิน (ประธาน) เห็นปุ่มลงลายเซ็น · เลขาเห็นแถบ "รอประธานเซ็น" แล้วเปลี่ยนเป็นเขียว "ประธานเซ็นแล้ว" เมื่อประธานลงนาม (ซิงก์ข้ามเครื่อง) */}
         {l.signed ? (
           <>
