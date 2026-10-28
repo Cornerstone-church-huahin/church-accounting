@@ -1122,3 +1122,5 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .mcheck__t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.74rem; }
 .mcheck__go { flex: none; padding: 0.3rem 0.5rem; color: var(--navy); font-size: 1.2rem; text-decoration: none; }
 .mcard { padding-block: 0.6rem; }
+.mcheck__row--cur { background: rgba(201, 154, 20, 0.14); border-radius: 0.5rem; }
+.mcheck__box:disabled { cursor: default; opacity: 1; }
