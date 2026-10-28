@@ -14,7 +14,9 @@ import type { DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from 
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
-const BLANK: Draft = { no: '', date: '', subject: '', to: '', attach: '', showAttach: false, body: '' }
+const BLANK: Draft = { toName: '', no: '', date: '', subject: '', to: '', attach: '', showAttach: false, body: '' }
+/** ชื่อสั้นของหนังสือ (รายการ/คลังเอกสาร): หนังสือเชิญร่วมงาน + ผู้รับ */
+export const letterTitle = (x: { toName?: string }) => `หนังสือเชิญร่วมงาน${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
 /** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
 const attachOf = (l: Draft) => (l.showAttach && l.attach?.trim() ? l.attach.trim() : '')
 /** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
@@ -33,9 +35,9 @@ type Sec = 'head' | 'sign' | 'contact'
 type TextKey = 'numPrefix' | 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
 /** 3 ส่วนที่แก้ได้ (ตามเลขลำดับบนหน้า): ช่องข้อความของแต่ละส่วน */
 const SECTIONS: { sec: Sec; no: string; name: string; keys: TextKey[] }[] = [
-  { sec: 'head', no: '1', name: 'หัวจดหมาย', keys: ['thName', 'enName', 'addr', 'numPrefix'] },
-  { sec: 'sign', no: '7', name: 'ข้อความปิดท้าย · ลงนาม', keys: ['proceed', 'bless', 'signName', 'signRole'] },
-  { sec: 'contact', no: '8', name: 'ข้อมูลติดต่อ', keys: ['contact'] },
+  { sec: 'head', no: '2', name: 'หัวจดหมาย', keys: ['thName', 'enName', 'addr', 'numPrefix'] },
+  { sec: 'sign', no: '8', name: 'ข้อความปิดท้าย · ลงนาม', keys: ['proceed', 'bless', 'signName', 'signRole'] },
+  { sec: 'contact', no: '9', name: 'ข้อมูลติดต่อ', keys: ['contact'] },
 ]
 
 /** ข้อความล้วนของหนังสือ (คัดลอกไปวางในโปรแกรมอื่น) */
@@ -158,6 +160,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
   /** 11. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
+    if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
     const cfgSync = getSync()
     if (!cfgSync) return setMsg('ต้องเชื่อมต่อออนไลน์ก่อน จึงส่งเข้าคลังเอกสารได้ (ไฟล์เก็บใน repo ข้อมูล)')
     setBusy(true); setMsg('')
@@ -168,7 +171,7 @@ export default function InviteLetterPage({ id }: { id: string }) {
       await putBinary(cfgSync, path, data, 'คลังเอกสาร')
       void cacheImage(path, data, 'application/pdf')
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
-      const d: DocItem = { id: docId, updated: Date.now(), title: l.subject.trim() ? `หนังสือเชิญ ${l.subject.trim()}` : 'หนังสือเชิญร่วมงาน', category: cat?.name ?? '', no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
+      const d: DocItem = { id: docId, updated: Date.now(), title: letterTitle(l), category: cat?.name ?? '', no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
       set({ docId }); setDone({ id: docId, title: d.title, no: d.no, again: l.docId === docId })
     } catch (e) { setMsg(e instanceof Error ? e.message : 'ส่งเข้าคลังเอกสารไม่สำเร็จ') }
@@ -198,8 +201,10 @@ export default function InviteLetterPage({ id }: { id: string }) {
       <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini">‹ รายการหนังสือ</Link></div>
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
+        <div className="field"><label htmlFor="il-tn">1. ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
+
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
-        <div className="field"><label htmlFor="il-no">2. เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
+        <div className="field"><label htmlFor="il-no">3. เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
           <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
             {editNo
               ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={() => setEditNo(false)} autoFocus />
@@ -210,10 +215,10 @@ export default function InviteLetterPage({ id }: { id: string }) {
           {dupNo && <span className="error" role="alert">เลขนี้ซ้ำกับหนังสือฉบับอื่น</span>}
         </div>
 
-        <div className="field"><label htmlFor="il-date">3. วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
-        <div className="field"><label htmlFor="il-sub">4. เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
-        <div className="field"><label htmlFor="il-to">5. เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
-        <div className="field"><label htmlFor="il-att">5.1 สิ่งที่ส่งมาด้วย</label>
+        <div className="field"><label htmlFor="il-date">4. วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
+        <div className="field"><label htmlFor="il-sub">5. เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
+        <div className="field"><label htmlFor="il-to">6. เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
+        <div className="field"><label htmlFor="il-att">6.1 สิ่งที่ส่งมาด้วย</label>
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <button type="button" role="switch" aria-checked={!!l.showAttach} aria-label="แสดงสิ่งที่ส่งมาด้วยบนหนังสือ" className={l.showAttach ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ showAttach: !l.showAttach })}>{l.showAttach ? '✅ แสดงบนหนังสือ' : '🚫 ไม่แสดง'}</button>
             <span className="small muted">{l.showAttach ? 'พิมพ์ข้อความด้านล่างเอง' : 'กด “แสดง” ถ้าหนังสือนี้มีสิ่งที่แนบ'}</span>
@@ -221,12 +226,12 @@ export default function InviteLetterPage({ id }: { id: string }) {
           {l.showAttach && <input id="il-att" className="input" style={{ marginTop: 6 }} value={l.attach ?? ''} onChange={(e) => set({ attach: e.target.value })} placeholder="พิมพ์สิ่งที่แนบ เช่น กำหนดการงาน" aria-invalid={!attachOf(l)} />}
           {l.showAttach && !attachOf(l) && <span className="error" role="alert">เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความ</span>}
         </div>
-        <div className="field"><label htmlFor="il-body">6. ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
+        <div className="field"><label htmlFor="il-body">7. ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn--ghost" onClick={copy}>📋 9. คัดลอกข้อความทั้งหมด</button>
+          <button type="button" className="btn btn--ghost" onClick={copy}>📋 10. คัดลอกข้อความทั้งหมด</button>
         </div>
       </section>
 
@@ -301,24 +306,24 @@ export function InviteLetterList() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
-  const empty = (x: Letter) => !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
+  const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
   const letters = store.items.filter((x) => !(x.id === 'draft' && empty(x)))
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
   const t = q.trim().toLowerCase()
-  const shown = t ? letters.filter((x) => `${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
+  const shown = t ? letters.filter((x) => `${x.toName ?? ''} ${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
   const add = () => {
     const id = newId('letter')
     const pre = (cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEFAULT_CFG.numPrefix ?? 'ศอช').trim() || 'ศอช'
     if (!store.put([{ ...BLANK, id, no: nextDocNo(store.items.map((x) => ({ no: x.no })), pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
     navigate(`/meeting/1/1/invite-${id}`)
   }
-  const del = (x: Letter) => { if (window.confirm(`ลบหนังสือ “${x.subject || x.no || 'ฉบับนี้'}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
+  const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
       <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
       <section className="card" aria-label="ค้นหาหรือเพิ่มหนังสือ">
         <div className="row" style={{ gap: 6, alignItems: 'flex-end' }}>
-          <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="il-q">🔎 ค้นหาหนังสือ (เรื่อง เรียน เลขที่)</label><input id="il-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์เพื่อค้นหา" /></div>
+          <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="il-q">🔎 ค้นหาหนังสือ (ชื่อ เรื่อง เลขที่)</label><input id="il-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์เพื่อค้นหา" /></div>
           <button type="button" className="btn btn--gold" aria-label="เพิ่มหนังสือฉบับใหม่" title="เพิ่มหนังสือฉบับใหม่" onClick={add}>➕ ใหม่</button>
         </div>
       </section>
@@ -327,12 +332,12 @@ export function InviteLetterList() {
         <ul className="wflist" aria-label="รายการหนังสือเชิญ">
           {shown.map((x) => (
             <li key={x.id} className="wfitem">
-              <Link to={`/meeting/1/1/invite-${x.id}`} className="wfcard" aria-label={`เปิด ${x.subject || x.no || 'หนังสือ'}`}>
+              <Link to={`/meeting/1/1/invite-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x)}`}>
                 <span className="wfcard__icon" aria-hidden="true">✉️</span>
-                <span className="wfcard__t"><b>{x.subject || '(ยังไม่มีเรื่อง)'}</b><small>{[x.no, x.to && `เรียน ${x.to}`, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
+                <span className="wfcard__t"><b>{letterTitle(x)}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
                 <span aria-hidden="true">›</span>
               </Link>
-              <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${x.subject || x.no || 'หนังสือ'}`} onClick={() => del(x)}>🗑️</button></span>
+              <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x)}`} onClick={() => del(x)}>🗑️</button></span>
             </li>
           ))}
         </ul>
