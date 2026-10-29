@@ -321,7 +321,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
       let added: ChurchMember[] = []
       if (unknown.length && confirm(`พบ ${unknown.length} ชื่อในไฟล์ที่ยังไม่อยู่ในทะเบียน (เช่น ${unknown.slice(0, 3).join(', ')})\n\nตกลง = เพิ่มเป็นสมาชิกใหม่แล้วนับการมาด้วย\nยกเลิก = ข้ามชื่อเหล่านี้`)) {
         const taken = new Set(members.map((m) => m.id))
-        added = unknown.map((n) => { const i = r.info.get(nameKey(n)); return { id: uniqueId(taken), name: i?.name ?? n, ...(i?.nick ? { nick: i.nick } : {}), status: i?.status ?? '4.ผู้ร่วมนมัสการ', ...(i?.group ? { group: i.group } : {}), updated: 0 } })
+        added = unknown.map((n) => { const i = r.info.get(nameKey(n)); return { id: uniqueId(taken), name: i?.name ?? n, ...(i?.nick ? { nick: i.nick } : {}), status: i?.status ?? '5.ผู้ร่วมนมัสการ', ...(i?.group ? { group: i.group } : {}), updated: 0 } })
         if (!put(added)) return
       }
       const pool = [...members, ...added]

@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, genderByStatus, orderByPct, orderByTenure, statusBreakdown, tenureDays, tenureText, orderMembers, recentServices, statusRank, visitStats, absence } from './pastoral'
-import type { Evaluated } from './registry'
+import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, genderByStatus, orderByPct, orderByTenure, statusBreakdown, tenureDays, tenureText, orderMembers, recentServices, statusRank, visitStats, absence, STATUS_GROUPS } from './pastoral'
+import { OFFICIAL_STATUSES, statusLabel, type Evaluated } from './registry'
 
 describe('ข้อมูลสมาชิกสำหรับงานอภิบาล', () => {
   it('จัดกลุ่มสถานะตามเลขนำหน้าในทะเบียน (ช่องว่างในวงเล็บไม่มีผล)', () => {
     expect(groupOf('1.สมบูรณ์  ( 1 )')).toBe('complete')
     expect(groupOf('2.สมบูรณ์ ( 2 )')).toBe('complete')
     expect(groupOf('3.สมาชิกสำรอง')).toBe('reserve')
-    expect(groupOf('4.ผู้ร่วมนมัสการ')).toBe('worship')
-    expect(groupOf('5.คนใหม่')).toBe('newcomer')
+    // ลำดับใหม่: 4 = คนใหม่ · 5 = ผู้ร่วมนมัสการ — ข้อมูลเดิม (4.ผู้ร่วมนมัสการ / 5.คนใหม่) แปลงให้ตอนอ่าน
+    expect(groupOf('4.คนใหม่')).toBe('newcomer'); expect(groupOf('5.ผู้ร่วมนมัสการ')).toBe('worship')
+    expect(groupOf('4.ผู้ร่วมนมัสการ')).toBe('worship'); expect(groupOf('5.คนใหม่')).toBe('newcomer')
+    expect(statusLabel('5.  คนใหม่')).toBe('4.คนใหม่'); expect(statusLabel('4.ผู้ร่วมนมัสการ')).toBe('5.ผู้ร่วมนมัสการ'); expect(statusRank('5.คนใหม่')).toBeLessThan(statusRank('4.ผู้ร่วมนมัสการ'))
+    expect(OFFICIAL_STATUSES.slice(3, 5)).toEqual(['4.คนใหม่', '5.ผู้ร่วมนมัสการ']); expect(STATUS_GROUPS.map((g) => g.key).slice(3, 5)).toEqual(['newcomer', 'worship'])
     expect(groupOf('7.เสียชีวิต')).toBe('deceased')
     expect(groupOf('6.สิ้นสภาพสมาชิก')).toBe('resigned')
     expect(groupOf(undefined)).toBeUndefined()

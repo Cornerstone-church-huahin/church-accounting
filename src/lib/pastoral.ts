@@ -6,12 +6,12 @@ import type { ChurchMember } from './types'
 export type StatusGroup = 'all' | 'complete' | 'reserve' | 'worship' | 'newcomer' | 'resigned' | 'deceased'
 export const STATUS_GROUPS: { key: StatusGroup; label: string }[] = [
   { key: 'all', label: 'ทุกสถานะ' }, { key: 'complete', label: 'สมาชิกสมบูรณ์' }, { key: 'reserve', label: 'สมาชิกสำรอง' },
-  { key: 'worship', label: 'ผู้ร่วมนมัสการ' }, { key: 'newcomer', label: 'คนใหม่' }, { key: 'resigned', label: 'สิ้นสภาพสมาชิก' }, { key: 'deceased', label: 'เสียชีวิต' },
+  { key: 'newcomer', label: 'คนใหม่' }, { key: 'worship', label: 'ผู้ร่วมนมัสการ' }, { key: 'resigned', label: 'สิ้นสภาพสมาชิก' }, { key: 'deceased', label: 'เสียชีวิต' },
 ]
 /** สถานะตามทะเบียน → กลุ่มที่ใช้กรอง (ดูเลขนำหน้า 1–7 · ไม่รู้จัก = นับในทุกสถานะเท่านั้น) */
 export function groupOf(status?: string): Exclude<StatusGroup, 'all'> | undefined {
   const n = statusLabel(status).match(/^(\d)\./)?.[1]
-  return n === '1' || n === '2' ? 'complete' : n === '3' ? 'reserve' : n === '4' ? 'worship' : n === '5' ? 'newcomer' : n === '6' ? 'resigned' : n === '7' ? 'deceased' : undefined
+  return n === '1' || n === '2' ? 'complete' : n === '3' ? 'reserve' : n === '4' ? 'newcomer' : n === '5' ? 'worship' : n === '6' ? 'resigned' : n === '7' ? 'deceased' : undefined
 }
 export const inGroup = (m: { status?: string }, g: StatusGroup) => g === 'all' || groupOf(m.status) === g
 /** ยังอยู่ในทะเบียน (ไม่นับสิ้นสภาพ/เสียชีวิต) */

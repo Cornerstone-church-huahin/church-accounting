@@ -63,7 +63,7 @@ describe('worship register import', () => {
     const ms = [m('a', { status: '1.สมบูรณ์' }), m('b', { status: '5.คนใหม่' }), m('c')]
     const st = serviceStats([att('2026-10-04', 'a', 'a', 'b', 'zz'), { ...att('2026-10-04', 'c'), id: 'x' }, att('2026-09-27', 'a')], ms)
     expect(st.map((x) => [x.date, x.count])).toEqual([['2026-10-04', 3], ['2026-09-27', 1]])
-    expect(st[0].byStatus).toEqual({ '1.สมบูรณ์': 1, '5.คนใหม่': 1, '(ไม่ระบุสถานะ)': 1 })
+    expect(st[0].byStatus).toEqual({ '1.สมบูรณ์': 1, '4.คนใหม่': 1, '(ไม่ระบุสถานะ)': 1 })
   })
 })
 
@@ -189,7 +189,7 @@ describe('gender stats', () => {
     const ms = [{ gender: 'ชาย', status: '1.สมบูรณ์  ( 1 )', group: '5.บรุษ' }, { gender: 'หญิง', status: '1.สมบูรณ์ ( 1 )', group: '4.สตรี' }, { status: '5.คนใหม่' }, { gender: 'หญิง', status: '5.คนใหม่', group: '4.สตรี' }]
     const g = genderStats(ms)
     expect([g.total.ชาย, g.total.หญิง, g.total.ไม่ระบุ, g.total.total]).toEqual([1, 2, 1, 4])
-    expect(g.byStatus.map((r) => [r.key, r.ชาย, r.หญิง, r.ไม่ระบุ])).toEqual([['1.สมบูรณ์ ( 1 )', 1, 1, 0], ['5.คนใหม่', 0, 1, 1]])
+    expect(g.byStatus.map((r) => [r.key, r.ชาย, r.หญิง, r.ไม่ระบุ])).toEqual([['1.สมบูรณ์ ( 1 )', 1, 1, 0], ['4.คนใหม่', 0, 1, 1]])
     expect(g.byGroup.find((r) => r.key === '4.สตรี')?.total).toBe(2)
     expect(g.byGroup.find((r) => r.key === '(ไม่มีกลุ่ม)')?.ไม่ระบุ).toBe(1)
   })

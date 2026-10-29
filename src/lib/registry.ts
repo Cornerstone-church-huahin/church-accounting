@@ -223,12 +223,14 @@ const dayNum = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 864e
 export const isFirstTimer = (m: { since?: string }, date: string, firstDate: string | undefined) =>
   firstDate === date && !(m.since && dayNum(date) - dayNum(m.since) > 30)
 /** ชื่อสถานะตามทะเบียน (ยุบช่องว่างซ้ำ เพื่อให้ "1.สมบูรณ์  ( 1 )" กับ "1.สมบูรณ์ ( 1 )" นับเป็นอันเดียวกัน) */
-export const statusLabel = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim() || '(ไม่ระบุสถานะ)'
+export const statusLabel = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim()
+  // ลำดับใหม่: 4 = คนใหม่ (ถือเป็นสมาชิก) · 5 = ผู้ร่วมนมัสการ (คนนอก) — ข้อมูลเดิมที่บันทึกเป็น “4.ผู้ร่วมนมัสการ / 5.คนใหม่” แปลงให้ตอนอ่าน (ไม่ต้องแก้ข้อมูล)
+  .replace(/^4\.\s*(ผู้ร่วมนมัสการ)/, '5.$1').replace(/^5\.\s*(คนใหม่)/, '4.$1') || '(ไม่ระบุสถานะ)'
 /** ชื่อสถานะแบบสั้น (ตัดช่องว่างในวงเล็บ) สำหรับป้ายเล็กในรายการ เช่น "1.สมบูรณ์(1)" */
 export const statusShort = (st?: string) => statusLabel(st).replace(/\s*\(\s*(\d)\s*\)/, '($1)')
 /** สถานะจริงตามทะเบียนของคริสตจักร — เลือกได้เสมอ แม้ตอนนี้ยังไม่มีใครอยู่ในสถานะนั้น (คณะธรรมกิจ/กรรมการกำหนดเกณฑ์เลื่อนขั้น แอปไม่เลื่อนให้เอง) */
-export const OFFICIAL_STATUSES = ['1.สมบูรณ์ ( 1 )', '2.สมบูรณ์ ( 2 )', '3.สมาชิกสำรอง', '4.ผู้ร่วมนมัสการ', '5.คนใหม่', '6.สิ้นสภาพสมาชิก', '7.เสียชีวิต']
-export const NEW_PERSON_STATUS = '5.คนใหม่'
+export const OFFICIAL_STATUSES = ['1.สมบูรณ์ ( 1 )', '2.สมบูรณ์ ( 2 )', '3.สมาชิกสำรอง', '4.คนใหม่', '5.ผู้ร่วมนมัสการ', '6.สิ้นสภาพสมาชิก', '7.เสียชีวิต']
+export const NEW_PERSON_STATUS = '4.คนใหม่'
 /** ตัวเลือกสถานะ = สถานะจริงทั้ง 7 + สถานะอื่นที่มีในข้อมูล (เผื่อมีการตั้งเพิ่ม) */
 export const statusOptions = (members: { status?: string }[]) => [...new Set([...OFFICIAL_STATUSES, ...members.map((m) => statusLabel(m.status)).filter((x) => x !== statusLabel(undefined))])].sort((a, b) => a.localeCompare(b, 'th'))
 /** ยอดผู้มานมัสการแต่ละครั้ง (นับเฉพาะคนที่ยังอยู่ในทะเบียน) พร้อมแยกตามสถานะ · เรียงใหม่ → เก่า */

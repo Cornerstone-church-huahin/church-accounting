@@ -119,8 +119,8 @@ export default function PastoralMembers() {
         <span>สมาชิกสมบูรณ์ (1+2) <b>{head.complete.toLocaleString('th-TH')}</b></span>
         <span>สมาชิกสำรอง <b>{head.reserve.toLocaleString('th-TH')}</b></span>
         <br />
-        <span>ผู้ร่วมนมัสการ <b>{head.worship.toLocaleString('th-TH')}</b></span>
         <span>คนใหม่ <b>{head.newcomer.toLocaleString('th-TH')}</b></span>
+        <span>ผู้ร่วมนมัสการ <b>{head.worship.toLocaleString('th-TH')}</b></span>
         <span>สิ้นสภาพสมาชิก <b>{head.resigned.toLocaleString('th-TH')}</b></span>
         <span>เสียชีวิต <b>{head.deceased.toLocaleString('th-TH')}</b></span>
       </p>
