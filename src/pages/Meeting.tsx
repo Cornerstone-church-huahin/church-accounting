@@ -68,6 +68,7 @@ const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ต
 const WORK_LABELS: Record<number, string[]> = {
   1: ['สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   4: ['สมาชิก', 'ตารางเยี่ยม', 'บันทึกการเยี่ยม', 'รายงานการเยี่ยม', 'แท็บ 5', 'แท็บ 6'],
+  9: ['สมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
 /** ความคืบหน้าการพัฒนา: จำนวนแท็บ (จาก 6) ที่ตั้งชื่อ/มีหน้าใช้งานแล้ว — งานที่มีหน้าพิเศษระบุเองตรงนี้ */
@@ -101,14 +102,15 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
   if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
+  const isMembers = (n === 4 || n === 9) && k === 1 // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
   return (
     <>
-      <div className={`page-head no-print${n === 4 && k === 1 ? ' page-head--tight' : ''}`}>
+      <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
-      {!(n === 4 && k === 1) && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
-      {n === 4 && k === 1 ? <PastoralMembers /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 4 && k === 3 ? <PastoralVisits log /> : n === 4 && k === 4 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {!isMembers && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 4 && k === 3 ? <PastoralVisits log /> : n === 4 && k === 4 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

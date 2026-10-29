@@ -55,7 +55,8 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
  * หน้า “สมาชิก” ของงานอภิบาล (อ่านอย่างเดียว · ฐานข้อมูลหลักของสมาชิก): ตัวเลขสำคัญ · สถานะ (แตะเพื่อกรองส่วนอื่น) · ช่วงวัยและเพศ · กลุ่มและปีที่เข้าเป็นสมาชิก · แผนที่บ้านสมาชิก
  * อ่านจากทะเบียนจริง ไม่แก้ข้อมูลใด · พิกัดบ้านบันทึกที่งานทะเบียน (แอดมิน/ผู้บันทึกทะเบียน) · การติดตามจะแยกเป็นไอคอนต่อไป
  */
-export default function PastoralMembers() {
+/** work = ห้องงานที่เปิดหน้านี้ (ใช้ตรวจสิทธิ์ดู): งานอภิบาล (4) และงานอนุชน (9) ใช้หน้าเดียวกัน ข้อมูลสมาชิกชุดเดียวกัน */
+export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
@@ -76,7 +77,7 @@ export default function PastoralMembers() {
   const joins = useMemo(() => joinYears(sel).slice(-6), [sel])
   const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
-  if (!canRole(role, 'detail') && !canWork(4, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
+  if (!canRole(role, 'detail') && !canWork(work, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
   const gName = STATUS_GROUPS.find((x) => x.key === g)!.label
 
   const TONES = ['own', 'fund', 'total', 'indebt'] as const

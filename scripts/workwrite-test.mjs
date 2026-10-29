@@ -14,6 +14,7 @@ const MEMBERS = [
   { id: 'lead1', name: 'หัวหน้าเลขา', role: 'viewer', joined: 2, updated: 1, works: [1], workRoles: { 1: 'lead' } },
   { id: 'help1', name: 'ผู้ช่วยเลขา', role: 'viewer', joined: 3, updated: 1, works: [1], workRoles: { 1: 'helper' } },
   { id: 'help4', name: 'ผู้ช่วยอภิบาล', role: 'viewer', joined: 5, updated: 1, works: [4], workRoles: { 4: 'helper' } },
+  { id: 'yth9', name: 'ผู้ช่วยอนุชน', role: 'viewer', joined: 6, updated: 1, works: [9], workRoles: { 9: 'helper' } },
   { id: 'lead4', name: 'หัวหน้าอภิบาล', role: 'viewer', joined: 4, updated: 1, works: [4], workRoles: { 4: 'lead' } },
 ]
 async function open(meId, meName, hash, extra) {
@@ -64,6 +65,15 @@ try {
     must(await page.locator('.pvday').count() === 7 && !/ไม่มีสิทธิ์ดู/.test(await page.locator('main').innerText()), `helper can view tab ${k}`)
     must(await page.getByRole('button', { name: /บันทึกการเยี่ยม/ }).count() === 0, `helper has no add button on tab ${k}`)
   }
+  // งานอนุชน แท็บ 1 = หน้าสมาชิกเหมือนงานอภิบาล (ครบทุกส่วน) · ผู้ช่วยของงานนี้ดูได้ · คนนอกงานเห็นว่าไม่มีสิทธิ์
+  const mem = `localStorage.setItem('acct.church-members.v1', JSON.stringify([{ id: 'm1', name: 'สมชาย ใจดี', status: '1.สมบูรณ์ ( 1 )', updated: 1 }, { id: 'm2', name: 'สมหญิง รักดี', status: '4.คนใหม่', updated: 1 }]))`
+  page = await open('yth9', 'ผู้ช่วยอนุชน', '/meeting/9/1', mem)
+  await page.getByRole('heading', { name: /สมาชิก/, level: 1 }).waitFor({ timeout: 8000 })
+  const ym = (await page.locator('main').innerText()).replace(/\s+/g, ' ')
+  must(/รายชื่อทั้งหมด 2/.test(ym) && /สมชาย ใจดี/.test(ym) && await page.getByRole('tab').count() >= 4 && /เก่าแก่/.test(ym) && /สม่ำเสมอ/.test(ym), 'youth tab 1 is the full members page: ' + ym.slice(0, 160))
+  must(/‹ งานอนุชน/.test(await page.locator('.page-head').innerText()), 'back link goes to the youth room')
+  page = await open('help1', 'ผู้ช่วยเลขา', '/meeting/9/1', mem)
+  must(/ไม่มีสิทธิ์ดูข้อมูลสมาชิก/.test(await page.locator('main').innerText()), 'people outside the youth work cannot open it')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('workwrite-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
