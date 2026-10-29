@@ -104,7 +104,7 @@ describe('แท็บเก่าแก่ · สม่ำเสมอ · ส�
   })
 })
 
-import { absentMonths, visitCandidates, windowPct } from './pastoral'
+import { absenceBar, absentMonths, visitCandidates } from './pastoral'
 describe('ตารางเยี่ยม: รายชื่อที่ขาด + แถบ % 1/2/3 เดือน', () => {
   const T = '2026-10-28'
   const att = [
@@ -124,9 +124,6 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
     expect(visitCandidates(ms, { status: '', q: 'เอ' }, stats, T).map((m) => m.id)).toEqual(['a'])
   })
   it('เดือนที่ขาด', () => { expect(absentMonths('2026-08-30', T)).toBe(1); expect(absentMonths('2026-10-18', T)).toBe(0); expect(absentMonths(undefined, T)).toBeNull() })
-  it('% การมา 1/2/3 เดือน = มา ÷ ครั้งที่มีการลงชื่อในช่วงนั้น', () => {
-    const w = windowPct(att, T)('a')
-    expect(w.map((x) => [x.came, x.of])).toEqual([[4, 4], [5, 8], [5, 8]])
-    expect(windowPct(att, T)('zzz')[0]).toMatchObject({ came: 0, pct: 0 })
-  })
+  it('แถบสีแดงยาวขึ้นตามเดือนที่ขาด', () => { expect(absenceBar(1)).toBeCloseTo(1 / 12); expect(absenceBar(6)).toBe(0.5); expect(absenceBar(30)).toBe(1); expect(absenceBar(null)).toBe(1) })
 })
+

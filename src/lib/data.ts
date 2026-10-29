@@ -2,7 +2,7 @@ import { calendarWritable } from './access'
 import { useSharedStore } from './sharedStore'
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { AdminNote, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { AdminNote, VisitorName, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -104,6 +104,10 @@ export function useNotes() {
 }
 
 /** บันทึกการเยี่ยมของงานอภิบาล (ไฟล์เดียว ไม่แบ่งปี) */
+/** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
+export function useVisitorNames() {
+  return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', write: 'detail' })
+}
 export function useVisits() {
   const s = useSharedStore<Visit>({ localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', write: 'detail' })
   return { ...s, list: [...s.items].filter((x) => !x.deleted).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated) }
