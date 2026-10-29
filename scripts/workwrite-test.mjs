@@ -13,6 +13,7 @@ const MEMBERS = [
   { id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 },
   { id: 'lead1', name: 'หัวหน้าเลขา', role: 'viewer', joined: 2, updated: 1, works: [1], workRoles: { 1: 'lead' } },
   { id: 'help1', name: 'ผู้ช่วยเลขา', role: 'viewer', joined: 3, updated: 1, works: [1], workRoles: { 1: 'helper' } },
+  { id: 'help4', name: 'ผู้ช่วยอภิบาล', role: 'viewer', joined: 5, updated: 1, works: [4], workRoles: { 4: 'helper' } },
   { id: 'lead4', name: 'หัวหน้าอภิบาล', role: 'viewer', joined: 4, updated: 1, works: [4], workRoles: { 4: 'lead' } },
 ]
 async function open(meId, meName, hash, extra) {
@@ -54,6 +55,12 @@ try {
   await page.getByRole('dialog').locator('#pv-by').click()
   await page.getByLabel('เพิ่มชื่อใหม่').fill('อ.ทดสอบ'); await page.getByRole('button', { name: '＋ เพิ่ม' }).click()
   must(await page.getByRole('checkbox', { name: /อ.ทดสอบ/ }).isChecked() && await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-names.v1') ?? '[]').length) === 1, 'pastoral lead can add visitor names')
+  // ผู้ช่วยงานอภิบาล: ดูตารางเยี่ยม/บันทึกการเยี่ยมได้ (อ่านอย่างเดียว ไม่มีปุ่มเพิ่ม)
+  for (const k of [2, 3]) {
+    page = await open('help4', 'ผู้ช่วยอภิบาล', `/meeting/4/${k}`, `localStorage.setItem('acct.visit-log.v1', JSON.stringify([{ id: 'v1', updated: 5, date: '${wed}', memberId: 'm1', memberName: 'สมชาย ใจดี', reason: 'ทดสอบ', visitor: 'คศ.กฤต' }])); localStorage.setItem('acct.visits.v1', localStorage.getItem('acct.visit-log.v1'))`)
+    must(await page.locator('.pvday').count() === 7 && !/ไม่มีสิทธิ์ดู/.test(await page.locator('main').innerText()), `helper can view tab ${k}`)
+    must(await page.getByRole('button', { name: /บันทึกการเยี่ยม/ }).count() === 0, `helper has no add button on tab ${k}`)
+  }
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('workwrite-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

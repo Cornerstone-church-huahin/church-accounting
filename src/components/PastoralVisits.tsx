@@ -32,6 +32,8 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
   const role = useRole()
   const isAdmin = role === 'admin'
   const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
+  // ผู้ช่วย/ที่ปรึกษาของงานอภิบาล ดูตารางได้ (อ่านอย่างเดียว) · เพิ่มการเยี่ยมได้เฉพาะผู้มีสิทธิ์เขียน
+  const canView = canWrite || canWork(4, 'view')
   const { settings } = useSettings()
   const visits = useVisits(log)
   const team = useWorkTeams().of(4)
@@ -59,7 +61,7 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
   const days = weekDays(sunday)
   const wk = visitsOfWeek(visits.list, sunday)
   const st = weekStats(wk)
-  if (!canWrite) return <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
+  if (!canView) return <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
   const nav = (
     <div className="no-print weekbar" style={{ margin: '0.3rem 0 0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <button type="button" className="mini" aria-label="สัปดาห์ก่อน" onClick={() => setSunday(addDays(sunday, -7))}>‹</button>
@@ -105,7 +107,7 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
                           ? <button key={x.id} type="button" className="pvvisit" onClick={() => setForm({ date: d, entry: x })} aria-label={`แก้ไขการเยี่ยม ${x.memberName}`}>{inner}</button>
                           : <div key={x.id} className="pvvisit pvvisit--ro" role="group" aria-label={`การเยี่ยม ${x.memberName}`}>{inner}</div>
                       })}
-                      <button type="button" className="btn btn--ghost pvadd" onClick={() => setForm({ date: d, entry: null })}>＋ บันทึกการเยี่ยม</button>
+                      {canWrite && <button type="button" className="btn btn--ghost pvadd" onClick={() => setForm({ date: d, entry: null })}>＋ บันทึกการเยี่ยม</button>}
                     </>
                   )}
                 </li>
