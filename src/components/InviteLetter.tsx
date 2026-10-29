@@ -115,14 +115,17 @@ export default function InviteLetterPage({ id }: { id: string }) {
   return <InviteEditor key={id} id={id} />
 }
 
+const toDraft = (s?: Partial<Letter>): Draft => ({ ...BLANK, ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() })
+const sameDraft = (a: Draft, b: Draft) => JSON.stringify({ ...a, updated: 0, by: 0 }) === JSON.stringify({ ...b, updated: 0, by: 0 })
+
 function InviteEditor({ id }: { id: string }) {
-  const store = useInviteLetter()
+  const store = useInviteLetter(true)
   const role = useRole()
   const cfgStore = useInviteSettings()
   const lib = useDocLibrary(), cats = useDocCategories()
   const saved = store.items.find((x) => x.id === id)
   const cfg: Cfg = { ...DEFAULT_CFG, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
-  const [l, setL] = useState<Draft>(() => ({ ...BLANK, ...(saved ?? {}), showAttach: saved?.showAttach ?? !!saved?.attach?.trim(), date: saved?.date || todayISO() }))
+  const [l, setL] = useState<Draft>(() => toDraft(saved))
   const [editNo, setEditNo] = useState(false)
   const [signSetup, setSignSetup] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -144,14 +147,27 @@ function InviteEditor({ id }: { id: string }) {
   // บันทึกอัตโนมัติ (หน่วงเล็กน้อย) — ร่วมกันทุกเครื่อง
   const dirty = useRef(false), latest = useRef(l), putRef = useRef(store.put)
   latest.current = l; putRef.current = store.put
+  // เห็นสดร่วมกัน: อีกคนแก้ฉบับนี้ (เวอร์ชันใหม่กว่าที่เครื่องนี้บันทึกล่าสุด) และเรายังไม่ได้พิมพ์ค้างอยู่ → แสดงฉบับล่าสุดทันที (ไม่ทับด้วยฉบับเก่าที่ค้างในเครื่อง)
+  const putMark = useRef(saved?.updated ?? 0), skipSave = useRef(false), adopted = useRef(false)
+  useEffect(() => {
+    if (!saved || saved.updated <= putMark.current || dirty.current) return
+    const next = toDraft(saved)
+    putMark.current = saved.updated
+    if (sameDraft(next, latest.current)) return
+    skipSave.current = true; adopted.current = true
+    setL(next)
+    setMsg(`${saved.by ? `${saved.by} ` : 'อีกเครื่อง'}เพิ่งแก้หนังสือฉบับนี้ — แสดงฉบับล่าสุดแล้ว`)
+  }, [saved?.updated]) // eslint-disable-line react-hooks/exhaustive-deps
+  const save = (x: Draft) => { putRef.current([{ ...x, id, updated: Date.now() }]); putMark.current = Date.now() + 5; dirty.current = false }
   useEffect(() => {
     if (first.current) { first.current = false; return }
+    if (skipSave.current) { skipSave.current = false; return }
     dirty.current = true
-    const t = setTimeout(() => { store.put([{ ...l, id, updated: Date.now() }]); dirty.current = false }, 700)
+    const t = setTimeout(() => save(l), 700)
     return () => clearTimeout(t)
   }, [l]) // eslint-disable-line react-hooks/exhaustive-deps
   // ออกจากหน้าก่อนครบเวลาหน่วง: บันทึกที่ค้างทันที (กดปุ่มกลับ = บันทึกก่อนเปลี่ยนหน้า เพื่อให้รายการเห็นฉบับล่าสุด)
-  const flush = () => { if (dirty.current) { putRef.current([{ ...latest.current, id, updated: Date.now() }]); dirty.current = false } }
+  const flush = () => { if (dirty.current) save(latest.current) }
   useEffect(() => () => flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
@@ -180,8 +196,15 @@ function InviteEditor({ id }: { id: string }) {
   useEffect(() => {
     if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
   }, [l, cfg.proceed, cfg.bless, cfg.signName, cfg.signRole]) // eslint-disable-line react-hooks/exhaustive-deps
-  const sign = () => {
+  const sign = async () => {
     if (!ready()) return
+    // ก่อนลงนาม: ดึงฉบับล่าสุดก่อน ถ้ามีคนแก้ไปเมื่อครู่ ให้แสดงฉบับนั้นแล้วตรวจอีกครั้ง (ลายเซ็นต้องผูกกับเนื้อหาที่เห็นจริง)
+    if (getSync()) {
+      setMsg('กำลังตรวจว่าเป็นฉบับล่าสุด…'); adopted.current = false
+      await store.syncNow(); await new Promise((r) => setTimeout(r, 500))
+      if (adopted.current) return setMsg('มีการแก้ไขหนังสือเมื่อครู่ — แสดงฉบับล่าสุดแล้ว ตรวจเนื้อหาอีกครั้งก่อนกดลงนาม')
+      setMsg('')
+    }
     if (!cfg.signImg) return setSignSetup(true)   // ยังไม่มีรูปลายเซ็น: เปิดหน้าต่างให้เลือกรูปครั้งแรก แล้วลงนามต่อทันที
     set({ signed: { at: Date.now(), by: getSync()?.name || 'ผู้ลงนาม', snap: snapOf(l, cfg) } })
     setMsg('ลงลายเซ็นเรียบร้อย — แชร์ ดาวน์โหลด และส่งเข้าคลังเอกสาร จะมีลายเซ็นกำกับ')
@@ -291,6 +314,7 @@ function InviteEditor({ id }: { id: string }) {
   return (
     <>
       <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1/invite" className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
+      {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>เชิญผู้ใหญ่ร่วมงานกิจกรรมของคริสตจักร · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label="กรอกหนังสือเชิญ">
         <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>

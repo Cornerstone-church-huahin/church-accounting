@@ -196,8 +196,9 @@ export function useFlowTicks() {
 }
 
 /** หนังสือเชิญร่วมงานฉบับที่กำลังทำ (รายการเดียว id = draft) */
-export function useInviteLetter() {
-  return useSharedStore<InviteLetter>({ localKey: k('inviteletter'), file: 'invite-letter.json', label: 'หนังสือเชิญร่วมงาน', writeCheck: writeWork1 })
+export function useInviteLetter(live = false) {
+  // live = หน้าที่กำลังเปิดแก้/ตรวจหนังสือ: ซิงก์ทุก 10 วินาที เพื่อเห็นสิ่งที่อีกคนพิมพ์เกือบสด
+  return useSharedStore<InviteLetter>({ localKey: k('inviteletter'), file: 'invite-letter.json', label: 'หนังสือเชิญร่วมงาน', writeCheck: writeWork1, ...(live ? { pollMs: 10_000 } : {}) })
 }
 /** ค่าตั้งต้นหนังสือเชิญ (รายการเดียว id = settings) */
 export function useInviteSettings() {

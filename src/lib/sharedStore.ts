@@ -21,6 +21,8 @@ export function useSharedStore<T extends SharedItem>(opts: {
   writeCheck?: () => boolean
   /** ซิงก์ซ้ำทุกนาที (ค่าเริ่มต้นใช่) · false = ซิงก์เฉพาะตอนเปิดและตอนกลับมาที่แอป (ข้อมูลเก่าที่แทบไม่เปลี่ยน) */
   poll?: boolean
+  /** ช่วงซิงก์ซ้ำ (มิลลิวินาที · ค่าเริ่มต้น 60000) — ใช้ถี่ขึ้นเฉพาะหน้าที่หลายคนแก้ร่วมกันแบบสด */
+  pollMs?: number
 }) {
   const { localKey, file, label } = opts
   const epochKey = `${localKey}.epoch`
@@ -101,7 +103,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
     const onVis = () => document.visibilityState === 'visible' && syncNow()
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener(SYNC_EVENT, syncNow)
-    const t = opts.poll === false ? undefined : window.setInterval(() => { if (document.visibilityState === 'visible') syncNow() }, 60_000) // เครื่องที่พับจอ/อยู่เบื้องหลังไม่ดึงทุกนาที ประหยัดโควตา GitHub ที่ทุกเครื่องใช้ร่วมกัน
+    const t = opts.poll === false ? undefined : window.setInterval(() => { if (document.visibilityState === 'visible') syncNow() }, opts.pollMs ?? 60_000) // เครื่องที่พับจอ/อยู่เบื้องหลังไม่ดึงทุกนาที ประหยัดโควตา GitHub ที่ทุกเครื่องใช้ร่วมกัน
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener(SYNC_EVENT, syncNow)
