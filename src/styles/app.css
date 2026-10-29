@@ -1231,3 +1231,22 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vcam__err { margin: 0; color: #ffb4ab; background: rgba(192, 38, 27, 0.35); padding: 0.4rem 0.6rem; border-radius: 0.5rem }
 .vcam .mini { background: rgba(255, 255, 255, 0.15); color: #fff; border-color: rgba(255, 255, 255, 0.5) }
 .pvproof { margin: 0; padding-left: 1.1rem }
+
+/* งานอภิบาล › รายงานการเยี่ยม: รายการสัปดาห์แถวยาวแคบ + รายละเอียดรายวัน */
+.vrep__list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 0.7rem; overflow: hidden; background: var(--surface) }
+.vrow { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 1fr auto; column-gap: 0.4rem; padding: 0.4rem 0.7rem; border-bottom: 1px solid var(--line); cursor: pointer; line-height: 1.25 }
+.vrow:focus-visible { outline: 3px solid var(--gold, #c99a14); outline-offset: -3px }
+.vrep__list li:last-child .vrow { border-bottom: 0 }
+.vrow__main { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline }
+.vrow__n { font-size: 0.85rem; color: var(--ink-soft) }
+.vrow__sub { grid-column: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.vrow__go { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: 1.4rem; color: var(--ink-soft) }
+.vrep__h { margin: 0.2rem 0 0.1rem; font-size: 1.15rem }
+.vrep__day h3 { margin: 0.7rem 0 0.25rem; font-size: 1rem }
+.vrep__v { border: 1px solid var(--line); border-radius: 0.7rem; padding: 0.5rem 0.6rem; margin-bottom: 0.4rem; background: var(--surface); display: grid; gap: 0.25rem }
+.vrep__top { display: flex; gap: 0.6rem; align-items: center }
+.vrep__who { display: grid; line-height: 1.25 }
+.vrep__p { margin: 0; line-height: 1.35 }
+.vrep__pics { display: flex; gap: 0.5rem; flex-wrap: wrap }
+.vrep__pic { all: unset; cursor: pointer; display: grid; justify-items: center; gap: 2px }
+.vrep__pic small { font-size: 0.72rem; color: var(--ink-soft) }
