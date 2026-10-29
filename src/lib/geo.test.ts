@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCoord, hasCoord, mapsLink, parseCoords } from './geo'
+import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink, parseCoords } from './geo'
 
 describe('พิกัดบ้านสมาชิก', () => {
   it('อ่านพิกัดล้วนหลายรูปแบบ', () => {
@@ -23,5 +23,15 @@ describe('พิกัดบ้านสมาชิก', () => {
     expect(hasCoord({ lat: 0, lng: 0 })).toBe(false)
     expect(formatCoord({ lat: 12.5684, lng: 99.9577 })).toBe('12.568400, 99.957700')
     expect(mapsLink({ lat: 12.5, lng: 99.9 })).toBe('https://www.google.com/maps?q=12.5,99.9')
+  })
+})
+
+describe('เช็คอินเยี่ยมบ้าน → พิกัดบ้าน', () => {
+  it('ระยะทาง (เมตร)', () => { expect(distanceM({ lat: 12.5684, lng: 99.9577 }, { lat: 12.5684, lng: 99.9577 })).toBe(0); const d = distanceM({ lat: 12.5684, lng: 99.9577 }, { lat: 12.5694, lng: 99.9577 }); expect(d).toBeGreaterThan(105); expect(d).toBeLessThan(115) })
+  it('ยังไม่มีพิกัด → ตั้งให้ · ห่างเกิน 100 ม. → ถามก่อน · ใกล้เคียง → คงเดิม', () => {
+    const at = { lat: 12.5684, lng: 99.9577 }
+    expect(homeFromCheckin({}, at)).toEqual({ action: 'set' })
+    expect(homeFromCheckin({ lat: 12.5684, lng: 99.9578 }, at).action).toBe('keep')
+    expect(homeFromCheckin({ lat: 12.58, lng: 99.9577 }, at).action).toBe('ask')
   })
 })

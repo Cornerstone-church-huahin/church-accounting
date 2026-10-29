@@ -470,6 +470,14 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, put, remove
         </div>
         ))}
         {!lite && (
+        <div style={{ padding: '0.35rem 0', borderBottom: '1px solid var(--line)' }}>
+          <dt className="muted small">แผนที่บ้าน</dt>
+          <dd style={{ margin: '0.25rem 0 0' }}>{hasCoord(m)
+            ? <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: m.id, lat: m.lat, lng: m.lng, label: m.name }]} height={170} label={`แผนที่บ้าน ${m.name}`} noLinks /></Suspense>
+            : <span className="muted small">ยังไม่มีพิกัดบ้าน — แผนที่จะขึ้นเองเมื่อมีการเช็คอินเยี่ยมบ้านจากตารางเยี่ยม</span>}</dd>
+        </div>
+        )}
+        {!lite && (
         <div className="row row--between" style={{ padding: '0.35rem 0', flexWrap: 'nowrap' }}>
           <dt className="muted small" style={{ flex: 'none', width: '8.5rem' }}>เทียบกับการลงชื่อ</dt>
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.suggest === 'to2' ? <span style={{ color: 'var(--bad)' }}>ขาดนมัสการเกินเกณฑ์ → ควรเป็น สมบูรณ์ 2</span> : r.suggest === 'to1' ? <span style={{ color: 'var(--good)' }}>กลับมานมัสการ → ควรเป็น สมบูรณ์ 1</span> : regLevel(m.status) ? 'สอดคล้องกับสถานะในทะเบียน' : <span className="muted">ไม่อยู่ในเกณฑ์ตรวจ</span>}</dd>

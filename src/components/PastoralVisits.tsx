@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useMemo, useRef, useState } from 'react'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import MultiPick from './MultiPick'
+import { formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
@@ -16,6 +17,7 @@ import { OFFICIAL_STATUSES, statusShort, toAttendance } from '../lib/registry'
 import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
+const LeafletMap = lazy(() => import('./LeafletMap'))
 const KEY = 'acct.visit.by'
 const fmtDay = (iso: string) => fmtDate(iso).replace(/ \d+$/, '')
 const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays(sun, 6))}`
@@ -40,6 +42,17 @@ export default function PastoralVisits() {
   const [sunday, setSunday] = useState(thisSunday)
   const [mode, setMode] = useState<'cards' | 'report'>('cards')
   const [form, setForm] = useState<{ date: string; entry: Visit | null } | null>(null)
+  const [note, setNote] = useState('')
+  // เช็คอินที่บ้าน → พิกัดบ้านเข้าทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด) · ถ้ามีแล้วและห่างเกิน 100 ม. ถามก่อนทับ
+  const applyCheckin = (v: Visit) => {
+    const m = v.checkin ? people.items.find((x) => x.id === v.memberId) : undefined
+    if (!m || !v.checkin) return
+    const at = { lat: v.checkin.lat, lng: v.checkin.lng }
+    const r = homeFromCheckin(m, at)
+    if (r.action === 'keep') return
+    if (r.action === 'ask' && !window.confirm(`พิกัดบ้านของ ${m.name} ในทะเบียนต่างจากจุดเช็คอินนี้ ${r.meters} เมตร\nอัปเดตพิกัดบ้านตามจุดเช็คอินนี้ไหม?`)) return
+    setNote(people.put([{ ...m, ...at }]) ? `บันทึกพิกัดบ้านของ ${m.name} เข้าทะเบียนสมาชิกแล้ว (ดูแผนที่ได้ในรายละเอียดสมาชิก)` : 'บันทึกการเยี่ยมแล้ว แต่สิทธิ์ของท่านบันทึกพิกัดเข้าทะเบียนสมาชิกไม่ได้')
+  }
   const days = weekDays(sunday)
   const wk = visitsOfWeek(visits.list, sunday)
   const st = weekStats(wk)
@@ -58,6 +71,7 @@ export default function PastoralVisits() {
         <button type="button" role="tab" aria-selected={mode === 'report'} className={mode === 'report' ? 'on' : ''} onClick={() => setMode('report')}>📄 รายงานสัปดาห์</button>
       </div>
       {nav}
+      {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
       {mode === 'cards' ? (
         <>
           <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>เยี่ยมแล้ว <b>{st.count}</b> ครั้ง · <b>{st.people}</b> คน{st.visitors.length ? ` · ผู้เยี่ยม ${st.visitors.join(', ')}` : ''}</p>
@@ -96,7 +110,7 @@ export default function PastoralVisits() {
       {form && (
         <VisitForm date={form.date} entry={form.entry} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
           onClose={() => setForm(null)}
-          onSave={(v) => { visits.put([v]); setForm(null) }}
+          onSave={(v) => { visits.put([v]); applyCheckin(v); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); (form.entry!.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); setForm(null) } } : undefined} />
       )}
     </div>
@@ -131,6 +145,18 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   const [err, setErr] = useState('')
   const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
   const [busy, setBusy] = useState(false)
+  const [checkin, setCheckin] = useState<Visit['checkin'] | null>(entry?.checkin ?? null)
+  const [locBusy, setLocBusy] = useState(false)
+  // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
+  const needProof = !entry || !!entry.checkin
+  const locate = () => {
+    if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
+    setLocBusy(true); setErr('')
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setCheckin({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6, acc: Math.round(p.coords.accuracy), at: Date.now() }); setLocBusy(false) },
+      () => { setLocBusy(false); setErr('หาตำแหน่งไม่ได้ — เปิด GPS และอนุญาตให้แอปใช้ตำแหน่ง แล้วกดเช็คอินอีกครั้ง') },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  }
   const added = useRef<string[]>([])
   const addPhoto = async (f?: File | null) => {
     if (!f || photos.length >= MAX_VISIT_PHOTOS) return
@@ -150,10 +176,13 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
     if (!visitor) return setErr('ลงชื่อผู้ออกเยี่ยมอย่างน้อย 1 คน')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
+    if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
+    if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” ก่อนจึงบันทึกการเยี่ยมได้')
+    if (needProof && photos.length === 0) return setErr('ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูปก่อนจึงบันทึกได้')
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, ...(photos.length ? { photos } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, ...(photos.length ? { photos } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
   }
   return (
     <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
@@ -181,7 +210,14 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
         </ul></div>
       <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label htmlFor="pv-detail">รายละเอียดการเยี่ยม (ไม่บังคับ)</label><textarea id="pv-detail" className="input" rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} /></div>
-      <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป)</label>
+      <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
+        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+          <button type="button" className="btn btn--gold" disabled={locBusy} onClick={locate}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin ? '📍 เช็คอินใหม่' : '📍 เช็คอินที่บ้าน'}</button>
+          {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
+        </div>
+        <span className="muted small" role="status">{checkin ? `✓ เช็คอินแล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ` : 'ยังไม่ได้เช็คอิน — ไปถึงบ้านสมาชิกแล้วกดปุ่มนี้'}</span>
+        {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
+      <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป{needProof ? ' · บังคับอย่างน้อย 1 รูป' : ''})</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>

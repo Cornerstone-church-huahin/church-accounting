@@ -7,7 +7,7 @@ const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--stric
 await new Promise((r) => setTimeout(r, 2500))
 const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
-const page = await (await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
+const page = await (await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH', permissions: ['geolocation'], geolocation: { latitude: 12.5684, longitude: 99.9577, accuracy: 12 } })).newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e))); page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text()) })
 const statusShortOf = (s) => s.replace(/\s*\(\s*(\d)\s*\)/, '($1)')
@@ -68,7 +68,14 @@ try {
   must(/เลือกแล้ว 2/.test(await popup('ผู้ออกเยี่ยม').innerText()), 'multi-select visitors counted')
   await popup('ผู้ออกเยี่ยม').getByRole('button', { name: 'เสร็จ' }).click()
   await dlg.getByLabel(/เหตุผล/).fill('ป่วย ไม่ได้มานมัสการ')
-  must(/ยังไม่ได้แนบรูป/.test(await dlg.innerText()), 'photo hint before attaching')
+  must(/ยังไม่ได้แนบรูป/.test(await dlg.innerText()) && /ยังไม่ได้เช็คอิน/.test(await dlg.innerText()), 'photo + check-in hints before doing them')
+  // กฎ: ต้องเช็คอินตำแหน่ง + มีรูป จึงบันทึกได้
+  await dlg.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  must(/ต้องกด “เช็คอินที่บ้าน”/.test(await dlg.innerText()), 'cannot save without check-in')
+  await dlg.getByRole('button', { name: '📍 เช็คอินที่บ้าน' }).click()
+  await dlg.getByText(/✓ เช็คอินแล้ว 12.568400, 99.957700/).waitFor({ timeout: 10000 })
+  await dlg.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  must(/ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูป/.test(await dlg.innerText()), 'cannot save without a photo')
   const png = await page.evaluate(async () => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const g = c.getContext('2d'); g.fillStyle = '#3a7'; g.fillRect(0, 0, 40, 30); g.fillStyle = '#fff'; g.fillRect(8, 8, 14, 10); const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())] }).then((a) => Buffer.from(a))
   await dlg.getByLabel('ถ่ายรูปการเยี่ยม').setInputFiles({ name: 'v1.png', mimeType: 'image/png', buffer: png })
   await dlg.getByRole('button', { name: 'ลบรูปที่ 1' }).waitFor({ timeout: 15000 })
@@ -80,7 +87,7 @@ try {
   must(await tue.locator('.pvvisit__pic img').count() === 1 && /\+1/.test(await tue.locator('.pvvisit__pic').innerText()), 'card shows the first photo with +1 badge')
   const t = await tue.innerText()
   must(/ทดสอบ3 สมมติ/.test(t) && /ป่วย ไม่ได้มานมัสการ/.test(t) && /ผู้ออกเยี่ยม คศ.กฤต, คศ.พิชิต/.test(t), 'card shows member, reason and signed visitor: ' + t)
-  must(/เยี่ยมแล้ว 1 ครั้ง · 1 คน/.test(await page.locator('.pvisits p[role=status]').innerText()), 'week count')
+  must(/เยี่ยมแล้ว 1 ครั้ง · 1 คน/.test(await page.locator('.pvisits p[role=status]:not(.pvnote)').innerText()), 'week count')
   // เยี่ยมคนเดิมอีกวัน โดย คศ.พิชิต (ผู้เยี่ยมจำค่าล่าสุดไว้ แต่เปลี่ยนได้)
   await days.nth(3).getByRole('button', { name: /บันทึกการเยี่ยม/ }).click()
   await page.getByRole('dialog').locator('#pv-by').click()
@@ -88,9 +95,17 @@ try {
   await popup('ผู้ออกเยี่ยม').getByRole('checkbox', { name: /คศ.กฤต/ }).uncheck(); await popup('ผู้ออกเยี่ยม').getByRole('button', { name: 'เสร็จ' }).click() // ค่าล่าสุด (กฤต, พิชิต) จำไว้ · เอากฤตออก เหลือพิชิต
   await page.getByRole('dialog').locator('#pv-q').fill('ช1')
   await page.getByRole('dialog').getByRole('button', { name: /ทดสอบ1 สมมติ/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '📍 เช็คอินที่บ้าน' }).click()
+  await page.getByRole('dialog').getByText(/✓ เช็คอินแล้ว/).waitFor({ timeout: 10000 })
+  await page.getByRole('dialog').getByLabel('เลือกรูปการเยี่ยมจากเครื่อง').setInputFiles({ name: 'v3.png', mimeType: 'image/png', buffer: png })
+  await page.getByRole('dialog').getByRole('button', { name: 'ลบรูปที่ 1' }).waitFor({ timeout: 15000 })
   await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
-  must(await days.nth(3).locator('.pvvisit__nopic').count() === 1, 'visit without photo shows the camera placeholder')
+  await days.nth(3).locator('.pvvisit__pic').waitFor({ timeout: 8000 }) // การ์ดแสดงรูปของฉบับที่สอง
+  // เช็คอินเข้าทะเบียนสมาชิกอัตโนมัติ: พิกัดบ้านถูกบันทึก + แผนที่ในรายละเอียดสมาชิก
+  const homes = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).filter((m) => typeof m.lat === 'number').map((m) => m.id + ':' + m.lat + ',' + m.lng).sort())
+  must(homes.join('|') === 't1:12.5684,99.9577|t3:12.5684,99.9577', 'check-in wrote home coordinates to the members: ' + homes)
+  must(/บันทึกพิกัดบ้านของ .* เข้าทะเบียนสมาชิกแล้ว/.test(await page.locator('.pvnote').innerText()), 'note about the saved home location')
   // แก้ไข/ลบ
   await tue.getByRole('button', { name: /แก้ไขการเยี่ยม/ }).click()
   await page.getByRole('dialog').getByLabel(/รายละเอียดการเยี่ยม/).fill('อธิษฐานร่วมกัน')
@@ -116,6 +131,9 @@ try {
   await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
   must(!/ทดสอบ3 สมมติ/.test(await days.nth(2).innerText()), 'delete works')
+  await page.goto(`http://localhost:${PORT}/#/members`); await page.waitForLoadState('networkidle')
+  await page.getByText(/ทดสอบ3 สมมติ/).first().click()
+  must(await page.getByRole('dialog').getByText('แผนที่บ้าน', { exact: true }).count() === 1 && await page.getByLabel('แผนที่บ้าน ทดสอบ3 สมมติ').count() >= 1, 'member detail shows the home map')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('visits-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }
