@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
+import MultiPick from './MultiPick'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
@@ -106,25 +107,21 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : null)
   const [q, setQ] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState<string[]>([])
   const [reason, setReason] = useState(entry?.reason ?? '')
   const [detail, setDetail] = useState(entry?.detail ?? '')
   const names = useVisitorNames()
   const initBy = splitVisitors(entry?.visitor ?? lastBy)
   const roster = visitorRoster(team, names.items)
   const [picked, setPicked] = useState<string[]>(initBy)
-  const [newName, setNewName] = useState('')
-  const [editNames, setEditNames] = useState(false)
-  const toggle = (n: string) => setPicked((xs) => (xs.includes(n) ? xs.filter((x) => x !== n) : [...xs, n]))
-  // ชื่อที่เลือกไว้แต่ไม่อยู่ในรายชื่อแล้ว (เช่น บันทึกเก่า) ยังแสดงให้เห็น เพื่อไม่ให้หายตอนแก้ไข
-  const chips = [...roster, ...picked.filter((n) => !roster.includes(n))]
-  const addName = () => {
-    const n = newName.trim().replace(/,/g, ' ')
+  // ชื่อที่เลือกไว้แต่ไม่อยู่ในรายชื่อแล้ว (เช่น บันทึกเก่า) MultiPick ยังแสดงให้เห็น เพื่อไม่ให้หายตอนแก้ไข
+  const addName = (raw: string) => {
+    const n = raw.trim().replace(/,/g, ' ')
     if (!n) return
     const hid = names.items.find((x) => x.hide && x.name === n)
     if (hid) names.remove(hid.id)
     if (!roster.includes(n) && !names.items.some((x) => !x.hide && x.name === n) && !(team.includes(n) && hid)) names.put([{ id: newId('vn'), name: n, updated: 0 }])
-    setPicked((xs) => (xs.includes(n) ? xs : [...xs, n])); setNewName('')
+    setPicked((xs) => (xs.includes(n) ? xs : [...xs, n]))
   }
   const dropName = (n: string) => {
     for (const x of names.items.filter((y) => !y.hide && y.name === n)) names.remove(x.id)
@@ -160,31 +157,15 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   }
   return (
     <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
-      <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}><legend>ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน){picked.length > 0 ? ` · เลือกแล้ว ${picked.length} คน` : ''}</legend>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-          {chips.map((t) => (
-            <span key={t} className="chipwrap">
-              <button type="button" className={`chip${picked.includes(t) ? ' on' : ''}`} aria-pressed={picked.includes(t)} onClick={() => toggle(t)}>{picked.includes(t) ? '✓ ' : ''}{t}</button>
-              {editNames && writeNames && <button type="button" className="chip__x" aria-label={`ลบ ${t} ออกจากรายชื่อ`} onClick={() => dropName(t)}>✕</button>}
-            </span>
-          ))}
-        </div>
-        {writeNames && (
-          <div className="pvadd2">
-            <input aria-label="เพิ่มชื่อผู้ออกเยี่ยม" className="input" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addName() } }} placeholder="พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)" />
-            <button type="button" className="btn btn--gold" onClick={addName} disabled={!newName.trim()}>＋ เพิ่ม</button>
-            <button type="button" className={`mini${editNames ? ' on' : ''}`} aria-pressed={editNames} onClick={() => setEditNames((v) => !v)}>{editNames ? 'เสร็จ' : '✏️ ลบชื่อ'}</button>
-          </div>
-        )}</fieldset>
+      <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
+        <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
+          {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
       <div className="field"><label htmlFor="pv-q">① เลือกสมาชิกที่ไปเยี่ยม{member ? ` · เลือกแล้ว: ${member.name}` : ''}</label>
         <div className="pvfind">
           <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
-          <select id="pv-st" className="input" aria-label="สถานะสมาชิก" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">ทุกสถานะ</option>
-            {OFFICIAL_STATUSES.map((x) => <option key={x} value={x}>{statusShort(x)}</option>)}
-          </select>
+          <MultiPick id="pv-st" title="สถานะสมาชิก" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />
         </div></div>
-      <div className="field"><span className="pvhint">② {q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status ? ` · ${statusShort(status)}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
+      <div className="field"><span className="pvhint">② {q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status.length ? ` · ${status.map(statusShort).join(', ')}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
         <ul className="pvpick" aria-label="รายชื่อสมาชิก">
           {list.map((m) => { const mo = absentMonths(stats.get(m.id)?.last, today); const absent = mo === null || mo >= 1; return (
             <li key={m.id}><button type="button" className={`pvpick__r${member?.id === m.id ? ' on' : ''}`} aria-pressed={member?.id === m.id} onClick={() => pick(m, absent ? monthsText(mo) : '')}>

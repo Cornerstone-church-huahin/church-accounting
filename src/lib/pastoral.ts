@@ -169,14 +169,14 @@ export function genderByStatus(members: { status?: string; gender?: string }[]):
 /** ขาดนมัสการกี่เดือน (30 วัน = 1 เดือน) · ไม่เคยมีบันทึก = null */
 export const absentMonths = (last: string | undefined, today: string): number | null => (last ? Math.floor(diffDays(today, last) / 30) : null)
 /**
- * รายชื่อให้เลือกในตารางเยี่ยม: กรองสถานะ (ว่าง = ทุกสถานะ) · ไม่พิมพ์ค้นหา → เฉพาะคนที่ขาดตั้งแต่ 1 เดือนขึ้นไป (รวมคนที่ไม่เคยมีบันทึก อยู่ท้าย)
+ * รายชื่อให้เลือกในตารางเยี่ยม: กรองสถานะได้หลายสถานะ (ว่าง = ทุกสถานะ) · ไม่พิมพ์ค้นหา → เฉพาะคนที่ขาดตั้งแต่ 1 เดือนขึ้นไป (รวมคนที่ไม่เคยมีบันทึก อยู่ท้าย)
  * เรียงจากขาดน้อย → มาก (1 เดือน, 2 เดือน, 3 เดือน …) · พิมพ์ค้นหา → ค้นทุกคนที่ตรงชื่อ/ชื่อเล่น (ไม่จำกัดว่าขาดหรือไม่)
  */
-export function visitCandidates<T extends { id: string; name: string; nick?: string; status?: string }>(members: T[], opt: { status: string; q: string }, stats: Map<string, VisitStat>, today: string): T[] {
+export function visitCandidates<T extends { id: string; name: string; nick?: string; status?: string }>(members: T[], opt: { status: string[]; q: string }, stats: Map<string, VisitStat>, today: string): T[] {
   const needle = opt.q.trim().toLowerCase()
   const mo = (m: T) => absentMonths(stats.get(m.id)?.last, today)
   return members
-    .filter((m) => isLive(m) && (!opt.status || statusLabel(m.status) === opt.status) && (needle ? `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(needle) : (mo(m) ?? 99) >= 1))
+    .filter((m) => isLive(m) && (opt.status.length === 0 || opt.status.includes(statusLabel(m.status))) && (needle ? `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(needle) : (mo(m) ?? 99) >= 1))
     .sort((a, b) => (mo(a) ?? 1e9) - (mo(b) ?? 1e9) || a.name.localeCompare(b.name, 'th'))
 }
 
