@@ -5,7 +5,7 @@ import Sheet from './Sheet'
 import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
 import { can } from '../lib/access'
-import { nextDocNo } from '../lib/docLibrary'
+import { cleanPrefix, followPrefix, invitePrefix, nextDocNo } from '../lib/docLibrary'
 import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
@@ -155,9 +155,22 @@ function InviteEditor({ id }: { id: string }) {
   useEffect(() => () => flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
-  const prefix = (cfg.numPrefix ?? 'ศอช').trim() || 'ศอช'
+  const prefix = invitePrefix(cats.list, cfg.numPrefix)
   const others = store.items.filter((x) => x.id !== id)
-  const nextNo = nextDocNo(others.map((x) => ({ no: x.no })), prefix)
+  const catName = cats.list.find((c) => !c.deleted && c.name.includes('เชิญ'))?.name
+  const inLib = lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => ({ no: d.no }))
+  const nextNo = nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib], prefix)
+  // ตัวย่อของหมวด “หนังสือเชิญ” ในคลังเอกสารเปลี่ยน/ตั้งใหม่ → เลขที่ของฉบับนี้ตามไปด้วย (เลขลำดับเดิม) และเลขที่ในคลังเอกสารก็ตามด้วย
+  useEffect(() => {
+    const m = /^([^\d]+?)[.\s-]*\d+$/.exec(l.no.trim()); const old = m?.[1]?.trim()
+    if (!old || old === prefix) return
+    if (old !== cleanPrefix(cfg.numPrefix ?? 'ศอช') && !others.some((x) => x.no.trim().startsWith(old)) && !inLib.some((x) => x.no.trim().startsWith(old))) return
+    const r = followPrefix(l.no, old, prefix, [...others.map((x) => x.no), ...inLib.map((x) => x.no)])
+    if (!r) return
+    set({ no: r })
+    const d = l.docId ? lib.list.find((x) => x.id === l.docId) : undefined
+    if (d) lib.put([{ ...d, no: r, updated: Date.now() }])
+  }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
   const dupNo = !!l.no.trim() && others.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const cat = cats.list.find((c) => c.name.includes('เชิญ'))
@@ -409,6 +422,7 @@ export function InviteLetterList() {
   const store = useInviteLetter()
   const cfgStore = useInviteSettings()
   const navigate = useNavigate()
+  const lib = useDocLibrary(), cats = useDocCategories()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
   const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
@@ -418,8 +432,19 @@ export function InviteLetterList() {
   const shown = t ? letters.filter((x) => `${x.toName ?? ''} ${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
   const add = () => {
     const id = newId('letter')
-    const pre = (cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEFAULT_CFG.numPrefix ?? 'ศอช').trim() || 'ศอช'
-    if (!store.put([{ ...BLANK, id, no: nextDocNo(store.items.map((x) => ({ no: x.no })), pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
+    const pre = invitePrefix(cats.list, cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEFAULT_CFG.numPrefix)
+    const cn = cats.list.find((c) => !c.deleted && c.name.includes('เชิญ'))?.name
+    // ฉบับเดิมที่ยังใช้ตัวย่อตั้งต้น (ก่อนตั้งตัวย่อหมวด) → เปลี่ยนตามตัวย่อหมวดก่อน แล้วค่อยรันเลขใหม่ต่อท้าย
+    let cur = store.items
+    const legacy = cleanPrefix(cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEFAULT_CFG.numPrefix ?? 'ศอช')
+    if (legacy && legacy !== pre) {
+      const taken = store.items.map((x) => x.no)
+      const moved = store.items.flatMap((x) => { const r = followPrefix(x.no, legacy, pre, taken); if (r) taken.push(r); return r ? [{ ...x, no: r, updated: Date.now() }] : [] })
+      if (moved.length) { store.put(moved); for (const m of moved) { const d = m.docId ? lib.list.find((y) => y.id === m.docId) : undefined; if (d) lib.put([{ ...d, no: m.no, updated: Date.now() }]) } }
+      cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
+    }
+    const pool = [...cur.map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
+    if (!store.put([{ ...BLANK, id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
     navigate(`/meeting/1/1/invite-${id}`)
   }
   const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }

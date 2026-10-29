@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { canRole, canWork } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
-import { useDocCategories, useDocLibrary } from '../lib/data'
+import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
 import { takePendingDoc, ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, renumberWithPrefix, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
@@ -202,6 +202,7 @@ function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave
 
 function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cats: { name: string; n: number }[]; docs: DocItem[]; putDocs: (xs: DocItem[]) => boolean; catStore: ReturnType<typeof useDocCategories>; onClose: () => void; onRenamed: (a: string, b: string) => void }) {
   const [name, setName] = useState('')
+  const letters = useInviteLetter(), invCfg = useInviteSettings()
   const [prefix, setPrefix] = useState('')
   const [msg, setMsg] = useState('')
   const names = new Set(cats.map((c) => c.name))
@@ -218,8 +219,15 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     const item = catStore.list.find((x) => x.name === c)
     if (item) catStore.put([{ ...item, prefix: pre || undefined }]); else ensure(c, pre)
     // เปลี่ยนตัวย่อ: ถามว่าจะเปลี่ยนเลขที่ของเอกสารเดิมตามไปด้วยไหม
-    const old = was && pre ? docs.filter((d) => d.category === c && renumberWithPrefix(d.no, was, pre) !== d.no) : []
-    if (old.length && window.confirm(`เปลี่ยนเลขที่ของเอกสารเดิมในหมวดนี้ ${old.length} ฉบับตามไปด้วยไหม?\nเช่น ${old[0].no} → ${renumberWithPrefix(old[0].no, was, pre)}\n\nตกลง = เปลี่ยนตาม · ยกเลิก = คงเลขเดิมไว้`)) { putDocs(old.map((d) => ({ ...d, no: renumberWithPrefix(d.no, was, pre) }))); setMsg(`เปลี่ยนตัวย่อเป็น ${pre} และเปลี่ยนเลขที่เอกสารเดิม ${old.length} ฉบับแล้ว`); return }
+    // หมวดหนังสือเชิญ: ฉบับในรายการหนังสือเชิญ (และเลขที่ในคลัง) ที่ใช้ตัวย่อตั้งต้นของหัวจดหมายอยู่ก็ตามไปด้วย
+    const inv = c.includes('เชิญ')
+    const from = was || (inv ? cleanPrefix(invCfg.items.find((x) => x.id === 'settings')?.numPrefix ?? 'ศอช') : '')
+    if (inv && from && pre && from !== pre) {
+      const ls = letters.items.filter((x) => renumberWithPrefix(x.no, from, pre) !== x.no)
+      if (ls.length) letters.put(ls.map((x) => ({ ...x, no: renumberWithPrefix(x.no, from, pre), updated: Date.now() })))
+    }
+    const old = from && pre ? docs.filter((d) => d.category === c && renumberWithPrefix(d.no, from, pre) !== d.no) : []
+    if (old.length && (inv || window.confirm(`เปลี่ยนเลขที่ของเอกสารเดิมในหมวดนี้ ${old.length} ฉบับตามไปด้วยไหม?\nเช่น ${old[0].no} → ${renumberWithPrefix(old[0].no, from, pre)}\n\nตกลง = เปลี่ยนตาม · ยกเลิก = คงเลขเดิมไว้`))) { putDocs(old.map((d) => ({ ...d, no: renumberWithPrefix(d.no, from, pre) }))); setMsg(`เปลี่ยนตัวย่อเป็น ${pre} และเปลี่ยนเลขที่เอกสารเดิม ${old.length} ฉบับแล้ว`); return }
     setMsg(pre ? `ตั้งตัวย่อหมวด “${c}” เป็น ${pre} แล้ว — เอกสารใหม่จะได้เลขที่ ${pre}.001 ต่อไป (เอกสารเดิมไม่เปลี่ยนเลข)` : `เลิกใช้ตัวย่อของหมวด “${c}” แล้ว`)
   }
   const rename = (old: string) => {
