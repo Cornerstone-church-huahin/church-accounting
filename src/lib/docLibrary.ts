@@ -32,6 +32,17 @@ export function renumberWithPrefix(no: string, oldPre: string, newPre: string): 
   return m ? `${n}.${m[1]}` : no
 }
 
+/** ตัวย่อเลขที่ของหนังสือเชิญ: ใช้ตามหมวดคลังเอกสารที่ชื่อมีคำว่า “เชิญ” (ตั้งที่จัดการหมวดเอกสาร) · ไม่มี → ตัวย่อตั้งต้นของหัวจดหมาย */
+export function invitePrefix(cats: { name: string; prefix?: string; deleted?: boolean }[], legacy?: string): string {
+  const c = cats.find((x) => !x.deleted && x.name.includes('เชิญ'))
+  return cleanPrefix(c?.prefix ?? '') || cleanPrefix(legacy ?? '') || 'ศอช'
+}
+/** เลขที่ที่ขึ้นต้นด้วยตัวย่อเก่า → เปลี่ยนเป็นตัวย่อใหม่ (เลขลำดับคงเดิม) · ไม่ตรง/ชนกับเลขที่มีอยู่ → คืน null */
+export function followPrefix(no: string, oldPre: string, newPre: string, taken: string[]): string | null {
+  const r = renumberWithPrefix(no, oldPre, newPre)
+  return r !== no && !taken.some((t) => t.trim() === r) ? r : null
+}
+
 const num = (no: string) => { const m = /^(\d+)/.exec(no.trim()); return m ? Number(m[1]) : Infinity }
 /** เรียงจากเก่าไปใหม่: วันที่ → เลขที่ (ตามตัวเลข) → ชื่อ */
 export function sortDocs<T extends Pick<DocItem, 'date' | 'no' | 'title'>>(docs: T[]): T[] {
