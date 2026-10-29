@@ -1250,3 +1250,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrep__pics { display: flex; gap: 0.5rem; flex-wrap: wrap }
 .vrep__pic { all: unset; cursor: pointer; display: grid; justify-items: center; gap: 2px }
 .vrep__pic small { font-size: 0.72rem; color: var(--ink-soft) }
+
+.pvvisit--ro { cursor: default }
+.pvvisit__who { display: flex; align-items: center; gap: 0.4rem; min-width: 0 }
+.pvvisit__who b { overflow: hidden; text-overflow: ellipsis }

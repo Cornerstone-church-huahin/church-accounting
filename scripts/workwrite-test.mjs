@@ -15,7 +15,7 @@ const MEMBERS = [
   { id: 'help1', name: 'ผู้ช่วยเลขา', role: 'viewer', joined: 3, updated: 1, works: [1], workRoles: { 1: 'helper' } },
   { id: 'lead4', name: 'หัวหน้าอภิบาล', role: 'viewer', joined: 4, updated: 1, works: [4], workRoles: { 4: 'lead' } },
 ]
-async function open(meId, meName, hash) {
+async function open(meId, meName, hash, extra) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })
   const page = await ctx.newPage()
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -25,6 +25,7 @@ async function open(meId, meName, hash) {
     localStorage.setItem('acct.me.v1', JSON.stringify({ id }))
     localStorage.setItem('acct.members.v1', JSON.stringify(members))
   }, [meId, meName, MEMBERS])
+  if (extra) await page.addInitScript(extra)
   await page.goto(`http://localhost:${PORT}/#${hash}`)
   await page.waitForTimeout(1200)
   return page
@@ -44,7 +45,11 @@ try {
   await page.getByText(/ไม่มีสิทธิ์สร้างหนังสือ/).first().waitFor({ timeout: 5000 })
   must(!page.url().includes('invite-letter'), 'helper cannot create a letter')
   // ผู้ดูแลหลักงานอภิบาล: บันทึกรายชื่อผู้ออกเยี่ยมได้ (ข้อมูลของงาน 4)
-  page = await open('lead4', 'หัวหน้าอภิบาล', '/meeting/4/3')
+  const wed = (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
+  page = await open('lead4', 'หัวหน้าอภิบาล', '/meeting/4/3', `localStorage.setItem('acct.visit-log.v1', JSON.stringify([{ id: 'v1', updated: 5, date: '${wed}', memberId: 'm1', memberName: 'สมชาย ใจดี', reason: 'ทดสอบ', visitor: 'คศ.กฤต' }]))`)
+  // ผู้ดูแลหลัก (ไม่ใช่แอดมิน) เห็นการ์ดการเยี่ยมที่บันทึกแล้ว แต่กดแก้ไข/ลบไม่ได้ · มีรูปสมาชิก (อักษรย่อ) หน้าชื่อ
+  await page.locator('.pvvisit').first().waitFor({ timeout: 8000 })
+  must(await page.getByRole('button', { name: /แก้ไขการเยี่ยม/ }).count() === 0 && await page.locator('.pvvisit--ro .pvvisit__who span').count() >= 1, 'non-admin cannot open a saved visit to edit/delete; member avatar is shown')
   await page.locator('.pvday').nth(2).getByRole('button', { name: /บันทึกการเยี่ยม/ }).click()
   await page.getByRole('dialog').locator('#pv-by').click()
   await page.getByLabel('เพิ่มชื่อใหม่').fill('อ.ทดสอบ'); await page.getByRole('button', { name: '＋ เพิ่ม' }).click()
