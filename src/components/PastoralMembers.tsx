@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { canRole, canWork } from '../lib/access'
+import MultiPick from './MultiPick'
 import { useAttendance, useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
@@ -60,7 +61,8 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
-  const [g, setG] = useState<StatusGroup>('all')
+  const [gs, setGs] = useState<Exclude<StatusGroup, 'all'>[]>([]) // สถานะที่เลือกกรอง (หลายสถานะได้ · ว่าง = ทุกสถานะ)
+  const toggleG = (k: Exclude<StatusGroup, 'all'>) => setGs((xs) => (xs.includes(k) ? xs.filter((x) => x !== k) : [...xs, k]))
   const [tab, setTab] = useState(1)
   const [order, setOrder] = useState<Ord>('old')
   const changeTab = (n: number) => { setTab(n); setOrder(n === 2 ? 'pct' : 'old') }
@@ -68,7 +70,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, todayISO()), [att])
   const all = people.items
-  const sel = useMemo(() => all.filter((m) => inGroup(m, g)), [all, g])
+  const sel = useMemo(() => all.filter((m) => gs.length === 0 || gs.some((x) => inGroup(m, x))), [all, gs])
   const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData } }, [all, att])
   const head = useMemo(() => headline(all), [all])
   const ages = useMemo(() => ageBands(sel, today), [sel, today])
@@ -78,7 +80,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
   if (!canRole(role, 'detail') && !canWork(work, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
-  const gName = STATUS_GROUPS.find((x) => x.key === g)!.label
+  const gName = gs.length === 0 ? 'ทุกสถานะ' : STATUS_GROUPS.filter((x) => gs.includes(x.key as Exclude<StatusGroup, 'all'>)).map((x) => x.label).join(' + ')
 
   const TONES = ['own', 'fund', 'total', 'indebt'] as const
   const orderName = ORDERS[tab]?.find((o) => o.k === order)?.t ?? ''
@@ -108,7 +110,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         </nav>
         <div className="pfilters pfilters--slim">
           {tab !== 3 && <div className="field"><label htmlFor="pf-status">สถานะ</label>
-            <select id="pf-status" className="input" value={g} onChange={(e) => setG(e.target.value as StatusGroup)}>{STATUS_GROUPS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></div>}
+            <MultiPick id="pf-status" title="สถานะ" options={STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>}
           {(tab === 1 || tab === 2) && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
             <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
         </div>
@@ -197,8 +199,8 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         <summary>รายละเอียดเพิ่มเติม (การ์ดสรุป)</summary>
       <section className="card" aria-labelledby="pm-2">
         <h2 id="pm-2">2 · สถานะสมาชิก <span className="muted small">(แตะเพื่อกรองส่วนที่ 3–5)</span></h2>
-        {STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => <BarRow key={x.key} label={x.label} n={head[x.key as Exclude<StatusGroup, 'all'>]} total={head.total} color={g === x.key ? GOLD : NAVY} active={g === x.key} onClick={() => setG(g === x.key ? 'all' : x.key)} />)}
-        <p className="small" role="status" style={{ margin: '0.5rem 0 0' }}>{g === 'all' ? 'กำลังดูทุกสถานะ' : <>กำลังดูเฉพาะ <b>{gName}</b> ({sel.length} คน) · <button type="button" className="mini" onClick={() => setG('all')}>ดูทุกสถานะ</button></>}</p>
+        {STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => <BarRow key={x.key} label={x.label} n={head[x.key as Exclude<StatusGroup, 'all'>]} total={head.total} color={gs.includes(x.key as Exclude<StatusGroup, 'all'>) ? GOLD : NAVY} active={gs.includes(x.key as Exclude<StatusGroup, 'all'>)} onClick={() => toggleG(x.key as Exclude<StatusGroup, 'all'>)} />)}
+        <p className="small" role="status" style={{ margin: '0.5rem 0 0' }}>{gs.length === 0 ? 'กำลังดูทุกสถานะ' : <>กำลังดูเฉพาะ <b>{gName}</b> ({sel.length} คน) · <button type="button" className="mini" onClick={() => setGs([])}>ดูทุกสถานะ</button></>}</p>
       </section>
 
       <section className="card" aria-labelledby="pm-3">

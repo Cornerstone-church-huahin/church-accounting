@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } 
 import NoAccess from '../components/NoAccess'
 import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
+import MultiPick from '../components/MultiPick'
 import MemberAvatar from '../components/MemberAvatar'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
@@ -111,7 +112,7 @@ const statusBadge = (st?: string) => { const l = regLevel(st); return l === 1 ? 
  */
 function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
   const [q, setQ] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [filters, setFilters] = useState<string[]>([]) // ตัวกรองสถานะ/ผลตรวจ เลือกได้หลายอัน (ตรงอย่างใดอย่างหนึ่ง · ว่าง = ทุกสถานะ)
   const [group, setGroup] = useState('')
   const [menu, setMenu] = useState('')
   const rows = useMemo(() => [...result.rows].sort((a, b) => statusLabel(a.member.status).localeCompare(statusLabel(b.member.status), 'th')), [result.rows])
@@ -122,19 +123,21 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
   for (const r of full) if (r.tier === 5) bands[bandOf(r)]++
   const to2 = rows.filter((r) => r.suggest === 'to2').length, to1 = rows.filter((r) => r.suggest === 'to1').length
   const groups = [...new Set(rows.map((r) => r.member.group).filter(Boolean))].sort() as string[]
+  const matchFilter = (f: string, r: Evaluated) =>
+    f.startsWith('st:') ? statusLabel(r.member.status) === f.slice(3)
+      : f === 'to2' ? r.suggest === 'to2'
+      : f === 'to1' ? r.suggest === 'to1'
+      : f.startsWith('band') ? r.tier === 5 && !!regLevel(r.member.status) && bandOf(r) === Number(f.slice(4))
+      : f === 'novisit' ? !!r.noRecord : true
   const shown = rows.filter((r) => {
-    if (filter.startsWith('st:') && statusLabel(r.member.status) !== filter.slice(3)) return false
-    if (filter === 'to2' && r.suggest !== 'to2') return false
-    if (filter === 'to1' && r.suggest !== 'to1') return false
-    if (filter.startsWith('band') && !(r.tier === 5 && regLevel(r.member.status) && bandOf(r) === Number(filter.slice(4)))) return false
-    if (filter === 'novisit' && !r.noRecord) return false
+    if (filters.length && !filters.some((f) => matchFilter(f, r))) return false
     if (group && r.member.group !== group) return false
     const t = q.trim().toLowerCase()
     return !t || `${r.member.name} ${r.member.nick ?? ''} ${r.member.code ?? ''} ${r.member.note ?? ''}`.toLowerCase().includes(t)
   })
   const setStatus = (r: Evaluated, st: string) => { setMenu(''); put([{ ...r.member, status: st === '(ไม่ระบุสถานะ)' ? undefined : st, override: undefined }]) }
   if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ไปที่แท็บ “ทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ .xlsx / CSV</p>
-  const chip = (key: string, label: string, n: number) => <button key={key} type="button" className={`mini${filter === key ? ' on' : ''}`} onClick={() => setFilter(filter === key ? 'all' : key)}>{label} · {n}</button>
+  const chip = (key: string, label: string, n: number) => <button key={key} type="button" className={`mini${filters.includes(key) ? ' on' : ''}`} aria-pressed={filters.includes(key)} onClick={() => setFilters((xs) => (xs.includes(key) ? xs.filter((x) => x !== key) : [...xs, key]))}>{label} · {n}</button>
   return (
     <>
       <div className="kpi"><div><span>รายชื่อทั้งหมด</span><b>{rows.length}</b></div><div><span>สมาชิกสมบูรณ์ (1+2)</span><b>{full.length}</b></div></div>
@@ -167,13 +170,8 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
         )}
       <div className="toolbar no-print">
         <input className="input full" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
-        <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="กรอง">
-          <option value="all">ทุกสถานะ</option>
-          {statuses.map(([st, n]) => <option key={st} value={`st:${st}`}>{st} ({n})</option>)}
-          <option value="to2">ควรปรับเป็น สมบูรณ์ 2 ({to2})</option>
-          <option value="to1">ควรกลับเป็น สมบูรณ์ 1 ({to1})</option>
-          <option value="novisit">ไม่มีบันทึกนมัสการ</option>
-        </select>
+        <MultiPick title="กรองสถานะ / ผลตรวจ" empty="ทุกสถานะ" value={filters} onChange={setFilters}
+          options={[...statuses.map(([st, n]) => ({ value: `st:${st}`, label: `${st} (${n})` })), { value: 'to2', label: `ควรปรับเป็น สมบูรณ์ 2 (${to2})` }, { value: 'to1', label: `ควรกลับเป็น สมบูรณ์ 1 (${to1})` }, { value: 'novisit', label: 'ไม่มีบันทึกนมัสการ' }]} />
         {groups.length > 0 && <select className="input" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
         <button type="button" className="btn btn--ghost full" onClick={() => window.print()}>พิมพ์ / PDF</button>
       </div>
@@ -221,7 +219,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
   const [nameClean, setNameClean] = useState(false)
   const namePlan = useMemo(() => planNameClean(members), [members])
   const [q, setQ] = useState('')
-  const [st, setSt] = useState('')
+  const [sts, setSts] = useState<string[]>([]) // สถานะที่เลือกกรอง (หลายสถานะได้ · ว่าง = ทั้งหมด)
   const [grp, setGrp] = useState('')
   const [gen, setGen] = useState('')
   const [sort, setSort] = useState<'code' | 'name' | 'visits' | 'last'>('code')
@@ -242,7 +240,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
     last: (a, b) => ((info.get(b.id)?.last ?? '') > (info.get(a.id)?.last ?? '') ? 1 : -1),
   }
   const list = [...members].sort((a, b) => order[sort](a, b) || a.name.localeCompare(b.name, 'th'))
-    .filter((m) => (!st || statusKey(m.status) === st) && (!grp || m.group === grp) && (!gen || (gen === 'none' ? !m.gender : m.gender === gen)))
+    .filter((m) => (sts.length === 0 || sts.includes(statusKey(m.status))) && (!grp || m.group === grp) && (!gen || (gen === 'none' ? !m.gender : m.gender === gen)))
     .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${lite ? '' : m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
   const readCsv = async (f: File | undefined): Promise<string[][] | null> => {
     if (!f) return null
@@ -366,9 +364,8 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
       )}
       {msg && <p className="small" role="status">{msg}</p>}
       {!lite && statuses.length > 1 && (
-        <div className="chips no-print" aria-label="กรองตามสถานะ">
-          <button type="button" className={`mini${st === '' ? ' on' : ''}`} onClick={() => setSt('')}>ทั้งหมด · {members.length}</button>
-          {statuses.map((x) => <button key={x} type="button" className={`mini${st === x ? ' on' : ''}`} onClick={() => setSt(st === x ? '' : x)}>{x} · {count((m) => statusKey(m.status) === x)}</button>)}
+        <div className="no-print" aria-label="กรองตามสถานะ" style={{ margin: '0.3rem 0' }}>
+          <MultiPick title="สถานะสมาชิก" empty={`ทุกสถานะ · ${members.length}`} value={sts} onChange={setSts} options={statuses.map((x) => ({ value: x, label: `${x} (${count((m) => statusKey(m.status) === x)})` }))} />
         </div>
       )}
       <div className="toolbar toolbar--3 no-print">
