@@ -10,7 +10,10 @@ export const weekDays = (sunday: string): string[] => Array.from({ length: 7 }, 
 export const sundayOf = (iso: string) => weekStart(iso)
 export const visitsOn = (visits: Visit[], iso: string) => visits.filter((v) => !v.deleted && v.date === iso)
 export const visitsOfWeek = (visits: Visit[], sunday: string) => visits.filter((v) => !v.deleted && v.date >= sunday && v.date <= addDays(sunday, 6))
+/** ผู้ออกเยี่ยมหลายคนเก็บในช่องเดียวคั่นด้วย “, ” (ข้อมูลเดิมที่มีคนเดียวใช้ได้เหมือนเดิม) */
+export const splitVisitors = (s: string): string[] => s.split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean)
+export const joinVisitors = (xs: string[]): string => [...new Set(xs.map((x) => x.replace(/,/g, ' ').trim()).filter(Boolean))].join(', ')
 /** จำนวนครั้งที่เยี่ยม · จำนวนคนที่ได้รับการเยี่ยม (นับคนละครั้ง) · ผู้เยี่ยมที่ลงชื่อ */
 export function weekStats(visits: Visit[]) {
-  return { count: visits.length, people: new Set(visits.map((v) => v.memberId)).size, visitors: [...new Set(visits.map((v) => v.visitor.trim()).filter(Boolean))] }
+  return { count: visits.length, people: new Set(visits.map((v) => v.memberId)).size, visitors: [...new Set(visits.flatMap((v) => splitVisitors(v.visitor)))] }
 }

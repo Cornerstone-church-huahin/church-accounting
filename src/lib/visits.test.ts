@@ -19,3 +19,12 @@ describe('ตารางเยี่ยม', () => {
     expect(weekStats(w)).toEqual({ count: 3, people: 2, visitors: ['คศ.กฤต', 'คศ.พิชิต'] })
   })
 })
+
+import { joinVisitors, splitVisitors } from './visits'
+describe('ผู้ออกเยี่ยมหลายคน', () => {
+  it('แยก/รวมชื่อ และข้อมูลเดิมคนเดียวใช้ได้', () => {
+    expect(splitVisitors('คศ.กฤต, อ.ดารา')).toEqual(['คศ.กฤต', 'อ.ดารา'])
+    expect(splitVisitors('คศ.กฤต')).toEqual(['คศ.กฤต'])
+    expect(joinVisitors(['ก', 'ข', 'ก', ' '])).toBe('ก, ข')
+  })
+})
