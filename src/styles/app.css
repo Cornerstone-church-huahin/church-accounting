@@ -1254,3 +1254,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pvvisit--ro { cursor: default }
 .pvvisit__who { display: flex; align-items: center; gap: 0.4rem; min-width: 0 }
 .pvvisit__who b { overflow: hidden; text-overflow: ellipsis }
+
+.pvpick__r--ro { cursor: default }
+.seg--3 > button { font-size: 0.85rem; padding-inline: 0.2rem }

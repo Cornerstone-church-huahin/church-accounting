@@ -3,19 +3,20 @@ import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import MultiPick from './MultiPick'
+import AbsentList from './AbsentList'
 import VisitCamera, { type Shot } from './VisitCamera'
 import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
 import { formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
-import { absenceBar, absentMonths, visitCandidates, visitStats } from '../lib/pastoral'
+import { visitStats } from '../lib/pastoral'
 import { addDays, fmtDate, newId, todayISO } from '../lib/money'
 import MemberAvatar from './MemberAvatar'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
-import { OFFICIAL_STATUSES, statusShort, toAttendance } from '../lib/registry'
+import { toAttendance } from '../lib/registry'
 import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
@@ -28,7 +29,7 @@ export const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays
  * งานอภิบาล › ตารางเยี่ยม: การ์ด 7 วันของสัปดาห์ (เริ่มวันอาทิตย์) · อาทิตย์ = นมัสการ · จันทร์ = วันหยุด (อัตโนมัติ)
  * อังคาร–เสาร์ แตะเพื่อบันทึกการเยี่ยม: เลือกสมาชิก + เหตุผล/หมายเหตุ + ผู้เยี่ยมลงชื่อ · สรุปเป็นรายงานรายสัปดาห์ (A4) ย้อนดูสัปดาห์ก่อนได้
  */
-export default function PastoralVisits({ log = false }: { log?: boolean }) {
+export default function PastoralVisits({ log = false, plan = false }: { log?: boolean; plan?: boolean }) {
   const role = useRole()
   const isAdmin = role === 'admin'
   const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
@@ -45,7 +46,7 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
   const stats = useMemo(() => visitStats(att, today), [att, today])
   const thisSunday = sundayOf(today)
   const [sunday, setSunday] = useState(thisSunday)
-  const [mode, setMode] = useState<'cards' | 'report'>('cards')
+  const [mode, setMode] = useState<'list' | 'cards' | 'report'>(plan ? 'list' : 'cards')
   const [form, setForm] = useState<{ date: string; entry: Visit | null } | null>(null)
   const [note, setNote] = useState('')
   // เช็คอินที่บ้าน → พิกัดบ้านเข้าทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด) · ถ้ามีแล้วและห่างเกิน 100 ม. ถามก่อนทับ
@@ -71,13 +72,17 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
   )
   return (
     <div className="pvisits">
-      <div className="seg seg--2 no-print" role="tablist" aria-label="มุมมอง">
+      <div className={`seg seg--${plan ? 3 : 2} no-print`} role="tablist" aria-label="มุมมอง">
+        {plan && <button type="button" role="tab" aria-selected={mode === 'list'} className={mode === 'list' ? 'on' : ''} onClick={() => setMode('list')}>👥 ควรเยี่ยม</button>}
         <button type="button" role="tab" aria-selected={mode === 'cards'} className={mode === 'cards' ? 'on' : ''} onClick={() => setMode('cards')}>🗓️ การ์ด 7 วัน</button>
         <button type="button" role="tab" aria-selected={mode === 'report'} className={mode === 'report' ? 'on' : ''} onClick={() => setMode('report')}>📄 รายงานสัปดาห์</button>
       </div>
-      {nav}
+      {mode !== 'list' && nav}
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
-      {mode === 'cards' ? (
+      {mode === 'list' ? (
+        // วางแผนร่วมกัน: ทุกคนที่ดูตารางนี้ได้ (รวมผู้ช่วย) เห็นรายชื่อคนที่ขาดนมัสการพร้อมรูป สถานะ และแถบเดือนที่ขาด · ดูอย่างเดียว
+        <AbsentList label="ค้นหาสมาชิก / เลือกสถานะ" members={people.items} stats={stats} today={today} />
+      ) : mode === 'cards' ? (
         <>
           <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>เยี่ยมแล้ว <b>{st.count}</b> ครั้ง · <b>{st.people}</b> คน{st.visitors.length ? ` · ผู้เยี่ยม ${st.visitors.join(', ')}` : ''}</p>
           <ul className="pvdays">
@@ -131,8 +136,6 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
 function VisitForm({ date, entry, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : null)
-  const [q, setQ] = useState('')
-  const [status, setStatus] = useState<string[]>([])
   const [reason, setReason] = useState(entry?.reason ?? '')
   const [detail, setDetail] = useState(entry?.detail ?? '')
   const names = useVisitorNames()
@@ -191,9 +194,7 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   const dropPhoto = (p: string) => { setPhotos((xs) => xs.filter((x) => x !== p)); setProof((xs) => xs.filter((x) => x.path !== p)) }
   const close = () => { added.current.filter((p) => !(entry?.photos ?? []).includes(p) && !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p)); if (!saved.current) added.current.forEach((p) => void removeMemberPhotoFile(p)); onClose() }
   const saved = useRef(false)
-  const list = useMemo(() => visitCandidates(members, { status, q }, stats, today).slice(0, 80), [members, status, q, stats, today])
   const pick = (m: ChurchMember, label: string) => { setMember({ id: m.id, name: m.name }); if (!reason.trim() && label) setReason(label) }
-  const monthsText = (n: number | null) => (n === null ? 'ไม่เคยมีบันทึกการมา' : n < 1 ? 'มาภายใน 1 เดือน' : n >= 12 ? `ขาด ${Math.floor(n / 12)} ปี${n % 12 ? ` ${n % 12} เดือน` : ''}` : `ขาด ${n} เดือน`)
   const save = () => {
     const visitor = joinVisitors(picked)
     if (!member) return setErr('เลือกสมาชิกที่ไปเยี่ยม')
@@ -213,25 +214,7 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
       <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
-      <div className="field"><label htmlFor="pv-q">① เลือกสมาชิกที่ไปเยี่ยม{member ? ` · เลือกแล้ว: ${member.name}` : ''}</label>
-        <div className="pvfind">
-          <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
-          <MultiPick id="pv-st" title="สถานะสมาชิก" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />
-        </div></div>
-      <div className="field"><span className="pvhint">② {q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status.length ? ` · ${status.map(statusShort).join(', ')}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
-        <ul className="pvpick" aria-label="รายชื่อสมาชิก">
-          {list.map((m) => { const mo = absentMonths(stats.get(m.id)?.last, today); const absent = mo === null || mo >= 1; return (
-            <li key={m.id}><button type="button" className={`pvpick__r${member?.id === m.id ? ' on' : ''}`} aria-pressed={member?.id === m.id} onClick={() => pick(m, absent ? monthsText(mo) : '')}>
-              <MemberAvatar path={m.photoPath} name={m.name} size={48} />
-              <span className="pvpick__body">
-                <span className="pvpick__who"><span><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''} <small className="muted">{statusShort(m.status)}</small></span>
-                  <b className={absent ? 'pvpick__abs' : 'pvpick__ok'}>{monthsText(mo)}</b></span>
-                {absent && <span className="pvabs" role="img" aria-label={`ขาดนมัสการ ${mo ?? 'ไม่ทราบ'} เดือน`}><span className="pvabs__f" style={{ width: `${Math.round(absenceBar(mo) * 100)}%` }} /></span>}
-              </span>
-            </button></li>
-          ) })}
-          {list.length === 0 && <li className="muted small">{q.trim() ? 'ไม่พบสมาชิก' : 'ไม่มีสมาชิกที่ขาดนมัสการตั้งแต่ 1 เดือนในสถานะนี้ — พิมพ์ค้นหาชื่อได้เลย'}</li>}
-        </ul></div>
+      <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />
       <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label htmlFor="pv-detail">รายละเอียดการเยี่ยม (ไม่บังคับ)</label><textarea id="pv-detail" className="input" rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} /></div>
       <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
