@@ -26,11 +26,11 @@ const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays(sun, 6
  * งานอภิบาล › ตารางเยี่ยม: การ์ด 7 วันของสัปดาห์ (เริ่มวันอาทิตย์) · อาทิตย์ = นมัสการ · จันทร์ = วันหยุด (อัตโนมัติ)
  * อังคาร–เสาร์ แตะเพื่อบันทึกการเยี่ยม: เลือกสมาชิก + เหตุผล/หมายเหตุ + ผู้เยี่ยมลงชื่อ · สรุปเป็นรายงานรายสัปดาห์ (A4) ย้อนดูสัปดาห์ก่อนได้
  */
-export default function PastoralVisits() {
+export default function PastoralVisits({ log = false }: { log?: boolean }) {
   const role = useRole()
   const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
   const { settings } = useSettings()
-  const visits = useVisits()
+  const visits = useVisits(log)
   const team = useWorkTeams().of(4)
   const people = useChurchMembers()
   const y = new Date().getFullYear()
