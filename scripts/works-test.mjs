@@ -63,7 +63,7 @@ try {
   // สองงาน: หน้าเลือกงานเห็นเฉพาะสองงานของตน
   page = await open('two1', 'สองงาน')
   await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').first().waitFor({ timeout: 5000 })
-  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').allInnerTexts()).map((t) => t.replace(/\s+/g, '')).join('|') === '4งานอภิบาล33%|5งานสุสาน0%', 'two-work user sees only his two works')
+  must((await page.locator('nav[aria-label^="โหมดประชุม"] a.btile').allInnerTexts()).map((t) => t.replace(/\s+/g, '')).join('|') === '4งานอภิบาล50%|5งานสุสาน0%', 'two-work user sees only his two works')
   // แอดมินตั้งงานให้คนในตั้งค่า
   page = await open('ad1', 'แอดมิน')
   await page.goto(`http://localhost:${PORT}/#/settings`); await page.waitForTimeout(600)

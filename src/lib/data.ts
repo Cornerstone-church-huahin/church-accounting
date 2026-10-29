@@ -1,5 +1,14 @@
-import { calendarWritable } from './access'
+import { blocked, calendarWritable, canWork, type Perm } from './access'
 import { useSharedStore } from './sharedStore'
+
+/**
+ * สิทธิ์เขียนของข้อมูลที่เป็นของ “ห้องงาน” n: ผู้ดูแลหลักของห้องนั้น (ตั้งโดยแอดมิน) เพิ่ม/แก้/ลบได้เสมอ แม้บทบาทบัญชีเป็นผู้ดูอย่างเดียว
+ * · คนอื่นเป็นไปตามบทบาทบัญชีเดิม (perm) · ต้องเป็นฟังก์ชันคงที่ (ไม่สร้างใหม่ทุกครั้งที่เรนเดอร์)
+ */
+const workWriter = (n: number, perm: Perm) => () => canWork(n, 'edit') || !blocked(perm)
+const writeWork1 = workWriter(1, 'detail')   // งานเลขา: หนังสือเชิญ ลำดับงาน การประชุม โน้ต
+const writeWork4 = workWriter(4, 'detail')   // งานอภิบาล: ตารางเยี่ยม / บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม
+const writeWork4Reg = workWriter(4, 'worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
 import type { AdminNote, VisitorName, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
@@ -82,7 +91,7 @@ export const useLoans = () => useSharedStore<Loan>({ localKey: k('loans'), file:
 export const usePeople = () => useSharedStore<Person>({ localKey: k('people'), file: 'people.json', label: 'รายชื่อผู้วางบิล', write: 'voucherPay' })
 
 /** ทะเบียนสมาชิกคริสตจักร: ไฟล์เดียว ข้ามปี (มีเบอร์โทร จึงให้เฉพาะผู้ที่เห็นรายการรายตัว) */
-export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k('church-members'), file: 'church-members.json', label: 'ทะเบียนสมาชิก', write: 'worship' })
+export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k('church-members'), file: 'church-members.json', label: 'ทะเบียนสมาชิก', writeCheck: writeWork4Reg })
 /**
  * ลงชื่อนมัสการ: รายปี (1 คน × 1 วัน = 1 รายการ) · ปีเก่าไม่ซิงก์ทุกนาที (ซิงก์ตอนเปิด/กลับมาที่แอป) เพื่อไม่กินเน็ต
  * ไฟล์เก่าที่เคยเก็บเป็น "1 วัน = รายชื่อทั้งชุด" (Attendance) ยังอ่านได้ ผ่าน toAttendance()
@@ -99,20 +108,20 @@ export function useCalendar() {
 
 /** บันทึกโน้ตของห้องทำงาน (ไม่แบ่งปี) */
 export function useNotes() {
-  const s = useSharedStore<Note>({ localKey: k('notes'), file: 'notes.json', label: 'บันทึกโน้ต', write: 'detail' })
+  const s = useSharedStore<Note>({ localKey: k('notes'), file: 'notes.json', label: 'บันทึกโน้ต', writeCheck: writeWork1 })
   return { ...s, list: [...s.items].sort((a, b) => b.updated - a.updated) }
 }
 
 /** บันทึกการเยี่ยมของงานอภิบาล (ไฟล์เดียว ไม่แบ่งปี) */
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
 export function useVisitorNames() {
-  return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', write: 'detail' })
+  return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', writeCheck: writeWork4 })
 }
 /** log = แท็บ “บันทึกการเยี่ยม” (งานอภิบาล แท็บ 3) เก็บแยกไฟล์จากแท็บ “ตารางเยี่ยม” เพื่อใช้งานจริงได้โดยไม่ปนกับแท็บที่จะปรับเป็นตารางวางแผน */
 export function useVisits(log = false) {
   const s = useSharedStore<Visit>(log
-    ? { localKey: k('visit-log'), file: 'visit-log.json', label: 'บันทึกการเยี่ยม', write: 'detail' }
-    : { localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', write: 'detail' })
+    ? { localKey: k('visit-log'), file: 'visit-log.json', label: 'บันทึกการเยี่ยม', writeCheck: writeWork4 }
+    : { localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', writeCheck: writeWork4 })
   return { ...s, list: [...s.items].filter((x) => !x.deleted).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated) }
 }
 
@@ -172,7 +181,7 @@ export function useWorkTeams() {
 
 /** การประชุมของศูนย์จัดการประชุม (ไม่แบ่งปี · แต่ละครั้งเป็นรายการเดียวที่เก็บทุกขั้น) */
 export function useMeetings() {
-  const s = useSharedStore<Meeting>({ localKey: k('meetings'), file: 'meetings.json', label: 'การประชุม', write: 'detail' })
+  const s = useSharedStore<Meeting>({ localKey: k('meetings'), file: 'meetings.json', label: 'การประชุม', writeCheck: writeWork1 })
   return { ...s, list: [...s.items].sort((a, b) => b.date.localeCompare(a.date) || b.updated - a.updated) }
 }
 /** หัวจดหมาย/ท้ายจดหมาย: รายการเดียว (id = letterhead) · แอดมินตั้งค่า */
@@ -183,16 +192,16 @@ export function useLetterhead() {
 
 /** เช็คลิสต์ของลำดับงานที่ไม่ผูกกับการประชุม (หนังสือเชิญ ฯลฯ) · ทุกคนที่แก้ข้อมูลรายละเอียดได้ติ๊กได้ */
 export function useFlowTicks() {
-  return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', write: 'detail' })
+  return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', writeCheck: writeWork1 })
 }
 
 /** หนังสือเชิญร่วมงานฉบับที่กำลังทำ (รายการเดียว id = draft) */
 export function useInviteLetter() {
-  return useSharedStore<InviteLetter>({ localKey: k('inviteletter'), file: 'invite-letter.json', label: 'หนังสือเชิญร่วมงาน', write: 'detail' })
+  return useSharedStore<InviteLetter>({ localKey: k('inviteletter'), file: 'invite-letter.json', label: 'หนังสือเชิญร่วมงาน', writeCheck: writeWork1 })
 }
 /** ค่าตั้งต้นหนังสือเชิญ (รายการเดียว id = settings) */
 export function useInviteSettings() {
-  return useSharedStore<InviteSettings>({ localKey: k('invitesettings'), file: 'invite-settings.json', label: 'ค่าตั้งต้นหนังสือเชิญ', write: 'detail' })
+  return useSharedStore<InviteSettings>({ localKey: k('invitesettings'), file: 'invite-settings.json', label: 'ค่าตั้งต้นหนังสือเชิญ', writeCheck: writeWork1 })
 }
 
 /** สมุดส่วนตัวของแอดมิน (ซ่อนจากผู้ใช้อื่นในแอป · แอดมินเท่านั้นที่เขียนได้) */
