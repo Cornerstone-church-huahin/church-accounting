@@ -10,6 +10,7 @@ const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const page = await (await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e))); page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text()) })
+const statusShortOf = (s) => s.replace(/\s*\(\s*(\d)\s*\)/, '($1)')
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 try {
   await page.goto(`http://localhost:${PORT}/#/meeting/3`)
@@ -30,6 +31,16 @@ try {
   const dlg = page.getByRole('dialog')
   await dlg.getByRole('button', { name: 'บันทึก', exact: true }).click()
   must(/เลือกสมาชิกที่ไปเยี่ยม/.test(await dlg.innerText()), 'member required')
+  // โซน 1: ค้นหา + สถานะแถวเดียว · โซน 2: รายชื่อที่ขาด ≥ 1 เดือน (ไม่มีบันทึกการมาเลย = ขึ้นให้) พร้อมแถบ % 1/2/3 เดือน
+  const pick = dlg.getByRole('list', { name: 'รายชื่อสมาชิก' })
+  must(await pick.getByRole('button').count() === 6 && await pick.locator('.pvbar').count() === 18, 'zone 2 lists all six (never recorded) with 3 bars each')
+  must(/ไม่เคยมีบันทึกการมา/.test(await pick.innerText()), 'never-recorded label')
+  await page.waitForTimeout(600)
+  const yq = await dlg.locator('#pv-q').boundingBox(), ys = await dlg.locator('#pv-st').boundingBox()
+  must(Math.abs(yq.y - ys.y) < 4 && ys.x > yq.x, 'search and status select share one row ' + JSON.stringify([yq, ys]))
+  await dlg.locator('#pv-st').selectOption({ label: statusShortOf('3.สมาชิกสำรอง') })
+  must(await pick.getByRole('button').count() === 3, 'status filter keeps only the chosen status')
+  await dlg.locator('#pv-st').selectOption('')
   await dlg.locator('#pv-q').fill('ทดสอบ3')
   await dlg.getByRole('button', { name: /ทดสอบ3 สมมติ/ }).click()
   await dlg.getByRole('button', { name: 'บันทึก', exact: true }).click()

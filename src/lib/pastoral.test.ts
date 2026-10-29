@@ -103,3 +103,30 @@ describe('แท็บเก่าแก่ · สม่ำเสมอ · ส�
     expect(genderByStatus(ms)[0]).toMatchObject({ ชาย: 1, หญิง: 1, ไม่ระบุ: 0 })
   })
 })
+
+import { absentMonths, visitCandidates, windowPct } from './pastoral'
+describe('ตารางเยี่ยม: รายชื่อที่ขาด + แถบ % 1/2/3 เดือน', () => {
+  const T = '2026-10-28'
+  const att = [
+    { date: '2026-10-25', ids: ['a'] }, { date: '2026-10-18', ids: ['a'] }, { date: '2026-10-11', ids: ['a'] }, { date: '2026-10-04', ids: ['a'] },
+    { date: '2026-09-27', ids: ['a'] }, { date: '2026-09-20', ids: ['b'] }, { date: '2026-09-13', ids: ['b'] }, { date: '2026-08-30', ids: ['b'] },
+  ].map((x) => ({ ...x, updated: 0, id: x.date }))
+  const stats = visitStats(att, T)
+  const ms = [
+    { id: 'a', name: 'เอ', status: '1.สมบูรณ์ ( 1 )' }, { id: 'b', name: 'บี', status: '1.สมบูรณ์ ( 1 )' },
+    { id: 'c', name: 'ซี', status: '3.สมาชิกสำรอง' }, { id: 'd', name: 'ดี', status: '6.ลาออก' },
+  ]
+  it('ไม่ค้นหา: เฉพาะคนที่ขาด ≥ 1 เดือน เรียงขาดน้อย→มาก ไม่เคยมีบันทึกอยู่ท้าย ไม่นับคนที่ลาออก', () => {
+    expect(visitCandidates(ms, { status: '', q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
+    expect(visitCandidates(ms, { status: '3.สมาชิกสำรอง', q: '' }, stats, T).map((m) => m.id)).toEqual(['c'])
+  })
+  it('พิมพ์ค้นหา: เห็นทุกคนที่ตรงชื่อ แม้ไม่ได้ขาด', () => {
+    expect(visitCandidates(ms, { status: '', q: 'เอ' }, stats, T).map((m) => m.id)).toEqual(['a'])
+  })
+  it('เดือนที่ขาด', () => { expect(absentMonths('2026-08-30', T)).toBe(1); expect(absentMonths('2026-10-18', T)).toBe(0); expect(absentMonths(undefined, T)).toBeNull() })
+  it('% การมา 1/2/3 เดือน = มา ÷ ครั้งที่มีการลงชื่อในช่วงนั้น', () => {
+    const w = windowPct(att, T)('a')
+    expect(w.map((x) => [x.came, x.of])).toEqual([[4, 4], [5, 8], [5, 8]])
+    expect(windowPct(att, T)('zzz')[0]).toMatchObject({ came: 0, pct: 0 })
+  })
+})

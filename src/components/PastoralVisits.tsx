@@ -5,13 +5,13 @@ import Sheet from './Sheet'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
-import { absence, isLive, visitStats } from '../lib/pastoral'
+import { absentMonths, visitCandidates, visitStats, windowPct, type WindowPct } from '../lib/pastoral'
 import { addDays, fmtDate, newId, todayISO } from '../lib/money'
 import MemberAvatar from './MemberAvatar'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
-import { statusShort, toAttendance } from '../lib/registry'
+import { OFFICIAL_STATUSES, statusShort, toAttendance } from '../lib/registry'
 import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
@@ -33,7 +33,9 @@ export default function PastoralVisits() {
   const y = new Date().getFullYear()
   const a0 = useAttendance(y), a1 = useAttendance(y - 1, false), a2 = useAttendance(y - 2, false), a3 = useAttendance(y - 3, false)
   const today = todayISO()
-  const stats = useMemo(() => visitStats(toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), today), [a0.items, a1.items, a2.items, a3.items, today]) // eslint-disable-line react-hooks/exhaustive-deps
+  const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const stats = useMemo(() => visitStats(att, today), [att, today])
+  const win = useMemo(() => windowPct(att, today), [att, today])
   const thisSunday = sundayOf(today)
   const [sunday, setSunday] = useState(thisSunday)
   const [mode, setMode] = useState<'cards' | 'report'>('cards')
@@ -92,7 +94,7 @@ export default function PastoralVisits() {
         <VisitReport church={settings.churchName.split(' ')[0]} sunday={sunday} visits={wk} />
       )}
       {form && (
-        <VisitForm date={form.date} entry={form.entry} team={team.map((t) => t.name).filter(Boolean)} members={people.items} stats={stats} today={today}
+        <VisitForm date={form.date} entry={form.entry} team={team.map((t) => t.name).filter(Boolean)} members={people.items} stats={stats} win={win} today={today}
           onClose={() => setForm(null)}
           onSave={(v) => { visits.put([v]); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); (form.entry!.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); setForm(null) } } : undefined} />
@@ -101,10 +103,11 @@ export default function PastoralVisits() {
   )
 }
 
-function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+function VisitForm({ date, entry, team, members, stats, win, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; win: (id: string) => WindowPct[]; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : null)
   const [q, setQ] = useState('')
+  const [status, setStatus] = useState('')
   const [reason, setReason] = useState(entry?.reason ?? '')
   const [detail, setDetail] = useState(entry?.detail ?? '')
   const initBy = splitVisitors(entry?.visitor ?? lastBy)
@@ -125,14 +128,9 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
   const dropPhoto = (p: string) => setPhotos((xs) => xs.filter((x) => x !== p))
   const close = () => { added.current.filter((p) => !(entry?.photos ?? []).includes(p) && !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p)); if (!saved.current) added.current.forEach((p) => void removeMemberPhotoFile(p)); onClose() }
   const saved = useRef(false)
-  const list = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return members.filter((m) => isLive(m) && (!needle || `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(needle)))
-      .map((m) => ({ m, ab: absence(stats.get(m.id)?.last, today) }))
-      .sort((x, y) => (y.ab.tier > 0 ? 1 : 0) - (x.ab.tier > 0 ? 1 : 0) || (y.ab.days ?? 1e9) - (x.ab.days ?? 1e9) || x.m.name.localeCompare(y.m.name, 'th'))
-      .slice(0, 40)
-  }, [members, q, stats, today])
+  const list = useMemo(() => visitCandidates(members, { status, q }, stats, today).slice(0, 80), [members, status, q, stats, today])
   const pick = (m: ChurchMember, label: string) => { setMember({ id: m.id, name: m.name }); if (!reason.trim() && label) setReason(label) }
+  const monthsText = (n: number | null) => (n === null ? 'ไม่เคยมีบันทึกการมา' : n < 1 ? 'มาภายใน 1 เดือน' : n >= 12 ? `ขาด ${Math.floor(n / 12)} ปี${n % 12 ? ` ${n % 12} เดือน` : ''}` : `ขาด ${n} เดือน`)
   const save = () => {
     const visitor = joinVisitors([...picked, ...(otherOn ? splitVisitors(byOther) : [])])
     if (!member) return setErr('เลือกสมาชิกที่ไปเยี่ยม')
@@ -152,16 +150,26 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
           <button type="button" className={`chip${otherOn ? ' on' : ''}`} aria-pressed={otherOn} onClick={() => setOtherOn((v) => !v)}>{otherOn ? '✓ ' : ''}อื่น ๆ (พิมพ์ชื่อ)</button>
         </div>
         {otherOn && <input aria-label="ชื่อผู้ออกเยี่ยมอื่น ๆ" className="input" value={byOther} onChange={(e) => setByOther(e.target.value)} placeholder="พิมพ์ชื่อ (หลายคนคั่นด้วยจุลภาค ,)" />}</fieldset>
-      <div className="field"><label htmlFor="pv-q">สมาชิกที่ไปเยี่ยม{member ? ` · เลือกแล้ว: ${member.name}` : ''}</label>
-        <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
+      <div className="field"><label htmlFor="pv-q">① เลือกสมาชิกที่ไปเยี่ยม{member ? ` · เลือกแล้ว: ${member.name}` : ''}</label>
+        <div className="pvfind">
+          <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
+          <select id="pv-st" className="input" aria-label="สถานะสมาชิก" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">ทุกสถานะ</option>
+            {OFFICIAL_STATUSES.map((x) => <option key={x} value={x}>{statusShort(x)}</option>)}
+          </select>
+        </div></div>
+      <div className="field"><span className="pvhint">② {q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status ? ` · ${statusShort(status)}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
         <ul className="pvpick" aria-label="รายชื่อสมาชิก">
-          {list.map(({ m, ab }) => (
-            <li key={m.id}><button type="button" className={`pvpick__r${member?.id === m.id ? ' on' : ''}`} aria-pressed={member?.id === m.id} onClick={() => pick(m, ab.tier > 0 && ab.tier < 6 ? ab.label : '')}>
-              <span><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}<br /><small className="muted">{statusShort(m.status)}</small></span>
-              {ab.tier > 0 && <b className="pvpick__abs">{ab.label}</b>}
+          {list.map((m) => { const mo = absentMonths(stats.get(m.id)?.last, today); const w = win(m.id); return (
+            <li key={m.id}><button type="button" className={`pvpick__r${member?.id === m.id ? ' on' : ''}`} aria-pressed={member?.id === m.id} onClick={() => pick(m, mo === null || mo >= 1 ? monthsText(mo) : '')}>
+              <span className="pvpick__who"><span><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}<br /><small className="muted">{statusShort(m.status)}</small></span>
+                <b className={mo === null || mo >= 1 ? 'pvpick__abs' : 'pvpick__ok'}>{monthsText(mo)}</b></span>
+              <span className="pvbars" aria-label={`การมานมัสการของ ${m.name}`}>
+                {w.map((x) => <span key={x.months} className="pvbar" title={`${x.months} เดือนล่าสุด มา ${x.came}/${x.of} ครั้ง`}><small>{x.months} เดือน</small><span className="pvbar__t"><span className="pvbar__f" style={{ width: `${Math.round(x.pct * 100)}%` }} /></span><small className="pvbar__p">{x.of ? `${Math.round(x.pct * 100)}%` : '–'}</small></span>)}
+              </span>
             </button></li>
-          ))}
-          {list.length === 0 && <li className="muted small">ไม่พบสมาชิก</li>}
+          ) })}
+          {list.length === 0 && <li className="muted small">{q.trim() ? 'ไม่พบสมาชิก' : 'ไม่มีสมาชิกที่ขาดนมัสการตั้งแต่ 1 เดือนในสถานะนี้ — พิมพ์ค้นหาชื่อได้เลย'}</li>}
         </ul></div>
       <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label htmlFor="pv-detail">รายละเอียดการเยี่ยม (ไม่บังคับ)</label><textarea id="pv-detail" className="input" rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} /></div>
