@@ -30,6 +30,7 @@ export const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays
  */
 export default function PastoralVisits({ log = false }: { log?: boolean }) {
   const role = useRole()
+  const isAdmin = role === 'admin'
   const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
   const { settings } = useSettings()
   const visits = useVisits(log)
@@ -88,16 +89,22 @@ export default function PastoralVisits({ log = false }: { log?: boolean }) {
                   {kind === 'visit' && (
                     <>
                       {xs.length === 0 && <p className="muted small" style={{ margin: 0 }}>{future ? 'ยังไม่ถึงวัน' : 'ยังไม่มีการเยี่ยม'}</p>}
-                      {xs.map((x) => (
-                        <button key={x.id} type="button" className="pvvisit" onClick={() => setForm({ date: d, entry: x })} aria-label={`แก้ไขการเยี่ยม ${x.memberName}`}>
-                          <span className="pvvisit__pic">{x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={64} /> : <span className="pvvisit__nopic" aria-label="ยังไม่มีรูป">📷</span>}{(x.photos?.length ?? 0) > 1 && <i className="pvvisit__more">+{(x.photos?.length ?? 1) - 1}</i>}</span>
-                          <span className="pvvisit__txt">
-                            <b>{x.memberName}</b>
-                            <span className="small">{x.reason || '—'}</span>
-                            <span className="small muted">ผู้ออกเยี่ยม {x.visitor}</span>
-                          </span>
-                        </button>
-                      ))}
+                      {xs.map((x) => {
+                        // แก้ไข/ลบการเยี่ยมที่บันทึกแล้ว: เฉพาะแอดมิน (คนอื่นเพิ่มได้ แต่แก้/ลบของที่บันทึกแล้วไม่ได้ เพื่อรักษาหลักฐานเช็คอิน/รูป)
+                        const inner = (
+                          <>
+                            <span className="pvvisit__pic">{x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={64} /> : <span className="pvvisit__nopic" aria-label="ยังไม่มีรูป">📷</span>}{(x.photos?.length ?? 0) > 1 && <i className="pvvisit__more">+{(x.photos?.length ?? 1) - 1}</i>}</span>
+                            <span className="pvvisit__txt">
+                              <span className="pvvisit__who"><MemberAvatar path={people.items.find((m) => m.id === x.memberId)?.photoPath} name={x.memberName} size={28} /><b>{x.memberName}</b></span>
+                              <span className="small">{x.reason || '—'}</span>
+                              <span className="small muted">ผู้ออกเยี่ยม {x.visitor}</span>
+                            </span>
+                          </>
+                        )
+                        return isAdmin
+                          ? <button key={x.id} type="button" className="pvvisit" onClick={() => setForm({ date: d, entry: x })} aria-label={`แก้ไขการเยี่ยม ${x.memberName}`}>{inner}</button>
+                          : <div key={x.id} className="pvvisit pvvisit--ro" role="group" aria-label={`การเยี่ยม ${x.memberName}`}>{inner}</div>
+                      })}
                       <button type="button" className="btn btn--ghost pvadd" onClick={() => setForm({ date: d, entry: null })}>＋ บันทึกการเยี่ยม</button>
                     </>
                   )}
