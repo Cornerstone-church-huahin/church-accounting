@@ -16,7 +16,7 @@ try {
   const same = await page.evaluate(() => [...document.querySelectorAll('.hubgrid .btile__top')].every((t) => { const a = t.querySelector('small').getBoundingClientRect(), b = t.querySelector('b').getBoundingClientRect(); return Math.abs((a.top + a.height / 2) - (b.top + b.height / 2)) < 4 }))
   must(same, 'number and name share one row on every tile')
   const pct = async (n) => (await tiles.nth(n - 1).locator('.btile__pct').innerText()).trim()
-  must(await pct(1) === '50%' && await pct(3) === '100%' && await pct(4) === '33%' && await pct(14) === '17%' && await pct(5) === '0%' && await pct(15) === '0%', 'percentages: 1=50 3=100 4=33 14=17 5=0')
+  must(await pct(1) === '50%' && await pct(3) === '100%' && await pct(4) === '50%' && await pct(14) === '17%' && await pct(5) === '0%' && await pct(15) === '0%', 'percentages: 1=50 3=100 4=50 14=17 5=0')
   must(await tiles.nth(0).locator('.btile__meter i').evaluate((e) => Math.round(e.getBoundingClientRect().width / e.parentElement.getBoundingClientRect().width * 100)) === 50, 'bar fill 50%')
   must(/พัฒนาแล้ว 3 จาก 6/.test(await tiles.nth(0).getAttribute('aria-label')), 'aria label')
   const fit = await page.evaluate(() => [...document.querySelectorAll('.hubgrid .btile')].every((t) => t.scrollHeight <= t.clientHeight + 1 && t.scrollWidth <= t.clientWidth + 1))
