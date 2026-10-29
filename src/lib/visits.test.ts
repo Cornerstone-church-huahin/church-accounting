@@ -20,11 +20,14 @@ describe('ตารางเยี่ยม', () => {
   })
 })
 
-import { joinVisitors, splitVisitors } from './visits'
+import { joinVisitors, splitVisitors, visitorRoster } from './visits'
 describe('ผู้ออกเยี่ยมหลายคน', () => {
   it('แยก/รวมชื่อ และข้อมูลเดิมคนเดียวใช้ได้', () => {
     expect(splitVisitors('คศ.กฤต, อ.ดารา')).toEqual(['คศ.กฤต', 'อ.ดารา'])
     expect(splitVisitors('คศ.กฤต')).toEqual(['คศ.กฤต'])
     expect(joinVisitors(['ก', 'ข', 'ก', ' '])).toBe('ก, ข')
+  })
+  it('รายชื่อผู้ออกเยี่ยม = ทีม + ที่เพิ่ม − ที่ซ่อน', () => {
+    expect(visitorRoster(['ก', 'ข'], [{ name: 'ค' }, { name: 'ข', hide: true }, { name: 'ง', deleted: true }, { name: 'ก' }])).toEqual(['ก', 'ค'])
   })
 })

@@ -1,5 +1,5 @@
 import { addDays, dow, weekStart } from './money'
-import type { Visit } from './types'
+import type { Visit, VisitorName } from './types'
 
 export const DAY_NAMES = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
 /** ชนิดของวันในตารางเยี่ยม: อาทิตย์ = นมัสการ · จันทร์ = วันหยุด (ขึ้นอัตโนมัติ) · อังคาร–เสาร์ = วันเยี่ยม */
@@ -16,4 +16,11 @@ export const joinVisitors = (xs: string[]): string => [...new Set(xs.map((x) => 
 /** จำนวนครั้งที่เยี่ยม · จำนวนคนที่ได้รับการเยี่ยม (นับคนละครั้ง) · ผู้เยี่ยมที่ลงชื่อ */
 export function weekStats(visits: Visit[]) {
   return { count: visits.length, people: new Set(visits.map((v) => v.memberId)).size, visitors: [...new Set(visits.flatMap((v) => splitVisitors(v.visitor)))] }
+}
+
+/** รายชื่อผู้ออกเยี่ยมที่ให้เลือก: ทีมงานอภิบาล + ที่เพิ่มเอง − ที่ซ่อนไว้ (ไม่ซ้ำ เรียงตามที่เพิ่ม) */
+export function visitorRoster(team: string[], items: Pick<VisitorName, 'name' | 'hide' | 'deleted'>[]): string[] {
+  const live = items.filter((x) => !x.deleted)
+  const hidden = new Set(live.filter((x) => x.hide).map((x) => x.name))
+  return [...new Set([...team, ...live.filter((x) => !x.hide).map((x) => x.name)].map((n) => n.trim()).filter(Boolean))].filter((n) => !hidden.has(n))
 }

@@ -400,6 +400,8 @@ export interface TeamMember { role: string; name: string }
 export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
 
 // ---------- ตารางเยี่ยม (งานอภิบาล) ----------
+/** รายชื่อผู้ออกเยี่ยมที่เพิ่มเอง (hide = ซ่อนชื่อที่มาจากทีมงานอภิบาล) */
+export interface VisitorName extends SharedItem { name: string; hide?: boolean }
 /** บันทึกการเยี่ยม 1 ครั้ง: วันที่ · สมาชิกที่เยี่ยม · เหตุผล/หมายเหตุ · ผู้เยี่ยม (ลงชื่อ) */
 export interface Visit extends SharedItem { date: string; memberId: string; memberName: string; reason: string; detail?: string; visitor: string; /** รูปการเยี่ยม 1–2 รูป (ที่อยู่ในที่เก็บข้อมูล) */ photos?: string[] }
 

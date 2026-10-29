@@ -166,25 +166,6 @@ export function genderByStatus(members: { status?: string; gender?: string }[]):
   return [...m].map(([label, c]) => ({ label, rank: statusRank(label), ...c })).sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'th'))
 }
 
-/** ช่วงดูย้อนหลัง (เดือน) ของแถบเปอร์เซ็นต์การมานมัสการในตารางเยี่ยม */
-export const WINDOW_MONTHS = [1, 2, 3]
-export interface WindowPct { months: number; came: number; of: number; pct: number }
-/**
- * % การมานมัสการของแต่ละคนใน 1 / 2 / 3 เดือนล่าสุด = จำนวนครั้งที่มา ÷ จำนวนครั้งที่มีการลงชื่อนมัสการในช่วงนั้น (1 เดือน = 30 วัน)
- * ไม่มีการลงชื่อในช่วงนั้นเลย → of = 0, pct = 0
- */
-export function windowPct(attendance: { date: string; ids: string[]; deleted?: boolean }[], today: string): (id: string) => WindowPct[] {
-  const live = attendance.filter((a) => !a.deleted && a.ids.length > 0 && a.date <= today)
-  const sets = new Map<string, Set<string>>()
-  for (const a of live) for (const id of a.ids) (sets.get(id) ?? sets.set(id, new Set()).get(id)!).add(a.date)
-  const dates = [...new Set(live.map((a) => a.date))]
-  return (id) => WINDOW_MONTHS.map((months) => {
-    const inWin = dates.filter((d) => diffDays(today, d) < months * 30)
-    const mine = sets.get(id)
-    const came = inWin.filter((d) => mine?.has(d)).length
-    return { months, came, of: inWin.length, pct: inWin.length ? came / inWin.length : 0 }
-  })
-}
 /** ขาดนมัสการกี่เดือน (30 วัน = 1 เดือน) · ไม่เคยมีบันทึก = null */
 export const absentMonths = (last: string | undefined, today: string): number | null => (last ? Math.floor(diffDays(today, last) / 30) : null)
 /**
@@ -198,3 +179,6 @@ export function visitCandidates<T extends { id: string; name: string; nick?: str
     .filter((m) => isLive(m) && (!opt.status || statusLabel(m.status) === opt.status) && (needle ? `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(needle) : (mo(m) ?? 99) >= 1))
     .sort((a, b) => (mo(a) ?? 1e9) - (mo(b) ?? 1e9) || a.name.localeCompare(b.name, 'th'))
 }
+
+/** ความยาวแถบสีแดงของคนที่ขาด: 1 เดือนสั้น → ยาวขึ้นตามเดือนที่ขาด เต็มแถบที่ 12 เดือนขึ้นไป (ไม่เคยมีบันทึก = เต็ม) */
+export const absenceBar = (months: number | null): number => (months === null ? 1 : Math.min(1, Math.max(0, months) / 12))

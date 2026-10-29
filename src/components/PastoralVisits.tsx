@@ -3,16 +3,16 @@ import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import { canRole, canWork } from '../lib/access'
-import { useAttendance, useChurchMembers, useSettings, useVisits, useWorkTeams } from '../lib/data'
+import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
-import { absentMonths, visitCandidates, visitStats, windowPct, type WindowPct } from '../lib/pastoral'
+import { absenceBar, absentMonths, visitCandidates, visitStats } from '../lib/pastoral'
 import { addDays, fmtDate, newId, todayISO } from '../lib/money'
 import MemberAvatar from './MemberAvatar'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { OFFICIAL_STATUSES, statusShort, toAttendance } from '../lib/registry'
-import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors } from '../lib/visits'
+import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
 const KEY = 'acct.visit.by'
@@ -35,7 +35,6 @@ export default function PastoralVisits() {
   const today = todayISO()
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, today), [att, today])
-  const win = useMemo(() => windowPct(att, today), [att, today])
   const thisSunday = sundayOf(today)
   const [sunday, setSunday] = useState(thisSunday)
   const [mode, setMode] = useState<'cards' | 'report'>('cards')
@@ -94,7 +93,7 @@ export default function PastoralVisits() {
         <VisitReport church={settings.churchName.split(' ')[0]} sunday={sunday} visits={wk} />
       )}
       {form && (
-        <VisitForm date={form.date} entry={form.entry} team={team.map((t) => t.name).filter(Boolean)} members={people.items} stats={stats} win={win} today={today}
+        <VisitForm date={form.date} entry={form.entry} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
           onClose={() => setForm(null)}
           onSave={(v) => { visits.put([v]); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); (form.entry!.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); setForm(null) } } : undefined} />
@@ -103,18 +102,35 @@ export default function PastoralVisits() {
   )
 }
 
-function VisitForm({ date, entry, team, members, stats, win, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; win: (id: string) => WindowPct[]; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+function VisitForm({ date, entry, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : null)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [reason, setReason] = useState(entry?.reason ?? '')
   const [detail, setDetail] = useState(entry?.detail ?? '')
+  const names = useVisitorNames()
   const initBy = splitVisitors(entry?.visitor ?? lastBy)
-  const [picked, setPicked] = useState<string[]>(initBy.filter((n) => team.includes(n)))
-  const [byOther, setByOther] = useState(initBy.filter((n) => !team.includes(n)).join(', '))
-  const [otherOn, setOtherOn] = useState(initBy.some((n) => !team.includes(n)))
+  const roster = visitorRoster(team, names.items)
+  const [picked, setPicked] = useState<string[]>(initBy)
+  const [newName, setNewName] = useState('')
+  const [editNames, setEditNames] = useState(false)
   const toggle = (n: string) => setPicked((xs) => (xs.includes(n) ? xs.filter((x) => x !== n) : [...xs, n]))
+  // ชื่อที่เลือกไว้แต่ไม่อยู่ในรายชื่อแล้ว (เช่น บันทึกเก่า) ยังแสดงให้เห็น เพื่อไม่ให้หายตอนแก้ไข
+  const chips = [...roster, ...picked.filter((n) => !roster.includes(n))]
+  const addName = () => {
+    const n = newName.trim().replace(/,/g, ' ')
+    if (!n) return
+    const hid = names.items.find((x) => x.hide && x.name === n)
+    if (hid) names.remove(hid.id)
+    if (!roster.includes(n) && !names.items.some((x) => !x.hide && x.name === n) && !(team.includes(n) && hid)) names.put([{ id: newId('vn'), name: n, updated: 0 }])
+    setPicked((xs) => (xs.includes(n) ? xs : [...xs, n])); setNewName('')
+  }
+  const dropName = (n: string) => {
+    for (const x of names.items.filter((y) => !y.hide && y.name === n)) names.remove(x.id)
+    if (team.includes(n)) names.put([{ id: `hide-${n}`, name: n, hide: true, updated: 0 }])
+    setPicked((xs) => xs.filter((x) => x !== n))
+  }
   const [err, setErr] = useState('')
   const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
   const [busy, setBusy] = useState(false)
@@ -132,7 +148,7 @@ function VisitForm({ date, entry, team, members, stats, win, today, onClose, onS
   const pick = (m: ChurchMember, label: string) => { setMember({ id: m.id, name: m.name }); if (!reason.trim() && label) setReason(label) }
   const monthsText = (n: number | null) => (n === null ? 'ไม่เคยมีบันทึกการมา' : n < 1 ? 'มาภายใน 1 เดือน' : n >= 12 ? `ขาด ${Math.floor(n / 12)} ปี${n % 12 ? ` ${n % 12} เดือน` : ''}` : `ขาด ${n} เดือน`)
   const save = () => {
-    const visitor = joinVisitors([...picked, ...(otherOn ? splitVisitors(byOther) : [])])
+    const visitor = joinVisitors(picked)
     if (!member) return setErr('เลือกสมาชิกที่ไปเยี่ยม')
     if (!visitor) return setErr('ลงชื่อผู้ออกเยี่ยมอย่างน้อย 1 คน')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
@@ -144,12 +160,22 @@ function VisitForm({ date, entry, team, members, stats, win, today, onClose, onS
   }
   return (
     <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
-      <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}><legend>ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน){picked.length + (otherOn && byOther.trim() ? 1 : 0) > 0 ? ` · เลือกแล้ว ${picked.length + (otherOn ? splitVisitors(byOther).length : 0)} คน` : ''}</legend>
+      <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}><legend>ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน){picked.length > 0 ? ` · เลือกแล้ว ${picked.length} คน` : ''}</legend>
         <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-          {team.map((t) => <button key={t} type="button" className={`chip${picked.includes(t) ? ' on' : ''}`} aria-pressed={picked.includes(t)} onClick={() => toggle(t)}>{picked.includes(t) ? '✓ ' : ''}{t}</button>)}
-          <button type="button" className={`chip${otherOn ? ' on' : ''}`} aria-pressed={otherOn} onClick={() => setOtherOn((v) => !v)}>{otherOn ? '✓ ' : ''}อื่น ๆ (พิมพ์ชื่อ)</button>
+          {chips.map((t) => (
+            <span key={t} className="chipwrap">
+              <button type="button" className={`chip${picked.includes(t) ? ' on' : ''}`} aria-pressed={picked.includes(t)} onClick={() => toggle(t)}>{picked.includes(t) ? '✓ ' : ''}{t}</button>
+              {editNames && writeNames && <button type="button" className="chip__x" aria-label={`ลบ ${t} ออกจากรายชื่อ`} onClick={() => dropName(t)}>✕</button>}
+            </span>
+          ))}
         </div>
-        {otherOn && <input aria-label="ชื่อผู้ออกเยี่ยมอื่น ๆ" className="input" value={byOther} onChange={(e) => setByOther(e.target.value)} placeholder="พิมพ์ชื่อ (หลายคนคั่นด้วยจุลภาค ,)" />}</fieldset>
+        {writeNames && (
+          <div className="pvadd2">
+            <input aria-label="เพิ่มชื่อผู้ออกเยี่ยม" className="input" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addName() } }} placeholder="พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)" />
+            <button type="button" className="btn btn--gold" onClick={addName} disabled={!newName.trim()}>＋ เพิ่ม</button>
+            <button type="button" className={`mini${editNames ? ' on' : ''}`} aria-pressed={editNames} onClick={() => setEditNames((v) => !v)}>{editNames ? 'เสร็จ' : '✏️ ลบชื่อ'}</button>
+          </div>
+        )}</fieldset>
       <div className="field"><label htmlFor="pv-q">① เลือกสมาชิกที่ไปเยี่ยม{member ? ` · เลือกแล้ว: ${member.name}` : ''}</label>
         <div className="pvfind">
           <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
@@ -160,12 +186,13 @@ function VisitForm({ date, entry, team, members, stats, win, today, onClose, onS
         </div></div>
       <div className="field"><span className="pvhint">② {q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status ? ` · ${statusShort(status)}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
         <ul className="pvpick" aria-label="รายชื่อสมาชิก">
-          {list.map((m) => { const mo = absentMonths(stats.get(m.id)?.last, today); const w = win(m.id); return (
-            <li key={m.id}><button type="button" className={`pvpick__r${member?.id === m.id ? ' on' : ''}`} aria-pressed={member?.id === m.id} onClick={() => pick(m, mo === null || mo >= 1 ? monthsText(mo) : '')}>
-              <span className="pvpick__who"><span><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}<br /><small className="muted">{statusShort(m.status)}</small></span>
-                <b className={mo === null || mo >= 1 ? 'pvpick__abs' : 'pvpick__ok'}>{monthsText(mo)}</b></span>
-              <span className="pvbars" aria-label={`การมานมัสการของ ${m.name}`}>
-                {w.map((x) => <span key={x.months} className="pvbar" title={`${x.months} เดือนล่าสุด มา ${x.came}/${x.of} ครั้ง`}><small>{x.months} เดือน</small><span className="pvbar__t"><span className="pvbar__f" style={{ width: `${Math.round(x.pct * 100)}%` }} /></span><small className="pvbar__p">{x.of ? `${Math.round(x.pct * 100)}%` : '–'}</small></span>)}
+          {list.map((m) => { const mo = absentMonths(stats.get(m.id)?.last, today); const absent = mo === null || mo >= 1; return (
+            <li key={m.id}><button type="button" className={`pvpick__r${member?.id === m.id ? ' on' : ''}`} aria-pressed={member?.id === m.id} onClick={() => pick(m, absent ? monthsText(mo) : '')}>
+              <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+              <span className="pvpick__body">
+                <span className="pvpick__who"><span><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''} <small className="muted">{statusShort(m.status)}</small></span>
+                  <b className={absent ? 'pvpick__abs' : 'pvpick__ok'}>{monthsText(mo)}</b></span>
+                {absent && <span className="pvabs" role="img" aria-label={`ขาดนมัสการ ${mo ?? 'ไม่ทราบ'} เดือน`}><span className="pvabs__f" style={{ width: `${Math.round(absenceBar(mo) * 100)}%` }} /></span>}
               </span>
             </button></li>
           ) })}

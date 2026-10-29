@@ -1200,14 +1200,16 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pvfind #pv-st { flex: 0 0 42% }
 .pvhint { font-weight: 700; display: block }
 .pvpick { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 22rem; overflow: auto; border: 1px solid var(--line); border-radius: 0.6rem }
-.pvpick__r { all: unset; box-sizing: border-box; width: 100%; display: grid; gap: 0.35rem; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); cursor: pointer }
+.pvpick__r { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); cursor: pointer }
 .pvpick__r.on { background: rgba(201, 154, 20, 0.2) }
 .pvpick__who { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem }
 .pvpick__abs { color: #c0261b; font-size: 0.85rem; flex: none }
 .pvpick__ok { color: var(--good, #1a7f37); font-size: 0.85rem; flex: none }
-.pvbars { display: grid; gap: 0.2rem }
-.pvbar { display: grid; grid-template-columns: 3.6rem 1fr 2.6rem; align-items: center; gap: 0.4rem }
-.pvbar small { font-size: 0.78rem; color: var(--muted, #5b6478) }
-.pvbar__p { text-align: right }
-.pvbar__t { height: 0.6rem; border-radius: 999px; background: rgba(26, 43, 76, 0.12); overflow: hidden }
-.pvbar__f { display: block; height: 100%; background: var(--navy, #1a2b4c); border-radius: 999px }
+.pvpick__body { flex: 1; min-width: 0; display: grid; gap: 0.25rem }
+.pvabs { height: 0.55rem; border-radius: 999px; background: rgba(192, 38, 27, 0.12); overflow: hidden }
+.pvabs__f { display: block; height: 100%; background: #c0261b; border-radius: 999px }
+.chipwrap { display: inline-flex; align-items: center; gap: 2px }
+.chip__x { all: unset; cursor: pointer; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: #c0261b; color: #fff; font-size: 0.85rem }
+.pvadd2 { display: flex; gap: 0.4rem; margin-top: 0.4rem; align-items: center; flex-wrap: wrap }
+.pvadd2 .input { flex: 1 1 10rem; min-width: 0; margin: 0 }
+.pvadd2 .mini.on { background: var(--navy, #1a2b4c); color: #fff }

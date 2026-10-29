@@ -33,9 +33,18 @@ try {
   must(/เลือกสมาชิกที่ไปเยี่ยม/.test(await dlg.innerText()), 'member required')
   // โซน 1: ค้นหา + สถานะแถวเดียว · โซน 2: รายชื่อที่ขาด ≥ 1 เดือน (ไม่มีบันทึกการมาเลย = ขึ้นให้) พร้อมแถบ % 1/2/3 เดือน
   const pick = dlg.getByRole('list', { name: 'รายชื่อสมาชิก' })
-  must(await pick.getByRole('button').count() === 6 && await pick.locator('.pvbar').count() === 18, 'zone 2 lists all six (never recorded) with 3 bars each')
+  must(await pick.getByRole('button').count() === 6 && await pick.locator('.pvabs').count() === 6, 'zone 2 lists all six (never recorded) with ONE red bar each')
   must(/ไม่เคยมีบันทึกการมา/.test(await pick.innerText()), 'never-recorded label')
   await page.waitForTimeout(600)
+  // รายชื่อผู้ออกเยี่ยม: เพิ่มชื่อใหม่ครั้งเดียว → เป็นปุ่มเลือกถาวร · ลบได้ ไม่ต้องพิมพ์ซ้ำ
+  await dlg.getByLabel('เพิ่มชื่อผู้ออกเยี่ยม').fill('อ.ใหม่'); await dlg.getByRole('button', { name: '＋ เพิ่ม' }).click()
+  must(await dlg.getByRole('button', { name: /อ.ใหม่/ }).count() === 1 && /เลือกแล้ว 1 คน/.test(await dlg.innerText()), 'added name appears as a chip and is selected')
+  await dlg.getByRole('button', { name: '✏️ ลบชื่อ' }).click()
+  await dlg.getByRole('button', { name: 'ลบ คศ.พิชิต ออกจากรายชื่อ' }).click()
+  must(await dlg.getByRole('button', { name: /^(✓ )?คศ.พิชิต$/ }).count() === 0, 'removed team name disappears from the chips')
+  await dlg.getByRole('button', { name: 'เสร็จ' }).click()
+  await dlg.getByLabel('เพิ่มชื่อผู้ออกเยี่ยม').fill('คศ.พิชิต'); await dlg.getByRole('button', { name: '＋ เพิ่ม' }).click() // เพิ่มกลับ (เลือกให้ด้วย)
+  await dlg.getByRole('button', { name: /อ.ใหม่/ }).click(); await dlg.getByRole('button', { name: /คศ.พิชิต/ }).click() // ยกเลิกที่เลือกทั้งหมด (ชื่อยังอยู่ในรายชื่อ)
   const yq = await dlg.locator('#pv-q').boundingBox(), ys = await dlg.locator('#pv-st').boundingBox()
   must(Math.abs(yq.y - ys.y) < 4 && ys.x > yq.x, 'search and status select share one row ' + JSON.stringify([yq, ys]))
   await dlg.locator('#pv-st').selectOption({ label: statusShortOf('3.สมาชิกสำรอง') })
@@ -63,6 +72,7 @@ try {
   must(/เยี่ยมแล้ว 1 ครั้ง · 1 คน/.test(await page.locator('.pvisits p[role=status]').innerText()), 'week count')
   // เยี่ยมคนเดิมอีกวัน โดย คศ.พิชิต (ผู้เยี่ยมจำค่าล่าสุดไว้ แต่เปลี่ยนได้)
   await days.nth(3).getByRole('button', { name: /บันทึกการเยี่ยม/ }).click()
+  must(await page.getByRole('dialog').getByRole('button', { name: /อ.ใหม่/ }).count() === 1, 'added visitor name persists as a chip next time')
   await page.getByRole('dialog').locator('#pv-q').fill('ช1')
   await page.getByRole('dialog').getByRole('button', { name: /ทดสอบ1 สมมติ/ }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'คศ.กฤต' }).click() // ค่าล่าสุด (กฤต, พิชิต) จำไว้ · เอากฤตออก เหลือพิชิต
