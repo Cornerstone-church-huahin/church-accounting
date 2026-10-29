@@ -12,10 +12,9 @@ import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { statusShort, toAttendance } from '../lib/registry'
-import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats } from '../lib/visits'
+import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
-const OTHER = '__other'
 const KEY = 'acct.visit.by'
 const fmtDay = (iso: string) => fmtDate(iso).replace(/ \d+$/, '')
 const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays(sun, 6))}`
@@ -77,7 +76,7 @@ export default function PastoralVisits() {
                           <span className="pvvisit__txt">
                             <b>{x.memberName}</b>
                             <span className="small">{x.reason || '—'}</span>
-                            <span className="small muted">ผู้เยี่ยม {x.visitor}</span>
+                            <span className="small muted">ผู้ออกเยี่ยม {x.visitor}</span>
                           </span>
                         </button>
                       ))}
@@ -108,10 +107,11 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
   const [q, setQ] = useState('')
   const [reason, setReason] = useState(entry?.reason ?? '')
   const [detail, setDetail] = useState(entry?.detail ?? '')
-  const inTeam = (n: string) => team.includes(n)
-  const initBy = entry?.visitor ?? lastBy
-  const [by, setBy] = useState(initBy ? (inTeam(initBy) ? initBy : OTHER) : '')
-  const [byOther, setByOther] = useState(initBy && !inTeam(initBy) ? initBy : '')
+  const initBy = splitVisitors(entry?.visitor ?? lastBy)
+  const [picked, setPicked] = useState<string[]>(initBy.filter((n) => team.includes(n)))
+  const [byOther, setByOther] = useState(initBy.filter((n) => !team.includes(n)).join(', '))
+  const [otherOn, setOtherOn] = useState(initBy.some((n) => !team.includes(n)))
+  const toggle = (n: string) => setPicked((xs) => (xs.includes(n) ? xs.filter((x) => x !== n) : [...xs, n]))
   const [err, setErr] = useState('')
   const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
   const [busy, setBusy] = useState(false)
@@ -134,9 +134,9 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
   }, [members, q, stats, today])
   const pick = (m: ChurchMember, label: string) => { setMember({ id: m.id, name: m.name }); if (!reason.trim() && label) setReason(label) }
   const save = () => {
-    const visitor = (by === OTHER ? byOther : by).trim()
+    const visitor = joinVisitors([...picked, ...(otherOn ? splitVisitors(byOther) : [])])
     if (!member) return setErr('เลือกสมาชิกที่ไปเยี่ยม')
-    if (!visitor) return setErr('ลงชื่อผู้เยี่ยม')
+    if (!visitor) return setErr('ลงชื่อผู้ออกเยี่ยมอย่างน้อย 1 คน')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     saved.current = true
@@ -146,13 +146,12 @@ function VisitForm({ date, entry, team, members, stats, today, onClose, onSave, 
   }
   return (
     <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
-      <div className="field"><label htmlFor="pv-by">ผู้เยี่ยม (ลงชื่อ)</label>
-        <select id="pv-by" className="input" value={by} onChange={(e) => setBy(e.target.value)}>
-          <option value="">— เลือกผู้เยี่ยม —</option>
-          {team.map((t) => <option key={t} value={t}>{t}</option>)}
-          <option value={OTHER}>อื่น ๆ (พิมพ์ชื่อ)</option>
-        </select>
-        {by === OTHER && <input aria-label="ชื่อผู้เยี่ยม" className="input" value={byOther} onChange={(e) => setByOther(e.target.value)} placeholder="ชื่อผู้เยี่ยม" />}</div>
+      <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}><legend>ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน){picked.length + (otherOn && byOther.trim() ? 1 : 0) > 0 ? ` · เลือกแล้ว ${picked.length + (otherOn ? splitVisitors(byOther).length : 0)} คน` : ''}</legend>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          {team.map((t) => <button key={t} type="button" className={`chip${picked.includes(t) ? ' on' : ''}`} aria-pressed={picked.includes(t)} onClick={() => toggle(t)}>{picked.includes(t) ? '✓ ' : ''}{t}</button>)}
+          <button type="button" className={`chip${otherOn ? ' on' : ''}`} aria-pressed={otherOn} onClick={() => setOtherOn((v) => !v)}>{otherOn ? '✓ ' : ''}อื่น ๆ (พิมพ์ชื่อ)</button>
+        </div>
+        {otherOn && <input aria-label="ชื่อผู้ออกเยี่ยมอื่น ๆ" className="input" value={byOther} onChange={(e) => setByOther(e.target.value)} placeholder="พิมพ์ชื่อ (หลายคนคั่นด้วยจุลภาค ,)" />}</fieldset>
       <div className="field"><label htmlFor="pv-q">สมาชิกที่ไปเยี่ยม{member ? ` · เลือกแล้ว: ${member.name}` : ''}</label>
         <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
         <ul className="pvpick" aria-label="รายชื่อสมาชิก">
@@ -209,7 +208,7 @@ function VisitReport({ church, sunday, visits }: { church: string; sunday: strin
           <>
             <PaperHead church={church} title="รายงานการเยี่ยมประจำสัปดาห์ · งานอภิบาล" sub={`สัปดาห์ ${rangeText(sunday)}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, marginTop: 8 }}>
-              <thead><tr style={{ background: '#eef1f8' }}>{['ที่', 'วัน/วันที่', 'ผู้ที่ไปเยี่ยม', 'เหตุผล / หมายเหตุ', 'ผู้เยี่ยม'].map((h) => <th key={h} style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ background: '#eef1f8' }}>{['ที่', 'วัน/วันที่', 'ผู้ที่ไปเยี่ยม', 'เหตุผล / หมายเหตุ', 'ผู้ออกเยี่ยม'].map((h) => <th key={h} style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{h}</th>)}</tr></thead>
               <tbody>
                 {pr.map((v, i) => (
                   <tr key={v.id}>
@@ -227,7 +226,7 @@ function VisitReport({ church, sunday, visits }: { church: string; sunday: strin
               <>
                 <p style={{ fontSize: 15, margin: '10px 0 0' }}>รวมเยี่ยม <b>{st.count}</b> ครั้ง · <b>{st.people}</b> คน</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '22px 40px', marginTop: 26, fontSize: 14 }}>
-                  {(st.visitors.length ? st.visitors : ['………………………']).map((n) => <div key={n} style={{ textAlign: 'center', minWidth: 190 }}>ลงชื่อ ……………………………<br />({n})<br />ผู้เยี่ยม</div>)}
+                  {(st.visitors.length ? st.visitors : ['………………………']).map((n) => <div key={n} style={{ textAlign: 'center', minWidth: 190 }}>ลงชื่อ ……………………………<br />({n})<br />ผู้ออกเยี่ยม</div>)}
                 </div>
               </>
             )}
