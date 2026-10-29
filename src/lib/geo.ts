@@ -31,3 +31,16 @@ export const formatCoord = (c: Coord) => `${c.lat.toFixed(6)}, ${c.lng.toFixed(6
 export const hasCoord = (m: { lat?: number; lng?: number }): m is { lat: number; lng: number } => typeof m.lat === 'number' && typeof m.lng === 'number' && valid(m.lat, m.lng)
 /** ลิงก์เปิดพิกัดใน Google Maps */
 export const mapsLink = (c: Coord) => `https://www.google.com/maps?q=${c.lat},${c.lng}`
+
+/** ระยะห่างระหว่างสองพิกัด (เมตร) — สูตร haversine */
+export function distanceM(a: Coord, b: Coord): number {
+  const r = (d: number) => (d * Math.PI) / 180
+  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2
+  return Math.round(2 * 6371000 * Math.asin(Math.sqrt(h)))
+}
+/** ผลการเช็คอินจะบันทึกเป็นพิกัดบ้านอย่างไร: ยังไม่มีพิกัด → set · ต่างจากเดิมเกิน 100 ม. → ask (ถามก่อนทับ) · ใกล้เคียงเดิม → keep */
+export function homeFromCheckin(cur: { lat?: number; lng?: number }, at: Coord): { action: 'set' | 'ask' | 'keep'; meters?: number } {
+  if (!hasCoord(cur)) return { action: 'set' }
+  const meters = distanceM({ lat: cur.lat, lng: cur.lng }, at)
+  return meters > 100 ? { action: 'ask', meters } : { action: 'keep', meters }
+}

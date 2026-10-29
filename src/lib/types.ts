@@ -403,7 +403,7 @@ export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่มเอง (hide = ซ่อนชื่อที่มาจากทีมงานอภิบาล) */
 export interface VisitorName extends SharedItem { name: string; hide?: boolean }
 /** บันทึกการเยี่ยม 1 ครั้ง: วันที่ · สมาชิกที่เยี่ยม · เหตุผล/หมายเหตุ · ผู้เยี่ยม (ลงชื่อ) */
-export interface Visit extends SharedItem { date: string; memberId: string; memberName: string; reason: string; detail?: string; visitor: string; /** รูปการเยี่ยม 1–2 รูป (ที่อยู่ในที่เก็บข้อมูล) */ photos?: string[] }
+export interface Visit extends SharedItem { date: string; memberId: string; memberName: string; reason: string; detail?: string; visitor: string; /** รูปการเยี่ยม 1–2 รูป (ที่อยู่ในที่เก็บข้อมูล) */ photos?: string[]; /** เช็คอินตำแหน่งที่บ้านตอนเยี่ยม (บังคับกับการเยี่ยมใหม่) · acc = ความคลาดเคลื่อน (เมตร) */ checkin?: { lat: number; lng: number; acc?: number; at: number } }
 
 // ---------- งานโรงครัว › ตารางถวายอาหาร ----------
 /** ผู้ถวายอาหารของวันอาทิตย์หนึ่ง: date = วันอาทิตย์ (ISO) · id = food-{date} (วันละหนึ่งรายการ) */
