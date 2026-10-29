@@ -21,8 +21,8 @@ import type { ChurchMember, Visit } from '../lib/types'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 const KEY = 'acct.visit.by'
-const fmtDay = (iso: string) => fmtDate(iso).replace(/ \d+$/, '')
-const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays(sun, 6))}`
+export const fmtDay = (iso: string) => fmtDate(iso).replace(/ \d+$/, '')
+export const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays(sun, 6))}`
 
 /**
  * งานอภิบาล › ตารางเยี่ยม: การ์ด 7 วันของสัปดาห์ (เริ่มวันอาทิตย์) · อาทิตย์ = นมัสการ · จันทร์ = วันหยุด (อัตโนมัติ)
@@ -255,7 +255,7 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
 
 const ROWS = 18
 /** รายงานการเยี่ยมประจำสัปดาห์ (A4) — ย้อนดูสัปดาห์ก่อนได้ด้วยลูกศรด้านบน · ดาวน์โหลด/แชร์ PDF */
-function VisitReport({ church, sunday, visits }: { church: string; sunday: string; visits: Visit[] }) {
+export function VisitReport({ church, sunday, visits }: { church: string; sunday: string; visits: Visit[] }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const [busy, setBusy] = useState(false)
   const st = weekStats(visits)
