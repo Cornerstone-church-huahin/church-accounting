@@ -71,7 +71,7 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
   const navigate = useNavigate()
   return (
     <>
-      <div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ ลำดับงาน</Link></div>
+      <div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ สร้างเอกสาร</Link></div>
       <p className="muted" style={{ margin: '0 0 0.7rem' }}>{CENTER_SUB}</p>
       {c.denied && <p className="error" role="alert">ไม่มีสิทธิ์บันทึกข้อมูลการประชุม</p>}
       <section className="card" aria-label="จัดการการประชุม">
@@ -137,7 +137,7 @@ function Hub({ c, canSetup }: { c: Cur; canSetup: boolean }) {
 
 function Step({ n, c }: { n: number; c: Cur }) {
   const s = stepOf(n)
-  if (!s) return <><div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ ลำดับงาน</Link></div><p className="empty">ไม่พบขั้นตอนนี้</p><Link to={HUB} className="btn">กลับศูนย์จัดการประชุม</Link></>
+  if (!s) return <><div className="page-head no-print"><h1>{CENTER_TITLE}</h1><Link to={BASE} className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบขั้นตอนนี้</p><Link to={HUB} className="btn">กลับศูนย์จัดการประชุม</Link></>
   const prev = stepOf(n - 1), next = stepOf(n + 1)
   const working = n >= 1 && n <= 10
   const props = c.cur ? { m: c.cur, save: c.save, list: c.list } : undefined

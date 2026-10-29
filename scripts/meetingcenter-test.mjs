@@ -18,7 +18,7 @@ try {
   // เปิดจาก งานเลขา › การประชุม
   await page.goto(`http://localhost:${PORT}/#/meeting/1`)
   await page.getByRole('navigation', { name: 'หมวดงานเลขา', exact: true }).getByRole('link').first().click()
-  await page.getByRole('heading', { name: 'ลำดับงาน', level: 1 }).waitFor({ timeout: 8000 })
+  await page.getByRole('heading', { name: 'สร้างเอกสาร', level: 1 }).waitFor({ timeout: 8000 })
   must(await page.locator('#wf-pick option').count() === 3 && await page.getByRole('link', { name: /^เปิด/ }).count() === 2 && await page.getByRole('link', { name: /^เปิด เก็บเอกสาร/ }).count() === 0, 'workflow page lists the two cards (no separate file-storage card), picker has an option for each')
   await page.locator('#wf-pick').selectOption({ label: '✉️ หนังสือเชิญร่วมงาน' })
   must(await page.getByRole('link', { name: /^เปิด/ }).count() === 1, 'picking a card shows only that card')
@@ -197,7 +197,7 @@ try {
   await page.getByRole('link', { name: /ขั้นตอนถัดไป/ }).click(); await page.getByRole('heading', { name: '5. เริ่มประชุม', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: /ขั้นตอนก่อนหน้า/ }).click(); await page.getByRole('heading', { name: '4. เตรียมเอกสาร / พิมพ์', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: 'กลับศูนย์จัดการประชุม', exact: true }).click(); await page.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 5000 })
-  await page.getByRole('link', { name: '‹ ลำดับงาน' }).click(); await page.getByRole('heading', { name: /ลำดับงาน/, level: 1 }).waitFor({ timeout: 5000 })
+  await page.getByRole('link', { name: '‹ สร้างเอกสาร' }).click(); await page.getByRole('heading', { name: /สร้างเอกสาร/, level: 1 }).waitFor({ timeout: 5000 })
   // การ์ดต่อการประชุม + เช็คลิสต์ 10 ขั้น
   await wp.goto(U)
   const card0 = wp.locator('.mcard').first(); await card0.waitFor({ timeout: 8000 })
