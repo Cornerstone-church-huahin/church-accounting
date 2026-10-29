@@ -165,3 +165,36 @@ export function genderByStatus(members: { status?: string; gender?: string }[]):
   for (const x of members) { const l = statusLabel(x.status), c = m.get(l) ?? { ชาย: 0, หญิง: 0, ไม่ระบุ: 0 }; c[x.gender === 'ชาย' ? 'ชาย' : x.gender === 'หญิง' ? 'หญิง' : 'ไม่ระบุ']++; m.set(l, c) }
   return [...m].map(([label, c]) => ({ label, rank: statusRank(label), ...c })).sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'th'))
 }
+
+/** ช่วงดูย้อนหลัง (เดือน) ของแถบเปอร์เซ็นต์การมานมัสการในตารางเยี่ยม */
+export const WINDOW_MONTHS = [1, 2, 3]
+export interface WindowPct { months: number; came: number; of: number; pct: number }
+/**
+ * % การมานมัสการของแต่ละคนใน 1 / 2 / 3 เดือนล่าสุด = จำนวนครั้งที่มา ÷ จำนวนครั้งที่มีการลงชื่อนมัสการในช่วงนั้น (1 เดือน = 30 วัน)
+ * ไม่มีการลงชื่อในช่วงนั้นเลย → of = 0, pct = 0
+ */
+export function windowPct(attendance: { date: string; ids: string[]; deleted?: boolean }[], today: string): (id: string) => WindowPct[] {
+  const live = attendance.filter((a) => !a.deleted && a.ids.length > 0 && a.date <= today)
+  const sets = new Map<string, Set<string>>()
+  for (const a of live) for (const id of a.ids) (sets.get(id) ?? sets.set(id, new Set()).get(id)!).add(a.date)
+  const dates = [...new Set(live.map((a) => a.date))]
+  return (id) => WINDOW_MONTHS.map((months) => {
+    const inWin = dates.filter((d) => diffDays(today, d) < months * 30)
+    const mine = sets.get(id)
+    const came = inWin.filter((d) => mine?.has(d)).length
+    return { months, came, of: inWin.length, pct: inWin.length ? came / inWin.length : 0 }
+  })
+}
+/** ขาดนมัสการกี่เดือน (30 วัน = 1 เดือน) · ไม่เคยมีบันทึก = null */
+export const absentMonths = (last: string | undefined, today: string): number | null => (last ? Math.floor(diffDays(today, last) / 30) : null)
+/**
+ * รายชื่อให้เลือกในตารางเยี่ยม: กรองสถานะ (ว่าง = ทุกสถานะ) · ไม่พิมพ์ค้นหา → เฉพาะคนที่ขาดตั้งแต่ 1 เดือนขึ้นไป (รวมคนที่ไม่เคยมีบันทึก อยู่ท้าย)
+ * เรียงจากขาดน้อย → มาก (1 เดือน, 2 เดือน, 3 เดือน …) · พิมพ์ค้นหา → ค้นทุกคนที่ตรงชื่อ/ชื่อเล่น (ไม่จำกัดว่าขาดหรือไม่)
+ */
+export function visitCandidates<T extends { id: string; name: string; nick?: string; status?: string }>(members: T[], opt: { status: string; q: string }, stats: Map<string, VisitStat>, today: string): T[] {
+  const needle = opt.q.trim().toLowerCase()
+  const mo = (m: T) => absentMonths(stats.get(m.id)?.last, today)
+  return members
+    .filter((m) => isLive(m) && (!opt.status || statusLabel(m.status) === opt.status) && (needle ? `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(needle) : (mo(m) ?? 99) >= 1))
+    .sort((a, b) => (mo(a) ?? 1e9) - (mo(b) ?? 1e9) || a.name.localeCompare(b.name, 'th'))
+}
