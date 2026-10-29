@@ -450,7 +450,7 @@ export function InviteLetterList() {
   const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
-      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
+      <div className="page-head no-print"><h1>✉️ หนังสือเชิญร่วมงาน</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
       <section className="card" aria-label="ค้นหาหรือเพิ่มหนังสือ">
         <div className="row" style={{ gap: 6, alignItems: 'flex-end' }}>
           <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="il-q">🔎 ค้นหาหนังสือ (ชื่อ เรื่อง เลขที่)</label><input id="il-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์เพื่อค้นหา" /></div>

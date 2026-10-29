@@ -38,7 +38,7 @@ export function WorkflowMenu() {
   const remove = (x: FlowTicks) => { if (window.confirm(`ลบลำดับงาน “${x.title}” ?`)) setMsg(f.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
-      <div className="page-head no-print"><h1>📋 ลำดับงาน</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
+      <div className="page-head no-print"><h1>📋 สร้างเอกสาร</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
       <section className="card" aria-label="เลือกลำดับงาน">
         <div className="field" style={{ margin: 0 }}><label htmlFor="wf-pick">เลือกเรียกเฉพาะการ์ด</label>
           <select id="wf-pick" className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
@@ -112,7 +112,7 @@ export function FlowPage({ id }: { id: string }) {
   const lib = useDocLibrary(), cats = useDocCategories()
   const navigate = useNavigate()
   const x = f.flows.find((y) => y.id === id)
-  if (!x) return <><div className="page-head no-print"><h1>ลำดับงาน</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
+  if (!x) return <><div className="page-head no-print"><h1>สร้างเอกสาร</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
   const steps = [...x.steps, FILE_STEP]
   const done = steps.filter((s) => x.ticks.includes(s.id)).length
   const set = (next: string[]) => f.put([{ ...x, ticks: next, updated: Date.now() }])
@@ -128,7 +128,7 @@ export function FlowPage({ id }: { id: string }) {
   }
   return (
     <>
-      <div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/1" className="mini">‹ ลำดับงาน</Link></div>
+      <div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
       <section className="card mcard" aria-label={`ลำดับงาน${x.title}`}>
         <div className="mcard__head"><div><b>ลำดับสิ่งที่ต้องทำ</b><div className="small muted">ติ๊กเมื่อทำเสร็จแต่ละข้อ</div></div><span className="mcard__n" aria-label={`ทำแล้ว ${done} จาก ${steps.length} ข้อ`}>{done}/{steps.length}</span></div>
         <ol className="mcheck" aria-label={`เช็คลิสต์${x.title}`}>
