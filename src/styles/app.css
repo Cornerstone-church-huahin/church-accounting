@@ -1190,14 +1190,14 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .home--work .stepbtn small { font-size: clamp(0.58rem, 2.6vw, 0.7rem); line-height: 1.15; text-align: center; }
 
 /* ผู้ออกเยี่ยม: ปุ่มเลือกได้หลายคน */
-.chip { min-height: 44px; padding: 0.4rem 0.9rem; border-radius: 999px; border: 2px solid var(--line, #cfd6e6); background: var(--surface, #fff); color: var(--ink); font: inherit; cursor: pointer }
-.chip.on { background: var(--navy, #1a2b4c); border-color: var(--navy, #1a2b4c); color: #fff; font-weight: 700 }
 
 /* ตารางเยี่ยม: ค้นหา + เลือกสถานะแถวเดียว · รายชื่อ (ขาดตั้งแต่ 1 เดือน) พร้อมแถบ % การมา 1/2/3 เดือน */
 .pvfind { display: flex; gap: 0.5rem }
 .pvfind .input { min-width: 0; margin: 0; width: auto }
 .pvfind #pv-q { flex: 1 1 0 }
 .pvfind #pv-st { flex: 0 0 42% }
+.mpick__btn { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; text-align: left; cursor: pointer; font: inherit }
+.mpick__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0 }
 .pvhint { font-weight: 700; display: block }
 .pvpick { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 22rem; overflow: auto; border: 1px solid var(--line); border-radius: 0.6rem }
 .pvpick__r { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); cursor: pointer }
@@ -1208,8 +1208,16 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pvpick__body { flex: 1; min-width: 0; display: grid; gap: 0.25rem }
 .pvabs { height: 0.55rem; border-radius: 999px; background: rgba(192, 38, 27, 0.12); overflow: hidden }
 .pvabs__f { display: block; height: 100%; background: #c0261b; border-radius: 999px }
-.chipwrap { display: inline-flex; align-items: center; gap: 2px }
 .chip__x { all: unset; cursor: pointer; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: #c0261b; color: #fff; font-size: 0.85rem }
 .pvadd2 { display: flex; gap: 0.4rem; margin-top: 0.4rem; align-items: center; flex-wrap: wrap }
 .pvadd2 .input { flex: 1 1 10rem; min-width: 0; margin: 0 }
 .pvadd2 .mini.on { background: var(--navy, #1a2b4c); color: #fff }
+
+/* ป๊อปอัพเลือกได้หลายรายการ (สถานะ / ผู้ออกเยี่ยม) */
+.mpick { position: fixed; inset: 0; z-index: 90; background: rgba(10, 16, 30, 0.55); display: grid; place-items: center; padding: 1rem }
+.mpick__card { width: 100%; max-width: 26rem; max-height: 86dvh; overflow: auto; background: var(--surface, #fff); border-radius: 1.2rem; padding: 0.9rem; display: grid; gap: 0.6rem; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35) }
+.mpick__list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 0.7rem; overflow: hidden }
+.mpick__list li { display: flex; align-items: center; border-bottom: 1px solid var(--line); padding-right: 0.4rem }
+.mpick__list li:last-child { border-bottom: 0 }
+.mpick__row { flex: 1; display: flex; align-items: center; gap: 0.8rem; min-height: 3rem; padding: 0.3rem 0.8rem; cursor: pointer; font-size: 1.05rem }
+.mpick__row input { width: 1.5rem; height: 1.5rem; accent-color: var(--navy, #1a2b4c); flex: none }

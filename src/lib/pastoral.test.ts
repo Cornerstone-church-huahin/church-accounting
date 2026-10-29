@@ -117,11 +117,12 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
     { id: 'c', name: 'ซี', status: '3.สมาชิกสำรอง' }, { id: 'd', name: 'ดี', status: '6.ลาออก' },
   ]
   it('ไม่ค้นหา: เฉพาะคนที่ขาด ≥ 1 เดือน เรียงขาดน้อย→มาก ไม่เคยมีบันทึกอยู่ท้าย ไม่นับคนที่ลาออก', () => {
-    expect(visitCandidates(ms, { status: '', q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
-    expect(visitCandidates(ms, { status: '3.สมาชิกสำรอง', q: '' }, stats, T).map((m) => m.id)).toEqual(['c'])
+    expect(visitCandidates(ms, { status: [], q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
+    expect(visitCandidates(ms, { status: ['3.สมาชิกสำรอง'], q: '' }, stats, T).map((m) => m.id)).toEqual(['c'])
+    expect(visitCandidates(ms, { status: ['3.สมาชิกสำรอง', '1.สมบูรณ์ ( 1 )'], q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
   })
   it('พิมพ์ค้นหา: เห็นทุกคนที่ตรงชื่อ แม้ไม่ได้ขาด', () => {
-    expect(visitCandidates(ms, { status: '', q: 'เอ' }, stats, T).map((m) => m.id)).toEqual(['a'])
+    expect(visitCandidates(ms, { status: [], q: 'เอ' }, stats, T).map((m) => m.id)).toEqual(['a'])
   })
   it('เดือนที่ขาด', () => { expect(absentMonths('2026-08-30', T)).toBe(1); expect(absentMonths('2026-10-18', T)).toBe(0); expect(absentMonths(undefined, T)).toBeNull() })
   it('แถบสีแดงยาวขึ้นตามเดือนที่ขาด', () => { expect(absenceBar(1)).toBeCloseTo(1 / 12); expect(absenceBar(6)).toBe(0.5); expect(absenceBar(30)).toBe(1); expect(absenceBar(null)).toBe(1) })
