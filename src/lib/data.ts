@@ -108,8 +108,11 @@ export function useNotes() {
 export function useVisitorNames() {
   return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', write: 'detail' })
 }
-export function useVisits() {
-  const s = useSharedStore<Visit>({ localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', write: 'detail' })
+/** log = แท็บ “บันทึกการเยี่ยม” (งานอภิบาล แท็บ 3) เก็บแยกไฟล์จากแท็บ “ตารางเยี่ยม” เพื่อใช้งานจริงได้โดยไม่ปนกับแท็บที่จะปรับเป็นตารางวางแผน */
+export function useVisits(log = false) {
+  const s = useSharedStore<Visit>(log
+    ? { localKey: k('visit-log'), file: 'visit-log.json', label: 'บันทึกการเยี่ยม', write: 'detail' }
+    : { localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', write: 'detail' })
   return { ...s, list: [...s.items].filter((x) => !x.deleted).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated) }
 }
 
