@@ -1221,3 +1221,13 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .mpick__list li:last-child { border-bottom: 0 }
 .mpick__row { flex: 1; display: flex; align-items: center; gap: 0.8rem; min-height: 3rem; padding: 0.3rem 0.8rem; cursor: pointer; font-size: 1.05rem }
 .mpick__row input { width: 1.5rem; height: 1.5rem; accent-color: var(--navy, #1a2b4c); flex: none }
+
+/* กล้องถ่ายรูปเยี่ยมบ้าน (ในแอป) */
+.vcam { position: fixed; inset: 0; z-index: 95; background: rgba(0, 0, 0, 0.88); display: grid; place-items: center; padding: 0.6rem }
+.vcam__box { width: 100%; max-width: 30rem; display: grid; gap: 0.6rem; color: #fff }
+.vcam__vid { width: 100%; max-height: 68dvh; background: #000; border-radius: 0.8rem; object-fit: cover }
+.vcam__fallback { background: var(--surface, #fff); color: var(--ink); border-radius: 0.8rem; padding: 1rem; display: grid; gap: 0.8rem }
+.vcam__hint { margin: 0; text-align: center }
+.vcam__err { margin: 0; color: #ffb4ab; background: rgba(192, 38, 27, 0.35); padding: 0.4rem 0.6rem; border-radius: 0.5rem }
+.vcam .mini { background: rgba(255, 255, 255, 0.15); color: #fff; border-color: rgba(255, 255, 255, 0.5) }
+.pvproof { margin: 0; padding-left: 1.1rem }

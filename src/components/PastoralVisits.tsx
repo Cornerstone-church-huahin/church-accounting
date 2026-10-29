@@ -3,6 +3,8 @@ import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import MultiPick from './MultiPick'
+import VisitCamera, { type Shot } from './VisitCamera'
+import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
 import { formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
@@ -144,6 +146,8 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   }
   const [err, setErr] = useState('')
   const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
+  const [proof, setProof] = useState<ShotProof[]>(entry?.photoProof ?? [])
+  const [cam, setCam] = useState(false)
   const [busy, setBusy] = useState(false)
   const [checkin, setCheckin] = useState<Visit['checkin'] | null>(entry?.checkin ?? null)
   const [locBusy, setLocBusy] = useState(false)
@@ -158,13 +162,24 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
   }
   const added = useRef<string[]>([])
-  const addPhoto = async (f?: File | null) => {
-    if (!f || photos.length >= MAX_VISIT_PHOTOS) return
+  // รูปมาจากกล้องในแอปเท่านั้น: บันทึกเวลา + พิกัดตอนถ่าย และต้องอยู่ใกล้จุดเช็คอิน (ยืนยันว่าอยู่ที่บ้านนั้นจริงในเวลานั้น)
+  const addShot = async (shot: Shot) => {
+    setCam(false)
+    if (photos.length >= MAX_VISIT_PHOTOS) return
+    if (checkin) {
+      const n = nearCheckin({ lat: shot.lat, lng: shot.lng }, checkin)
+      if (!n.ok) return setErr(`ตำแหน่งที่ถ่ายห่างจากจุดเช็คอิน ${n.meters} เมตร (ต้องไม่เกิน ${MAX_SHOT_FROM_CHECKIN_M} เมตร) — ถ่ายที่บ้านสมาชิก หรือเช็คอินใหม่ที่จุดนี้ก่อน`)
+    }
     setBusy(true); setErr('')
-    try { const p = await uploadVisitPhoto(f); added.current.push(p); setPhotos((xs) => [...xs, p].slice(0, MAX_VISIT_PHOTOS)) } catch (e) { console.error('visit photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
+    try {
+      const p = await uploadVisitPhoto(new File([shot.blob], `visit-${shot.at}.jpg`, { type: 'image/jpeg' }))
+      added.current.push(p)
+      setPhotos((xs) => [...xs, p].slice(0, MAX_VISIT_PHOTOS))
+      setProof((xs) => [...xs, { path: p, at: shot.at, lat: Math.round(shot.lat * 1e6) / 1e6, lng: Math.round(shot.lng * 1e6) / 1e6, ...(shot.acc ? { acc: Math.round(shot.acc) } : {}), src: shot.src }])
+    } catch (e) { console.error('visit photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
     setBusy(false)
   }
-  const dropPhoto = (p: string) => setPhotos((xs) => xs.filter((x) => x !== p))
+  const dropPhoto = (p: string) => { setPhotos((xs) => xs.filter((x) => x !== p)); setProof((xs) => xs.filter((x) => x.path !== p)) }
   const close = () => { added.current.filter((p) => !(entry?.photos ?? []).includes(p) && !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p)); if (!saved.current) added.current.forEach((p) => void removeMemberPhotoFile(p)); onClose() }
   const saved = useRef(false)
   const list = useMemo(() => visitCandidates(members, { status, q }, stats, today).slice(0, 80), [members, status, q, stats, today])
@@ -182,7 +197,7 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, ...(photos.length ? { photos } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
   }
   return (
     <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
@@ -223,13 +238,15 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
           ))}
           {photos.length < MAX_VISIT_PHOTOS && (
-            <>
-              <label className="act-btn pvphoto__add"><span className="act-btn__ico" aria-hidden="true">📷</span><span>ถ่ายรูป</span><input type="file" accept="image/*" capture="environment" aria-label="ถ่ายรูปการเยี่ยม" style={{ display: 'none' }} onChange={(e) => { void addPhoto(e.target.files?.[0]); e.target.value = '' }} /></label>
-              <label className="act-btn pvphoto__add"><span className="act-btn__ico" aria-hidden="true">🖼️</span><span>เลือกรูป</span><input type="file" accept="image/*" aria-label="เลือกรูปการเยี่ยมจากเครื่อง" style={{ display: 'none' }} onChange={(e) => { void addPhoto(e.target.files?.[0]); e.target.value = '' }} /></label>
-            </>
+            <button type="button" className="act-btn pvphoto__add" disabled={busy || (needProof && !checkin)} onClick={() => setCam(true)}>
+              <span className="act-btn__ico" aria-hidden="true">📸</span><span>ถ่ายรูป</span>
+            </button>
           )}
         </div>
         <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — ควรแนบอย่างน้อย 1 รูป' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
+      {needProof && !checkin && <span className="muted small">ต้องเช็คอินตำแหน่งก่อนจึงถ่ายรูปได้ · รูปถ่ายด้วยกล้องในแอปเท่านั้น (เลือกจากคลังภาพไม่ได้) และบันทึกเวลา + ตำแหน่งตอนถ่าย</span>}
+      {proof.length > 0 && <ul className="small muted pvproof" aria-label="เวลาและตำแหน่งตอนถ่ายรูป">{proof.map((x, i) => <li key={x.path}>รูปที่ {i + 1}: ถ่ายเวลา {timeText(x.at)} น. · {formatCoord(x)}{checkin ? ` · ห่างจุดเช็คอิน ${nearCheckin(x, checkin).meters} ม.` : ''}</li>)}</ul>}
+      {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <div className="row"><button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>{onDelete && <button type="button" className="mini" onClick={onDelete}>ลบ</button>}</div>
     </Sheet>
@@ -267,7 +284,7 @@ function VisitReport({ church, sunday, visits }: { church: string; sunday: strin
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', whiteSpace: 'nowrap' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.memberName}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.reason || '—'}{v.detail ? <div style={{ fontSize: 12, color: '#444' }}>{v.detail}</div> : null}</td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.reason || '—'}{v.detail ? <div style={{ fontSize: 12, color: '#444' }}>{v.detail}</div> : null}{v.checkin ? <div style={{ fontSize: 11, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.visitor}</td>
                   </tr>
                 ))}
