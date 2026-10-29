@@ -29,6 +29,9 @@ try {
   })
   await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /ตารางเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
+  // แท็บ 2 (วางแผน): เปิดมาเห็นรายชื่อคนที่ขาดนมัสการ (เหมือนในป๊อปอัพบันทึกการเยี่ยม) · ดูอย่างเดียว
+  must(await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).locator('.pvpick__r--ro').count() === 6 && await page.locator('.pvabs').count() === 6, 'plan tab lists members who need a visit with their red bars (read-only)')
+  await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).click()
   const days = page.locator('.pvday')
   must(await days.count() === 7, 'seven day cards')
   must(/อาทิตย์/.test(await days.nth(0).innerText()) && /นมัสการ/.test(await days.nth(0).innerText()), 'Sunday auto: worship')
