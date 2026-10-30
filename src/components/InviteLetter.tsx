@@ -15,14 +15,18 @@ import { letterDate, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
-import type { DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
+import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
 /** หนังสือแจ้งการประชุม: ใส่ วัน/เดือน/ปี ของอาทิตย์ต้นเดือนที่จะถึงให้เอง (ผู้ใช้แก้ได้) */
 const fillNotice = (t: string, base: string) => { const n = noticeMeetingText(base); return t.replace('{เดือน}', n.month).replace('{วันเวลา}', n.when) }
 const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
-const agendaOf = (l: Draft) => (l.agenda ?? []).map((x) => x.trim()).filter(Boolean)
+const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (l.agenda ?? []).map((x) => (typeof x === 'string' ? { t: x } : x))
+/** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · เรื่องที่ 1, 2, … นับใหม่ทุกครั้งที่ขึ้นวาระใหม่ */
+const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.k === 'r' ? `เรื่องที่ ${++r}` : (r = 0, `วาระที่ ${++v}`))) }
+/** บรรทัดที่ขึ้นบนหนังสือ (ข้อที่ยังไม่พิมพ์ชื่อไม่ขึ้น) */
+const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim(), r: x.k === 'r' })).filter((x) => x.t) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
 const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), c.proceed, c.bless, c.signName, c.signRole])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
@@ -67,7 +71,7 @@ export function letterText(l: Draft, c: Cfg): string {
   return [
     c.thName, c.enName, c.addr, '',
     l.no ? `ที่ ${l.no}` : '', letterDate(l.date), '',
-    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, attachOf(l) ? `สิ่งที่ส่งมาด้วย  ${attachOf(l)}` : '', '', l.body, ...(agendaOf(l).length ? agendaOf(l).map((x, i) => `${i + 1}. ${x}`) : []), '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
+    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, attachOf(l) ? `สิ่งที่ส่งมาด้วย  ${attachOf(l)}` : '', '', l.body, ...(agendaOf(l).length ? agendaOf(l).map((x) => `${x.r ? '    ' : ''}${x.label} ${x.t}`) : []), '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
   ].filter((x, i, a) => !(x === '' && (a[i - 1] === '' || i === 0))).join('\n').trim()
 }
 
@@ -92,7 +96,7 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
-          {agendaOf(l).length > 0 && <ol className="letter__agenda">{agendaOf(l).map((x, i) => <li key={i}>{x}</li>)}</ol>}
+          {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}><b>{x.label}</b> {x.t}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
         </div>
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
@@ -142,7 +146,8 @@ const upgradeNotice = (s?: Partial<Letter>): Partial<Letter> | undefined => {
   const toName = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(tn) ? n.toName.replace(/^\S+/, tn) : tn || !/ประจำเดือน ………… (ในวัน|ในวันอาทิตย์ต้นเดือน)/.test(fix(s.body) ?? '') ? s.toName : n.toName
   const sub = fix(s.subject) ?? ''
   const subject = /^แจ้ง(การ)?ประชุม(ประจำเดือน\S*)? ?(คณะ)?ธรรมกิจ$/.test(sub) ? fillNotice(LETTER_KINDS.notice.blank.subject, s.date || todayISO()) : sub
-  return { ...s, toName, subject, to: fix(s.to) ?? '', body: old(fix(s.body)) ?? '' }
+  const body = (old(fix(s.body)) ?? '').replace(/(ในวันอาทิตย์ที่ \d{1,2} \S+) (\d{4}) เวลา/, (m, a, y) => (Number(y) < 2400 ? `${a} พ.ศ. ${Number(y) + 543} เวลา` : m))
+  return { ...s, toName, subject, to: fix(s.to) ?? '', body }
 }
 const toDraft = (kind: LetterKindId, raw?: Partial<Letter>): Draft => { const s = kind === 'notice' ? upgradeNotice(raw) : raw; return { ...blankOf(kind), ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() } }
 const sameDraft = (a: Draft, b: Draft) => JSON.stringify({ ...a, updated: 0, by: 0 }) === JSON.stringify({ ...b, updated: 0, by: 0 })
@@ -384,7 +389,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         </div>
         <div className="field"><label htmlFor="il-body"><No n="7" ok={okOf['7']} />ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
-        {K.agenda && <AgendaEditor items={l.agenda ?? []} onChange={(a) => set({ agenda: a })} />}
+        {K.agenda && <AgendaEditor items={agendaItems(l)} onChange={(a) => set({ agenda: a })} />}
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
@@ -546,10 +551,12 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
 }
 
 /** วาระการประชุม: กรอกเป็นข้อๆ · ลากที่แถบ ⠿ (กฎเลื่อน) เพื่อเรียงลำดับ เลขข้อเรียงใหม่อัตโนมัติ · เพิ่มวาระใหม่ต่อท้ายแล้วลากขึ้นไปแทรกได้ */
-function AgendaEditor({ items, onChange }: { items: string[]; onChange: (a: string[]) => void }) {
+function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void }) {
   const rows = useRef<(HTMLDivElement | null)[]>([])
   const [drag, setDrag] = useState<number | null>(null)
-  const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? v : x)))
+  const labels = agendaLabels(items)
+  const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? { ...x, t: v } : x)))
+  const swap = (i: number, d: number) => { const a = [...items]; const j = i + d;[a[i], a[j]] = [a[j], a[i]]; onChange(a) }
   const start = (e: React.PointerEvent<HTMLButtonElement>, from: number) => {
     e.preventDefault()
     const el = e.currentTarget; el.setPointerCapture(e.pointerId)
@@ -568,17 +575,20 @@ function AgendaEditor({ items, onChange }: { items: string[]; onChange: (a: stri
     el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end)
   }
   return (
-    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(ลาก ☰ เพื่อเรียงลำดับ · เลขข้อเรียงให้เอง)</span></label>
+    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(พิมพ์แค่ชื่อ · ลำดับ “วาระที่/เรื่องที่” ใส่ให้เองตามตำแหน่ง)</span></label>
       {items.map((x, i) => (
-        <div key={i} ref={(el) => { rows.current[i] = el }} className={`agenda-row${drag === i ? ' agenda-row--drag' : ''}`}>
-          <b className="agenda-row__n">{i + 1}.</b>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={`วาระที่ ${i + 1}`} value={x} onChange={(e) => upd(i, e.target.value)} placeholder="เช่น เรื่องแจ้งเพื่อทราบ" />
-          <button type="button" className="agenda-row__grip" aria-label={`ลากเพื่อเลื่อนวาระที่ ${i + 1}`} title="ลากขึ้น/ลงเพื่อเรียงลำดับ" onPointerDown={(e) => start(e, i)} onKeyDown={(e) => { if (e.key === 'ArrowUp' && i > 0) { const a = [...items];[a[i - 1], a[i]] = [a[i], a[i - 1]]; onChange(a) } if (e.key === 'ArrowDown' && i < items.length - 1) { const a = [...items];[a[i + 1], a[i]] = [a[i], a[i + 1]]; onChange(a) } }}>⠿<small>👆</small></button>
-          <button type="button" className="mini" aria-label={`ลบวาระที่ ${i + 1}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>🗑️</button>
+        <div key={i} ref={(el) => { rows.current[i] = el }} className={`agenda-row${x.k === 'r' ? ' agenda-row--r' : ''}${drag === i ? ' agenda-row--drag' : ''}`}>
+          <b className="agenda-row__n">{labels[i]}</b>
+          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={labels[i]} value={x.t} onChange={(e) => upd(i, e.target.value)} placeholder={x.k === 'r' ? 'ชื่อเรื่อง' : 'ชื่อวาระ เช่น แจ้งเพื่อทราบ'} />
+          <button type="button" className="agenda-row__grip" aria-label={`ลากเพื่อเลื่อน${labels[i]}`} title="ลากขึ้น/ลงเพื่อเรียงลำดับ" onPointerDown={(e) => start(e, i)} onKeyDown={(e) => { if (e.key === 'ArrowUp' && i > 0) swap(i, -1); if (e.key === 'ArrowDown' && i < items.length - 1) swap(i, 1) }}>⠿<small>👆</small></button>
+          <button type="button" className="mini" aria-label={`ลบ${labels[i]}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>🗑️</button>
         </div>
       ))}
-      <button type="button" className="btn btn--ghost" onClick={() => onChange([...items, ''])}>➕ เพิ่มวาระ</button>
-      {items.length > 1 && <span className="small muted">👆 กดค้างที่แถบ ⠿ แล้วลากขึ้น/ลง วาระที่ไปอยู่ลำดับแรกจะเป็นวาระที่ 1 เอง</span>}
+      <div className="row" style={{ gap: 6 }}>
+        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '' }])}>➕ เพิ่มวาระ</button>
+        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', k: 'r' }])}>➕ เพิ่มเรื่อง</button>
+      </div>
+      {items.length > 1 && <span className="small muted">👆 กดค้างที่แถบ ⠿ แล้วลากขึ้น/ลง “วาระที่” ตัวแรกเป็นวาระที่ 1 เอง · “เรื่องที่” นับใหม่ใต้แต่ละวาระ</span>}
     </div>
   )
 }
