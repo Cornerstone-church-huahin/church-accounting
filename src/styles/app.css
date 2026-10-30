@@ -1324,3 +1324,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vbasket__badge { position: absolute; top: -0.35rem; right: -0.35rem; min-width: 1.3rem; height: 1.3rem; padding: 0 0.25rem; border-radius: 999px; background: #d64545; color: #fff; font-size: 0.78rem; font-weight: 700; display: grid; place-items: center }
 .vbasket__slot { margin-left: auto; display: inline-flex }
 .vbasket__top { display: flex; justify-content: flex-end; margin-bottom: 0.3rem }
+.vplan__stop { flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 2px dashed var(--navy, #1a2b4c); background: var(--surface, #fff); color: var(--navy, #1a2b4c); font: inherit; font-size: 1.3rem; font-weight: 800; cursor: pointer }
+.vplan__item--set { background: #e3f3e6 }
+.vplan__item--set .vplan__stop { border-style: solid; background: var(--navy, #1a2b4c); color: #fff }
+.vplan__th { margin: 0.8rem 0 0.3rem; font-size: 1.05rem }
+.vbasket__ov--ask { z-index: 95; background: rgba(10, 16, 30, 0.5); align-items: center; padding: 1rem }
+.vbasket__ask { width: 100%; max-width: 22rem; display: grid; gap: 0.7rem; padding: 1rem; border-radius: 1rem; background: var(--surface, #fff); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) }
+.vbasket__asklab { display: flex; align-items: center; gap: 0.5rem; font-weight: 700 }
+.vbasket__asklab .input { width: 5.5rem; font-size: 1.3rem; text-align: center }
