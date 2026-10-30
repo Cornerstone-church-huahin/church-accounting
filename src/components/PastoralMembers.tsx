@@ -119,10 +119,10 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         <div className="pfilters pfilters--slim">
           {tab !== 3 && <div className="field"><label htmlFor="pf-status">สถานะ</label>
             <MultiPick id="pf-status" title="สถานะ" options={STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>}
-          {(tab === 1 || tab === 2) && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
+          {tab === 1 && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
             <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
-          {tab === 2 && <div className="field"><label htmlFor="pf-period">ช่วงวัดผล</label>
-            <select id="pf-period" className="input" value={period} onChange={(e) => setPeriod(e.target.value as RegPeriod)}>{REG_PERIODS.map((x) => <option key={x.k} value={x.k}>{x.t}</option>)}</select></div>}
+          {tab === 2 && <div className="field"><label htmlFor="pf-period">สม่ำเสมอภายใน</label>
+            <select id="pf-period" className="input" value={period} onChange={(e) => setPeriod(e.target.value as RegPeriod)}>{REG_PERIODS.map((x) => <option key={x.k} value={x.k}>{x.t.replace('สม่ำเสมอภายใน', '')}</option>)}</select></div>}
         </div>
       </section>
 
