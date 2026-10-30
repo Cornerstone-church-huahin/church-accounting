@@ -123,13 +123,13 @@ const PASTORAL_PAGES = [
 ] as const
 type PastoralStep = (typeof PASTORAL_PAGES)[number]['id']
 function PastoralBar({ active }: { active: PastoralStep }) {
-  const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า ขึ้นที่ขั้นจัดกลุ่มทุกหน้า
+  const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
   return (
     <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="ทำตามลำดับ 1 วางแผน 2 จัดกลุ่ม 3 บันทึก 4 รายงาน">
       {PASTORAL_PAGES.map((x, i) => (
-        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'group' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
+        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'group' || x.id === 'record' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
           <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
-          {x.id === 'group' && n > 0 && <b className="tabicons__n" aria-hidden="true">{n}</b>}
+          {(x.id === 'group' || x.id === 'record') && n > 0 && <b className="tabicons__n" aria-hidden="true">{n}</b>}
         </Link>
       ))}
     </nav>

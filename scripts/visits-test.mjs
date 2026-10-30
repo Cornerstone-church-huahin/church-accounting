@@ -261,9 +261,11 @@ try {
   const planCount = () => page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1'))[0].items.length)
   const badge = async () => Number(await page.getByRole('link', { name: /^จัดกลุ่ม/ }).getAttribute('aria-label').then((x) => /(\d+) คน/.exec(x)?.[1] ?? 0))
   const total0 = await planCount()
+  const badge3 = async () => Number(await page.getByRole('link', { name: /^บันทึก/ }).getAttribute('aria-label').then((x) => /(\d+) คน/.exec(x)?.[1] ?? 0))
   for (const path of ['record', 'report', '2', 'group']) {
     await page.goto(`http://localhost:${PORT}/#/meeting/4/${path}`); await page.waitForLoadState('networkidle')
     must(await badge() === total0, `step 2 number is the same on page ${path}: ${await badge()} vs ${total0}`)
+    must(await badge3() === total0, `step 3 shows the same number on page ${path}`)
   }
   await page.goto(`http://localhost:${PORT}/#/meeting/4/record`); await page.waitForLoadState('networkidle')
   await page.getByRole('region', { name: 'จุดที่ 2' }).getByRole('button', { name: /เพิ่มผู้ถูกเยี่ยมในจุดที่ 2/ }).click()
