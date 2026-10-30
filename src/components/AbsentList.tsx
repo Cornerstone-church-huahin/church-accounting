@@ -11,16 +11,16 @@ export const monthsText = (n: number | null) => (n === null ? 'ไม่เค�
  * รายชื่อสมาชิกที่ควรไปเยี่ยม: ค้นหาชื่อ + เลือกสถานะ (หลายสถานะ) แถวเดียว → รายชื่อคนที่ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป
  * เรียงจากขาดน้อย → มาก มีรูป สถานะ และแถบสีแดงตามเดือนที่ขาด · ใช้ทั้งในฟอร์มบันทึกการเยี่ยม (แตะเลือกคน) และหน้าวางแผน (ดูอย่างเดียว)
  */
-export default function AbsentList({ members, stats, today, selectedId, selectedIds, onPick, label }: {
+export default function AbsentList({ members, stats, today, selectedId, selectedIds, onPick, label, hideLabel }: {
   members: ChurchMember[]; stats: Map<string, VisitStat>; today: string
-  selectedId?: string; /** เลือกได้หลายคน (ตะกร้าแผนเยี่ยม) */ selectedIds?: string[]; onPick?: (m: ChurchMember, absentLabel: string) => void; label: string
+  selectedId?: string; /** เลือกได้หลายคน (ตะกร้าแผนเยี่ยม) */ selectedIds?: string[]; onPick?: (m: ChurchMember, absentLabel: string) => void; label: string; /** ซ่อนข้อความหัวช่องค้นหา (ยังอ่านออกเสียงได้) */ hideLabel?: boolean
 }) {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<string[]>([])
   const list = useMemo(() => visitCandidates(members, { status, q }, stats, today).slice(0, 80), [members, status, q, stats, today])
   return (
     <>
-      <div className="field"><label htmlFor="pv-q">{label}</label>
+      <div className="field"><label htmlFor="pv-q" className={hideLabel ? 'sr-only' : undefined}>{label}</label>
         <div className="pvfind">
           <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
           <MultiPick id="pv-st" title="สถานะสมาชิก" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />
