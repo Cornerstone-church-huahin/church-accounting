@@ -49,7 +49,7 @@ const SECRETARY_CFG: Partial<Cfg> = {
   signRole: 'เลขานุการคริสตจักร',
   contact: 'ติดต่อ มน.หนึ่งฤทัย  ทองมี เลขานุการคริสตจักร โทร. ………-………-…………',
 }
-export const defaultCfg = (kind: LetterKindId): Cfg => ({ ...INVITE_CFG, ...(LETTER_KINDS[kind].secretarySigns ? SECRETARY_CFG : {}), proceed: LETTER_KINDS[kind].proceed })
+export const defaultCfg = (kind: LetterKindId): Cfg => ({ ...INVITE_CFG, ...(LETTER_KINDS[kind].secretarySigns ? SECRETARY_CFG : {}), ...(LETTER_KINDS[kind].numPrefix ? { numPrefix: LETTER_KINDS[kind].numPrefix } : {}), proceed: LETTER_KINDS[kind].proceed })
 export const DEFAULT_CFG = INVITE_CFG
 type Sec = 'head' | 'sign' | 'contact'
 type TextKey = 'numPrefix' | 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
@@ -127,7 +127,13 @@ export default function InviteLetterPage({ id, kind = 'invite' }: { id: string; 
   return <InviteEditor key={id} id={id} kind={kind} />
 }
 
-const toDraft = (kind: LetterKindId, s?: Partial<Letter>): Draft => ({ ...blankOf(kind), ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() })
+/** ฉบับแจ้งการประชุมที่สร้างไว้ด้วยข้อความตั้งต้นรุ่นแรก (คณะรัฐมนตรี · วัน/เวลาเป็นจุดไข่ปลา) → ใช้ข้อความตั้งต้นปัจจุบัน */
+const upgradeNotice = (s?: Partial<Letter>): Partial<Letter> | undefined => {
+  if (!s) return s
+  const fix = (t?: string) => t?.replace(/คณะรัฐมนตรี/g, 'คณะธรรมกิจ').replace(/ในวัน…………… ที่ …… เดือน …………… พ\.ศ\. …… เวลา ……… น\. ณ ……………………/, 'ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ')
+  return { ...s, subject: fix(s.subject) ?? '', to: fix(s.to) ?? '', body: fix(s.body) ?? '' }
+}
+const toDraft = (kind: LetterKindId, raw?: Partial<Letter>): Draft => { const s = kind === 'notice' ? upgradeNotice(raw) : raw; return { ...blankOf(kind), ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() } }
 const sameDraft = (a: Draft, b: Draft) => JSON.stringify({ ...a, updated: 0, by: 0 }) === JSON.stringify({ ...b, updated: 0, by: 0 })
 
 function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
@@ -193,7 +199,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   useEffect(() => {
     const m = /^([^\d]+?)[.\s-]*\d+$/.exec(l.no.trim()); const old = m?.[1]?.trim()
     if (!old || old === prefix) return
-    if (old !== cleanPrefix(cfg.numPrefix ?? 'ศอช') && !others.some((x) => x.no.trim().startsWith(old)) && !inLib.some((x) => x.no.trim().startsWith(old))) return
+    const legacy = kind === 'notice' && old === 'ศอช'   // ฉบับที่รันไว้ก่อนตั้งตัวย่อ ศอ/ปด
+    if (!legacy && old !== cleanPrefix(cfg.numPrefix ?? 'ศอช') && !others.some((x) => x.no.trim().startsWith(old)) && !inLib.some((x) => x.no.trim().startsWith(old))) return
     const r = followPrefix(l.no, old, prefix, [...others.map((x) => x.no), ...inLib.map((x) => x.no)])
     if (!r) return
     set({ no: r })
