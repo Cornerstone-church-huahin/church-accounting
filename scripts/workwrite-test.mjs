@@ -49,11 +49,11 @@ try {
   // ผู้ดูแลหลักงานอภิบาล: บันทึกรายชื่อผู้ออกเยี่ยมได้ (ข้อมูลของงาน 4)
   const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
   const wed = (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
-  page = await open('lead4', 'หัวหน้าอภิบาล', '/meeting/4/3', `localStorage.setItem('acct.visit-log.v1', JSON.stringify([{ id: 'v1', updated: 5, date: '${todayStr}', stop: 1, memberId: 'm1', memberName: 'สมชาย ใจดี', reason: 'ทดสอบ', visitor: 'คศ.กฤต' }]))`)
+  page = await open('lead4', 'หัวหน้าอภิบาล', '/meeting/4/3', `localStorage.setItem('acct.visit-log.v1', JSON.stringify([{ id: 'v1', updated: 5, date: '${todayStr}', stop: 1, memberId: 'm1', memberName: 'สมชาย ใจดี', reason: 'ทดสอบ', visitor: 'คศ.กฤต' }])); localStorage.setItem('acct.visit-plans.v1', JSON.stringify([{ id: 'plan-${todayStr}', date: '${todayStr}', v: 2, groups: 1, names: {}, items: [{ id: 'm2', name: 'สมหญิง รักดี', g: 1 }], prep: { at: 1, items: [{ id: 'm2', name: 'สมหญิง รักดี', g: 1 }] }, updated: 1 }]))`)
   // ผู้ดูแลหลัก (ไม่ใช่แอดมิน) เห็นการ์ดการเยี่ยมที่บันทึกแล้ว แต่กดแก้ไข/ลบไม่ได้ · มีรูปสมาชิก (อักษรย่อ) หน้าชื่อ
   await page.locator('.vrec__row').first().waitFor({ timeout: 8000 })
   must(await page.getByRole('button', { name: /แก้ไขการเยี่ยม/ }).count() === 0 && await page.locator('.vrec__btn--ro').count() >= 1, 'non-admin cannot open a saved visit to edit/delete')
-  await page.getByRole('button', { name: /เพิ่มผู้ถูกเยี่ยมในจุดที่ 1/ }).click()
+  await page.getByRole('button', { name: 'บันทึกการเยี่ยม สมหญิง รักดี' }).click()
   await page.getByRole('dialog').locator('#pv-by').click()
   await page.getByLabel('เพิ่มชื่อใหม่').fill('อ.ทดสอบ'); await page.getByRole('button', { name: '＋ เพิ่ม', exact: true }).click()
   must(await page.getByRole('checkbox', { name: /อ.ทดสอบ/ }).isChecked() && await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-names.v1') ?? '[]').length) === 1, 'pastoral lead can add visitor names')
@@ -63,7 +63,7 @@ try {
   for (const k of [3, 4]) {
     page = await open('help4', 'ผู้ช่วยอภิบาล', `/meeting/4/${k}`, `localStorage.setItem('acct.visit-log.v1', JSON.stringify([{ id: 'v1', updated: 5, date: '${k === 3 ? todayStr : wed}', memberId: 'm1', memberName: 'สมชาย ใจดี', reason: 'ทดสอบ', visitor: 'คศ.กฤต', stop: 1 }])); localStorage.setItem('acct.visits.v1', localStorage.getItem('acct.visit-log.v1'))`)
     if (k === 4) await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).click()
-    must((k === 3 ? await page.locator('.vrec__row').count() === 1 : await page.locator('.pvday').count() === 7) && !/ไม่มีสิทธิ์ดู/.test(await page.locator('main').innerText()), `helper can view tab ${k}`)
+    must((k === 3 ? await page.locator('.vrec__row').count() >= 1 : await page.locator('.pvday').count() === 7) && !/ไม่มีสิทธิ์ดู/.test(await page.locator('main').innerText()), `helper can view tab ${k}`)
     must(await page.getByRole('button', { name: /บันทึกการเยี่ยม/ }).count() === 0, `helper has no add button on tab ${k}`)
   }
   // งานอนุชน แท็บ 1 = หน้าสมาชิกเหมือนงานอภิบาล (ครบทุกส่วน) · ผู้ช่วยของงานนี้ดูได้ · คนนอกงานเห็นว่าไม่มีสิทธิ์

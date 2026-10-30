@@ -1351,3 +1351,5 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrec__ok { color: #1f7a45; font-weight: 700 }
 .vrec__no { color: #b4442f; font-weight: 700 }
 .vrec__add { margin-left: auto }
+.vrec__li { display: flex; align-items: center; padding-right: 0.5rem }
+.vrec__li .vrec__btn { flex: 1; min-width: 0 }

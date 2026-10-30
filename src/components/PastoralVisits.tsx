@@ -141,7 +141,7 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
 }
 
 /** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
-export function VisitForm({ date, entry, stop, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+export function VisitForm({ date, entry, stop, startAbsent, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
   const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
@@ -172,7 +172,7 @@ export function VisitForm({ date, entry, stop, preset, team, writeNames, members
   const [locBusy, setLocBusy] = useState(false)
   // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
   const needProof = !entry || !!entry.checkin
-  const [absent, setAbsent] = useState(!!entry?.absent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
+  const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
   const lockedMember = !entry && !!preset?.member
   const needPhotos = needProof && !absent
   const locate = () => {
