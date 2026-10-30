@@ -13,8 +13,8 @@ import MemberAvatar from './MemberAvatar'
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
 type Ord = 'old' | 'new' | 'recent' | 'pct' | 'pctAsc' | 'name' | 'nameDesc'
-/** 5 แท็บ: 1 เก่าแก่ → ใหม่ · 2 ความสม่ำเสมอในการมา · 3 สถานะ · 4 อายุ · 5 เพศ */
-const TABS = [{ n: 1, name: 'เก่าแก่' }, { n: 2, name: 'สม่ำเสมอ' }, { n: 3, name: 'สถานะ' }, { n: 4, name: 'อายุ' }, { n: 5, name: 'เพศ' }]
+/** 6 แท็บ (2 แถว): 1 เก่าแก่ → ใหม่ · 2 ความสม่ำเสมอในการมา · 3 สถานะ · 4 กลุ่ม · 5 อายุ · 6 เพศ */
+const TABS = [{ n: 1, name: 'เก่าแก่' }, { n: 2, name: 'สม่ำเสมอ' }, { n: 3, name: 'สถานะ' }, { n: 4, name: 'กลุ่ม' }, { n: 5, name: 'อายุ' }, { n: 6, name: 'เพศ' }]
 const ORDERS: Record<number, { k: Ord; t: string }[]> = {
   1: [{ k: 'old', t: 'เก่าแก่ → ใหม่' }, { k: 'new', t: 'ใหม่ → เก่าแก่' }, { k: 'name', t: 'ชื่อ ก → ฮ' }, { k: 'nameDesc', t: 'ชื่อ ฮ → ก' }],
   2: [{ k: 'pct', t: 'สม่ำเสมอสุด → น้อยสุด' }, { k: 'pctAsc', t: 'น้อยสุด → สม่ำเสมอสุด' }, { k: 'name', t: 'ชื่อ ก → ฮ' }, { k: 'nameDesc', t: 'ชื่อ ฮ → ก' }],
@@ -85,7 +85,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   if (!canRole(role, 'detail') && !canWork(work, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
   const gName = gs.length === 0 ? 'ทุกสถานะ' : STATUS_GROUPS.filter((x) => gs.includes(x.key as Exclude<StatusGroup, 'all'>)).map((x) => x.label).join(' + ')
 
-  const TONES = ['own', 'fund', 'total', 'indebt', 'debt'] as const
+  const TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
   const orderName = ORDERS[tab]?.find((o) => o.k === order)?.t ?? ''
   // โซน 3: การ์ดสมาชิก 1 คน 1 การ์ด (ดูอย่างเดียว) · เริ่มต้นเรียงคนที่มานมัสการบ่อยที่สุดก่อน แล้วตามสถานะ 1,2,3…
   const tenureMap = useMemo(() => new Map(all.map((m) => [m.id, tenureDays(m.since, ev.map.get(m.id)?.firstAtt, today)])), [all, ev, today])
@@ -168,13 +168,21 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         </section>
       )}
       {tab === 4 && (
+        <section className="card" aria-label="กลุ่มสมาชิก">
+          <h2 style={{ margin: 0 }}>กลุ่มและปีที่เข้าเป็นสมาชิก <span className="muted small">({gName})</span></h2>
+          {groups.map(([k, n]) => <BarRow key={k} label={k} n={n} total={sel.length} color={k === 'ไม่มีกลุ่ม' ? GRAY : NAVY} />)}
+          <p className="home-label" style={{ margin: '0.8rem 0 0.2rem' }}>เข้าเป็นสมาชิกตามปี</p>
+          {joins.length === 0 ? <p className="empty">ไม่มีข้อมูลวันที่เข้า</p> : <Columns label="เข้าเป็นสมาชิกตามปี" data={joins.map((j) => ({ key: String(j.year + 543), value: j.count }))} color={GOLD} />}
+        </section>
+      )}
+      {tab === 5 && (
         <section className="card" aria-label="อายุสมาชิก">
           <h2 style={{ margin: 0 }}>อายุสมาชิก <span className="muted small">({gName})</span></h2>
           {ages.known === 0 ? <p className="empty">ยังไม่มีวันเกิดในทะเบียน</p> : ages.bands.map((b) => <BarRow key={b.key} label={b.label} n={b.count} total={ages.known} color={BLUE} />)}
           <p className="muted small" style={{ margin: '0.3rem 0 0' }}>ทราบวันเกิด {ages.known.toLocaleString('th-TH')} จาก {sel.length.toLocaleString('th-TH')} คน ({pct(ages.known, sel.length)}%) · ไม่ทราบวันเกิด {ages.unknown.toLocaleString('th-TH')} คน — ยิ่งเก็บวันเกิดครบ ภาพรวมยิ่งตรง</p>
         </section>
       )}
-      {tab === 5 && (
+      {tab === 6 && (
         <section className="card" aria-label="เพศสมาชิก">
           <h2 style={{ margin: 0 }}>เพศสมาชิก <span className="muted small">({gName})</span></h2>
           <div className="psexbig" role="group" aria-label="จำนวนตามเพศ">
