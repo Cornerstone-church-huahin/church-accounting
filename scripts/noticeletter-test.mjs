@@ -83,6 +83,12 @@ try {
   await admin.getByLabel('เรื่องที่ 1', { exact: true }).fill('เรื่องทดสอบ')
   const pp = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
   must(pp.includes('เรื่องที่ 1') && pp.includes('วาระที่ 1') && pp.includes('ข้อห้า'), 'paper shows วาระที่/เรื่องที่ labels: ' + pp)
+  await admin.locator('#il-date').fill('2026-12-02')
+  must((await admin.locator('#il-sub').inputValue()) === 'แจ้งประชุมคณะธรรมกิจ ประจำเดือนธันวาคม', 'subject follows date month: ' + await admin.locator('#il-sub').inputValue())
+  await admin.locator('#il-sub').fill('เรื่องที่แก้เอง')
+  await admin.locator('#il-date').fill('2027-02-10')
+  must((await admin.locator('#il-sub').inputValue()) === 'เรื่องที่แก้เอง', 'edited subject kept')
+  must((await admin.locator('#il-tn').inputValue()).startsWith('7/3/2027'), 'to-name follows date: ' + await admin.locator('#il-tn').inputValue())
   // หนังสือแจ้งการประชุม: เลขตามหมวดในคลัง ศอ/ปธ
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
   await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
