@@ -7,7 +7,7 @@ import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import { addDays } from '../lib/money'
 import { DAY_NAMES } from '../lib/visits'
-import { addItem, moveItem, removeItem, renameGroup, setStop, stopsOf, type PlanDoc } from '../lib/visitPlan'
+import { addItem, moveItem, removeItem, renameGroup, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
 import { fmtDay } from './PastoralVisits'
 import type { ChurchMember } from '../lib/types'
 
@@ -126,10 +126,10 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
                     const m = byId.get(x.id)
                     const mo = m ? absentMonths(stats.get(m.id)?.last, today) : null
                     return (
-                      <li key={x.id} data-pid={x.id} className={`vplan__item${x.g > 0 ? ' vplan__item--set' : ''}${drag?.id === x.id ? ' vplan__item--drag' : ''}${drag && drag.id !== x.id && over !== null && over === doc.items.filter((y) => y.id !== drag.id).findIndex((y) => y.id === x.id) ? ' vplan__item--ins' : ''}`} style={drag?.id === x.id ? { transform: `translateY(${drag.dy}px)` } : undefined}>
+                      <li key={x.id} data-pid={x.id} className={`vplan__item${x.g > 0 ? ' vplan__item--set' : ''}${drag?.id === x.id ? ' vplan__item--drag' : ''}${drag && drag.id !== x.id && over !== null && over === doc.items.filter((y) => y.id !== drag.id).findIndex((y) => y.id === x.id) ? ' vplan__item--ins' : ''}`} style={{ ...(x.g > 0 ? { background: stopColor(x.g).tint } : {}), ...(drag?.id === x.id ? { transform: `translateY(${drag.dy}px)` } : {}) }}>
                         {canEdit && <button type="button" className="vplan__handle" aria-label={`จับ ${x.name} เพื่อลากเรียงลำดับ (กดค้างแล้วลาก · ลูกศรขึ้นลงบนคีย์บอร์ด)`} onPointerDown={(e) => down(e, x.id)} onPointerMove={moveDrag} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => keyMove(e, x.id)} onContextMenu={(e) => e.preventDefault()}>⋮⋮<span className="vplan__finger" aria-hidden="true">👆</span></button>}
                         {canEdit
-                          ? <button type="button" className="vplan__stop" aria-label={x.g > 0 ? `${x.name} จุดที่ ${x.g} (แตะเพื่อเปลี่ยนจุด)` : `กำหนดจุดเยี่ยมของ ${x.name}`} onClick={() => askStop(x)}>{x.g > 0 ? x.g : '＋'}</button>
+                          ? <button type="button" className="vplan__stop" aria-label={x.g > 0 ? `${x.name} จุดที่ ${x.g} (แตะเพื่อเปลี่ยนจุด)` : `กำหนดจุดเยี่ยมของ ${x.name}`} style={x.g > 0 ? { background: stopColor(x.g).dark, borderColor: stopColor(x.g).dark } : undefined} onClick={() => askStop(x)}>{x.g > 0 ? x.g : '＋'}</button>
                           : <span className="vplan__no" aria-hidden="true">{x.g > 0 ? x.g : '–'}</span>}
                         <MemberAvatar path={m?.photoPath} name={x.name} size={44} />
                         <span className="vplan__who"><b>{x.name}</b><small className="muted">{m ? `${statusShort(m.status)} · ${monthsText(mo)}` : 'ไม่พบในทะเบียน'}</small></span>
@@ -142,7 +142,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
                 {stops.length === 0
                   ? <p className="muted small">ยังไม่มีจุดเยี่ยม — แตะ ＋ ที่ชื่อด้านบนเพื่อกำหนดจุด</p>
                   : stops.map((gr) => (
-                    <section key={gr.g} className="vplan__grp" aria-label={`จุดที่ ${gr.g}`}>
+                    <section key={gr.g} className="vplan__grp" aria-label={`จุดที่ ${gr.g}`} style={{ borderLeft: `6px solid ${stopColor(gr.g).dark}`, background: stopColor(gr.g).tint, borderRadius: 8, padding: '0.2rem 0.4rem' }}>
                       <div className="vplan__gh">
                         <b>จุดที่ {gr.g}</b>
                         {canEdit
