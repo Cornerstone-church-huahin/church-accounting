@@ -71,6 +71,7 @@ try {
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice-R`)
   await body(admin).waitFor({ timeout: 15000 })
   must((await body(admin).inputValue()) === 'ข้อความเก่า', 'opens existing notice')
+  must(paper.includes('ศอ/ปด.001') && paper.includes('ธรรมกิจ') && paper.includes('13.00 น.') && !paper.includes('รัฐมนตรี'), 'prefix/text defaults: ' + paper.slice(0, 400))
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('noticeletter-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
