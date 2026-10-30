@@ -107,6 +107,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
     <>
       <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
+        {n === 4 && k === 2 && <span id="vbasket-slot" className="vbasket__slot" />}
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {!isMembers && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
