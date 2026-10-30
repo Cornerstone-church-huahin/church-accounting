@@ -1363,3 +1363,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrec__gbtn--met { background: #e3f3e6; border-color: #2e7d4f; color: #1f7a45 }
 .vrec__gbtn--absent { background: #fbece9; border-color: #b4442f; color: #b4442f }
 .vrec__gbtn--skip { color: var(--ink-soft) }
+.vrec__ico { display: inline-flex; gap: 0.35rem; margin-left: auto }
+.vrec__ico .mini { min-width: 2.6rem; min-height: 2.6rem; font-size: 1.2rem; padding: 0 }
+.vrec__ico + .vrec__add { margin-left: 0 }

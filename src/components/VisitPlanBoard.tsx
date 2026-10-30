@@ -6,7 +6,7 @@ import { useVisitPlans } from '../lib/data'
 import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import { DAY_NAMES } from '../lib/visits'
-import { addItem, moveItem, removeItem, refreshPrep, sendPrep, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
+import { addItem, moveItem, removeItem, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
 import { fmtDay } from './PastoralVisits'
 import type { ChurchMember } from '../lib/types'
 
@@ -20,13 +20,12 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   const [open, setOpen] = useState(false) // ตะกร้าเปิดเป็นป๊อปอัพ (false = ย่อเหลือปุ่มตะกร้าลอยอยู่ด้านล่าง)
   const [ask, setAsk] = useState<{ id: string; name: string; val: string } | null>(null) // ป๊อปอัพ “จุดเยี่ยมที่”
   const [msg, setMsg] = useState('')
-  const [sent, setSent] = useState(false)
   const doc = plans.of(date)
   const canEdit = plans.canEdit()
   const ids = useMemo(() => doc.items.map((x) => x.id), [doc])
   const byId = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
   const stops = stopsOf(doc)
-  const write = (next: PlanDoc) => setMsg(plans.save(date, refreshPrep(next)) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
+  const write = (next: PlanDoc) => setMsg(plans.save(date, next) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
   const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m))
   const dayLabel = `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}${date === today ? ' · วันนี้' : ''}`
   const n = doc.items.length
@@ -65,11 +64,6 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
     write(moveItem(doc, id, i + (e.key === 'ArrowUp' ? -1 : 1)))
   }
   const askStop = (x: { id: string; name: string; g: number }) => setAsk({ id: x.id, name: x.name, val: x.g > 0 ? String(x.g) : '' })
-  const send = () => {
-    const next = sendPrep(doc, Date.now())
-    if (!next) { setMsg(n === 0 ? 'ตะกร้ายังว่าง' : `ยังมี ${doc.items.filter((x) => x.g < 1).length} คนที่ยังไม่ได้เลือกจุดเยี่ยม — กด ＋ เลือกจุดให้ครบก่อนส่ง`); return }
-    write(next); setOpen(false); setSent(true)
-  }
   const okStop = () => {
     if (!ask) return
     const v = Math.round(Number(ask.val))
@@ -92,8 +86,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   return (
     <div className="vplan">
       {slot ? createPortal(icon, slot) : <div className="vbasket__top no-print">{icon}</div>}
-      {!open && msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
-      {sent && <p className="small pvnote" role="status" style={{ margin: '0.3rem 0 0' }}>✓ ส่งข้อมูลเตรียมเยี่ยมไปที่ “บันทึกการเยี่ยม” แล้ว · เพิ่ม/แก้จุดหลังจากนี้จะตามไปให้อัตโนมัติ</p>}
+      {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
         <>
           {!canEdit && <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
           <AbsentList hideLabel={canEdit} label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${n} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
@@ -141,12 +134,6 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
               </>
             )}
         </div>
-              {canEdit && n > 0 && (
-                <div className="vbasket__send no-print">
-                  {msg && <p className="error small" role="alert" style={{ margin: '0 0 0.3rem' }}>{msg}</p>}
-                  <button type="button" className="btn btn--gold" onClick={send}>📤 ส่งข้อมูลเตรียมเยี่ยม</button>
-                </div>
-              )}
             </div>
           </div>
         ) : null, document.body)}
