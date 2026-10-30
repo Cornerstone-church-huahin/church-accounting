@@ -154,7 +154,15 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
             </div>
           </div>
         ) : (
-          <button type="button" className="vbasket__pill no-print" aria-label={`เปิดตะกร้า ${n} คน`} onClick={() => setOpen(true)}>🧺 ตะกร้า <span className="vplan__n">{n}</span> <span aria-hidden="true">▴</span></button>
+          <button type="button" className="vbasket__bar no-print" aria-label={`เปิดตะกร้า ${n} คน`} onClick={() => setOpen(true)}>
+            <span className="vbasket__ic">🧺 <span className="vplan__n">{n}</span></span>
+            <span className="vbasket__chips" aria-label="สรุปแต่ละกลุ่ม">
+              {n === 0
+                ? <span className="vbasket__empty">ยังไม่มีคนในตะกร้า</span>
+                : groups.map((gr) => <span key={gr.g} className="vbasket__chip"><b>{gr.g}</b>{gr.name ? ` ${gr.name}` : ''} · {gr.items.length}</span>)}
+            </span>
+            <span aria-hidden="true" className="vbasket__up">▴</span>
+          </button>
         ), document.body)}
     </div>
   )

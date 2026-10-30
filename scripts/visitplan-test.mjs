@@ -72,7 +72,9 @@ try {
   must(saved0.groups === 2 && saved0.names['2'] === 'บ้านปากน้ำ' && saved0.items.map((x) => x.id + ':' + x.g).join() === 'm3:1,m0:2', 'groups, place name and per-person group are saved: ' + JSON.stringify(saved0))
   // กลับไปแท็บเลือกคน: เห็นปุ่ม ＋ ชัดเจน · เพิ่มเข้ากลุ่มที่เลือก
   await page.getByRole('button', { name: 'ย่อตะกร้า' }).click()
-  must(await page.getByRole('dialog', { name: 'ตะกร้าแผนเยี่ยม' }).count() === 0 && await pill.count() === 1, 'minimize leaves the floating basket button')
+  must(await page.getByRole('dialog', { name: 'ตะกร้าแผนเยี่ยม' }).count() === 0 && await pill.count() === 1, 'minimize leaves the floating basket bar')
+  const chips = (await page.getByLabel('สรุปแต่ละกลุ่ม').innerText()).replace(/\s+/g, ' ')
+  must(/1 · 1/.test(chips) && /2 บ้านปากน้ำ · 1/.test(chips), 'minimized bar summarizes every group (number, place name, people): ' + chips)
   must(await page.locator('.pvpick__add').count() >= 4 && await page.locator('.pvpick__add.in').count() === 2, 'every row shows a ＋ (✓ when already in the basket)')
   await page.getByLabel('เพิ่มเข้ากลุ่ม', { exact: true }).selectOption({ label: 'กลุ่ม 2 · บ้านปากน้ำ' })
   await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).getByRole('button', { name: /สมาชิก2/ }).click()
