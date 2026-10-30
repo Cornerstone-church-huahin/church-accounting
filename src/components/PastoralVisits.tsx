@@ -29,12 +29,16 @@ export const rangeText = (sun: string) => `${fmtDate(sun)} – ${fmtDate(addDays
  * งานอภิบาล › ตารางเยี่ยม: การ์ด 7 วันของสัปดาห์ (เริ่มวันอาทิตย์) · อาทิตย์ = นมัสการ · จันทร์ = วันหยุด (อัตโนมัติ)
  * อังคาร–เสาร์ แตะเพื่อบันทึกการเยี่ยม: เลือกสมาชิก + เหตุผล/หมายเหตุ + ผู้เยี่ยมลงชื่อ · สรุปเป็นรายงานรายสัปดาห์ (A4) ย้อนดูสัปดาห์ก่อนได้
  */
-export default function PastoralVisits({ plan = false }: { plan?: boolean }) {
+/**
+ * plan = แท็บตารางเยี่ยม: แสดงเฉพาะรายชื่อคนที่ควรเยี่ยม · only = แสดงมุมมองเดียว (การ์ด 7 วัน หรือใบรายงานสัปดาห์) ไม่มีแถบสลับ ·
+ * readOnly = ดูอย่างเดียว (ใช้ในหน้ารายงาน: ไม่มีปุ่มเพิ่ม/แก้ไข)
+ */
+export default function PastoralVisits({ plan = false, only, readOnly = false }: { plan?: boolean; only?: 'cards' | 'report'; readOnly?: boolean }) {
   const role = useRole()
-  const isAdmin = role === 'admin'
-  const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
+  const isAdmin = role === 'admin' && !readOnly
+  const canWrite = !readOnly && (canRole(role, 'detail') || canWork(4, 'edit'))
   // ผู้ช่วย/ที่ปรึกษาของงานอภิบาล ดูตารางได้ (อ่านอย่างเดียว) · เพิ่มการเยี่ยมได้เฉพาะผู้มีสิทธิ์เขียน
-  const canView = canWrite || canWork(4, 'view')
+  const canView = canRole(role, 'detail') || canWork(4, 'edit') || canWork(4, 'view')
   const { settings } = useSettings()
   // ตารางเยี่ยม (แท็บ 2) และบันทึกการเยี่ยม (แท็บ 3) ใช้ข้อมูลชุดเดียวกัน — เห็นตรงกันทุกที่
   const visits = useVisits(true)
@@ -47,7 +51,7 @@ export default function PastoralVisits({ plan = false }: { plan?: boolean }) {
   const stats = useMemo(() => visitStats(att, today), [att, today])
   const thisSunday = sundayOf(today)
   const [sunday, setSunday] = useState(thisSunday)
-  const [mode, setMode] = useState<'list' | 'cards' | 'report'>(plan ? 'list' : 'cards')
+  const [mode, setMode] = useState<'list' | 'cards' | 'report'>(plan ? 'list' : only ?? 'cards')
   const [form, setForm] = useState<{ date: string; entry: Visit | null } | null>(null)
   const [note, setNote] = useState('')
   // เช็คอินที่บ้าน → พิกัดบ้านเข้าทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด) · ถ้ามีแล้วและห่างเกิน 100 ม. ถามก่อนทับ
@@ -73,11 +77,12 @@ export default function PastoralVisits({ plan = false }: { plan?: boolean }) {
   )
   return (
     <div className="pvisits">
-      <div className={`seg seg--${plan ? 3 : 2} no-print`} role="tablist" aria-label="มุมมอง">
-        {plan && <button type="button" role="tab" aria-selected={mode === 'list'} className={mode === 'list' ? 'on' : ''} onClick={() => setMode('list')}>👥 ควรเยี่ยม</button>}
-        <button type="button" role="tab" aria-selected={mode === 'cards'} className={mode === 'cards' ? 'on' : ''} onClick={() => setMode('cards')}>🗓️ การ์ด 7 วัน</button>
-        <button type="button" role="tab" aria-selected={mode === 'report'} className={mode === 'report' ? 'on' : ''} onClick={() => setMode('report')}>📄 รายงานสัปดาห์</button>
-      </div>
+      {!plan && !only && (
+        <div className="seg seg--2 no-print" role="tablist" aria-label="มุมมอง">
+          <button type="button" role="tab" aria-selected={mode === 'cards'} className={mode === 'cards' ? 'on' : ''} onClick={() => setMode('cards')}>🗓️ การ์ด 7 วัน</button>
+          <button type="button" role="tab" aria-selected={mode === 'report'} className={mode === 'report' ? 'on' : ''} onClick={() => setMode('report')}>📄 รายงานสัปดาห์</button>
+        </div>
+      )}
       {mode !== 'list' && nav}
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
       {mode === 'list' ? (
