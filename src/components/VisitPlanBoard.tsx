@@ -5,9 +5,8 @@ import MemberAvatar from './MemberAvatar'
 import { useVisitPlans } from '../lib/data'
 import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
-import { addDays } from '../lib/money'
 import { DAY_NAMES } from '../lib/visits'
-import { addItem, moveItem, removeItem, renameGroup, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
+import { addItem, moveItem, removeItem, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
 import { fmtDay } from './PastoralVisits'
 import type { ChurchMember } from '../lib/types'
 
@@ -17,7 +16,7 @@ import type { ChurchMember } from '../lib/types'
  */
 export default function VisitPlanBoard({ members, stats, today }: { members: ChurchMember[]; stats: Map<string, VisitStat>; today: string }) {
   const plans = useVisitPlans()
-  const [date, setDate] = useState(today)
+  const date = today // แผนเป็นของวันนี้เท่านั้น (บันทึกจริงทำตอนไปหน้างาน)
   const [open, setOpen] = useState(false) // ตะกร้าเปิดเป็นป๊อปอัพ (false = ย่อเหลือปุ่มตะกร้าลอยอยู่ด้านล่าง)
   const [ask, setAsk] = useState<{ id: string; name: string; val: string } | null>(null) // ป๊อปอัพ “จุดเยี่ยมที่”
   const [msg, setMsg] = useState('')
@@ -87,21 +86,10 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   return (
     <div className="vplan">
       {slot ? createPortal(icon, slot) : <div className="vbasket__top no-print">{icon}</div>}
-      <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <button type="button" className="mini" aria-label="วันก่อน" onClick={() => setDate(addDays(date, -1))}>‹</button>
-        <div style={{ textAlign: 'center', lineHeight: 1.25 }}><b>แผนเยี่ยมวัน</b><br /><span className="small">{dayLabel}</span></div>
-        <button type="button" className="mini" aria-label="วันถัดไป" onClick={() => setDate(addDays(date, 1))}>›</button>
-      </div>
       {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
         <>
-          {canEdit
-            ? (
-              <div className="vplan__bar no-print">
-                <span className="small">แตะ ＋ เพื่อใส่ตะกร้า · กดปุ่ม 🧺 ด้านบนเพื่อกำหนดจุดเยี่ยม</span>
-              </div>
-            )
-            : <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
-          <AbsentList label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${n} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
+          {!canEdit && <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
+          <AbsentList hideLabel={canEdit} label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${n} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
             {...(canEdit ? { selectedIds: ids, onPick: toggle } : {})} />
         </>
       {createPortal(
@@ -138,29 +126,6 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
                     )
                   })}
                 </ol>
-                <h3 className="vplan__th">📍 ตารางจุดเยี่ยม</h3>
-                {stops.length === 0
-                  ? <p className="muted small">ยังไม่มีจุดเยี่ยม — แตะ ＋ ที่ชื่อด้านบนเพื่อกำหนดจุด</p>
-                  : stops.map((gr) => (
-                    <section key={gr.g} className="vplan__grp" aria-label={`จุดที่ ${gr.g}`} style={{ borderLeft: `6px solid ${stopColor(gr.g).dark}`, background: stopColor(gr.g).tint, borderRadius: 8, padding: '0.2rem 0.4rem' }}>
-                      <div className="vplan__gh">
-                        <b>จุดที่ {gr.g}</b>
-                        {canEdit
-                          ? <input className="input vplan__gname" aria-label={`ชื่อสถานที่ของจุดที่ ${gr.g}`} placeholder="สถานที่/โซน (ถ้ามี)" maxLength={40} defaultValue={gr.name} key={`${date}-${gr.g}-${gr.name}`} onBlur={(e) => { if (e.target.value.trim() !== gr.name) write(renameGroup(doc, gr.g, e.target.value)) }} />
-                          : gr.name && <span className="small muted">{gr.name}</span>}
-                        <span className="small muted">{gr.items.length} คน</span>
-                      </div>
-                      <ol className="vplan__list" aria-label={`ลำดับในจุดที่ ${gr.g}`}>
-                        {gr.items.map((x, i) => (
-                          <li key={x.id} className="vplan__item">
-                            <span className="vplan__no" aria-hidden="true">{i + 1}</span>
-                            <span className="vplan__who"><b>{x.name}</b></span>
-                            {canEdit && <button type="button" className="mini vplan__x" aria-label={`แก้จุดของ ${x.name}`} onClick={() => askStop(x)}>✎</button>}
-                          </li>
-                        ))}
-                      </ol>
-                    </section>
-                  ))}
                 {canEdit && n > 0 && (
                   <div className="row no-print">
                     <button type="button" className="mini" onClick={() => { if (window.confirm(`ล้างตะกร้าวัน ${dayLabel} ทั้งหมด ${n} คน ?`)) write({ ...doc, items: [] }) }}>ล้างตะกร้า</button>
