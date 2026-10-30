@@ -95,15 +95,20 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const per = REG_PERIODS.find((x) => x.k === period) ?? REG_PERIODS[2]
   const winP = useMemo(() => attendanceInWindow(att, today, per.days), [att, today, per.days])
   const winY = useMemo(() => attendanceInWindow(att, today, 365), [att, today])
-  const byGroup = tab === 4 || (tab === 3 && gs.length > 0) // แท็บกลุ่ม/สถานะ (เมื่อเลือก): วัดความสม่ำเสมอ 1 ปีล่าสุดเสมอ
+  const byGroup = tab === 4 // แท็บกลุ่ม: วัดความสม่ำเสมอ 1 ปีล่าสุดเสมอ
   const win = byGroup ? winY : winP
   const curPer = byGroup ? REG_PERIODS[2] : per
   const timesOf = (id: string) => (ev.hasData ? win.times.get(id) ?? 0 : 0) // จำนวนครั้งที่มาในช่วงที่เลือก
   const pctIn = (id: string) => Math.min(1, timesOf(id) / Math.max(1, win.services))
+  // แท็บสถานะ: นับการมาทั้งหมดตั้งแต่เริ่มมีบันทึก ไม่จำกัดช่วงปี (มาครบ = ทุกครั้งที่มีบันทึกตั้งแต่เป็นสมาชิก)
+  const lifeTimes = (id: string) => (ev.hasData ? ev.map.get(id)?.visits ?? 0 : 0)
+  const lifeTotal = (id: string) => ev.map.get(id)?.possible ?? 0
+  const lifePct = (id: string) => Math.min(1, lifeTimes(id) / Math.max(1, lifeTotal(id)))
+  const cs = (id: string) => (tab === 3 ? { t: lifeTimes(id), n: lifeTotal(id), p: lifePct(id) } : { t: timesOf(id), n: win.services, p: pctIn(id) })
   const faces = useMemo(() => {
     const byName = () => { const xs = orderMembers(sel, 'name', stats, today); return order === 'nameDesc' ? xs.reverse() : xs }
     if (order === 'name' || order === 'nameDesc') return byName()
-    if (tab === 3) return orderByFrequency(sel, timesOf, true)
+    if (tab === 3) return orderByFrequency(sel, lifeTimes, true)
     if (tab === 4) return orderByFrequency(sel.filter((m) => grpSel.includes(grpName(m))), timesOf, true)
     if (tab === 2) return orderByFrequency(sel, timesOf, order !== 'pctAsc')
     if (order === 'old' || order === 'new') return orderByTenure(sel, (id) => tenureMap.get(id) ?? null, order === 'old')
@@ -213,8 +218,9 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
       )}
       {(tab === 1 || tab === 2 || (tab === 3 && gs.length > 0) || (tab === 4 && grpSel.length > 0)) && <>
       <section className="pfaces" aria-label={`รูปสมาชิก ${gName}`}>
-        <p className="pfaces__n muted small">{gName}{tab === 4 ? ` · กลุ่ม ${grpSel.join(', ')}` : ''} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {tab === 3 || tab === 4 ? 'สม่ำเสมอสุด → น้อยสุด' : orderName}</p>
-        {((tab === 2 && order !== 'name' && order !== 'nameDesc') || tab === 3 || tab === 4) && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>{curPer.t}</b> · นับจำนวนครั้งที่มานมัสการใน{curPer.short} ยิ่งมากยิ่งอยู่บน (เต็มหลอด = มาครบทุกครั้งที่มีบันทึก)</p>}
+        <p className="pfaces__n muted small">{gName}{tab === 4 ? ` · กลุ่ม ${grpSel.join(', ')}` : ''} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {tab === 3 ? 'มาทั้งหมดมากสุด → น้อยสุด' : tab === 4 ? 'สม่ำเสมอสุด → น้อยสุด' : orderName}</p>
+        {tab === 3 && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>มาทั้งหมดตั้งแต่ต้น</b> · นับจำนวนครั้งที่มานมัสการทั้งหมดตั้งแต่เริ่มมีบันทึก ไม่จำกัดช่วงปี ยิ่งมากยิ่งอยู่บน (เต็มหลอด = มาครบทุกครั้งตั้งแต่เป็นสมาชิก)</p>}
+        {((tab === 2 && order !== 'name' && order !== 'nameDesc') || tab === 4) && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>{curPer.t}</b> · นับจำนวนครั้งที่มานมัสการใน{curPer.short} ยิ่งมากยิ่งอยู่บน (เต็มหลอด = มาครบทุกครั้งที่มีบันทึก)</p>}
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
           <ul className="pcards">
             {faces.map((m) => (
@@ -227,8 +233,8 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
                     : ev.hasData
                       ? (
                         <>
-                          <span className="pcard__l2">มา <b>{timesOf(m.id)}</b>/{win.services} ครั้ง · <b className="pcard__pct">{Math.round(pctIn(m.id) * 100)}%</b> · {statusShort(m.status)}</span>
-                          <span className="pcard__gauge" role="img" aria-label={`${curPer.t} ${Math.round(pctIn(m.id) * 100)}%`}><i style={{ width: `${Math.round(pctIn(m.id) * 100)}%`, background: gaugeColor(pctIn(m.id)) }} /></span>
+                          <span className="pcard__l2">{tab === 3 ? 'มาทั้งหมด ' : 'มา '}<b>{cs(m.id).t}</b>/{cs(m.id).n} ครั้ง · <b className="pcard__pct">{Math.round(cs(m.id).p * 100)}%</b> · {statusShort(m.status)}</span>
+                          <span className="pcard__gauge" role="img" aria-label={`${tab === 3 ? 'มาทั้งหมดตั้งแต่ต้น' : curPer.t} ${Math.round(cs(m.id).p * 100)}%`}><i style={{ width: `${Math.round(cs(m.id).p * 100)}%`, background: gaugeColor(cs(m.id).p) }} /></span>
                         </>
                       )
                       : <span className="pcard__l2">ยังไม่มีบันทึกลงชื่อนมัสการ</span>}
