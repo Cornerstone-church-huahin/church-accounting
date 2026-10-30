@@ -300,7 +300,7 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
             </table>
             {pi === pages.length - 1 && (
               <>
-                <p style={{ fontSize: 14, margin: '6px 0 0' }}>รวมออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน</p>
+                <p style={{ fontSize: 14, margin: '6px 0 0' }}>รวมออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน{st.notMet > 0 && <> · ไปแล้วไม่พบ <b>{st.notMet}</b> คน</>}</p>
               </>
             )}
           </>

@@ -6,7 +6,7 @@ import { useVisitPlans } from '../lib/data'
 import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import { DAY_NAMES } from '../lib/visits'
-import { addItem, moveItem, removeItem, sendPrep, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
+import { addItem, moveItem, removeItem, refreshPrep, sendPrep, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
 import { fmtDay } from './PastoralVisits'
 import type { ChurchMember } from '../lib/types'
 
@@ -26,7 +26,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   const ids = useMemo(() => doc.items.map((x) => x.id), [doc])
   const byId = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
   const stops = stopsOf(doc)
-  const write = (next: PlanDoc) => setMsg(plans.save(date, next) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
+  const write = (next: PlanDoc) => setMsg(plans.save(date, refreshPrep(next)) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
   const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m))
   const dayLabel = `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}${date === today ? ' · วันนี้' : ''}`
   const n = doc.items.length
@@ -93,7 +93,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
     <div className="vplan">
       {slot ? createPortal(icon, slot) : <div className="vbasket__top no-print">{icon}</div>}
       {!open && msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
-      {sent && <p className="small pvnote" role="status" style={{ margin: '0.3rem 0 0' }}>✓ ส่งข้อมูลเตรียมเยี่ยมไปที่ “บันทึกการเยี่ยม” แล้ว</p>}
+      {sent && <p className="small pvnote" role="status" style={{ margin: '0.3rem 0 0' }}>✓ ส่งข้อมูลเตรียมเยี่ยมไปที่ “บันทึกการเยี่ยม” แล้ว · เพิ่ม/แก้จุดหลังจากนี้จะตามไปให้อัตโนมัติ</p>}
         <>
           {!canEdit && <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
           <AbsentList hideLabel={canEdit} label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${n} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}

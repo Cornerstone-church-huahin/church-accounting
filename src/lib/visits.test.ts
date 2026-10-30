@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayKind, sundayOf, tripNumbers, tripsOf, visitsOfWeek, visitsOn, weekDays, weekStats } from './visits'
+import { metVisits, notMetVisits, timesVisited, dayKind, sundayOf, tripNumbers, tripsOf, visitsOfWeek, visitsOn, weekDays, weekStats } from './visits'
 import type { Visit } from './types'
 
 const v = (id: string, date: string, memberId: string, visitor = 'คศ.กฤต', deleted = false): Visit => ({ id, date, memberId, memberName: memberId, reason: '', visitor, updated: 1, ...(deleted ? { deleted: true } : {}) })
@@ -16,7 +16,7 @@ describe('ตารางเยี่ยม', () => {
     expect(visitsOn(xs, '2026-10-20').map((x) => x.id)).toEqual(['1'])
     const w = visitsOfWeek(xs, '2026-10-18')
     expect(w.map((x) => x.id)).toEqual(['1', '2', '3'])
-    expect(weekStats(w)).toEqual({ count: 3, trips: 3, people: 2, visitors: ['คศ.กฤต', 'คศ.พิชิต'] })
+    expect(weekStats(w)).toEqual({ count: 3, trips: 3, people: 2, notMet: 0, visitors: ['คศ.กฤต', 'คศ.พิชิต'] })
   })
 })
 
@@ -40,5 +40,17 @@ describe('ครั้งที่ออกเยี่ยม (บ้านใ�
     expect(tripsOf(xs).map((g) => g.map((x) => x.id))).toEqual([['a', 'b', 'c'], ['old'], ['far'], ['d2']])
     expect(tripNumbers(xs).get('c')).toBe(1); expect(tripNumbers(xs).get('far')).toBe(3)
     expect(weekStats(xs)).toMatchObject({ count: 6, trips: 4 })
+  })
+  it('ไปแล้วไม่พบ: นับเป็นการเดินทาง (ครั้ง/เช็คอิน) แต่ไม่นับเป็นการถูกเยี่ยม', () => {
+    const at = { lat: 12.5, lng: 99.9, at: 1 }
+    const vs = [
+      { id: 'a', date: '2026-10-30', memberId: 'm1', memberName: 'ก', reason: '', visitor: 'x', checkin: at, updated: 1 },
+      { id: 'b', date: '2026-10-30', memberId: 'm2', memberName: 'ข', reason: '', visitor: 'x', checkin: at, absent: true, updated: 2 },
+      { id: 'c', date: '2026-11-02', memberId: 'm2', memberName: 'ข', reason: '', visitor: 'x', updated: 3 },
+    ] as never[]
+    expect(weekStats(vs)).toMatchObject({ count: 3, trips: 2, people: 2, notMet: 1 })
+    expect(tripsOf(vs)[0].map((v) => v.id)).toEqual(['a', 'b']) // ไม่พบก็อยู่ในเส้นทางเดียวกัน
+    expect(metVisits(vs).length).toBe(2); expect(notMetVisits(vs).map((v) => v.id)).toEqual(['b'])
+    expect(timesVisited(vs, 'm2')).toBe(1); expect(timesVisited(vs, 'm1')).toBe(1)
   })
 })

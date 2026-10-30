@@ -60,11 +60,11 @@ export default function VisitRecord() {
     people.put([{ ...m, ...at }]) && setNote(`บันทึกพิกัดบ้านของ ${m.name} เข้าทะเบียนสมาชิกแล้ว`)
   }
   const total = (prep?.items.length ?? 0) + todays.filter((v) => v.stop && !(prep?.items ?? []).some((x) => x.id === v.memberId)).length
-  const done = todays.filter((v) => v.stop).length
+  const met = todays.filter((v) => v.stop && !v.absent).length, notMet = todays.filter((v) => v.stop && v.absent).length
   return (
     <div className="vrec">
       <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>
-        <b>วันนี้ {dayLabel}</b>{prep ? ` · ส่งข้อมูลเตรียมเยี่ยมเมื่อ ${timeText(prep.at)} น. · บันทึกแล้ว ${done}/${total} คน` : ''}
+        <b>วันนี้ {dayLabel}</b>{prep ? ` · ส่งข้อมูลเตรียมเยี่ยมเมื่อ ${timeText(prep.at)} น. · พบ ${met} · ไปแล้วไม่พบ ${notMet} · รอบันทึก ${Math.max(0, total - met - notMet)}` : ''}
       </p>
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
       {!prep && todays.length === 0 && stopNos.length === 0 && (
@@ -72,11 +72,14 @@ export default function VisitRecord() {
       )}
       {stopNos.map((g) => {
         const planned = (prep?.items ?? []).filter((x) => x.g === g)
-        const extras = todays.filter((v) => v.stop === g && !planned.some((x) => x.id === v.memberId))
+        const extras = todays.filter((v) => v.stop === g && !(prep?.items ?? []).some((x) => x.id === v.memberId))
         const c = stopColor(g)
         return (
           <section key={g} className="vrec__stop" aria-label={`จุดที่ ${g}`} style={{ borderLeft: `6px solid ${c.dark}`, background: c.tint }}>
-            <div className="vplan__gh"><b style={{ color: c.dark }}>จุดที่ {g}</b><span className="small muted">{planned.length + extras.length} คน</span></div>
+            <div className="vplan__gh">
+              <b style={{ color: c.dark }}>จุดที่ {g}</b><span className="small muted">{planned.length + extras.length} คน</span>
+              {canWrite && <button type="button" className="mini vrec__add" aria-label={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${g} (พบเพิ่ม)`} onClick={() => setForm({ entry: null, stop: g })}>＋ เพิ่มคน</button>}
+            </div>
             <ul className="vrec__list">
               {planned.map((x) => {
                 const v = todays.find((y2) => y2.memberId === x.id)
@@ -84,12 +87,11 @@ export default function VisitRecord() {
               })}
               {extras.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} extra canTap={canWrite && isAdmin} onTap={() => setForm({ entry: v, stop: g })} />)}
             </ul>
-            {canWrite && <button type="button" className="btn btn--ghost pvadd" onClick={() => setForm({ entry: null, stop: g })}>＋ เพิ่มผู้ถูกเยี่ยมในจุดที่ {g} (พบเพิ่ม)</button>}
           </section>
         )
       })}
       {canWrite && (prep || todays.length > 0) && (
-        <button type="button" className="btn btn--ghost pvadd" onClick={() => setForm({ entry: null, stop: Math.max(0, ...stopNos) + 1 })}>＋ เพิ่มจุดเยี่ยม</button>
+        <button type="button" className="mini" onClick={() => setForm({ entry: null, stop: Math.max(0, ...stopNos) + 1 })}>＋ เพิ่มจุดเยี่ยม</button>
       )}
       {form && (
         <VisitForm date={today} entry={form.entry} stop={form.stop} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
