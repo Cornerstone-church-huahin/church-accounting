@@ -1421,3 +1421,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .agenda-row--drag { background: #fff6d6; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
 .agenda-row__grip { touch-action: none; cursor: grab; border: 1px solid var(--line, #e0d8c8); background: transparent; border-radius: 999px; min-width: 2.6rem; min-height: 2.6rem; font-size: 1.3rem; line-height: 1; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; color: inherit; }
 .agenda-row__grip small { font-size: .7rem; line-height: 1; }
+
+.letter__agenda { padding-left: 0; }
+.letter__agenda-r { padding-left: 1.6em; }
+.agenda-row--r { padding-left: 1.2rem; }
+.agenda-row__n { min-width: 4.6rem; white-space: nowrap; font-size: .9rem; }
