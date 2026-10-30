@@ -95,7 +95,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const per = REG_PERIODS.find((x) => x.k === period) ?? REG_PERIODS[2]
   const winP = useMemo(() => attendanceInWindow(att, today, per.days), [att, today, per.days])
   const winY = useMemo(() => attendanceInWindow(att, today, 365), [att, today])
-  const byGroup = tab === 4 // แท็บกลุ่ม: วัดความสม่ำเสมอ 1 ปีล่าสุดเสมอ
+  const byGroup = tab === 4 || (tab === 3 && gs.length > 0) // แท็บกลุ่ม/สถานะ (เมื่อเลือก): วัดความสม่ำเสมอ 1 ปีล่าสุดเสมอ
   const win = byGroup ? winY : winP
   const curPer = byGroup ? REG_PERIODS[2] : per
   const timesOf = (id: string) => (ev.hasData ? win.times.get(id) ?? 0 : 0) // จำนวนครั้งที่มาในช่วงที่เลือก
@@ -103,6 +103,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const faces = useMemo(() => {
     const byName = () => { const xs = orderMembers(sel, 'name', stats, today); return order === 'nameDesc' ? xs.reverse() : xs }
     if (order === 'name' || order === 'nameDesc') return byName()
+    if (tab === 3) return orderByFrequency(sel, timesOf, true)
     if (tab === 4) return orderByFrequency(sel.filter((m) => grpSel.includes(grpName(m))), timesOf, true)
     if (tab === 2) return orderByFrequency(sel, timesOf, order !== 'pctAsc')
     if (order === 'old' || order === 'new') return orderByTenure(sel, (id) => tenureMap.get(id) ?? null, order === 'old')
@@ -125,8 +126,8 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
           ))}
         </nav>
         <div className="pfilters pfilters--slim">
-          {tab !== 3 && <div className="field"><label htmlFor="pf-status">สถานะ</label>
-            <MultiPick id="pf-status" title="สถานะ" options={STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>}
+          <div className="field"><label htmlFor="pf-status">สถานะ</label>
+            <MultiPick id="pf-status" title="สถานะ" options={STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>
           {tab === 1 && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
             <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
           {tab === 4 && <div className="field"><label htmlFor="pf-group">กลุ่ม</label>
@@ -150,7 +151,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
 
       {/* โซน 3: รูปสมาชิกตามตัวเลือก — ดูอย่างเดียว กดเข้าไปดูรายละเอียดไม่ได้ */}
       <div className="pzone2" role="tabpanel" aria-label="พื้นที่แสดงผล">
-      {tab === 3 && (
+      {tab === 3 && gs.length === 0 && (
         <section className="card" aria-label="สถานะสมาชิก">
           <h2 style={{ margin: 0 }}>สถานะสมาชิก <span className="muted small">(เรียงจากสถานะที่ดีที่สุด)</span></h2>
           <ul className="pstat" aria-label="จำนวนแต่ละสถานะ">
@@ -210,10 +211,10 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
           </table></div>
         </section>
       )}
-      {(tab === 1 || tab === 2 || (tab === 4 && grpSel.length > 0)) && <>
+      {(tab === 1 || tab === 2 || (tab === 3 && gs.length > 0) || (tab === 4 && grpSel.length > 0)) && <>
       <section className="pfaces" aria-label={`รูปสมาชิก ${gName}`}>
-        <p className="pfaces__n muted small">{gName}{tab === 4 ? ` · กลุ่ม ${grpSel.join(', ')}` : ''} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {tab === 4 ? 'สม่ำเสมอสุด → น้อยสุด' : orderName}</p>
-        {((tab === 2 && order !== 'name' && order !== 'nameDesc') || tab === 4) && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>{curPer.t}</b> · นับจำนวนครั้งที่มานมัสการใน{curPer.short} ยิ่งมากยิ่งอยู่บน (เต็มหลอด = มาครบทุกครั้งที่มีบันทึก)</p>}
+        <p className="pfaces__n muted small">{gName}{tab === 4 ? ` · กลุ่ม ${grpSel.join(', ')}` : ''} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {tab === 3 || tab === 4 ? 'สม่ำเสมอสุด → น้อยสุด' : orderName}</p>
+        {((tab === 2 && order !== 'name' && order !== 'nameDesc') || tab === 3 || tab === 4) && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>{curPer.t}</b> · นับจำนวนครั้งที่มานมัสการใน{curPer.short} ยิ่งมากยิ่งอยู่บน (เต็มหลอด = มาครบทุกครั้งที่มีบันทึก)</p>}
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
           <ul className="pcards">
             {faces.map((m) => (
