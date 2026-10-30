@@ -107,7 +107,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           <div className="letter__row"><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
-          <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
+          <div style={{ margin: internal ? '42px 0 8px' : '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
           {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}><b>{x.label}</b> {x.t}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
         </div>
@@ -153,12 +153,12 @@ const upgradeNotice = (s?: Partial<Letter>): Partial<Letter> | undefined => {
   const fix = (t?: string) => t?.replace(/คณะรัฐมนตรี/g, 'คณะธรรมกิจ').replace(/ในวัน…………… ที่ …… เดือน …………… พ\.ศ\. …… เวลา ……… น\. ณ ……………………/, 'ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ')
   // ข้อความตั้งต้นรุ่นก่อน (ยังไม่มีวันที่จริง) → ใส่วันอาทิตย์ต้นเดือนที่จะถึงให้
   const n = noticeMeetingText(s.date || todayISO())
-  const old = (t?: string) => t?.replace('ประจำเดือน ………… ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ', `ประจำเดือน${n.month} ${n.when}`)
+  const old = (t?: string) => t?.replace('ประจำเดือน ………… ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ', `ประจำเดือน${n.month}\n${n.when}\nณ ห้องประชุมธรรมกิจ`)
   const tn = s.toName?.trim() ?? ''
   const toName = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(tn) ? n.toName.replace(/^\S+/, tn) : tn || !/ประจำเดือน ………… (ในวัน|ในวันอาทิตย์ต้นเดือน)/.test(fix(s.body) ?? '') ? s.toName : n.toName
   const sub = fix(s.subject) ?? ''
   const subject = /^แจ้ง(การ)?ประชุม(ประจำเดือน\S*)? ?(คณะ)?ธรรมกิจ$/.test(sub) ? fillNotice(LETTER_KINDS.notice.blank.subject, s.date || todayISO()) : sub
-  const body = (old(fix(s.body)) ?? '').replace(/(ในวันอาทิตย์ที่ \d{1,2} \S+) (\d{4}) เวลา/, (m, a, y) => (Number(y) < 2400 ? `${a} พ.ศ. ${Number(y) + 543} เวลา` : m))
+  const body = (old(fix(s.body)) ?? '').replace(/^(ด้วยคณะธรรมกิจคริสตจักรศิลาเอกกำหนดประชุมประจำเดือน\S+) (ในวันอาทิตย์ที่ \d{1,2} \S+(?: พ\.ศ\.)? \d{4} เวลา 13\.00 น\.) (ณ ห้องประชุมธรรมกิจ จึงขอแจ้งวาระการประชุม ดังนี้)$/, '$1\n$2\n$3').replace(/(ในวันอาทิตย์ที่ \d{1,2} \S+) (\d{4}) เวลา/, (m, a, y) => (Number(y) < 2400 ? `${a} พ.ศ. ${Number(y) + 543} เวลา` : m))
   return { ...s, toName, subject, to: fix(s.to) ?? '', body }
 }
 const toDraft = (kind: LetterKindId, raw?: Partial<Letter>): Draft => { const s = kind === 'notice' ? upgradeNotice(raw) : raw; return { ...blankOf(kind), ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() } }

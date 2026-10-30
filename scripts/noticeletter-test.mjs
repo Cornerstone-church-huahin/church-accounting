@@ -69,7 +69,7 @@ try {
   await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
   await body(admin).waitFor({ timeout: 15000 })
   const bt = await body(admin).inputValue(), tn = await admin.locator('#il-tn').inputValue()
-  must(/ประจำเดือน\S+ ในวันอาทิตย์ที่ \d{1,2} \S+ พ\.ศ\. 25\d\d เวลา 13\.00 น\. ณ ห้องประชุมธรรมกิจ/.test(bt), 'auto first-Sunday text: ' + bt)
+  must(/ประจำเดือน\S+\s+ในวันอาทิตย์ที่ \d{1,2} \S+ พ\.ศ\. 25\d\d เวลา 13\.00 น\.\s+ณ ห้องประชุมธรรมกิจ/.test(bt), 'auto first-Sunday text: ' + bt)
   must(/^แจ้งประชุมคณะธรรมกิจ ประจำเดือน\S+$/.test(await admin.locator('#il-sub').inputValue()), 'auto subject')
   must(/^\d{1,2}\/\d{1,2}\/\d{4} แจ้งการประชุมประจำเดือนธรรมกิจ$/.test(tn), 'auto numeric date in to-name: ' + tn)
   await admin.getByRole('button', { name: /เพิ่มวาระ/ }).click()
