@@ -1263,3 +1263,13 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .reqinfo > div { display: flex; gap: 0.5rem; line-height: 1.3 }
 .reqinfo dt { flex: none; width: 6.2rem; color: var(--ink-soft) }
 .reqinfo dd { margin: 0; min-width: 0 }
+
+/* แผนเยี่ยมรายวัน (ตะกร้า): ป้ายจำนวน + รายการเรียงลำดับ */
+.vplan__n { display: inline-block; min-width: 1.4rem; padding: 0 0.35rem; border-radius: 999px; background: var(--gold, #c99a14); color: #1a2b4c; font-weight: 800; font-size: 0.85rem; text-align: center }
+.vplan__list { list-style: none; margin: 0 0 0.5rem; padding: 0; border: 1px solid var(--line); border-radius: 0.7rem; overflow: hidden; background: var(--surface) }
+.vplan__item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line) }
+.vplan__list li:last-child { border-bottom: 0 }
+.vplan__no { flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--navy, #1a2b4c); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 0.9rem }
+.vplan__who { display: grid; min-width: 0; flex: 1; line-height: 1.25 }
+.vplan__ctl { display: flex; gap: 4px; flex: none }
+.pvpick__in { margin-left: auto; align-self: center; color: var(--good, #1a7f37); font-size: 1.3rem }

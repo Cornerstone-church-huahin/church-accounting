@@ -30,7 +30,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /ตารางเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   // แท็บ 2 (วางแผน): เปิดมาเห็นรายชื่อคนที่ขาดนมัสการ (เหมือนในป๊อปอัพบันทึกการเยี่ยม) · ดูอย่างเดียว
-  must(await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).locator('.pvpick__r--ro').count() === 6 && await page.locator('.pvabs').count() === 6, 'plan tab lists members who need a visit with their red bars (read-only)')
+  must(await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).locator('.pvpick__r').count() === 6 && await page.locator('.pvabs').count() === 6, 'plan tab lists members who need a visit with their red bars')
   must(await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).count() === 0 && await page.getByRole('tab', { name: /รายงานสัปดาห์/ }).count() === 0, 'tab 2 has only the planning list (cards and weekly report moved to the report page)')
   // งานหลัก (บันทึก/แก้ไข/ลบ/รายงาน) ทำที่แท็บ 3 “บันทึกการเยี่ยม”
   await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')

@@ -4,6 +4,7 @@ import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import MultiPick from './MultiPick'
 import AbsentList from './AbsentList'
+import VisitPlanBoard from './VisitPlanBoard'
 import VisitCamera, { type Shot } from './VisitCamera'
 import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
 import { formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
@@ -87,7 +88,7 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
       {mode === 'list' ? (
         // วางแผนร่วมกัน: ทุกคนที่ดูตารางนี้ได้ (รวมผู้ช่วย) เห็นรายชื่อคนที่ขาดนมัสการพร้อมรูป สถานะ และแถบเดือนที่ขาด · ดูอย่างเดียว
-        <AbsentList label="ค้นหาสมาชิก / เลือกสถานะ" members={people.items} stats={stats} today={today} />
+        <VisitPlanBoard members={people.items} stats={stats} today={today} />
       ) : mode === 'cards' ? (
         <>
           <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>ออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน{st.visitors.length ? ` · ผู้เยี่ยม ${st.visitors.join(', ')}` : ''}</p>
