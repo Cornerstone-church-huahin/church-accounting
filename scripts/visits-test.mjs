@@ -135,6 +135,7 @@ try {
   // รายงานสัปดาห์
   await page.getByRole('tab', { name: /รายงานสัปดาห์/ }).click()
   const sheet = (await page.locator('.a4page').allInnerTexts()).join('\n')
+  must(!/ลงชื่อ\s*\.{3,}|ลงชื่อ …/.test(sheet), 'report page has no signature blocks (it is a report, not a submission)')
   must(/รายงานการเยี่ยมประจำสัปดาห์/.test(sheet) && /ทดสอบ3 สมมติ/.test(sheet) && /ทดสอบ1 สมมติ/.test(sheet) && /คศ\.กฤต/.test(sheet) && /คศ\.พิชิต/.test(sheet) && /อธิษฐานร่วมกัน/.test(sheet) && /รวมเยี่ยม 2 ครั้ง · 2 คน/.test(sheet), 'weekly report sheet: ' + sheet.slice(0, 300))
   must(await page.locator('.a4page [data-credit="doc"]').count() >= 1, 'document credit on the report sheet')
   const dl = page.waitForEvent('download', { timeout: 30000 })
