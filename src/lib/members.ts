@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, INVITE_WORK_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role, type WorkLevel } from './access'
+import { isInstalled } from './install'
 import { useSharedStore } from './sharedStore'
 import { getSync, saveSync, SYNC_EVENT } from './sync'
 
@@ -46,15 +47,16 @@ export function useMembers() {
     meId: me?.id ?? '',
     isAdmin,
     adminCount,
-    approve: (id: string, roles: Role | Role[]) => {
+    /** work: undefined = ตามที่ลิงก์ระบุ (invitedWork) · null = ไม่ให้เข้าห้องงาน · {n, level} = แอดมินกำหนดห้องงาน+ตำแหน่งตอนอนุมัติ */
+    approve: (id: string, roles: Role | Role[], work?: { n: number; level: WorkLevel } | null) => {
       if (!isAdmin) return false
       const m = pending.find((x) => x.id === id)
       if (!m) return false
       const rs = normalizeRoles(Array.isArray(roles) ? roles : [roles])
-      const iw = m.invitedWork
+      const iw = work === undefined ? m.invitedWork : work ?? undefined
       const works = iw ? [...new Set([...(m.works ?? []), iw.n])].sort((a, b) => a - b) : m.works
       const workRoles = iw ? { ...(m.workRoles ?? {}), [String(iw.n)]: iw.level } : m.workRoles
-      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined, ...(iw ? { works, workRoles, invitedWork: undefined } : {}) }])
+      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined, ...(iw ? { works, workRoles, invitedWork: undefined } : { invitedWork: undefined }) }])
       announce()
       return true
     },
@@ -72,7 +74,9 @@ export function useMembers() {
       if (!me || !cfg) return
       let invitedWork: { n: number; level: WorkLevel } | undefined
       try { const w = JSON.parse(localStorage.getItem(INVITE_WORK_KEY) ?? 'null'); if (w && Number.isInteger(w.n) && ['lead', 'helper', 'advisor'].includes(w.level)) invitedWork = { n: w.n, level: w.level } } catch { /* ignore */ }
-      store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, ...(invitedFor ? { invitedFor } : {}), ...(invitedWork ? { invitedWork } : {}), updated: 0 }])
+      const ua = navigator.userAgent
+      const device = `${/iphone|ipad|ipod/i.test(ua) ? 'iPhone/iPad' : /android/i.test(ua) ? 'Android' : 'คอมพิวเตอร์'} · ${isInstalled() ? 'แอปที่ติดตั้ง' : 'เบราว์เซอร์'}`
+      store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, device, ...(invitedFor ? { invitedFor } : {}), ...(invitedWork ? { invitedWork } : {}), updated: 0 }])
       announce()
     },
     rename: (name: string) => {

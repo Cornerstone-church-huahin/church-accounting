@@ -25,7 +25,7 @@ export const ROLE_HELP: Record<Role, string> = {
 /** pending = ขอร่วมใช้ รออนุมัติ · ไม่มีสถานะ = ใช้งานได้ */
 /** role = สิทธิ์หลัก (สูงสุดในรายการ) · roles = สิทธิ์ทั้งหมดถ้ามีมากกว่า 1 (เครื่องรุ่นเก่าอ่านแค่ role ได้ จึงไม่พัง) */
 export interface FundAssign { id: string; /** จำกัดเฉพาะหมวดเหล่านี้ (ว่าง = ทุกหมวดของกองทุน) */ subs?: string[] }
-export interface Member extends SharedItem { /** ตำแหน่งที่แอดมินตั้งใจให้ตามลิงก์เชิญ (ใช้ตอนอนุมัติ) */ invitedWork?: { n: number; level: WorkLevel }; /** ตำแหน่งในแต่ละห้องงาน (เลขห้อง → ระดับ) · ไม่ระบุแต่อยู่ใน works = ผู้ดูแลหลัก (ข้อมูลเดิม) */ workRoles?: Record<string, WorkLevel>; /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
+export interface Member extends SharedItem { /** อุปกรณ์ที่ใช้ส่งคำขอ เช่น “Android · แอปที่ติดตั้ง” (ให้แอดมินดูตอนอนุมัติ) */ device?: string; /** ตำแหน่งที่แอดมินตั้งใจให้ตามลิงก์เชิญ (ใช้ตอนอนุมัติ) */ invitedWork?: { n: number; level: WorkLevel }; /** ตำแหน่งในแต่ละห้องงาน (เลขห้อง → ระดับ) · ไม่ระบุแต่อยู่ใน works = ผู้ดูแลหลัก (ข้อมูลเดิม) */ workRoles?: Record<string, WorkLevel>; /** ผู้ดูแลกองทุน: กองทุน (และหมวด) ที่ดูแล — ตั้งโดยแอดมิน */ funds?: FundAssign[]; name: string; role: Role; roles?: Role[]; joined: number; status?: 'active' | 'pending'; invitedFor?: string; paused?: boolean; /** งานที่รับผิดชอบในห้องทำงาน (เลขแท็บ 1–12) — ตั้งโดยแอดมิน · ไม่ใช่สิทธิ์ แค่กำหนดหน้าหลักของคนนั้น */ works?: number[] }
 
 export type Perm =
   | 'members' | 'settings' | 'budget'

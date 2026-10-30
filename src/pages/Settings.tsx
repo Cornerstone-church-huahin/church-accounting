@@ -102,6 +102,8 @@ function Members() {
   const [inviteLevel, setInviteLevel] = useState<WorkLevel>('helper')
   const [inviteFor, setInviteFor] = useState('')
   const [want] = useState<Record<string, Role[]>>({})
+  // ห้องงาน+ตำแหน่งที่แอดมินกำหนดตอนอนุมัติ (ค่าเริ่มต้น = ตามลิงก์ที่ใช้ขอ) · null = ไม่เข้าห้องงาน
+  const [wantWork, setWantWork] = useState<Record<string, { n: number; level: WorkLevel } | null>>({})
   const [delId, setDelId] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   if (!cfg) return null
@@ -161,11 +163,36 @@ function Members() {
               return (
                 <li key={x.id} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div><b>{x.name}</b><br /><span className="small muted">{x.invitedFor ? (matches ? `✓ ตรงกับชื่อที่ส่งลิงก์ให้ (${x.invitedFor})` : `⚠️ ลิงก์นี้ส่งให้ “${x.invitedFor}” แต่ผู้ขอใช้ชื่อ “${x.name}” — ตรวจให้แน่ใจก่อนอนุมัติ`) : 'ลิงก์ไม่ได้ระบุชื่อผู้รับ — ตรวจว่าเป็นคนที่ท่านส่งไปหรือไม่'}</span></div>
-                  <div className="row">
-                    <div className="grow small" style={{ minWidth: 0 }}>{x.invitedWork ? <>ตั้งใจให้เป็น <b>{WORK_LEVEL_LABEL[x.invitedWork.level]}</b> ของ <b>{MEETING_TABS.find((t) => t.n === x.invitedWork!.n)?.name}</b></> : <>ยังไม่ระบุงาน — เป็นผู้ดูทั่วไป (ตั้งตำแหน่งในงานได้หลังอนุมัติ)</>}</div>
-                    <button type="button" className="btn btn--gold" onClick={() => { m.approve(x.id, w); flash(`อนุมัติ ${x.name} แล้ว (${rolesLabel(normalizeRoles(w))})`) }}>✓ อนุมัติ</button>
+                  {(() => {
+                    const ww = x.id in wantWork ? wantWork[x.id] : (x.invitedWork ?? null)
+                    const wName = (n: number) => MEETING_TABS.find((t) => t.n === n)?.name ?? `งาน ${n}`
+                    return (
+                      <>
+                        <dl className="reqinfo" aria-label={`รายละเอียดคำขอของ ${x.name}`}>
+                          <div><dt>ขอเมื่อ</dt><dd>{x.joined ? new Date(x.joined).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.' : '—'}</dd></div>
+                          <div><dt>ขอมาทาง</dt><dd>ลิงก์เชิญ{x.invitedFor ? ` ที่ส่งให้ “${x.invitedFor}”` : ' (ไม่ได้ระบุชื่อผู้รับ)'} · อุปกรณ์ {x.device ?? 'ไม่ทราบ (คำขอเก่า)'}</dd></div>
+                          <div><dt>สิทธิ์ในลิงก์</dt><dd>{ROLE_LABEL[x.role]}</dd></div>
+                          <div><dt>ห้องงานที่ขอ</dt><dd>{x.invitedWork ? <><b>{wName(x.invitedWork.n)}</b> · ตำแหน่ง <b>{WORK_LEVEL_LABEL[x.invitedWork.level]}</b></> : <>ลิงก์นี้ไม่ได้ระบุห้องงาน/ตำแหน่ง (ขอเป็นผู้ดูทั่วไป)</>}</dd></div>
+                        </dl>
+                        <div className="row" style={{ alignItems: 'end' }}>
+                          <div className="field grow" style={{ minWidth: '8rem' }}><label htmlFor={`rw-${x.id}`}>ให้เข้าห้องงาน</label>
+                            <select id={`rw-${x.id}`} className="input" value={ww ? String(ww.n) : ''} onChange={(e) => setWantWork({ ...wantWork, [x.id]: e.target.value ? { n: Number(e.target.value), level: ww?.level ?? 'helper' } : null })}>
+                              <option value="">— ไม่ระบุงาน (ผู้ดูทั่วไป) —</option>
+                              {MEETING_TABS.map((t) => <option key={t.n} value={t.n}>{t.name}</option>)}
+                            </select></div>
+                          {ww && <div className="field" style={{ minWidth: '7.5rem' }}><label htmlFor={`rl-${x.id}`}>ตำแหน่ง</label>
+                            <select id={`rl-${x.id}`} className="input" value={ww.level} onChange={(e) => setWantWork({ ...wantWork, [x.id]: { n: ww.n, level: e.target.value as WorkLevel } })}>
+                              {WORK_LEVELS.map((lv) => <option key={lv} value={lv}>{WORK_LEVEL_LABEL[lv]}</option>)}
+                            </select></div>}
+                        </div>
+                        <div className="row">
+                    <div className="grow small" style={{ minWidth: 0 }}>{ww ? <>จะให้เป็น <b>{WORK_LEVEL_LABEL[ww.level]}</b> ของ <b>{wName(ww.n)}</b> เมื่ออนุมัติ</> : <>จะอนุมัติเป็นผู้ดูทั่วไป (ตั้งตำแหน่งในงานได้หลังอนุมัติ)</>}</div>
+                    <button type="button" className="btn btn--gold" onClick={() => { m.approve(x.id, w, x.id in wantWork ? wantWork[x.id] : undefined); flash(`อนุมัติ ${x.name} แล้ว (${rolesLabel(normalizeRoles(w))})`) }}>✓ อนุมัติ</button>
                     <button type="button" className="btn btn--ghost" onClick={() => { m.reject(x.id); flash(`ไม่อนุมัติ ${x.name}`) }}>✕</button>
                   </div>
+                      </>
+                    )
+                  })()}
                 </li>
               )
             })}

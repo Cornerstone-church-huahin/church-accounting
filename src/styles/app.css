@@ -1257,3 +1257,9 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 .pvpick__r--ro { cursor: default }
 .seg--3 > button { font-size: 0.85rem; padding-inline: 0.2rem }
+
+/* คำขอเข้าใช้ร่วม: รายละเอียดคำขอ (เมื่อไร/ทางไหน/สิทธิ์/ห้องงาน) */
+.reqinfo { margin: 0.3rem 0 0.4rem; display: grid; gap: 0.15rem; font-size: 0.92rem }
+.reqinfo > div { display: flex; gap: 0.5rem; line-height: 1.3 }
+.reqinfo dt { flex: none; width: 6.2rem; color: var(--ink-soft) }
+.reqinfo dd { margin: 0; min-width: 0 }
