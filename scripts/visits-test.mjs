@@ -158,11 +158,11 @@ try {
   await r2.getByRole('button', { name: 'ไม่พบหรือเอา ทดสอบ1 สมมติ ออกจากรายการ' }).click()
   await page.getByRole('button', { name: /เอาออกจากรายการ/ }).click()
   must(await page.getByRole('button', { name: 'ยืนยันลบรายชื่อนี้' }).isDisabled(), 'confirm is disabled until a reason is given')
-  await page.getByRole('radio', { name: 'ไม่เจอ/ไม่อยู่' }).click(); await page.getByLabel('หมายเหตุสาเหตุที่ลบ').fill('ประตูล็อก')
+  await page.getByRole('radio', { name: 'มาแล้วไม่เจอ' }).click(); await page.getByLabel('หมายเหตุสาเหตุที่ลบ').fill('ประตูล็อก')
   await page.getByRole('button', { name: 'ยืนยันลบรายชื่อนี้' }).click()
   must(!/ทดสอบ1 สมมติ/.test(await r2.innerText()) && /ทดสอบ2 สมมติ/.test(await r2.innerText()), 'removing from the list drops only that person')
   const dropped = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1'))[0].dropped)
-  must(dropped.length === 1 && dropped[0].id === 't1' && dropped[0].reason === 'ไม่เจอ/ไม่อยู่ — ประตูล็อก', 'the reason for removing is kept as data: ' + JSON.stringify(dropped))
+  must(dropped.length === 1 && dropped[0].id === 't1' && dropped[0].reason === 'มาแล้วไม่เจอ — ประตูล็อก', 'the reason for removing is kept as data: ' + JSON.stringify(dropped))
   // เช็คอินเข้าทะเบียนสมาชิกอัตโนมัติ: พิกัดบ้านถูกบันทึก + แผนที่ในรายละเอียดสมาชิก
   const homes = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).filter((m) => typeof m.lat === 'number').map((m) => m.id + ':' + m.lat + ',' + m.lng).sort())
   must(homes.join('|') === 't3:12.5684,99.9577|t4:12.5684,99.9577|t5:12.5684,99.9577', 'check-in wrote home coordinates to the members: ' + homes)
