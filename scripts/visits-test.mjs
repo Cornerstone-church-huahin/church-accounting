@@ -257,6 +257,25 @@ try {
   await c2.getByLabel('เปิดกล้องของเครื่อง').setInputFiles({ name: 'cam.png', mimeType: 'image/png', buffer: png })
   await f2.getByRole('button', { name: 'ลบรูปที่ 1' }).waitFor({ timeout: 15000 })
   must(/รูปที่ 1: ถ่ายเวลา/.test(await f2.innerText()), 'fallback photo (fresh file) is recorded with its time')
+  // ตะกร้า 🧺 อยู่บนหัวหน้าของทั้ง 3 หน้า ตัวเลขตามกันทุกหน้า · บันทึกแล้วก็ยังนับอยู่ จนกว่าจะล้างตะกร้า
+  const planCount = () => page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1'))[0].items.length)
+  const badge = async () => Number(await page.getByRole('button', { name: /เปิดตะกร้า/ }).getAttribute('aria-label').then((x) => /(\d+) คน/.exec(x)[1]))
+  const total0 = await planCount()
+  for (const path of ['record', 'report', '2']) {
+    await page.goto(`http://localhost:${PORT}/#/meeting/4/${path}`); await page.waitForLoadState('networkidle')
+    must(await page.getByRole('button', { name: /เปิดตะกร้า/ }).count() === 1 && await badge() === total0, `basket icon with the same number on page ${path}: ${await badge()} vs ${total0}`)
+  }
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/record`); await page.waitForLoadState('networkidle')
+  await page.getByRole('region', { name: 'จุดที่ 2' }).getByRole('button', { name: /เพิ่มผู้ถูกเยี่ยมในจุดที่ 2/ }).click()
+  await page.getByRole('dialog').locator('#pv-q').fill('ทดสอบ3'); await page.getByRole('dialog').getByRole('button', { name: /ทดสอบ3 สมมติ/ }).click(); await page.getByRole('dialog').getByRole('button', { name: 'เสร็จ' }).click()
+  must(await badge() === total0 + 1 && await planCount() === total0 + 1, 'adding on the record page changes the basket number')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/report`); await page.waitForLoadState('networkidle')
+  must(await badge() === total0 + 1, 'the report page shows the same number')
+  await page.getByRole('button', { name: /เปิดตะกร้า/ }).click()
+  page.once('dialog', (x) => x.accept())
+  await page.getByRole('button', { name: 'ล้างตะกร้า' }).click()
+  must(await planCount() === 0 && await badge() === 0, 'clearing the basket resets the number to 0 (recorded visits are untouched)')
+  must(await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-log.v1')).filter((v) => !v.deleted).length) >= 2, 'recorded visits stay after clearing the basket')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('visits-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

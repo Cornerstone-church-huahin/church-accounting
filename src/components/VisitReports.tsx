@@ -4,6 +4,7 @@ import StoredImage from './StoredImage'
 import MemberAvatar from './MemberAvatar'
 import PastoralVisits, { VisitReport, TRIP_TINT, fmtDay, rangeText } from './PastoralVisits'
 import { canRole, canWork } from '../lib/access'
+import { VisitBasketAuto } from './VisitBasket'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { formatCoord, mapsLink } from '../lib/geo'
@@ -40,6 +41,7 @@ export default function VisitReports() {
     const trip = tripNumbers(wk.vs)
     return (
       <div className="vrep">
+      <VisitBasketAuto />
         <div className="row row--between no-print" style={{ marginBottom: '0.4rem' }}>
           <button type="button" className="mini" onClick={() => { setOpen(null); setA4(false) }}>‹ รายการสัปดาห์</button>
           <div className="seg seg--2" role="tablist" aria-label="มุมมอง" style={{ maxWidth: '14rem' }}>
@@ -96,6 +98,7 @@ export default function VisitReports() {
 
   return (
     <div className="vrep">
+      <VisitBasketAuto />
       <div className="seg seg--3 no-print" role="tablist" aria-label="มุมมองรายงาน" style={{ marginBottom: '0.4rem' }}>
         <button type="button" role="tab" aria-selected={view === 'weeks'} className={view === 'weeks' ? 'on' : ''} onClick={() => setView('weeks')}>📋 รายสัปดาห์</button>
         <button type="button" role="tab" aria-selected={view === 'cards'} className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>🗓️ การ์ด 7 วัน</button>

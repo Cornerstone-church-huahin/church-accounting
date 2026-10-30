@@ -133,7 +133,7 @@ function PastoralSub({ name, which }: { name: string; which: 'record' | 'report'
   const p = PASTORAL_PAGES.find((x) => x.id === which)!
   return (
     <>
-      <div className="page-head no-print"><h1>{p.icon} {p.label}</h1><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
+      <div className="page-head no-print"><h1>{p.icon} {p.label}</h1><span id="vbasket-slot" className="vbasket__slot" /><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
       <PastoralBar active={which} />
       {which === 'record' ? <VisitRecord /> : <VisitReports />}
     </>
