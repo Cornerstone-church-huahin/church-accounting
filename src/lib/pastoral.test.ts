@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, genderByStatus, orderByFrequency, orderByTenure, statusBreakdown, tenureDays, tenureText, orderMembers, recentServices, statusRank, visitStats, absence, STATUS_GROUPS } from './pastoral'
+import { ageBands, ageYears, followUp, genderSplit, groupCounts, groupOf, headline, inGroup, joinYears, genderByStatus, orderByFrequency, attendanceInWindow, REG_PERIODS, orderByTenure, statusBreakdown, tenureDays, tenureText, orderMembers, recentServices, statusRank, visitStats, absence, STATUS_GROUPS } from './pastoral'
 import { OFFICIAL_STATUSES, statusLabel, type Evaluated } from './registry'
 
 describe('ข้อมูลสมาชิกสำหรับงานอภิบาล', () => {
@@ -130,5 +130,16 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
   })
   it('เดือนที่ขาด', () => { expect(absentMonths('2026-08-30', T)).toBe(1); expect(absentMonths('2026-10-18', T)).toBe(0); expect(absentMonths(undefined, T)).toBeNull() })
   it('แถบสีแดงยาวขึ้นตามเดือนที่ขาด', () => { expect(absenceBar(1)).toBeCloseTo(1 / 12); expect(absenceBar(6)).toBe(0.5); expect(absenceBar(30)).toBe(1); expect(absenceBar(null)).toBe(1) })
+  it('ความสม่ำเสมอตามช่วงเวลา: นับครั้งที่มาในช่วง และตัวหาร = ครั้งนมัสการที่มีบันทึกในช่วงนั้น', () => {
+    const T = '2026-10-30'
+    const att = [
+      { date: '2026-10-25', ids: ['a', 'b'] }, { date: '2026-10-18', ids: ['a'] }, { date: '2026-08-02', ids: ['a', 'b'] },
+      { date: '2025-12-01', ids: ['a'] }, { date: '2024-06-02', ids: ['a', 'b'] }, { date: '2020-01-05', ids: ['a'] },
+    ]
+    const w = (d: number) => attendanceInWindow(att, T, d)
+    expect(REG_PERIODS.map((p) => p.k)).toEqual(['3y', '2y', '1y', '6m', '3m'])
+    expect(w(91).services).toBe(3); expect(w(91).times.get('a')).toBe(3); expect(w(91).times.get('b')).toBe(2)
+    expect(w(365).services).toBe(4); expect(w(365).times.get('a')).toBe(4)
+    expect(w(1095).services).toBe(5); expect(w(1095).times.get('b')).toBe(3) // 2020 อยู่นอกช่วง 3 ปี
+  })
 })
-
