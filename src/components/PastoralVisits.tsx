@@ -17,7 +17,7 @@ import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { toAttendance } from '../lib/registry'
-import { DAY_NAMES, dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
+import { DAY_NAMES, TRIP_RADIUS_M, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
@@ -85,7 +85,7 @@ export default function PastoralVisits({ plan = false }: { plan?: boolean }) {
         <AbsentList label="ค้นหาสมาชิก / เลือกสถานะ" members={people.items} stats={stats} today={today} />
       ) : mode === 'cards' ? (
         <>
-          <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>เยี่ยมแล้ว <b>{st.count}</b> ครั้ง · <b>{st.people}</b> คน{st.visitors.length ? ` · ผู้เยี่ยม ${st.visitors.join(', ')}` : ''}</p>
+          <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>ออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน{st.visitors.length ? ` · ผู้เยี่ยม ${st.visitors.join(', ')}` : ''}</p>
           <ul className="pvdays">
             {days.map((d) => {
               const kind = dayKind(d), xs = visitsOn(visits.list, d), future = d > today
@@ -252,6 +252,7 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const [busy, setBusy] = useState(false)
   const st = weekStats(visits)
+  const trip = tripNumbers(visits)
   const rows = [...visits].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
   const pages = Array.from({ length: Math.max(1, Math.ceil(rows.length / ROWS)) }, (_, i) => rows.slice(i * ROWS, (i + 1) * ROWS))
   const els = () => refs.current.filter((e): e is HTMLDivElement => !!e)
@@ -275,7 +276,7 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
                 {pr.map((v, i) => (
                   <tr key={v.id}>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', whiteSpace: 'nowrap' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}</td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', whiteSpace: 'nowrap' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}<div style={{ fontSize: 11, color: '#444' }}>ครั้งที่ {trip.get(v.id)}</div></td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.memberName}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.reason || '—'}{v.detail ? <div style={{ fontSize: 12, color: '#444' }}>{v.detail}</div> : null}{v.checkin ? <div style={{ fontSize: 11, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.visitor}</td>
@@ -286,7 +287,8 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
             </table>
             {pi === pages.length - 1 && (
               <>
-                <p style={{ fontSize: 15, margin: '10px 0 0' }}>รวมเยี่ยม <b>{st.count}</b> ครั้ง · <b>{st.people}</b> คน</p>
+                <p style={{ fontSize: 15, margin: '10px 0 0' }}>รวมออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน</p>
+                {st.trips < st.count && <p style={{ fontSize: 12, margin: '2px 0 0', color: '#444' }}>บ้านที่เช็คอินห่างกันไม่เกิน {TRIP_RADIUS_M} เมตรในวันเดียวกัน (เดินถึงกันได้) นับเป็นออกเยี่ยมครั้งเดียว</p>}
               </>
             )}
           </>
