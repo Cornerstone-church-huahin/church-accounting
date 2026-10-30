@@ -1308,3 +1308,13 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vplan__x { flex: none }
 .vplan__item { flex-wrap: nowrap }
 .vplan__who { flex: 1 1 0 }
+
+/* ตะกร้าที่ย่อ: แถบเล็กลอยด้านล่างสรุปแต่ละกลุ่ม (กลุ่ม · จำนวนคน) */
+.vbasket__bar { position: fixed; z-index: 55; left: 0.6rem; right: 0.6rem; bottom: calc(4.8rem + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 0.5rem; min-height: 3rem; padding: 0.3rem 0.8rem; border-radius: 999px; border: 2px solid var(--navy, #1a2b4c); background: var(--surface, #fff); color: var(--ink); font: inherit; font-weight: 700; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); cursor: pointer; text-align: left }
+.vbasket__ic { flex: none; display: inline-flex; align-items: center; gap: 0.3rem }
+.vbasket__chips { flex: 1; min-width: 0; display: flex; gap: 0.35rem; overflow-x: auto; scrollbar-width: none; white-space: nowrap }
+.vbasket__chips::-webkit-scrollbar { display: none }
+.vbasket__chip { flex: none; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.6rem; border-radius: 999px; background: rgba(26, 43, 76, 0.1); font-size: 0.88rem }
+.vbasket__chip b { display: inline-grid; place-items: center; min-width: 1.3rem; height: 1.3rem; border-radius: 50%; background: var(--navy, #1a2b4c); color: #fff; font-size: 0.78rem }
+.vbasket__empty { font-weight: 500; color: var(--ink-soft); font-size: 0.9rem }
+.vbasket__up { flex: none }
