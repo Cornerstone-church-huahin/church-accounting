@@ -20,7 +20,7 @@ import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSett
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
 /** หนังสือแจ้งการประชุม: ใส่ วัน/เดือน/ปี ของอาทิตย์ต้นเดือนที่จะถึงให้เอง (ผู้ใช้แก้ได้) */
-const fillNotice = (t: string, base: string) => { const n = noticeMeetingText(base); return t.replace('{เดือน}', n.month).replace('{วันเวลา}', n.when) }
+const fillNotice = (t: string, base: string) => { const n = noticeMeetingText(base); return t.replace(/\{เดือน\}/g, n.month).replace(/\{ปี\}/g, String(n.year)).replace('{วันเวลา}', n.when) }
 /** เปลี่ยนวันที่หนังสือแจ้งการประชุม: ช่องที่ยังเป็นข้อความที่ระบบใส่ให้ (ตามวันที่เดิม) ให้รันตามวันที่ใหม่ · ช่องที่ผู้ใช้แก้เองแล้วไม่แตะ */
 const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
   const was = blankOf('notice', l.date || todayISO()), now = blankOf('notice', newDate || todayISO())
@@ -157,7 +157,8 @@ const upgradeNotice = (s?: Partial<Letter>): Partial<Letter> | undefined => {
   const tn = s.toName?.trim() ?? ''
   const toName = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(tn) ? n.toName.replace(/^\S+/, tn) : tn || !/ประจำเดือน ………… (ในวัน|ในวันอาทิตย์ต้นเดือน)/.test(fix(s.body) ?? '') ? s.toName : n.toName
   const sub = fix(s.subject) ?? ''
-  const subject = /^แจ้ง(การ)?ประชุม(ประจำเดือน\S*)? ?(คณะ)?ธรรมกิจ$/.test(sub) ? fillNotice(LETTER_KINDS.notice.blank.subject, s.date || todayISO()) : sub
+  const subOld = sub === `แจ้งประชุมคณะธรรมกิจ ประจำเดือน${n.month}`   // รุ่นก่อนยังไม่มี พ.ศ. ต่อท้าย
+  const subject = subOld ? fillNotice(LETTER_KINDS.notice.blank.subject, s.date || todayISO()) : /^แจ้ง(การ)?ประชุม(ประจำเดือน\S*)? ?(คณะ)?ธรรมกิจ$/.test(sub) ? fillNotice(LETTER_KINDS.notice.blank.subject, s.date || todayISO()) : sub
   const body = (old(fix(s.body)) ?? '').replace(/^(ด้วยคณะธรรมกิจคริสตจักรศิลาเอกกำหนดประชุมประจำเดือน\S+) (ในวันอาทิตย์ที่ \d{1,2} \S+(?: พ\.ศ\.)? \d{4} เวลา 13\.00 น\.) (ณ ห้องประชุมธรรมกิจ จึงขอแจ้งวาระการประชุม ดังนี้)$/, '$1\n$2\n$3').replace(/(ในวันอาทิตย์ที่ \d{1,2} \S+) (\d{4}) เวลา/, (m, a, y) => (Number(y) < 2400 ? `${a} พ.ศ. ${Number(y) + 543} เวลา` : m))
   return { ...s, toName, subject, to: fix(s.to) ?? '', body }
 }
