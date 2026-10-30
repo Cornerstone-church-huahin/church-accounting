@@ -1,4 +1,4 @@
-import { blocked, calendarWritable, canWork, type Perm } from './access'
+import { blocked, can, calendarWritable, canWork, myRole, myWorkLevel, type Perm } from './access'
 import { useSharedStore } from './sharedStore'
 
 /**
@@ -8,10 +8,13 @@ import { useSharedStore } from './sharedStore'
 const workWriter = (n: number, perm: Perm) => () => canWork(n, 'edit') || !blocked(perm)
 const writeWork1 = workWriter(1, 'detail')   // งานเลขา: หนังสือเชิญ ลำดับงาน การประชุม โน้ต
 const writeWork4 = workWriter(4, 'detail')   // งานอภิบาล: ตารางเยี่ยม / บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม
+// แผนเยี่ยมรายวัน: แอดมิน + ผู้ดูแลหลัก + ผู้ช่วยของงานอภิบาล แก้ร่วมกันได้ (ที่ปรึกษาดูอย่างเดียว)
+const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l === 'lead' || l === 'helper' || can(myRole(), 'detail') } // ไม่แจ้งเตือน (ใช้ตอนเรนเดอร์)
+const writePlan4 = () => canPlan4() || !blocked('detail')
 const writeWork4Reg = workWriter(4, 'worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { AdminNote, VisitorName, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -113,6 +116,11 @@ export function useNotes() {
 }
 
 /** บันทึกการเยี่ยมของงานอภิบาล (ไฟล์เดียว ไม่แบ่งปี) */
+/** แผนเยี่ยมรายวัน (วันละ 1 รายการ เรียงลำดับเส้นทาง) · ซิงก์ถี่ทุก 10 วินาทีเพื่อวางแผนร่วมกันแบบสด */
+export function useVisitPlans() {
+  const s = useSharedStore<VisitPlan>({ localKey: k('visit-plans'), file: 'visit-plans.json', label: 'แผนเยี่ยม', writeCheck: writePlan4, pollMs: 10_000 })
+  return { ...s, of: (date: string) => s.items.find((x) => x.id === `plan-${date}`)?.items ?? [], save: (date: string, items: VisitPlan['items']) => s.put([{ id: `plan-${date}`, date, items, updated: 0 }]), canEdit: () => canPlan4() }
+}
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
 export function useVisitorNames() {
   return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', writeCheck: writeWork4 })

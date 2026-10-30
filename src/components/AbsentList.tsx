@@ -11,9 +11,9 @@ export const monthsText = (n: number | null) => (n === null ? 'ไม่เค�
  * รายชื่อสมาชิกที่ควรไปเยี่ยม: ค้นหาชื่อ + เลือกสถานะ (หลายสถานะ) แถวเดียว → รายชื่อคนที่ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป
  * เรียงจากขาดน้อย → มาก มีรูป สถานะ และแถบสีแดงตามเดือนที่ขาด · ใช้ทั้งในฟอร์มบันทึกการเยี่ยม (แตะเลือกคน) และหน้าวางแผน (ดูอย่างเดียว)
  */
-export default function AbsentList({ members, stats, today, selectedId, onPick, label }: {
+export default function AbsentList({ members, stats, today, selectedId, selectedIds, onPick, label }: {
   members: ChurchMember[]; stats: Map<string, VisitStat>; today: string
-  selectedId?: string; onPick?: (m: ChurchMember, absentLabel: string) => void; label: string
+  selectedId?: string; /** เลือกได้หลายคน (ตะกร้าแผนเยี่ยม) */ selectedIds?: string[]; onPick?: (m: ChurchMember, absentLabel: string) => void; label: string
 }) {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<string[]>([])
@@ -42,7 +42,7 @@ export default function AbsentList({ members, stats, today, selectedId, onPick, 
             return (
               <li key={m.id}>
                 {onPick
-                  ? <button type="button" className={`pvpick__r${selectedId === m.id ? ' on' : ''}`} aria-pressed={selectedId === m.id} onClick={() => onPick(m, absent ? monthsText(mo) : '')}>{body}</button>
+                  ? <button type="button" className={`pvpick__r${(selectedIds ? selectedIds.includes(m.id) : selectedId === m.id) ? ' on' : ''}`} aria-pressed={selectedIds ? selectedIds.includes(m.id) : selectedId === m.id} onClick={() => onPick(m, absent ? monthsText(mo) : '')}>{body}{selectedIds?.includes(m.id) && <b className="pvpick__in" aria-label="อยู่ในแผนแล้ว">✓</b>}</button>
                   : <div className="pvpick__r pvpick__r--ro">{body}</div>}
               </li>
             )
