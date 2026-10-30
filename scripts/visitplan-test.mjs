@@ -8,6 +8,15 @@ await new Promise((r) => setTimeout(r, 2500))
 const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
+// กดค้างที่ปุ่มจับ ⋮⋮ แล้วลากไปวาง (เมาส์จำลองการสัมผัส) · hold = เวลากดค้างก่อนลาก
+const drag = async (pg, who, toLocator, where = 'top', hold = 450) => {
+  const h = await pg.getByRole('button', { name: new RegExp(`^จับ ${who} `) }).boundingBox()
+  const t = await toLocator.boundingBox()
+  const ty = where === 'top' ? t.y + 3 : where === 'bottom' ? t.y + t.height - 3 : t.y + t.height / 2
+  await pg.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await pg.mouse.down(); await pg.waitForTimeout(hold)
+  await pg.mouse.move(h.x + h.width / 2, (h.y + ty) / 2, { steps: 4 }); await pg.mouse.move(t.x + 60, ty, { steps: 6 }); await pg.mouse.up()
+  await pg.waitForTimeout(250)
+}
 const errors = []
 const MEMBERS = [
   { id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, status: 'active', updated: 1 },
@@ -43,14 +52,20 @@ try {
   must(await page.getByRole('dialog', { name: 'ตะกร้าแผนเยี่ยม' }).count() === 1, 'clicking the basket opens it as a popup')
   const order = () => page.locator('.vplan__item .vplan__who b').allInnerTexts()
   must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก1', 'สมาชิก0', 'สมาชิก3']), 'plan keeps the order they were added: ' + await order())
-  await page.getByRole('button', { name: 'เลื่อน สมาชิก3 ขึ้น' }).click(); await page.getByRole('button', { name: 'เลื่อน สมาชิก3 ขึ้น' }).click()
-  must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก3', 'สมาชิก1', 'สมาชิก0']), 'reorder with ▲: ' + await order())
+  must(/กดค้างที่ปุ่มนี้ แล้วลาก/.test(await page.getByRole('note').innerText()) && await page.getByRole('button', { name: /^จับ / }).count() === 3, 'visible hint + a grip handle on every row tells users to press-hold and drag')
+  await drag(page, 'สมาชิก3', page.locator('.vplan__item').first(), 'top', 30) // ไม่ได้กดค้างพอ = ไม่ลาก
+  must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก1', 'สมาชิก0', 'สมาชิก3']), 'a quick touch without holding does not drag: ' + await order())
+  await drag(page, 'สมาชิก3', page.locator('.vplan__item').first(), 'top')
+  must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก3', 'สมาชิก1', 'สมาชิก0']), 'hold + drag to the top reorders: ' + await order())
+  await page.getByRole('button', { name: /^จับ สมาชิก3 / }).focus(); await page.keyboard.press('ArrowDown')
+  must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก1', 'สมาชิก3', 'สมาชิก0']), 'arrow keys also move the focused handle: ' + await order())
+  await drag(page, 'สมาชิก3', page.locator('.vplan__item').first(), 'top')
   await page.getByRole('button', { name: 'เอา สมาชิก1 ออกจากตะกร้า' }).click()
   must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก3', 'สมาชิก0']), 'remove from the plan')
   // แบ่งกลุ่ม: เพิ่มกลุ่ม → ย้ายคนไปกลุ่ม 2 → ตั้งชื่อสถานที่
   await page.getByRole('button', { name: '＋ เพิ่มกลุ่ม' }).click()
   must(await page.getByRole('region', { name: 'กลุ่มที่ 2' }).count() === 1, 'a second (empty) group appears')
-  await page.getByLabel('ย้าย สมาชิก0 ไปกลุ่ม').selectOption({ label: 'กลุ่ม 2' })
+  await drag(page, 'สมาชิก0', page.getByRole('region', { name: 'กลุ่มที่ 2' }), 'middle') // ลากข้ามไปวางในกลุ่ม 2
   must((await page.getByRole('region', { name: 'กลุ่มที่ 2' }).innerText()).includes('สมาชิก0') && (await page.getByRole('region', { name: 'กลุ่มที่ 1' }).innerText()).includes('สมาชิก3'), 'member moved to group 2, the other stays in group 1')
   await page.getByLabel('ชื่อสถานที่ของกลุ่มที่ 2').fill('บ้านปากน้ำ'); await page.getByLabel('ชื่อสถานที่ของกลุ่มที่ 2').blur()
   const saved0 = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1'))[0])
@@ -77,7 +92,7 @@ try {
   await adv.evaluate((p) => localStorage.setItem('acct.visit-plans.v1', p), JSON.stringify(saved)); await adv.reload(); await adv.waitForLoadState('networkidle')
   must(await adv.getByRole('list', { name: 'รายชื่อสมาชิก' }).getByRole('button').count() === 0, 'advisor cannot pick people into the plan (read-only list)')
   await adv.getByRole('button', { name: /เปิดตะกร้า/ }).click()
-  must(await adv.locator('.vplan__item').count() === 3 && await adv.getByRole('button', { name: /เลื่อน|ออกจากตะกร้า/ }).count() === 0, 'advisor sees the plan without edit buttons')
+  must(await adv.locator('.vplan__item').count() === 3 && await adv.getByRole('button', { name: /^จับ |ออกจากตะกร้า/ }).count() === 0, 'advisor sees the plan without edit buttons')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('visitplan-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

@@ -1294,3 +1294,17 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vbasket__h { position: sticky; top: -0.7rem; background: var(--surface, #fff); z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.2rem 0 0.5rem; margin-bottom: 0.2rem; border-bottom: 1px solid var(--line) }
 .vplan__ctl { flex: 1 1 100%; justify-content: flex-end; padding-left: 2.2rem }
 .vplan__who { flex: 1 1 8rem }
+
+/* ลากวาง (กดค้างที่ปุ่มจับ ⋮⋮ แล้วลาก) */
+.vplan__handle { all: unset; box-sizing: border-box; flex: none; width: 2.2rem; height: 2.6rem; display: grid; place-items: center; border-radius: 0.6rem; border: 1.5px dashed var(--ink-soft, #667); color: var(--ink-soft, #667); font-weight: 900; letter-spacing: -0.1em; font-size: 1.1rem; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none }
+.vplan__handle:focus-visible { outline: 3px solid var(--gold, #c99a14) }
+.vplan__item--drag { position: relative; z-index: 5; opacity: 0.92; background: var(--surface, #fff); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35); border-radius: 0.6rem; transition: none }
+.vplan__item--drag .vplan__handle { cursor: grabbing; border-style: solid; border-color: var(--gold, #c99a14); color: var(--gold, #c99a14) }
+.vplan__item--ins { box-shadow: 0 -4px 0 0 var(--gold, #c99a14) inset }
+.vplan__list--end { box-shadow: 0 4px 0 0 var(--gold, #c99a14) }
+.vplan__grp--over .vplan__gh b { color: var(--gold, #a97f00) }
+.vplan__hint { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.4rem; padding: 0.3rem 0.5rem; border-radius: 0.6rem; background: rgba(201, 154, 20, 0.16); font-size: 0.88rem }
+.vplan__grip { flex: none; width: 1.7rem; height: 1.9rem; display: grid; place-items: center; border-radius: 0.5rem; border: 1.5px dashed var(--ink-soft, #667); font-weight: 900; letter-spacing: -0.1em }
+.vplan__x { flex: none }
+.vplan__item { flex-wrap: nowrap }
+.vplan__who { flex: 1 1 0 }
