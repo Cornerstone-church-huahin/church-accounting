@@ -7,11 +7,12 @@ import { useSharedStore } from './sharedStore'
  */
 const workWriter = (n: number, perm: Perm) => () => canWork(n, 'edit') || !blocked(perm)
 const writeWork1 = workWriter(1, 'detail')   // งานเลขา: หนังสือเชิญ ลำดับงาน การประชุม โน้ต
-const writeWork4 = workWriter(4, 'detail')   // งานอภิบาล: ตารางเยี่ยม / บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม
 // แผนเยี่ยมรายวัน: แอดมิน + ผู้ดูแลหลัก + ผู้ช่วยของงานอภิบาล แก้ร่วมกันได้ (ที่ปรึกษาดูอย่างเดียว)
 const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l === 'lead' || l === 'helper' || can(myRole(), 'detail') } // ไม่แจ้งเตือน (ใช้ตอนเรนเดอร์)
 const writePlan4 = () => canPlan4() || !blocked('detail')
-const writeWork4Reg = workWriter(4, 'worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
+// งานอภิบาล: บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม — แอดมิน ผู้ดูแลหลัก และผู้ช่วยทำได้ครบเหมือนกัน (มีเช็คอินพิกัดกลางกับรูปถ่ายคุมความถูกต้องอยู่แล้ว)
+const writeWork4 = writePlan4
+const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
