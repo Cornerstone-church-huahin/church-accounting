@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addGroup, addItem, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup } from './visitPlan'
+import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup } from './visitPlan'
 
 const m = (id: string) => ({ id, name: id.toUpperCase() })
 const ids = (d: ReturnType<typeof planDoc>) => groupsOf(d).map((g) => g.items.map((x) => x.id).join(''))
@@ -23,5 +23,16 @@ describe('แผนเยี่ยมรายวัน แบ่งกลุ่
     d = removeGroup(d, 2); expect(d.groups).toBe(2); expect(d.items.find((x) => x.id === 'c')!.g).toBe(2); expect(d.names['2']).toBe('บ้านปากน้ำ')
     expect(removeGroup(planDoc(), 1).groups).toBe(1)
     expect(ids(removeItem(d, 'a'))).toEqual(['', 'c'])
+  })
+})
+
+describe('ลากวาง', () => {
+  it('ย้ายตำแหน่งในกลุ่มเดียวกัน/ข้ามกลุ่ม/ไปกลุ่มว่าง/กลุ่มใหม่', () => {
+    let d = planDoc(); for (const [x, g] of [['a', 1], ['b', 1], ['c', 1], ['d', 2]] as const) d = addItem(d, m(x), g)
+    d = moveTo(d, 'c', 1, 0); expect(ids(d)).toEqual(['cab', 'd'])
+    d = moveTo(d, 'a', 1, 2); expect(ids(d)).toEqual(['cba', 'd']) // ต่อท้ายกลุ่มเดิม
+    d = moveTo(d, 'b', 2, 0); expect(ids(d)).toEqual(['ca', 'bd'])
+    d = addGroup(d); d = moveTo(d, 'd', 3, 0); expect(ids(d)).toEqual(['ca', 'b', 'd'])
+    d = moveTo(d, 'a', 4, 0); expect(d.groups).toBe(4); expect(ids(d)).toEqual(['c', 'b', 'd', 'a'])
   })
 })

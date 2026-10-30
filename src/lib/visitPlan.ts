@@ -39,3 +39,17 @@ export function removeGroup(d: PlanDoc, g: number): PlanDoc {
   return { groups: d.groups - 1, names, items: d.items.map((x) => (x.g > g ? { ...x, g: x.g - 1 } : x)) }
 }
 export const renameGroup = (d: PlanDoc, g: number, name: string): PlanDoc => { const names = { ...d.names }; if (name.trim()) names[String(g)] = name.slice(0, 40); else delete names[String(g)]; return { ...d, names } }
+
+/** ลากวาง: ย้ายคนไปกลุ่ม g ที่ตำแหน่ง index (นับในกลุ่มนั้นหลังเอาตัวเองออกแล้ว) · g = จำนวนกลุ่ม+1 = สร้างกลุ่มใหม่ */
+export function moveTo(d: PlanDoc, id: string, g: number, index: number): PlanDoc {
+  const it = d.items.find((x) => x.id === id); if (!it) return d
+  const rest = d.items.filter((x) => x.id !== id)
+  const groups = Math.max(d.groups, g)
+  const out: PlanItem[] = []
+  for (let k = 1; k <= groups; k++) {
+    const list = rest.filter((x) => x.g === k)
+    if (k === g) list.splice(Math.max(0, Math.min(index, list.length)), 0, { ...it, g })
+    out.push(...list)
+  }
+  return { ...d, groups, items: out }
+}
