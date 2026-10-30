@@ -10,7 +10,7 @@ import { useRole } from '../lib/members'
 import { absentMonths, visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
-import { addItem, refreshPrep, removeItem, setStop, stopColor } from '../lib/visitPlan'
+import { addItem, dropItem, refreshPrep, setStop, stopColor } from '../lib/visitPlan'
 import { timeText } from '../lib/visitProof'
 import { homeFromCheckin } from '../lib/geo'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
@@ -21,6 +21,8 @@ import type { Visit } from '../lib/types'
  * งานอภิบาล › บันทึกการเยี่ยม: รายการที่ “ส่งข้อมูลเตรียมเยี่ยม” มาจากตะกร้า (ตารางเยี่ยม) เรียงเป็นจุดที่ 1, 2, 3 …
  * แตะชื่อ = เปิดฟอร์มบันทึกการเยี่ยม (เหตุผล รูป เช็คอินพิกัด/เวลา) · แต่ละจุดเพิ่มผู้ถูกเยี่ยมที่พบเพิ่มได้ · ไม่พบ/ไม่อยู่บ้านใส่หมายเหตุได้
  */
+const DROP_REASONS = ['ไม่เจอ/ไม่อยู่', 'ย้ายที่อยู่', 'ยกเลิกนัด', 'ใส่ผิดคน', 'อื่นๆ']
+
 export default function VisitRecord() {
   const role = useRole()
   const isAdmin = role === 'admin'
@@ -37,7 +39,7 @@ export default function VisitRecord() {
   const stats = useMemo(() => visitStats(att, today), [att, today])
   const [form, setForm] = useState<{ entry: Visit | null; stop: number; member?: { id: string; name: string }; absent?: boolean } | null>(null)
   const [note, setNote] = useState('')
-  const [leave, setLeave] = useState<{ id: string; name: string; stop: number } | null>(null) // ✕ ที่แถว: ไปแล้วไม่พบ หรือเอาออกจากรายการ
+  const [leave, setLeave] = useState<{ id: string; name: string; stop: number; step?: 'remove'; reason?: string; note?: string } | null>(null) // ✕ ที่แถว: ไปแล้วไม่พบ หรือเอาออกจากรายการ
   const [adding, setAdding] = useState<number | null>(null) // เปิดป๊อปอัพเลือกคนเพิ่มเข้าจุดนี้
   const planDoc = plans.of(today)
   const prep = planDoc.prep
@@ -114,10 +116,24 @@ export default function VisitRecord() {
       )}
       {leave && (
         <Sheet title={leave.name} onClose={() => setLeave(null)}>
-          <p style={{ margin: 0 }}>จุดที่ {leave.stop} · เลือกให้ตรงกับที่เกิดขึ้นจริง</p>
-          <button type="button" className="btn btn--gold" onClick={() => { const l = leave; setLeave(null); setForm({ entry: null, stop: l.stop, member: { id: l.id, name: l.name }, absent: true }) }}>ไปแล้วแต่ไม่พบ (เช็คอินเก็บเส้นทางไว้)</button>
-          <button type="button" className="btn btn--ghost" onClick={() => { plans.save(today, refreshPrep(removeItem(planDoc, leave.id))); setLeave(null) }}>เอาออกจากรายการ (ไม่ได้ไปเยี่ยม)</button>
-          <button type="button" className="mini" onClick={() => setLeave(null)}>ยกเลิก</button>
+          {leave.step !== 'remove' ? (
+            <>
+              <p style={{ margin: 0 }}>จุดที่ {leave.stop} · เลือกให้ตรงกับที่เกิดขึ้นจริง</p>
+              <button type="button" className="btn btn--gold" onClick={() => { const l = leave; setLeave(null); setForm({ entry: null, stop: l.stop, member: { id: l.id, name: l.name }, absent: true }) }}>ไปแล้วแต่ไม่พบ (เช็คอินเก็บเส้นทางไว้)</button>
+              <button type="button" className="btn btn--ghost" onClick={() => setLeave({ ...leave, step: 'remove' })}>เอาออกจากรายการ…</button>
+              <button type="button" className="mini" onClick={() => setLeave(null)}>ยกเลิก</button>
+            </>
+          ) : (
+            <>
+              <p style={{ margin: 0 }}><b>สาเหตุที่ลบ {leave.name} ออกจากรายการ</b></p>
+              <div className="vrec__reasons" role="radiogroup" aria-label="สาเหตุที่ลบ">
+                {DROP_REASONS.map((r) => <button key={r} type="button" role="radio" aria-checked={leave.reason === r} className={`vbasket__num${leave.reason === r ? ' on' : ''}`} onClick={() => setLeave({ ...leave, reason: r })}>{r}</button>)}
+              </div>
+              <input className="input" aria-label="หมายเหตุสาเหตุที่ลบ" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)" maxLength={80} value={leave.note ?? ''} onChange={(e) => setLeave({ ...leave, note: e.target.value })} />
+              <button type="button" className="btn btn--gold" disabled={!leave.reason && !leave.note?.trim()} onClick={() => { plans.save(today, refreshPrep(dropItem(planDoc, leave.id, [leave.reason, leave.note?.trim()].filter(Boolean).join(' — '), Date.now()))); setLeave(null) }}>ยืนยันลบรายชื่อนี้</button>
+              <button type="button" className="mini" onClick={() => setLeave({ ...leave, step: undefined })}>ย้อนกลับ</button>
+            </>
+          )}
         </Sheet>
       )}
       {form && (

@@ -401,7 +401,7 @@ export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
 
 // ---------- ตารางเยี่ยม (งานอภิบาล) ----------
 /** แผนเยี่ยมของ 1 วัน (id = plan-วันที่): รายชื่อสมาชิกที่จะไปเยี่ยม เรียงตามเส้นทาง/ลำดับที่จะไปก่อน-หลัง · แอดมิน ผู้ดูแล ผู้ช่วย แก้ร่วมกันได้ */
-export interface VisitPlan extends SharedItem { date: string; items: { id: string; name: string; /** กลุ่มที่ (1, 2, …) */ g?: number }[]; /** จำนวนกลุ่ม */ groups?: number; /** ข้อมูลเตรียมเยี่ยมที่ส่งไปหน้า “บันทึกการเยี่ยม” แล้ว (at = เวลาที่ส่ง) */ prep?: { at: number; items: { id: string; name: string; g: number }[] }; /** 2 = แบบกำหนดจุดเยี่ยมด้วยปุ่ม ＋ (ไม่มี = แผนแบบกลุ่มเดิม ถือว่ายังไม่กำหนดจุด) */ v?: number; /** ชื่อสถานที่/โซนของแต่ละกลุ่ม (คีย์ = เลขกลุ่ม) */ names?: Record<string, string> }
+export interface VisitPlan extends SharedItem { date: string; items: { id: string; name: string; /** กลุ่มที่ (1, 2, …) */ g?: number }[]; /** จำนวนกลุ่ม */ groups?: number; /** รายชื่อที่ลบออกจากรายการเยี่ยมพร้อมสาเหตุ (เก็บเป็นข้อมูล) */ dropped?: { id: string; name: string; g: number; reason: string; at: number }[]; /** ข้อมูลเตรียมเยี่ยมที่ส่งไปหน้า “บันทึกการเยี่ยม” แล้ว (at = เวลาที่ส่ง) */ prep?: { at: number; items: { id: string; name: string; g: number }[] }; /** 2 = แบบกำหนดจุดเยี่ยมด้วยปุ่ม ＋ (ไม่มี = แผนแบบกลุ่มเดิม ถือว่ายังไม่กำหนดจุด) */ v?: number; /** ชื่อสถานที่/โซนของแต่ละกลุ่ม (คีย์ = เลขกลุ่ม) */ names?: Record<string, string> }
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่มเอง (hide = ซ่อนชื่อที่มาจากทีมงานอภิบาล) */
 export interface VisitorName extends SharedItem { name: string; hide?: boolean }
 /** บันทึกการเยี่ยม 1 ครั้ง: วันที่ · สมาชิกที่เยี่ยม · เหตุผล/หมายเหตุ · ผู้เยี่ยม (ลงชื่อ) */
