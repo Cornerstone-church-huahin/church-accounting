@@ -1386,3 +1386,12 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .tabicons--arrow .tabicons__i.on em { color: #fff }
 .tabicons--arrow .tabicons__i i { top: 0.2rem; left: 0.95rem; min-width: 1.05rem; height: 1.05rem; font-size: 0.68rem; background: #fff; color: var(--navy, #1a2b4c); box-shadow: 0 0 0 1px var(--navy, #1a2b4c) }
 .tabicons--arrow .tabicons__i:first-child i { left: 0.35rem }
+.tabicons--four .tabicons__i { padding: 0 0.7rem 0 0.8rem }
+.tabicons--four .tabicons__i em { font-size: 0.74rem }
+.tabicons--four .tabicons__i i { left: 0.7rem }
+.tabicons--four .tabicons__i:first-child i { left: 0.3rem }
+.tabicons__n { position: absolute; top: 0.1rem; right: 0.9rem; min-width: 1.15rem; height: 1.15rem; padding: 0 0.25rem; border-radius: 999px; background: #d64545; color: #fff; font-size: 0.72rem; font-weight: 800; display: grid; place-items: center }
+.vplan__next { display: flex; justify-content: center; margin: 0.4rem 0; text-decoration: none }
+.vgroup { margin-top: 0.2rem }
+.vgroup__next { margin: 0.8rem 0 }
+.vgroup__next .btn { width: 100%; justify-content: center; text-decoration: none }

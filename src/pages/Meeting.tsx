@@ -9,6 +9,9 @@ import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
 import VisitReports from '../components/VisitReports'
 import VisitRecord from '../components/VisitRecord'
+import { VisitGroupsAuto } from '../components/VisitGroups'
+import { useVisitPlans } from '../lib/data'
+import { todayISO } from '../lib/money'
 import AnnualPlan from '../components/AnnualPlan'
 import InviteLetterPage, { InviteLetterList } from '../components/InviteLetter'
 import AdminNotes from '../components/AdminNotes'
@@ -113,29 +116,33 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
 
 /** งานอภิบาล: ทางลัด 3 หน้าที่เกี่ยวกับการเยี่ยม (วางแผน → บันทึก → รายงาน) แสดงเป็นแถบยาวมีข้อความ ใช้สลับหน้ากันเอง ไม่ต้องกลับเมนูหน้าแรก */
 const PASTORAL_PAGES = [
-  { id: 'plan', to: '/meeting/4/2', label: 'วางแผนเยี่ยม', icon: '🗓️' },
-  { id: 'record', to: '/meeting/4/record', label: 'บันทึกเยี่ยม', icon: '📝' },
-  { id: 'report', to: '/meeting/4/report', label: 'รายงานเยี่ยม', icon: '📊' },
+  { id: 'plan', to: '/meeting/4/2', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '🗓️' },
+  { id: 'group', to: '/meeting/4/group', label: 'จัดกลุ่ม', title: 'จัดกลุ่มเยี่ยม', icon: '🧺' },
+  { id: 'record', to: '/meeting/4/record', label: 'บันทึก', title: 'บันทึกเยี่ยม', icon: '📝' },
+  { id: 'report', to: '/meeting/4/report', label: 'รายงาน', title: 'รายงานเยี่ยม', icon: '📊' },
 ] as const
-function PastoralBar({ active }: { active: 'plan' | 'record' | 'report' }) {
+type PastoralStep = (typeof PASTORAL_PAGES)[number]['id']
+function PastoralBar({ active }: { active: PastoralStep }) {
+  const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า ขึ้นที่ขั้นจัดกลุ่มทุกหน้า
   return (
-    <nav className="tabicons tabicons--txt tabicons--arrow no-print" aria-label="ทำตามลำดับ 1 วางแผน 2 บันทึก 3 รายงาน">
+    <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="ทำตามลำดับ 1 วางแผน 2 จัดกลุ่ม 3 บันทึก 4 รายงาน">
       {PASTORAL_PAGES.map((x, i) => (
-        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.label} aria-current={x.id === active ? 'page' : undefined}>
+        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'group' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
           <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
+          {x.id === 'group' && n > 0 && <b className="tabicons__n" aria-hidden="true">{n}</b>}
         </Link>
       ))}
     </nav>
   )
 }
-/** หน้าบันทึกเยี่ยม / รายงานเยี่ยม (ไม่อยู่ในเมนูหน้าแรกของงาน เข้าจากแถบทางลัดในหน้าวางแผนเยี่ยม) */
-function PastoralSub({ name, which }: { name: string; which: 'record' | 'report' }) {
+/** หน้าจัดกลุ่ม / บันทึก / รายงาน (ไม่อยู่ในเมนูหน้าแรกของงาน เข้าจากแถบขั้นตอนในหน้าวางแผนเยี่ยม) */
+function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' | 'report' }) {
   const p = PASTORAL_PAGES.find((x) => x.id === which)!
   return (
     <>
-      <div className="page-head no-print"><h1>{p.icon} {p.label}</h1><span id="vbasket-slot" className="vbasket__slot" /><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
+      <div className="page-head no-print"><h1>{p.icon} {p.title}</h1><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
       <PastoralBar active={which} />
-      {which === 'record' ? <VisitRecord /> : <VisitReports />}
+      {which === 'group' ? <VisitGroupsAuto /> : which === 'record' ? <VisitRecord /> : <VisitReports />}
     </>
   )
 }
@@ -151,7 +158,6 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
     <>
       <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
-        {n === 4 && k === 2 && <span id="vbasket-slot" className="vbasket__slot" />}
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {n === 4 ? (k === 2 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
@@ -210,7 +216,7 @@ function MeetingRoom() {
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><HealthButton n={2} /><CalToggle n={2} /><Members /></>
-  if (tab?.n === 4 && (k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
+  if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
   return <Hub />
