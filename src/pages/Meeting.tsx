@@ -151,7 +151,7 @@ function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' 
 function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; s?: number; raw?: string }) {
   const label = labelsOf(n)[k - 1]
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
-  if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
+  if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw === 'notice' ? <InviteLetterList kind="notice" /> : raw?.startsWith('notice-') ? <InviteLetterPage key={raw} id={raw.slice(7)} kind="notice" /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
   const isMembers = ((n === 4 || n === 9) && k === 1) || (n === 1 && k === 4) // หน้า “รวมสมาชิก” ใช้ร่วมกัน: งานเลขา (แท็บ 4) · งานอภิบาล · งานอนุชน // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
   return (
