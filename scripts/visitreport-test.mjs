@@ -32,6 +32,8 @@ try {
   must((await page.locator('main').innerText()).match(/ออกเยี่ยมครั้งที่ 1/g)?.length === 3 && /ออกเยี่ยม 1 ครั้ง · เยี่ยม 3 คน/.test(await page.locator('main').innerText()), 'detail marks the three houses as trip 1')
   await page.getByRole('tab', { name: 'ใบ A4' }).click()
   must(/รวมออกเยี่ยม 1 ครั้ง · เยี่ยม 3 คน/.test((await page.locator('.a4page').allInnerTexts()).join(' ')) && !/นับเป็นออกเยี่ยมครั้งเดียว/.test((await page.locator('.a4page').allInnerTexts()).join(' ')), 'A4 total counts the nearby houses as one trip (no explanatory note)')
+  const dates = await page.locator('.a4page tbody tr td:nth-child(2)').allInnerTexts()
+  must(dates.length === 3 && dates.every((d) => /\(1\)$/.test(d.trim()) && !/ครั้งที่/.test(d)), 'trip number is a short (1) after the date on the same line: ' + dates.join('|'))
   const tints = () => page.locator('.a4page tbody tr').evaluateAll((trs) => trs.map((t) => getComputedStyle(t).backgroundColor))
   const t3 = await tints(); must(t3.length === 3 && new Set(t3).size === 1, 'houses of the same trip share one tint: ' + t3)
   await page.getByRole('button', { name: '‹ รายการสัปดาห์' }).click()
