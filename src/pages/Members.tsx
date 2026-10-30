@@ -190,7 +190,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
                       : <span className={`badge ${statusBadge(r.member.status)}`}>{statusShort(r.member.status)}</span>}
                   </div>
                   <div className="mrow__meta">{[r.member.code && `#${r.member.code}`, r.member.nick, r.member.gender && r.member.gender, r.member.group, r.member.birth && `อายุ ${ageText(r.member.birth, today).replace(/ \d+ เดือน$/, '')}`].filter(Boolean).join(' · ')}</div>
-                  <div className="mrow__meta">มา {r.visits} ครั้ง ({Math.round(r.cont * 100)}%) · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</div>
+                  <div className="mrow__meta">1 ปี มา {r.recent} ครั้ง ({Math.round(r.yearPct * 100)}%) · ล่าสุด {r.last ? fmtDate(r.last) : '—'}</div>
                   {r.suggest === 'to2' && <div className="mrow__meta" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</div>}
                   {r.suggest === 'to1' && <div className="mrow__meta" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว → ควรกลับเป็น สมบูรณ์ 1</div>}
                 </div>
