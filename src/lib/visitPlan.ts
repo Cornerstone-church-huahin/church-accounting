@@ -1,14 +1,14 @@
 import type { VisitPlan } from './types'
 
 export interface PlanItem { id: string; name: string; g: number }
-export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<string, string> }
+export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<string, string>; prep?: VisitPlan['prep'] }
 export interface PlanGroup { g: number; name: string; items: PlanItem[] }
 
 /** แผนเยี่ยม 1 วัน: รายชื่อ (เรียงลำดับ) แบ่งเป็นกลุ่มที่ 1, 2, 3 … (เช่น ชุดที่ไปสถานที่เดียวกัน/โซนเดียวกัน) · กลุ่มมีชื่อสถานที่ตั้งได้ */
-export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v'>): PlanDoc {
+export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v' | 'prep'>): PlanDoc {
   const items = (p?.items ?? []).map((x) => ({ id: x.id, name: x.name, g: p?.v === 2 ? Math.max(0, Math.round(x.g ?? 0)) : 0 }))
   const groups = Math.max(1, p?.groups ?? 1, ...items.map((x) => x.g))
-  return { items, groups, names: { ...(p?.names ?? {}) } }
+  return { items, groups, names: { ...(p?.names ?? {}) }, ...(p?.prep ? { prep: p.prep } : {}) }
 }
 /** จัดเรียงตามกลุ่ม (ลำดับในกลุ่มคงเดิม) */
 const tidy = (d: PlanDoc): PlanDoc => ({ ...d, items: [...d.items].sort((a, b) => a.g - b.g) })
@@ -80,3 +80,9 @@ export const STOP_COLORS: { tint: string; dark: string }[] = [
   { tint: '#fbe6e2', dark: '#b4442f' }, { tint: '#ece8f8', dark: '#5a47a6' }, { tint: '#eef3d9', dark: '#6b7d1c' }, { tint: '#f3e9e0', dark: '#7a5236' }, { tint: '#e9ecef', dark: '#4a5560' },
 ]
 export const stopColor = (g: number) => STOP_COLORS[(Math.max(1, g) - 1) % STOP_COLORS.length]
+
+/** ส่งข้อมูลเตรียมเยี่ยมไปหน้า “บันทึกการเยี่ยม”: ต้องกำหนดจุดครบทุกคน · เก็บสำเนาเรียงตามจุด 1, 2, 3 … */
+export function sendPrep(d: PlanDoc, at: number): PlanDoc | null {
+  if (d.items.length === 0 || d.items.some((x) => x.g < 1)) return null
+  return { ...d, prep: { at, items: tidy(d).items.map((x) => ({ id: x.id, name: x.name, g: x.g })) } }
+}

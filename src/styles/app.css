@@ -1338,3 +1338,15 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vbasket__num.on { border-color: var(--navy, #1a2b4c); background: var(--navy, #1a2b4c); color: #fff }
 .vplan__finger { font-size: 0.8rem; line-height: 1 }
 .vplan__handle { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0 }
+.vbasket__send { position: sticky; bottom: calc(-1rem - env(safe-area-inset-bottom, 0px)); margin: 0.6rem -0.8rem 0; padding: 0.6rem 0.8rem calc(0.8rem + env(safe-area-inset-bottom, 0px)); background: var(--surface, #fff); border-top: 1px solid var(--line) }
+.vbasket__send .btn { width: 100% }
+.vrec__stop { margin: 0.6rem 0; padding: 0.4rem 0.5rem; border-radius: 0.6rem }
+.vrec__list { list-style: none; margin: 0.2rem 0 0.4rem; padding: 0; border-radius: 0.6rem; overflow: hidden; background: var(--surface, #fff); border: 1px solid var(--line) }
+.vrec__row { border-bottom: 1px solid var(--line) }
+.vrec__row:last-child { border-bottom: 0 }
+.vrec__btn { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; cursor: pointer }
+.vrec__btn--ro { cursor: default }
+.vrec__row--ok { background: #eaf6ee }
+.vrec__row--no { background: #fbece9 }
+.vrec__ok { color: #1f7a45; font-weight: 700 }
+.vrec__no { color: #b4442f; font-weight: 700 }
