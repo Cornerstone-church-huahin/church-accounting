@@ -21,6 +21,11 @@ type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
 /** หนังสือแจ้งการประชุม: ใส่ วัน/เดือน/ปี ของอาทิตย์ต้นเดือนที่จะถึงให้เอง (ผู้ใช้แก้ได้) */
 const fillNotice = (t: string, base: string) => { const n = noticeMeetingText(base); return t.replace('{เดือน}', n.month).replace('{วันเวลา}', n.when) }
+/** เปลี่ยนวันที่หนังสือแจ้งการประชุม: ช่องที่ยังเป็นข้อความที่ระบบใส่ให้ (ตามวันที่เดิม) ให้รันตามวันที่ใหม่ · ช่องที่ผู้ใช้แก้เองแล้วไม่แตะ */
+const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
+  const was = blankOf('notice', l.date || todayISO()), now = blankOf('notice', newDate || todayISO())
+  return { date: newDate, ...(l.toName === was.toName ? { toName: now.toName } : {}), ...(l.subject === was.subject ? { subject: now.subject } : {}), ...(l.body === was.body ? { body: now.body } : {}) }
+}
 const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
 const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (l.agenda ?? []).map((x) => (typeof x === 'string' ? { t: x } : x))
 /** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · เรื่องที่ 1, 2, … นับใหม่ทุกครั้งที่ขึ้นวาระใหม่ */
@@ -376,7 +381,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           {dupNo && <span className="error" role="alert">เลขนี้ซ้ำกับหนังสือฉบับอื่น</span>}
         </div>
 
-        <div className="field"><label htmlFor="il-date"><No n="4" ok={okOf['4']} />วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set({ date: e.target.value })} /></div>
+        <div className="field"><label htmlFor="il-date"><No n="4" ok={okOf['4']} />วันที่ (ตั้งต้นเป็นวันที่บันทึก)</label><input id="il-date" type="date" className="input" value={l.date} onChange={(e) => set(kind === 'notice' ? reflowNotice(l, e.target.value) : { date: e.target.value })} /></div>
         <div className="field"><label htmlFor="il-sub"><No n="5" ok={okOf['5']} />เรื่อง</label><input id="il-sub" className="input" value={l.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="เช่น ขอเชิญร่วมงานคริสต์มาสคริสตจักร" /></div>
         <div className="field"><label htmlFor="il-to"><No n="6" ok={okOf['6']} />เรียน</label><input id="il-to" className="input" value={l.to} onChange={(e) => set({ to: e.target.value })} placeholder="ชื่อ ตำแหน่ง ของผู้ใหญ่ที่เชิญ" /></div>
         <div className="field"><label htmlFor="il-att"><No n="6.1" ok={okOf['6.1']} />สิ่งที่ส่งมาด้วย</label>
