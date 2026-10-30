@@ -1355,3 +1355,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrec__li .vrec__btn { flex: 1; min-width: 0 }
 .vrec__reasons { display: flex; flex-wrap: wrap; gap: 0.4rem }
 .vrec__reasons .vbasket__num { padding: 0 0.8rem; min-height: 2.6rem; font-size: 1rem }
+.vrec__acts { display: grid; gap: 0.4rem; margin: 0.3rem 0 }
+.vrec__gsel { list-style: none; margin: 0.2rem 0; padding: 0; border: 1px solid var(--line); border-radius: 0.6rem; overflow: hidden }
+.vrec__gsel li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line) }
+.vrec__gsel li:last-child { border-bottom: 0 }
+.vrec__gbtn { min-width: 6.2rem; min-height: 2.4rem; border-radius: 999px; border: 2px solid var(--line); background: var(--surface, #fff); font: inherit; font-weight: 700; cursor: pointer }
+.vrec__gbtn--met { background: #e3f3e6; border-color: #2e7d4f; color: #1f7a45 }
+.vrec__gbtn--absent { background: #fbece9; border-color: #b4442f; color: #b4442f }
+.vrec__gbtn--skip { color: var(--ink-soft) }

@@ -141,7 +141,7 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
 }
 
 /** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
-export function VisitForm({ date, entry, stop, startAbsent, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
   const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
@@ -174,7 +174,10 @@ export function VisitForm({ date, entry, stop, startAbsent, preset, team, writeN
   const needProof = !entry || !!entry.checkin
   const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
   const lockedMember = !entry && !!preset?.member
-  const needPhotos = needProof && !absent
+  const [gsel, setGsel] = useState<Record<string, 'met' | 'absent' | 'skip'>>(() => Object.fromEntries((group ?? []).map((x) => [x.id, 'met' as const])))
+  const anyMet = group ? group.some((x) => gsel[x.id] === 'met') : !absent
+  const needPhotos = needProof && anyMet
+  const dropFile = (p: string) => { if (!photoShared?.(p)) void removeMemberPhotoFile(p) }
   const locate = () => {
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setLocBusy(true); setErr('')
@@ -207,7 +210,7 @@ export function VisitForm({ date, entry, stop, startAbsent, preset, team, writeN
   const pick = (m: ChurchMember, label: string) => { setMember({ id: m.id, name: m.name }); if (!reason.trim() && label) setReason(label) }
   const save = () => {
     const visitor = joinVisitors(picked)
-    if (!member) return setErr('เลือกสมาชิกที่ไปเยี่ยม')
+    if (group ? group.every((x) => gsel[x.id] === 'skip') : !member) return setErr(group ? 'เลือกอย่างน้อย 1 คนที่จะบันทึก' : 'เลือกสมาชิกที่ไปเยี่ยม')
     if (!visitor) return setErr('ลงชื่อผู้ออกเยี่ยมอย่างน้อย 1 คน')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
@@ -215,20 +218,40 @@ export function VisitForm({ date, entry, stop, startAbsent, preset, team, writeN
     if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” ก่อนจึงบันทึกการเยี่ยมได้')
     if (needPhotos && photos.length === 0) return setErr('ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูปก่อนจึงบันทึกได้')
     saved.current = true
-    ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
+    ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
+    if (group && onSaveMany) {
+      const note = reason.trim()
+      return onSaveMany(group.filter((x) => gsel[x.id] !== 'skip').map((x) => {
+        const gone = gsel[x.id] === 'absent'
+        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 } as Visit
+      }))
+    }
+    if (!member) return
     onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
   }
   return (
-    <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
+    <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
       <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
-      {lockedMember
+      {group
+        ? (
+          <div className="field"><label>ผู้ถูกเยี่ยมในจุดนี้ (แตะที่ปุ่มเพื่อสลับ พบ → ไม่พบ → ไม่รวม)</label>
+            <ul className="vrec__gsel" aria-label="ผู้ถูกเยี่ยมในจุดนี้">
+              {group.map((x) => (
+                <li key={x.id}><b>{x.name}</b>
+                  <button type="button" className={`vrec__gbtn vrec__gbtn--${gsel[x.id]}`} aria-label={`${x.name}: ${{ met: 'พบ', absent: 'ไม่พบ', skip: 'ไม่รวมในการบันทึกนี้' }[gsel[x.id]]}`} onClick={() => setGsel((g) => ({ ...g, [x.id]: g[x.id] === 'met' ? 'absent' : g[x.id] === 'absent' ? 'skip' : 'met' }))}>{{ met: '✓ พบ', absent: '✗ ไม่พบ', skip: '— ไม่รวม' }[gsel[x.id]]}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+        : lockedMember
         ? <p style={{ margin: 0 }}>ผู้ถูกเยี่ยม: <b>{member?.name}</b></p>
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
-      <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>
-      <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
+      {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
+      <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
         <div className="row" style={{ gap: 6, alignItems: 'center' }}>
           <button type="button" className="btn btn--gold" disabled={locBusy} onClick={locate}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin ? '📍 เช็คอินใหม่' : '📍 เช็คอินที่บ้าน'}</button>
