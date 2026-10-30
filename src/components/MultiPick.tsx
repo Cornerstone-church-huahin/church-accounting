@@ -7,8 +7,8 @@ export interface PickOption { value: string; label: string }
  * ตัวเลือกหลายรายการแบบป๊อปอัพ: ปุ่มเดียวบรรทัดเดียว (ไม่กินพื้นที่) → แตะแล้วมีรายการให้ติ๊กได้หลายอัน → “เสร็จ”
  * onAdd = เพิ่มรายการใหม่ในป๊อปอัพ (เก็บถาวรโดยเจ้าของข้อมูล) · onRemove = โหมด “ลบ” แสดงปุ่ม ✕ ที่แต่ละรายการ
  */
-export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, addHint }: {
-  title: string; options: PickOption[]; value: string[]; onChange: (v: string[]) => void; empty: string; id?: string
+export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, addHint, allLabel }: {
+  /** แถวแรกในป๊อปอัพ “ทุก…” (ติ๊กอยู่เมื่อยังไม่ได้เลือกรายการใด · แตะ = ล้างที่เลือกทั้งหมด) */ allLabel?: string; title: string; options: PickOption[]; value: string[]; onChange: (v: string[]) => void; empty: string; id?: string
   onAdd?: (name: string) => void; onRemove?: (value: string) => void; addHint?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -36,6 +36,9 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
           <div className="mpick__card">
             <div className="row row--between"><b>{title}{value.length ? ` · เลือกแล้ว ${value.length}` : ''}</b>{value.length > 0 && <button type="button" className="mini" onClick={() => onChange([])}>ล้าง</button>}</div>
             <ul className="mpick__list">
+              {allLabel && (
+                <li><label className="mpick__row mpick__row--all"><input type="checkbox" checked={value.length === 0} onChange={() => { if (value.length > 0) onChange([]) }} /><span><b>{allLabel}</b></span></label></li>
+              )}
               {rows.map((o) => (
                 <li key={o.value}>
                   <label className="mpick__row"><input type="checkbox" checked={value.includes(o.value)} onChange={() => toggle(o.value)} /><span>{o.label}</span></label>

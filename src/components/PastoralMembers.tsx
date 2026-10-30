@@ -5,7 +5,7 @@ import { useAttendance, useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
 import { todayISO } from '../lib/money'
-import { ageBands, genderByStatus, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, attendanceInWindow, orderByFrequency, orderByTenure, REG_PERIODS, type RegPeriod, orderMembers, STATUS_GROUPS, statusBreakdown, tenureDays, tenureText, visitStats, type StatusGroup } from '../lib/pastoral'
+import { ageBands, genderByStatus, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, attendanceInWindow, orderByFrequency, orderByTenure, PICK_STATUS_GROUPS, statusGroupLabel, REG_PERIODS, type RegPeriod, orderMembers, STATUS_GROUPS, statusBreakdown, tenureDays, tenureText, visitStats, type StatusGroup, type BaseGroup } from '../lib/pastoral'
 import { DEFAULT_CRITERIA, evaluate, statusLabel, statusShort, toAttendance } from '../lib/registry'
 import type { MapPin } from './LeafletMap'
 import MemberAvatar from './MemberAvatar'
@@ -86,7 +86,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
   if (!canRole(role, 'detail') && !canWork(work, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
-  const gName = gs.length === 0 ? 'ทุกสถานะ' : STATUS_GROUPS.filter((x) => gs.includes(x.key as Exclude<StatusGroup, 'all'>)).map((x) => x.label).join(' + ')
+  const gName = gs.length === 0 ? 'ทุกสถานะ' : PICK_STATUS_GROUPS.filter((x) => gs.includes(x.key)).concat(gs.filter((k) => !PICK_STATUS_GROUPS.some((x) => x.key === k)).map((k) => ({ key: k as never, label: statusGroupLabel(k) }))).map((x) => x.label).join(' + ')
 
   const TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
   const orderName = ORDERS[tab]?.find((o) => o.k === order)?.t ?? ''
@@ -127,7 +127,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         </nav>
         <div className="pfilters pfilters--slim">
           <div className="field"><label htmlFor="pf-status">สถานะ</label>
-            <MultiPick id="pf-status" title="สถานะ" options={STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>
+            <MultiPick id="pf-status" title="สถานะ" allLabel="ทุกสถานะ" options={PICK_STATUS_GROUPS.map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>
           {tab === 1 && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
             <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
           {tab === 4 && <div className="field"><label htmlFor="pf-group">กลุ่ม</label>
@@ -243,7 +243,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         <summary>รายละเอียดเพิ่มเติม (การ์ดสรุป)</summary>
       <section className="card" aria-labelledby="pm-2">
         <h2 id="pm-2">2 · สถานะสมาชิก <span className="muted small">(แตะเพื่อกรองส่วนที่ 3–5)</span></h2>
-        {STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => <BarRow key={x.key} label={x.label} n={head[x.key as Exclude<StatusGroup, 'all'>]} total={head.total} color={gs.includes(x.key as Exclude<StatusGroup, 'all'>) ? GOLD : NAVY} active={gs.includes(x.key as Exclude<StatusGroup, 'all'>)} onClick={() => toggleG(x.key as Exclude<StatusGroup, 'all'>)} />)}
+        {STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => <BarRow key={x.key} label={x.label} n={head[x.key as BaseGroup]} total={head.total} color={gs.includes(x.key as Exclude<StatusGroup, 'all'>) ? GOLD : NAVY} active={gs.includes(x.key as Exclude<StatusGroup, 'all'>)} onClick={() => toggleG(x.key as Exclude<StatusGroup, 'all'>)} />)}
         <p className="small" role="status" style={{ margin: '0.5rem 0 0' }}>{gs.length === 0 ? 'กำลังดูทุกสถานะ' : <>กำลังดูเฉพาะ <b>{gName}</b> ({sel.length} คน) · <button type="button" className="mini" onClick={() => setGs([])}>ดูทุกสถานะ</button></>}</p>
       </section>
 
