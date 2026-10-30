@@ -94,12 +94,11 @@ try {
   await admin.locator('#il-date').fill('2027-02-10')
   must((await admin.locator('#il-sub').inputValue()) === 'เรื่องที่แก้เอง', 'edited subject kept')
   must((await admin.locator('#il-tn').inputValue()).startsWith('7/3/2027'), 'to-name follows date: ' + await admin.locator('#il-tn').inputValue())
-  await admin.getByRole('button', { name: 'ฮีบรู 10:25' }).click()
-  must((await admin.locator('#il-verse').inputValue()).includes('ฮีบรู 10:25'), 'example fills verse')
   await admin.locator('#il-verse').fill('จงเปรมปรีดิ์ในองค์พระผู้เป็นเจ้าเสมอ\n(ฟีลิปปี 4:4)')
   must((await admin.getByLabel('ตัวอย่างหนังสือ').innerText()).includes('ฟีลิปปี 4:4'), 'verse on paper')
   must((await admin.getByRole('button', { name: /ส่งเข้าคลังเอกสาร/ }).innerText().then(() => admin.getByRole('button', { name: /13\. ส่งเข้าคลังเอกสาร/ }).count())) === 1, 'numbering shifted: library step is 13')
   must(await admin.getByRole('button', { name: /11\. แจ้งประธานตรวจสอบ/ }).count() === 1, 'notify step is 11')
+  if (process.env.SHOT) await admin.setViewportSize({ width: 390, height: 1700 })
   if (process.env.SHOT) await admin.getByLabel('ตัวอย่างหนังสือ').screenshot({ path: process.env.SHOT })
   // หนังสือแจ้งการประชุม: เลขตามหมวดในคลัง ศอ/ปธ
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)

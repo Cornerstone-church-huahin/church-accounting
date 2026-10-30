@@ -1435,8 +1435,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 .letter__verse { margin: 10px 0 0; text-align: center; font-style: italic; }
 
-.il-verseguide { margin-top: 6px; padding: 8px 10px; border: 1px dashed #c9a227; border-radius: 10px; background: #fffbea; font-size: .9rem; }
-.il-verseguide__ex { margin-top: 6px; text-align: center; font-style: italic; color: #5a4a10; }
 
 /* ข้อพระคัมภีร์: ชิดล่างของหน้า ใกล้ส่วนลงนาม (เนื้อหาด้านบนขยายลงมาได้ตามจำนวนวาระ) */
-.letter__verse--bottom { margin: 0 0 14px; }
+.letter__verse--bottom { margin: 0 0 8px; line-height: 1.35; }
