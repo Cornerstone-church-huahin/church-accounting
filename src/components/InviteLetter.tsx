@@ -28,7 +28,7 @@ function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
 }
 /** ชื่อสั้นของหนังสือ (รายการ/คลังเอกสาร): หนังสือเชิญร่วมงาน + ผู้รับ */
-export const letterTitle = (x: { toName?: string }, kind: LetterKindId = 'invite') => `${LETTER_KINDS[kind].name}${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
+export const letterTitle = (x: { toName?: string; category?: string }, kind: LetterKindId = 'invite') => `${kind === 'doc' ? x.category || LETTER_KINDS.doc.name : LETTER_KINDS[kind].name}${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
 /** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
 const attachOf = (l: Draft) => (l.showAttach && l.attach?.trim() ? l.attach.trim() : '')
 /** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
@@ -112,14 +112,16 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
 export default function InviteLetterPage({ id, kind = 'invite' }: { id: string; kind?: LetterKindId }) {
   const K = LETTER_KINDS[kind]
   const store = useLetters(kind)
-  const exists = store.items.some((x) => x.id === id)
+  const found = store.items.find((x) => x.id === id)
+  const exists = !!found
+  const back = kind === 'doc' ? `cat-${encodeURIComponent(found?.category ?? '')}` : K.slug
   const { syncNow } = store
   // เปิดจากลิงก์ที่แชร์มา (เครื่องที่ยังไม่ได้ดึงข้อมูล): รอดึงหนังสือก่อน ห้ามสร้างฉบับเปล่าทับของจริง
   useEffect(() => { if (!exists) void syncNow() }, [exists]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!exists) {
     return (
       <>
-        <div className="page-head no-print"><h1>{K.icon} {K.name}</h1><Link to={`/meeting/1/1/${K.slug}`} className="mini">‹ รายการหนังสือ</Link></div>
+        <div className="page-head no-print"><h1>{K.icon} {K.name}</h1><Link to={`/meeting/1/1/${back}`} className="mini">‹ รายการหนังสือ</Link></div>
         <section className="card"><p style={{ margin: 0 }}>⏳ กำลังดึงหนังสือจากระบบ…</p><p className="small muted" style={{ margin: '0.3rem 0 0' }}>ถ้าไม่ขึ้นภายในไม่กี่วินาที ให้กด “กดรีเฟรชเพื่ออัปเดต” ที่แถบด้านบน หรือตรวจว่าเข้าระบบด้วยบัญชีของคุณแล้ว (หนังสือฉบับนี้อาจถูกลบไปแล้ว)</p></section>
       </>
     )
@@ -139,6 +141,10 @@ const sameDraft = (a: Draft, b: Draft) => JSON.stringify({ ...a, updated: 0, by:
 function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
   const store = useLetters(kind, true)
+  const savedCat = store.items.find((x) => x.id === id)?.category ?? ''
+  const isCat = (n: string) => (kind === 'doc' ? n === savedCat : K.isCat(n))
+  const NAME = kind === 'doc' ? savedCat || K.name : K.name
+  const backTo = kind === 'doc' ? `cat-${encodeURIComponent(savedCat)}` : K.slug
   const role = useRole()
   const cfgStore = useLetterSettings(kind)
   const lib = useDocLibrary(), cats = useDocCategories()
@@ -190,9 +196,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   useEffect(() => () => flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
-  const prefix = invitePrefix(cats.list, cfg.numPrefix, K.catMatch)
-  const others = store.items.filter((x) => x.id !== id)
-  const catName = cats.list.find((c) => !c.deleted && c.name.includes(K.catMatch))?.name
+  const prefix = invitePrefix(cats.list, cfg.numPrefix, isCat)
+  const others = store.items.filter((x) => x.id !== id && (kind !== 'doc' || x.category === savedCat))
+  const catName = cats.list.find((c) => !c.deleted && isCat(c.name))?.name ?? (kind === 'doc' ? savedCat : undefined)
   const inLib = lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => ({ no: d.no }))
   const nextNo = nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib], prefix)
   // ตัวย่อของหมวด “หนังสือเชิญ” ในคลังเอกสารเปลี่ยน/ตั้งใหม่ → เลขที่ของฉบับนี้ตามไปด้วย (เลขลำดับเดิม) และเลขที่ในคลังเอกสารก็ตามด้วย
@@ -209,7 +215,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
   const dupNo = !!l.no.trim() && others.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const cat = cats.list.find((c) => !c.deleted && c.name.includes(K.catMatch))
+  const cat = cats.list.find((c) => !c.deleted && isCat(c.name))
 
   // ลงลายเซ็น (เฉพาะแอดมิน/ผู้ลงนาม): แก้หนังสือหลังลงนามแล้ว ลายเซ็นถูกถอน ต้องลงนามใหม่
   // หนังสือที่เลขาลงนามเอง (แจ้งการประชุม): ผู้ดูแลงานเลขา/ผู้ช่วยกดลงลายเซ็นได้ทันที · ชนิดอื่นเฉพาะแอดมิน (ประธาน)
@@ -267,7 +273,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     set({ notified: { at: Date.now(), by: getSync()?.name || '' } })
     setMsg(how === 'shared' ? 'แจ้งประธานแล้ว' : 'คัดลอกข้อความแจ้งประธานแล้ว — นำไปวางส่งใน LINE หรือช่องทางอื่นได้เลย')
   }
-  const baseName = `${K.fileName} ${l.no.trim() ? l.no.trim().replace(/[\\/:*?"<>|]/g, '-') : todayISO()}`
+  const baseName = `${kind === 'doc' ? NAME : K.fileName} ${l.no.trim() ? l.no.trim().replace(/[\\/:*?"<>|]/g, '-') : todayISO()}`
   const makeFile = async (fmt: 'pdf' | 'png') => {
     if (!ref.current) throw new Error('ยังไม่พบหน้ากระดาษ')
     return fmt === 'pdf' ? { blob: await buildPagePdf(ref.current), name: `${baseName}.pdf` } : { blob: await buildPageImage(ref.current), name: `${baseName}.png` }
@@ -300,7 +306,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       await putBinary(cfgSync, path, data, 'คลังเอกสาร')
       void cacheImage(path, data, 'application/pdf')
       let catName = cat?.name ?? ''
-      if (!catName) { catName = K.defaultCat; cats.put([{ id: newId('cat'), updated: Date.now(), name: catName }]) }
+      if (!catName) { catName = kind === 'doc' ? savedCat || K.defaultCat : K.defaultCat; cats.put([{ id: newId('cat'), updated: Date.now(), name: catName }]) }
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
       const d: DocItem = { id: docId, updated: Date.now(), title: letterTitle(l, kind), category: catName, no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
@@ -337,10 +343,10 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
   return (
     <>
-      <div className="page-head no-print"><h1>{K.icon} {K.name}</h1><Link to={`/meeting/1/1/${K.slug}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
+      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/1/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
-      <section className="card no-print" aria-label={`กรอก${K.name}`}>
+      <section className="card no-print" aria-label={`กรอก${NAME}`}>
         <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
 
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
@@ -468,8 +474,10 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
 }
 
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
-export function InviteLetterList({ kind = 'invite' }: { kind?: LetterKindId }) {
+export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId; cat?: string }) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
+  const NAME = kind === 'doc' ? cat || K.name : K.name
+  const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
   const store = useLetters(kind)
   const cfgStore = useLetterSettings(kind)
   const navigate = useNavigate()
@@ -477,31 +485,31 @@ export function InviteLetterList({ kind = 'invite' }: { kind?: LetterKindId }) {
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
   const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
-  const letters = store.items.filter((x) => !(x.id === 'draft' && empty(x)))
+  const letters = store.items.filter((x) => (kind !== 'doc' || x.category === cat) && !(x.id === 'draft' && empty(x)))
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
   const t = q.trim().toLowerCase()
   const shown = t ? letters.filter((x) => `${x.toName ?? ''} ${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
   const add = () => {
     const id = newId('letter')
-    const pre = invitePrefix(cats.list, cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix, K.catMatch)
-    const cn = cats.list.find((c) => !c.deleted && c.name.includes(K.catMatch))?.name
+    const pre = invitePrefix(cats.list, cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix, isCat)
+    const cn = cats.list.find((c) => !c.deleted && isCat(c.name))?.name
     // ฉบับเดิมที่ยังใช้ตัวย่อตั้งต้น (ก่อนตั้งตัวย่อหมวด) → เปลี่ยนตามตัวย่อหมวดก่อน แล้วค่อยรันเลขใหม่ต่อท้าย
-    let cur = store.items
+    let cur = letters
     const legacy = cleanPrefix(cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix ?? 'ศอช')
-    if (legacy && legacy !== pre) {
+    if (kind !== 'doc' && legacy && legacy !== pre) {
       const taken = store.items.map((x) => x.no)
       const moved = store.items.flatMap((x) => { const r = followPrefix(x.no, legacy, pre, taken); if (r) taken.push(r); return r ? [{ ...x, no: r, updated: Date.now() }] : [] })
       if (moved.length) { store.put(moved); for (const m of moved) { const d = m.docId ? lib.list.find((y) => y.id === m.docId) : undefined; if (d) lib.put([{ ...d, no: m.no, updated: Date.now() }]) } }
       cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
     }
     const pool = [...cur.map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
-    if (!store.put([{ ...blankOf(kind), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
+    if (!store.put([{ ...blankOf(kind), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
     navigate(`/meeting/1/1/${K.slug}-${id}`)
   }
   const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
-      <div className="page-head no-print"><h1>{K.icon} {K.name}</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
+      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
       <section className="card" aria-label="ค้นหาหรือเพิ่มหนังสือ">
         <div className="row" style={{ gap: 6, alignItems: 'flex-end' }}>
           <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="il-q">🔎 ค้นหาหนังสือ (ชื่อ เรื่อง เลขที่)</label><input id="il-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์เพื่อค้นหา" /></div>
@@ -510,7 +518,7 @@ export function InviteLetterList({ kind = 'invite' }: { kind?: LetterKindId }) {
       </section>
       {msg && <p className="error" role="alert">{msg}</p>}
       {shown.length === 0 ? <p className="empty">{letters.length === 0 ? 'ยังไม่มีหนังสือ — กด ➕ ใหม่ เพื่อสร้างฉบับแรก' : 'ไม่พบหนังสือที่ค้นหา'}</p> : (
-        <ul className="wflist" aria-label={`รายการ${K.name}`}>
+        <ul className="wflist" aria-label={`รายการ${NAME}`}>
           {shown.map((x) => (
             <li key={x.id} className="wfitem">
               <Link to={`/meeting/1/1/${K.slug}-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x, kind)}`}>

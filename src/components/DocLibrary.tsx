@@ -203,7 +203,7 @@ function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave
 
 function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cats: { name: string; n: number }[]; docs: DocItem[]; putDocs: (xs: DocItem[]) => boolean; catStore: ReturnType<typeof useDocCategories>; onClose: () => void; onRenamed: (a: string, b: string) => void }) {
   const [name, setName] = useState('')
-  const stores = { invite: { letters: useLetters('invite'), cfg: useLetterSettings('invite') }, notice: { letters: useLetters('notice'), cfg: useLetterSettings('notice') } }
+  const stores = { invite: { letters: useLetters('invite'), cfg: useLetterSettings('invite') }, notice: { letters: useLetters('notice'), cfg: useLetterSettings('notice') }, doc: { letters: useLetters('doc'), cfg: useLetterSettings('doc') } }
   const [prefix, setPrefix] = useState('')
   const [msg, setMsg] = useState('')
   const names = new Set(cats.map((c) => c.name))
@@ -221,10 +221,10 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     if (item) catStore.put([{ ...item, prefix: pre || undefined }]); else ensure(c, pre)
     // เปลี่ยนตัวย่อ: ถามว่าจะเปลี่ยนเลขที่ของเอกสารเดิมตามไปด้วยไหม
     // หมวดหนังสือเชิญ: ฉบับในรายการหนังสือเชิญ (และเลขที่ในคลัง) ที่ใช้ตัวย่อตั้งต้นของหัวจดหมายอยู่ก็ตามไปด้วย
-    const kd = LETTER_KIND_LIST.find((x) => c.includes(x.catMatch))
+    const kd = LETTER_KIND_LIST.find((x) => x.isCat(c))
     const inv = !!kd
-    const letters = stores[kd?.id ?? 'invite'].letters
-    const from = was || (kd ? cleanPrefix(stores[kd.id].cfg.items.find((x) => x.id === 'settings')?.numPrefix ?? kd.numPrefix ?? 'ศอช') : '')
+    const letters = { items: stores[kd?.id ?? 'invite'].letters.items.filter((x) => kd?.id !== 'doc' || x.category === c), put: stores[kd?.id ?? 'invite'].letters.put }
+    const from = was || (kd && kd.id !== 'doc' ? cleanPrefix(stores[kd.id].cfg.items.find((x) => x.id === 'settings')?.numPrefix ?? kd.numPrefix ?? 'ศอช') : '')
     if (inv && from && pre && from !== pre) {
       const ls = letters.items.filter((x) => renumberWithPrefix(x.no, from, pre) !== x.no)
       if (ls.length) letters.put(ls.map((x) => ({ ...x, no: renumberWithPrefix(x.no, from, pre), updated: Date.now() })))
@@ -239,6 +239,8 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     if (names.has(n) || n === NO_CATEGORY) return setMsg('มีหมวดชื่อนี้แล้ว')
     const item = catStore.list.find((c) => c.name === old)
     if (item) catStore.put([{ ...item, name: n }]); else ensure(n)
+    const dl = stores.doc.letters.items.filter((x) => x.category === old)   // หนังสือทั่วไปที่สังกัดหมวดนี้ย้ายตามชื่อใหม่
+    if (dl.length) stores.doc.letters.put(dl.map((x) => ({ ...x, category: n, updated: Date.now() })))
     const moved = docs.filter((d) => d.category === old).map((d) => ({ ...d, category: n }))
     if (moved.length) putDocs(moved)
     onRenamed(old, n); setMsg(`เปลี่ยนชื่อเป็น “${n}” แล้ว (${moved.length} เอกสารตามไปด้วย)`)

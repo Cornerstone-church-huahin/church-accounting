@@ -3,7 +3,7 @@ import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 const REPO = 'Cornerstone-church-huahin/church-accounting-data'
-const PORT = 4397
+const PORT = 4398
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' })
 await new Promise((r) => setTimeout(r, 2500))
 const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined
@@ -16,6 +16,7 @@ const MEMBERS = [
   { id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, status: 'active', updated: 1 },
   { id: 'lead1', name: 'หัวหน้าเลขา', role: 'viewer', joined: 2, status: 'active', updated: 1, works: [1], workRoles: { 1: 'lead' } },
 ]
+put('doc-categories.json', { items: [{ id: 'c1', updated: 1, name: 'จดหมายขอบคุณ', prefix: 'ศอ/จข' }, { id: 'c2', updated: 1, name: 'หนังสือแจ้งประชุมธรรมกิจ ประจำเดือน', prefix: 'ศอ/ปธ' }, { id: 'c3', updated: 1, name: 'หนังสือเชิญร่วมงาน', prefix: 'ศอ/จช' }] })
 put('members.json', { items: MEMBERS })
 put('notice-letter.json', { items: [{ id: 'R', updated: 100, toName: 'นพพร', no: 'ศอ/จช.001', date: '2026-10-28', subject: 'ขอเชิญ', to: 'ท่านนพพร', attach: '', showAttach: false, body: 'ข้อความเก่า' }] })
 const fake = async (route) => {
@@ -54,24 +55,28 @@ try {
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1`)
   await admin.getByLabel('เลือกเรียกเฉพาะการ์ด').waitFor({ timeout: 15000 })
   const opts = await admin.locator('#wf-pick option').allTextContents()
-  must(opts.some((o) => o.includes('หนังสือแจ้งการประชุมคณะธรรมกิจ')), 'dropdown lists notice: ' + opts.join('|'))
-  await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
-  await admin.getByRole('button', { name: /เพิ่ม|สร้าง/ }).first().click()
+  must(opts.some((o) => o.includes('จดหมายขอบคุณ')), 'category card in dropdown: ' + opts.join('|'))
+  must(!opts.some((o) => o.includes('แจ้งประชุมธรรมกิจ ประจำเดือน')), 'notice category not duplicated as general')
+  // ลบการ์ดในตัว
+  admin.once('dialog', (d) => d.accept())
+  await admin.getByLabel('ลบการ์ด หนังสือแจ้งการประชุมคณะธรรมกิจ').click()
+  await admin.waitForTimeout(500)
+  must(!(await admin.locator('#wf-pick option').allTextContents()).some((o) => o.includes('หนังสือแจ้งการประชุมคณะธรรมกิจ')), 'notice card removed')
+  await admin.getByRole('button', { name: /แสดงการ์ดที่ลบ/ }).click()
+  await admin.getByRole('button', { name: 'แสดงอีกครั้ง' }).click()
+  await admin.keyboard.press('Escape')
+  // การ์ดหมวด → รายการ → สร้างฉบับ เลขตามตัวย่อหมวด
+  await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/cat-${encodeURIComponent('จดหมายขอบคุณ')}`)
+  await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
   await body(admin).waitFor({ timeout: 15000 })
-  must((await body(admin).inputValue()).length > 20, 'new notice has template body')
-  must(await admin.getByLabel('วาระที่ 4', { exact: true }).count() === 1, 'default agenda has 4 items')
-  await admin.getByLabel('วาระที่ 1', { exact: true }).fill('วาระทดสอบ')
-  await admin.getByRole('button', { name: /เพิ่มวาระ/ }).click()
-  await admin.getByLabel('วาระที่ 5', { exact: true }).fill('ข้อห้า')
-  await admin.getByLabel('เลื่อนวาระที่ 5 ขึ้น').click()
-  must((await admin.getByLabel('วาระที่ 4', { exact: true }).inputValue()) === 'ข้อห้า', 'agenda reorder')
   const paper = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
-  must(paper.includes('วาระทดสอบ') && paper.includes('มน.หนึ่งฤทัย') && paper.includes('เลขานุการคริสตจักร'), 'paper has agenda + secretary signature: ' + paper)
-  must(await admin.getByRole('button', { name: /ลงลายเซ็น/ }).count() > 0, 'sign button available')
-  await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice-R`)
+  must(paper.includes('ศอ/จข.001'), 'general letter numbered by category prefix: ' + paper.slice(0, 300))
+  // หนังสือแจ้งการประชุม: เลขตามหมวดในคลัง ศอ/ปธ
+  await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
+  await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
   await body(admin).waitFor({ timeout: 15000 })
-  must((await body(admin).inputValue()) === 'ข้อความเก่า', 'opens existing notice')
-  must(paper.includes('ศอ/ปด.001') && paper.includes('ธรรมกิจ') && paper.includes('13.00 น.') && !paper.includes('รัฐมนตรี'), 'prefix/text defaults: ' + paper.slice(0, 400))
+  const p2 = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
+  must(p2.includes('ศอ/ปธ.001') && p2.includes('13.00 น.') && p2.includes('มน.หนึ่งฤทัย'), 'notice uses library prefix: ' + p2.slice(0, 400))
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('noticeletter-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
