@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import Sheet from './Sheet'
 import StoredImage from './StoredImage'
 import MemberAvatar from './MemberAvatar'
-import { VisitReport, fmtDay, rangeText } from './PastoralVisits'
+import { VisitReport, TRIP_TINT, fmtDay, rangeText } from './PastoralVisits'
 import { canRole, canWork } from '../lib/access'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
@@ -54,7 +54,7 @@ export default function VisitReports() {
             <section key={d} className="vrep__day" aria-label={`${dayName(d)} ${fmtDay(d)}`}>
               <h3>{dayName(d)} {fmtDay(d)}</h3>
               {wk.vs.filter((v) => v.date === d).sort((a, b) => a.updated - b.updated).map((v) => (
-                <article key={v.id} className="vrep__v">
+                <article key={v.id} className="vrep__v" style={{ background: TRIP_TINT[(trip.get(v.id) ?? 1) % 2] }}>
                   <div className="vrep__top">
                     <MemberAvatar path={photoOf(v.memberId)} name={v.memberName} size={44} />
                     <div className="vrep__who"><b>{v.memberName}</b><span className="small muted">ออกเยี่ยมครั้งที่ {trip.get(v.id)} · ผู้ออกเยี่ยม: {v.visitor}</span></div>

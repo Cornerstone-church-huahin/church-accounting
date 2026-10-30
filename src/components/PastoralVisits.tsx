@@ -17,7 +17,7 @@ import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { toAttendance } from '../lib/registry'
-import { DAY_NAMES, TRIP_RADIUS_M, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
+import { DAY_NAMES, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
@@ -246,7 +246,9 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   )
 }
 
-const ROWS = 18
+/** สีพื้นจางๆ ของแต่ละ “ครั้งที่ออกเยี่ยม”: ครั้งคี่สีหนึ่ง ครั้งคู่อีกสี (บ้านที่นับเป็นครั้งเดียวกันได้สีเดียวกัน) */
+export const TRIP_TINT = ['#fdf1d8', '#e6eefb']
+const ROWS = 20
 /** รายงานการเยี่ยมประจำสัปดาห์ (A4) — ย้อนดูสัปดาห์ก่อนได้ด้วยลูกศรด้านบน · ดาวน์โหลด/แชร์ PDF */
 export function VisitReport({ church, sunday, visits }: { church: string; sunday: string; visits: Visit[] }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
@@ -270,16 +272,16 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
         <ScaledPage key={pi} ref={(el) => { refs.current[pi] = el }}>
           <>
             <PaperHead church={church} title="รายงานการเยี่ยมประจำสัปดาห์ · งานอภิบาล" sub={`สัปดาห์ ${rangeText(sunday)}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, marginTop: 8 }}>
-              <thead><tr style={{ background: '#eef1f8' }}>{['ที่', 'วัน/วันที่', 'ผู้ที่ไปเยี่ยม', 'เหตุผล / หมายเหตุ', 'ผู้ออกเยี่ยม'].map((h) => <th key={h} style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{h}</th>)}</tr></thead>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, lineHeight: 1.2, marginTop: 6 }}>
+              <thead><tr style={{ background: '#eef1f8' }}>{['ที่', 'วัน/วันที่', 'ผู้ที่ไปเยี่ยม', 'เหตุผล / หมายเหตุ', 'ผู้ออกเยี่ยม'].map((h) => <th key={h} style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{h}</th>)}</tr></thead>
               <tbody>
                 {pr.map((v, i) => (
-                  <tr key={v.id}>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px', whiteSpace: 'nowrap' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}<div style={{ fontSize: 11, color: '#444' }}>ครั้งที่ {trip.get(v.id)}</div></td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.memberName}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.reason || '—'}{v.detail ? <div style={{ fontSize: 12, color: '#444' }}>{v.detail}</div> : null}{v.checkin ? <div style={{ fontSize: 11, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '3px 5px' }}>{v.visitor}</td>
+                  <tr key={v.id} style={{ background: TRIP_TINT[(trip.get(v.id) ?? 1) % 2] }}>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px', textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}<div style={{ fontSize: 10.5, color: '#444' }}>ครั้งที่ {trip.get(v.id)}</div></td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.memberName}</td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.reason || '—'}{v.detail ? <div style={{ fontSize: 11, color: '#444' }}>{v.detail}</div> : null}{v.checkin ? <div style={{ fontSize: 10, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.visitor}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && <tr><td colSpan={5} style={{ border: '1px solid #1a2b4c', padding: 10, textAlign: 'center' }}>ไม่มีการเยี่ยมในสัปดาห์นี้</td></tr>}
@@ -287,8 +289,7 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
             </table>
             {pi === pages.length - 1 && (
               <>
-                <p style={{ fontSize: 15, margin: '10px 0 0' }}>รวมออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน</p>
-                {st.trips < st.count && <p style={{ fontSize: 12, margin: '2px 0 0', color: '#444' }}>บ้านที่เช็คอินห่างกันไม่เกิน {TRIP_RADIUS_M} เมตรในวันเดียวกัน (เดินถึงกันได้) นับเป็นออกเยี่ยมครั้งเดียว</p>}
+                <p style={{ fontSize: 14, margin: '6px 0 0' }}>รวมออกเยี่ยม <b>{st.trips}</b> ครั้ง · เยี่ยม <b>{st.people}</b> คน</p>
               </>
             )}
           </>
