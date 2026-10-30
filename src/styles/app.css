@@ -1377,3 +1377,12 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .tabicons--txt { gap: 0.45rem }
 .tabicons--txt .tabicons__i { flex: 1 1 0; width: auto; height: 3.2rem; flex-direction: column; gap: 0.05rem; border-radius: 0.8rem; font-size: 1rem; line-height: 1.1 }
 .tabicons--txt .tabicons__i em { font-style: normal; font-size: 0.8rem; font-weight: 700; color: var(--ink); white-space: nowrap }
+/* ขั้นตอนเยี่ยม 1 → 2 → 3: แถบรูปลูกศรชี้ไปข้างหน้า */
+.tabicons--arrow { gap: 0; margin-bottom: 0.5rem }
+.tabicons--arrow .tabicons__i { border: 0; border-radius: 0; background: #ece6d2; margin-left: -0.55rem; padding: 0 0.9rem 0 1rem; clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 50%, calc(100% - 0.8rem) 100%, 0 100%, 0.8rem 50%) }
+.tabicons--arrow .tabicons__i:first-child { margin-left: 0; border-radius: 0.8rem 0 0 0.8rem; clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 50%, calc(100% - 0.8rem) 100%, 0 100%) }
+.tabicons--arrow .tabicons__i:last-child { border-radius: 0 0.8rem 0.8rem 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0.8rem 50%) }
+.tabicons--arrow .tabicons__i.on { background: var(--navy, #1a2b4c) }
+.tabicons--arrow .tabicons__i.on em { color: #fff }
+.tabicons--arrow .tabicons__i i { top: 0.2rem; left: 0.95rem; min-width: 1.05rem; height: 1.05rem; font-size: 0.68rem; background: #fff; color: var(--navy, #1a2b4c); box-shadow: 0 0 0 1px var(--navy, #1a2b4c) }
+.tabicons--arrow .tabicons__i:first-child i { left: 0.35rem }
