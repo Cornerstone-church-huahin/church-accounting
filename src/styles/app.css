@@ -1374,3 +1374,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .tabicons__i i { position: absolute; top: -0.35rem; left: -0.35rem; min-width: 1.15rem; height: 1.15rem; padding: 0 0.2rem; border-radius: 999px; background: var(--navy, #1a2b4c); color: #fff; font-style: normal; font-size: 0.72rem; font-weight: 800; display: grid; place-items: center }
 .tabicons { gap: 0.4rem; flex-wrap: nowrap }
 .tabicons__i { width: 2.9rem; flex: 0 1 2.9rem }
+.tabicons--txt { gap: 0.45rem }
+.tabicons--txt .tabicons__i { flex: 1 1 0; width: auto; height: 3.2rem; flex-direction: column; gap: 0.05rem; border-radius: 0.8rem; font-size: 1rem; line-height: 1.1 }
+.tabicons--txt .tabicons__i em { font-style: normal; font-size: 0.8rem; font-weight: 700; color: var(--ink); white-space: nowrap }
