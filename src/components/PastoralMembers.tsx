@@ -21,6 +21,8 @@ const ORDERS: Record<number, { k: Ord; t: string }[]> = {
 }
 /** สีของหลอดความสม่ำเสมอ: เต็มปี = เขียวเข้ม · ลดลงเป็นเขียวอ่อน เหลือง ส้ม แดง */
 const gaugeColor = (p: number) => (p >= 0.8 ? '#1b7f4b' : p >= 0.6 ? '#7aa63a' : p >= 0.4 ? '#d9a21b' : p >= 0.2 ? '#e0762a' : '#c0261b')
+/** ชื่อกลุ่มของสมาชิก (ตัดเลขนำหน้า · ไม่มี = ไม่มีกลุ่ม) */
+const grpName = (m: { group?: string }) => { const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
 
@@ -67,6 +69,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const toggleG = (k: Exclude<StatusGroup, 'all'>) => setGs((xs) => (xs.includes(k) ? xs.filter((x) => x !== k) : [...xs, k]))
   const [tab, setTab] = useState(1)
   const [order, setOrder] = useState<Ord>('old')
+  const [grpSel, setGrpSel] = useState<string[]>([]) // แท็บกลุ่ม: กลุ่มที่เลือกดูรายบุคคล (ว่าง = ดูภาพรวมทุกกลุ่ม)
   const [period, setPeriod] = useState<RegPeriod>('1y') // ช่วงเวลาที่ใช้วัดความสม่ำเสมอ
   const changeTab = (n: number) => { setTab(n); setOrder(n === 2 ? 'pct' : 'old') }
   const a0 = useAttendance(new Date().getFullYear()), a1 = useAttendance(new Date().getFullYear() - 1, false), a2 = useAttendance(new Date().getFullYear() - 2, false), a3 = useAttendance(new Date().getFullYear() - 3, false)
@@ -90,17 +93,22 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   // โซน 3: การ์ดสมาชิก 1 คน 1 การ์ด (ดูอย่างเดียว) · เริ่มต้นเรียงคนที่มานมัสการบ่อยที่สุดก่อน แล้วตามสถานะ 1,2,3…
   const tenureMap = useMemo(() => new Map(all.map((m) => [m.id, tenureDays(m.since, ev.map.get(m.id)?.firstAtt, today)])), [all, ev, today])
   const per = REG_PERIODS.find((x) => x.k === period) ?? REG_PERIODS[2]
-  const win = useMemo(() => attendanceInWindow(att, today, per.days), [att, today, per.days])
+  const winP = useMemo(() => attendanceInWindow(att, today, per.days), [att, today, per.days])
+  const winY = useMemo(() => attendanceInWindow(att, today, 365), [att, today])
+  const byGroup = tab === 4 // แท็บกลุ่ม: วัดความสม่ำเสมอ 1 ปีล่าสุดเสมอ
+  const win = byGroup ? winY : winP
+  const curPer = byGroup ? REG_PERIODS[2] : per
   const timesOf = (id: string) => (ev.hasData ? win.times.get(id) ?? 0 : 0) // จำนวนครั้งที่มาในช่วงที่เลือก
   const pctIn = (id: string) => Math.min(1, timesOf(id) / Math.max(1, win.services))
   const faces = useMemo(() => {
     const byName = () => { const xs = orderMembers(sel, 'name', stats, today); return order === 'nameDesc' ? xs.reverse() : xs }
     if (order === 'name' || order === 'nameDesc') return byName()
+    if (tab === 4) return orderByFrequency(sel.filter((m) => grpSel.includes(grpName(m))), timesOf, true)
     if (tab === 2) return orderByFrequency(sel, timesOf, order !== 'pctAsc')
     if (order === 'old' || order === 'new') return orderByTenure(sel, (id) => tenureMap.get(id) ?? null, order === 'old')
     return orderMembers(sel, 'default', stats, today)
-  }, [sel, order, tab, stats, today, ev, tenureMap, win])
-  const grp = (m: { group?: string }) => { const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
+  }, [sel, order, tab, stats, today, ev, tenureMap, win, grpSel])
+  const grp = grpName
   const statusRows = useMemo(() => statusBreakdown(all), [all])
   const sexRows = useMemo(() => genderByStatus(sel), [sel])
   const absLabel = (m: { id: string; status?: string }) => (!isLive(m) ? '' : absence(stats.get(m.id)?.last, today).label)
@@ -121,6 +129,8 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
             <MultiPick id="pf-status" title="สถานะ" options={STATUS_GROUPS.filter((x) => x.key !== 'all').map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>}
           {tab === 1 && <div className="field"><label htmlFor="pf-order">เรียงลำดับ</label>
             <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
+          {tab === 4 && <div className="field"><label htmlFor="pf-group">กลุ่ม</label>
+            <MultiPick id="pf-group" title="กลุ่ม" options={groups.map(([k, n]) => ({ value: k, label: `${k} (${n})` }))} value={grpSel} onChange={setGrpSel} empty="ทุกกลุ่ม" /></div>}
           {tab === 2 && <div className="field"><label htmlFor="pf-period">สม่ำเสมอภายใน</label>
             <select id="pf-period" className="input" value={period} onChange={(e) => setPeriod(e.target.value as RegPeriod)}>{REG_PERIODS.map((x) => <option key={x.k} value={x.k}>{x.t.replace('สม่ำเสมอภายใน', '')}</option>)}</select></div>}
         </div>
@@ -167,7 +177,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
           ))}
         </section>
       )}
-      {tab === 4 && (
+      {tab === 4 && grpSel.length === 0 && (
         <section className="card" aria-label="กลุ่มสมาชิก">
           <h2 style={{ margin: 0 }}>กลุ่มและปีที่เข้าเป็นสมาชิก <span className="muted small">({gName})</span></h2>
           {groups.map(([k, n]) => <BarRow key={k} label={k} n={n} total={sel.length} color={k === 'ไม่มีกลุ่ม' ? GRAY : NAVY} />)}
@@ -200,10 +210,10 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
           </table></div>
         </section>
       )}
-      {(tab === 1 || tab === 2) && <>
+      {(tab === 1 || tab === 2 || (tab === 4 && grpSel.length > 0)) && <>
       <section className="pfaces" aria-label={`รูปสมาชิก ${gName}`}>
-        <p className="pfaces__n muted small">{gName} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {orderName}</p>
-        {tab === 2 && order !== 'name' && order !== 'nameDesc' && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>{per.t}</b> · นับจำนวนครั้งที่มานมัสการใน{per.short} ยิ่งมากยิ่งสม่ำเสมอ (เต็มหลอด = มาครบทุกครั้งที่มีบันทึก)</p>}
+        <p className="pfaces__n muted small">{gName}{tab === 4 ? ` · กลุ่ม ${grpSel.join(', ')}` : ''} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {tab === 4 ? 'สม่ำเสมอสุด → น้อยสุด' : orderName}</p>
+        {((tab === 2 && order !== 'name' && order !== 'nameDesc') || tab === 4) && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>{curPer.t}</b> · นับจำนวนครั้งที่มานมัสการใน{curPer.short} ยิ่งมากยิ่งอยู่บน (เต็มหลอด = มาครบทุกครั้งที่มีบันทึก)</p>}
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
           <ul className="pcards">
             {faces.map((m) => (
@@ -217,7 +227,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
                       ? (
                         <>
                           <span className="pcard__l2">มา <b>{timesOf(m.id)}</b>/{win.services} ครั้ง · <b className="pcard__pct">{Math.round(pctIn(m.id) * 100)}%</b> · {statusShort(m.status)}</span>
-                          <span className="pcard__gauge" role="img" aria-label={`${per.t} ${Math.round(pctIn(m.id) * 100)}%`}><i style={{ width: `${Math.round(pctIn(m.id) * 100)}%`, background: gaugeColor(pctIn(m.id)) }} /></span>
+                          <span className="pcard__gauge" role="img" aria-label={`${curPer.t} ${Math.round(pctIn(m.id) * 100)}%`}><i style={{ width: `${Math.round(pctIn(m.id) * 100)}%`, background: gaugeColor(pctIn(m.id)) }} /></span>
                         </>
                       )
                       : <span className="pcard__l2">ยังไม่มีบันทึกลงชื่อนมัสการ</span>}
