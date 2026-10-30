@@ -14,17 +14,16 @@ export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v'>)
 const tidy = (d: PlanDoc): PlanDoc => ({ ...d, items: [...d.items].sort((a, b) => a.g - b.g) })
 export const groupsOf = (d: PlanDoc): PlanGroup[] => Array.from({ length: d.groups }, (_, i) => ({ g: i + 1, name: d.names[String(i + 1)] ?? '', items: d.items.filter((x) => x.g === i + 1) }))
 
-/** ใส่ตะกร้า: g = 0 = ยังไม่กำหนดจุดเยี่ยม (เรียงตามลำดับที่เลือก ไม่จัดเรียงใหม่) */
+/** ใส่ตะกร้า: g = 0 = ยังไม่กำหนดจุดเยี่ยม (อยู่บนสุด) · จุดเดียวกันจัดอยู่ติดกันอัตโนมัติ ตามลำดับที่เลือก */
 export const addItem = (d: PlanDoc, m: { id: string; name: string }, g = 0): PlanDoc => {
   if (d.items.some((x) => x.id === m.id)) return d
-  const next = { ...d, groups: Math.max(d.groups, g), items: [...d.items, { id: m.id, name: m.name, g }] }
-  return g > 0 ? tidy(next) : next
+  return tidy({ ...d, groups: Math.max(d.groups, g), items: [...d.items, { id: m.id, name: m.name, g }] })
 }
 /** กำหนดจุดเยี่ยมที่ g ให้คนนี้ (0 = ยกเลิกจุด) · ไปต่อท้ายลำดับของจุดนั้น = ตามลำดับที่เลือก */
 export function setStop(d: PlanDoc, id: string, g: number): PlanDoc {
   const it = d.items.find((x) => x.id === id); if (!it) return d
   const stop = Math.max(0, Math.min(99, Math.round(g)))
-  return { ...d, groups: Math.max(d.groups, stop), items: [...d.items.filter((x) => x.id !== id), { ...it, g: stop }] }
+  return tidy({ ...d, groups: Math.max(d.groups, stop), items: [...d.items.filter((x) => x.id !== id), { ...it, g: stop }] })
 }
 /** จุดที่มีคนอยู่ เรียงเลขจุด (ลำดับในจุด = ลำดับที่เลือก) */
 export const stopsOf = (d: PlanDoc): PlanGroup[] => groupsOf(d).filter((x) => x.items.length > 0)
@@ -72,5 +71,12 @@ export function moveItem(d: PlanDoc, id: string, index: number): PlanDoc {
   const it = d.items.find((x) => x.id === id); if (!it) return d
   const rest = d.items.filter((x) => x.id !== id)
   rest.splice(Math.max(0, Math.min(index, rest.length)), 0, it)
-  return { ...d, items: rest }
+  return tidy({ ...d, items: rest })
 }
+
+/** สีประจำจุดเยี่ยม (พื้นแถว · สีเข้มของวงกลมเลข) */
+export const STOP_COLORS: { tint: string; dark: string }[] = [
+  { tint: '#e3f3e6', dark: '#2e7d4f' }, { tint: '#e6eefb', dark: '#2f5fa8' }, { tint: '#fdf1d8', dark: '#a8741a' }, { tint: '#f6e3f1', dark: '#9b3b86' }, { tint: '#e0f4f4', dark: '#1f7f84' },
+  { tint: '#fbe6e2', dark: '#b4442f' }, { tint: '#ece8f8', dark: '#5a47a6' }, { tint: '#eef3d9', dark: '#6b7d1c' }, { tint: '#f3e9e0', dark: '#7a5236' }, { tint: '#e9ecef', dark: '#4a5560' },
+]
+export const stopColor = (g: number) => STOP_COLORS[(Math.max(1, g) - 1) % STOP_COLORS.length]
