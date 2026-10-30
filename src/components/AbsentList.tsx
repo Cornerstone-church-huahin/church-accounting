@@ -23,7 +23,7 @@ export default function AbsentList({ members, stats, today, selectedId, selected
       <div className="field"><label htmlFor="pv-q" className={hideLabel ? 'sr-only' : undefined}>{label}</label>
         <div className="pvfind">
           <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
-          <MultiPick id="pv-st" title="สถานะสมาชิก" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />
+          <MultiPick id="pv-st" title="สถานะสมาชิก" allLabel="ทุกสถานะ" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />
         </div></div>
       <div className="field"><span className="pvhint">② {q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status.length ? ` · ${status.map(statusShort).join(', ')}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
         <ul className="pvpick" aria-label="รายชื่อสมาชิก">

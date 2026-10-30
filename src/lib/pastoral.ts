@@ -3,17 +3,29 @@ import { statusLabel, type Evaluated } from './registry'
 import type { ChurchMember } from './types'
 
 /** สถานะที่ใช้กรองดูข้อมูลในหน้าสมาชิกของงานอภิบาล */
-export type StatusGroup = 'all' | 'complete' | 'reserve' | 'worship' | 'newcomer' | 'resigned' | 'deceased'
+export type StatusGroup = 'all' | 'full1' | 'full2' | 'complete' | 'reserve' | 'worship' | 'newcomer' | 'resigned' | 'deceased'
+/** กลุ่มสถานะตามเลขนำหน้าในทะเบียน (สมบูรณ์ 1+2 รวมกัน) */
+export type BaseGroup = Exclude<StatusGroup, 'all' | 'full1' | 'full2'>
 export const STATUS_GROUPS: { key: StatusGroup; label: string }[] = [
   { key: 'all', label: 'ทุกสถานะ' }, { key: 'complete', label: 'สมาชิกสมบูรณ์' }, { key: 'reserve', label: 'สมาชิกสำรอง' },
   { key: 'newcomer', label: 'คนใหม่' }, { key: 'worship', label: 'ผู้ร่วมนมัสการ' }, { key: 'resigned', label: 'สิ้นสภาพสมาชิก' }, { key: 'deceased', label: 'เสียชีวิต' },
 ]
 /** สถานะตามทะเบียน → กลุ่มที่ใช้กรอง (ดูเลขนำหน้า 1–7 · ไม่รู้จัก = นับในทุกสถานะเท่านั้น) */
-export function groupOf(status?: string): Exclude<StatusGroup, 'all'> | undefined {
+export function groupOf(status?: string): BaseGroup | undefined {
   const n = statusLabel(status).match(/^(\d)\./)?.[1]
   return n === '1' || n === '2' ? 'complete' : n === '3' ? 'reserve' : n === '4' ? 'newcomer' : n === '5' ? 'worship' : n === '6' ? 'resigned' : n === '7' ? 'deceased' : undefined
 }
-export const inGroup = (m: { status?: string }, g: StatusGroup) => g === 'all' || groupOf(m.status) === g
+/** ตัวเลือกสถานะในป๊อปอัพกรอง (ทุกสถานะ เป็นแถวแรกของตัวเลือกเอง) เรียงจากสถานะที่ผูกพันกับคริสตจักรมากสุด: สมบูรณ์ 1 → 2 → สำรอง → คนใหม่ → ผู้ร่วมนมัสการ → สิ้นสภาพ → เสียชีวิต */
+export const PICK_STATUS_GROUPS: { key: Exclude<StatusGroup, 'all' | 'complete'>; label: string }[] = [
+  { key: 'full1', label: 'สมบูรณ์ 1' }, { key: 'full2', label: 'สมบูรณ์ 2' }, { key: 'reserve', label: 'สมาชิกสำรอง' },
+  { key: 'newcomer', label: 'คนใหม่' }, { key: 'worship', label: 'ผู้ร่วมนมัสการ' }, { key: 'resigned', label: 'สิ้นสภาพสมาชิก' }, { key: 'deceased', label: 'เสียชีวิต' },
+]
+export const statusGroupLabel = (k: StatusGroup) => [...PICK_STATUS_GROUPS, { key: 'complete', label: 'สมาชิกสมบูรณ์' }, { key: 'all', label: 'ทุกสถานะ' }].find((x) => x.key === k)?.label ?? k
+export const inGroup = (m: { status?: string }, g: StatusGroup) => {
+  if (g === 'all') return true
+  if (g === 'full1' || g === 'full2') return statusLabel(m.status).startsWith(g === 'full1' ? '1.' : '2.')
+  return groupOf(m.status) === g
+}
 /** ยังอยู่ในทะเบียน (ไม่นับสิ้นสภาพ/เสียชีวิต) */
 export const isLive = (m: { status?: string }) => { const g = groupOf(m.status); return g !== 'resigned' && g !== 'deceased' }
 

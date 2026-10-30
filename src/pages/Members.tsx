@@ -170,7 +170,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
         )}
       <div className="toolbar no-print">
         <input className="input full" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
-        <MultiPick title="กรองสถานะ / ผลตรวจ" empty="ทุกสถานะ" value={filters} onChange={setFilters}
+        <MultiPick title="กรองสถานะ / ผลตรวจ" allLabel="ทุกสถานะ" empty="ทุกสถานะ" value={filters} onChange={setFilters}
           options={[...statuses.map(([st, n]) => ({ value: `st:${st}`, label: `${st} (${n})` })), { value: 'to2', label: `ควรปรับเป็น สมบูรณ์ 2 (${to2})` }, { value: 'to1', label: `ควรกลับเป็น สมบูรณ์ 1 (${to1})` }, { value: 'novisit', label: 'ไม่มีบันทึกนมัสการ' }]} />
         {groups.length > 0 && <select className="input" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
         <button type="button" className="btn btn--ghost full" onClick={() => window.print()}>พิมพ์ / PDF</button>
@@ -365,7 +365,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
       {msg && <p className="small" role="status">{msg}</p>}
       {!lite && statuses.length > 1 && (
         <div className="no-print" aria-label="กรองตามสถานะ" style={{ margin: '0.3rem 0' }}>
-          <MultiPick title="สถานะสมาชิก" empty={`ทุกสถานะ · ${members.length}`} value={sts} onChange={setSts} options={statuses.map((x) => ({ value: x, label: `${x} (${count((m) => statusKey(m.status) === x)})` }))} />
+          <MultiPick title="สถานะสมาชิก" allLabel="ทุกสถานะ" empty={`ทุกสถานะ · ${members.length}`} value={sts} onChange={setSts} options={statuses.map((x) => ({ value: x, label: `${x} (${count((m) => statusKey(m.status) === x)})` }))} />
         </div>
       )}
       <div className="toolbar toolbar--3 no-print">
