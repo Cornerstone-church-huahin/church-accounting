@@ -137,7 +137,8 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
       { date: '2025-12-01', ids: ['a'] }, { date: '2024-06-02', ids: ['a', 'b'] }, { date: '2020-01-05', ids: ['a'] },
     ]
     const w = (d: number) => attendanceInWindow(att, T, d)
-    expect(REG_PERIODS.map((p) => p.k)).toEqual(['3y', '2y', '1y', '6m', '3m'])
+    expect(REG_PERIODS.map((p) => p.k)).toEqual(['3y', '2y', '1y', '6m', '3m', '2m', '1m'])
+    expect(REG_PERIODS.map((p) => p.days)).toEqual([1095, 730, 365, 183, 91, 61, 30])
     expect(w(91).services).toBe(3); expect(w(91).times.get('a')).toBe(3); expect(w(91).times.get('b')).toBe(2)
     expect(w(365).services).toBe(4); expect(w(365).times.get('a')).toBe(4)
     expect(w(1095).services).toBe(5); expect(w(1095).times.get('b')).toBe(3) // 2020 อยู่นอกช่วง 3 ปี
