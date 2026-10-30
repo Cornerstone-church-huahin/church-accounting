@@ -110,10 +110,10 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
           {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}><b>{x.label}</b> {x.t}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
-          {l.verse?.trim() && <div className="letter__verse">{l.verse.trim().split(/\n/).map((x, i) => <div key={i}>{x}</div>)}</div>}
         </div>
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
         <div className="il__bottom">
+          {l.verse?.trim() && <div className="letter__verse letter__verse--bottom">{l.verse.trim().split(/\n/).map((x, i) => <div key={i}>{x}</div>)}</div>}
           <div className="letter__sign">
             {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
             <div style={{ height: 88, position: 'relative' }}>{signed && <img src={c.signImg} alt="ลายเซ็น" className="il__sign" />}</div>
