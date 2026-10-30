@@ -35,9 +35,10 @@ export default function VisitRecord() {
   const today = todayISO()
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, today), [att, today])
-  const [form, setForm] = useState<{ entry: Visit | null; stop: number; member?: { id: string; name: string }; absent?: boolean } | null>(null)
+  const [form, setForm] = useState<{ entry: Visit | null; stop: number; member?: { id: string; name: string }; absent?: boolean; group?: { id: string; name: string }[] } | null>(null)
   const [note, setNote] = useState('')
   const [leave, setLeave] = useState<{ id: string; name: string; stop: number; step?: 'remove'; reason?: string; note?: string } | null>(null) // ✕ ที่แถว: ไปแล้วไม่พบ หรือเอาออกจากรายการ
+  const [soloPick, setSoloPick] = useState<number | null>(null) // เลือกเยี่ยมเฉพาะบุคคลในจุดนี้
   const [adding, setAdding] = useState<number | null>(null) // เปิดป๊อปอัพเลือกคนเพิ่มเข้าจุดนี้
   const planDoc = plans.of(today)
   const prep = planDoc.prep
@@ -93,6 +94,12 @@ export default function VisitRecord() {
               })}
               {extras.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} extra canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
             </ul>
+            {canWrite && planned.some((x) => !todays.some((v) => v.memberId === x.id)) && (
+              <div className="vrec__acts">
+                <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, stop: g, group: planned.filter((x) => !todays.some((v) => v.memberId === x.id)).map((x) => ({ id: x.id, name: x.name })) })}>👥 บันทึกทุกคนในจุดนี้</button>
+                <button type="button" className="btn btn--ghost" onClick={() => setSoloPick(g)}>👤 เลือกเยี่ยมเฉพาะบุคคล</button>
+              </div>
+            )}
           </section>
         )
       })}
@@ -110,6 +117,16 @@ export default function VisitRecord() {
               plans.save(today, refreshPrep(setStop(cur ? base : addItem(base, m), m.id, adding)))
             }} />
           <div className="row"><button type="button" className="btn btn--gold" onClick={() => setAdding(null)}>เสร็จ</button></div>
+        </Sheet>
+      )}
+      {soloPick !== null && (
+        <Sheet title={`จุดที่ ${soloPick} · เลือกเยี่ยมเฉพาะบุคคล`} onClose={() => setSoloPick(null)}>
+          <p style={{ margin: 0 }}>เลือกคนที่จะบันทึก — เช็คอินและผู้ออกเยี่ยมของจุดนี้ใส่ให้ก่อน แต่แต่ละคนไม่ต้องเหมือนกัน</p>
+          <ul className="vrec__list">
+            {(prep?.items ?? []).filter((x) => x.g === soloPick && !todays.some((v) => v.memberId === x.id)).map((x) => (
+              <li key={x.id} className="vrec__row"><button type="button" className="vrec__btn" onClick={() => { const g = soloPick; setSoloPick(null); setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } }) }}><MemberAvatar path={byId(x.id)?.photoPath} name={x.name} size={44} /><b>{x.name}</b></button></li>
+            ))}
+          </ul>
         </Sheet>
       )}
       {leave && (
@@ -135,11 +152,11 @@ export default function VisitRecord() {
         </Sheet>
       )}
       {form && (
-        <VisitForm date={today} entry={form.entry} stop={form.stop} startAbsent={form.absent} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
+        <VisitForm date={today} entry={form.entry} stop={form.stop} startAbsent={form.absent} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); vs.forEach(applyCheckin); setForm(null) } } : {})} photoShared={(p) => todays.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
           preset={{ ...carry(form.stop), ...(form.member ? { member: form.member, reason: reasonOf(form.member.id) } : {}) }}
           onClose={() => setForm(null)}
           onSave={(v) => { visits.put([v]); applyCheckin(v); setForm(null) }}
-          onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); (form.entry!.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); setForm(null) } } : undefined} />
+          onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); (form.entry!.photos ?? []).filter((p) => !todays.some((v) => v.id !== form.entry!.id && v.photos?.includes(p))).forEach((p) => void removeMemberPhotoFile(p)); setForm(null) } } : undefined} />
       )}
     </div>
   )
