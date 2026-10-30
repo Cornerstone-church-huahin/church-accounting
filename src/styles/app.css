@@ -1409,3 +1409,4 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .pcard__l2 { font-size: 0.82rem }
 .pcard__l2 b { font-size: 0.9rem }
 .pcard__pct { font-size: 0.95rem }
+.pstat__h { margin: 0.9rem 0 0.35rem; font-size: 1.05rem; color: var(--navy, #1a2b4c) }
