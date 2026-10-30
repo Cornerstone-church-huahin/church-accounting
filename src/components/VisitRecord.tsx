@@ -4,9 +4,8 @@ import AbsentList from './AbsentList'
 import Sheet from './Sheet'
 import { VisitForm, fmtDay } from './PastoralVisits'
 import { monthsText } from './AbsentList'
-import { canRole, canWork } from '../lib/access'
+import { canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
-import { useRole } from '../lib/members'
 import { absentMonths, visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
@@ -24,12 +23,11 @@ import type { Visit } from '../lib/types'
 const DROP_REASONS = ['ยกเลิกการเยี่ยม', 'มาแล้วไม่เจอ', 'ไม่อยู่บ้าน', 'หาบ้านไม่เจอ', 'ติดธุระ/ไม่สะดวกรับเยี่ยม', 'ป่วย/อยู่โรงพยาบาล', 'ย้ายที่อยู่/ติดต่อไม่ได้', 'เวลาไม่พอ', 'ใส่ผิดคน', 'อื่นๆ']
 
 export default function VisitRecord() {
-  const role = useRole()
-  const isAdmin = role === 'admin'
-  const canWrite = canRole(role, 'detail') || canWork(4, 'edit')
-  const canView = canWrite || canWork(4, 'view')
   const visits = useVisits(true)
   const plans = useVisitPlans()
+  // แอดมิน ผู้ดูแลหลัก และผู้ช่วย ใช้หน้านี้ได้ครบเหมือนกัน (เพิ่ม/บันทึก/แก้/ลบ) · ที่ปรึกษาดูอย่างเดียว
+  const canWrite = plans.canEdit()
+  const canView = canWrite || canWork(4, 'view')
   const team = useWorkTeams().of(4)
   const people = useChurchMembers()
   const y = new Date().getFullYear()
@@ -43,7 +41,7 @@ export default function VisitRecord() {
   const [adding, setAdding] = useState<number | null>(null) // เปิดป๊อปอัพเลือกคนเพิ่มเข้าจุดนี้
   const planDoc = plans.of(today)
   const prep = planDoc.prep
-  const canPlan = plans.canEdit()
+  const canPlan = canWrite
   const todays = visitsOn(visits.list, today)
   const stopNos = useMemo(() => {
     const set = new Set<number>([...(prep?.items ?? []).map((x) => x.g), ...todays.map((v) => v.stop ?? 0).filter((g) => g > 0)])
@@ -91,9 +89,9 @@ export default function VisitRecord() {
             <ul className="vrec__list">
               {planned.map((x) => {
                 const v = todays.find((y2) => y2.memberId === x.id)
-                return <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} v={v} onRemove={!v && canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite && (!v || isAdmin)} onTap={() => setForm({ entry: v ?? null, stop: g, ...(v ? {} : { member: { id: x.id, name: x.name } }) })} />
+                return <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} v={v} onRemove={!v && canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: v ?? null, stop: g, ...(v ? {} : { member: { id: x.id, name: x.name } }) })} />
               })}
-              {extras.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} extra canTap={canWrite && isAdmin} onTap={() => setForm({ entry: v, stop: g })} />)}
+              {extras.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} extra canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
             </ul>
           </section>
         )
