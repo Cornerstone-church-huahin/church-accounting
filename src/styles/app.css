@@ -1404,3 +1404,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 /* ป้ายจำนวนคน (แดง สี่เหลี่ยมมน รูปคน) ใช้ซ้ำนอกแถบขั้นตอน เช่น ในปุ่ม “เลือกแล้ว N คน” ให้เป็นไอคอนเดียวกับด้านบน */
 .cchip { display: inline-flex; align-items: center; gap: 0.15rem; height: 1.5rem; padding: 0 0.45rem 0 0.35rem; margin: 0 0.15rem; border-radius: 0.4rem; background: #d12f2f; color: #fff; box-shadow: 0 0 0 1px #8f1d1d; font-size: 1rem; font-weight: 800; line-height: 1; vertical-align: middle }
 .cchip u { text-decoration: none; font-size: 0.85rem }
+.pcard__gauge { display: block; height: 0.5rem; border-radius: 999px; background: #e9e4d6; overflow: hidden; margin-top: 0.1rem }
+.pcard__gauge i { display: block; height: 100%; border-radius: 999px; min-width: 2px }
+.pcard__l2 { font-size: 0.82rem }
+.pcard__l2 b { font-size: 0.9rem }
+.pcard__pct { font-size: 0.95rem }
