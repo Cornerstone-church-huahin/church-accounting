@@ -276,7 +276,7 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
                 {pr.map((v, i) => (
                   <tr key={v.id} style={{ background: TRIP_TINT[(trip.get(v.id) ?? 1) % 2] }}>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px', textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}<div style={{ fontSize: 10.5, color: '#444' }}>ครั้งที่ {trip.get(v.id)}</div></td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)} <span style={{ fontSize: 11, color: '#444' }} title={`ออกเยี่ยมครั้งที่ ${trip.get(v.id)}`}>({trip.get(v.id)})</span></td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.memberName}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.reason || '—'}{v.checkin ? <div style={{ fontSize: 10, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.visitor}</td>
