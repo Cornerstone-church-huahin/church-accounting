@@ -180,6 +180,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
       {(tab === 1 || tab === 2) && <>
       <section className="pfaces" aria-label={`รูปสมาชิก ${gName}`}>
         <p className="pfaces__n muted small">{gName} · แสดง {faces.length.toLocaleString('th-TH')} คน · เรียง {orderName}</p>
+        {tab === 2 && order !== 'name' && order !== 'nameDesc' && <p className="pfaces__n small" style={{ margin: '0 0 0.4rem' }}><b>สม่ำเสมอในหนึ่งปีล่าสุด</b> · นับจำนวนครั้งที่มานมัสการใน 12 เดือนล่าสุด ยิ่งมากยิ่งสม่ำเสมอ</p>}
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
           <ul className="pcards">
             {faces.map((m) => (
@@ -189,7 +190,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
                   {tab === 1
                     ? <span className="pcard__l2">สมาชิกมา <b>{tenureText(tenureMap.get(m.id) ?? null)}</b> · {statusShort(m.status)} · กลุ่ม {grp(m)}</span>
-                    : <span className="pcard__l2">{ev.hasData ? <>1 ปี มา <b>{timesOf(m.id)}</b>/{ev.yearServices} ครั้ง · <b className="pcard__pct">{Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%</b> · {statusShort(m.status)}</> : 'ยังไม่มีบันทึกลงชื่อนมัสการ'}</span>}
+                    : <span className="pcard__l2">{ev.hasData ? <>สม่ำเสมอ 1 ปีล่าสุด มา <b>{timesOf(m.id)}</b>/{ev.yearServices} ครั้ง · <b className="pcard__pct">{Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%</b> · {statusShort(m.status)}</> : 'ยังไม่มีบันทึกลงชื่อนมัสการ'}</span>}
                 </div>
               </li>
             ))}
