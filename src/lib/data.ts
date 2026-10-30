@@ -15,6 +15,7 @@ const writeWork4 = writePlan4
 const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
+import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
 import type { AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
@@ -205,6 +206,16 @@ export function useFlowTicks() {
   return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', writeCheck: writeWork1 })
 }
 
+/** หนังสือชนิดต่างๆ ที่ใช้ระบบเดียวกัน (เชิญร่วมงาน · แจ้งการประชุมประจำเดือน): รายฉบับ · live = หน้าที่กำลังเปิดแก้ ซิงก์ทุก 10 วินาที */
+export function useLetters(kind: LetterKindId, live = false) {
+  const K = LETTER_KINDS[kind]
+  return useSharedStore<InviteLetter>({ localKey: k(K.storeKey), file: K.file, label: K.label, writeCheck: writeWork1, ...(live ? { pollMs: 10_000 } : {}) })
+}
+/** ค่าตั้งต้นของหนังสือแต่ละชนิด (รายการเดียว id = settings) */
+export function useLetterSettings(kind: LetterKindId) {
+  const K = LETTER_KINDS[kind]
+  return useSharedStore<InviteSettings>({ localKey: k(K.settingsKey), file: K.settingsFile, label: K.settingsLabel, writeCheck: writeWork1 })
+}
 /** หนังสือเชิญร่วมงานฉบับที่กำลังทำ (รายการเดียว id = draft) */
 export function useInviteLetter(live = false) {
   // live = หน้าที่กำลังเปิดแก้/ตรวจหนังสือ: ซิงก์ทุก 10 วินาที เพื่อเห็นสิ่งที่อีกคนพิมพ์เกือบสด
