@@ -33,7 +33,7 @@ const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; retu
 /** บรรทัดที่ขึ้นบนหนังสือ: เรียงตามที่ลากไว้ทุกข้อ (ข้อที่ยังไม่พิมพ์ชื่อขึ้นเป็น ……… ให้เห็นโครงที่จัดไว้) */
 const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
-const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), c.proceed, c.bless, c.signName, c.signRole])
+const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), l.verse ?? '', c.proceed, ...(l.verse?.trim() ? ['', l.verse.trim()] : []), c.bless, c.signName, c.signRole])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
 function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
@@ -110,6 +110,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
           {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}><b>{x.label}</b> {x.t}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
+          {l.verse?.trim() && <div className="letter__verse">{l.verse.trim().split(/\n/).map((x, i) => <div key={i}>{x}</div>)}</div>}
         </div>
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
         <div className="il__bottom">
@@ -283,7 +284,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   }
   /** 10. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ผ่านเมนูแชร์ของเครื่อง (LINE ฯลฯ) · ประธานกดลิงก์แล้วเข้าหน้านี้ทันที */
   const notify = async () => {
-    if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
+    if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.map(shift).join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
     if (!ready()) return
     const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/1/${K.slug}-${id}`)
     const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l, kind, NAME)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
@@ -351,6 +352,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (!window.confirm(`ใส่ข้อความตั้งต้นของ “${x.name}” ทับข้อความที่แก้ไว้ ?`)) return
     setMsg(putCfg({ ...cfg, ...Object.fromEntries(x.keys.map((k) => [k, DEF[k]])) }) ? `ใส่ข้อความตั้งต้นของ “${x.name}” แล้ว` : 'ไม่มีสิทธิ์บันทึก')
   }
+  /** ข้อ 8 ขึ้นไปเลื่อนลง 1 เมื่อหนังสือมีช่องข้อพระคัมภีร์ (แทรกเป็นข้อ 8) */
+  const shift = (k: string) => (K.verse && Number(k) >= 8 ? String(Number(k) + 1) : k)
   const filled = (v?: string) => !!v?.trim()
   const okOf: Record<string, boolean> = {
     '1': filled(l.toName), '2': filled(cfg.thName) && filled(cfg.addr), '3': filled(l.no), '4': filled(l.date), '5': filled(l.subject), '6': filled(l.to),
@@ -361,7 +364,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const missing = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].filter((k) => !okOf[k])
   const secRow = (x: (typeof SECTIONS)[number]) => (
     <div key={x.sec} className="row" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'nowrap' }}>
-      <span style={{ minWidth: 0 }}><b><No n={x.no} ok={okOf[x.no]} />{x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cfg[x.keys[0]] ?? '').split('\n')[0]}</span></span>
+      <span style={{ minWidth: 0 }}><b><No n={shift(x.no)} ok={okOf[x.no]} />{x.name}</b><br /><span className="small muted" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cfg[x.keys[0]] ?? '').split('\n')[0]}</span></span>
       <span className="row" style={{ gap: 4, flex: 'none', flexWrap: 'nowrap' }}>
         <button type="button" className="mini" aria-label={`ใส่ข้อความ ${x.name}`} title="ใส่ข้อความตั้งต้น" onClick={() => fill(x)}>➕</button>
         <button type="button" className="mini" aria-label={`แก้ข้อความ ${x.name}`} title="แก้ข้อความ" onClick={() => setEdit(x.sec)}>✏️</button>
@@ -404,6 +407,11 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
         {K.agenda && <AgendaEditor items={agendaItems(l)} onChange={(a) => set({ agenda: a })} />}
 
+        {K.verse && (
+          <div className="field"><label htmlFor="il-verse"><No n="8" ok={filled(l.verse)} />ข้อพระคัมภีร์ <span className="muted small">(ไม่บังคับ · ขึ้นกลางหน้าใต้ประโยคปิดเรื่อง · ขึ้นบรรทัดใหม่ได้)</span></label>
+            <textarea id="il-verse" className="input" rows={3} value={l.verse ?? ''} onChange={(e) => set({ verse: e.target.value })} placeholder={'เช่น “จงเปรมปรีดิ์ในองค์พระผู้เป็นเจ้าเสมอ”\n(ฟีลิปปี 4:4)'} /></div>
+        )}
+
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
       </section>
@@ -414,21 +422,21 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       <div className="no-print" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
       <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} internal={!!K.secretarySigns} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
-        <button type="button" className="btn btn--ghost il-bar" disabled={missing.length > 0 && !l.notified} onClick={notify}>📨 <No n="10" ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
-        {missing.length > 0 && !l.notified && <p className="small" role="note" style={{ margin: 0 }}>⏳ ทำข้อ {missing.join(', ')} ให้เสร็จ (วงกลมเขียวครบ) ก่อน จึงแจ้งประธานตรวจสอบได้</p>}
+        <button type="button" className="btn btn--ghost il-bar" disabled={missing.length > 0 && !l.notified} onClick={notify}>📨 <No n={shift('10')} ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
+        {missing.length > 0 && !l.notified && <p className="small" role="note" style={{ margin: 0 }}>⏳ ทำข้อ {missing.map(shift).join(', ')} ให้เสร็จ (วงกลมเขียวครบ) ก่อน จึงแจ้งประธานตรวจสอบได้</p>}
         {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''} <button type="button" className="mini" onClick={() => { if (window.confirm('ล้างสถานะ “แจ้งประธานแล้ว” ของหนังสือฉบับนี้ ? (เพื่อให้เริ่มขั้นตอนใหม่ เลขากดแจ้งเองอีกครั้ง)')) set({ notified: undefined }) }}>↩︎ ล้างสถานะแจ้ง</button></p>}
         {/* ขั้น 11: แอดมิน (ประธาน) เห็นปุ่มลงลายเซ็น · เลขาเห็นแถบ "รอประธานเซ็น" แล้วเปลี่ยนเป็นเขียว "ประธานเซ็นแล้ว" เมื่อประธานลงนาม (ซิงก์ข้ามเครื่อง) */}
         {l.signed ? (
           <>
-            <div className="il-bar il-bar--ok" role="status">✅ <No n="11" ok={okOf['11']} />{canSign ? 'ลงนามแล้ว' : `${who}เซ็นแล้ว`}</div>
+            <div className="il-bar il-bar--ok" role="status">✅ <No n={shift('11')} ok={okOf['11']} />{canSign ? 'ลงนามแล้ว' : `${who}เซ็นแล้ว`}</div>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
               <span className="small muted">{new Date(l.signed.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} · {l.signed.by}{canSign ? '' : ' — ทำขั้นตอนต่อไปได้'}</span>
               {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
             </div>
           </>
         ) : canSign
-          ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n="11" ok={okOf['11']} />ลงลายเซ็น</button>
-          : <div className="il-bar il-bar--wait" role="status">⏳ <No n="11" ok={false} />รอ{who}เซ็น</div>}
+          ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n={shift('11')} ok={okOf['11']} />ลงลายเซ็น</button>
+          : <div className="il-bar il-bar--wait" role="status">⏳ <No n={shift('11')} ok={false} />รอ{who}เซ็น</div>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
@@ -437,7 +445,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           </select></div>
         {!l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
-        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
+        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
         <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (

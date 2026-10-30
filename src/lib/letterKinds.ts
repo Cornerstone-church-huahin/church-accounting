@@ -30,6 +30,8 @@ export interface LetterKind {
   numPrefix?: string
   /** มีช่องวาระการประชุมเรียงเป็นข้อ */
   agenda?: string[]
+  /** มีช่องข้อพระคัมภีร์ (แทรกเป็นข้อ 8 · ข้อลงนามเป็นข้อ 9 ฯลฯ) */
+  verse?: boolean
 }
 /** หมวดของหนังสือทั่วไป (ชนิด doc) = หมวดในคลังที่ไม่ใช่ของหนังสือเชิญ/แจ้งการประชุม */
 const isGeneralCat = (n: string) => !LETTER_KINDS.invite.isCat(n) && !LETTER_KINDS.notice.isCat(n)
@@ -55,7 +57,7 @@ export const LETTER_KINDS: Record<LetterKindId, LetterKind> = {
       to: 'คณะธรรมกิจคริสตจักรศิลาเอก',
       body: 'ด้วยคณะธรรมกิจคริสตจักรศิลาเอกกำหนดประชุมประจำเดือน{เดือน}\n{วันเวลา}\nณ ห้องประชุมธรรมกิจ จึงขอแจ้งวาระการประชุม ดังนี้',
     },
-    secretarySigns: true, numPrefix: 'ศอ/ปด',
+    secretarySigns: true, numPrefix: 'ศอ/ปด', verse: true,
     agenda: ['รับรองรายงานการประชุมครั้งที่แล้ว', 'เรื่องแจ้งเพื่อทราบ', 'เรื่องเพื่อพิจารณา', 'เรื่องอื่นๆ'],
     proceed: 'จึงเรียนมาเพื่อโปรดทราบ และขอเชิญเข้าร่วมประชุมตามวัน เวลา และสถานที่ดังกล่าว',
   },
