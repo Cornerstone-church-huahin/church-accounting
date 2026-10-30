@@ -409,7 +409,15 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
         {K.verse && (
           <div className="field"><label htmlFor="il-verse"><No n="8" ok={filled(l.verse)} />ข้อพระคัมภีร์ <span className="muted small">(ไม่บังคับ · ขึ้นกลางหน้าใต้ประโยคปิดเรื่อง · ขึ้นบรรทัดใหม่ได้)</span></label>
-            <textarea id="il-verse" className="input" rows={3} value={l.verse ?? ''} onChange={(e) => set({ verse: e.target.value })} placeholder={'เช่น “จงเปรมปรีดิ์ในองค์พระผู้เป็นเจ้าเสมอ”\n(ฟีลิปปี 4:4)'} /></div>
+            <textarea id="il-verse" className="input" rows={3} value={l.verse ?? ''} onChange={(e) => set({ verse: e.target.value })} placeholder={'เช่น “อย่าละเลยการประชุมกันของเรา”\n(ฮีบรู 10:25)'} />
+            <div className="il-verseguide" role="note">
+              <b>วิธีใส่:</b> บรรทัดแรก = ข้อความพระคัมภีร์ · บรรทัดที่สอง = อ้างอิง (ชื่อหนังสือ บท:ข้อ) ในวงเล็บ — กด Enter เพื่อขึ้นบรรทัดใหม่
+              <div className="small muted">ตัวอย่างบนหนังสือ (กดเพื่อใช้ แล้วแก้คำให้ตรงกับพระคัมภีร์ฉบับที่คริสตจักรใช้):</div>
+              <div className="row" style={{ gap: 6, marginTop: 4 }}>
+                {VERSE_EXAMPLES.map((v) => <button key={v.ref} type="button" className="mini" onClick={() => set({ verse: `${v.t}\n(${v.ref})` })}>{v.ref}</button>)}
+              </div>
+              <div className="il-verseguide__ex">“อย่าละเลยการประชุมกันของเรา”<br />(ฮีบรู 10:25)</div>
+            </div></div>
         )}
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
@@ -571,6 +579,12 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
   )
 }
 
+/** ตัวอย่างข้อพระคัมภีร์สำหรับหนังสือแจ้งการประชุม (กดเพื่อใส่ แก้ได้) */
+const VERSE_EXAMPLES = [
+  { ref: 'ฮีบรู 10:25', t: '“อย่าละเลยการประชุมกันของเรา”' },
+  { ref: 'สดุดี 122:1', t: '“ข้าพเจ้ายินดีเมื่อเขากล่าวแก่ข้าพเจ้าว่า ให้เราไปยังพระนิเวศของพระเจ้า”' },
+  { ref: 'ฟีลิปปี 4:4', t: '“จงชื่นชมยินดีในองค์พระผู้เป็นเจ้าเสมอ”' },
+]
 /** วาระการประชุม: กรอกเป็นข้อๆ · ลากที่แถบ ⠿ (กฎเลื่อน) เพื่อเรียงลำดับ เลขข้อเรียงใหม่อัตโนมัติ · เพิ่มวาระใหม่ต่อท้ายแล้วลากขึ้นไปแทรกได้ */
 function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void }) {
   const rows = useRef<(HTMLDivElement | null)[]>([])
