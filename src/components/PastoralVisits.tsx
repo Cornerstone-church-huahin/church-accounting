@@ -287,9 +287,6 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
             {pi === pages.length - 1 && (
               <>
                 <p style={{ fontSize: 15, margin: '10px 0 0' }}>รวมเยี่ยม <b>{st.count}</b> ครั้ง · <b>{st.people}</b> คน</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '22px 40px', marginTop: 26, fontSize: 14 }}>
-                  {(st.visitors.length ? st.visitors : ['………………………']).map((n) => <div key={n} style={{ textAlign: 'center', minWidth: 190 }}>ลงชื่อ ……………………………<br />({n})<br />ผู้ออกเยี่ยม</div>)}
-                </div>
               </>
             )}
           </>
