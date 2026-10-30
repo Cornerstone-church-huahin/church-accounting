@@ -12,12 +12,12 @@ import MemberAvatar from './MemberAvatar'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
-type Ord = 'old' | 'new' | 'recent' | 'pct' | 'pctAsc' | 'name'
+type Ord = 'old' | 'new' | 'recent' | 'pct' | 'pctAsc' | 'name' | 'nameDesc'
 /** 4 แท็บ: 1 เก่าแก่ → ใหม่ · 2 ความสม่ำเสมอในการมา · 3 สถานะ · 4 เพศ */
 const TABS = [{ n: 1, name: 'เก่าแก่' }, { n: 2, name: 'สม่ำเสมอ' }, { n: 3, name: 'สถานะ' }, { n: 4, name: 'เพศ' }]
 const ORDERS: Record<number, { k: Ord; t: string }[]> = {
-  1: [{ k: 'old', t: 'เก่าแก่ → ใหม่' }, { k: 'new', t: 'ใหม่ → เก่าแก่' }, { k: 'recent', t: 'มาบ่อยใน 1 ปี → ขาดนาน' }, { k: 'name', t: 'ชื่อ ก → ฮ' }],
-  2: [{ k: 'pct', t: 'สม่ำเสมอสุด → น้อยสุด' }, { k: 'pctAsc', t: 'น้อยสุด → สม่ำเสมอสุด' }, { k: 'name', t: 'ชื่อ ก → ฮ' }],
+  1: [{ k: 'old', t: 'เก่าแก่ → ใหม่' }, { k: 'new', t: 'ใหม่ → เก่าแก่' }, { k: 'recent', t: 'มาบ่อยใน 1 ปี → ขาดนาน' }, { k: 'name', t: 'ชื่อ ก → ฮ' }, { k: 'nameDesc', t: 'ชื่อ ฮ → ก' }],
+  2: [{ k: 'pct', t: 'สม่ำเสมอสุด → น้อยสุด' }, { k: 'pctAsc', t: 'น้อยสุด → สม่ำเสมอสุด' }, { k: 'name', t: 'ชื่อ ก → ฮ' }, { k: 'nameDesc', t: 'ชื่อ ฮ → ก' }],
 }
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
@@ -88,9 +88,11 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const tenureMap = useMemo(() => new Map(all.map((m) => [m.id, tenureDays(m.since, ev.map.get(m.id)?.firstAtt, today)])), [all, ev, today])
   const pctOf = (id: string) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }
   const faces = useMemo(() => {
-    if (tab === 2) return order === 'name' ? orderMembers(sel, 'name', stats, today) : orderByPct(sel, (id) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }, order !== 'pctAsc')
+    const byName = () => { const xs = orderMembers(sel, 'name', stats, today); return order === 'nameDesc' ? xs.reverse() : xs }
+    if (order === 'name' || order === 'nameDesc') return byName()
+    if (tab === 2) return orderByPct(sel, (id) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }, order !== 'pctAsc')
     if (order === 'old' || order === 'new') return orderByTenure(sel, (id) => tenureMap.get(id) ?? null, order === 'old')
-    return orderMembers(sel, order === 'name' ? 'name' : 'default', stats, today)
+    return orderMembers(sel, 'default', stats, today)
   }, [sel, order, tab, stats, today, ev, tenureMap])
   const grp = (m: { group?: string }) => { const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
   const statusRows = useMemo(() => statusBreakdown(all), [all])
