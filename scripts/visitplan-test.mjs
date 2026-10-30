@@ -83,7 +83,7 @@ try {
   await page.getByRole('button', { name: 'เอา สมาชิก2 ออกจากตะกร้า' }).click()
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1')))
   // หน้า “บันทึกการเยี่ยม” เห็นรายชื่อตามจุดโดยอัตโนมัติ (คนที่ยังไม่เลือกจุดไม่ขึ้น)
-  const rec = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle'); await page.getByRole('heading', { name: /บันทึกการเยี่ยม/, level: 1 }).waitFor() }
+  const rec = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle'); await page.getByRole('heading', { name: /บันทึกเยี่ยม/, level: 1 }).waitFor() }
   await rec()
   const txt = async (n) => (await page.getByRole('region', { name: `จุดที่ ${n}` }).innerText()).replace(/\s+/g, ' ')
   must(/สมาชิก1/.test(await txt(1)) && /สมาชิก3.*สมาชิก0/.test(await txt(2)) && await page.getByRole('region', { name: 'จุดที่ 3' }).count() === 0, 'record page shows the basket by stop automatically')

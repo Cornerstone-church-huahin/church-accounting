@@ -77,7 +77,7 @@ export default function VisitRecord() {
       </p>
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
       {stopNos.length === 0 && (
-        <p className="empty">ยังไม่มีรายการเตรียมเยี่ยมของวันนี้ — ไปที่ “ตารางเยี่ยม” จัดตะกร้าและเลือกจุดเยี่ยม รายชื่อจะมาที่นี่ตามจุดโดยอัตโนมัติ</p>
+        <p className="empty">ยังไม่มีรายการเตรียมเยี่ยมของวันนี้ — ไปที่ “วางแผนเยี่ยม” จัดตะกร้าและเลือกจุดเยี่ยม รายชื่อจะมาที่นี่ตามจุดโดยอัตโนมัติ</p>
       )}
       {stopNos.map((g) => {
         const waiting = assigned.filter((x) => x.g === g && !isDone(x.id))
