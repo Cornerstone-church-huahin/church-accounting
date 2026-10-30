@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayKind, sundayOf, visitsOfWeek, visitsOn, weekDays, weekStats } from './visits'
+import { dayKind, sundayOf, tripNumbers, tripsOf, visitsOfWeek, visitsOn, weekDays, weekStats } from './visits'
 import type { Visit } from './types'
 
 const v = (id: string, date: string, memberId: string, visitor = 'คศ.กฤต', deleted = false): Visit => ({ id, date, memberId, memberName: memberId, reason: '', visitor, updated: 1, ...(deleted ? { deleted: true } : {}) })
@@ -16,7 +16,7 @@ describe('ตารางเยี่ยม', () => {
     expect(visitsOn(xs, '2026-10-20').map((x) => x.id)).toEqual(['1'])
     const w = visitsOfWeek(xs, '2026-10-18')
     expect(w.map((x) => x.id)).toEqual(['1', '2', '3'])
-    expect(weekStats(w)).toEqual({ count: 3, people: 2, visitors: ['คศ.กฤต', 'คศ.พิชิต'] })
+    expect(weekStats(w)).toEqual({ count: 3, trips: 3, people: 2, visitors: ['คศ.กฤต', 'คศ.พิชิต'] })
   })
 })
 
@@ -29,5 +29,16 @@ describe('ผู้ออกเยี่ยมหลายคน', () => {
   })
   it('รายชื่อผู้ออกเยี่ยม = ทีม + ที่เพิ่ม − ที่ซ่อน', () => {
     expect(visitorRoster(['ก', 'ข'], [{ name: 'ค' }, { name: 'ข', hide: true }, { name: 'ง', deleted: true }, { name: 'ก' }])).toEqual(['ก', 'ค'])
+  })
+})
+
+describe('ครั้งที่ออกเยี่ยม (บ้านใกล้กันนับครั้งเดียว)', () => {
+  const at = (id: string, date: string, lat: number, t: number) => ({ ...v(id, date, id), checkin: { lat, lng: 99.9577, at: t } })
+  it('วันเดียวกัน จุดเช็คอินห่างกันไม่เกิน 300 ม. (ต่อเนื่องกันได้) = ครั้งเดียว · ไกลกว่า/คนละวัน/ไม่มีเช็คอิน = แยกครั้ง', () => {
+    const xs = [at('a', '2026-10-29', 12.5684, 1), at('b', '2026-10-29', 12.5700, 2), at('c', '2026-10-29', 12.5720, 3), at('far', '2026-10-29', 12.6, 4), at('d2', '2026-10-30', 12.5684, 5), v('old', '2026-10-29', 'old')]
+    // a–b ≈ 178 ม., b–c ≈ 222 ม. → a,b,c ต่อเนื่องกัน (a–c ≈ 400 ม. แต่ผ่าน b)
+    expect(tripsOf(xs).map((g) => g.map((x) => x.id))).toEqual([['a', 'b', 'c'], ['old'], ['far'], ['d2']])
+    expect(tripNumbers(xs).get('c')).toBe(1); expect(tripNumbers(xs).get('far')).toBe(3)
+    expect(weekStats(xs)).toMatchObject({ count: 6, trips: 4 })
   })
 })

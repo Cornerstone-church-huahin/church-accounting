@@ -8,7 +8,7 @@ import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { formatCoord, mapsLink } from '../lib/geo'
 import { nearCheckin, timeText } from '../lib/visitProof'
-import { DAY_NAMES, sundayOf, weekStats } from '../lib/visits'
+import { DAY_NAMES, sundayOf, tripNumbers, weekStats } from '../lib/visits'
 import type { Visit } from '../lib/types'
 
 const dayName = (iso: string) => DAY_NAMES[new Date(iso + 'T00:00:00Z').getUTCDay()]
@@ -36,6 +36,7 @@ export default function VisitReports() {
 
   if (wk) {
     const days = [...new Set(wk.vs.map((v) => v.date))].sort()
+    const trip = tripNumbers(wk.vs)
     return (
       <div className="vrep">
         <div className="row row--between no-print" style={{ marginBottom: '0.4rem' }}>
@@ -46,7 +47,7 @@ export default function VisitReports() {
           </div>
         </div>
         <h2 className="vrep__h">สัปดาห์ {rangeText(wk.sunday)}</h2>
-        <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>เยี่ยม <b>{wk.st.count}</b> ครั้ง · <b>{wk.st.people}</b> คน · ผู้ออกเยี่ยม: {wk.st.visitors.join(', ') || '—'}</p>
+        <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>ออกเยี่ยม <b>{wk.st.trips}</b> ครั้ง · เยี่ยม <b>{wk.st.people}</b> คน · ผู้ออกเยี่ยม: {wk.st.visitors.join(', ') || '—'}</p>
         {a4
           ? <VisitReport church={settings.churchName.split(' ')[0]} sunday={wk.sunday} visits={wk.vs} />
           : days.map((d) => (
@@ -56,7 +57,7 @@ export default function VisitReports() {
                 <article key={v.id} className="vrep__v">
                   <div className="vrep__top">
                     <MemberAvatar path={photoOf(v.memberId)} name={v.memberName} size={44} />
-                    <div className="vrep__who"><b>{v.memberName}</b><span className="small muted">ผู้ออกเยี่ยม: {v.visitor}</span></div>
+                    <div className="vrep__who"><b>{v.memberName}</b><span className="small muted">ออกเยี่ยมครั้งที่ {trip.get(v.id)} · ผู้ออกเยี่ยม: {v.visitor}</span></div>
                   </div>
                   {v.reason && <p className="vrep__p"><span className="muted small">เหตุผล</span> {v.reason}</p>}
                   {v.detail && <p className="vrep__p"><span className="muted small">รายละเอียด</span> {v.detail}</p>}
@@ -103,7 +104,7 @@ export default function VisitReports() {
             {weeks.map((w) => (
               <li key={w.sunday}>
                 <button type="button" className="vrow" aria-label={`สัปดาห์ ${rangeText(w.sunday)}`} onClick={() => setOpen(w.sunday)}>
-                  <span className="vrow__main"><b>{rangeText(w.sunday)}</b><span className="vrow__n">{w.st.count} ครั้ง · {w.st.people} คน</span></span>
+                  <span className="vrow__main"><b>{rangeText(w.sunday)}</b><span className="vrow__n">{w.st.trips} ครั้ง · {w.st.people} คน</span></span>
                   <small className="vrow__sub muted">ผู้ออกเยี่ยม: {w.st.visitors.join(', ') || '—'}</small>
                   <span className="vrow__go" aria-hidden="true">›</span>
                 </button>
