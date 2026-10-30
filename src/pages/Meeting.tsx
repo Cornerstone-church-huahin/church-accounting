@@ -68,7 +68,7 @@ const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ว
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
-  4: ['วางแผนเยี่ยม', 'บันทึกเยี่ยม', 'รายงานเยี่ยม', 'สมาชิก', 'แท็บ 5', 'แท็บ 6'],
+  4: ['สมาชิก', 'วางแผนเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['สมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -89,7 +89,7 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
       <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
         {labelsOf(n).map((l, i) => (
           <Link key={l} to={`/meeting/${n}/${i + 1}`} className={`btile btile--${TILE_TONES[i % TILE_TONES.length]}`}>
-            <i className="btile__no" aria-hidden="true">{i + 1}</i><small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
+            <small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
           </Link>
         ))}
       </nav>
@@ -111,22 +111,51 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
   )
 }
 
+/** งานอภิบาล: ทางลัด 3 หน้าที่เกี่ยวกับการเยี่ยม (วางแผน → บันทึก → รายงาน) แสดงเป็นแถบยาวมีข้อความ ใช้สลับหน้ากันเอง ไม่ต้องกลับเมนูหน้าแรก */
+const PASTORAL_PAGES = [
+  { id: 'plan', to: '/meeting/4/2', label: 'วางแผนเยี่ยม', icon: '🗓️' },
+  { id: 'record', to: '/meeting/4/record', label: 'บันทึกเยี่ยม', icon: '📝' },
+  { id: 'report', to: '/meeting/4/report', label: 'รายงานเยี่ยม', icon: '📊' },
+] as const
+function PastoralBar({ active }: { active: 'plan' | 'record' | 'report' }) {
+  return (
+    <nav className="tabicons tabicons--txt no-print" aria-label="ทางลัดงานเยี่ยม">
+      {PASTORAL_PAGES.map((x) => (
+        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.label} aria-current={x.id === active ? 'page' : undefined}>
+          <span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
+        </Link>
+      ))}
+    </nav>
+  )
+}
+/** หน้าบันทึกเยี่ยม / รายงานเยี่ยม (ไม่อยู่ในเมนูหน้าแรกของงาน เข้าจากแถบทางลัดในหน้าวางแผนเยี่ยม) */
+function PastoralSub({ name, which }: { name: string; which: 'record' | 'report' }) {
+  const p = PASTORAL_PAGES.find((x) => x.id === which)!
+  return (
+    <>
+      <div className="page-head no-print"><h1>{p.icon} {p.label}</h1><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
+      <PastoralBar active={which} />
+      {which === 'record' ? <VisitRecord /> : <VisitReports />}
+    </>
+  )
+}
+
 /** หน้าเต็มของแท็บหนึ่ง (ว่างไว้ก่อน รอพัฒนา) — ปุ่มบนขวากลับไปหน้าหลักของงาน */
 function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; s?: number; raw?: string }) {
   const label = labelsOf(n)[k - 1]
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
   if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
-  const isMembers = (n === 4 && k === 4) || (n === 9 && k === 1) // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
+  const isMembers = (n === 4 || n === 9) && k === 1 // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
   return (
     <>
       <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
-        {n === 4 && k === 1 && <span id="vbasket-slot" className="vbasket__slot" />}
+        {n === 4 && k === 2 && <span id="vbasket-slot" className="vbasket__slot" />}
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
-      {n === 4 ? <TabIcons n={n} active={k} upTo={3} text /> : <TabIcons n={n} active={k} upTo={6} />}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 1 ? <PastoralVisits plan /> : n === 4 && k === 2 ? <VisitRecord /> : n === 4 && k === 3 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {n === 4 ? (k === 2 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
@@ -181,6 +210,7 @@ function MeetingRoom() {
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><HealthButton n={2} /><CalToggle n={2} /><Members /></>
+  if (tab?.n === 4 && (k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
   return <Hub />
