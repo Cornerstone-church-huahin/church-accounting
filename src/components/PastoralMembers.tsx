@@ -5,7 +5,7 @@ import { useAttendance, useChurchMembers } from '../lib/data'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
 import { todayISO } from '../lib/money'
-import { ageBands, genderByStatus, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, orderByPct, orderByTenure, orderMembers, STATUS_GROUPS, statusBreakdown, tenureDays, tenureText, visitStats, type StatusGroup } from '../lib/pastoral'
+import { ageBands, genderByStatus, genderSplit, groupCounts, headline, inGroup, isLive, joinYears, absence, orderByFrequency, orderByTenure, orderMembers, STATUS_GROUPS, statusBreakdown, tenureDays, tenureText, visitStats, type StatusGroup } from '../lib/pastoral'
 import { DEFAULT_CRITERIA, evaluate, statusLabel, statusShort, toAttendance } from '../lib/registry'
 import type { MapPin } from './LeafletMap'
 import MemberAvatar from './MemberAvatar'
@@ -71,7 +71,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const stats = useMemo(() => visitStats(att, todayISO()), [att])
   const all = people.items
   const sel = useMemo(() => all.filter((m) => gs.length === 0 || gs.some((x) => inGroup(m, x))), [all, gs])
-  const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData } }, [all, att])
+  const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData, yearServices: r.yearServices } }, [all, att])
   const head = useMemo(() => headline(all), [all])
   const ages = useMemo(() => ageBands(sel, today), [sel, today])
   const sex = useMemo(() => genderSplit(sel), [sel])
@@ -86,11 +86,11 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
   const orderName = ORDERS[tab]?.find((o) => o.k === order)?.t ?? ''
   // โซน 3: การ์ดสมาชิก 1 คน 1 การ์ด (ดูอย่างเดียว) · เริ่มต้นเรียงคนที่มานมัสการบ่อยที่สุดก่อน แล้วตามสถานะ 1,2,3…
   const tenureMap = useMemo(() => new Map(all.map((m) => [m.id, tenureDays(m.since, ev.map.get(m.id)?.firstAtt, today)])), [all, ev, today])
-  const pctOf = (id: string) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }
+  const timesOf = (id: string) => (ev.hasData ? ev.map.get(id)?.recent ?? 0 : 0) // จำนวนครั้งที่มาใน 1 ปีล่าสุด
   const faces = useMemo(() => {
     const byName = () => { const xs = orderMembers(sel, 'name', stats, today); return order === 'nameDesc' ? xs.reverse() : xs }
     if (order === 'name' || order === 'nameDesc') return byName()
-    if (tab === 2) return orderByPct(sel, (id) => { const e = ev.map.get(id); return { pct: e && ev.hasData ? e.cont : 0, possible: e?.possible ?? 0 } }, order !== 'pctAsc')
+    if (tab === 2) return orderByFrequency(sel, timesOf, order !== 'pctAsc')
     if (order === 'old' || order === 'new') return orderByTenure(sel, (id) => tenureMap.get(id) ?? null, order === 'old')
     return orderMembers(sel, 'default', stats, today)
   }, [sel, order, tab, stats, today, ev, tenureMap])
@@ -189,7 +189,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
                   {tab === 1
                     ? <span className="pcard__l2">สมาชิกมา <b>{tenureText(tenureMap.get(m.id) ?? null)}</b> · {statusShort(m.status)} · กลุ่ม {grp(m)}</span>
-                    : <span className="pcard__l2">{ev.hasData ? <>มา <b>{ev.map.get(m.id)?.visits ?? 0}</b>/{ev.map.get(m.id)?.possible ?? 0} ครั้ง · <b className="pcard__pct">{Math.round(pctOf(m.id).pct * 100)}%</b> · {statusShort(m.status)}</> : 'ยังไม่มีบันทึกลงชื่อนมัสการ'}</span>}
+                    : <span className="pcard__l2">{ev.hasData ? <>1 ปี มา <b>{timesOf(m.id)}</b>/{ev.yearServices} ครั้ง · <b className="pcard__pct">{Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%</b> · {statusShort(m.status)}</> : 'ยังไม่มีบันทึกลงชื่อนมัสการ'}</span>}
                 </div>
               </li>
             ))}

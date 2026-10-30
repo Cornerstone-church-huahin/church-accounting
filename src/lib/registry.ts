@@ -27,8 +27,8 @@ export interface Evaluated {
   recent: number
   /** จำนวนครั้งนมัสการที่ "ควรมาได้" นับจากวันเป็นสมาชิก */
   possible: number
-  /** 0–1 */
-  cont: number
+  /** ความถี่ใน 1 ปี: สัดส่วนครั้งที่มาใน 12 เดือนล่าสุด ÷ จำนวนครั้งนมัสการที่มีบันทึกใน 12 เดือนล่าสุด (0–1) · ยิ่งมาบ่อยในรอบปี ยิ่งสม่ำเสมอ */
+  yearPct: number
   tenureY: number
   firstAtt: string
   last: string
@@ -52,7 +52,7 @@ export const cutoffOf = (today: string, months: number): string => {
   return t.toISOString().slice(0, 10)
 }
 
-export function evaluate(members: ChurchMember[], attendance: Attendance[], criteria: Criteria, today: string): { rows: Evaluated[]; services: string[]; cutoff: string; hasData: boolean } {
+export function evaluate(members: ChurchMember[], attendance: Attendance[], criteria: Criteria, today: string): { rows: Evaluated[]; services: string[]; yearServices: number; cutoff: string; hasData: boolean } {
   const live = attendance.filter((a) => !a.deleted && a.ids.length > 0)
   const services = [...new Set(live.map((a) => a.date))].sort()
   const present = new Map<string, string[]>() // memberId → วันที่มา (เรียง)
@@ -60,6 +60,7 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
   const cutoff = cutoffOf(today, criteria.absentMonths)
   // ยังไม่มีบันทึกลงชื่อเลย: ตัดสิน "ขาดนมัสการ" ไม่ได้ (ทุกคนจะดูเหมือนขาด) → ยังไม่ครบเกณฑ์จนกว่าจะมีข้อมูล
   const hasData = services.length > 0
+  const yearServices = services.filter((d) => diffDays(today, d) <= YEAR).length // จำนวนครั้งนมัสการใน 12 เดือนล่าสุดที่มีบันทึก (ตัวหาร)
   const rows = members.map((m): Evaluated => {
     const days = present.get(m.id) ?? []
     const visits = days.length
@@ -77,23 +78,24 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
     const qualified = hasData && eligible && !dead && oldEnough && sinceCutoff > 0
     const baseTier: Tier = deceased ? 3 : dead ? 2 : qualified ? 0 : absent ? 5 : 6
     const last = days[visits - 1] ?? ''
+    const recent = days.filter((d) => diffDays(today, d) <= YEAR).length
     const idleFrom = last || (m.since && services[0] && m.since > services[0] ? m.since : services[0] ?? m.since ?? '')
     const lvl = regLevel(status)
     const suggest: Suggest | undefined = m.override ? undefined : lvl === 1 && baseTier === 5 ? 'to2' : lvl === 2 && baseTier === 0 ? 'to1' : undefined
     return {
       member: m, baseTier, suggest, tier: m.override ? OVERRIDE_TIER[m.override] : baseTier,
-      visits, recent: days.filter((d) => diffDays(today, d) <= YEAR).length, possible, cont: Math.min(1, visits / possible), tenureY,
+      visits, recent, possible, yearPct: Math.min(1, recent / Math.max(1, yearServices)), tenureY,
       firstAtt: days[0] ?? '', last, idleDays: idleFrom ? diffDays(today, idleFrom) : null, noRecord: visits === 0,
     }
   })
   // เรียง: สมบูรณ์ 1 ตามอายุสมาชิกมากสุดก่อน · สมบูรณ์ 2 ตามที่เพิ่งขาดล่าสุด · กลุ่มอื่นตามความต่อเนื่อง
   rows.sort((a, b) => {
     if (a.tier !== b.tier) return a.tier - b.tier
-    if (a.tier === 0) return (a.member.since ?? '9') < (b.member.since ?? '9') ? -1 : (a.member.since ?? '9') > (b.member.since ?? '9') ? 1 : b.cont - a.cont
+    if (a.tier === 0) return (a.member.since ?? '9') < (b.member.since ?? '9') ? -1 : (a.member.since ?? '9') > (b.member.since ?? '9') ? 1 : b.recent - a.recent
     if (a.tier === 5) return (a.idleDays ?? 1e9) - (b.idleDays ?? 1e9)
-    return b.cont * b.possible - a.cont * a.possible
+    return b.visits - a.visits
   })
-  return { rows, services, cutoff, hasData }
+  return { rows, services, yearServices, cutoff, hasData }
 }
 
 export interface Summary { total: number; byTier: Record<Tier, number>; complete: number; bands: number[]; records: number }
