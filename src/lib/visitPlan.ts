@@ -86,3 +86,6 @@ export function sendPrep(d: PlanDoc, at: number): PlanDoc | null {
   if (d.items.length === 0 || d.items.some((x) => x.g < 1)) return null
   return { ...d, prep: { at, items: tidy(d).items.map((x) => ({ id: x.id, name: x.name, g: x.g })) } }
 }
+
+/** หลังส่งแล้ว: การเพิ่ม/ลบ/เปลี่ยนจุดในตะกร้าตามไปที่ “บันทึกการเยี่ยม” อัตโนมัติ (เฉพาะคนที่กำหนดจุดแล้ว) */
+export const refreshPrep = (d: PlanDoc): PlanDoc => (d.prep ? { ...d, prep: { at: d.prep.at, items: tidy(d).items.filter((x) => x.g > 0).map((x) => ({ id: x.id, name: x.name, g: x.g })) } } : d)

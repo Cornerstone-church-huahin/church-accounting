@@ -1350,3 +1350,4 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrec__row--no { background: #fbece9 }
 .vrec__ok { color: #1f7a45; font-weight: 700 }
 .vrec__no { color: #b4442f; font-weight: 700 }
+.vrec__add { margin-left: auto }

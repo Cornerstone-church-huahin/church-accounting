@@ -37,7 +37,7 @@ export function tripsOf(visits: Visit[], radius = TRIP_RADIUS_M): Visit[][] {
 export const tripNumbers = (visits: Visit[]): Map<string, number> => new Map(tripsOf(visits).flatMap((g, i) => g.map((v) => [v.id, i + 1] as [string, number])))
 /** ออกเยี่ยมกี่ครั้ง (trips) · เยี่ยมกี่ราย (count) · กี่คน (people นับคนละครั้ง) · ผู้ออกเยี่ยมที่ลงชื่อ */
 export function weekStats(visits: Visit[]) {
-  return { count: visits.length, trips: tripsOf(visits).length, people: new Set(visits.filter((v) => !v.absent).map((v) => v.memberId)).size, visitors: [...new Set(visits.flatMap((v) => splitVisitors(v.visitor)))] }
+  return { count: visits.length, trips: tripsOf(visits).length, people: new Set(visits.filter((v) => !v.absent).map((v) => v.memberId)).size, notMet: new Set(visits.filter((v) => v.absent).map((v) => v.memberId)).size, visitors: [...new Set(visits.flatMap((v) => splitVisitors(v.visitor)))] }
 }
 
 /** รายชื่อผู้ออกเยี่ยมที่ให้เลือก: ทีมงานอภิบาล + ที่เพิ่มเอง − ที่ซ่อนไว้ (ไม่ซ้ำ เรียงตามที่เพิ่ม) */
@@ -46,3 +46,12 @@ export function visitorRoster(team: string[], items: Pick<VisitorName, 'name' | 
   const hidden = new Set(live.filter((x) => x.hide).map((x) => x.name))
   return [...new Set([...team, ...live.filter((x) => !x.hide).map((x) => x.name)].map((n) => n.trim()).filter(Boolean))].filter((n) => !hidden.has(n))
 }
+
+/**
+ * พบตัว (นับเป็นการถูกเยี่ยม) กับ ไปแล้วไม่พบ (ไม่นับเป็นการเยี่ยม แต่การเดินทางเกิดขึ้นจริง: เช็คอินพิกัด/เวลาใช้คำนวณเส้นทาง ระยะทาง ค่าน้ำมันในอนาคต)
+ * — tripsOf/tripNumbers นับทุกรายการ (รวมไม่พบ) · จำนวนครั้งที่ถูกเยี่ยมของสมาชิกนับเฉพาะที่พบ
+ */
+export const metVisits = (visits: Visit[]) => visits.filter((v) => !v.deleted && !v.absent)
+export const notMetVisits = (visits: Visit[]) => visits.filter((v) => !v.deleted && v.absent)
+/** จำนวนครั้งที่สมาชิกคนนี้ “ถูกเยี่ยม” (พบตัว) */
+export const timesVisited = (visits: Visit[], memberId: string) => metVisits(visits).filter((v) => v.memberId === memberId).length
