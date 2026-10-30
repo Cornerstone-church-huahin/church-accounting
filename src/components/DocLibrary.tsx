@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { canRole, canWork } from '../lib/access'
 import { cachedImage, cacheImage } from '../lib/imageCache'
-import { useDocCategories, useDocLibrary, useInviteLetter, useInviteSettings } from '../lib/data'
+import { LETTER_KIND_LIST } from '../lib/letterKinds'
+import { useDocCategories, useDocLibrary, useLetters, useLetterSettings } from '../lib/data'
 import { takePendingDoc, ACCESS_LEVELS, canSeeDoc, categoriesOf, cleanPrefix, fileExt, filterDocs, fmtSize, MAX_DOC_BYTES, nextDocNo, NO_CATEGORY, renumberWithPrefix, snippetOf, sortNewestFirst, titleFromFile } from '../lib/docLibrary'
 import { useRole } from '../lib/members'
 import { be, fmtDate, newId, todayISO } from '../lib/money'
@@ -202,7 +203,7 @@ function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave
 
 function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cats: { name: string; n: number }[]; docs: DocItem[]; putDocs: (xs: DocItem[]) => boolean; catStore: ReturnType<typeof useDocCategories>; onClose: () => void; onRenamed: (a: string, b: string) => void }) {
   const [name, setName] = useState('')
-  const letters = useInviteLetter(), invCfg = useInviteSettings()
+  const stores = { invite: { letters: useLetters('invite'), cfg: useLetterSettings('invite') }, notice: { letters: useLetters('notice'), cfg: useLetterSettings('notice') } }
   const [prefix, setPrefix] = useState('')
   const [msg, setMsg] = useState('')
   const names = new Set(cats.map((c) => c.name))
@@ -220,8 +221,10 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     if (item) catStore.put([{ ...item, prefix: pre || undefined }]); else ensure(c, pre)
     // เปลี่ยนตัวย่อ: ถามว่าจะเปลี่ยนเลขที่ของเอกสารเดิมตามไปด้วยไหม
     // หมวดหนังสือเชิญ: ฉบับในรายการหนังสือเชิญ (และเลขที่ในคลัง) ที่ใช้ตัวย่อตั้งต้นของหัวจดหมายอยู่ก็ตามไปด้วย
-    const inv = c.includes('เชิญ')
-    const from = was || (inv ? cleanPrefix(invCfg.items.find((x) => x.id === 'settings')?.numPrefix ?? 'ศอช') : '')
+    const kd = LETTER_KIND_LIST.find((x) => c.includes(x.catMatch))
+    const inv = !!kd
+    const letters = stores[kd?.id ?? 'invite'].letters
+    const from = was || (kd ? cleanPrefix(stores[kd.id].cfg.items.find((x) => x.id === 'settings')?.numPrefix ?? 'ศอช') : '')
     if (inv && from && pre && from !== pre) {
       const ls = letters.items.filter((x) => renumberWithPrefix(x.no, from, pre) !== x.no)
       if (ls.length) letters.put(ls.map((x) => ({ ...x, no: renumberWithPrefix(x.no, from, pre), updated: Date.now() })))
