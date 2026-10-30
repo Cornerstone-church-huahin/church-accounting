@@ -1401,3 +1401,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .tabicons--four .tabicons__i:has(.tabicons__n) > span { transform: translateX(-0.7rem) }
 /* ป้ายจำนวนคน: พื้นแดง ตัวอักษรขาว (ยังเป็นสี่เหลี่ยมมนมีรูปคน ไม่ใช่วงกลม) */
 .tabicons__n { background: #d12f2f; color: #fff; box-shadow: 0 0 0 1px #8f1d1d }
+/* ป้ายจำนวนคน (แดง สี่เหลี่ยมมน รูปคน) ใช้ซ้ำนอกแถบขั้นตอน เช่น ในปุ่ม “เลือกแล้ว N คน” ให้เป็นไอคอนเดียวกับด้านบน */
+.cchip { display: inline-flex; align-items: center; gap: 0.15rem; height: 1.5rem; padding: 0 0.45rem 0 0.35rem; margin: 0 0.15rem; border-radius: 0.4rem; background: #d12f2f; color: #fff; box-shadow: 0 0 0 1px #8f1d1d; font-size: 1rem; font-weight: 800; line-height: 1; vertical-align: middle }
+.cchip u { text-decoration: none; font-size: 0.85rem }

@@ -23,7 +23,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
       {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
       {!canEdit && <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
       {doc.items.length > 0 && (
-        <Link to="/meeting/4/group" className="btn btn--gold vplan__next">เลือกแล้ว {doc.items.length} คน — ต่อไป: จัดกลุ่ม ▶</Link>
+        <Link to="/meeting/4/group" className="btn btn--gold vplan__next">เลือกแล้ว <b className="cchip" aria-hidden="true"><u>👤</u>{doc.items.length}</b><span className="sr-only"> {doc.items.length}</span> คน — ต่อไป: จัดกลุ่ม ▶</Link>
       )}
       <AbsentList hideLabel={canEdit} label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${doc.items.length} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
         {...(canEdit ? { selectedIds: ids, onPick: toggle } : {})} />
