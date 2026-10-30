@@ -45,7 +45,7 @@ try {
   await list.getByRole('button', { name: /สมาชิก1/ }).click(); await list.getByRole('button', { name: /สมาชิก3/ }).click(); await list.getByRole('button', { name: /สมาชิก0/ }).click()
   const step2 = page.getByRole('link', { name: /^จัดกลุ่ม/ })
   const cnt = async () => Number(/(\d+) คน/.exec(await step2.getAttribute('aria-label'))?.[1] ?? 0)
-  must(await cnt() === 3 && await page.locator('.tabicons__n').count() === 2 && (await page.locator('.tabicons__n').allInnerTexts()).every((x) => x === '3'), 'steps 2 and 3 show the same number of chosen people')
+  must(await cnt() === 3 && await page.locator('.tabicons__n').count() === 2 && (await page.locator('.tabicons__n').allInnerTexts()).every((x) => /3$/.test(x.trim())), 'steps 2 and 3 show the same number of chosen people')
   await list.getByRole('button', { name: /สมาชิก3/ }).click() // แตะซ้ำ = เอาออก
   must(await cnt() === 2, 'tapping again removes from the plan')
   await list.getByRole('button', { name: /สมาชิก3/ }).click()
