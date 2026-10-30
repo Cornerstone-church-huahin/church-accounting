@@ -74,8 +74,8 @@ try {
   // งานอภิบาล: สมาชิก 👥 / วางแผนเยี่ยม เปิดหน้าเต็มว่าง
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
   const tabs4 = await links('หมวดงานอภิบาล').allInnerTexts()
-  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'สมาชิก|วางแผนเยี่ยม|บันทึกเยี่ยม|รายงานเยี่ยม|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
-  must(tabs4[0].includes('👥'), 'สมาชิก tile has the members icon')
+  must(tabs4.map((x) => x.replace(/^\d+\s+\S+\s+/, '').trim()).join('|') === 'วางแผนเยี่ยม|บันทึกเยี่ยม|รายงานเยี่ยม|สมาชิก|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
+  must(tabs4[3].includes('👥') && /^1\s/.test(tabs4[0]) && /^4\s/.test(tabs4[3]), 'สมาชิก tile has the members icon · tiles are numbered 1–6 in order')
   for (const parent of ['สมาชิก', 'วางแผนเยี่ยม']) {
     await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
     await page.getByRole('heading', { name: new RegExp(parent), level: 1 }).waitFor({ timeout: 5000 })

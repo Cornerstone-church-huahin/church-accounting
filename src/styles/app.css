@@ -1366,3 +1366,5 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrec__ico { display: inline-flex; gap: 0.35rem; margin-left: auto }
 .vrec__ico .mini { min-width: 2.6rem; min-height: 2.6rem; font-size: 1.2rem; padding: 0 }
 .vrec__ico + .vrec__add { margin-left: 0 }
+.tiletabs .btile { position: relative }
+.btile__no { position: absolute; top: 0.35rem; left: 0.45rem; min-width: 1.5rem; height: 1.5rem; padding: 0 0.3rem; border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: #1a2b4c; font-style: normal; font-weight: 800; font-size: 0.85rem; display: grid; place-items: center }

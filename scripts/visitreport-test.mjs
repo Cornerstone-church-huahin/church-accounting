@@ -23,7 +23,7 @@ try {
     V('e', '2026-11-03', 'บ้านสอง', 'อ.ดารา', { checkin: { lat: 12.5690, lng: 99.9577, acc: 10, at: at('2026-11-03', '10', '20') } }),
     V('f', '2026-11-03', 'บ้านสาม', 'อ.ดารา', { checkin: { lat: 12.5695, lng: 99.9577, acc: 10, at: at('2026-11-03', '10', '40') } }),
   ])
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/4`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /รายงานเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   const rows = page.getByRole('list', { name: 'สัปดาห์ที่มีการเยี่ยม' }).getByRole('button')
   must(await rows.count() === 3, 'three weeks listed')

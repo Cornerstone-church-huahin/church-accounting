@@ -34,7 +34,7 @@ try {
     localStorage.setItem('acct.church-members.v1', JSON.stringify(members))
     localStorage.setItem(`acct.attendance.${Y}.v1`, JSON.stringify(sundays.map((d, j) => ({ id: d, date: d, ids: members.filter((m, i) => i % 7 !== 6 && (i + j) % (i % 5 + 1) === 0).map((m) => m.id), updated: 1 }))))
   }, [Y, sundays])
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.reload(); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/4`); await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /สมาชิก/, level: 1 }).waitFor({ timeout: 8000 })
   // โซน 2: ตัวเลขเป็นตัวอักษร 2 แถว (ไม่ใช่การ์ด) · โซน 3: รูปสมาชิกทันที ดูอย่างเดียว
   const counts = (await page.locator('.pcounts').innerText()).replace(/\s+/g, ' ')
@@ -97,7 +97,7 @@ try {
   must(await page.locator('.leaflet-marker-icon').count() === 1, 'picker map shows the pin')
   await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('button', { name: '‹ เมนูสมาชิก' }).click().catch(() => undefined)
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/4`)
   await page.locator('.pmore > summary').click()
   await page.locator('.leafletbox').waitFor({ timeout: 8000 })
   must(await page.locator('.leafletbox').getAttribute('data-pins') === '1' && await page.locator('.leaflet-marker-icon').count() === 1, 'the recorded home appears as a pin on the map')

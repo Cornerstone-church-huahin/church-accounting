@@ -38,13 +38,13 @@ try {
     const it = (i, g) => ({ id: `t${i}`, name: `ทดสอบ${i} สมมติ`, g })
     localStorage.setItem('acct.visit-plans.v1', JSON.stringify([{ id: `plan-${today}`, date: today, v: 2, groups: 2, names: {}, items: [it(5, 1), it(4, 2), it(2, 2)], prep: { at: Date.now(), items: [it(5, 1), it(4, 2), it(2, 2)] }, updated: 1 }]))
   })
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.reload(); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /วางแผนเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   // แท็บ 2 (วางแผน): เปิดมาเห็นรายชื่อคนที่ขาดนมัสการ (เหมือนในป๊อปอัพบันทึกการเยี่ยม) · ดูอย่างเดียว
   must(await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).locator('.pvpick__r').count() === 6 && await page.locator('.pvabs').count() === 6, 'plan tab lists members who need a visit with their red bars')
   must(await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).count() === 0 && await page.getByRole('tab', { name: /รายงานสัปดาห์/ }).count() === 0, 'tab 2 has only the planning list (cards and weekly report moved to the report page)')
   // งานหลัก (บันทึก/แก้ไข/ลบ/รายงาน) ทำที่แท็บ 3 “บันทึกการเยี่ยม”
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /บันทึกเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   must(await page.locator('.pvday').count() === 0 && await page.getByRole('tab').count() === 0, 'tab 3 no longer shows the 7-day cards / report tabs')
   must(await page.getByRole('region', { name: 'จุดที่ 1' }).count() === 1 && await page.getByRole('region', { name: 'จุดที่ 2' }).count() === 1, 'prepared list is split into stops')
@@ -179,7 +179,7 @@ try {
   await page.getByRole('dialog').waitFor({ state: 'detached' })
   await page.screenshot({ path: 'shots/visits-record.png', fullPage: true })
   // รายงานสัปดาห์ (แท็บ 4)
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/4`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
   await page.getByRole('tab', { name: /รายงานสัปดาห์/ }).click()
   const sheet = (await page.locator('.a4page').allInnerTexts()).join('\n')
   must(!/ลงชื่อ\s*\.{3,}|ลงชื่อ …/.test(sheet), 'report page has no signature blocks (it is a report, not a submission)')
@@ -193,7 +193,7 @@ try {
   must(/ไม่มีการเยี่ยมในสัปดาห์นี้/.test((await page.locator('.a4page').allInnerTexts()).join('\n')), 'previous week report is empty')
   must(await page.getByRole('button', { name: 'สัปดาห์ถัดไป' }).isEnabled(), 'can come back to this week')
   await page.getByRole('button', { name: 'สัปดาห์ถัดไป' }).click()
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
   await r1.getByRole('button', { name: 'แก้ไขการเยี่ยม ทดสอบ3 สมมติ' }).click()
   page.once('dialog', (x) => x.accept())
   await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).click()
@@ -206,17 +206,17 @@ try {
   // หน้า “รายงานการเยี่ยม” (แท็บ 4) มีการ์ด 7 วัน/ใบรายงาน ดูอย่างเดียว ใช้ข้อมูลชุดเดียวกับแท็บ 3
   const countOf = (k) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]').filter((v) => !v.deleted).length, k)
   const before = await countOf('acct.visit-log.v1')
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
   must(before === 2, 'two visits remain on tab 3 (one recorded + one absent): ' + before)
   must(await page.getByRole('region', { name: 'จุดที่ 2' }).getByRole('button', { name: 'บันทึกการเยี่ยม ทดสอบ2 สมมติ' }).count() === 1, 'unrecorded person still waits in stop 2')
   must(await countOf('acct.visits.v1') === 0, 'old visits.json store unused')
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/4`); await page.waitForLoadState('networkidle'); await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle'); await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).click()
   must(await page.locator('.pvvisit').count() === before && await page.getByRole('button', { name: /บันทึกการเยี่ยม|แก้ไขการเยี่ยม/ }).count() === 0, 'report page shows the same visits as read-only cards (no add/edit)')
   await page.getByRole('tab', { name: /รายงานสัปดาห์/ }).click()
   await page.locator('.a4page').first().waitFor({ timeout: 8000 })
   must(await page.locator('.a4page').count() >= 1, 'report page also has the weekly A4 report')
   // บันทึกทุกคนในจุดนี้: เช็คอิน/ผู้ออกเยี่ยม/รูป/หมายเหตุชุดเดียว · เลือกพบ ไม่พบ ไม่รวม รายคนได้
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
   const g2 = page.getByRole('region', { name: 'จุดที่ 2' })
   await g2.getByRole('button', { name: /เพิ่มผู้ถูกเยี่ยมในจุดที่ 2/ }).click()
   for (const q of ['ทดสอบ1', 'ทดสอบ0']) { await page.getByRole('dialog').locator('#pv-q').fill(q); await page.getByRole('dialog').getByRole('button', { name: new RegExp(`${q} สมมติ`) }).click() }
@@ -247,7 +247,7 @@ try {
   // กล้องในแอปเปิดไม่ได้ → ใช้กล้องของเครื่อง (capture) ตรวจว่าเพิ่งถ่าย · ยังไม่มีให้เลือกรูปจากคลังภาพ
   const p2 = await ctx.newPage(); p2.on('pageerror', (e) => errors.push(String(e)))
   await p2.addInitScript(() => { Object.defineProperty(navigator, 'mediaDevices', { value: undefined, configurable: true }) })
-  await p2.goto(`http://localhost:${PORT}/#/meeting/4/3`); await p2.waitForLoadState('networkidle')
+  await p2.goto(`http://localhost:${PORT}/#/meeting/4/2`); await p2.waitForLoadState('networkidle')
   await p2.getByRole('button', { name: 'บันทึกการเยี่ยม ทดสอบ0 สมมติ' }).click()
   const f2 = p2.getByRole('dialog')
   await f2.getByText(/✓ เช็คอินแล้ว/).waitFor({ timeout: 10000 }) // เช็คอินของจุดเดียวกันต่อให้อัตโนมัติ

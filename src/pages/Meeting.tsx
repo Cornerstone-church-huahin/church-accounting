@@ -68,7 +68,7 @@ const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ว
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
-  4: ['สมาชิก', 'วางแผนเยี่ยม', 'บันทึกเยี่ยม', 'รายงานเยี่ยม', 'แท็บ 5', 'แท็บ 6'],
+  4: ['วางแผนเยี่ยม', 'บันทึกเยี่ยม', 'รายงานเยี่ยม', 'สมาชิก', 'แท็บ 5', 'แท็บ 6'],
   9: ['สมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -89,7 +89,7 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
       <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
         {labelsOf(n).map((l, i) => (
           <Link key={l} to={`/meeting/${n}/${i + 1}`} className={`btile btile--${TILE_TONES[i % TILE_TONES.length]}`}>
-            <small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
+            <i className="btile__no" aria-hidden="true">{i + 1}</i><small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
           </Link>
         ))}
       </nav>
@@ -103,16 +103,16 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
   if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
-  const isMembers = (n === 4 || n === 9) && k === 1 // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
+  const isMembers = (n === 4 && k === 4) || (n === 9 && k === 1) // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
   return (
     <>
       <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
-        {n === 4 && k === 2 && <span id="vbasket-slot" className="vbasket__slot" />}
+        {n === 4 && k === 1 && <span id="vbasket-slot" className="vbasket__slot" />}
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {!isMembers && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 4 && k === 3 ? <VisitRecord /> : n === 4 && k === 4 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 1 ? <PastoralVisits plan /> : n === 4 && k === 2 ? <VisitRecord /> : n === 4 && k === 3 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
