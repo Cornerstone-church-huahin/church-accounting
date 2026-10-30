@@ -146,6 +146,27 @@ export function orderByTenure<T extends { id: string; name: string }>(list: T[],
     return (oldest ? b - a : a - b) || x.name.localeCompare(y.name, 'th')
   })
 }
+/** ช่วงเวลาที่ใช้วัดความสม่ำเสมอ (บนสุด = ยาวสุด) */
+export const REG_PERIODS = [
+  { k: '3y', days: 1095, t: 'สม่ำเสมอภายในสามปี', short: 'สามปีล่าสุด' },
+  { k: '2y', days: 730, t: 'สม่ำเสมอภายในสองปี', short: 'สองปีล่าสุด' },
+  { k: '1y', days: 365, t: 'สม่ำเสมอภายในหนึ่งปี', short: 'หนึ่งปีล่าสุด' },
+  { k: '6m', days: 183, t: 'สม่ำเสมอภายในหกเดือน', short: 'หกเดือนล่าสุด' },
+  { k: '3m', days: 91, t: 'สม่ำเสมอภายในสามเดือน', short: 'สามเดือนล่าสุด' },
+] as const
+export type RegPeriod = (typeof REG_PERIODS)[number]['k']
+/**
+ * ความสม่ำเสมอในช่วง days วันล่าสุด: จำนวนครั้งนมัสการที่มีบันทึกในช่วงนั้น (services = ตัวหาร) และจำนวนครั้งที่แต่ละคนมา (times)
+ * เปอร์เซ็นต์ = times ÷ services · ยิ่งมาบ่อยในช่วงนั้นยิ่งสม่ำเสมอ
+ */
+export function attendanceInWindow(att: { date: string; ids: string[]; deleted?: boolean }[], today: string, days: number): { services: number; times: Map<string, number> } {
+  const live = att.filter((a) => !a.deleted && a.ids.length > 0 && diffDays(today, a.date) >= 0 && diffDays(today, a.date) <= days)
+  const dates = new Set(live.map((a) => a.date))
+  const seen = new Set<string>()
+  const times = new Map<string, number>()
+  for (const a of live) for (const id of new Set(a.ids)) { const key = `${a.date}|${id}`; if (seen.has(key)) continue; seen.add(key); times.set(id, (times.get(id) ?? 0) + 1) }
+  return { services: dates.size, times }
+}
 /**
  * เรียงตามความสม่ำเสมอ = จำนวนครั้งที่มานมัสการใน 1 ปีล่าสุด (ยิ่งมาบ่อยในรอบปี ยิ่งสม่ำเสมอ · มาน้อย = สม่ำเสมอน้อย)
  * high = มากสุดก่อน · จำนวนเท่ากันเรียงตามชื่อ
