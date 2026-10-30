@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
 import AbsentList from './AbsentList'
-import VisitBasket from './VisitBasket'
 import Sheet from './Sheet'
 import { VisitForm, fmtDay } from './PastoralVisits'
 import { monthsText } from './AbsentList'
@@ -73,7 +72,6 @@ export default function VisitRecord() {
   const met = todays.filter((v) => !v.absent).length, notMet = todays.filter((v) => v.absent).length
   return (
     <div className="vrec">
-      <VisitBasket plans={plans} members={people.items} stats={stats} today={today} />
       <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>
         <b>วันนี้ {dayLabel}</b>{assigned.length + todays.length > 0 ? ` · พบ ${met} · ไปแล้วไม่พบ ${notMet} · รอบันทึก ${waitingAll}` : ''}
       </p>

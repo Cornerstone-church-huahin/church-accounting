@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import AbsentList from './AbsentList'
-import VisitBasket from './VisitBasket'
+import { Link } from 'react-router-dom'
 import { useVisitPlans } from '../lib/data'
 import type { VisitStat } from '../lib/pastoral'
 import { addItem, removeItem, type PlanDoc } from '../lib/visitPlan'
@@ -20,9 +20,11 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m))
   return (
     <div className="vplan">
-      <VisitBasket plans={plans} members={members} stats={stats} today={today} />
       {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
       {!canEdit && <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
+      {doc.items.length > 0 && (
+        <Link to="/meeting/4/group" className="btn btn--gold vplan__next">เลือกแล้ว {doc.items.length} คน — ต่อไป: จัดกลุ่ม ▶</Link>
+      )}
       <AbsentList hideLabel={canEdit} label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${doc.items.length} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
         {...(canEdit ? { selectedIds: ids, onPick: toggle } : {})} />
     </div>

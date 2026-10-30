@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { monthsText } from './AbsentList'
 import MemberAvatar from './MemberAvatar'
 import { useAttendance, useChurchMembers, useVisitPlans } from '../lib/data'
 import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import { DAY_NAMES } from '../lib/visits'
-import { moveItem, removeItem, setStop, stopColor, stopsOf, type PlanDoc } from '../lib/visitPlan'
+import { moveItem, removeItem, setStop, stopColor, type PlanDoc } from '../lib/visitPlan'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
@@ -16,18 +17,17 @@ import type { ChurchMember } from '../lib/types'
 type Plans = ReturnType<typeof useVisitPlans>
 
 /**
- * ตะกร้าแผนเยี่ยมของวันนี้: ปุ่ม 🧺 + ตัวเลข อยู่บนหัวหน้าของ 3 หน้า (วางแผน → บันทึก → รายงาน) เสมอ · กดเปิดเต็มจอ จัดจุด/ลำดับ/ลบ/ล้างตะกร้า
- * ตัวเลข = จำนวนคนในแผน (plans เดียวกันทุกหน้า) เพิ่ม/ลบจากหน้าไหนก็ตามกัน · บันทึกการเยี่ยมแล้วก็ยังนับอยู่ จนกว่าจะกด “ล้างตะกร้า”
+ * ขั้นที่ 2 “จัดกลุ่ม” (ตะกร้าแผนเยี่ยมของวันนี้): รายชื่อที่เลือกจากขั้นที่ 1 แสดงเป็นหน้าเต็มต่อเนื่องกัน (ไม่ใช่ป๊อปอัพ)
+ * แตะ ＋ เลือก “จุดเยี่ยมที่” (1–10) · ลากเรียงลำดับ · ✕ เอาออก · ล้างตะกร้า · จบแล้วกด “ต่อไป: บันทึกเยี่ยม”
+ * ตัวเลขจำนวนคนในแผนอยู่ที่แถบขั้นที่ 2 ทุกหน้า (plans เดียวกัน) · บันทึกเยี่ยมแล้วก็ยังนับอยู่ จนกว่าจะกด “ล้างตะกร้า”
  */
-export default function VisitBasket({ plans, members, stats, today }: { plans: Plans; members: ChurchMember[]; stats: Map<string, VisitStat>; today: string }) {
+export default function VisitGroups({ plans, members, stats, today }: { plans: Plans; members: ChurchMember[]; stats: Map<string, VisitStat>; today: string }) {
   const date = today // แผนเป็นของวันนี้เท่านั้น (บันทึกจริงทำตอนไปหน้างาน)
-  const [open, setOpen] = useState(false) // ตะกร้าเปิดเป็นป๊อปอัพ (false = ย่อเหลือปุ่มตะกร้าลอยอยู่ด้านล่าง)
   const [ask, setAsk] = useState<{ id: string; name: string; val: string } | null>(null) // ป๊อปอัพ “จุดเยี่ยมที่”
   const [msg, setMsg] = useState('')
   const doc = plans.of(date)
   const canEdit = plans.canEdit()
   const byId = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
-  const stops = stopsOf(doc)
   const write = (next: PlanDoc) => setMsg(plans.save(date, next) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
   const dayLabel = `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}${date === today ? ' · วันนี้' : ''}`
   const n = doc.items.length
@@ -50,8 +50,7 @@ export default function VisitBasket({ plans, members, stats, today }: { plans: P
     const h = hold.current; if (!h || !h.on) return
     setDrag({ id: h.id, dy: e.clientY - h.y0 })
     h.over = locate(h.id, e.clientY); setOver(h.over)
-    const box = sheet.current?.getBoundingClientRect()
-    if (box && sheet.current) { if (e.clientY < box.top + 70) sheet.current.scrollTop -= 14; else if (e.clientY > box.bottom - 70) sheet.current.scrollTop += 14 }
+    if (e.clientY < 110) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 130) window.scrollBy(0, 14)
   }
   const up = () => {
     const h = hold.current; hold.current = null
@@ -72,36 +71,13 @@ export default function VisitBasket({ plans, members, stats, today }: { plans: P
     if (!(v >= 1 && v <= 99)) return
     write(setStop(doc, ask.id, v)); setAsk(null)
   }
-  useEffect(() => {
-    if (!open) return
-    const on = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    window.addEventListener('keydown', on)
-    return () => window.removeEventListener('keydown', on)
-  }, [open])
-  const icon = (
-    <button type="button" className="vbasket__icon" aria-label={`เปิดตะกร้า ${n} คน`} title={n === 0 ? 'ตะกร้าแผนเยี่ยม (ว่าง)' : stops.map((gr) => `จุด ${gr.g}${gr.name ? ` ${gr.name}` : ''}: ${gr.items.length} คน`).join(' · ')} onClick={() => setOpen(true)}>
-          🧺{n > 0 && <span className="vbasket__badge">{n}</span>}
-        </button>
-  )
-  const [slot, setSlot] = useState<HTMLElement | null>(null)
-  useEffect(() => { setSlot(document.getElementById('vbasket-slot')) }, [])
   return (
-    <>
-      {slot ? createPortal(icon, slot) : <div className="vbasket__top no-print">{icon}</div>}
-      {msg && !open && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
-      {createPortal(
-        open ? (
-          <div className="vbasket__ov no-print" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-            <div className="vbasket" role="dialog" aria-modal="true" aria-label="ตะกร้าแผนเยี่ยม" ref={sheet}>
-              <div className="vbasket__h">
-                <b>🧺 ตะกร้า · {dayLabel}</b>
-                <span className="vbasket__hb">
-                  <button type="button" className="vbasket__x" aria-label="ย่อตะกร้า" onClick={() => setOpen(false)}>✕</button>
-                </span>
-              </div>
+    <section className="vgroup" aria-label="จัดกลุ่มเยี่ยม" ref={sheet}>
+      <p className="pagehint" style={{ margin: '0 0 0.3rem' }}>วันนี้ {dayLabel}</p>
+      {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
         <div className="vplan__body">
           {n === 0
-            ? <p className="empty">ตะกร้ายังว่าง — ปิดป๊อปอัพนี้แล้วแตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า</p>
+            ? <p className="empty">ตะกร้ายังว่าง — ไปขั้นที่ 1 วางแผนเยี่ยม แล้วแตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า</p>
             : (
               <>
                 {canEdit && <p className="vplan__hint no-print" role="note"><span className="vplan__grip" aria-hidden="true">⋮⋮</span><span aria-hidden="true" className="vplan__finger">👆</span> กดค้างที่ปุ่มนี้ แล้วลากขึ้น-ลงเพื่อเรียงลำดับ · แตะ ＋ เพื่อเลือกจุดเยี่ยม (คนที่เลือกแล้วจะเปลี่ยนสี)</p>}
@@ -131,9 +107,9 @@ export default function VisitBasket({ plans, members, stats, today }: { plans: P
               </>
             )}
         </div>
-            </div>
-          </div>
-        ) : null, document.body)}
+      <div className="row no-print vgroup__next">
+        <Link to="/meeting/4/record" className="btn btn--gold">ต่อไป: บันทึกเยี่ยม ▶</Link>
+      </div>
       {ask && createPortal(
         <div className="vbasket__ov vbasket__ov--ask no-print" onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
           <form className="vbasket__ask" role="dialog" aria-modal="true" aria-label="จุดเยี่ยม" onSubmit={(e) => { e.preventDefault(); okStop() }}>
@@ -151,12 +127,12 @@ export default function VisitBasket({ plans, members, stats, today }: { plans: P
             </div>
           </form>
         </div>, document.body)}
-    </>
+    </section>
   )
 }
 
 /** ใช้ในหน้าที่ยังไม่มีข้อมูลสมาชิก/สถิติของตัวเอง (หน้ารายงาน): โหลดเอง แล้วแสดงตะกร้าเดียวกัน */
-export function VisitBasketAuto() {
+export function VisitGroupsAuto() {
   const plans = useVisitPlans()
   const people = useChurchMembers()
   const y = new Date().getFullYear()
@@ -164,5 +140,5 @@ export function VisitBasketAuto() {
   const today = todayISO()
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, today), [att, today])
-  return <VisitBasket plans={plans} members={people.items} stats={stats} today={today} />
+  return <VisitGroups plans={plans} members={people.items} stats={stats} today={today} />
 }
