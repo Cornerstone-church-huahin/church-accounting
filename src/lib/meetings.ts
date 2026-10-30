@@ -22,7 +22,7 @@ export function nextFirstSunday(todayIso: string): { iso: string; d: number; m: 
 /** ข้อความตั้งต้นหนังสือแจ้งการประชุม: ส่งถึง = วัน/เดือน/ปี (ตัวเลข) ของอาทิตย์ต้นเดือนถัดไป · เนื้อหา = “ในวันอาทิตย์ที่ 1 พฤศจิกายน 2026” */
 export function noticeMeetingText(todayIso: string): { toName: string; month: string; when: string } {
   const n = nextFirstSunday(todayIso)
-  return { toName: `${n.d}/${n.m}/${n.y} แจ้งการประชุมประจำเดือนธรรมกิจ`, month: MONTHS[n.m - 1], when: `ในวันอาทิตย์ที่ ${n.d} ${MONTHS[n.m - 1]} พ.ศ. ${n.y + 543} เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ` }
+  return { toName: `${n.d}/${n.m}/${n.y} แจ้งการประชุมประจำเดือนธรรมกิจ`, month: MONTHS[n.m - 1], when: `ในวันอาทิตย์ที่ ${n.d} ${MONTHS[n.m - 1]} พ.ศ. ${n.y + 543} เวลา 13.00 น.` }
 }
 /** เลขที่หนังสือ: “ศอ 3/2026” */
 export const refNo = (m: Pick<Meeting, 'no' | 'year'>) => `ศอ ${m.no}/${m.year}`
