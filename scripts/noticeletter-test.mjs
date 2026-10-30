@@ -54,7 +54,7 @@ try {
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1`)
   await admin.getByLabel('เลือกเรียกเฉพาะการ์ด').waitFor({ timeout: 15000 })
   const opts = await admin.locator('#wf-pick option').allTextContents()
-  must(opts.some((o) => o.includes('หนังสือแจ้งการประชุมประจำเดือนของคณะรัฐมนตรี')), 'dropdown lists notice: ' + opts.join('|'))
+  must(opts.some((o) => o.includes('หนังสือแจ้งการประชุมคณะธรรมกิจ')), 'dropdown lists notice: ' + opts.join('|'))
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
   await admin.getByRole('button', { name: /เพิ่ม|สร้าง/ }).first().click()
   await body(admin).waitFor({ timeout: 15000 })
