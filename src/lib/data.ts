@@ -121,7 +121,7 @@ export function useNotes() {
 /** แผนเยี่ยมรายวัน (วันละ 1 รายการ เรียงลำดับเส้นทาง) · ซิงก์ถี่ทุก 10 วินาทีเพื่อวางแผนร่วมกันแบบสด */
 export function useVisitPlans() {
   const s = useSharedStore<VisitPlan>({ localKey: k('visit-plans'), file: 'visit-plans.json', label: 'แผนเยี่ยม', writeCheck: writePlan4, pollMs: 10_000 })
-  return { ...s, of: (date: string) => planDoc(s.items.find((x) => x.id === `plan-${date}`)), save: (date: string, d: PlanDoc) => s.put([{ id: `plan-${date}`, date, items: d.items, groups: d.groups, names: d.names, v: 2, ...(d.prep ? { prep: d.prep } : {}), ...(d.dropped?.length ? { dropped: d.dropped } : {}), updated: 0 }]), canEdit: () => canPlan4() }
+  return { ...s, of: (date: string) => planDoc(s.items.find((x) => x.id === `plan-${date}`)), save: (date: string, d: PlanDoc) => s.put([{ id: `plan-${date}`, date, items: d.items, groups: d.groups, names: d.names, v: 2, ...(d.dropped?.length ? { dropped: d.dropped } : {}), updated: 0 }]), canEdit: () => canPlan4() }
 }
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
 export function useVisitorNames() {

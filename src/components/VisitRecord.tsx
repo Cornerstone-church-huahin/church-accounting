@@ -9,15 +9,15 @@ import { useAttendance, useChurchMembers, useVisitPlans, useVisits, useWorkTeams
 import { absentMonths, visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
-import { addItem, dropItem, refreshPrep, setStop, stopColor } from '../lib/visitPlan'
-import { timeText } from '../lib/visitProof'
+import { addItem, dropItem, setStop, stopColor } from '../lib/visitPlan'
 import { homeFromCheckin } from '../lib/geo'
+import { timeText } from '../lib/visitProof'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { DAY_NAMES, visitsOn } from '../lib/visits'
 import type { Visit } from '../lib/types'
 
 /**
- * งานอภิบาล › บันทึกการเยี่ยม: รายการที่ “ส่งข้อมูลเตรียมเยี่ยม” มาจากตะกร้า (ตารางเยี่ยม) เรียงเป็นจุดที่ 1, 2, 3 …
+ * งานอภิบาล › บันทึกการเยี่ยม: รายชื่อจากตะกร้า (ตารางเยี่ยม) ที่เลือกจุดแล้ว ขึ้นที่นี่อัตโนมัติ เรียงเป็นจุดที่ 1, 2, 3 …
  * แตะชื่อ = เปิดฟอร์มบันทึกการเยี่ยม (เหตุผล รูป เช็คอินพิกัด/เวลา) · แต่ละจุดเพิ่มผู้ถูกเยี่ยมที่พบเพิ่มได้ · ไม่พบ/ไม่อยู่บ้านใส่หมายเหตุได้
  */
 const DROP_REASONS = ['ยกเลิกการเยี่ยม', 'มาแล้วไม่เจอ', 'ไม่อยู่บ้าน', 'หาบ้านไม่เจอ', 'ติดธุระ/ไม่สะดวกรับเยี่ยม', 'ป่วย/อยู่โรงพยาบาล', 'ย้ายที่อยู่/ติดต่อไม่ได้', 'เวลาไม่พอ', 'ใส่ผิดคน', 'อื่นๆ']
@@ -41,13 +41,15 @@ export default function VisitRecord() {
   const [soloPick, setSoloPick] = useState<number | null>(null) // เลือกเยี่ยมเฉพาะบุคคลในจุดนี้
   const [adding, setAdding] = useState<number | null>(null) // เปิดป๊อปอัพเลือกคนเพิ่มเข้าจุดนี้
   const planDoc = plans.of(today)
-  const prep = planDoc.prep
+  // รายชื่อจากตะกร้าที่เลือกจุดแล้ว ขึ้นหน้านี้อัตโนมัติ · คนที่บันทึกการเยี่ยมแล้ว อยู่ตามจุดที่บันทึก (แก้ตะกร้าทีหลังไม่มีผลต่อรายการที่บันทึกแล้ว)
+  const assigned = planDoc.items.filter((x) => x.g > 0)
   const canPlan = canWrite
-  const todays = visitsOn(visits.list, today)
+  const todays = visitsOn(visits.list, today).filter((v) => (v.stop ?? 0) > 0)
+  const isDone = (id: string) => todays.some((v) => v.memberId === id)
   const stopNos = useMemo(() => {
-    const set = new Set<number>([...(prep?.items ?? []).map((x) => x.g), ...todays.map((v) => v.stop ?? 0).filter((g) => g > 0)])
+    const set = new Set<number>([...assigned.filter((x) => !isDone(x.id)).map((x) => x.g), ...todays.map((v) => v.stop as number)])
     return [...set].sort((a, b) => a - b)
-  }, [prep, todays])
+  }, [planDoc, todays]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!canView) return <p className="empty">ไม่มีสิทธิ์ดูบันทึกการเยี่ยม</p>
   const dayLabel = `${DAY_NAMES[new Date(today + 'T00:00:00Z').getUTCDay()]} ${fmtDay(today)}`
   const byId = (id: string) => people.items.find((m) => m.id === id)
@@ -66,44 +68,41 @@ export default function VisitRecord() {
     if (r.action === 'ask' && !window.confirm(`พิกัดบ้านของ ${m.name} ในทะเบียนต่างจากจุดเช็คอินนี้ ${r.meters} เมตร\nอัปเดตพิกัดบ้านตามจุดเช็คอินนี้ไหม?`)) return
     people.put([{ ...m, ...at }]) && setNote(`บันทึกพิกัดบ้านของ ${m.name} เข้าทะเบียนสมาชิกแล้ว`)
   }
-  const total = (prep?.items.length ?? 0) + todays.filter((v) => v.stop && !(prep?.items ?? []).some((x) => x.id === v.memberId)).length
-  const met = todays.filter((v) => v.stop && !v.absent).length, notMet = todays.filter((v) => v.stop && v.absent).length
+  const waitingAll = assigned.filter((x) => !isDone(x.id)).length
+  const met = todays.filter((v) => !v.absent).length, notMet = todays.filter((v) => v.absent).length
   return (
     <div className="vrec">
       <p className="small" role="status" style={{ margin: '0 0 0.4rem' }}>
-        <b>วันนี้ {dayLabel}</b>{prep ? ` · ส่งข้อมูลเตรียมเยี่ยมเมื่อ ${timeText(prep.at)} น. · พบ ${met} · ไปแล้วไม่พบ ${notMet} · รอบันทึก ${Math.max(0, total - met - notMet)}` : ''}
+        <b>วันนี้ {dayLabel}</b>{assigned.length + todays.length > 0 ? ` · พบ ${met} · ไปแล้วไม่พบ ${notMet} · รอบันทึก ${waitingAll}` : ''}
       </p>
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
-      {!prep && todays.length === 0 && stopNos.length === 0 && (
-        <p className="empty">ยังไม่มีรายการเตรียมเยี่ยมของวันนี้ — ไปที่ “ตารางเยี่ยม” จัดตะกร้าและเลือกจุดเยี่ยม แล้วกด “📤 ส่งข้อมูลเตรียมเยี่ยม” รายชื่อจะมาที่นี่ตามลำดับ</p>
+      {stopNos.length === 0 && (
+        <p className="empty">ยังไม่มีรายการเตรียมเยี่ยมของวันนี้ — ไปที่ “ตารางเยี่ยม” จัดตะกร้าและเลือกจุดเยี่ยม รายชื่อจะมาที่นี่ตามจุดโดยอัตโนมัติ</p>
       )}
       {stopNos.map((g) => {
-        const planned = (prep?.items ?? []).filter((x) => x.g === g)
-        const extras = todays.filter((v) => v.stop === g && !(prep?.items ?? []).some((x) => x.id === v.memberId))
+        const waiting = assigned.filter((x) => x.g === g && !isDone(x.id))
+        const done = todays.filter((v) => v.stop === g)
         const c = stopColor(g)
         return (
           <section key={g} className="vrec__stop" aria-label={`จุดที่ ${g}`} style={{ borderLeft: `6px solid ${c.dark}`, background: c.tint }}>
             <div className="vplan__gh">
-              <b style={{ color: c.dark }}>จุดที่ {g}</b><span className="small muted">{planned.length + extras.length} คน</span>
+              <b style={{ color: c.dark }}>จุดที่ {g}</b><span className="small muted">{waiting.length + done.length} คน</span>
+              {canWrite && waiting.length > 0 && (
+                <span className="vrec__ico">
+                  <button type="button" className="mini" aria-label="บันทึกทุกคนในจุดนี้" title="บันทึกทุกคนในจุดนี้" onClick={() => setForm({ entry: null, stop: g, group: waiting.map((x) => ({ id: x.id, name: x.name })) })}>👥</button>
+                  <button type="button" className="mini" aria-label="เลือกเยี่ยมเฉพาะบุคคล" title="เลือกเยี่ยมเฉพาะบุคคล" onClick={() => setSoloPick(g)}>👤</button>
+                </span>
+              )}
               {canPlan && <button type="button" className="mini vrec__add" aria-label={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${g}`} onClick={() => setAdding(g)}>＋ เพิ่มคน</button>}
             </div>
             <ul className="vrec__list">
-              {planned.map((x) => {
-                const v = todays.find((y2) => y2.memberId === x.id)
-                return <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} v={v} onRemove={!v && canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: v ?? null, stop: g, ...(v ? {} : { member: { id: x.id, name: x.name } }) })} />
-              })}
-              {extras.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} extra canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
+              {done.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
+              {waiting.map((x) => <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} onRemove={canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } })} />)}
             </ul>
-            {canWrite && planned.some((x) => !todays.some((v) => v.memberId === x.id)) && (
-              <div className="vrec__acts">
-                <button type="button" className="btn btn--gold" onClick={() => setForm({ entry: null, stop: g, group: planned.filter((x) => !todays.some((v) => v.memberId === x.id)).map((x) => ({ id: x.id, name: x.name })) })}>👥 บันทึกทุกคนในจุดนี้</button>
-                <button type="button" className="btn btn--ghost" onClick={() => setSoloPick(g)}>👤 เลือกเยี่ยมเฉพาะบุคคล</button>
-              </div>
-            )}
           </section>
         )
       })}
-      {canPlan && (prep || todays.length > 0) && (
+      {canPlan && (assigned.length > 0 || todays.length > 0) && (
         <button type="button" className="mini" onClick={() => setAdding(Math.max(0, ...stopNos) + 1)}>＋ เพิ่มจุดเยี่ยม</button>
       )}
       {adding !== null && (
@@ -112,9 +111,8 @@ export default function VisitRecord() {
             selectedIds={planDoc.items.filter((x) => x.g === adding).map((x) => x.id)}
             onPick={(m) => {
               const cur = planDoc.items.find((x) => x.id === m.id)
-              if (cur && (cur.g === adding || todays.some((v) => v.memberId === m.id))) return // อยู่จุดนี้แล้ว / บันทึกการเยี่ยมไปแล้ว
-              const base = planDoc.prep ? planDoc : { ...planDoc, prep: { at: Date.now(), items: [] } }
-              plans.save(today, refreshPrep(setStop(cur ? base : addItem(base, m), m.id, adding)))
+              if (cur && (cur.g === adding || isDone(m.id))) return // อยู่จุดนี้แล้ว / บันทึกการเยี่ยมไปแล้ว
+              plans.save(today, setStop(cur ? planDoc : addItem(planDoc, m), m.id, adding))
             }} />
           <div className="row"><button type="button" className="btn btn--gold" onClick={() => setAdding(null)}>เสร็จ</button></div>
         </Sheet>
@@ -123,7 +121,7 @@ export default function VisitRecord() {
         <Sheet title={`จุดที่ ${soloPick} · เลือกเยี่ยมเฉพาะบุคคล`} onClose={() => setSoloPick(null)}>
           <p style={{ margin: 0 }}>เลือกคนที่จะบันทึก — เช็คอินและผู้ออกเยี่ยมของจุดนี้ใส่ให้ก่อน แต่แต่ละคนไม่ต้องเหมือนกัน</p>
           <ul className="vrec__list">
-            {(prep?.items ?? []).filter((x) => x.g === soloPick && !todays.some((v) => v.memberId === x.id)).map((x) => (
+            {assigned.filter((x) => x.g === soloPick && !isDone(x.id)).map((x) => (
               <li key={x.id} className="vrec__row"><button type="button" className="vrec__btn" onClick={() => { const g = soloPick; setSoloPick(null); setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } }) }}><MemberAvatar path={byId(x.id)?.photoPath} name={x.name} size={44} /><b>{x.name}</b></button></li>
             ))}
           </ul>
@@ -145,7 +143,7 @@ export default function VisitRecord() {
                 {DROP_REASONS.map((r) => <button key={r} type="button" role="radio" aria-checked={leave.reason === r} className={`vbasket__num${leave.reason === r ? ' on' : ''}`} onClick={() => setLeave({ ...leave, reason: r })}>{r}</button>)}
               </div>
               <input className="input" aria-label="หมายเหตุสาเหตุที่ลบ" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)" maxLength={80} value={leave.note ?? ''} onChange={(e) => setLeave({ ...leave, note: e.target.value })} />
-              <button type="button" className="btn btn--gold" disabled={!leave.reason && !leave.note?.trim()} onClick={() => { plans.save(today, refreshPrep(dropItem(planDoc, leave.id, [leave.reason, leave.note?.trim()].filter(Boolean).join(' — '), Date.now()))); setLeave(null) }}>ยืนยันลบรายชื่อนี้</button>
+              <button type="button" className="btn btn--gold" disabled={!leave.reason && !leave.note?.trim()} onClick={() => { plans.save(today, dropItem(planDoc, leave.id, [leave.reason, leave.note?.trim()].filter(Boolean).join(' — '), Date.now())); setLeave(null) }}>ยืนยันลบรายชื่อนี้</button>
               <button type="button" className="mini" onClick={() => setLeave({ ...leave, step: undefined })}>ย้อนกลับ</button>
             </>
           )}

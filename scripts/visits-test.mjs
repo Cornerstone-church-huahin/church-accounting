@@ -133,6 +133,10 @@ try {
   await f5.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
   must((await r1.locator('.vrec__row--ok').count()) === 2, 'both people of stop 1 are recorded')
+  // บันทึกแล้ว = ตะกร้าไม่มีผลอีก: ย้าย/ลบในตะกร้า รายการที่บันทึกแล้วยังอยู่จุดเดิม
+  await page.evaluate(() => { const ps = JSON.parse(localStorage.getItem('acct.visit-plans.v1')); ps[0].items = ps[0].items.map((x) => (x.id === 't5' ? { ...x, g: 2 } : x)).filter((x) => x.id !== 't3'); localStorage.setItem('acct.visit-plans.v1', JSON.stringify(ps)) })
+  await page.reload(); await page.waitForLoadState('networkidle')
+  must(/ทดสอบ5 สมมติ[\s\S]*✓ บันทึกแล้ว/.test(await r1.innerText()) && /ทดสอบ3 สมมติ[\s\S]*✓ บันทึกแล้ว/.test(await r1.innerText()) && !/ทดสอบ5/.test(await page.getByRole('region', { name: 'จุดที่ 2' }).innerText()), 'recorded people stay at their recorded stop even if the basket changes afterwards')
   // ไม่พบ/ไม่อยู่บ้าน: เช็คอินแต่ไม่ต้องมีรูป · ใส่หมายเหตุได้
   const r2 = page.getByRole('region', { name: 'จุดที่ 2' })
   await r2.getByRole('button', { name: 'บันทึกการเยี่ยม ทดสอบ4 สมมติ' }).click()
@@ -194,7 +198,7 @@ try {
   page.once('dialog', (x) => x.accept())
   await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
-  must(await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-log.v1')).filter((v) => !v.deleted && v.memberId === 't3').length) === 0 && /ทดสอบ3 สมมติ\s*แตะเพื่อบันทึกการเยี่ยม/.test(await r1.innerText()), 'delete works (person goes back to waiting in the prepared list)')
+  must(await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-log.v1')).filter((v) => !v.deleted && v.memberId === 't3').length) === 0 && !/ทดสอบ3 สมมติ/.test(await r1.innerText()), 'delete works')
   await page.goto(`http://localhost:${PORT}/#/members`); await page.waitForLoadState('networkidle')
   await page.getByText(/ทดสอบ3 สมมติ/).first().click()
   await page.getByLabel('แผนที่บ้าน ทดสอบ3 สมมติ').first().waitFor({ timeout: 10000 })
