@@ -21,7 +21,7 @@ type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
 /** หนังสือแจ้งการประชุม: ใส่ วัน/เดือน/ปี ของอาทิตย์ต้นเดือนที่จะถึงให้เอง (ผู้ใช้แก้ได้) */
 const fillNotice = (t: string, base: string) => { const n = noticeMeetingText(base); return t.replace('{เดือน}', n.month).replace('{วันเวลา}', n.when) }
-const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
+const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
 const agendaOf = (l: Draft) => (l.agenda ?? []).map((x) => x.trim()).filter(Boolean)
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
 const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), c.proceed, c.bless, c.signName, c.signRole])
@@ -138,7 +138,7 @@ const upgradeNotice = (s?: Partial<Letter>): Partial<Letter> | undefined => {
   // ข้อความตั้งต้นรุ่นก่อน (ยังไม่มีวันที่จริง) → ใส่วันอาทิตย์ต้นเดือนที่จะถึงให้
   const n = noticeMeetingText(s.date || todayISO())
   const old = (t?: string) => t?.replace('ประจำเดือน ………… ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ', `ประจำเดือน${n.month} ${n.when}`)
-  return { ...s, toName: s.toName?.trim() || !/ประจำเดือน ………… (ในวัน|ในวันอาทิตย์ต้นเดือน)/.test(fix(s.body) ?? '') ? s.toName : n.toName, subject: (fix(s.subject) === 'แจ้งการประชุมคณะธรรมกิจ' ? `แจ้งการประชุมประจำเดือน${n.month} คณะธรรมกิจ` : fix(s.subject)) ?? '', to: fix(s.to) ?? '', body: old(fix(s.body)) ?? '' }
+  return { ...s, toName: s.toName?.trim() || !/ประจำเดือน ………… (ในวัน|ในวันอาทิตย์ต้นเดือน)/.test(fix(s.body) ?? '') ? s.toName : n.toName, subject: (/^แจ้งการประชุม(ประจำเดือน\S* )?คณะธรรมกิจ$/.test(fix(s.subject) ?? '') ? LETTER_KINDS.notice.blank.subject : fix(s.subject)) ?? '', to: fix(s.to) ?? '', body: old(fix(s.body)) ?? '' }
 }
 const toDraft = (kind: LetterKindId, raw?: Partial<Letter>): Draft => { const s = kind === 'notice' ? upgradeNotice(raw) : raw; return { ...blankOf(kind), ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() } }
 const sameDraft = (a: Draft, b: Draft) => JSON.stringify({ ...a, updated: 0, by: 0 }) === JSON.stringify({ ...b, updated: 0, by: 0 })
