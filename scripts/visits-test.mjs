@@ -39,13 +39,13 @@ try {
     localStorage.setItem('acct.visit-plans.v1', JSON.stringify([{ id: `plan-${today}`, date: today, v: 2, groups: 2, names: {}, items: [it(5, 1), it(4, 2), it(2, 2)], prep: { at: Date.now(), items: [it(5, 1), it(4, 2), it(2, 2)] }, updated: 1 }]))
   })
   await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.reload(); await page.waitForLoadState('networkidle')
-  await page.getByRole('heading', { name: /ตารางเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
+  await page.getByRole('heading', { name: /วางแผนเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   // แท็บ 2 (วางแผน): เปิดมาเห็นรายชื่อคนที่ขาดนมัสการ (เหมือนในป๊อปอัพบันทึกการเยี่ยม) · ดูอย่างเดียว
   must(await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).locator('.pvpick__r').count() === 6 && await page.locator('.pvabs').count() === 6, 'plan tab lists members who need a visit with their red bars')
   must(await page.getByRole('tab', { name: /การ์ด 7 วัน/ }).count() === 0 && await page.getByRole('tab', { name: /รายงานสัปดาห์/ }).count() === 0, 'tab 2 has only the planning list (cards and weekly report moved to the report page)')
   // งานหลัก (บันทึก/แก้ไข/ลบ/รายงาน) ทำที่แท็บ 3 “บันทึกการเยี่ยม”
   await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
-  await page.getByRole('heading', { name: /บันทึกการเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
+  await page.getByRole('heading', { name: /บันทึกเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   must(await page.locator('.pvday').count() === 0 && await page.getByRole('tab').count() === 0, 'tab 3 no longer shows the 7-day cards / report tabs')
   must(await page.getByRole('region', { name: 'จุดที่ 1' }).count() === 1 && await page.getByRole('region', { name: 'จุดที่ 2' }).count() === 1, 'prepared list is split into stops')
   must(/ทดสอบ5 สมมติ/.test(await page.getByRole('region', { name: 'จุดที่ 1' }).innerText()) && /ทดสอบ4 สมมติ[\s\S]*ทดสอบ2 สมมติ/.test(await page.getByRole('region', { name: 'จุดที่ 2' }).innerText()), 'people are listed under their stop in order')

@@ -24,7 +24,7 @@ try {
     V('f', '2026-11-03', 'บ้านสาม', 'อ.ดารา', { checkin: { lat: 12.5695, lng: 99.9577, acc: 10, at: at('2026-11-03', '10', '40') } }),
   ])
   await page.goto(`http://localhost:${PORT}/#/meeting/4/4`); await page.waitForLoadState('networkidle')
-  await page.getByRole('heading', { name: /รายงานการเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
+  await page.getByRole('heading', { name: /รายงานเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   const rows = page.getByRole('list', { name: 'สัปดาห์ที่มีการเยี่ยม' }).getByRole('button')
   must(await rows.count() === 3, 'three weeks listed')
   must(/1 ครั้ง · 3 คน/.test((await rows.nth(0).innerText()).replace(/\s+/g, ' ')), 'three nearby houses on one day = 1 trip, 3 people')
@@ -43,7 +43,7 @@ try {
   const t0 = (await rows.nth(1).innerText()).replace(/\s+/g, ' '), t1 = (await rows.nth(2).innerText()).replace(/\s+/g, ' ')
   must(/2 ครั้ง · 2 คน/.test(t0) && /คศ.กฤต, คศ.พิชิต, อ.ดารา/.test(t0) && /1 ครั้ง · 1 คน/.test(t1), 'newest week first with counts and visitors: ' + t0 + ' | ' + t1)
   must((await rows.nth(1).boundingBox()).height < 64, 'rows are compact (tight line spacing)')
-  await page.getByRole('heading', { name: /รายงานการเยี่ยม/ }).first().waitFor()
+  await page.getByRole('heading', { name: /รายงานเยี่ยม/ }).first().waitFor()
   await rows.nth(1).click()
   must(await page.locator('.vrep__v').count() === 2, 'week detail lists both visits')
   const d = (await page.locator('main').innerText()).replace(/\\s+/g, ' ')

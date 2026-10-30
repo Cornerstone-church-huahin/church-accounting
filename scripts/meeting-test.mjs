@@ -71,12 +71,12 @@ try {
   must(await page.locator('.tiletabs').count() === 0 && await page.getByRole('tab').count() === 0 && await page.getByRole('button', { name: /ตารางงาน/ }).count() === 0, 'no tab menu clutter on the full page')
   await page.getByRole('link', { name: '‹ งานเลขา' }).click()
   must(await page.getByRole('heading', { name: 'งานเลขา', exact: true }).isVisible() && await page.locator('.tiletabs a.btile').count() === 6, 'back to the work home with its six tiles')
-  // งานอภิบาล: สมาชิก 👥 / ตารางเยี่ยม เปิดหน้าเต็มว่าง
+  // งานอภิบาล: สมาชิก 👥 / วางแผนเยี่ยม เปิดหน้าเต็มว่าง
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
   const tabs4 = await links('หมวดงานอภิบาล').allInnerTexts()
-  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'สมาชิก|ตารางเยี่ยม|บันทึกการเยี่ยม|รายงานการเยี่ยม|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
+  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'สมาชิก|วางแผนเยี่ยม|บันทึกเยี่ยม|รายงานเยี่ยม|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
   must(tabs4[0].includes('👥'), 'สมาชิก tile has the members icon')
-  for (const parent of ['สมาชิก', 'ตารางเยี่ยม']) {
+  for (const parent of ['สมาชิก', 'วางแผนเยี่ยม']) {
     await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
     await page.getByRole('heading', { name: new RegExp(parent), level: 1 }).waitFor({ timeout: 5000 })
     must((parent === 'สมาชิก' ? /รายชื่อทั้งหมด/ : /ขาดนมัสการตั้งแต่ 1 เดือน/).test(await page.locator('main').innerText()) && await page.locator('.tiletabs').count() === 0, parent + ' opens a full page without sub tabs')

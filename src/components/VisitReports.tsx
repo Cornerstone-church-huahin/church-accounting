@@ -15,7 +15,7 @@ const dayName = (iso: string) => DAY_NAMES[new Date(iso + 'T00:00:00Z').getUTCDa
 
 /**
  * งานอภิบาล › รายงานการเยี่ยม: รายการสัปดาห์แบบแถวยาวแคบ (ใหม่สุดบน) → แตะแล้วเห็นการเยี่ยมของสัปดาห์นั้นทั้งหมด
- * (ผู้ออกเยี่ยม เหตุผล รายละเอียด เวลาเช็คอิน รูป) · ข้อมูลมาจากแท็บ “บันทึกการเยี่ยม”
+ * (ผู้ออกเยี่ยม เหตุผล รายละเอียด เวลาเช็คอิน รูป) · ข้อมูลมาจากแท็บ “บันทึกเยี่ยม”
  */
 export default function VisitReports() {
   const role = useRole()
@@ -103,7 +103,7 @@ export default function VisitReports() {
       </div>
       {view === 'cards' ? <PastoralVisits key="cards" only="cards" readOnly /> : view === 'report' ? <PastoralVisits key="report" only="report" readOnly /> : null}
       {view !== 'weeks' ? null : weeks.length === 0
-        ? <p className="empty">ยังไม่มีบันทึกการเยี่ยม — บันทึกที่แท็บ “บันทึกการเยี่ยม” แล้วจะขึ้นที่นี่</p>
+        ? <p className="empty">ยังไม่มีบันทึกการเยี่ยม — บันทึกที่แท็บ “บันทึกเยี่ยม” แล้วจะขึ้นที่นี่</p>
         : (
           <ul className="vrep__list" aria-label="สัปดาห์ที่มีการเยี่ยม">
             {weeks.map((w) => (
