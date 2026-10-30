@@ -8,6 +8,7 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
 import VisitReports from '../components/VisitReports'
+import VisitRecord from '../components/VisitRecord'
 import AnnualPlan from '../components/AnnualPlan'
 import InviteLetterPage, { InviteLetterList } from '../components/InviteLetter'
 import AdminNotes from '../components/AdminNotes'
@@ -111,7 +112,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {!isMembers && <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{name}</p>}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 4 && k === 3 ? <PastoralVisits /> : n === 4 && k === 4 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 4 && k === 3 ? <VisitRecord /> : n === 4 && k === 4 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

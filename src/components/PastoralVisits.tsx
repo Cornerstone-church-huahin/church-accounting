@@ -140,12 +140,13 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
   )
 }
 
-function VisitForm({ date, entry, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+/** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
+export function VisitForm({ date, entry, stop, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
-  const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : null)
-  const [reason, setReason] = useState(entry?.reason ?? '')
+  const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
+  const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
   const names = useVisitorNames()
-  const initBy = splitVisitors(entry?.visitor ?? lastBy)
+  const initBy = splitVisitors(entry?.visitor ?? preset?.visitor ?? lastBy)
   const roster = visitorRoster(team, names.items)
   const [picked, setPicked] = useState<string[]>(initBy)
   // ชื่อที่เลือกไว้แต่ไม่อยู่ในรายชื่อแล้ว (เช่น บันทึกเก่า) MultiPick ยังแสดงให้เห็น เพื่อไม่ให้หายตอนแก้ไข
@@ -167,10 +168,13 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   const [proof, setProof] = useState<ShotProof[]>(entry?.photoProof ?? [])
   const [cam, setCam] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [checkin, setCheckin] = useState<Visit['checkin'] | null>(entry?.checkin ?? null)
+  const [checkin, setCheckin] = useState<Visit['checkin'] | null>(entry?.checkin ?? preset?.checkin ?? null)
   const [locBusy, setLocBusy] = useState(false)
   // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
   const needProof = !entry || !!entry.checkin
+  const [absent, setAbsent] = useState(!!entry?.absent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
+  const lockedMember = !entry && !!preset?.member
+  const needPhotos = needProof && !absent
   const locate = () => {
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setLocBusy(true); setErr('')
@@ -209,18 +213,21 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
     if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” ก่อนจึงบันทึกการเยี่ยมได้')
-    if (needProof && photos.length === 0) return setErr('ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูปก่อนจึงบันทึกได้')
+    if (needPhotos && photos.length === 0) return setErr('ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูปก่อนจึงบันทึกได้')
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
   }
   return (
-    <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
+    <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
       <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
-      <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />
+      {lockedMember
+        ? <p style={{ margin: 0 }}>ผู้ถูกเยี่ยม: <b>{member?.name}</b></p>
+        : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
+      <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>
       <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
         <div className="row" style={{ gap: 6, alignItems: 'center' }}>
@@ -229,7 +236,7 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
         </div>
         <span className="muted small" role="status">{checkin ? `✓ เช็คอินแล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ` : 'ยังไม่ได้เช็คอิน — ไปถึงบ้านสมาชิกแล้วกดปุ่มนี้'}</span>
         {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
-      <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป{needProof ? ' · บังคับอย่างน้อย 1 รูป' : ''})</label>
+      <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป{needPhotos ? ' · บังคับอย่างน้อย 1 รูป' : ''})</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
