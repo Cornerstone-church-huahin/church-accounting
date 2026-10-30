@@ -66,3 +66,11 @@ export function moveTo(d: PlanDoc, id: string, g: number, index: number): PlanDo
   }
   return { ...d, groups, items: out }
 }
+
+/** ลากเรียงลำดับในตะกร้า: ย้ายคนไปตำแหน่ง index (นับหลังเอาตัวเองออกแล้ว) · ลำดับในแต่ละจุดเรียงตามลำดับนี้ */
+export function moveItem(d: PlanDoc, id: string, index: number): PlanDoc {
+  const it = d.items.find((x) => x.id === id); if (!it) return d
+  const rest = d.items.filter((x) => x.id !== id)
+  rest.splice(Math.max(0, Math.min(index, rest.length)), 0, it)
+  return { ...d, items: rest }
+}
