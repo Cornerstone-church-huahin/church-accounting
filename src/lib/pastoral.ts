@@ -146,11 +146,21 @@ export function orderByTenure<T extends { id: string; name: string }>(list: T[],
     return (oldest ? b - a : a - b) || x.name.localeCompare(y.name, 'th')
   })
 }
-/** เรียงตามเปอร์เซ็นต์การมา (มา ÷ ที่ควรมาได้): high = ค่าเฉลี่ยดีก่อน · เท่ากันให้คนที่มีข้อมูลมากกว่าก่อน */
+/**
+ * คะแนนความสม่ำเสมอ = ขอบล่างของช่วงความเชื่อมั่น (Wilson 95%) ของอัตราการมา: คนที่มาเกือบทุกครั้งในหลายสิบ/ร้อยครั้ง
+ * (เช่น 116/120 = 97%) ถือว่าสม่ำเสมอกว่าคนที่เพิ่งมา 1–2 ครั้งแล้วมาทุกครั้ง (1/1, 2/2 = 100% แต่ยังไม่มีข้อมูลพอ)
+ */
+export function regularity(pct: number, possible: number): number {
+  if (possible <= 0) return 0
+  const z = 1.96, z2 = z * z, p = Math.max(0, Math.min(1, pct))
+  return (p + z2 / (2 * possible) - z * Math.sqrt((p * (1 - p)) / possible + z2 / (4 * possible * possible))) / (1 + z2 / possible)
+}
+/** เรียงตามความสม่ำเสมอในการมา (ดู regularity: อัตราการมา + จำนวนครั้งที่ควรมาได้) high = สม่ำเสมอสุดก่อน · คะแนนเท่ากันให้คนที่มีข้อมูลมากกว่าก่อน */
 export function orderByPct<T extends { id: string; name: string }>(list: T[], pctOf: (id: string) => { pct: number; possible: number }, high = true): T[] {
+  const sc = (id: string) => { const v = pctOf(id); return regularity(v.pct, v.possible) }
   return [...list].sort((x, y) => {
     const a = pctOf(x.id), b = pctOf(y.id)
-    return (high ? b.pct - a.pct : a.pct - b.pct) || b.possible - a.possible || x.name.localeCompare(y.name, 'th')
+    return (high ? sc(y.id) - sc(x.id) : sc(x.id) - sc(y.id)) || b.possible - a.possible || x.name.localeCompare(y.name, 'th')
   })
 }
 /** จำนวนสมาชิกแยกตามสถานะจริง (1.สมบูรณ์ 1 → 7.เสียชีวิต · สถานะอื่น/ไม่ระบุอยู่ท้าย) */

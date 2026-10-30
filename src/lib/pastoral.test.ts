@@ -98,7 +98,10 @@ describe('แท็บเก่าแก่ · สม่ำเสมอ · ส�
     expect(orderByTenure(ms, (id) => d[id], false).map((m) => m.id)).toEqual(['a', 'd', 'b', 'c'])
     const p: Record<string, { pct: number; possible: number }> = { a: { pct: 0.5, possible: 10 }, b: { pct: 0.9, possible: 2 }, c: { pct: 0.9, possible: 50 }, d: { pct: 0.1, possible: 5 } }
     expect(orderByPct(ms, (id) => p[id]).map((m) => m.id)).toEqual(['c', 'b', 'a', 'd'])
-    expect(orderByPct(ms, (id) => p[id], false).map((m) => m.id)).toEqual(['d', 'a', 'c', 'b'])
+    expect(orderByPct(ms, (id) => p[id], false).map((m) => m.id)).toEqual(['d', 'a', 'b', 'c'])
+    // 116/120 (97%) สม่ำเสมอกว่า 2/2 และ 1/1 (100% แต่ข้อมูลน้อย)
+    const q: Record<string, { pct: number; possible: number }> = { a: { pct: 1, possible: 2 }, b: { pct: 1, possible: 1 }, c: { pct: 116 / 120, possible: 120 }, d: { pct: 19 / 20, possible: 20 } }
+    expect(orderByPct(ms, (id) => q[id]).map((m) => m.id)).toEqual(['c', 'd', 'a', 'b'])
   })
   it('นับตามสถานะเรียงจากดีที่สุด และเพศแยกตามสถานะ', () => {
     const ms = [{ status: '2.สมบูรณ์ ( 2 )', gender: 'หญิง' }, { status: '1.สมบูรณ์ ( 1 )', gender: 'ชาย' }, { status: '1.สมบูรณ์ ( 1 )', gender: 'หญิง' }, { status: '7.เสียชีวิต' }, { gender: 'ชาย' }]
