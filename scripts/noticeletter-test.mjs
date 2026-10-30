@@ -100,6 +100,8 @@ try {
   await body(admin).waitFor({ timeout: 15000 })
   const p2 = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
   must(/ศอ\/ปธ\.00\d/.test(p2) && p2.includes('13.00 น.') && p2.includes('มน.หนึ่งฤทัย'), 'notice uses library prefix: ' + p2.slice(0, 400))
+  must(p2.includes('หนังสือภายใน') && /แจ้งการประชุมประจำเดือน\S+ พ\.ศ\. 25\d\d/.test(p2) && !p2.includes('Cornerstone') && !p2.includes('77110'), 'internal header: ' + p2.slice(0, 300))
+  if (process.env.SHOT) await admin.getByLabel('ตัวอย่างหนังสือ').screenshot({ path: process.env.SHOT })
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('noticeletter-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

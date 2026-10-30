@@ -11,7 +11,7 @@ import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
-import { letterDate, noticeMeetingText } from '../lib/meetings'
+import { letterDate, nextFirstSunday, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
@@ -56,6 +56,8 @@ const INVITE_CFG: Cfg = {
 }
 /** ค่าตั้งต้นตามชนิดหนังสือ (หัวจดหมาย/ลงนามเหมือนกัน · ประโยคปิดเรื่องต่างกัน) */
 const SECRETARY_CFG: Partial<Cfg> = {
+  // หนังสือภายใน: หัวสั้น (ไม่ต้องมีชื่อภาษาอังกฤษ/ที่อยู่/อีเมลเหมือนส่งนอก) และคำลงท้ายสั้น
+  thName: 'คริสตจักรศิลาเอก', enName: '', addr: '', bless: 'ขอแสดงความนับถือในพระคริสต์',
   signName: 'มน.หนึ่งฤทัย  ทองมี',
   signRole: 'เลขานุการคริสตจักร',
   contact: 'ติดต่อ มน.หนึ่งฤทัย  ทองมี เลขานุการคริสตจักร โทร. ………-………-…………',
@@ -81,19 +83,24 @@ export function letterText(l: Draft, c: Cfg): string {
 }
 
 /** หน้า A4: หัวจดหมาย (โลโก้ + ข้อความ) บน · เนื้อหากลาง · ลงนามขวา · ข้อมูลติดต่อล็อกท้ายกระดาษ */
-function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement> }) {
+function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement>; internal?: boolean }) {
   const signed = !!l.signed && !!c.signImg
+  // หนังสือภายใน (แจ้งการประชุม): แถบหัวเรื่องบอกทันทีว่าเป็นการแจ้งประชุมประจำเดือนอะไร ปีอะไร
+  const mt = internal ? nextFirstSunday(l.date || todayISO()) : null
+  const MONTH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
   return (
     <ScaledPage ref={paperRef} className="a4page a4page--letter">
-      <div className="il">
+      <div className={`il${internal ? ' il--internal' : ''}`}>
         <header className="il__head">
           <img src={logoUrl} alt="" className="il__logo" />
           <div className="il__heads">
             <div className="il__th">{c.thName}</div>
-            <div className="il__en">{c.enName}</div>
-            <div className="il__addr">{c.addr}</div>
+            {c.enName && <div className="il__en">{c.enName}</div>}
+            {c.addr && <div className="il__addr">{c.addr}</div>}
+            {internal && <span className="il__tag">หนังสือภายใน</span>}
           </div>
         </header>
+        {mt && <div className="il__banner">แจ้งการประชุมประจำเดือน{MONTH[mt.m - 1]} พ.ศ. {mt.y + 543}</div>}
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no || '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
@@ -404,7 +411,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         <button type="button" className="mini" onClick={copy} aria-label="คัดลอกข้อความทั้งหมด">{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ'}</button>
       </div>
       <div className="no-print" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
-      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} /></div>
+      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} internal={!!K.secretarySigns} /></div>
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
         <button type="button" className="btn btn--ghost il-bar" disabled={missing.length > 0 && !l.notified} onClick={notify}>📨 <No n="10" ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
         {missing.length > 0 && !l.notified && <p className="small" role="note" style={{ margin: 0 }}>⏳ ทำข้อ {missing.join(', ')} ให้เสร็จ (วงกลมเขียวครบ) ก่อน จึงแจ้งประธานตรวจสอบได้</p>}
