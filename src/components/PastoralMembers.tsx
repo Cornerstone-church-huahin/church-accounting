@@ -19,6 +19,8 @@ const ORDERS: Record<number, { k: Ord; t: string }[]> = {
   1: [{ k: 'old', t: 'เก่าแก่ → ใหม่' }, { k: 'new', t: 'ใหม่ → เก่าแก่' }, { k: 'recent', t: 'มาบ่อยใน 1 ปี → ขาดนาน' }, { k: 'name', t: 'ชื่อ ก → ฮ' }, { k: 'nameDesc', t: 'ชื่อ ฮ → ก' }],
   2: [{ k: 'pct', t: 'สม่ำเสมอสุด → น้อยสุด' }, { k: 'pctAsc', t: 'น้อยสุด → สม่ำเสมอสุด' }, { k: 'name', t: 'ชื่อ ก → ฮ' }, { k: 'nameDesc', t: 'ชื่อ ฮ → ก' }],
 }
+/** สีของหลอดความสม่ำเสมอ: เต็มปี = เขียวเข้ม · ลดลงเป็นเขียวอ่อน เหลือง ส้ม แดง */
+const gaugeColor = (p: number) => (p >= 0.8 ? '#1b7f4b' : p >= 0.6 ? '#7aa63a' : p >= 0.4 ? '#d9a21b' : p >= 0.2 ? '#e0762a' : '#c0261b')
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
 
@@ -190,7 +192,14 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
                   {tab === 1
                     ? <span className="pcard__l2">สมาชิกมา <b>{tenureText(tenureMap.get(m.id) ?? null)}</b> · {statusShort(m.status)} · กลุ่ม {grp(m)}</span>
-                    : <span className="pcard__l2">{ev.hasData ? <>สม่ำเสมอ 1 ปีล่าสุด มา <b>{timesOf(m.id)}</b>/{ev.yearServices} ครั้ง · <b className="pcard__pct">{Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%</b> · {statusShort(m.status)}</> : 'ยังไม่มีบันทึกลงชื่อนมัสการ'}</span>}
+                    : ev.hasData
+                      ? (
+                        <>
+                          <span className="pcard__l2">มา <b>{timesOf(m.id)}</b>/{ev.yearServices} ครั้ง · <b className="pcard__pct">{Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%</b> · {statusShort(m.status)}</span>
+                          <span className="pcard__gauge" role="img" aria-label={`สม่ำเสมอในหนึ่งปีล่าสุด ${Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%`}><i style={{ width: `${Math.round((ev.map.get(m.id)?.yearPct ?? 0) * 100)}%`, background: gaugeColor(ev.map.get(m.id)?.yearPct ?? 0) }} /></span>
+                        </>
+                      )
+                      : <span className="pcard__l2">ยังไม่มีบันทึกลงชื่อนมัสการ</span>}
                 </div>
               </li>
             ))}
