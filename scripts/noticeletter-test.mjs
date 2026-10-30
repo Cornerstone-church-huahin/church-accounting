@@ -100,6 +100,7 @@ try {
   must((await admin.getByLabel('ตัวอย่างหนังสือ').innerText()).includes('ฟีลิปปี 4:4'), 'verse on paper')
   must((await admin.getByRole('button', { name: /ส่งเข้าคลังเอกสาร/ }).innerText().then(() => admin.getByRole('button', { name: /13\. ส่งเข้าคลังเอกสาร/ }).count())) === 1, 'numbering shifted: library step is 13')
   must(await admin.getByRole('button', { name: /11\. แจ้งประธานตรวจสอบ/ }).count() === 1, 'notify step is 11')
+  if (process.env.SHOT) await admin.getByLabel('ตัวอย่างหนังสือ').screenshot({ path: process.env.SHOT })
   // หนังสือแจ้งการประชุม: เลขตามหมวดในคลัง ศอ/ปธ
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
   await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
@@ -109,7 +110,6 @@ try {
   must(p2.includes('หนังสือภายใน') && /แจ้งประชุมคณะธรรมกิจ ประจำเดือน\S+ พ\.ศ\. 25\d\d/.test(p2) && !p2.includes('Cornerstone') && !p2.includes('77110'), 'internal header: ' + p2.slice(0, 300))
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
   await admin.getByRole('link', { name: /^เปิด \d{1,2}\/\d{1,2}\/\d{4} แจ้งการประชุมประจำเดือนธรรมกิจ/ }).first().waitFor({ timeout: 10000 })
-  if (process.env.SHOT) await admin.getByLabel('ตัวอย่างหนังสือ').screenshot({ path: process.env.SHOT })
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('noticeletter-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
