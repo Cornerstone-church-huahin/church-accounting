@@ -74,7 +74,7 @@ try {
   // งานอภิบาล: สมาชิก 👥 / วางแผนเยี่ยม เปิดหน้าเต็มว่าง
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
   const tabs4 = await links('หมวดงานอภิบาล').allInnerTexts()
-  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'สมาชิก|วางแผนเยี่ยม|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
+  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'รวมสมาชิก|วางแผนเยี่ยม|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
   must(tabs4[0].includes('👥'), 'สมาชิก tile has the members icon')
   for (const parent of ['สมาชิก', 'วางแผนเยี่ยม']) {
     await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
