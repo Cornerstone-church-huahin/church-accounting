@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup } from './visitPlan'
+import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup, setStop, stopsOf } from './visitPlan'
 
 const m = (id: string) => ({ id, name: id.toUpperCase() })
 const ids = (d: ReturnType<typeof planDoc>) => groupsOf(d).map((g) => g.items.map((x) => x.id).join(''))
 describe('แผนเยี่ยมรายวัน แบ่งกลุ่ม', () => {
   it('เพิ่มคนเข้ากลุ่ม · ข้อมูลเดิมไม่มีกลุ่ม = กลุ่ม 1', () => {
-    expect(planDoc({ items: [{ id: 'a', name: 'A' }] } as never).items[0].g).toBe(1)
+    expect(planDoc({ items: [{ id: 'a', name: 'A' }] } as never).items[0].g).toBe(0)
     let d = planDoc()
     d = addItem(d, m('a'), 1); d = addItem(d, m('b'), 1); d = addItem(d, m('c'), 2); d = addItem(d, m('a'), 2) // ซ้ำ = ไม่เพิ่ม
     expect(ids(d)).toEqual(['ab', 'c'])
+  })
+  it('กำหนดจุดเยี่ยม: ใส่ตะกร้า = ยังไม่มีจุด · ตั้งจุดแล้วเรียงตามลำดับที่เลือก · แก้/เอาออกจากจุดได้', () => {
+    let d = planDoc(); for (const x of ['a', 'b', 'c']) d = addItem(d, m(x))
+    expect(d.items.map((x) => x.g)).toEqual([0, 0, 0]); expect(stopsOf(d)).toEqual([])
+    d = setStop(d, 'c', 2); d = setStop(d, 'a', 1); d = setStop(d, 'b', 2)
+    expect(stopsOf(d).map((s) => s.g + ':' + s.items.map((x) => x.id).join(''))).toEqual(['1:a', '2:cb'])
+    d = setStop(d, 'c', 1); expect(stopsOf(d).map((s) => s.g + ':' + s.items.map((x) => x.id).join(''))).toEqual(['1:ac', '2:b'])
+    d = setStop(d, 'b', 0); expect(stopsOf(d).map((s) => s.g)).toEqual([1])
   })
   it('เลื่อนภายในกลุ่ม · ย้ายข้ามกลุ่ม (ต่อท้าย) · สร้างกลุ่มใหม่ตอนย้าย', () => {
     let d = planDoc(); for (const [x, g] of [['a', 1], ['b', 1], ['c', 1], ['d', 2]] as const) d = addItem(d, m(x), g)

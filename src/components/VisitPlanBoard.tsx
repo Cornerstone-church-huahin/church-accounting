@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import AbsentList, { monthsText } from './AbsentList'
 import MemberAvatar from './MemberAvatar'
@@ -7,7 +7,7 @@ import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import { addDays } from '../lib/money'
 import { DAY_NAMES } from '../lib/visits'
-import { addGroup, addItem, groupsOf, moveTo, moveWithin, removeGroup, removeItem, renameGroup, type PlanDoc } from '../lib/visitPlan'
+import { addItem, removeItem, renameGroup, setStop, stopsOf, type PlanDoc } from '../lib/visitPlan'
 import { fmtDay } from './PastoralVisits'
 import type { ChurchMember } from '../lib/types'
 
@@ -19,55 +19,24 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   const plans = useVisitPlans()
   const [date, setDate] = useState(today)
   const [open, setOpen] = useState(false) // ตะกร้าเปิดเป็นป๊อปอัพ (false = ย่อเหลือปุ่มตะกร้าลอยอยู่ด้านล่าง)
-  const [target, setTarget] = useState(0) // กลุ่มที่จะเพิ่มคนเข้า (0 = กลุ่มสุดท้าย)
+  const [ask, setAsk] = useState<{ id: string; name: string; val: string } | null>(null) // ป๊อปอัพ “จุดเยี่ยมที่”
   const [msg, setMsg] = useState('')
   const doc = plans.of(date)
   const canEdit = plans.canEdit()
   const ids = useMemo(() => doc.items.map((x) => x.id), [doc])
   const byId = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
-  const groups = groupsOf(doc)
-  const addTo = target > 0 && target <= doc.groups ? target : doc.groups
+  const stops = stopsOf(doc)
   const write = (next: PlanDoc) => setMsg(plans.save(date, next) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
-  const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m, addTo))
+  const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m))
   const dayLabel = `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}${date === today ? ' · วันนี้' : ''}`
   const n = doc.items.length
-  // ลากวาง: กดค้างที่ปุ่มจับ ⋮⋮ (≈0.3 วินาที) แล้วลากไปวางตำแหน่ง/กลุ่มใหม่ · ปล่อยแล้วบันทึก
-  const [drag, setDrag] = useState<{ id: string; dy: number } | null>(null)
-  const [over, setOver] = useState<{ g: number; index: number } | null>(null)
-  const hold = useRef<{ id: string; t: number; y0: number; on: boolean; over: { g: number; index: number } | null } | null>(null)
-  const sheet = useRef<HTMLDivElement>(null)
-  const locate = (id: string, y: number): { g: number; index: number } | null => {
-    const root = sheet.current; if (!root) return null
-    const secs = [...root.querySelectorAll<HTMLElement>('[data-gid]')]
-    if (!secs.length) return null
-    let sec = secs.find((e) => { const r = e.getBoundingClientRect(); return y >= r.top && y <= r.bottom })
-    if (!sec) sec = y < secs[0].getBoundingClientRect().top ? secs[0] : secs[secs.length - 1]
-    const g = Number(sec.dataset.gid)
-    const rows = [...sec.querySelectorAll<HTMLElement>('[data-pid]')].filter((e) => e.dataset.pid !== id)
-    let index = rows.length
-    for (let i = 0; i < rows.length; i++) { const r = rows[i].getBoundingClientRect(); if (y < r.top + r.height / 2) { index = i; break } }
-    return { g, index }
+  const askStop = (x: { id: string; name: string; g: number }) => setAsk({ id: x.id, name: x.name, val: String(x.g || Math.max(1, ...doc.items.map((y) => y.g))) })
+  const okStop = () => {
+    if (!ask) return
+    const v = Math.round(Number(ask.val))
+    if (!(v >= 1 && v <= 99)) return
+    write(setStop(doc, ask.id, v)); setAsk(null)
   }
-  const down = (e: React.PointerEvent, id: string) => {
-    if (!canEdit) return
-    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-    const h = { id, y0: e.clientY, on: false, over: null as { g: number; index: number } | null, t: window.setTimeout(() => { if (hold.current === h) { h.on = true; setDrag({ id, dy: 0 }); navigator.vibrate?.(15) } }, 300) }
-    hold.current = h
-  }
-  const moveDrag = (e: React.PointerEvent) => {
-    const h = hold.current; if (!h || !h.on) return
-    setDrag({ id: h.id, dy: e.clientY - h.y0 })
-    h.over = locate(h.id, e.clientY); setOver(h.over)
-    const box = sheet.current?.getBoundingClientRect() // ลากใกล้ขอบบน/ล่างของป๊อปอัพ = เลื่อนหน้าให้
-    if (box && sheet.current) { if (e.clientY < box.top + 70) sheet.current.scrollTop -= 14; else if (e.clientY > box.bottom - 70) sheet.current.scrollTop += 14 }
-  }
-  const up = () => {
-    const h = hold.current; hold.current = null
-    if (h) window.clearTimeout(h.t)
-    if (h?.on && h.over) write(moveTo(doc, h.id, h.over.g, h.over.index))
-    setDrag(null); setOver(null)
-  }
-  const keyMove = (e: React.KeyboardEvent, id: string) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); write(moveWithin(doc, id, e.key === 'ArrowUp' ? -1 : 1)) } }
   useEffect(() => {
     if (!open) return
     const on = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
@@ -75,7 +44,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
     return () => window.removeEventListener('keydown', on)
   }, [open])
   const icon = (
-    <button type="button" className="vbasket__icon" aria-label={`เปิดตะกร้า ${n} คน`} title={n === 0 ? 'ตะกร้าแผนเยี่ยม (ว่าง)' : groups.map((gr) => `กลุ่ม ${gr.g}${gr.name ? ` ${gr.name}` : ''}: ${gr.items.length} คน`).join(' · ')} onClick={() => setOpen(true)}>
+    <button type="button" className="vbasket__icon" aria-label={`เปิดตะกร้า ${n} คน`} title={n === 0 ? 'ตะกร้าแผนเยี่ยม (ว่าง)' : stops.map((gr) => `จุด ${gr.g}${gr.name ? ` ${gr.name}` : ''}: ${gr.items.length} คน`).join(' · ')} onClick={() => setOpen(true)}>
           🧺{n > 0 && <span className="vbasket__badge">{n}</span>}
         </button>
   )
@@ -94,18 +63,17 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
           {canEdit
             ? (
               <div className="vplan__bar no-print">
-                <span className="small">แตะ ＋ เพื่อใส่ตะกร้า · กดปุ่ม 🧺 ด้านบนเพื่อดู/จัดกลุ่ม/เรียงลำดับ</span>
-                {doc.groups > 1 && <label className="small">เพิ่มเข้า <select className="input" aria-label="เพิ่มเข้ากลุ่ม" value={addTo} onChange={(e) => setTarget(Number(e.target.value))}>{groups.map((g) => <option key={g.g} value={g.g}>กลุ่ม {g.g}{g.name ? ` · ${g.name}` : ''}</option>)}</select></label>}
+                <span className="small">แตะ ＋ เพื่อใส่ตะกร้า · กดปุ่ม 🧺 ด้านบนเพื่อกำหนดจุดเยี่ยม</span>
               </div>
             )
             : <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
-          <AbsentList label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${n} คน${doc.groups > 1 ? ` · เพิ่มเข้ากลุ่ม ${addTo}` : ''})` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
+          <AbsentList label={canEdit ? `แตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า (${n} คน)` : 'ค้นหาสมาชิก / เลือกสถานะ'} members={members} stats={stats} today={today}
             {...(canEdit ? { selectedIds: ids, onPick: toggle } : {})} />
         </>
       {createPortal(
         open ? (
           <div className="vbasket__ov no-print" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-            <div className="vbasket" role="dialog" aria-modal="true" aria-label="ตะกร้าแผนเยี่ยม" ref={sheet}>
+            <div className="vbasket" role="dialog" aria-modal="true" aria-label="ตะกร้าแผนเยี่ยม">
               <div className="vbasket__h">
                 <b>🧺 ตะกร้า · {dayLabel}</b>
                 <span className="vbasket__hb">
@@ -113,47 +81,54 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
                 </span>
               </div>
         <div className="vplan__body">
-            {canEdit && n > 0 && <p className="vplan__hint no-print" role="note"><span className="vplan__grip" aria-hidden="true">⋮⋮</span> กดค้างที่ปุ่มนี้ แล้วลากเพื่อเรียงลำดับ หรือย้ายไปกลุ่มอื่น</p>}
-          {n === 0 && groups.length <= 1
+          {n === 0
             ? <p className="empty">ตะกร้ายังว่าง — ปิดป๊อปอัพนี้แล้วแตะ ＋ ที่ชื่อเพื่อใส่ตะกร้า</p>
             : (
               <>
-                <p className="pagehint" style={{ margin: '0 0 0.3rem' }}>{n} คน · {doc.groups} กลุ่ม</p>
-                {groups.map((gr) => (
-                  <section key={gr.g} className={`vplan__grp${drag && over?.g === gr.g ? ' vplan__grp--over' : ''}`} aria-label={`กลุ่มที่ ${gr.g}`} data-gid={gr.g}>
-                    <div className="vplan__gh">
-                      <b>กลุ่มที่ {gr.g}</b>
-                      {canEdit
-                        ? <input className="input vplan__gname" aria-label={`ชื่อสถานที่ของกลุ่มที่ ${gr.g}`} placeholder="สถานที่/โซน (ถ้ามี)" maxLength={40} defaultValue={gr.name} key={`${date}-${gr.g}-${gr.name}`} onBlur={(e) => { if (e.target.value.trim() !== gr.name) write(renameGroup(doc, gr.g, e.target.value)) }} />
-                        : gr.name && <span className="small muted">{gr.name}</span>}
-                      <span className="small muted">{gr.items.length} คน</span>
-                      {canEdit && gr.items.length === 0 && doc.groups > 1 && <button type="button" className="mini" aria-label={`ลบกลุ่มที่ ${gr.g}`} onClick={() => write(removeGroup(doc, gr.g))}>ลบกลุ่ม</button>}
-                    </div>
-                    {gr.items.length === 0
-                      ? <p className="muted small" style={{ margin: '0.2rem 0.5rem' }}>ยังไม่มีคนในกลุ่มนี้</p>
-                      : (
-                        <ol className={`vplan__list${drag && over && over.g === gr.g && over.index >= gr.items.filter((y) => y.id !== drag.id).length ? ' vplan__list--end' : ''}`} aria-label={`ลำดับในกลุ่มที่ ${gr.g}`}>
-                          {gr.items.map((x, i) => {
-                            const m = byId.get(x.id)
-                            const mo = m ? absentMonths(stats.get(m.id)?.last, today) : null
-                            return (
-                              <li key={x.id} data-pid={x.id} className={`vplan__item${drag?.id === x.id ? ' vplan__item--drag' : ''}${drag && over && over.g === gr.g && drag.id !== x.id && over.index === gr.items.filter((y) => y.id !== drag.id).findIndex((y) => y.id === x.id) ? ' vplan__item--ins' : ''}`} style={drag?.id === x.id ? { transform: `translateY(${drag.dy}px)` } : undefined}>
-                                {canEdit && <button type="button" className="vplan__handle" aria-label={`จับ ${x.name} เพื่อลากเรียงลำดับ (กดค้างแล้วลาก · ลูกศรขึ้นลงบนคีย์บอร์ด)`} onPointerDown={(e) => down(e, x.id)} onPointerMove={moveDrag} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => keyMove(e, x.id)} onContextMenu={(e) => e.preventDefault()}>⋮⋮</button>}
-                                <span className="vplan__no" aria-hidden="true">{i + 1}</span>
-                                <MemberAvatar path={m?.photoPath} name={x.name} size={44} />
-                                <span className="vplan__who"><b>{x.name}</b><small className="muted">{m ? `${statusShort(m.status)} · ${monthsText(mo)}` : 'ไม่พบในทะเบียน'}</small></span>
-                                {canEdit && <button type="button" className="mini vplan__x" aria-label={`เอา ${x.name} ออกจากตะกร้า`} onClick={() => write(removeItem(doc, x.id))}>✕</button>}
-                              </li>
-                            )
-                          })}
-                        </ol>
-                      )}
-                  </section>
-                ))}
-                {canEdit && (
+                {canEdit && <p className="vplan__hint no-print" role="note">แตะ ＋ ที่ชื่อ แล้วใส่เลข “จุดเยี่ยมที่” (1, 2, 3 …) · คนที่กำหนดจุดแล้วจะเปลี่ยนสี</p>}
+                <p className="pagehint" style={{ margin: '0 0 0.3rem' }}>{n} คน · กำหนดจุดแล้ว {doc.items.filter((x) => x.g > 0).length} คน</p>
+                <ol className="vplan__list" aria-label="รายชื่อในตะกร้า">
+                  {doc.items.map((x) => {
+                    const m = byId.get(x.id)
+                    const mo = m ? absentMonths(stats.get(m.id)?.last, today) : null
+                    return (
+                      <li key={x.id} className={`vplan__item${x.g > 0 ? ' vplan__item--set' : ''}`}>
+                        {canEdit
+                          ? <button type="button" className="vplan__stop" aria-label={x.g > 0 ? `${x.name} จุดที่ ${x.g} (แตะเพื่อเปลี่ยนจุด)` : `กำหนดจุดเยี่ยมของ ${x.name}`} onClick={() => askStop(x)}>{x.g > 0 ? x.g : '＋'}</button>
+                          : <span className="vplan__no" aria-hidden="true">{x.g > 0 ? x.g : '–'}</span>}
+                        <MemberAvatar path={m?.photoPath} name={x.name} size={44} />
+                        <span className="vplan__who"><b>{x.name}</b><small className="muted">{m ? `${statusShort(m.status)} · ${monthsText(mo)}` : 'ไม่พบในทะเบียน'}</small></span>
+                        {canEdit && <button type="button" className="mini vplan__x" aria-label={`เอา ${x.name} ออกจากตะกร้า`} onClick={() => write(removeItem(doc, x.id))}>✕</button>}
+                      </li>
+                    )
+                  })}
+                </ol>
+                <h3 className="vplan__th">📍 ตารางจุดเยี่ยม</h3>
+                {stops.length === 0
+                  ? <p className="muted small">ยังไม่มีจุดเยี่ยม — แตะ ＋ ที่ชื่อด้านบนเพื่อกำหนดจุด</p>
+                  : stops.map((gr) => (
+                    <section key={gr.g} className="vplan__grp" aria-label={`จุดที่ ${gr.g}`}>
+                      <div className="vplan__gh">
+                        <b>จุดที่ {gr.g}</b>
+                        {canEdit
+                          ? <input className="input vplan__gname" aria-label={`ชื่อสถานที่ของจุดที่ ${gr.g}`} placeholder="สถานที่/โซน (ถ้ามี)" maxLength={40} defaultValue={gr.name} key={`${date}-${gr.g}-${gr.name}`} onBlur={(e) => { if (e.target.value.trim() !== gr.name) write(renameGroup(doc, gr.g, e.target.value)) }} />
+                          : gr.name && <span className="small muted">{gr.name}</span>}
+                        <span className="small muted">{gr.items.length} คน</span>
+                      </div>
+                      <ol className="vplan__list" aria-label={`ลำดับในจุดที่ ${gr.g}`}>
+                        {gr.items.map((x, i) => (
+                          <li key={x.id} className="vplan__item">
+                            <span className="vplan__no" aria-hidden="true">{i + 1}</span>
+                            <span className="vplan__who"><b>{x.name}</b></span>
+                            {canEdit && <button type="button" className="mini vplan__x" aria-label={`แก้จุดของ ${x.name}`} onClick={() => askStop(x)}>✎</button>}
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  ))}
+                {canEdit && n > 0 && (
                   <div className="row no-print">
-                    <button type="button" className="mini" onClick={() => write(addGroup(doc))}>＋ เพิ่มกลุ่ม</button>
-                    {n > 0 && <button type="button" className="mini" onClick={() => { if (window.confirm(`ล้างตะกร้าวัน ${dayLabel} ทั้งหมด ${n} คน ?`)) write({ ...doc, items: [] }) }}>ล้างตะกร้า</button>}
+                    <button type="button" className="mini" onClick={() => { if (window.confirm(`ล้างตะกร้าวัน ${dayLabel} ทั้งหมด ${n} คน ?`)) write({ ...doc, items: [] }) }}>ล้างตะกร้า</button>
                   </div>
                 )}
               </>
@@ -162,6 +137,18 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
             </div>
           </div>
         ) : null, document.body)}
+      {ask && createPortal(
+        <div className="vbasket__ov vbasket__ov--ask no-print" onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
+          <form className="vbasket__ask" role="dialog" aria-modal="true" aria-label="จุดเยี่ยม" onSubmit={(e) => { e.preventDefault(); okStop() }}>
+            <p style={{ margin: 0 }}><b>{ask.name}</b></p>
+            <label className="vbasket__asklab">จุดเยี่ยมที่ <input className="input" type="number" inputMode="numeric" min={1} max={99} autoFocus aria-label="จุดเยี่ยมที่" value={ask.val} onChange={(e) => setAsk({ ...ask, val: e.target.value })} /></label>
+            <div className="row">
+              <button type="submit" className="btn">โอเค</button>
+              <button type="button" className="mini" onClick={() => setAsk(null)}>ยกเลิก</button>
+              {(doc.items.find((x) => x.id === ask.id)?.g ?? 0) > 0 && <button type="button" className="mini" onClick={() => { write(setStop(doc, ask.id, 0)); setAsk(null) }}>เอาออกจากจุด</button>}
+            </div>
+          </form>
+        </div>, document.body)}
     </div>
   )
 }
