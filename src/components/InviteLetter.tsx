@@ -5,7 +5,7 @@ import Sheet from './Sheet'
 import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useLetters, useLetterSettings } from '../lib/data'
 import { LETTER_KINDS, type LetterKindId } from '../lib/letterKinds'
-import { can } from '../lib/access'
+import { can, canWork } from '../lib/access'
 import { cleanPrefix, followPrefix, invitePrefix, nextDocNo } from '../lib/docLibrary'
 import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
@@ -19,9 +19,10 @@ import type { DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from 
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
-const blankOf = (kind: LetterKindId): Draft => ({ toName: '', no: '', date: '', ...LETTER_KINDS[kind].blank, attach: '', showAttach: false })
+const blankOf = (kind: LetterKindId): Draft => ({ toName: '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
+const agendaOf = (l: Draft) => (l.agenda ?? []).map((x) => x.trim()).filter(Boolean)
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
-const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, c.proceed, c.bless, c.signName, c.signRole])
+const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), c.proceed, c.bless, c.signName, c.signRole])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
 function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
@@ -43,7 +44,12 @@ const INVITE_CFG: Cfg = {
   contact: 'ติดต่อ 080-582-0777 มน.สมเจต เสมาทอง ประธานธรรมกิจ, 095-779-9382 คศ.กฤตุ รุ่งโรจน์ร่มเย็น ศิษยาภิบาล,\n093-476-5585 คศ.พิชิต เผ่าดี ศิษยาภิบาลฝ่ายอภิบาลและพัฒนา,\n081-889-6490 อ.ดารา ผลจันทร์ คณะธรรมกิจ',
 }
 /** ค่าตั้งต้นตามชนิดหนังสือ (หัวจดหมาย/ลงนามเหมือนกัน · ประโยคปิดเรื่องต่างกัน) */
-export const defaultCfg = (kind: LetterKindId): Cfg => ({ ...INVITE_CFG, proceed: LETTER_KINDS[kind].proceed })
+const SECRETARY_CFG: Partial<Cfg> = {
+  signName: 'มน.หนึ่งฤทัย  ทองมี',
+  signRole: 'เลขานุการคริสตจักร',
+  contact: 'ติดต่อ มน.หนึ่งฤทัย  ทองมี เลขานุการคริสตจักร โทร. ………-………-…………',
+}
+export const defaultCfg = (kind: LetterKindId): Cfg => ({ ...INVITE_CFG, ...(LETTER_KINDS[kind].secretarySigns ? SECRETARY_CFG : {}), proceed: LETTER_KINDS[kind].proceed })
 export const DEFAULT_CFG = INVITE_CFG
 type Sec = 'head' | 'sign' | 'contact'
 type TextKey = 'numPrefix' | 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
@@ -59,7 +65,7 @@ export function letterText(l: Draft, c: Cfg): string {
   return [
     c.thName, c.enName, c.addr, '',
     l.no ? `ที่ ${l.no}` : '', letterDate(l.date), '',
-    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, attachOf(l) ? `สิ่งที่ส่งมาด้วย  ${attachOf(l)}` : '', '', l.body, '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
+    `เรื่อง  ${l.subject}`, `เรียน  ${l.to}`, attachOf(l) ? `สิ่งที่ส่งมาด้วย  ${attachOf(l)}` : '', '', l.body, ...(agendaOf(l).length ? agendaOf(l).map((x, i) => `${i + 1}. ${x}`) : []), '', c.proceed, '', c.bless, '', '', c.signName ? `(${c.signName})` : '', c.signRole, '', c.contact,
   ].filter((x, i, a) => !(x === '' && (a[i - 1] === '' || i === 0))).join('\n').trim()
 }
 
@@ -84,6 +90,7 @@ function Paper({ l, c, paperRef }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLD
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
+          {agendaOf(l).length > 0 && <ol className="letter__agenda">{agendaOf(l).map((x, i) => <li key={i}>{x}</li>)}</ol>}
           <p className="letter__p">{c.proceed}</p>
         </div>
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
@@ -198,7 +205,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const cat = cats.list.find((c) => !c.deleted && c.name.includes(K.catMatch))
 
   // ลงลายเซ็น (เฉพาะแอดมิน/ผู้ลงนาม): แก้หนังสือหลังลงนามแล้ว ลายเซ็นถูกถอน ต้องลงนามใหม่
-  const canSign = can(role, 'settings')
+  // หนังสือที่เลขาลงนามเอง (แจ้งการประชุม): ผู้ดูแลงานเลขา/ผู้ช่วยกดลงลายเซ็นได้ทันที · ชนิดอื่นเฉพาะแอดมิน (ประธาน)
+  const canSign = can(role, 'settings') || (!!K.secretarySigns && canWork(1, 'edit'))
+  const who = K.secretarySigns ? 'เลขา' : 'ประธาน'
   useEffect(() => {
     if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
   }, [l, cfg.proceed, cfg.bless, cfg.signName, cfg.signRole]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -272,7 +281,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   /** 12. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
-    if (!l.signed) return setMsg('รอประธานเซ็นก่อน จึงส่งเข้าคลังเอกสารได้')
+    if (!l.signed) return setMsg(`รอ${who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้`)
     if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
     const cfgSync = getSync()
     if (!cfgSync) return setMsg('ต้องเชื่อมต่อออนไลน์ก่อน จึงส่งเข้าคลังเอกสารได้ (ไฟล์เก็บใน repo ข้อมูล)')
@@ -352,6 +361,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         </div>
         <div className="field"><label htmlFor="il-body"><No n="7" ok={okOf['7']} />ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
+        {K.agenda && <AgendaEditor items={l.agenda ?? []} onChange={(a) => set({ agenda: a })} />}
+
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
       </section>
@@ -368,7 +379,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {/* ขั้น 11: แอดมิน (ประธาน) เห็นปุ่มลงลายเซ็น · เลขาเห็นแถบ "รอประธานเซ็น" แล้วเปลี่ยนเป็นเขียว "ประธานเซ็นแล้ว" เมื่อประธานลงนาม (ซิงก์ข้ามเครื่อง) */}
         {l.signed ? (
           <>
-            <div className="il-bar il-bar--ok" role="status">✅ <No n="11" ok={okOf['11']} />{canSign ? 'ลงนามแล้ว' : 'ประธานเซ็นแล้ว'}</div>
+            <div className="il-bar il-bar--ok" role="status">✅ <No n="11" ok={okOf['11']} />{canSign ? 'ลงนามแล้ว' : `${who}เซ็นแล้ว`}</div>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
               <span className="small muted">{new Date(l.signed.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })} · {l.signed.by}{canSign ? '' : ' — ทำขั้นตอนต่อไปได้'}</span>
               {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
@@ -376,14 +387,14 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           </>
         ) : canSign
           ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n="11" ok={okOf['11']} />ลงลายเซ็น</button>
-          : <div className="il-bar il-bar--wait" role="status">⏳ <No n="11" ok={false} />รอประธานเซ็น</div>}
+          : <div className="il-bar il-bar--wait" role="status">⏳ <No n="11" ok={false} />รอ{who}เซ็น</div>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
           </select></div>
-        {!l.signed && <span className="small" role="note">⏳ รอประธานเซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
+        {!l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
         <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n="12" ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
         <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
@@ -414,13 +425,13 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           setSignSetup(false); setMsg('ลงลายเซ็นเรียบร้อย — ครั้งต่อไปกด ✍️ ลงลายเซ็นได้ทันที ไม่ต้องเลือกรูปอีก'); return true
         }} />
       )}
-      {edit && <CfgForm sec={edit} cfg={cfg} def={DEF} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
+      {edit && <CfgForm sec={edit} cfg={cfg} def={DEF} secretary={!!K.secretarySigns} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
     </>
   )
 }
 
 /** แก้ข้อความของส่วนเดียว (หัวจดหมาย / ปิดท้าย·ลงนาม / ข้อมูลติดต่อ) — บันทึกแล้วใช้กับหนังสือทุกฉบับทันที */
-function CfgForm({ sec, cfg, def: DEF, onClose, onSave }: { sec: Sec; cfg: Cfg; def: Cfg; onClose: () => void; onSave: (c: Cfg) => boolean }) {
+function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec; cfg: Cfg; def: Cfg; secretary?: boolean; onClose: () => void; onSave: (c: Cfg) => boolean }) {
   const def = SECTIONS.find((x) => x.sec === sec)!
   const [c, setC] = useState<Cfg>(cfg)
   const [msg, setMsg] = useState('')
@@ -435,7 +446,7 @@ function CfgForm({ sec, cfg, def: DEF, onClose, onSave }: { sec: Sec; cfg: Cfg; 
         {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}{f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
       </>}
       {sec === 'sign' && <>
-        <SignUpload value={c.signImg} onChange={(v) => setC({ ...c, signImg: v })} />
+        <SignUpload secretary={secretary} value={c.signImg} onChange={(v) => setC({ ...c, signImg: v })} />
         {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}{f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
       </>}
       {sec === 'contact' && f('contact', 'ข้อมูลติดต่อ หากมีข้อสงสัย (บรรทัดละหนึ่งชุด)', 5)}
@@ -509,12 +520,32 @@ export function InviteLetterList({ kind = 'invite' }: { kind?: LetterKindId }) {
   )
 }
 
+/** วาระการประชุม: กรอกเป็นข้อๆ ตามลำดับ · เลื่อนขึ้น/ลง · ลบ · เพิ่มข้อ (ข้อที่ว่างไม่ขึ้นบนหนังสือ) */
+function AgendaEditor({ items, onChange }: { items: string[]; onChange: (a: string[]) => void }) {
+  const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? v : x)))
+  const move = (i: number, d: number) => { const a = [...items]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; onChange(a) }
+  return (
+    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(เรียงตามลำดับ ขึ้นเป็นข้อ 1. 2. 3. บนหนังสือ)</span></label>
+      {items.map((x, i) => (
+        <div key={i} className="row" style={{ gap: 4, flexWrap: 'nowrap', alignItems: 'center', marginBottom: 4 }}>
+          <b style={{ minWidth: '1.6rem' }}>{i + 1}.</b>
+          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={`วาระที่ ${i + 1}`} value={x} onChange={(e) => upd(i, e.target.value)} placeholder="เช่น เรื่องแจ้งเพื่อทราบ" />
+          <button type="button" className="mini" aria-label={`เลื่อนวาระที่ ${i + 1} ขึ้น`} disabled={i === 0} onClick={() => move(i, -1)}>▲</button>
+          <button type="button" className="mini" aria-label={`เลื่อนวาระที่ ${i + 1} ลง`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>▼</button>
+          <button type="button" className="mini" aria-label={`ลบวาระที่ ${i + 1}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>🗑️</button>
+        </div>
+      ))}
+      <button type="button" className="btn btn--ghost" onClick={() => onChange([...items, ''])}>➕ เพิ่มวาระ</button>
+    </div>
+  )
+}
+
 /** อัปโหลดรูปลายเซ็น (เฉพาะแอดมิน): ถ่าย/เลือกรูปที่เซ็นบนกระดาษขาว ระบบลบพื้นให้โปร่งใสและตัดขอบอัตโนมัติ */
-function SignUpload({ value, onChange }: { value?: string; onChange: (v: string | undefined) => void }) {
+function SignUpload({ value, onChange, secretary }: { value?: string; onChange: (v: string | undefined) => void; secretary?: boolean }) {
   const role = useRole()
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  if (!can(role, 'settings')) return null
+  if (!can(role, 'settings') && !(secretary && canWork(1, 'edit'))) return null
   const pick = async (f: File | null) => {
     if (!f) return
     setBusy(true); setMsg('')
@@ -526,7 +557,7 @@ function SignUpload({ value, onChange }: { value?: string; onChange: (v: string 
       <input id="cf-sign" className="input" type="file" accept="image/*" disabled={busy} onChange={(e) => void pick(e.target.files?.[0] ?? null)} />
       {value && <div className="il-signprev"><img src={value} alt="ตัวอย่างลายเซ็น" /><button type="button" className="mini" onClick={() => onChange(undefined)}>🗑️ ลบลายเซ็น</button></div>}
       {msg && <span className="small" role="status">{msg}</span>}
-      <span className="small muted">ลายเซ็นใช้ได้เฉพาะเมื่อแอดมินกด “✍️ ลงลายเซ็น” ที่หนังสือแต่ละฉบับ</span></div>
+      <span className="small muted">{secretary ? 'เลขากด “✍️ ลงลายเซ็น” ที่หนังสือแต่ละฉบับได้เอง' : 'ลายเซ็นใช้ได้เฉพาะเมื่อแอดมินกด “✍️ ลงลายเซ็น” ที่หนังสือแต่ละฉบับ'}</span></div>
   )
 }
 
