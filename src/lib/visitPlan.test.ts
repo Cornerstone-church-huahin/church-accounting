@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup, setStop, stopsOf } from './visitPlan'
+import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup, moveItem, setStop, stopsOf } from './visitPlan'
 
 const m = (id: string) => ({ id, name: id.toUpperCase() })
 const ids = (d: ReturnType<typeof planDoc>) => groupsOf(d).map((g) => g.items.map((x) => x.id).join(''))
@@ -19,6 +19,11 @@ describe('แผนเยี่ยมรายวัน แบ่งกลุ่
     expect(stopsOf(d).map((s) => s.g + ':' + s.items.map((x) => x.id).join(''))).toEqual(['1:a', '2:cb'])
     d = setStop(d, 'c', 1); expect(stopsOf(d).map((s) => s.g + ':' + s.items.map((x) => x.id).join(''))).toEqual(['1:ac', '2:b'])
     d = setStop(d, 'b', 0); expect(stopsOf(d).map((s) => s.g)).toEqual([1])
+  })
+  it('ลากเรียงลำดับในตะกร้า', () => {
+    let d = planDoc(); for (const x of ['a', 'b', 'c']) d = addItem(d, m(x))
+    expect(moveItem(d, 'c', 0).items.map((x) => x.id).join('')).toBe('cab')
+    expect(moveItem(d, 'a', 9).items.map((x) => x.id).join('')).toBe('bca')
   })
   it('เลื่อนภายในกลุ่ม · ย้ายข้ามกลุ่ม (ต่อท้าย) · สร้างกลุ่มใหม่ตอนย้าย', () => {
     let d = planDoc(); for (const [x, g] of [['a', 1], ['b', 1], ['c', 1], ['d', 2]] as const) d = addItem(d, m(x), g)

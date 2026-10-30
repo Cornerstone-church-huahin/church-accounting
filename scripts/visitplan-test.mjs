@@ -55,6 +55,11 @@ try {
   const order = () => page.locator('.vplan__body > .vplan__list .vplan__who b').allInnerTexts()
   must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก1', 'สมาชิก0', 'สมาชิก3']), 'basket keeps the order they were added: ' + await order())
   must(await page.locator('.vplan__item--set').count() === 0 && await page.getByRole('button', { name: /^กำหนดจุดเยี่ยมของ/ }).count() === 3, 'nobody has a stop yet: each row shows ＋')
+  must(await page.getByRole('button', { name: /^จับ / }).count() === 3 && /กดค้างที่ปุ่มนี้/.test(await page.getByRole('note').innerText()), 'drag handles + hint are shown')
+  await drag(page, 'สมาชิก3', page.locator('.vplan__body > .vplan__list > li').first(), 'top', 30)
+  must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก1', 'สมาชิก0', 'สมาชิก3']), 'a quick touch does not drag: ' + await order())
+  await drag(page, 'สมาชิก3', page.locator('.vplan__body > .vplan__list > li').first(), 'top')
+  must(JSON.stringify(await order()) === JSON.stringify(['สมาชิก3', 'สมาชิก1', 'สมาชิก0']), 'hold + drag reorders the basket: ' + await order())
   must(/ยังไม่มีจุดเยี่ยม/.test(await page.locator('.vplan__body').innerText()), 'stop table is empty at first')
   // ＋ → ป๊อปอัพ “จุดเยี่ยมที่” → โอเค
   const setStop = async (who, no) => {
