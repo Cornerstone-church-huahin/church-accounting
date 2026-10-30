@@ -246,7 +246,7 @@ function CatManager({ cats, docs, putDocs, catStore, onClose, onRenamed }: { cat
     onRenamed(old, n); setMsg(`เปลี่ยนชื่อเป็น “${n}” แล้ว (${moved.length} เอกสารตามไปด้วย)`)
   }
   const del = (c: { name: string; n: number }) => {
-    if (!window.confirm(c.n ? `ลบหมวด “${c.name}” ? เอกสาร ${c.n} ฉบับจะย้ายไป “${NO_CATEGORY}” (ไม่ลบเอกสาร)` : `ลบหมวด “${c.name}” ?`)) return
+    if (!window.confirm(`⚠️ ระวัง: ลบหมวด “${c.name}” ?\n\n• การ์ดของหมวดนี้ในหน้า “สร้างเอกสาร” จะหายไปทันที (ตัวเลือกและเลขที่ที่ผูกกับหมวดจะใช้ไม่ได้)\n• ${c.n ? `เอกสาร ${c.n} ฉบับในหมวดจะย้ายไป “${NO_CATEGORY}” (ไม่ลบเอกสาร)` : 'หมวดนี้ยังไม่มีเอกสาร'}\n\nตกลง = ลบหมวด · ยกเลิก = ไม่ลบ`)) return
     const item = catStore.list.find((x) => x.name === c.name)
     if (item) catStore.put([{ ...item, deleted: true }])
     const moved = docs.filter((d) => d.category === c.name).map((d) => ({ ...d, category: '' }))

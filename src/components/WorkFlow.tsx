@@ -27,7 +27,6 @@ export function WorkflowMenu() {
   const f = useFlows()
   const cats = useDocCategories(), lib = useDocLibrary()
   const [pick, setPick] = useState('')
-  const [showHidden, setShowHidden] = useState(false)
   const [form, setForm] = useState<FlowTicks | 'new' | null>(null)
   const [msg, setMsg] = useState('')
   /** การ์ดทุกใบมาจากหมวดในคลังเอกสาร: ชื่อและตัวย่อตามคลังเสมอ · ไม่มีหมวดในคลัง = ไม่มีการ์ด (ลบ/เปลี่ยนชื่อหมวดในคลัง การ์ดตามทันที) */
@@ -50,10 +49,7 @@ export function WorkflowMenu() {
     ...f.flows.map((x) => ({ key: x.id, to: x.id === 'invite' ? '/meeting/1/1/invite' : `/meeting/1/1/f-${x.id}`, icon: x.icon || '📋', title: x.title || 'ลำดับงาน', blurb: `${x.steps.length + 1} ขั้น (รวมเก็บเอกสาร) · ติ๊กแล้ว ${[...x.steps, FILE_STEP].filter((s) => x.ticks.includes(s.id)).length}`, created: x.created ?? 0, flow: x })),
     ...catCards,
   ]
-  const cards = allCards.filter((c) => !f.hidden.has(c.key)).sort((a, b) => b.created - a.created)
-  const hiddenCards = allCards.filter((c) => f.hidden.has(c.key))
-  const hide = (c: { key: string; title: string }) => { if (window.confirm(`ลบการ์ด “${c.title}” ออกจากหน้านี้ ?\n(เอกสารที่เคยสร้างและคลังเอกสารไม่หาย · กด “แสดงการ์ดที่ลบ” เพื่อเอากลับมาได้)`)) setMsg(f.put([{ id: `hide:${c.key}`, ticks: [], updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
-  const unhide = (key: string) => { const it = f.all.find((x) => x.id === `hide:${key}`); if (it) f.put([{ ...it, deleted: true, updated: Date.now() }]); }
+  const cards = allCards.sort((a, b) => b.created - a.created)
   const shown = pick ? cards.filter((c) => c.key === pick) : cards
   const remove = (x: FlowTicks) => { if (window.confirm(`ลบลำดับงาน “${x.title}” ?`)) setMsg(f.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
@@ -76,7 +72,7 @@ export function WorkflowMenu() {
               <span className="wfcard__t"><b>{c.title}</b><small>{c.blurb}</small></span>
               <span aria-hidden="true">›</span>
             </Link>
-            {!c.flow && <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบการ์ด ${c.title}`} onClick={() => hide(c)}>🗑️</button></span>}
+            {!c.flow && <span className="wfitem__act" aria-hidden="true" />}
             {c.flow && (
               <span className="wfitem__act">
                 <button type="button" className="mini" aria-label={`แก้ไข ${c.title}`} onClick={() => setForm(c.flow!)}>✏️</button>
@@ -86,14 +82,6 @@ export function WorkflowMenu() {
           </li>
         ))}
       </ul>
-      {hiddenCards.length > 0 && <p className="no-print" style={{ margin: '0.5rem 0' }}><button type="button" className="mini" onClick={() => setShowHidden(true)}>↩︎ แสดงการ์ดที่ลบ ({hiddenCards.length})</button></p>}
-      {showHidden && (
-        <Sheet title="การ์ดที่ลบไว้" onClose={() => setShowHidden(false)}>
-          {hiddenCards.length === 0 ? <p className="empty">ไม่มีการ์ดที่ลบไว้</p> : hiddenCards.map((c) => (
-            <div key={c.key} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}><span>{c.icon} {c.title}</span><button type="button" className="btn btn--gold" onClick={() => unhide(c.key)}>แสดงอีกครั้ง</button></div>
-          ))}
-        </Sheet>
-      )}
       {form && <FlowForm flow={form === 'new' ? null : form} onClose={() => setForm(null)} onSave={(x) => { const ok = f.put([x]); setMsg(ok ? '' : 'ไม่มีสิทธิ์บันทึก'); if (ok) setForm(null); return ok }} />}
     </>
   )
