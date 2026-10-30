@@ -128,7 +128,8 @@ try {
   must(/บันทึกพิกัดบ้านของ .* เข้าทะเบียนสมาชิกแล้ว/.test(await page.locator('.pvnote').innerText()), 'note about the saved home location')
   // แก้ไข/ลบ
   await tue.getByRole('button', { name: /แก้ไขการเยี่ยม/ }).click()
-  await page.getByRole('dialog').getByLabel(/รายละเอียดการเยี่ยม/).fill('อธิษฐานร่วมกัน')
+  must(await page.getByRole('dialog').getByLabel(/รายละเอียดการเยี่ยม/).count() === 0, 'no separate detail field (duplicate of the reason)')
+  await page.getByRole('dialog').locator('#pv-reason').fill('อธิษฐานร่วมกัน')
   await page.getByRole('dialog').getByRole('button', { name: 'บันทึก', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'detached' })
   await page.screenshot({ path: 'shots/visits-cards.png', fullPage: true })

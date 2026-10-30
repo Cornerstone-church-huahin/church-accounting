@@ -138,7 +138,6 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
   const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : null)
   const [reason, setReason] = useState(entry?.reason ?? '')
-  const [detail, setDetail] = useState(entry?.detail ?? '')
   const names = useVisitorNames()
   const initBy = splitVisitors(entry?.visitor ?? lastBy)
   const roster = visitorRoster(team, names.items)
@@ -208,7 +207,7 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(detail.trim() ? { detail: detail.trim() } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: reason.trim(), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
   }
   return (
     <Sheet title={`${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
@@ -217,7 +216,6 @@ function VisitForm({ date, entry, team, writeNames, members, stats, today, onClo
           {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
       <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />
       <div className="field"><label htmlFor="pv-reason">เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
-      <div className="field"><label htmlFor="pv-detail">รายละเอียดการเยี่ยม (ไม่บังคับ)</label><textarea id="pv-detail" className="input" rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} /></div>
       <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
         <div className="row" style={{ gap: 6, alignItems: 'center' }}>
           <button type="button" className="btn btn--gold" disabled={locBusy} onClick={locate}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin ? '📍 เช็คอินใหม่' : '📍 เช็คอินที่บ้าน'}</button>
@@ -280,7 +278,7 @@ export function VisitReport({ church, sunday, visits }: { church: string; sunday
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px', textAlign: 'center' }}>{pi * ROWS + i + 1}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{DAY_NAMES[new Date(v.date + 'T00:00:00Z').getUTCDay()]} {fmtDay(v.date)}<div style={{ fontSize: 10.5, color: '#444' }}>ครั้งที่ {trip.get(v.id)}</div></td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.memberName}</td>
-                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.reason || '—'}{v.detail ? <div style={{ fontSize: 11, color: '#444' }}>{v.detail}</div> : null}{v.checkin ? <div style={{ fontSize: 10, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
+                    <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.reason || '—'}{v.checkin ? <div style={{ fontSize: 10, color: '#444' }}>📍 เช็คอิน {timeText(v.checkin.at)} น.{v.photoProof?.length ? ` · รูปถ่าย ${v.photoProof.map((x) => timeText(x.at)).join(', ')} น.` : ''}</div> : null}</td>
                     <td style={{ border: '1px solid #1a2b4c', padding: '2px 4px' }}>{v.visitor}</td>
                   </tr>
                 ))}

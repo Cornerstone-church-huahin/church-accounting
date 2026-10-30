@@ -15,7 +15,7 @@ try {
   const at = (iso, h, m) => new Date(`${iso}T${h}:${m}:00+07:00`).getTime()
   const V = (id, date, name, visitor, extra = {}) => ({ id, updated: 5, date, memberId: 'm-' + id, memberName: name, reason: 'ขาดนมัสการ 2 เดือน', visitor, ...extra })
   await page.addInitScript((vs) => { if (!localStorage.getItem('seeded')) { localStorage.setItem('seeded', '1'); localStorage.setItem('acct.visit-log.v1', JSON.stringify(vs)) } }, [
-    V('a', '2026-10-27', 'สมชาย ใจดี', 'คศ.กฤต, คศ.พิชิต', { detail: 'อธิษฐานร่วมกัน', checkin: { lat: 12.5684, lng: 99.9577, acc: 10, at: at('2026-10-27', '15', '49') }, photos: ['p1'], photoProof: [{ path: 'p1', at: at('2026-10-27', '15', '51'), lat: 12.5685, lng: 99.9577, src: 'live' }] }),
+    V('a', '2026-10-27', 'สมชาย ใจดี', 'คศ.กฤต, คศ.พิชิต', { reason: 'อธิษฐานร่วมกัน', checkin: { lat: 12.5684, lng: 99.9577, acc: 10, at: at('2026-10-27', '15', '49') }, photos: ['p1'], photoProof: [{ path: 'p1', at: at('2026-10-27', '15', '51'), lat: 12.5685, lng: 99.9577, src: 'live' }] }),
     V('b', '2026-10-28', 'สมหญิง รักดี', 'อ.ดารา'),
     V('c', '2026-10-20', 'สมศักดิ์ มั่นคง', 'คศ.กฤต'),
     // บ้านติดกัน 3 หลัง (ห่างกันไม่เกิน ~100 ม.) วันเดียวกัน = ออกเยี่ยม 1 ครั้ง
