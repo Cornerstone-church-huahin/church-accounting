@@ -5,8 +5,8 @@ export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<stri
 export interface PlanGroup { g: number; name: string; items: PlanItem[] }
 
 /** แผนเยี่ยม 1 วัน: รายชื่อ (เรียงลำดับ) แบ่งเป็นกลุ่มที่ 1, 2, 3 … (เช่น ชุดที่ไปสถานที่เดียวกัน/โซนเดียวกัน) · กลุ่มมีชื่อสถานที่ตั้งได้ */
-export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names'>): PlanDoc {
-  const items = (p?.items ?? []).map((x) => ({ id: x.id, name: x.name, g: Math.max(0, Math.round(x.g ?? 0)) }))
+export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v'>): PlanDoc {
+  const items = (p?.items ?? []).map((x) => ({ id: x.id, name: x.name, g: p?.v === 2 ? Math.max(0, Math.round(x.g ?? 0)) : 0 }))
   const groups = Math.max(1, p?.groups ?? 1, ...items.map((x) => x.g))
   return { items, groups, names: { ...(p?.names ?? {}) } }
 }

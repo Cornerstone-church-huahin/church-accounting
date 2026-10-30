@@ -1332,3 +1332,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vbasket__ask { width: 100%; max-width: 22rem; display: grid; gap: 0.7rem; padding: 1rem; border-radius: 1rem; background: var(--surface, #fff); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) }
 .vbasket__asklab { display: flex; align-items: center; gap: 0.5rem; font-weight: 700 }
 .vbasket__asklab .input { width: 5.5rem; font-size: 1.3rem; text-align: center }
+.vbasket__ov--ask { align-items: flex-start; padding-top: calc(4.5rem + env(safe-area-inset-top, 0px)) }
+.vbasket__nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem }
+.vbasket__num { min-height: 3rem; border-radius: 0.7rem; border: 2px solid var(--line); background: var(--surface, #fff); color: var(--ink); font: inherit; font-size: 1.25rem; font-weight: 700; cursor: pointer }
+.vbasket__num.on { border-color: var(--navy, #1a2b4c); background: var(--navy, #1a2b4c); color: #fff }

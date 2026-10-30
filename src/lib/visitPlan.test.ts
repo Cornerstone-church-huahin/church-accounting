@@ -6,6 +6,8 @@ const ids = (d: ReturnType<typeof planDoc>) => groupsOf(d).map((g) => g.items.ma
 describe('แผนเยี่ยมรายวัน แบ่งกลุ่ม', () => {
   it('เพิ่มคนเข้ากลุ่ม · ข้อมูลเดิมไม่มีกลุ่ม = กลุ่ม 1', () => {
     expect(planDoc({ items: [{ id: 'a', name: 'A' }] } as never).items[0].g).toBe(0)
+    expect(planDoc({ items: [{ id: 'a', name: 'A', g: 1 }] } as never).items[0].g).toBe(0) // แผนแบบเดิม = ยังไม่กำหนดจุด
+    expect(planDoc({ v: 2, items: [{ id: 'a', name: 'A', g: 3 }] } as never).items[0].g).toBe(3)
     let d = planDoc()
     d = addItem(d, m('a'), 1); d = addItem(d, m('b'), 1); d = addItem(d, m('c'), 2); d = addItem(d, m('a'), 2) // ซ้ำ = ไม่เพิ่ม
     expect(ids(d)).toEqual(['ab', 'c'])

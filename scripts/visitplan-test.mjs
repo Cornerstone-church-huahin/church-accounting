@@ -60,7 +60,7 @@ try {
   const setStop = async (who, no) => {
     await page.getByRole('button', { name: new RegExp(`^(กำหนดจุดเยี่ยมของ ${who}|${who} จุดที่ \\d+)`) }).click()
     must(await page.getByRole('dialog', { name: 'จุดเยี่ยม' }).count() === 1, 'asks which stop')
-    await page.getByLabel('จุดเยี่ยมที่', { exact: true }).fill(String(no)); await page.getByRole('button', { name: 'โอเค' }).click()
+    await page.getByRole('radio', { name: String(no), exact: true }).click(); await page.getByRole('button', { name: 'โอเค' }).click()
   }
   await setStop('สมาชิก3', 2); await setStop('สมาชิก1', 1); await setStop('สมาชิก0', 2)
   must(await page.locator('.vplan__item--set').count() === 3, 'people with a stop are highlighted')
@@ -68,7 +68,7 @@ try {
   must(t1.includes('สมาชิก1') && /สมาชิก3.*สมาชิก0/.test(t2), 'table lists each stop in the order chosen: ' + t1 + ' | ' + t2)
   await page.getByLabel('ชื่อสถานที่ของจุดที่ 2').fill('บ้านปากน้ำ'); await page.getByLabel('ชื่อสถานที่ของจุดที่ 2').blur()
   // แก้จุดจากตาราง
-  await page.getByRole('button', { name: 'แก้จุดของ สมาชิก0' }).click(); await page.getByLabel('จุดเยี่ยมที่', { exact: true }).fill('1'); await page.getByRole('button', { name: 'โอเค' }).click()
+  await page.getByRole('button', { name: 'แก้จุดของ สมาชิก0' }).click(); await page.getByRole('radio', { name: '1', exact: true }).click(); await page.getByRole('button', { name: 'โอเค' }).click()
   must((await page.getByRole('region', { name: 'จุดที่ 1' }).innerText()).includes('สมาชิก0') && !(await page.getByRole('region', { name: 'จุดที่ 2' }).innerText()).includes('สมาชิก0'), 'edit icon moves the person to another stop')
   const saved0 = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1'))[0])
   must(saved0.names['2'] === 'บ้านปากน้ำ' && saved0.items.map((x) => x.id + ':' + x.g).join() === 'm3:2,m1:1,m0:1', 'stops and place name are saved: ' + JSON.stringify(saved0))

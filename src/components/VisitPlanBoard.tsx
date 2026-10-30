@@ -30,7 +30,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
   const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m))
   const dayLabel = `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}${date === today ? ' · วันนี้' : ''}`
   const n = doc.items.length
-  const askStop = (x: { id: string; name: string; g: number }) => setAsk({ id: x.id, name: x.name, val: String(x.g || Math.max(1, ...doc.items.map((y) => y.g))) })
+  const askStop = (x: { id: string; name: string; g: number }) => setAsk({ id: x.id, name: x.name, val: x.g > 0 ? String(x.g) : '' })
   const okStop = () => {
     if (!ask) return
     const v = Math.round(Number(ask.val))
@@ -141,9 +141,14 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
         <div className="vbasket__ov vbasket__ov--ask no-print" onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
           <form className="vbasket__ask" role="dialog" aria-modal="true" aria-label="จุดเยี่ยม" onSubmit={(e) => { e.preventDefault(); okStop() }}>
             <p style={{ margin: 0 }}><b>{ask.name}</b></p>
-            <label className="vbasket__asklab">จุดเยี่ยมที่ <input className="input" type="number" inputMode="numeric" min={1} max={99} autoFocus aria-label="จุดเยี่ยมที่" value={ask.val} onChange={(e) => setAsk({ ...ask, val: e.target.value })} /></label>
+            <p style={{ margin: 0 }}>รวมเข้าจุดเยี่ยมที่</p>
+            <div className="vbasket__nums" role="radiogroup" aria-label="จุดเยี่ยมที่">
+              {Array.from({ length: Math.max(10, Number(ask.val) || 0) }, (_, i) => i + 1).map((k) => (
+                <button key={k} type="button" role="radio" aria-checked={Number(ask.val) === k} className={`vbasket__num${Number(ask.val) === k ? ' on' : ''}`} onClick={() => setAsk({ ...ask, val: String(k) })}>{k}</button>
+              ))}
+            </div>
             <div className="row">
-              <button type="submit" className="btn">โอเค</button>
+              <button type="submit" className="btn" disabled={!(Number(ask.val) >= 1)}>โอเค</button>
               <button type="button" className="mini" onClick={() => setAsk(null)}>ยกเลิก</button>
               {(doc.items.find((x) => x.id === ask.id)?.g ?? 0) > 0 && <button type="button" className="mini" onClick={() => { write(setStop(doc, ask.id, 0)); setAsk(null) }}>เอาออกจากจุด</button>}
             </div>
