@@ -1,14 +1,14 @@
 import type { VisitPlan } from './types'
 
 export interface PlanItem { id: string; name: string; g: number }
-export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<string, string>; prep?: VisitPlan['prep'] }
+export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<string, string>; prep?: VisitPlan['prep']; dropped?: VisitPlan['dropped'] }
 export interface PlanGroup { g: number; name: string; items: PlanItem[] }
 
 /** แผนเยี่ยม 1 วัน: รายชื่อ (เรียงลำดับ) แบ่งเป็นกลุ่มที่ 1, 2, 3 … (เช่น ชุดที่ไปสถานที่เดียวกัน/โซนเดียวกัน) · กลุ่มมีชื่อสถานที่ตั้งได้ */
-export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v' | 'prep'>): PlanDoc {
+export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v' | 'prep' | 'dropped'>): PlanDoc {
   const items = (p?.items ?? []).map((x) => ({ id: x.id, name: x.name, g: p?.v === 2 ? Math.max(0, Math.round(x.g ?? 0)) : 0 }))
   const groups = Math.max(1, p?.groups ?? 1, ...items.map((x) => x.g))
-  return { items, groups, names: { ...(p?.names ?? {}) }, ...(p?.prep ? { prep: p.prep } : {}) }
+  return { items, groups, names: { ...(p?.names ?? {}) }, ...(p?.prep ? { prep: p.prep } : {}), ...(p?.dropped?.length ? { dropped: p.dropped } : {}) }
 }
 /** จัดเรียงตามกลุ่ม (ลำดับในกลุ่มคงเดิม) */
 const tidy = (d: PlanDoc): PlanDoc => ({ ...d, items: [...d.items].sort((a, b) => a.g - b.g) })
@@ -89,3 +89,9 @@ export function sendPrep(d: PlanDoc, at: number): PlanDoc | null {
 
 /** หลังส่งแล้ว: การเพิ่ม/ลบ/เปลี่ยนจุดในตะกร้าตามไปที่ “บันทึกการเยี่ยม” อัตโนมัติ (เฉพาะคนที่กำหนดจุดแล้ว) */
 export const refreshPrep = (d: PlanDoc): PlanDoc => (d.prep ? { ...d, prep: { at: d.prep.at, items: tidy(d).items.filter((x) => x.g > 0).map((x) => ({ id: x.id, name: x.name, g: x.g })) } } : d)
+
+/** ลบรายชื่อออกจากรายการเยี่ยมพร้อมสาเหตุ (เช่น ไม่เจอ/ไม่อยู่) — เก็บไว้ใน dropped */
+export function dropItem(d: PlanDoc, id: string, reason: string, at: number): PlanDoc {
+  const it = d.items.find((x) => x.id === id); if (!it) return d
+  return { ...removeItem(d, id), dropped: [...(d.dropped ?? []), { id: it.id, name: it.name, g: it.g, reason: reason.trim(), at }] }
+}

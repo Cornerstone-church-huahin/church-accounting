@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup, moveItem, setStop, stopsOf } from './visitPlan'
+import { addGroup, addItem, moveTo, groupsOf, moveToGroup, moveWithin, planDoc, removeGroup, removeItem, renameGroup, dropItem, moveItem, setStop, stopsOf } from './visitPlan'
 
 const m = (id: string) => ({ id, name: id.toUpperCase() })
 const ids = (d: ReturnType<typeof planDoc>) => groupsOf(d).map((g) => g.items.map((x) => x.id).join(''))
@@ -49,5 +49,11 @@ describe('ลากวาง', () => {
     d = moveTo(d, 'b', 2, 0); expect(ids(d)).toEqual(['ca', 'bd'])
     d = addGroup(d); d = moveTo(d, 'd', 3, 0); expect(ids(d)).toEqual(['ca', 'b', 'd'])
     d = moveTo(d, 'a', 4, 0); expect(d.groups).toBe(4); expect(ids(d)).toEqual(['c', 'b', 'd', 'a'])
+  })
+  it('ลบรายชื่อพร้อมสาเหตุ เก็บไว้ใน dropped', () => {
+    let d = planDoc(); for (const x of ['a', 'b']) d = addItem(d, m(x)); d = setStop(d, 'a', 2)
+    d = dropItem(d, 'a', 'ไม่เจอ/ไม่อยู่', 7)
+    expect(d.items.map((x) => x.id)).toEqual(['b']); expect(d.dropped).toEqual([{ id: 'a', name: 'A', g: 2, reason: 'ไม่เจอ/ไม่อยู่', at: 7 }])
+    expect(planDoc({ v: 2, items: [], dropped: d.dropped } as never).dropped).toHaveLength(1)
   })
 })

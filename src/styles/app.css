@@ -1353,3 +1353,5 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vrec__add { margin-left: auto }
 .vrec__li { display: flex; align-items: center; padding-right: 0.5rem }
 .vrec__li .vrec__btn { flex: 1; min-width: 0 }
+.vrec__reasons { display: flex; flex-wrap: wrap; gap: 0.4rem }
+.vrec__reasons .vbasket__num { padding: 0 0.8rem; min-height: 2.6rem; font-size: 1rem }
