@@ -60,7 +60,6 @@ export default function VisitReports() {
                     <div className="vrep__who"><b>{v.memberName}</b><span className="small muted">ออกเยี่ยมครั้งที่ {trip.get(v.id)} · ผู้ออกเยี่ยม: {v.visitor}</span></div>
                   </div>
                   {v.reason && <p className="vrep__p"><span className="muted small">เหตุผล</span> {v.reason}</p>}
-                  {v.detail && <p className="vrep__p"><span className="muted small">รายละเอียด</span> {v.detail}</p>}
                   {v.checkin && <p className="vrep__p small">📍 เช็คอิน {timeText(v.checkin.at)} น. · <a href={mapsLink(v.checkin)} target="_blank" rel="noreferrer">{formatCoord(v.checkin)}</a></p>}
                   {(v.photos?.length ?? 0) > 0 && (
                     <div className="vrep__pics">
