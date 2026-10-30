@@ -7,12 +7,6 @@ import { LETTER_KINDS } from '../lib/letterKinds'
 import { be, newId, todayISO } from '../lib/money'
 import type { FlowStep, FlowTicks } from '../lib/types'
 
-/** ลำดับงานในตัว: ประชุมธรรมกิจและหนังสือเชิญร่วมงานเป็นหน้าเฉพาะ (แก้/ลบไม่ได้) · หนังสือเชิญเป็นลำดับงานปกติที่แก้/ลบได้ */
-const FIXED = [
-  { key: 'meeting', to: '/meeting/1/1/meeting', icon: '🗓️', title: 'ประชุมธรรมกิจ', blurb: 'เช็คลิสต์ 10 ขั้น ตั้งแต่เตรียมประชุมจนเก็บเอกสาร', created: 0 },
-  { key: 'invite', to: '/meeting/1/1/invite', icon: '✉️', title: 'หนังสือเชิญร่วมงาน', blurb: 'หน้าเดียว: เลขที่ วันที่ เรื่อง เรียน เนื้อหา ลงนาม → PDF → คลังเอกสาร', created: 1 },
-  { key: 'notice', to: '/meeting/1/1/notice', icon: '📣', title: 'หนังสือแจ้งการประชุมคณะธรรมกิจ', blurb: 'หน้าเดียวแบบเดียวกับหนังสือเชิญ: เลขที่ วันที่ เรื่อง เรียน เนื้อหา ลงนาม → PDF → คลังเอกสาร', created: 2 },
-]
 /** ขั้นสุดท้ายของทุกลำดับงาน (ใส่ให้เสมอ แก้/ลบไม่ได้): เก็บเอกสาร — ติ๊กแล้วไปคลังเอกสาร */
 const FILE_STEP: FlowStep = { id: 'file', t: 'เก็บเอกสาร', hint: 'นำเข้าไฟล์เข้าคลังเอกสาร หรือดาวน์โหลดเก็บเป็นเอกสารจริงไว้ด้วย · ติ๊กแล้วระบบพาไปคลังเอกสาร' }
 
@@ -36,14 +30,23 @@ export function WorkflowMenu() {
   const [showHidden, setShowHidden] = useState(false)
   const [form, setForm] = useState<FlowTicks | 'new' | null>(null)
   const [msg, setMsg] = useState('')
-  /** หมวดในคลังเอกสาร (ที่ไม่ใช่ของหนังสือเชิญ/แจ้งการประชุม) → การ์ดหนังสือของหมวดนั้น · ตามชื่อหมวดและตัวย่อที่ตั้งในคลัง */
-  const catNames = [...new Set([...cats.list.filter((c) => !c.deleted).map((c) => c.name), ...lib.list.filter((d) => !d.deleted && d.category).map((d) => d.category)])].filter((n) => LETTER_KINDS.doc.isCat(n))
+  /** การ์ดทุกใบมาจากหมวดในคลังเอกสาร: ชื่อและตัวย่อตามคลังเสมอ · ไม่มีหมวดในคลัง = ไม่มีการ์ด (ลบ/เปลี่ยนชื่อหมวดในคลัง การ์ดตามทันที) */
+  const catNames = [...new Set([...cats.list.filter((c) => !c.deleted).map((c) => c.name), ...lib.list.filter((d) => !d.deleted && d.category).map((d) => d.category)])]
+  const used = new Set<string>()
   const catCards = catNames.map((n, i) => {
     const c = cats.list.find((x) => !x.deleted && x.name === n)
-    return { key: `cat:${n}`, to: `/meeting/1/1/cat-${encodeURIComponent(n)}`, icon: '📄', title: n, blurb: `เลขที่ ${cleanPrefix(c?.prefix ?? '') || 'ศอช'}.### ตามตัวย่อของหมวดในคลังเอกสาร`, created: -1 - i, flow: undefined as FlowTicks | undefined }
+    const kd = (['invite', 'notice'] as const).find((k) => !used.has(k) && LETTER_KINDS[k].isCat(n))
+    if (kd) used.add(kd)
+    const meeting = !kd && /ประชุม/.test(n)   // หมวดประชุมอื่น → เช็คลิสต์ประชุมธรรมกิจ (ไม่ใช่หนังสือ)
+    const prefix = cleanPrefix(c?.prefix ?? '') || (kd ? LETTER_KINDS[kd].numPrefix ?? 'ศอช' : 'ศอช')
+    return {
+      key: `cat:${n}`, title: n, created: -1 - i, flow: undefined as FlowTicks | undefined,
+      to: kd ? `/meeting/1/1/${LETTER_KINDS[kd].slug}` : meeting ? '/meeting/1/1/meeting' : `/meeting/1/1/cat-${encodeURIComponent(n)}`,
+      icon: kd ? LETTER_KINDS[kd].icon : meeting ? '🗓️' : '📄',
+      blurb: meeting ? 'เช็คลิสต์ 10 ขั้น ตั้งแต่เตรียมประชุมจนเก็บเอกสาร' : `เลขที่ ${prefix}.### · ตามหมวดในคลังเอกสาร`,
+    }
   })
   const allCards = [
-    ...FIXED.map((x) => ({ key: x.key, to: x.to, icon: x.icon, title: x.title, blurb: x.blurb, created: x.created, flow: undefined as FlowTicks | undefined })),
     ...f.flows.map((x) => ({ key: x.id, to: x.id === 'invite' ? '/meeting/1/1/invite' : `/meeting/1/1/f-${x.id}`, icon: x.icon || '📋', title: x.title || 'ลำดับงาน', blurb: `${x.steps.length + 1} ขั้น (รวมเก็บเอกสาร) · ติ๊กแล้ว ${[...x.steps, FILE_STEP].filter((s) => x.ticks.includes(s.id)).length}`, created: x.created ?? 0, flow: x })),
     ...catCards,
   ]

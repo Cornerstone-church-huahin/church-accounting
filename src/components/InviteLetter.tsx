@@ -28,7 +28,7 @@ function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
 }
 /** ชื่อสั้นของหนังสือ (รายการ/คลังเอกสาร): หนังสือเชิญร่วมงาน + ผู้รับ */
-export const letterTitle = (x: { toName?: string; category?: string }, kind: LetterKindId = 'invite') => `${kind === 'doc' ? x.category || LETTER_KINDS.doc.name : LETTER_KINDS[kind].name}${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
+export const letterTitle = (x: { toName?: string; category?: string }, kind: LetterKindId = 'invite', name?: string) => `${name || (kind === 'doc' ? x.category || LETTER_KINDS.doc.name : LETTER_KINDS[kind].name)}${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
 /** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
 const attachOf = (l: Draft) => (l.showAttach && l.attach?.trim() ? l.attach.trim() : '')
 /** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
@@ -143,11 +143,12 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const store = useLetters(kind, true)
   const savedCat = store.items.find((x) => x.id === id)?.category ?? ''
   const isCat = (n: string) => (kind === 'doc' ? n === savedCat : K.isCat(n))
-  const NAME = kind === 'doc' ? savedCat || K.name : K.name
   const backTo = kind === 'doc' ? `cat-${encodeURIComponent(savedCat)}` : K.slug
   const role = useRole()
   const cfgStore = useLetterSettings(kind)
   const lib = useDocLibrary(), cats = useDocCategories()
+  /** ชื่อหนังสือ = ชื่อหมวดในคลังเอกสารเสมอ (ไม่มีหมวด = ชื่อตั้งต้นของชนิด) */
+  const NAME = kind === 'doc' ? savedCat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? K.name
   const saved = store.items.find((x) => x.id === id)
   const cfg: Cfg = { ...DEF, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => toDraft(kind, saved))
@@ -258,7 +259,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
     if (!ready()) return
     const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/1/${K.slug}-${id}`)
-    const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l, kind)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
+    const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l, kind, NAME)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
     let how: 'shared' | 'copied' | '' = ''
     if (typeof navigator.share === 'function') {
       try { await navigator.share({ title: `ขอให้ตรวจสอบ${K.fileName}`, text }); how = 'shared' } catch (e) { if ((e as Error).name === 'AbortError') return }
@@ -308,7 +309,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       let catName = cat?.name ?? ''
       if (!catName) { catName = kind === 'doc' ? savedCat || K.defaultCat : K.defaultCat; cats.put([{ id: newId('cat'), updated: Date.now(), name: catName }]) }
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
-      const d: DocItem = { id: docId, updated: Date.now(), title: letterTitle(l, kind), category: catName, no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
+      const d: DocItem = { id: docId, updated: Date.now(), title: letterTitle(l, kind, NAME), category: catName, no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
       set({ docId }); setDone({ id: docId, title: d.title, no: d.no, again: l.docId === docId })
     } catch (e) { setMsg(e instanceof Error ? e.message : 'ส่งเข้าคลังเอกสารไม่สำเร็จ') }
@@ -476,12 +477,12 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
 export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId; cat?: string }) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
-  const NAME = kind === 'doc' ? cat || K.name : K.name
   const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
   const store = useLetters(kind)
   const cfgStore = useLetterSettings(kind)
   const navigate = useNavigate()
   const lib = useDocLibrary(), cats = useDocCategories()
+  const NAME = kind === 'doc' ? cat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? K.name
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
   const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
@@ -506,7 +507,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
     if (!store.put([{ ...blankOf(kind), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
     navigate(`/meeting/1/1/${K.slug}-${id}`)
   }
-  const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
+  const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind, NAME)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
       <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
@@ -521,12 +522,12 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
         <ul className="wflist" aria-label={`รายการ${NAME}`}>
           {shown.map((x) => (
             <li key={x.id} className="wfitem">
-              <Link to={`/meeting/1/1/${K.slug}-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x, kind)}`}>
+              <Link to={`/meeting/1/1/${K.slug}-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x, kind, NAME)}`}>
                 <span className="wfcard__icon" aria-hidden="true">{K.icon}</span>
-                <span className="wfcard__t"><b>{letterTitle(x, kind)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
+                <span className="wfcard__t"><b>{letterTitle(x, kind, NAME)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
                 <span aria-hidden="true">›</span>
               </Link>
-              <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x, kind)}`} onClick={() => del(x)}>🗑️</button></span>
+              <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x, kind, NAME)}`} onClick={() => del(x)}>🗑️</button></span>
             </li>
           ))}
         </ul>
