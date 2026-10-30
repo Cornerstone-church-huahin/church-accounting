@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
+import AbsentList from './AbsentList'
+import Sheet from './Sheet'
 import { VisitForm, fmtDay } from './PastoralVisits'
 import { monthsText } from './AbsentList'
 import { canRole, canWork } from '../lib/access'
@@ -8,7 +10,7 @@ import { useRole } from '../lib/members'
 import { absentMonths, visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
-import { stopColor } from '../lib/visitPlan'
+import { addItem, refreshPrep, removeItem, setStop, stopColor } from '../lib/visitPlan'
 import { timeText } from '../lib/visitProof'
 import { homeFromCheckin } from '../lib/geo'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
@@ -33,9 +35,13 @@ export default function VisitRecord() {
   const today = todayISO()
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, today), [att, today])
-  const [form, setForm] = useState<{ entry: Visit | null; stop: number; member?: { id: string; name: string } } | null>(null)
+  const [form, setForm] = useState<{ entry: Visit | null; stop: number; member?: { id: string; name: string }; absent?: boolean } | null>(null)
   const [note, setNote] = useState('')
-  const prep = plans.of(today).prep
+  const [leave, setLeave] = useState<{ id: string; name: string; stop: number } | null>(null) // ✕ ที่แถว: ไปแล้วไม่พบ หรือเอาออกจากรายการ
+  const [adding, setAdding] = useState<number | null>(null) // เปิดป๊อปอัพเลือกคนเพิ่มเข้าจุดนี้
+  const planDoc = plans.of(today)
+  const prep = planDoc.prep
+  const canPlan = plans.canEdit()
   const todays = visitsOn(visits.list, today)
   const stopNos = useMemo(() => {
     const set = new Set<number>([...(prep?.items ?? []).map((x) => x.g), ...todays.map((v) => v.stop ?? 0).filter((g) => g > 0)])
@@ -78,23 +84,44 @@ export default function VisitRecord() {
           <section key={g} className="vrec__stop" aria-label={`จุดที่ ${g}`} style={{ borderLeft: `6px solid ${c.dark}`, background: c.tint }}>
             <div className="vplan__gh">
               <b style={{ color: c.dark }}>จุดที่ {g}</b><span className="small muted">{planned.length + extras.length} คน</span>
-              {canWrite && <button type="button" className="mini vrec__add" aria-label={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${g} (พบเพิ่ม)`} onClick={() => setForm({ entry: null, stop: g })}>＋ เพิ่มคน</button>}
+              {canPlan && <button type="button" className="mini vrec__add" aria-label={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${g}`} onClick={() => setAdding(g)}>＋ เพิ่มคน</button>}
             </div>
             <ul className="vrec__list">
               {planned.map((x) => {
                 const v = todays.find((y2) => y2.memberId === x.id)
-                return <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} v={v} canTap={canWrite && (!v || isAdmin)} onTap={() => setForm({ entry: v ?? null, stop: g, ...(v ? {} : { member: { id: x.id, name: x.name } }) })} />
+                return <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} v={v} onRemove={!v && canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite && (!v || isAdmin)} onTap={() => setForm({ entry: v ?? null, stop: g, ...(v ? {} : { member: { id: x.id, name: x.name } }) })} />
               })}
               {extras.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} extra canTap={canWrite && isAdmin} onTap={() => setForm({ entry: v, stop: g })} />)}
             </ul>
           </section>
         )
       })}
-      {canWrite && (prep || todays.length > 0) && (
-        <button type="button" className="mini" onClick={() => setForm({ entry: null, stop: Math.max(0, ...stopNos) + 1 })}>＋ เพิ่มจุดเยี่ยม</button>
+      {canPlan && (prep || todays.length > 0) && (
+        <button type="button" className="mini" onClick={() => setAdding(Math.max(0, ...stopNos) + 1)}>＋ เพิ่มจุดเยี่ยม</button>
+      )}
+      {adding !== null && (
+        <Sheet title={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${adding}`} onClose={() => setAdding(null)}>
+          <AbsentList label="ค้นหาสมาชิก แล้วแตะ ＋ เพื่อเพิ่มเข้าจุดนี้" members={people.items} stats={stats} today={today}
+            selectedIds={planDoc.items.filter((x) => x.g === adding).map((x) => x.id)}
+            onPick={(m) => {
+              const cur = planDoc.items.find((x) => x.id === m.id)
+              if (cur && (cur.g === adding || todays.some((v) => v.memberId === m.id))) return // อยู่จุดนี้แล้ว / บันทึกการเยี่ยมไปแล้ว
+              const base = planDoc.prep ? planDoc : { ...planDoc, prep: { at: Date.now(), items: [] } }
+              plans.save(today, refreshPrep(setStop(cur ? base : addItem(base, m), m.id, adding)))
+            }} />
+          <div className="row"><button type="button" className="btn btn--gold" onClick={() => setAdding(null)}>เสร็จ</button></div>
+        </Sheet>
+      )}
+      {leave && (
+        <Sheet title={leave.name} onClose={() => setLeave(null)}>
+          <p style={{ margin: 0 }}>จุดที่ {leave.stop} · เลือกให้ตรงกับที่เกิดขึ้นจริง</p>
+          <button type="button" className="btn btn--gold" onClick={() => { const l = leave; setLeave(null); setForm({ entry: null, stop: l.stop, member: { id: l.id, name: l.name }, absent: true }) }}>ไปแล้วแต่ไม่พบ (เช็คอินเก็บเส้นทางไว้)</button>
+          <button type="button" className="btn btn--ghost" onClick={() => { plans.save(today, refreshPrep(removeItem(planDoc, leave.id))); setLeave(null) }}>เอาออกจากรายการ (ไม่ได้ไปเยี่ยม)</button>
+          <button type="button" className="mini" onClick={() => setLeave(null)}>ยกเลิก</button>
+        </Sheet>
       )}
       {form && (
-        <VisitForm date={today} entry={form.entry} stop={form.stop} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
+        <VisitForm date={today} entry={form.entry} stop={form.stop} startAbsent={form.absent} team={team.map((t) => t.name).filter(Boolean)} writeNames={canWrite} members={people.items} stats={stats} today={today}
           preset={{ ...carry(form.stop), ...(form.member ? { member: form.member, reason: reasonOf(form.member.id) } : {}) }}
           onClose={() => setForm(null)}
           onSave={(v) => { visits.put([v]); applyCheckin(v); setForm(null) }}
@@ -104,7 +131,7 @@ export default function VisitRecord() {
   )
 }
 
-function Row({ name, photo, v, extra, canTap, onTap }: { id: string; name: string; photo?: string; v?: Visit; extra?: boolean; canTap: boolean; onTap: () => void }) {
+function Row({ name, photo, v, extra, canTap, onTap, onRemove }: { id: string; name: string; photo?: string; v?: Visit; extra?: boolean; canTap: boolean; onTap: () => void; onRemove?: () => void }) {
   const status = v ? (v.absent ? '✗ ไม่พบ/ไม่อยู่บ้าน' : '✓ บันทึกแล้ว') : 'แตะเพื่อบันทึกการเยี่ยม'
   const inner = (
     <>
@@ -116,8 +143,9 @@ function Row({ name, photo, v, extra, canTap, onTap }: { id: string; name: strin
     </>
   )
   return (
-    <li className={`vrec__row${v ? (v.absent ? ' vrec__row--no' : ' vrec__row--ok') : ''}`}>
+    <li className={`vrec__row vrec__li${v ? (v.absent ? ' vrec__row--no' : ' vrec__row--ok') : ''}`}>
       {canTap ? <button type="button" className="vrec__btn" aria-label={`${v ? 'แก้ไขการเยี่ยม' : 'บันทึกการเยี่ยม'} ${name}`} onClick={onTap}>{inner}</button> : <div className="vrec__btn vrec__btn--ro" role="group" aria-label={`การเยี่ยม ${name}`}>{inner}</div>}
+      {onRemove && <button type="button" className="mini vplan__x" aria-label={`ไม่พบหรือเอา ${name} ออกจากรายการ`} onClick={onRemove}>✕</button>}
     </li>
   )
 }
