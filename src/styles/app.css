@@ -1395,3 +1395,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .vgroup { margin-top: 0.2rem }
 .vgroup__next { margin: 0.8rem 0 }
 .vgroup__next .btn { width: 100%; justify-content: center; text-decoration: none }
+/* จำนวนคนที่เลือก (ตะกร้า): ป้ายสี่เหลี่ยมมนสีเหลืองทอง มีรูปคน — ไม่กลมสีแดงเหมือนเลขลำดับขั้น */
+.tabicons__n { top: 0.15rem; right: 0.85rem; min-width: 0; height: 1.1rem; padding: 0 0.3rem 0 0.2rem; border-radius: 0.3rem; background: #f4c542; color: #3b2a00; box-shadow: 0 0 0 1px #8a6410; display: inline-flex; align-items: center; gap: 0.1rem; font-size: 0.72rem; font-weight: 800; line-height: 1 }
+.tabicons__n u { text-decoration: none; font-size: 0.62rem }
+.tabicons--four .tabicons__i:has(.tabicons__n) > span { transform: translateX(-0.7rem) }

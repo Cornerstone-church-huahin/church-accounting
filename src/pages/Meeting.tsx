@@ -129,7 +129,7 @@ function PastoralBar({ active }: { active: PastoralStep }) {
       {PASTORAL_PAGES.map((x, i) => (
         <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'group' || x.id === 'record' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
           <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
-          {(x.id === 'group' || x.id === 'record') && n > 0 && <b className="tabicons__n" aria-hidden="true">{n}</b>}
+          {(x.id === 'group' || x.id === 'record') && n > 0 && <b className="tabicons__n" aria-hidden="true"><u>👤</u>{n}</b>}
         </Link>
       ))}
     </nav>
