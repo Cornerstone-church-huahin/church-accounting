@@ -98,13 +98,13 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
 }
 
 /** แถบไอคอนเล็กเลขแท็บ (วางไว้แทนบรรทัดชื่องานใต้หัวข้อ ไม่กินพื้นที่เพิ่ม): กดสลับไปแท็บอื่นของงานเดียวกันได้ทันที */
-function TabIcons({ n, active, upTo }: { n: number; active: number; upTo: number }) {
+function TabIcons({ n, active, upTo, text = false }: { n: number; active: number; upTo: number; text?: boolean }) {
   const labels = labelsOf(n)
   return (
-    <nav className="tabicons no-print" aria-label="ทางลัดแท็บของงานนี้">
+    <nav className={`tabicons no-print${text ? ' tabicons--txt' : ''}`} aria-label="ทางลัดแท็บของงานนี้">
       {labels.slice(0, upTo).map((l, i) => (
         <Link key={l} to={`/meeting/${n}/${i + 1}`} replace className={`tabicons__i${i + 1 === active ? ' on' : ''}`} aria-label={`${i + 1} ${l}`} aria-current={i + 1 === active ? 'page' : undefined} title={l}>
-          <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{iconOf(l, i)}</span>
+          <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{iconOf(l, i)}</span>{text && <em aria-hidden="true">{l}</em>}
         </Link>
       ))}
     </nav>
@@ -125,7 +125,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         {n === 4 && k === 1 && <span id="vbasket-slot" className="vbasket__slot" />}
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
-      <TabIcons n={n} active={k} upTo={6} />
+      {n === 4 ? <TabIcons n={n} active={k} upTo={3} text /> : <TabIcons n={n} active={k} upTo={6} />}
       {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 1 ? <PastoralVisits plan /> : n === 4 && k === 2 ? <VisitRecord /> : n === 4 && k === 3 ? <VisitReports /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
