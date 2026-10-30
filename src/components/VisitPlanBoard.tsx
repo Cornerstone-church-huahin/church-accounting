@@ -74,8 +74,16 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
   }, [open])
+  const icon = (
+    <button type="button" className="vbasket__icon" aria-label={`เปิดตะกร้า ${n} คน`} title={n === 0 ? 'ตะกร้าแผนเยี่ยม (ว่าง)' : groups.map((gr) => `กลุ่ม ${gr.g}${gr.name ? ` ${gr.name}` : ''}: ${gr.items.length} คน`).join(' · ')} onClick={() => setOpen(true)}>
+          🧺{n > 0 && <span className="vbasket__badge">{n}</span>}
+        </button>
+  )
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => { setSlot(document.getElementById('vbasket-slot')) }, [])
   return (
     <div className="vplan">
+      {slot ? createPortal(icon, slot) : <div className="vbasket__top no-print">{icon}</div>}
       <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <button type="button" className="mini" aria-label="วันก่อน" onClick={() => setDate(addDays(date, -1))}>‹</button>
         <div style={{ textAlign: 'center', lineHeight: 1.25 }}><b>แผนเยี่ยมวัน</b><br /><span className="small">{dayLabel}</span></div>
@@ -86,7 +94,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
           {canEdit
             ? (
               <div className="vplan__bar no-print">
-                <span className="small">แตะ ＋ เพื่อใส่ตะกร้า · กดปุ่ม 🧺 ด้านล่างเพื่อดู/จัดกลุ่ม/เรียงลำดับ</span>
+                <span className="small">แตะ ＋ เพื่อใส่ตะกร้า · กดปุ่ม 🧺 ด้านบนเพื่อดู/จัดกลุ่ม/เรียงลำดับ</span>
                 {doc.groups > 1 && <label className="small">เพิ่มเข้า <select className="input" aria-label="เพิ่มเข้ากลุ่ม" value={addTo} onChange={(e) => setTarget(Number(e.target.value))}>{groups.map((g) => <option key={g.g} value={g.g}>กลุ่ม {g.g}{g.name ? ` · ${g.name}` : ''}</option>)}</select></label>}
               </div>
             )
@@ -101,7 +109,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
               <div className="vbasket__h">
                 <b>🧺 ตะกร้า · {dayLabel}</b>
                 <span className="vbasket__hb">
-                  <button type="button" className="mini" aria-label="ย่อตะกร้า" onClick={() => setOpen(false)}>ย่อ ▾</button>
+                  <button type="button" className="vbasket__x" aria-label="ย่อตะกร้า" onClick={() => setOpen(false)}>✕</button>
                 </span>
               </div>
         <div className="vplan__body">
@@ -153,17 +161,7 @@ export default function VisitPlanBoard({ members, stats, today }: { members: Chu
         </div>
             </div>
           </div>
-        ) : (
-          <button type="button" className="vbasket__bar no-print" aria-label={`เปิดตะกร้า ${n} คน`} onClick={() => setOpen(true)}>
-            <span className="vbasket__ic">🧺 <span className="vplan__n">{n}</span></span>
-            <span className="vbasket__chips" aria-label="สรุปแต่ละกลุ่ม">
-              {n === 0
-                ? <span className="vbasket__empty">ยังไม่มีคนในตะกร้า</span>
-                : groups.map((gr) => <span key={gr.g} className="vbasket__chip"><b>{gr.g}</b>{gr.name ? ` ${gr.name}` : ''} · {gr.items.length}</span>)}
-            </span>
-            <span aria-hidden="true" className="vbasket__up">▴</span>
-          </button>
-        ), document.body)}
+        ) : null, document.body)}
     </div>
   )
 }
