@@ -100,7 +100,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
             {internal && <span className="il__tag">หนังสือภายใน</span>}
           </div>
         </header>
-        {mt && <div className="il__banner">แจ้งการประชุมประจำเดือน{MONTH[mt.m - 1]} พ.ศ. {mt.y + 543}</div>}
+        {mt && <div className="il__banner">แจ้งประชุมคณะธรรมกิจ ประจำเดือน{MONTH[mt.m - 1]} พ.ศ. {mt.y + 543}</div>}
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no || '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
