@@ -36,7 +36,7 @@ async function open(meId, meName) {
     localStorage.setItem('acct.members.v1', JSON.stringify(members))
     localStorage.setItem('acct.church-members.v1', JSON.stringify(cm))
   }, [meId, meName, MEMBERS, CM])
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
   return page
 }
 try {
@@ -83,19 +83,19 @@ try {
   await page.getByRole('button', { name: 'เอา สมาชิก2 ออกจากตะกร้า' }).click()
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-plans.v1')))
   // หน้า “บันทึกการเยี่ยม” เห็นรายชื่อตามจุดโดยอัตโนมัติ (คนที่ยังไม่เลือกจุดไม่ขึ้น)
-  const rec = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle'); await page.getByRole('heading', { name: /บันทึกเยี่ยม/, level: 1 }).waitFor() }
+  const rec = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/record`); await page.waitForLoadState('networkidle'); await page.getByRole('heading', { name: /บันทึกเยี่ยม/, level: 1 }).waitFor() }
   await rec()
   const txt = async (n) => (await page.getByRole('region', { name: `จุดที่ ${n}` }).innerText()).replace(/\s+/g, ' ')
   must(/สมาชิก1/.test(await txt(1)) && /สมาชิก3.*สมาชิก0/.test(await txt(2)) && await page.getByRole('region', { name: 'จุดที่ 3' }).count() === 0, 'record page shows the basket by stop automatically')
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
   await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).getByRole('button', { name: /สมาชิก2/ }).click(); await pill.click()
   await rec()
   must(!/สมาชิก2/.test(await page.locator('main').innerText()), 'a person without a stop is not on the record page yet')
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.waitForLoadState('networkidle'); await pill.click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle'); await pill.click()
   await setStop('สมาชิก2', 3)
   await rec()
   must(/สมาชิก2/.test(await txt(3)), 'assigning a stop in the basket puts the person on the record page')
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.waitForLoadState('networkidle'); await pill.click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle'); await pill.click()
   await page.getByRole('button', { name: 'เอา สมาชิก2 ออกจากตะกร้า' }).click()
   must(saved.length === 1 && saved[0].items.length === 3, 'plan is saved per day: ' + JSON.stringify(saved))
   const mini = () => page.getByRole('button', { name: 'ย่อตะกร้า' }).click()
