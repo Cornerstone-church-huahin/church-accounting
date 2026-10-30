@@ -29,9 +29,9 @@ const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
 const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
 const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (l.agenda ?? []).map((x) => (typeof x === 'string' ? { t: x } : x))
 /** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · เรื่องที่ 1, 2, … นับใหม่ทุกครั้งที่ขึ้นวาระใหม่ */
-const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.k === 'r' ? `เรื่องที่ ${++r}` : (r = 0, `วาระที่ ${++v}`))) }
-/** บรรทัดที่ขึ้นบนหนังสือ (ข้อที่ยังไม่พิมพ์ชื่อไม่ขึ้น) */
-const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim(), r: x.k === 'r' })).filter((x) => x.t) }
+const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.u ? (x.k === 'r' ? 'เรื่อง' : 'วาระ') : x.k === 'r' ? `เรื่องที่ ${++r}` : (r = 0, `วาระที่ ${++v}`))) }
+/** บรรทัดที่ขึ้นบนหนังสือ: เรียงตามที่ลากไว้ทุกข้อ (ข้อที่ยังไม่พิมพ์ชื่อขึ้นเป็น ……… ให้เห็นโครงที่จัดไว้) */
+const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
 const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), c.proceed, c.bless, c.signName, c.signRole])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
@@ -561,11 +561,12 @@ function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: 
   const [drag, setDrag] = useState<number | null>(null)
   const labels = agendaLabels(items)
   const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? { ...x, t: v } : x)))
-  const swap = (i: number, d: number) => { const a = [...items]; const j = i + d;[a[i], a[j]] = [a[j], a[i]]; onChange(a) }
+  const swap = (i: number, d: number) => { const a = items.map((x, k) => (k === i ? { ...x, u: undefined } : x)); const j = i + d;[a[i], a[j]] = [a[j], a[i]]; onChange(a) }
   const start = (e: React.PointerEvent<HTMLButtonElement>, from: number) => {
     e.preventDefault()
     const el = e.currentTarget; el.setPointerCapture(e.pointerId)
-    let cur = from, list = items
+    let cur = from, list = items.map((x, j) => (j === from && x.u ? { ...x, u: undefined } : x))
+    if (list[from] !== items[from]) onChange(list)
     setDrag(from)
     const move = (ev: PointerEvent) => {
       // ลากผ่านกลางแถวไหน ก็สลับไปอยู่ตำแหน่งนั้น
@@ -580,7 +581,7 @@ function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: 
     el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end)
   }
   return (
-    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(พิมพ์แค่ชื่อ · ลำดับ “วาระที่/เรื่องที่” ใส่ให้เองตามตำแหน่ง)</span></label>
+    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(พิมพ์แค่ชื่อ · เลข “วาระที่/เรื่องที่” ใส่ให้เองเมื่อลากไปวาง)</span></label>
       {items.map((x, i) => (
         <div key={i} ref={(el) => { rows.current[i] = el }} className={`agenda-row${x.k === 'r' ? ' agenda-row--r' : ''}${drag === i ? ' agenda-row--drag' : ''}`}>
           <b className="agenda-row__n">{labels[i]}</b>
@@ -590,10 +591,11 @@ function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: 
         </div>
       ))}
       <div className="row" style={{ gap: 6 }}>
-        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '' }])}>➕ เพิ่มวาระ</button>
-        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', k: 'r' }])}>➕ เพิ่มเรื่อง</button>
+        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', u: true }])}>➕ เพิ่มวาระ</button>
+        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', k: 'r', u: true }])}>➕ เพิ่มเรื่อง</button>
       </div>
-      {items.length > 1 && <span className="small muted">👆 กดค้างที่แถบ ⠿ แล้วลากขึ้น/ลง “วาระที่” ตัวแรกเป็นวาระที่ 1 เอง · “เรื่องที่” นับใหม่ใต้แต่ละวาระ</span>}
+      {items.some((x) => x.u) && <span className="small" role="note">👆 ข้อที่ยังไม่มีเลข: กดค้างที่แถบ ⠿ แล้วลากไปวางตำแหน่งที่ต้องการ จึงจะได้เลขวาระที่/เรื่องที่ตามที่วาง</span>}
+      {items.length > 1 && <span className="small muted">“เรื่องที่” นับใหม่ใต้แต่ละวาระ · ตัวแรกของวาระเป็นวาระที่ 1 เอง</span>}
     </div>
   )
 }
