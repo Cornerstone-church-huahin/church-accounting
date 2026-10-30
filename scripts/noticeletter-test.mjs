@@ -78,6 +78,13 @@ try {
   must(/ประจำเดือน\S+ ในวันอาทิตย์ที่ \d{1,2} \S+ \d{4} เวลา 13\.00 น\. ณ ห้องประชุมธรรมกิจ/.test(bt), 'auto first-Sunday text: ' + bt)
   must(/^แจ้งการประชุมประจำเดือน\S+ คณะธรรมกิจ$/.test(await admin.locator('#il-sub').inputValue()), 'auto subject')
   must(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(tn), 'auto numeric date in to-name: ' + tn)
+  await admin.getByRole('button', { name: /เพิ่มวาระ/ }).click()
+  await admin.getByLabel('วาระที่ 5', { exact: true }).fill('ข้อห้า')
+  must(await admin.getByLabel('เลื่อนวาระที่ 5 ขึ้น').count() === 0, 'no up/down buttons')
+  const g = await admin.getByLabel('ลากเพื่อเลื่อนวาระที่ 5').boundingBox(), t = await admin.getByLabel('วาระที่ 1', { exact: true }).boundingBox()
+  await admin.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await admin.mouse.down()
+  await admin.mouse.move(g.x + g.width / 2, t.y + 5, { steps: 12 }); await admin.mouse.up()
+  must((await admin.getByLabel('วาระที่ 1', { exact: true }).inputValue()) === 'ข้อห้า', 'agenda drag to first = วาระที่ 1')
   // หนังสือแจ้งการประชุม: เลขตามหมวดในคลัง ศอ/ปธ
   await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
   await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()

@@ -541,22 +541,40 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
   )
 }
 
-/** วาระการประชุม: กรอกเป็นข้อๆ ตามลำดับ · เลื่อนขึ้น/ลง · ลบ · เพิ่มข้อ (ข้อที่ว่างไม่ขึ้นบนหนังสือ) */
+/** วาระการประชุม: กรอกเป็นข้อๆ · ลากที่แถบ ⠿ (กฎเลื่อน) เพื่อเรียงลำดับ เลขข้อเรียงใหม่อัตโนมัติ · เพิ่มวาระใหม่ต่อท้ายแล้วลากขึ้นไปแทรกได้ */
 function AgendaEditor({ items, onChange }: { items: string[]; onChange: (a: string[]) => void }) {
+  const rows = useRef<(HTMLDivElement | null)[]>([])
+  const [drag, setDrag] = useState<number | null>(null)
   const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? v : x)))
-  const move = (i: number, d: number) => { const a = [...items]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; onChange(a) }
+  const start = (e: React.PointerEvent<HTMLButtonElement>, from: number) => {
+    e.preventDefault()
+    const el = e.currentTarget; el.setPointerCapture(e.pointerId)
+    let cur = from, list = items
+    setDrag(from)
+    const move = (ev: PointerEvent) => {
+      // ลากผ่านกลางแถวไหน ก็สลับไปอยู่ตำแหน่งนั้น
+      for (let k = 0; k < list.length; k++) {
+        const r = rows.current[k]?.getBoundingClientRect(); if (!r || k === cur) continue
+        if (ev.clientY > r.top && ev.clientY < r.bottom && (k < cur ? ev.clientY < r.top + r.height * 0.7 : ev.clientY > r.top + r.height * 0.3)) {
+          const a = [...list]; const [x] = a.splice(cur, 1); a.splice(k, 0, x); list = a; cur = k; setDrag(k); onChange(a); break
+        }
+      }
+    }
+    const end = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', end); el.removeEventListener('pointercancel', end); setDrag(null) }
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end)
+  }
   return (
-    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(เรียงตามลำดับ ขึ้นเป็นข้อ 1. 2. 3. บนหนังสือ)</span></label>
+    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(ลาก ☰ เพื่อเรียงลำดับ · เลขข้อเรียงให้เอง)</span></label>
       {items.map((x, i) => (
-        <div key={i} className="row" style={{ gap: 4, flexWrap: 'nowrap', alignItems: 'center', marginBottom: 4 }}>
-          <b style={{ minWidth: '1.6rem' }}>{i + 1}.</b>
+        <div key={i} ref={(el) => { rows.current[i] = el }} className={`agenda-row${drag === i ? ' agenda-row--drag' : ''}`}>
+          <b className="agenda-row__n">{i + 1}.</b>
           <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={`วาระที่ ${i + 1}`} value={x} onChange={(e) => upd(i, e.target.value)} placeholder="เช่น เรื่องแจ้งเพื่อทราบ" />
-          <button type="button" className="mini" aria-label={`เลื่อนวาระที่ ${i + 1} ขึ้น`} disabled={i === 0} onClick={() => move(i, -1)}>▲</button>
-          <button type="button" className="mini" aria-label={`เลื่อนวาระที่ ${i + 1} ลง`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>▼</button>
+          <button type="button" className="agenda-row__grip" aria-label={`ลากเพื่อเลื่อนวาระที่ ${i + 1}`} title="ลากขึ้น/ลงเพื่อเรียงลำดับ" onPointerDown={(e) => start(e, i)} onKeyDown={(e) => { if (e.key === 'ArrowUp' && i > 0) { const a = [...items];[a[i - 1], a[i]] = [a[i], a[i - 1]]; onChange(a) } if (e.key === 'ArrowDown' && i < items.length - 1) { const a = [...items];[a[i + 1], a[i]] = [a[i], a[i + 1]]; onChange(a) } }}>⠿<small>👆</small></button>
           <button type="button" className="mini" aria-label={`ลบวาระที่ ${i + 1}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>🗑️</button>
         </div>
       ))}
       <button type="button" className="btn btn--ghost" onClick={() => onChange([...items, ''])}>➕ เพิ่มวาระ</button>
+      {items.length > 1 && <span className="small muted">👆 กดค้างที่แถบ ⠿ แล้วลากขึ้น/ลง วาระที่ไปอยู่ลำดับแรกจะเป็นวาระที่ 1 เอง</span>}
     </div>
   )
 }
