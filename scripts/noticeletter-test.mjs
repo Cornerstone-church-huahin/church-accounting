@@ -101,6 +101,8 @@ try {
   const p2 = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
   must(/ศอ\/ปธ\.00\d/.test(p2) && p2.includes('13.00 น.') && p2.includes('มน.หนึ่งฤทัย'), 'notice uses library prefix: ' + p2.slice(0, 400))
   must(p2.includes('หนังสือภายใน') && /แจ้งประชุมคณะธรรมกิจ ประจำเดือน\S+ พ\.ศ\. 25\d\d/.test(p2) && !p2.includes('Cornerstone') && !p2.includes('77110'), 'internal header: ' + p2.slice(0, 300))
+  await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/notice`)
+  await admin.getByRole('link', { name: /^เปิด \d{1,2}\/\d{1,2}\/\d{4} แจ้งการประชุมประจำเดือนธรรมกิจ/ }).first().waitFor({ timeout: 10000 })
   if (process.env.SHOT) await admin.getByLabel('ตัวอย่างหนังสือ').screenshot({ path: process.env.SHOT })
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('noticeletter-test OK')

@@ -39,7 +39,7 @@ function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
 }
 /** ชื่อสั้นของหนังสือ (รายการ/คลังเอกสาร): หนังสือเชิญร่วมงาน + ผู้รับ */
-export const letterTitle = (x: { toName?: string; category?: string }, kind: LetterKindId = 'invite', name?: string) => `${name || (kind === 'doc' ? x.category || LETTER_KINDS.doc.name : LETTER_KINDS[kind].name)}${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
+export const letterTitle = (x: { toName?: string; category?: string }, kind: LetterKindId = 'invite', name?: string) => kind === 'notice' && x.toName?.trim() ? x.toName.trim() : `${name || (kind === 'doc' ? x.category || LETTER_KINDS.doc.name : LETTER_KINDS[kind].name)}${x.toName?.trim() ? ` ${x.toName.trim()}` : ''}`
 /** สิ่งที่ส่งมาด้วยจะขึ้นบนหนังสือเมื่อเลือก “แสดง” และพิมพ์ข้อความแล้ว */
 const attachOf = (l: Draft) => (l.showAttach && l.attach?.trim() ? l.attach.trim() : '')
 /** ค่าตั้งต้น (ตามหนังสือจริงของคริสตจักร) — แก้ได้ที่ปุ่ม “แก้หัวจดหมาย · ลงนาม · ข้อมูลติดต่อ” */
