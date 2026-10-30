@@ -13,6 +13,7 @@ const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l ===
 const writePlan4 = () => canPlan4() || !blocked('detail')
 const writeWork4Reg = workWriter(4, 'worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
+import { planDoc, type PlanDoc } from './visitPlan'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
 import type { AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
@@ -119,7 +120,7 @@ export function useNotes() {
 /** แผนเยี่ยมรายวัน (วันละ 1 รายการ เรียงลำดับเส้นทาง) · ซิงก์ถี่ทุก 10 วินาทีเพื่อวางแผนร่วมกันแบบสด */
 export function useVisitPlans() {
   const s = useSharedStore<VisitPlan>({ localKey: k('visit-plans'), file: 'visit-plans.json', label: 'แผนเยี่ยม', writeCheck: writePlan4, pollMs: 10_000 })
-  return { ...s, of: (date: string) => s.items.find((x) => x.id === `plan-${date}`)?.items ?? [], save: (date: string, items: VisitPlan['items']) => s.put([{ id: `plan-${date}`, date, items, updated: 0 }]), canEdit: () => canPlan4() }
+  return { ...s, of: (date: string) => planDoc(s.items.find((x) => x.id === `plan-${date}`)), save: (date: string, d: PlanDoc) => s.put([{ id: `plan-${date}`, date, items: d.items, groups: d.groups, names: d.names, updated: 0 }]), canEdit: () => canPlan4() }
 }
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
 export function useVisitorNames() {

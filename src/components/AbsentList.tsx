@@ -42,7 +42,7 @@ export default function AbsentList({ members, stats, today, selectedId, selected
             return (
               <li key={m.id}>
                 {onPick
-                  ? <button type="button" className={`pvpick__r${(selectedIds ? selectedIds.includes(m.id) : selectedId === m.id) ? ' on' : ''}`} aria-pressed={selectedIds ? selectedIds.includes(m.id) : selectedId === m.id} onClick={() => onPick(m, absent ? monthsText(mo) : '')}>{body}{selectedIds?.includes(m.id) && <b className="pvpick__in" aria-label="อยู่ในแผนแล้ว">✓</b>}</button>
+                  ? <button type="button" className={`pvpick__r${(selectedIds ? selectedIds.includes(m.id) : selectedId === m.id) ? ' on' : ''}`} aria-pressed={selectedIds ? selectedIds.includes(m.id) : selectedId === m.id} onClick={() => onPick(m, absent ? monthsText(mo) : '')}>{body}{selectedIds && <b className={`pvpick__add${selectedIds.includes(m.id) ? ' in' : ''}`} aria-hidden="true">{selectedIds.includes(m.id) ? '✓' : '＋'}</b>}</button>
                   : <div className="pvpick__r pvpick__r--ro">{body}</div>}
               </li>
             )
