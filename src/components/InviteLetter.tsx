@@ -11,7 +11,7 @@ import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
-import { letterDate } from '../lib/meetings'
+import { letterDate, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
@@ -19,7 +19,9 @@ import type { DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from 
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
-const blankOf = (kind: LetterKindId): Draft => ({ toName: '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
+/** หนังสือแจ้งการประชุม: ใส่ วัน/เดือน/ปี ของอาทิตย์ต้นเดือนที่จะถึงให้เอง (ผู้ใช้แก้ได้) */
+const fillNotice = (t: string, base: string) => { const n = noticeMeetingText(base); return t.replace('{เดือน}', n.month).replace('{วันเวลา}', n.when) }
+const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
 const agendaOf = (l: Draft) => (l.agenda ?? []).map((x) => x.trim()).filter(Boolean)
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
 const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), c.proceed, c.bless, c.signName, c.signRole])
@@ -133,7 +135,10 @@ export default function InviteLetterPage({ id, kind = 'invite' }: { id: string; 
 const upgradeNotice = (s?: Partial<Letter>): Partial<Letter> | undefined => {
   if (!s) return s
   const fix = (t?: string) => t?.replace(/คณะรัฐมนตรี/g, 'คณะธรรมกิจ').replace(/ในวัน…………… ที่ …… เดือน …………… พ\.ศ\. …… เวลา ……… น\. ณ ……………………/, 'ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ')
-  return { ...s, subject: fix(s.subject) ?? '', to: fix(s.to) ?? '', body: fix(s.body) ?? '' }
+  // ข้อความตั้งต้นรุ่นก่อน (ยังไม่มีวันที่จริง) → ใส่วันอาทิตย์ต้นเดือนที่จะถึงให้
+  const n = noticeMeetingText(s.date || todayISO())
+  const old = (t?: string) => t?.replace('ประจำเดือน ………… ในวันอาทิตย์ต้นเดือน เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ', `ประจำเดือน${n.month} ${n.when}`)
+  return { ...s, toName: s.toName?.trim() || !/ประจำเดือน ………… (ในวัน|ในวันอาทิตย์ต้นเดือน)/.test(fix(s.body) ?? '') ? s.toName : n.toName, subject: (fix(s.subject) === 'แจ้งการประชุมคณะธรรมกิจ' ? `แจ้งการประชุมประจำเดือน${n.month} คณะธรรมกิจ` : fix(s.subject)) ?? '', to: fix(s.to) ?? '', body: old(fix(s.body)) ?? '' }
 }
 const toDraft = (kind: LetterKindId, raw?: Partial<Letter>): Draft => { const s = kind === 'notice' ? upgradeNotice(raw) : raw; return { ...blankOf(kind), ...(s ?? {}), showAttach: s?.showAttach ?? !!s?.attach?.trim(), date: s?.date || todayISO() } }
 const sameDraft = (a: Draft, b: Draft) => JSON.stringify({ ...a, updated: 0, by: 0 }) === JSON.stringify({ ...b, updated: 0, by: 0 })
@@ -504,7 +509,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
       cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
     }
     const pool = [...cur.map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
-    if (!store.put([{ ...blankOf(kind), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
+    if (!store.put([{ ...blankOf(kind, todayISO()), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
     navigate(`/meeting/1/1/${K.slug}-${id}`)
   }
   const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind, NAME)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }

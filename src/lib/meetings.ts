@@ -8,6 +8,22 @@ export function letterDate(iso?: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   return `${d} ${MONTHS[m - 1]} ${y}`
 }
+/** วันอาทิตย์ต้นเดือนที่กำลังจะถึง (อาทิตย์แรกของเดือน ตั้งแต่วันนี้เป็นต้นไป · ผ่านแล้วของเดือนนี้ → เดือนหน้า) */
+export function nextFirstSunday(todayIso: string): { iso: string; d: number; m: number; y: number } {
+  const [ty, tm, td] = todayIso.split('-').map(Number)
+  for (let k = 0; k < 3; k++) {
+    const dt = new Date(Date.UTC(ty, tm - 1 + k, 1))
+    dt.setUTCDate(1 + ((7 - dt.getUTCDay()) % 7))
+    const iso = dt.toISOString().slice(0, 10)
+    if (iso >= `${ty}-${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}`) return { iso, d: dt.getUTCDate(), m: dt.getUTCMonth() + 1, y: dt.getUTCFullYear() }
+  }
+  throw new Error('unreachable')
+}
+/** ข้อความตั้งต้นหนังสือแจ้งการประชุม: ส่งถึง = วัน/เดือน/ปี (ตัวเลข) ของอาทิตย์ต้นเดือนถัดไป · เนื้อหา = “ในวันอาทิตย์ที่ 1 พฤศจิกายน 2026” */
+export function noticeMeetingText(todayIso: string): { toName: string; month: string; when: string } {
+  const n = nextFirstSunday(todayIso)
+  return { toName: `${n.d}/${n.m}/${n.y}`, month: MONTHS[n.m - 1], when: `ในวันอาทิตย์ที่ ${n.d} ${MONTHS[n.m - 1]} ${n.y} เวลา 13.00 น. ณ ห้องประชุมธรรมกิจ` }
+}
 /** เลขที่หนังสือ: “ศอ 3/2026” */
 export const refNo = (m: Pick<Meeting, 'no' | 'year'>) => `ศอ ${m.no}/${m.year}`
 
