@@ -313,6 +313,10 @@ export interface ChurchMember extends SharedItem {
   /** LINE ID และ Facebook (ชื่อเพจ/โปรไฟล์ หรือลิงก์) — สมาชิกกรอกเองผ่านแบบฟอร์ม ไม่บังคับ */
   lineId?: string
   facebook?: string
+  /** อาชีพ/ความสามารถ และงานรับใช้ที่เต็มใจช่วยคริสตจักร + วันที่สะดวก — สมาชิกกรอกเองผ่านแบบฟอร์ม */
+  skills?: string
+  serve?: string[]
+  serveDays?: string[]
   group?: string
   note?: string
   /** ชื่อเดิมก่อนแอปจัดวงเล็บออกจากชื่อ (ไว้กู้คืน) */
