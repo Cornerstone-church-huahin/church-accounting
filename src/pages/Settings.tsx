@@ -635,10 +635,11 @@ function SwitchRow({ label, title, on, onChange, disabled, small }: { label: str
   )
 }
 
-/** ห้องงานและตำแหน่งของผู้ใช้ 1 คน: แสดงเฉพาะห้องที่รับผิดชอบจริง + แถวว่าง 1 แถวไว้เพิ่มห้องใหม่ (เลือกห้อง → เลือกตำแหน่ง → เปิดสวิตช์) */
+/** ห้องงานและตำแหน่งของผู้ใช้ 1 คน: แสดงเฉพาะห้องที่รับผิดชอบจริง + ปุ่ม “เพิ่มหน้าที่” (กดแล้วขึ้นแถวเลือกห้อง → เลือกตำแหน่ง → เปิดสวิตช์ · เพิ่มได้อีกเรื่อย ๆ) */
 function RoomRows({ x, onSet }: { x: Member; onSet: (pos: Record<number, WorkLevel | null>, text: string) => void }) {
   const [room, setRoom] = useState('')
   const [level, setLevel] = useState('')
+  const [adding, setAdding] = useState(false)   // กด “เพิ่มหน้าที่” แล้วจึงขึ้นแถวเลือกห้อง/ตำแหน่ง (ปกติไม่กินที่)
   const mine = MEETING_TABS.filter((t) => workLevelOf(x, t.n))
   const positions = (): Record<number, WorkLevel | null> => { const pos: Record<number, WorkLevel | null> = {}; for (const z of MEETING_TABS) pos[z.n] = workLevelOf(x, z.n); return pos }
   const free = MEETING_TABS.filter((t) => !workLevelOf(x, t.n))
@@ -663,7 +664,7 @@ function RoomRows({ x, onSet }: { x: Member; onSet: (pos: Record<number, WorkLev
             </li>
           )
         })}
-        {free.length > 0 && (
+        {free.length > 0 && adding && (
           <li className="rgrid__row">
             <select className="input rgrid__sel rgrid__room" aria-label={`ห้องงานใหม่ของ ${x.name}`} value={room} onChange={(e) => setRoom(e.target.value)}>
               <option value="">+ เลือกห้องงานเพิ่ม</option>
@@ -673,10 +674,13 @@ function RoomRows({ x, onSet }: { x: Member; onSet: (pos: Record<number, WorkLev
               <option value="">— ตำแหน่ง —</option>
               {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
             </select>
-            <button type="button" role="switch" aria-checked="false" aria-label={`เปิดห้องงานใหม่ของ ${x.name}`} disabled={!ready} className="swt swt--sm" onClick={() => { const pos = positions(); pos[Number(room)] = level as WorkLevel; onSet(pos, `${x.name} เป็น${WORK_LEVEL_LABEL[level as WorkLevel]}ของ${nameOf(Number(room))}`); setRoom(''); setLevel('') }}><i /></button>
+            <button type="button" role="switch" aria-checked="false" aria-label={`เปิดห้องงานใหม่ของ ${x.name}`} disabled={!ready} className="swt swt--sm" onClick={() => { const pos = positions(); pos[Number(room)] = level as WorkLevel; onSet(pos, `${x.name} เป็น${WORK_LEVEL_LABEL[level as WorkLevel]}ของ${nameOf(Number(room))}`); setRoom(''); setLevel(''); setAdding(false) }}><i /></button>
           </li>
         )}
       </ul>
+      {free.length > 0 && (adding
+        ? <button type="button" className="mini" onClick={() => { setAdding(false); setRoom(''); setLevel('') }}>ยกเลิก</button>
+        : <button type="button" className="mini" onClick={() => setAdding(true)}>＋ เพิ่มหน้าที่</button>)}
     </div>
   )
 }
