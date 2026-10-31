@@ -314,6 +314,8 @@ export interface ChurchMember extends SharedItem {
   lineId?: string
   facebook?: string
   /** อาชีพ/ความสามารถ และงานรับใช้ที่เต็มใจช่วยคริสตจักร + วันที่สะดวก — สมาชิกกรอกเองผ่านแบบฟอร์ม */
+  /** นำเข้าข้อมูลจากแบบฟอร์มที่สมาชิกกรอกเองครั้งล่าสุดเมื่อ (ms) · ใช้ตามว่าใครอัปเดตข้อมูลแล้ว */
+  formAt?: number
   skills?: string
   serve?: string[]
   serveDays?: string[]

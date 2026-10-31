@@ -9,10 +9,11 @@ import MemberAvatar from '../components/MemberAvatar'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
-import { useAttendance, useChurchMembers, useRecorders, useSettings } from '../lib/data'
+import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { FORM_DAYS, formUrl } from '../lib/memberForm'
+import { FORM_DAYS, formUrl, parseReply } from '../lib/memberForm'
+import { applyAnswer, diffAnswer, nameVerdict, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
@@ -488,15 +489,16 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, p
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.visits ? `${r.visits} ครั้ง · 12 เดือนล่าสุด ${r.recent} · ครั้งแรก ${fmtDate(r.firstAtt)} · ล่าสุด ${fmtDate(r.last)}` : <span className="muted">ยังไม่มีบันทึกลงชื่อ</span>}</dd>
         </div>
       </dl>
-      {formLink && <FormLinkBox m={m} />}
+      {formLink && <FormLinkBox m={m} put={put} />}
       {canLog && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
     </Sheet>
   )
 }
 
 /** ฝ่ายทะเบียน: คัดลอกลิงก์ให้สมาชิกคนนี้กรอกข้อมูลเอง (ไปวางในไลน์ของเขา) · ดูหน้าฟอร์มได้ */
-function FormLinkBox({ m }: { m: ChurchMember }) {
+function FormLinkBox({ m, put }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean }) {
   const [msg, setMsg] = useState('')
+  const [importing, setImporting] = useState(false)
   const url = formUrl(m)
   const copy = async () => { try { await navigator.clipboard.writeText(url); setMsg(`คัดลอกลิงก์แล้ว — นำไปวางในไลน์ของ ${m.nick || m.name} (ใช้ได้ ${FORM_DAYS} วัน)`) } catch { setMsg('คัดลอกไม่สำเร็จ — กด “ดูแบบฟอร์ม” แล้วคัดลอกลิงก์จากแถบที่อยู่') } }
   return (
@@ -505,9 +507,69 @@ function FormLinkBox({ m }: { m: ChurchMember }) {
       <div className="row" style={{ gap: 6, marginTop: 6 }}>
         <button type="button" className="btn btn--gold" onClick={copy}>📋 คัดลอกลิงก์</button>
         <a className="btn btn--ghost" href={url} target="_blank" rel="noreferrer">👁 ดูแบบฟอร์ม</a>
+        <button type="button" className="btn btn--ghost" onClick={() => setImporting(true)}>📥 วางข้อมูลที่ได้รับ</button>
       </div>
+      {m.formAt && <p className="small muted" style={{ margin: '0.3rem 0 0' }}>นำเข้าข้อมูลจากแบบฟอร์มล่าสุดเมื่อ {new Date(m.formAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>}
+      {importing && <ImportSheet m={m} put={put} onClose={() => setImporting(false)} />}
       {msg && <p role="status" className="small" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
     </div>
+  )
+}
+
+/** วางข้อความที่สมาชิกส่งกลับ → ตารางเทียบ เดิม → ใหม่ → ติ๊กช่องที่รับ → ยืนยันครั้งเดียว (ไม่เขียนทับอัตโนมัติ) */
+function ImportSheet({ m, put, onClose }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void }) {
+  const people = useChurchMembers()
+  const plans = useVisitPlans()
+  const [text, setText] = useState('')
+  const [skip, setSkip] = useState<Set<FieldKey>>(new Set())
+  const [err, setErr] = useState('')
+  const a = text.trim() ? parseReply(text) : null
+  const owner = a && a.mid !== m.id ? people.items.find((x) => x.id === a.mid) : undefined
+  const diffs = a && a.mid === m.id ? diffAnswer(m, a) : []
+  const changed = diffs.filter((d) => d.changed)
+  const nv = a && a.mid === m.id ? nameVerdict(m.name, a.name) : null
+  const birthGap = a?.birth && m.birth ? Math.abs(Number(a.birth.slice(0, 4)) - Number(m.birth.slice(0, 4))) : 0
+  const keys = new Set(changed.filter((d) => !skip.has(d.key)).map((d) => d.key))
+  const confirm = () => {
+    if (!a || keys.size === 0) return
+    const next = applyAnswer(m, a, keys)
+    if (!put([next])) return setErr('ไม่มีสิทธิ์บันทึกทะเบียน')
+    // ชื่อใหม่: ปรับสำเนาชื่อในแผนเยี่ยมให้ตรงกัน
+    if (keys.has('name') && next.name !== m.name) {
+      const hit = plans.items.filter((p) => !p.deleted && (p.items ?? []).some((x) => x.id === m.id))
+      if (hit.length) plans.put(hit.map((p) => ({ ...p, items: p.items.map((x) => (x.id === m.id ? { ...x, name: next.name } : x)), updated: Date.now() })))
+    }
+    onClose()
+  }
+  return (
+    <Sheet title={`วางข้อมูลของ ${m.nick || m.name}`} onClose={onClose}>
+      <p className="small muted" style={{ margin: 0 }}>คัดลอกข้อความที่สมาชิกส่งกลับทางไลน์ แล้ววางที่นี่ ระบบแสดงตารางเทียบให้ตรวจก่อน ยังไม่มีอะไรเปลี่ยนจนกว่าจะกดยืนยัน</p>
+      <textarea className="input" rows={5} aria-label="วางข้อความที่ได้รับ" value={text} onChange={(e) => { setText(e.target.value); setSkip(new Set()); setErr('') }} placeholder="วางข้อความที่ขึ้นต้นว่า 📝 ข้อมูลสมาชิก…" />
+      {text.trim() && !a && <p className="error" role="alert" style={{ margin: 0 }}>ไม่พบรหัสตรวจในข้อความ — คัดลอกให้ครบทั้งข้อความรวมบรรทัด “— รหัสตรวจ: …” ท้ายสุด</p>}
+      {a && a.mid !== m.id && <p className="error" role="alert" style={{ margin: 0 }}>⚠️ ข้อความนี้เป็นของ {owner ? `“${owner.name}”` : 'สมาชิกอีกคนหนึ่ง'} ไม่ใช่ของ {m.name} — เปิดหน้าของคนนั้นแล้ววางใหม่ (ถ้าลูกหรือญาติกรอกแทน ให้ตรวจให้แน่ใจก่อน)</p>}
+      {a && a.mid === m.id && (
+        <>
+          {nv && nv.level === 'minor' && <p role="alert" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>⚠️ ชื่อต่างจากทะเบียนเล็กน้อย ({Math.round(nv.sim * 100)}% ใกล้เคียง) — ตรวจการสะกดให้ถูกต้องก่อนรับ</p>}
+          {nv && nv.level === 'major' && <p className="error" role="alert" style={{ margin: 0 }}>🚨 ชื่อต่างจากทะเบียนมาก ({Math.round(nv.sim * 100)}% ใกล้เคียง) — ตรวจให้แน่ใจว่าเป็นคนเดียวกัน ก่อนรับชื่อใหม่</p>}
+          {birthGap >= 5 && <p className="error" role="alert" style={{ margin: 0 }}>🚨 ปีเกิดต่างจากทะเบียน {birthGap} ปี — ตรวจให้แน่ใจว่าถูกคน</p>}
+          {changed.length === 0 ? <p style={{ margin: 0 }}>✅ ข้อมูลตรงกับทะเบียนอยู่แล้ว ไม่มีช่องที่ต้องเปลี่ยน</p> : (
+            <dl style={{ margin: 0 }} aria-label="เทียบข้อมูลเดิมกับข้อมูลใหม่">
+              {changed.map((d) => (
+                <div key={d.key} style={{ borderBottom: '1px solid var(--line)', padding: '0.4rem 0' }}>
+                  <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                    <input type="checkbox" checked={!skip.has(d.key)} onChange={() => setSkip((p) => { const n = new Set(p); if (n.has(d.key)) n.delete(d.key); else n.add(d.key); return n })} aria-label={`รับ ${d.label}`} />
+                    <span style={{ minWidth: 0 }}><b>{d.label}</b><br /><span className="small muted">เดิม: {d.old || '—'}</span><br /><span style={{ background: '#fff3bf', padding: '0 4px', borderRadius: 4 }}>ใหม่: {d.next}</span></span>
+                  </label>
+                </div>
+              ))}
+            </dl>
+          )}
+          {a.note && <p className="small" style={{ margin: 0 }}>💬 ข้อความจากสมาชิก: {a.note}</p>}
+          {err && <p className="error" role="alert" style={{ margin: 0 }}>{err}</p>}
+          <button type="button" className="btn btn--gold bigbtn btn--block" disabled={keys.size === 0} onClick={confirm}>✓ ยืนยันนำเข้า ({keys.size} ช่อง)</button>
+        </>
+      )}
+    </Sheet>
   )
 }
 
