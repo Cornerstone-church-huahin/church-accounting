@@ -82,6 +82,7 @@ try {
   await page.keyboard.press('Escape'); await page.waitForTimeout(300)
   // เกณฑ์ปรับได้: เปิดหน้าเกณฑ์สถานะ → เห็นเหตุผล → แก้เกณฑ์แล้วบันทึก → ปรับทันที
   await page.keyboard.press('Escape'); await page.waitForTimeout(300)
+  await page.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await page.getByRole('button', { name: /เกณฑ์สถานะ/ }).click()
   must(await page.getByLabel('มาอย่างน้อย').count() === 2, 'criteria inputs shown (new + worship)')
   await page.getByRole('spinbutton', { name: 'มาอย่างน้อย' }).first().fill('99')

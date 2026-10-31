@@ -1476,3 +1476,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .updleg button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line, #e0d8c8); background: transparent; border-radius: 999px; padding: 0.15rem 0.7rem; font: inherit; cursor: pointer; }
 .updleg button[aria-pressed="true"] { background: #fff3bf; border-color: #d4af37; font-weight: 700; }
 .updleg .updot { position: static; width: 11px; height: 11px; border: 0; box-shadow: none; }
+
+/* งานทะเบียน: แผงเครื่องมือพับได้ (ประหยัดที่) */
+.regtools { margin: 0.4rem 0; border: 1px solid var(--line); border-radius: 0.8rem; background: var(--surface); }
+.regtools > summary { cursor: pointer; padding: 0.5rem 0.8rem; font-weight: 700; list-style: none; }
+.regtools > summary::-webkit-details-marker { display: none; }
+.regtools[open] > summary { border-bottom: 1px solid var(--line); }
+.regtools__grid, .regtools > .toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; padding: 0.5rem; }
+.regtools .btn { width: 100%; padding: 0.45rem 0.5rem; font-size: 0.9rem; min-height: 0; }
