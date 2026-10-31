@@ -88,7 +88,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
     return true
   }
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
-  const tabItems = (lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
+  const tabItems = (lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
   // หน้ารวมสมาชิก (งานทะเบียน): ตัวกรองจากผลตรวจ/เพศ/จุดอัปเดต รวมเป็นชุดรหัสเดียวส่งให้การ์ดสมาชิก
   const regIds = useMemo(() => {
     if (!merged || (!checkF.length && !genF && !updF)) return null
@@ -125,7 +125,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
       {!inRoom && (
         <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
-          {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
+          {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
