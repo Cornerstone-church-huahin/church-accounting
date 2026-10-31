@@ -934,8 +934,8 @@ function RegroupSheet({ members, put, onClose }: { members: ChurchMember[]; put:
         <div aria-label="กติกาจัดกลุ่มตามอายุ">
           {rules.length === 0 && <p className="small muted" style={{ margin: 0 }}>ยังไม่มีกลุ่มที่ระบบเดากติกาได้จากชื่อ</p>}
           {rules.map((r, i) => (
-            <div key={r.group} className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--line)', padding: '0.3rem 0' }}>
-              <label className="row" style={{ gap: 6, flex: '1 1 8rem' }}><input type="checkbox" checked={r.on} onChange={() => setRule(i, { on: !r.on })} aria-label={`ใช้กติกา ${r.group}`} /><b>{r.group}</b></label>
+            <div key={i} className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--line)', padding: '0.3rem 0' }}>
+              <label className="row" style={{ gap: 6, flex: '1 1 8rem' }}><input type="checkbox" checked={r.on} onChange={() => setRule(i, { on: !r.on })} aria-label={`ใช้กติกา ${r.group}`} /><span><b>{r.group}</b> <span className="small muted">({live.filter((x) => x.group?.trim() === r.group).length} คน)</span></span></label>
               <input className="input" style={{ width: '4.2rem' }} type="number" min={0} aria-label={`${r.group} อายุตั้งแต่`} value={r.from} onChange={(e) => setRule(i, { from: Number(e.target.value) })} />
               <span>–</span>
               <input className="input" style={{ width: '4.2rem' }} type="number" min={0} aria-label={`${r.group} อายุถึง`} value={r.to} onChange={(e) => setRule(i, { to: Number(e.target.value) })} />
