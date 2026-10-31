@@ -39,7 +39,7 @@ const calendarAddForm = async (p) => {
 }
 try {
   for (const [id, label, edits, cal, badge] of [['u1', 'ผู้ดูแลหลัก', true, true, 'ผู้ดูแลหลัก'], ['u2', 'ผู้ช่วย', false, true, 'ผู้ช่วย'], ['u3', 'ที่ปรึกษา', false, false, 'ที่ปรึกษา']]) {
-    const p = await open(id, '/meeting/14/1')
+    const p = await open(id, '/meeting/14/2')
     must(await canEditFood(p) === edits, `${label}: can edit the room data = ${edits}`)
     await p.goto(`http://localhost:${PORT}/#/meeting/14`); await p.waitForLoadState('networkidle')
     must(new RegExp(`ตำแหน่งของคุณ: ${badge}`).test(await p.locator('main').innerText()), `${label}: sees own position badge`)

@@ -8,7 +8,7 @@ export interface LetterKind {
   /** ชื่อหนังสือ (หัวหน้า/รายการ/คลังเอกสาร) */
   name: string
   icon: string
-  /** ที่อยู่หน้ารายการ และหน้าแก้แต่ละฉบับ (ใต้ /meeting/1/1/) */
+  /** ที่อยู่หน้ารายการ และหน้าแก้แต่ละฉบับ (ใต้ /meeting/1/4/) */
   slug: string
   /** ที่เก็บข้อมูลร่วมกัน */
   storeKey: string; file: string; label: string

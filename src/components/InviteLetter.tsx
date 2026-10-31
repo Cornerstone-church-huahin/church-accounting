@@ -143,7 +143,7 @@ export default function InviteLetterPage({ id, kind = 'invite' }: { id: string; 
   if (!exists) {
     return (
       <>
-        <div className="page-head no-print"><h1>{K.icon} {K.name}</h1><Link to={`/meeting/1/1/${back}`} className="mini">‹ รายการหนังสือ</Link></div>
+        <div className="page-head no-print"><h1>{K.icon} {K.name}</h1><Link to={`/meeting/1/4/${back}`} className="mini">‹ รายการหนังสือ</Link></div>
         <section className="card"><p style={{ margin: 0 }}>⏳ กำลังดึงหนังสือจากระบบ…</p><p className="small muted" style={{ margin: '0.3rem 0 0' }}>ถ้าไม่ขึ้นภายในไม่กี่วินาที ให้กด “กดรีเฟรชเพื่ออัปเดต” ที่แถบด้านบน หรือตรวจว่าเข้าระบบด้วยบัญชีของคุณแล้ว (หนังสือฉบับนี้อาจถูกลบไปแล้ว)</p></section>
       </>
     )
@@ -192,7 +192,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const navigate = useNavigate()
   useEffect(() => {
     if (!done) return
-    const t = setTimeout(() => navigate('/meeting/1/2', { state: { openDoc: done.id } }), 2200)
+    const t = setTimeout(() => navigate('/meeting/1/5', { state: { openDoc: done.id } }), 2200)
     return () => clearTimeout(t)
   }, [done]) // eslint-disable-line react-hooks/exhaustive-deps
   const [edit, setEdit] = useState<Sec | null>(null)
@@ -301,7 +301,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const notify = async () => {
     if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.map(shift).join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
     if (!ready()) return
-    const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/1/${K.slug}-${id}`)
+    const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/4/${K.slug}-${id}`)
     const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l, kind, NAME)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
     let how: 'shared' | 'copied' | '' = ''
     if (typeof navigator.share === 'function') {
@@ -389,7 +389,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
   return (
     <>
-      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/1/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
+      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/4/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <section className="card no-print" aria-label={`กรอก${NAME}`}>
@@ -476,10 +476,10 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
       {done && (
-        <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/2', { state: { openDoc: done.id } })}>
+        <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>
           <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
           <p className="small muted" style={{ margin: 0 }}>บันทึกเข้าคลังเอกสารเรียบร้อย กำลังพาไปหน้าคลังเอกสารให้ดู…</p>
-          <button type="button" className="btn btn--gold" onClick={() => navigate('/meeting/1/2', { state: { openDoc: done.id } })}>ไปที่คลังเอกสารเลย</button>
+          <button type="button" className="btn btn--gold" onClick={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>ไปที่คลังเอกสารเลย</button>
         </Sheet>
       )}
       {signSetup && (
@@ -555,12 +555,12 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
     }
     const pool = [...cur.map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
     if (!store.put([{ ...blankOf(kind, todayISO()), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
-    navigate(`/meeting/1/1/${K.slug}-${id}`)
+    navigate(`/meeting/1/4/${K.slug}-${id}`)
   }
   const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind, NAME)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
-      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
+      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div>
       <section className="card" aria-label="ค้นหาหรือเพิ่มหนังสือ">
         <div className="row" style={{ gap: 6, alignItems: 'flex-end' }}>
           <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="il-q">🔎 ค้นหาหนังสือ (ชื่อ เรื่อง เลขที่)</label><input id="il-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์เพื่อค้นหา" /></div>
@@ -572,7 +572,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
         <ul className="wflist" aria-label={`รายการ${NAME}`}>
           {shown.map((x) => (
             <li key={x.id} className="wfitem">
-              <Link to={`/meeting/1/1/${K.slug}-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x, kind, NAME)}`}>
+              <Link to={`/meeting/1/4/${K.slug}-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x, kind, NAME)}`}>
                 <span className="wfcard__icon" aria-hidden="true">{K.icon}</span>
                 <span className="wfcard__t"><b>{letterTitle(x, kind, NAME)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
                 <span aria-hidden="true">›</span>

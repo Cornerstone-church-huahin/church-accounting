@@ -70,13 +70,13 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
 const DEFAULT_LABELS = ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'วางแผนเยี่ยม': '🗓️', 'บันทึกเยี่ยม': '📝', 'รายงานเยี่ยม': '📊', 'ตารางถวายอาหาร': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'วางแผนเยี่ยม': '🗓️', 'บันทึกเยี่ยม': '📝', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
-  1: ['สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี', 'รวมสมาชิก', 'แท็บ 5', 'แท็บ 6'],
+  1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
   4: ['รวมสมาชิก', 'วางแผนเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
-  14: ['ตารางถวายอาหาร', 'รวมสมาชิก', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  14: ['รวมสมาชิก', 'ตารางถวาย', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
 /** ความคืบหน้าการพัฒนา: จำนวนแท็บ (จาก 6) ที่ตั้งชื่อ/มีหน้าใช้งานแล้ว — งานที่มีหน้าพิเศษระบุเองตรงนี้ */
 const DEV_FIXED: Record<number, number> = { 2: 1, 3: 6 }
@@ -154,7 +154,7 @@ function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' 
 function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; s?: number; raw?: string }) {
   const label = labelsOf(n)[k - 1]
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
-  if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw === 'notice' ? <InviteLetterList kind="notice" /> : raw?.startsWith('cat-') ? <InviteLetterList key={raw} kind="doc" cat={raw.slice(4)} /> : raw?.startsWith('dl-') ? <InviteLetterPage key={raw} id={raw.slice(3)} kind="doc" /> : raw?.startsWith('notice-') ? <InviteLetterPage key={raw} id={raw.slice(7)} kind="notice" /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
+  if (n === 1 && label === 'สร้างเอกสาร') return raw === 'invite' ? <InviteLetterList /> : raw === 'notice' ? <InviteLetterList kind="notice" /> : raw?.startsWith('cat-') ? <InviteLetterList key={raw} kind="doc" cat={raw.slice(4)} /> : raw?.startsWith('dl-') ? <InviteLetterPage key={raw} id={raw.slice(3)} kind="doc" /> : raw?.startsWith('notice-') ? <InviteLetterPage key={raw} id={raw.slice(7)} kind="notice" /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
   const isMembers = label === 'รวมสมาชิก' // หน้า “รวมสมาชิก” ใช้ร่วมกัน: งานเลขา (แท็บ 4) · งานอภิบาล · งานอนุชน // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
   return (
@@ -164,7 +164,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {n === 4 ? (k === 2 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 14 && k === 1 ? <FoodRoster /> : n === 1 && k === 3 ? <AnnualPlan /> : n === 1 && k === 2 ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
@@ -226,7 +226,8 @@ function MeetingRoom() {
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
-  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
+  // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4
+  if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={tab.n === 1 && k === '1' && s !== undefined ? 4 : Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
   return <Hub />
 }

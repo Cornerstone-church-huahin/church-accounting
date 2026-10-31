@@ -51,7 +51,7 @@ async function device(meId, name) {
 const body = (page) => page.getByLabel(/ข้อความในหนังสือ/)
 try {
   const admin = await device('ad1', 'แอดมิน'), helper = await device('lead1', 'หัวหน้าเลขา')
-  const url = (h) => `http://localhost:${PORT}/#/meeting/1/1/invite-R`
+  const url = (h) => `http://localhost:${PORT}/#/meeting/1/4/invite-R`
   await admin.goto(url()); await body(admin).waitFor({ timeout: 15000 })
   must((await body(admin).inputValue()) === 'ข้อความเก่า', 'admin sees the old text first')
   await helper.goto(url()); await body(helper).waitFor({ timeout: 15000 })
@@ -65,7 +65,7 @@ try {
   const remote = JSON.parse(files.get('invite-letter.json').text).items.find((x) => x.id === 'R')
   must(remote.body === 'ข้อความใหม่ที่น้องพิมพ์', 'remote keeps the helper text (not overwritten by the admin stale copy): ' + remote.body)
   // เปิดจากลิงก์ในหน้าใหม่: ได้ฉบับล่าสุดทันที (ไม่ใช่ฉบับเก่าในเครื่อง)
-  await admin.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`); await admin.waitForTimeout(500)
+  await admin.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`); await admin.waitForTimeout(500)
   await body(helper).fill('ข้อความรอบสองของน้อง'); await helper.waitForTimeout(1500)
   await admin.goto(url()); await body(admin).waitFor({ timeout: 15000 })
   must((await body(admin).inputValue()) === 'ข้อความรอบสองของน้อง', 'opening the link shows the latest version immediately')

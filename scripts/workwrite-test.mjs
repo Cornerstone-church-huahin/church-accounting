@@ -35,15 +35,15 @@ async function open(meId, meName, hash, extra) {
 }
 try {
   // ผู้ดูแลหลักงานเลขา (บัญชีผู้ดู): สร้างหนังสือเชิญใหม่ได้ และลบได้
-  let page = await open('lead1', 'หัวหน้าเลขา', '/meeting/1/1/invite')
+  let page = await open('lead1', 'หัวหน้าเลขา', '/meeting/1/4/invite')
   await page.getByRole('button', { name: /ใหม่/ }).click()
   await page.waitForURL(/invite-letter/, { timeout: 8000 })
   must(!/ไม่มีสิทธิ์/.test(await page.locator('main').innerText()), 'lead can create a letter')
-  await page.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`); await page.waitForTimeout(500)
+  await page.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`); await page.waitForTimeout(500)
   must(await page.getByRole('button', { name: /ลบ/ }).count() >= 0, 'list opens')
   must(await page.evaluate(() => JSON.parse(localStorage.getItem('acct.inviteletter.v1') ?? '[]').length) >= 1, 'letter saved locally')
   // ผู้ช่วย: ทำไม่ได้
-  page = await open('help1', 'ผู้ช่วยเลขา', '/meeting/1/1/invite')
+  page = await open('help1', 'ผู้ช่วยเลขา', '/meeting/1/4/invite')
   await page.getByRole('button', { name: /ใหม่/ }).click()
   await page.getByText(/ไม่มีสิทธิ์สร้างหนังสือ/).first().waitFor({ timeout: 5000 })
   must(!page.url().includes('invite-letter'), 'helper cannot create a letter')
