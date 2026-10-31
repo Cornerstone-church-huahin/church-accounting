@@ -35,6 +35,14 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
         <h1>🩺 สถานะการเงิน</h1>
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
+      <aside className="no-print" role="note" aria-label="หมายเหตุ: อยู่ระหว่างพัฒนา" style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', margin: '0 0 0.8rem', padding: '0.7rem 0.8rem', background: '#fff6dd', border: '1px solid #e5c158', borderLeft: '5px solid #c9a227', borderRadius: 12, color: '#4a3a00' }}>
+        <span aria-hidden="true" style={{ fontSize: '1.6rem', lineHeight: 1 }}>🚧</span>
+        <div style={{ fontSize: '0.88rem', lineHeight: 1.45 }}>
+          <b style={{ display: 'block', fontSize: '1rem' }}>หมายเหตุ: อยู่ระหว่างพัฒนา</b>
+          ความสมบูรณ์ประมาณ <b>95%</b> · ตัวเลขและข้อความบางส่วนอาจคลาดเคลื่อน<br />
+          คาดว่าใช้งานได้เต็มระบบตั้งแต่ <b>1 มกราคม 2570</b>
+        </div>
+      </aside>
       <section className={`card healthcard healthcard--${h.level}`} aria-label="สถานะการเงินคริสตจักร">
         <div className="healthcard__top"><span className="healthcard__icon" aria-hidden="true">{ui.icon}</span><div><b className="healthcard__title">{ui.title}</b><p className="healthcard__msg">{ui.message}</p></div></div>
         <div className="healthmeter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={`เงินสำรองหมุนเวียน ${pct}% ของเป้า ${TARGET_WEEKS} สัปดาห์`}>
