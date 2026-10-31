@@ -310,6 +310,9 @@ export interface ChurchMember extends SharedItem {
   nick?: string
   code?: string
   tel?: string
+  /** LINE ID และ Facebook (ชื่อเพจ/โปรไฟล์ หรือลิงก์) — สมาชิกกรอกเองผ่านแบบฟอร์ม ไม่บังคับ */
+  lineId?: string
+  facebook?: string
   group?: string
   note?: string
   /** ชื่อเดิมก่อนแอปจัดวงเล็บออกจากชื่อ (ไว้กู้คืน) */

@@ -1,5 +1,4 @@
 import { fmtDate } from './money'
-import { formatCoord } from './geo'
 import type { ChurchMember } from './types'
 
 /**
@@ -14,10 +13,12 @@ export interface FormLink {
   name: string
   nick?: string
   tel?: string
+  lineId?: string
+  facebook?: string
   gender?: string
   birth?: string
-  lat?: number
-  lng?: number
+  /** วันที่มานมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD */
+  first?: string
   /** หมดอายุ (ms) */
   exp: number
 }
@@ -28,10 +29,12 @@ export interface FormAnswer {
   name: string
   nick?: string
   tel?: string
+  lineId?: string
+  facebook?: string
   gender?: string
   birth?: string
-  lat?: number
-  lng?: number
+  /** วันที่มานมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD */
+  first?: string
   note?: string
 }
 export const FORM_DAYS = 14
@@ -40,7 +43,7 @@ const b64 = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, 
 const unb64 = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))
 
 export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
-  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, gender: m.gender, birth: m.birth, lat: m.lat, lng: m.lng, exp: now + FORM_DAYS * 86_400_000 }
+  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, gender: m.gender, birth: m.birth, first: m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
 export const encodeFormLink = (p: FormLink) => b64(JSON.stringify(p))
 export function decodeFormLink(d: string | null): FormLink | null {
@@ -60,9 +63,11 @@ export function replyText(a: FormAnswer): string {
     `ชื่อ-สกุล: ${a.name}`,
     `ชื่อเล่น: ${a.nick ?? ''}`,
     `โทรศัพท์: ${a.tel ?? ''}`,
+    `LINE ID: ${a.lineId ?? ''}`,
+    `Facebook: ${a.facebook ?? ''}`,
     `เพศ: ${a.gender ?? ''}`,
     `วันเกิด: ${a.birth ? fmtDate(a.birth) : ''}`,
-    `พิกัดบ้าน: ${typeof a.lat === 'number' && typeof a.lng === 'number' ? formatCoord({ lat: a.lat, lng: a.lng }) : ''}`,
+    `มานมัสการครั้งแรก (ประมาณ): ${a.first ? fmtDate(a.first) : ''}`,
     ...(a.note?.trim() ? [`หมายเหตุ: ${a.note.trim()}`] : []),
     `— รหัสตรวจ: ${b64(JSON.stringify(a))}`,
   ]

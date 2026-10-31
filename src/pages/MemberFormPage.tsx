@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import logoUrl from '../assets/logo.png'
 import { decodeFormLink, replyText, type FormAnswer } from '../lib/memberForm'
-import { formatCoord, hasCoord, mapsLink, parseCoords } from '../lib/geo'
 
 /**
  * หน้าให้สมาชิกกรอกข้อมูลเอง (เปิดจากลิงก์ที่ฝ่ายทะเบียนส่งให้ในไลน์) — ไม่ต้องเข้าแอป ไม่มีการเขียนข้อมูลเข้าระบบ
@@ -11,9 +10,7 @@ import { formatCoord, hasCoord, mapsLink, parseCoords } from '../lib/geo'
 export default function MemberFormPage() {
   const [params] = useSearchParams()
   const link = decodeFormLink(params.get('d'))
-  const [f, setF] = useState({ name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', note: '' })
-  const [coord, setCoord] = useState<{ lat: number; lng: number } | null>(link && hasCoord(link) ? { lat: link.lat!, lng: link.lng! } : null)
-  const [coordText, setCoordText] = useState('')
+  const [f, setF] = useState({ name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', note: '' })
   const [msg, setMsg] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -28,15 +25,10 @@ export default function MemberFormPage() {
 
   const answer = (): FormAnswer => ({
     mid: link.mid, code: link.code, name: f.name.trim(), nick: f.nick.trim() || undefined, tel: f.tel.trim() || undefined,
-    gender: f.gender || undefined, birth: f.birth || undefined, ...(coord ? { lat: coord.lat, lng: coord.lng } : {}), note: f.note.trim() || undefined,
+    lineId: f.lineId.trim() || undefined, facebook: f.facebook.trim() || undefined,
+    gender: f.gender || undefined, birth: f.birth || undefined, first: f.first || undefined, note: f.note.trim() || undefined,
   })
   const ok = f.name.trim().length > 0
-  const locate = () => {
-    if (!navigator.geolocation) return setMsg('เครื่องนี้ไม่รองรับการหาตำแหน่ง — พิมพ์พิกัดหรือวางลิงก์ Google Maps แทนได้')
-    setMsg('กำลังหาตำแหน่ง… (ควรกดตอนอยู่ที่บ้าน)')
-    navigator.geolocation.getCurrentPosition((p) => { setCoord({ lat: p.coords.latitude, lng: p.coords.longitude }); setMsg('') }, () => setMsg('หาตำแหน่งไม่ได้ — อนุญาตการเข้าถึงตำแหน่ง หรือพิมพ์พิกัดแทน'), { enableHighAccuracy: true, timeout: 15000 })
-  }
-  const applyCoordText = () => { const c = parseCoords(coordText); if (!c) return setMsg('อ่านพิกัดไม่ออก — วางลิงก์ Google Maps หรือพิมพ์ เช่น 12.5684, 99.9577'); setCoord(c); setMsg('') }
   const sendLine = () => { if (!ok) return setMsg('ใส่ชื่อ-สกุลก่อนส่ง'); window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(replyText(answer()))}` }
   const copy = async () => {
     if (!ok) return setMsg('ใส่ชื่อ-สกุลก่อนส่ง')
@@ -46,22 +38,17 @@ export default function MemberFormPage() {
   return shell(
     <form className="card" onSubmit={(e) => e.preventDefault()} aria-label="แบบกรอกข้อมูลสมาชิก">
       <p style={{ margin: 0 }}>กรุณาตรวจและกรอกข้อมูลของท่านให้ครบ ข้อมูลที่ส่งจะไปถึงฝ่ายทะเบียนเท่านั้น</p>
-      {link.code && <p className="small muted" style={{ margin: '0.3rem 0 0' }}>รหัสสมาชิก {link.code}</p>}
       <div className="field"><label htmlFor="mf-name">ชื่อ-สกุล</label><input id="mf-name" className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="name" /></div>
       <div className="field"><label htmlFor="mf-nick">ชื่อเล่น</label><input id="mf-nick" className="input" value={f.nick} onChange={(e) => set({ nick: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-tel">โทรศัพท์</label><input id="mf-tel" className="input" type="tel" inputMode="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} autoComplete="tel" /></div>
+      <div className="field"><label htmlFor="mf-line">LINE ID <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-line" className="input" value={f.lineId} onChange={(e) => set({ lineId: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="ไอดีไลน์ของท่าน" /></div>
+      <div className="field"><label htmlFor="mf-fb">Facebook <span className="muted small">(ไม่บังคับ · พิมพ์ชื่อเฟซบุ๊ก/ชื่อเพจ หรือวางลิงก์ก็ได้)</span></label><input id="mf-fb" className="input" value={f.facebook} onChange={(e) => set({ facebook: e.target.value })} placeholder="ชื่อใน Facebook หรือลิงก์โปรไฟล์/เพจ" /></div>
       <div className="field"><label id="mf-g">เพศ</label>
         <div className="row" role="radiogroup" aria-labelledby="mf-g" style={{ gap: 6 }}>
           {['ชาย', 'หญิง'].map((g) => <button key={g} type="button" role="radio" aria-checked={f.gender === g} className={f.gender === g ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ gender: f.gender === g ? '' : g })}>{g}</button>)}
         </div></div>
       <div className="field"><label htmlFor="mf-birth">วันเกิด</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
-      <div className="field"><label>พิกัดบ้าน <span className="muted small">(ไม่บังคับ)</span></label>
-        {coord && <p className="small" style={{ margin: '0 0 0.3rem' }}>📍 {formatCoord(coord)} · <a href={mapsLink(coord)} target="_blank" rel="noreferrer">เปิดแผนที่</a></p>}
-        <button type="button" className="btn btn--ghost" onClick={locate}>📍 ใช้ตำแหน่งปัจจุบัน (กดตอนอยู่ที่บ้าน)</button>
-        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'nowrap' }}>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label="พิมพ์พิกัดหรือวางลิงก์ Google Maps" placeholder="หรือวางลิงก์ Google Maps / พิมพ์พิกัด" value={coordText} onChange={(e) => setCoordText(e.target.value)} />
-          <button type="button" className="mini" onClick={applyCoordText}>ใช้</button>
-        </div></div>
+      <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span></label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-note">ข้อความถึงฝ่ายทะเบียน <span className="muted small">(ไม่บังคับ เช่น ย้ายที่อยู่ เปลี่ยนเบอร์)</span></label><textarea id="mf-note" className="input" rows={2} value={f.note} onChange={(e) => set({ note: e.target.value })} /></div>
       {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       <button type="button" className="btn btn--gold bigbtn btn--block" disabled={!ok} onClick={sendLine}>📤 ส่งกลับทางไลน์</button>
