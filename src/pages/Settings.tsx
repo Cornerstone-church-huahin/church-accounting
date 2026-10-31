@@ -214,8 +214,10 @@ function Members() {
                     const keep = rs.filter((r) => !(legacy as Role[]).includes(r))
                     return (
                       <div className="rightsbox" style={{ flexBasis: '100%' }}>
-                        <SwitchRow label="แอดมินระบบ" sub="ทำได้ทุกอย่างทั้งระบบ (จัดการผู้ใช้ ประเภทถวาย งบประมาณ) · ไม่ต้องกำหนดห้องงาน" on={isAd} disabled={lastAdmin} onChange={(v) => { if (m.setRole(x.id, v ? ['admin'] : ['viewer'])) flash(`${v ? 'ตั้ง' : 'เอา'} ${x.name} ${v ? 'เป็น' : 'ออกจาก'}แอดมินระบบ`) }} />
-                        {!isAd && <SwitchRow label="ผู้ดูแลกองทุน" sub="เห็นเฉพาะกองทุนที่กำหนดด้านล่าง (ใช้แทนห้องงาน)" on={isFk} onChange={(v) => { if (m.setRole(x.id, v ? ['fundkeeper'] : ['viewer'])) flash(`${v ? 'ตั้ง' : 'เอา'} ${x.name} ${v ? 'เป็น' : 'ออกจาก'}ผู้ดูแลกองทุน`) }} />}
+                        <div className="row" style={{ gap: '0.3rem 1.2rem', flexWrap: 'wrap' }}>
+                          <SwitchRow small label="แอดมินระบบ" title="ทำได้ทุกอย่างทั้งระบบ (จัดการผู้ใช้ ประเภทถวาย งบประมาณ) · ไม่ต้องกำหนดห้องงาน" on={isAd} disabled={lastAdmin} onChange={(v) => { if (m.setRole(x.id, v ? ['admin'] : ['viewer'])) flash(`${v ? 'ตั้ง' : 'เอา'} ${x.name} ${v ? 'เป็น' : 'ออกจาก'}แอดมินระบบ`) }} />
+                          {!isAd && <SwitchRow small label="ผู้ดูแลกองทุน" title="เห็นเฉพาะกองทุนที่กำหนดด้านล่าง (ใช้แทนห้องงาน)" on={isFk} onChange={(v) => { if (m.setRole(x.id, v ? ['fundkeeper'] : ['viewer'])) flash(`${v ? 'ตั้ง' : 'เอา'} ${x.name} ${v ? 'เป็น' : 'ออกจาก'}ผู้ดูแลกองทุน`) }} />}
+                        </div>
                         {legacy.length > 0 && <p className="small" style={{ margin: '0.3rem 0 0' }}>สิทธิ์เดิม: <b>{rolesLabel(legacy)}</b> <button type="button" className="mini" aria-label={`ล้างสิทธิ์เดิมของ ${x.name}`} onClick={() => { if (m.setRole(x.id, keep.length ? keep : ['viewer'])) flash(`ล้างสิทธิ์เดิมของ ${x.name}`) }}>ล้าง ✕</button> <span className="muted">(ให้ตั้งห้องงาน × ตำแหน่งด้านล่างแทน)</span></p>}
                       </div>
                     )
@@ -252,8 +254,8 @@ function Members() {
                   )}
                   {!rolesOf(x).includes('admin') && !rolesOf(x).includes('fundkeeper') && (
                     <div style={{ flexBasis: '100%' }} role="group" aria-label={`ห้องงานและตำแหน่งของ ${x.name}`}>
-                      <p className="small" style={{ margin: '0.3rem 0' }}><b>ห้องงานและตำแหน่ง</b> <span className="muted">เปิดสวิตช์ = ได้ไอคอนห้องนั้นตามตำแหน่งที่เลือก · ไม่ต้องส่งลิงก์ใหม่ · เครื่องของเขาเห็นเมื่อซิงก์ (กดรีเฟรช)</span></p>
-                      <ul className="list" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
+                      <p className="small" style={{ margin: '0.2rem 0' }}><b>ห้องงานและตำแหน่ง</b> <span className="muted">เปิดสวิตช์ = ได้ไอคอนห้อง · ไม่ต้องส่งลิงก์ใหม่ · เห็นเมื่อซิงก์</span></p>
+                      <ul className="rgrid" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
                         {MEETING_TABS.map((t) => {
                           const lv = workLevelOf(x, t.n)
                           const setLv = (next: WorkLevel | null) => {
@@ -263,19 +265,18 @@ function Members() {
                             if (m.setPositions(x.id, pos)) flash(next ? `${x.name} เป็น${WORK_LEVEL_LABEL[next]}ของ${t.name}` : `เอา ${x.name} ออกจาก${t.name}`)
                           }
                           return (
-                            <li key={t.n} style={{ display: 'block' }}>
-                              <div className="row row--between" style={{ alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
-                                <SwitchRow label={t.name} on={!!lv} compact onChange={(v) => setLv(v ? 'helper' : null)} />
-                                <select className="input" style={{ width: '9.5rem', flex: 'none' }} disabled={!lv} aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} value={lv ?? ''} onChange={(e) => setLv((e.target.value || null) as WorkLevel | null)}>
-                                  <option value="">— ปิด —</option>
-                                  {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
-                                </select>
-                              </div>
-                              {lv && <p className="small muted" style={{ margin: '0.1rem 0 0.3rem' }}>{workLevelHelp(lv, t.n)}</p>}
+                            <li key={t.n} className="rgrid__row">
+                              <span className="rgrid__n" title={lv ? workLevelHelp(lv, t.n) : undefined}>{t.name.replace(/^งาน/, '')}</span>
+                              <select className="input rgrid__sel" disabled={!lv} aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} title={lv ? workLevelHelp(lv, t.n) : undefined} value={lv ?? ''} onChange={(e) => setLv((e.target.value || null) as WorkLevel | null)}>
+                                <option value="">—</option>
+                                {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
+                              </select>
+                              <button type="button" role="switch" aria-checked={!!lv} aria-label={t.name} className={`swt swt--sm${lv ? ' swt--on' : ''}`} onClick={() => setLv(lv ? null : 'helper')}><i /></button>
                             </li>
                           )
                         })}
                       </ul>
+                      <details><summary className="small">ตำแหน่งแต่ละแบบทำอะไรได้</summary><ul className="small">{WORK_LEVELS.map((l) => <li key={l}><b>{WORK_LEVEL_LABEL[l]}</b> — {workLevelHelp(l)}</li>)}</ul></details>
                     </div>
                   )}
                 </>
@@ -649,11 +650,11 @@ function OpeningCard() {
 }
 
 /** สวิตช์เปิด/ปิด: เปิด = เขียว · compact = บรรทัดเดียว (ชื่ออยู่ขวาของสวิตช์) */
-function SwitchRow({ label, sub, on, onChange, disabled, compact }: { label: string; sub?: string; on: boolean; onChange: (v: boolean) => void; disabled?: boolean; compact?: boolean }) {
+function SwitchRow({ label, title, on, onChange, disabled, small }: { label: string; title?: string; on: boolean; onChange: (v: boolean) => void; disabled?: boolean; small?: boolean }) {
   return (
-    <div className="swrow" style={compact ? { flex: 1, minWidth: 0 } : undefined}>
-      <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`swt${on ? ' swt--on' : ''}`} onClick={() => onChange(!on)}><i /></button>
-      <span className="swrow__t"><b>{label}</b>{sub && <><br /><span className="small muted">{sub}</span></>}</span>
+    <div className="swrow" title={title}>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`swt${small ? ' swt--sm' : ''}${on ? ' swt--on' : ''}`} onClick={() => onChange(!on)}><i /></button>
+      <span className="swrow__t"><b>{label}</b></span>
     </div>
   )
 }
