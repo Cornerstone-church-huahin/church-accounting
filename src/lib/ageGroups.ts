@@ -2,16 +2,20 @@ import { ageYears, isLive } from './pastoral'
 import type { AgeRule, ChurchMember } from './types'
 
 const strip = (g: string) => g.replace(/^\s*\d+\s*[.)\-]?\s*/, '')
-/** กติกาตั้งต้น: เดาจากชื่อกลุ่มที่มีในทะเบียน (แก้ได้) — เด็ก 0–12 · เยาวชน/อนุชน 13–24 · บุรุษ/สตรี 25 ขึ้นไปตามเพศ · ผู้สูงอายุ 60+ (ปิดไว้ก่อน เพราะซ้อนกับบุรุษ/สตรี) */
+/**
+ * กติกาตั้งต้นตามช่วงวัยของคริสตจักร (เดาจากชื่อกลุ่มที่มีในทะเบียน · แก้ได้):
+ * รวี/เด็ก 2–12 · อนุชน/เยาวชน 13–24 · วัยทำงาน 25–39 · บุรุษ/สตรี 40–59 (แยกตามเพศ) · ผู้สูงวัย 60+
+ */
 export function defaultRules(groups: string[]): AgeRule[] {
   const rules: AgeRule[] = []
   for (const g of groups) {
     const n = strip(g)
-    if (/เด็ก|รวี|โรงเรียนอาทิตย์/.test(n)) rules.push({ group: g, from: 0, to: 12, on: true })
+    if (/ผู้สูงอายุ|สูงวัย/.test(n)) rules.push({ group: g, from: 60, to: 200, on: true })
+    else if (/วัยทำงาน/.test(n)) rules.push({ group: g, from: 25, to: 39, on: true })
+    else if (/เด็ก|รวี|โรงเรียนอาทิตย์/.test(n)) rules.push({ group: g, from: 2, to: 12, on: true })
     else if (/เยาวชน|อนุชน/.test(n)) rules.push({ group: g, from: 13, to: 24, on: true })
-    else if (/บุรุษ|บรุษ/.test(n)) rules.push({ group: g, from: 25, to: 200, gender: 'ชาย', on: true })
-    else if (/สตรี/.test(n)) rules.push({ group: g, from: 25, to: 200, gender: 'หญิง', on: true })
-    else if (/ผู้สูงอายุ|สูงวัย/.test(n)) rules.push({ group: g, from: 60, to: 200, on: false })
+    else if (/บุรุษ|บรุษ/.test(n)) rules.push({ group: g, from: 40, to: 59, gender: 'ชาย', on: true })
+    else if (/สตรี/.test(n)) rules.push({ group: g, from: 40, to: 59, gender: 'หญิง', on: true })
   }
   return rules
 }
