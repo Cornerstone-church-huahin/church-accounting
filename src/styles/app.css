@@ -1457,3 +1457,5 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .imp-badge--fill { background: #dff5e1; color: #1b6b2b; }
 .imp-badge--edit { background: #ffe9c7; color: #8a4b00; }
 .imp-badge--date { background: #ffd6d6; color: #b00020; }
+
+.mform__fold { margin-top: 6px; }
