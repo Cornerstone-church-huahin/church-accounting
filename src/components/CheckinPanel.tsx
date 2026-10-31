@@ -10,7 +10,8 @@ import { uploadMemberPhoto } from '../lib/memberPhoto'
 import { clearEtagCache, SYNC_EVENT } from '../lib/sync'
 import { useGlobalSync } from '../lib/syncStatus'
 import { OPEN_RECORDER, useRecorderPick } from '../lib/recorderPick'
-import { reportText, serviceReport, shareText } from '../lib/serviceReport'
+import { serviceReport } from '../lib/serviceReport'
+import ShareReportSheet from './ShareReportSheet'
 import type { CheckIn, ChurchMember, Recorder } from '../lib/types'
 
 const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
@@ -45,6 +46,8 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
   const [adding, setAdding] = useState(false)
   const [sharing, setSharing] = useState(false) // ป๊อปอัพตรวจข้อความก่อนแชร์
   const [askDel, setAskDel] = useState<CheckIn | null>(null) // การ์ดที่กำลังจะลบ (รอยืนยันในป๊อปอัพ)
+  const [justId, setJustId] = useState('') // คนที่เพิ่งลงชื่อ: ไฮไลต์การ์ดสั้น ๆ ในรายการด้านล่าง
+  const doneRef = useRef<HTMLUListElement>(null)
   const g = useGlobalSync()
   useEffect(() => { void syncNow() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- เปิดหน้าลงชื่อ = ดึงรายชื่อล่าสุดทันที
   const latest = useRef(checkins)
@@ -81,7 +84,14 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
     await new Promise((r) => setTimeout(r, 60)) // ให้ข้อมูลที่เพิ่งซิงก์เข้าหน้าจอก่อน
     const dup = of(date).get(mid)
     if (dup) { setMsg({ text: `“${name}” ลงชื่อแล้ว โดย ${dup.rec ?? 'ไม่ระบุผู้บันทึก'}${dup.tm ? ` เวลา ${dup.tm}` : ''} — ไม่ลงซ้ำ`, bad: true }); return false }
-    if (putCheckIns([{ id: checkInId(date, mid), date, mid, tm: nowHM(), rec: recorder, updated: 0 }])) { setMsg({ text: `ลงชื่อ “${name}” แล้ว` }); return true }
+    if (putCheckIns([{ id: checkInId(date, mid), date, mid, tm: nowHM(), rec: recorder, updated: 0 }])) {
+      setMsg({ text: `ลงชื่อ “${name}” แล้ว` })
+      setJustId(mid)
+      window.setTimeout(() => doneRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }), 80)   // พาไปเห็นการ์ดที่เพิ่งลงชื่อในรายการด้านล่าง (คนล่าสุดอยู่บน)
+      window.setTimeout(() => setJustId(''), 2500)
+      return true
+    }
+    setMsg({ text: `ลงชื่อ “${name}” ไม่สำเร็จ — ไม่มีสิทธิ์บันทึก หรือข้อมูลยังซิงก์ไม่เสร็จ ลองกด “กดรีเฟรชเพื่ออัปเดต” แล้วลงใหม่`, bad: true })
     return false
   }
   const doDelete = (c: CheckIn) => {
@@ -92,16 +102,6 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
   }
   /** สรุปผู้มาของวันที่เลือก: เปิดป๊อปอัพให้ตรวจข้อความก่อน แล้วค่อยกดแชร์ไป LINE/Messenger/Facebook */
   const report = serviceReport(checkins, members, date)
-  const reportMsg = reportText(report)
-  const doShare = async () => {
-    const r = await shareText(`สรุปนมัสการ ${fmtDateLong(date)}`, reportMsg)
-    if (r === 'copied') { setSharing(false); setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' }) }
-    else if (r === 'failed') setMsg({ text: 'แชร์และคัดลอกไม่ได้ในเครื่องนี้ ลองเปิดแอปด้วย Chrome', bad: true })
-    else if (r === 'shared') setSharing(false)
-  }
-  const doCopy = async () => {
-    try { await navigator.clipboard.writeText(reportMsg); setSharing(false); setMsg({ text: 'คัดลอกสรุปแล้ว วางในแชต LINE ได้เลย' }) } catch { setMsg({ text: 'คัดลอกไม่ได้ ให้กดค้างที่ข้อความแล้วเลือกคัดลอก', bad: true }) }
-  }
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
   /** การ์ดผลค้นหา: รูป ชื่อ และปุ่มลงทะเบียน */
@@ -177,11 +177,11 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
       {doneRows.length === 0
         ? <p className="empty">ยังไม่มีใครลงชื่อ{date === today ? 'วันนี้' : 'ในวันนี้'} — พิมพ์ค้นหาชื่อด้านบน แล้วกด “ลงทะเบียน”</p>
         : (
-          <ul className="list list--tight doneList" aria-label="รายชื่อที่ลงแล้ว">
+          <ul ref={doneRef} className="list list--tight doneList" aria-label="รายชื่อที่ลงแล้ว">
             {doneNewestFirst.map((c) => {
               const m = byId.get(c.mid)!
               return (
-                <li key={c.id}>
+                <li key={c.id} className={justId === c.mid ? 'doneNew' : undefined}>
                   <div className="pick pick--done">
                     <span className="doneAv"><PhotoAvatar member={m} size={52} canPhoto={canPhoto} put={addMember} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
@@ -199,23 +199,7 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
             })}
           </ul>
         )}
-      {sharing && (
-        <Sheet title="ตรวจข้อมูลก่อนแชร์" onClose={() => setSharing(false)}>
-          <p className="pagehint" style={{ margin: 0 }}>ข้อความนี้จะถูกส่งไป LINE / Messenger / Facebook ที่คุณเลือก (มีเฉพาะตัวเลขและชื่อคนมาใหม่ ไม่มีเบอร์โทรหรือวันเกิด)</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', textAlign: 'center' }}>
-            {([['ทั้งหมด', report.total], ['ชาย', report.male], ['หญิง', report.female]] as const).map(([k, v]) => (
-              <div key={k} style={{ border: '1.5px solid var(--line)', borderRadius: '0.7rem', padding: '0.35rem 0' }}><div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{v}</div><div className="small muted">{k}</div></div>
-            ))}
-          </div>
-          <pre aria-label="ข้อความที่จะแชร์" style={{ whiteSpace: 'pre-wrap', margin: 0, padding: '0.75rem', borderRadius: '0.8rem', background: 'var(--surface-2)', border: '1px solid var(--line)', fontFamily: 'inherit', userSelect: 'text', maxHeight: '40vh', overflow: 'auto' }}>{reportMsg}</pre>
-          {msg?.bad && <p className="small" role="alert" style={{ margin: 0, color: 'var(--bad)', fontWeight: 700 }}>{msg.text}</p>}
-          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={doShare}>📤 แชร์ข้อความนี้</button>
-          <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <button type="button" className="btn btn--ghost bigbtn grow" onClick={doCopy}>คัดลอก</button>
-            <button type="button" className="btn btn--ghost bigbtn grow" onClick={() => setSharing(false)}>ยกเลิก</button>
-          </div>
-        </Sheet>
-      )}
+      {sharing && <ShareReportSheet report={report} onClose={() => setSharing(false)} onDone={(t) => setMsg({ text: t })} />}
       {askDel && (
         <Sheet title="ลบการลงชื่อนี้?" onClose={() => setAskDel(null)}>
           <p style={{ margin: 0 }}>ลบ <b>{byId.get(askDel.mid)?.name}</b> ออกจากการลงชื่อ{askDel.date === today ? 'วันนี้' : `วันที่ ${fmtDateLong(askDel.date)}`} ใช่ไหม?</p>

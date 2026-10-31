@@ -18,7 +18,7 @@ await page.addInitScript(() => {
   localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
   localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
   localStorage.setItem('acct.church-members.v1', JSON.stringify([
-    { id: 'a', name: 'คนที่หนึ่ง', status: 'สมบูรณ์ ( 1 )', updated: 1 }, { id: 'b', name: 'คนที่สอง', status: 'สมบูรณ์ ( 1 )', updated: 1 }, { id: 'c', name: 'คนที่สาม', status: 'สมบูรณ์ ( 1 )', updated: 1 }, { id: 'd', name: 'คนอีกสัปดาห์', status: 'สมบูรณ์ ( 1 )', updated: 1 },
+    { id: 'a', name: 'คนที่หนึ่ง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี', gender: 'หญิง', updated: 1 }, { id: 'b', name: 'คนที่สอง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี', gender: 'หญิง', updated: 1 }, { id: 'c', name: 'คนที่สาม', status: 'สมบูรณ์ ( 1 )', group: '1.เด็กรวี', gender: 'ชาย', updated: 1 }, { id: 'd', name: 'คนอีกสัปดาห์', status: 'สมบูรณ์ ( 1 )', updated: 1 },
   ]))
   localStorage.setItem('acct.attendance.2026.v1', JSON.stringify([
     { id: 'ck1', date: '2026-10-25', mid: 'a', tm: '09:00', rec: 'ก', updated: 1000 },
@@ -33,15 +33,15 @@ try {
   await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
   await page.getByRole('group', { name: 'เลือกอาทิตย์' }).waitFor({ timeout: 8000 })
   must(/25 ตุลาคม 2569/.test(await page.getByRole('group', { name: 'เลือกอาทิตย์' }).innerText()), 'stats: latest recorded day selected')
-  const names = await page.locator('.doneList .mrow__name').allInnerTexts()
-  must(names.join('|') === 'คนที่สาม|คนที่สอง|คนที่หนึ่ง', 'newest recorded on top: ' + names.join('|'))
-  const nos = await page.locator('.doneNo').allInnerTexts()
-  must(nos.join(',') === '3,2,1', 'numbers = arrival order: ' + nos.join(','))
+  must(await page.locator('.doneList').count() === 0, 'stats page has no photo list')
+  await page.getByRole('button', { name: /แชร์สรุปนมัสการ/ }).click()
+  const share = await page.getByRole('dialog', { name: 'ตรวจข้อมูลก่อนแชร์' }).getByLabel('ข้อความที่จะแชร์').innerText()
+  must(/สรุปนมัสการ วันอาทิตย์ที่ 25 ตุลาคม 2569/.test(share) && /ผู้เข้าร่วมทั้งหมด 3 คน/.test(share) && /แยกกลุ่ม: 1\.เด็กรวี 1 · 4\.สตรี 2/.test(share) && /ชาย 1 · หญิง 2/.test(share) && /คนมาใหม่ 3 คน/.test(share), 'share summary has date, total, groups, statuses: ' + share)
+  await page.getByRole('dialog', { name: 'ตรวจข้อมูลก่อนแชร์' }).getByRole('button', { name: 'ยกเลิก' }).click()
   const h = (await page.getByRole('group', { name: 'เลือกอาทิตย์' }).boundingBox()).height
   must(h < 50, 'week stepper is short: ' + h)
   await page.getByRole('button', { name: 'อาทิตย์ก่อนหน้า' }).click()
-  must(/18 ตุลาคม 2569/.test(await page.getByRole('group', { name: 'เลือกอาทิตย์' }).innerText()) && (await page.locator('.doneList .mrow__name').allInnerTexts()).join('|') === 'คนอีกสัปดาห์', 'previous week shows that day only')
-  must(await page.getByRole('button', { name: /^(เพิ่ม|เปลี่ยน)รูป/ }).count() >= 1, 'admin can tap the photo to add/change it')
+  must(/18 ตุลาคม 2569/.test(await page.getByRole('group', { name: 'เลือกอาทิตย์' }).innerText()) && true, 'previous week')
   await page.getByRole('tab', { name: 'ลงชื่อ' }).click()
   await page.getByRole('group', { name: 'เลือกอาทิตย์' }).waitFor({ timeout: 8000 })
   await page.getByRole('button', { name: 'อาทิตย์ก่อนหน้า' }).click()

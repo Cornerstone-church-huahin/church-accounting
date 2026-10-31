@@ -1532,3 +1532,5 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 /* รูปในรายการที่แตะเพิ่ม/เปลี่ยนรูปได้ */
 .photoav__b { all: unset; cursor: pointer; display: inline-flex; border-radius: 14px; }
 .photoav__i { position: absolute; right: -4px; bottom: -4px; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: #fff; border: 1px solid var(--line); font-size: 0.7rem; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.doneNew .pick--done { animation: donepulse 2.4s ease-out 1; }
+@keyframes donepulse { 0% { background: #fff1b8; box-shadow: 0 0 0 3px #d4af37; } 100% { background: transparent; box-shadow: none; } }
