@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import logoUrl from '../assets/logo.png'
+import Sheet from '../components/Sheet'
 import { DAY_OPTIONS, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, replyText, type FormAnswer } from '../lib/memberForm'
 
 /**
@@ -12,6 +13,7 @@ export default function MemberFormPage() {
   const link = decodeFormLink(params.get('d'))
   const [f, setF] = useState({ name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', skills: link?.skills ?? '', other: (link?.serve ?? []).find((x) => x.startsWith(`${OTHER_SERVE}: `))?.slice(OTHER_SERVE.length + 2) ?? '', note: '' })
   const [serve, setServe] = useState<string[]>((link?.serve ?? []).map((x) => (x.startsWith(`${OTHER_SERVE}: `) ? OTHER_SERVE : x)))
+  const [pickServe, setPickServe] = useState(false)
   const [days, setDays] = useState<string[]>(link?.serveDays ?? [])
   const toggle = (list: string[], x: string, put: (a: string[]) => void) => { put(list.includes(x) ? list.filter((y) => y !== x) : [...list, x]); setCopied(false) }
   const [msg, setMsg] = useState('')
@@ -54,10 +56,12 @@ export default function MemberFormPage() {
       <div className="field"><label htmlFor="mf-birth">วันเกิด</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-skills">อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-skills" className="input" value={f.skills} onChange={(e) => set({ skills: e.target.value })} placeholder="เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร" /></div>
       <div className="field"><label id="mf-serve">งานรับใช้คริสตจักรที่ท่านเต็มใจช่วย <span className="muted small">(ติ๊กได้หลายข้อ · ไม่บังคับ)</span></label>
-        <div className="mform__chips" role="group" aria-labelledby="mf-serve">
-          {[...SERVE_OPTIONS, OTHER_SERVE].map((o) => <button key={o} type="button" role="checkbox" aria-checked={serve.includes(o)} className={`mform__chip${serve.includes(o) ? ' on' : ''}`} onClick={() => toggle(serve, o, setServe)}>{serve.includes(o) ? '✓ ' : ''}{o}</button>)}
-        </div>
-        {serve.includes(OTHER_SERVE) && <input className="input" style={{ marginTop: 6 }} aria-label="งานรับใช้อื่นๆ" placeholder="พิมพ์งานรับใช้อื่นๆ ที่ท่านช่วยได้" value={f.other} onChange={(e) => set({ other: e.target.value })} />}</div>
+        <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPickServe(true)}>🙌 เลือกงานรับใช้{serve.length ? ` (เลือกแล้ว ${serve.length} ข้อ)` : ''}</button>
+        {serve.length > 0 && (
+          <div className="mform__chips" style={{ marginTop: 6 }} aria-label="งานรับใช้ที่เลือกไว้">
+            {serve.map((o) => <span key={o} className="mform__chip on">✓ {o === OTHER_SERVE && f.other.trim() ? `${OTHER_SERVE}: ${f.other.trim()}` : o}</span>)}
+          </div>
+        )}</div>
       <div className="field"><label id="mf-days">วันที่สะดวกรับใช้ <span className="muted small">(ติ๊กได้หลายวัน · ไม่บังคับ)</span></label>
         <div className="mform__chips" role="group" aria-labelledby="mf-days">
           {DAY_OPTIONS.map((o) => <button key={o} type="button" role="checkbox" aria-checked={days.includes(o)} className={`mform__chip${days.includes(o) ? ' on' : ''}`} onClick={() => toggle(days, o, setDays)}>{days.includes(o) ? '✓ ' : ''}{o}</button>)}
@@ -67,6 +71,16 @@ export default function MemberFormPage() {
       {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       <button type="button" className="btn btn--gold bigbtn btn--block" disabled={!ok} onClick={sendLine}>📤 ส่งกลับทางไลน์</button>
       <button type="button" className="btn btn--ghost btn--block" disabled={!ok} onClick={copy}>{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ (ถ้าส่งไลน์ไม่ได้)'}</button>
+      {pickServe && (
+        <Sheet title="เลือกงานรับใช้" onClose={() => setPickServe(false)}>
+          <p className="small muted" style={{ margin: 0 }}>ติ๊กได้หลายข้อ — งานที่ท่านเต็มใจช่วยคริสตจักร</p>
+          <div className="mform__chips" role="group" aria-label="งานรับใช้">
+            {[...SERVE_OPTIONS, OTHER_SERVE].map((o) => <button key={o} type="button" role="checkbox" aria-checked={serve.includes(o)} className={`mform__chip${serve.includes(o) ? ' on' : ''}`} onClick={() => toggle(serve, o, setServe)}>{serve.includes(o) ? '✓ ' : ''}{o}</button>)}
+          </div>
+          {serve.includes(OTHER_SERVE) && <input className="input" aria-label="งานรับใช้อื่นๆ" placeholder="พิมพ์งานรับใช้อื่นๆ ที่ท่านช่วยได้" value={f.other} onChange={(e) => set({ other: e.target.value })} />}
+          <button type="button" className="btn btn--gold btn--block" onClick={() => setPickServe(false)}>✓ เสร็จ ({serve.length} ข้อ)</button>
+        </Sheet>
+      )}
       <p className="small muted" style={{ margin: 0 }}>กดส่งแล้ว เลือกแชตฝ่ายทะเบียนใน LINE แล้วกดส่งข้อความอีกครั้งหนึ่ง ฝ่ายทะเบียนจะตรวจและบันทึกให้</p>
     </form>,
   )
