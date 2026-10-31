@@ -7,6 +7,7 @@ import StoredImage from '../components/StoredImage'
 import MultiPick from '../components/MultiPick'
 import MemberAvatar from '../components/MemberAvatar'
 import PastoralMembers from '../components/PastoralMembers'
+import MapPickSheet from '../components/MapPickSheet'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
@@ -487,6 +488,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pinOpen, setPinOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const dropPhoto = () => { if (!m.photoPath || !confirm(`ลบรูปของ ${m.name}?`)) return; const old = m.photoPath; if (put([{ ...m, photoPath: undefined }])) void removeMemberPhotoFile(old) }
   const setPhoto = async (f: File | undefined) => {
@@ -535,7 +537,9 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
           <dt className="muted small">แผนที่บ้าน</dt>
           <dd style={{ margin: '0.25rem 0 0' }}>{hasCoord(m)
             ? <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: m.id, lat: m.lat, lng: m.lng, label: m.name }]} height={170} label={`แผนที่บ้าน ${m.name}`} noLinks /></Suspense>
-            : <span className="muted small">ยังไม่มีพิกัดบ้าน — แผนที่จะขึ้นเองเมื่อมีการเช็คอินเยี่ยมบ้านจากตารางเยี่ยม</span>}</dd>
+            : <span className="muted small">ยังไม่มีพิกัดบ้าน — ปักหมุดเองได้ หรือแผนที่จะขึ้นเองเมื่อมีการเช็คอินเยี่ยมบ้านจากตารางเยี่ยม</span>}
+            {canEdit && <div className="no-print" style={{ marginTop: 6 }}><button type="button" className="mini" aria-haspopup="dialog" onClick={() => setPinOpen(true)}>🗺️ {hasCoord(m) ? 'ปรับตำแหน่งบ้านบนแผนที่' : 'ปักหมุดบ้านบนแผนที่'}</button></div>}
+            {pinOpen && <MapPickSheet initial={hasCoord(m) ? { lat: m.lat, lng: m.lng } : null} onClose={() => setPinOpen(false)} onSave={(c) => { if (put([{ ...m, lat: c.lat, lng: c.lng }])) setPinOpen(false) }} />}</dd>
         </div>
         )}
         {!lite && (
@@ -980,7 +984,7 @@ function NewMemberSheet({ a, put, onClose }: { a: NonNullable<ReturnType<typeof 
 const groupOptions = (ms: { group?: string }[]) => [...new Set(ms.map((m) => m.group?.trim()).filter(Boolean))] as string[]
 
 function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, remove }: { lite: boolean; canDelete: boolean; member: ChurchMember | null; statuses: string[]; groups: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
-  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ? statusLabel(member.status) : NEW_PERSON_STATUS, since: member?.since ?? '', firstWorship: member?.firstWorship ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
+  const [f, setF] = useState({ address: member?.address ?? '', name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ? statusLabel(member.status) : NEW_PERSON_STATUS, since: member?.since ?? '', firstWorship: member?.firstWorship ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
   // พิกัดบ้าน: พิมพ์/วางลิงก์ Google Maps · ใช้ตำแหน่งปัจจุบัน · แตะ/ลากหมุดบนแผนที่
   const [coord, setCoord] = useState<Coord | null>(member && hasCoord(member) ? { lat: member.lat, lng: member.lng } : null)
@@ -1025,18 +1029,19 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
         {text('since', 'วันที่รับเป็นสมาชิก (วันที่เริ่มมา)', 'date')}
         {text('firstWorship', 'มานมัสการครั้งแรก (ประมาณ)', 'date')}
         {text('note', 'หมายเหตุ', 'text', true)}
+        {!lite && text('address', 'ที่อยู่ปัจจุบัน', 'text', true)}
         {!lite && (
           <div className="field full">
             <label htmlFor="m-coord">พิกัดบ้าน <span className="muted small">(แสดงบนแผนที่ของงานอภิบาล)</span></label>
             <input id="m-coord" className="input" inputMode="decimal" value={coordText} onChange={(e) => onCoordText(e.target.value)} placeholder="เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps" />
             <div className="row" style={{ marginTop: '0.3rem' }}>
               <button type="button" className="mini" onClick={here}>📍 ใช้ตำแหน่งปัจจุบัน</button>
-              <button type="button" className="mini" aria-expanded={mapOpen} onClick={() => setMapOpen((v) => !v)}>🗺️ {mapOpen ? 'ซ่อนแผนที่' : 'เลือกบนแผนที่'}</button>
+              <button type="button" className="mini" aria-haspopup="dialog" onClick={() => setMapOpen(true)}>🗺️ เลือก/ปรับบนแผนที่</button>
               {coordText && <button type="button" className="mini" onClick={() => pickCoord(null)}>ล้างพิกัด</button>}
               {coord && <a className="mini" href={mapsLink(coord)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
             </div>
             <p className="small muted" role="status" style={{ margin: '0.2rem 0 0' }}>{coord ? `บันทึกพิกัด ${formatCoord(coord)}` : coordText ? 'ยังอ่านพิกัดไม่ได้' : 'ยังไม่มีพิกัด'}</p>
-            {mapOpen && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap label="เลือกพิกัดบ้านบนแผนที่ (แตะหรือลากหมุด)" height={260} pick={coord} onPick={pickCoord} /></Suspense>}
+            {mapOpen && <MapPickSheet initial={coord} onClose={() => setMapOpen(false)} onSave={(c) => { pickCoord(c); setMapOpen(false) }} />}
           </div>
         )}
       </div>
