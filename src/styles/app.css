@@ -1446,3 +1446,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .mform__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .mform__chip { border: 1px solid var(--line, #e0d8c8); background: transparent; color: inherit; border-radius: 999px; padding: 0.35rem 0.75rem; font: inherit; font-size: .92rem; cursor: pointer; }
 .mform__chip.on { background: #d4af37; border-color: #d4af37; font-weight: 700; }
+
+.mform__warn { margin: 0.5rem 0 0; padding: 0.5rem 0.6rem; border: 1px solid #d33; border-radius: 10px; background: #fff0f0; color: #c1121f; font-size: .95rem; }
+.mform__chk { color: #c1121f; font-size: .8rem; font-weight: 700; border: 1px solid #c1121f; border-radius: 999px; padding: 0 6px; margin-left: 4px; }

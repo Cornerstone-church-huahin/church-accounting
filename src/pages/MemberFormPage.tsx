@@ -44,8 +44,9 @@ export default function MemberFormPage() {
   return shell(
     <form className="card" onSubmit={(e) => e.preventDefault()} aria-label="แบบกรอกข้อมูลสมาชิก">
       <p style={{ margin: 0 }}>กรุณาตรวจและกรอกข้อมูลของท่านให้ครบ ข้อมูลที่ส่งจะไปถึงฝ่ายทะเบียนเท่านั้น</p>
-      <div className="field"><label htmlFor="mf-name">ชื่อ-สกุล</label><input id="mf-name" className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="name" /></div>
-      <div className="field"><label htmlFor="mf-nick">ชื่อเล่น</label><input id="mf-nick" className="input" value={f.nick} onChange={(e) => set({ nick: e.target.value })} /></div>
+      <p className="mform__warn" role="note">⚠️ กรุณาตรวจ <b>ชื่อ-นามสกุล</b> และ <b>ชื่อเล่น</b> ให้ถูกต้อง เพราะจะใช้เป็นชื่อในทะเบียนของคริสตจักร ถ้าสะกดไม่ถูก ให้แก้ในช่องด้านล่างก่อนส่ง</p>
+      <div className="field"><label htmlFor="mf-name">ชื่อ-สกุล <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-name" className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="name" /></div>
+      <div className="field"><label htmlFor="mf-nick">ชื่อเล่น <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-nick" className="input" value={f.nick} onChange={(e) => set({ nick: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-tel">โทรศัพท์</label><input id="mf-tel" className="input" type="tel" inputMode="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} autoComplete="tel" /></div>
       <div className="field"><label htmlFor="mf-line">LINE ID <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-line" className="input" value={f.lineId} onChange={(e) => set({ lineId: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="ไอดีไลน์ของท่าน" /></div>
       <div className="field"><label htmlFor="mf-fb">Facebook <span className="muted small">(ไม่บังคับ · พิมพ์ชื่อเฟซบุ๊ก/ชื่อเพจ หรือวางลิงก์ก็ได้)</span></label><input id="mf-fb" className="input" value={f.facebook} onChange={(e) => set({ facebook: e.target.value })} placeholder="ชื่อใน Facebook หรือลิงก์โปรไฟล์/เพจ" /></div>
