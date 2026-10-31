@@ -13,7 +13,7 @@ import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPla
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
-import { applyAnswer, diffAnswer, findCandidates, nameVerdict, type FieldKey } from '../lib/memberImport'
+import { applyAnswer, diffAnswer, findCandidates, nameVerdict, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
@@ -101,7 +101,7 @@ function MembersPage({ registry }: { registry?: boolean }) {
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
-      {shownDetail && <Detail lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -436,7 +436,7 @@ function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, r
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, put, remove, onClose }: { formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
@@ -456,7 +456,8 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, p
     ...(lite ? [] : [['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
     ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
-    ['วันที่เริ่มมา', m.since && `${fmtDate(m.since)} (${r.tenureY.toFixed(1)} ปี)`],
+    ['วันที่รับเป็นสมาชิก', m.since && <>{fmtDate(m.since)} ({spanText(m.since, today)}){sinceShared >= 5 && <span className="small" style={{ color: '#b45309' }}><br />⚠ หลายคน ({sinceShared}) ใช้วันนี้เหมือนกัน — อาจเป็นวันตั้งต้นของระบบเก่า ไม่ใช่วันจริง</span>}</>],
+    ['มานมัสการครั้งแรก (ประมาณ)', m.firstWorship && `${fmtDate(m.firstWorship)} (${spanText(m.firstWorship, today)})`],
     ...(lite ? [] : [['พิกัดบ้าน', hasCoord(m) && <a href={mapsLink({ lat: m.lat, lng: m.lng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.lat, lng: m.lng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
   ]
@@ -533,14 +534,15 @@ function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember
   const a0 = text.trim() ? parseReply(text) : null
   const a = a0 && asMid ? { ...a0, mid: asMid } : a0   // ลิงก์ทั่วไป: ฝ่ายทะเบียนเลือกเองว่าเป็นสมาชิกคนไหน
   const owner = a && a.mid !== m.id ? people.items.find((x) => x.id === a.mid) : undefined
-  const diffs = a && a.mid === m.id ? diffAnswer(m, a) : []
+  const g = a && a.mid === m.id ? withNoteGuess(m, a) : null   // ถ้าสมาชิกไม่ได้กรอกวันมาครั้งแรก แต่หมายเหตุมีวันที่ → เสนอเป็นวันมาครั้งแรก
+  const diffs = g ? diffAnswer(m, g.a).map((d) => (d.key === 'firstWorship' && g.guess ? { ...d, source: `อ่านจากหมายเหตุ “${g.guess.text}”${g.guess.yearOnly ? ' (ระบุเฉพาะปี → ใส่เป็น 1 ม.ค.)' : ''}` } : d)) : []
   const changed = diffs.filter((d) => d.changed)
   const nv = a && a.mid === m.id ? nameVerdict(m.name, a.name) : null
   const birthGap = a?.birth && m.birth ? Math.abs(Number(a.birth.slice(0, 4)) - Number(m.birth.slice(0, 4))) : 0
   const keys = new Set(changed.filter((d) => !skip.has(d.key)).map((d) => d.key))
   const confirm = () => {
     if (!a || keys.size === 0) return
-    const next = applyAnswer(m, a, keys)
+    const next = applyAnswer(m, g?.a ?? a, keys)
     if (!put([next])) return setErr('ไม่มีสิทธิ์บันทึกทะเบียน')
     // ชื่อใหม่: ปรับสำเนาชื่อในแผนเยี่ยมให้ตรงกัน
     if (keys.has('name') && next.name !== m.name) {
@@ -557,6 +559,8 @@ function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember
       {a && a.mid !== m.id && <p className="error" role="alert" style={{ margin: 0 }}>⚠️ ข้อความนี้เป็นของ {owner ? `“${owner.name}”` : 'สมาชิกอีกคนหนึ่ง'} ไม่ใช่ของ {m.name} — เปิดหน้าของคนนั้นแล้ววางใหม่ (ถ้าลูกหรือญาติกรอกแทน ให้ตรวจให้แน่ใจก่อน)</p>}
       {a && a.mid === m.id && (
         <>
+          {a && a.at && <p className="small muted" style={{ margin: 0 }}>ข้อความนี้ส่งเมื่อ {new Date(a.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</p>}
+          {a && a.at && m.formAt && a.at < m.formAt && <p role="alert" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>⚠️ ข้อความนี้ส่งก่อนข้อมูลที่นำเข้าไปครั้งล่าสุด — ถ้าสมาชิกส่งซ้ำหลายครั้ง ให้ใช้ข้อความล่าสุด</p>}
           {nv && nv.level === 'minor' && <p role="alert" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>⚠️ ชื่อต่างจากทะเบียนเล็กน้อย ({Math.round(nv.sim * 100)}% ใกล้เคียง) — ตรวจการสะกดให้ถูกต้องก่อนรับ</p>}
           {nv && nv.level === 'major' && <p className="error" role="alert" style={{ margin: 0 }}>🚨 ชื่อต่างจากทะเบียนมาก ({Math.round(nv.sim * 100)}% ใกล้เคียง) — ตรวจให้แน่ใจว่าเป็นคนเดียวกัน ก่อนรับชื่อใหม่</p>}
           {birthGap >= 5 && <p className="error" role="alert" style={{ margin: 0 }}>🚨 ปีเกิดต่างจากทะเบียน {birthGap} ปี — ตรวจให้แน่ใจว่าถูกคน</p>}
@@ -570,7 +574,7 @@ function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember
                 <div key={d.key} style={{ borderBottom: '1px solid var(--line)', padding: '0.4rem 0' }}>
                   <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
                     <input type="checkbox" checked={!skip.has(d.key)} onChange={() => setSkip((p) => { const n = new Set(p); if (n.has(d.key)) n.delete(d.key); else n.add(d.key); return n })} aria-label={`รับ ${d.label}`} />
-                    <span style={{ minWidth: 0 }}><b>{d.label}</b>{!d.old ? <span className="imp-badge imp-badge--fill">เติมข้อมูลใหม่</span> : (d.key === 'birth' || d.key === 'since') ? <span className="imp-badge imp-badge--date">⚠ วันที่เปลี่ยน — ตรวจกับข้อมูลที่ทราบ</span> : <span className="imp-badge imp-badge--edit">แก้ค่าเดิม</span>}<br /><span className="small muted">เดิม: {d.old || '—'}</span><br /><span style={{ background: '#fff3bf', padding: '0 4px', borderRadius: 4 }}>ใหม่: {d.next}</span></span>
+                    <span style={{ minWidth: 0 }}><b>{d.label}</b>{!d.old ? <span className="imp-badge imp-badge--fill">เติมข้อมูลใหม่</span> : (d.key === 'birth' || d.key === 'since' || d.key === 'firstWorship') ? <span className="imp-badge imp-badge--date">⚠ วันที่เปลี่ยน — ตรวจกับข้อมูลที่ทราบ</span> : <span className="imp-badge imp-badge--edit">แก้ค่าเดิม</span>}<br /><span className="small muted">เดิม: {d.old || '—'}</span>{d.source && <><br /><span className="small" style={{ color: '#1d4ed8' }}>🔎 {d.source}</span></>}<br /><span style={{ background: '#fff3bf', padding: '0 4px', borderRadius: 4 }}>ใหม่: {d.next}</span></span>
                   </label>
                 </div>
               ))}
@@ -670,7 +674,7 @@ function NewMemberSheet({ a, put, onClose }: { a: NonNullable<ReturnType<typeof 
 const groupOptions = (ms: { group?: string }[]) => [...new Set(ms.map((m) => m.group?.trim()).filter(Boolean))] as string[]
 
 function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, remove }: { lite: boolean; canDelete: boolean; member: ChurchMember | null; statuses: string[]; groups: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
-  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
+  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', firstWorship: member?.firstWorship ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
   // พิกัดบ้าน: พิมพ์/วางลิงก์ Google Maps · ใช้ตำแหน่งปัจจุบัน · แตะ/ลากหมุดบนแผนที่
   const [coord, setCoord] = useState<Coord | null>(member && hasCoord(member) ? { lat: member.lat, lng: member.lng } : null)
@@ -712,7 +716,8 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
           </select>
         </div>
         {!lite && text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
-        {text('since', 'วันที่เริ่มมา', 'date')}
+        {text('since', 'วันที่รับเป็นสมาชิก (วันที่เริ่มมา)', 'date')}
+        {text('firstWorship', 'มานมัสการครั้งแรก (ประมาณ)', 'date')}
         {text('note', 'หมายเหตุ', 'text', true)}
         {!lite && (
           <div className="field full">

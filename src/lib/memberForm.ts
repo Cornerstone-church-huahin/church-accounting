@@ -23,6 +23,8 @@ export interface FormLink {
   birth?: string
   /** วันที่มานมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD */
   first?: string
+  /** วันที่คริสตจักรรับเป็นสมาชิก (ไม่บังคับ) YYYY-MM-DD */
+  since?: string
   /** หมดอายุ (ms) */
   exp: number
 }
@@ -43,7 +45,11 @@ export interface FormAnswer {
   birth?: string
   /** วันที่มานมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD */
   first?: string
+  /** วันที่คริสตจักรรับเป็นสมาชิก (ไม่บังคับ) YYYY-MM-DD */
+  since?: string
   note?: string
+  /** เวลาที่สมาชิกกดส่ง (ms) — ไว้เทียบเมื่อส่งซ้ำหลายครั้ง */
+  at?: number
 }
 export const FORM_DAYS = 14
 /** ลิงก์กลุ่ม: ส่งทีเดียวในห้องแชตที่มีหลายคน — ทุกคนกดลิงก์เดียวกัน แล้ว “เลือกชื่อของตัวเอง” จากรายชื่อ (มีเฉพาะ รหัส/ชื่อ/ชื่อเล่น ไม่มีข้อมูลส่วนตัวอื่น) */
@@ -78,7 +84,7 @@ export function decodeGroupLink(d: string | null): GroupLink | null {
 }
 export const groupUrl = (ms: { id: string; name: string; nick?: string }[], base = `${location.origin}${location.pathname}`) => `${base}#/form?d=${b64(JSON.stringify(makeGroupLink(ms)))}`
 export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
-  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.since, exp: now + FORM_DAYS * 86_400_000 }
+  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.firstWorship, since: m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
 /**
  * รหัสในลิงก์รุ่นกะทัดรัด (v2 · ขึ้นต้น “2.”): ช่องคั่นด้วย | · ตัวอักษรไทยเก็บเป็น 1 ไบต์ (TIS-620) แทน 3 ไบต์ของ UTF-8
@@ -104,19 +110,19 @@ export function encodeFormLink(p: FormLink): string {
   const otherItem = serve.find((x) => x === OTHER_SERVE || x.startsWith(`${OTHER_SERVE}: `))
   const other = otherItem ? (otherItem === OTHER_SERVE ? '*' : otherItem.slice(OTHER_SERVE.length + 2)) : ''
   const days = (p.serveDays ?? []).map((x) => DAY_OPTIONS.indexOf(x)).filter((i) => i >= 0)
-  const f = [p.mid, p.code ?? '', p.name, p.nick ?? '', p.tel ?? '', String(Math.max(0, G.indexOf(p.gender ?? ''))), d8(p.birth), d8(p.first), Math.round(p.exp / 60000).toString(36), p.lineId ?? '', p.facebook ?? '', p.skills ?? '', idx.join(','), other, days.join(',')].map(clean)
+  const f = [p.mid, p.code ?? '', p.name, p.nick ?? '', p.tel ?? '', String(Math.max(0, G.indexOf(p.gender ?? ''))), d8(p.birth), d8(p.first), Math.round(p.exp / 60000).toString(36), p.lineId ?? '', p.facebook ?? '', p.skills ?? '', idx.join(','), other, days.join(','), d8(p.since)].map(clean)
   while (f.length > 9 && f[f.length - 1] === '') f.pop()   // ตัดช่องท้ายที่ว่าง
   return '2.' + bytesToB64(toTis(f.join('|')))
 }
 function decodeV2(d: string): FormLink | null {
   const f = fromTis(b64ToBytes(d.slice(2))).split('|')
   if (f.length < 9) return null
-  const [mid, code, name, nick, tel, g, birth, first, exp36, lineId, facebook, skills, idx = '', other = '', days = ''] = f
+  const [mid, code, name, nick, tel, g, birth, first, exp36, lineId, facebook, skills, idx = '', other = '', days = '', since = ''] = f
   const serve = [...idx.split(',').filter(Boolean).map((i) => SERVE_OPTIONS[Number(i)]).filter(Boolean), ...(other ? [other === '*' ? OTHER_SERVE : `${OTHER_SERVE}: ${other}`] : [])]
   const serveDays = days.split(',').filter(Boolean).map((i) => DAY_OPTIONS[Number(i)]).filter(Boolean)
   const exp = parseInt(exp36, 36) * 60000
   if (!mid || !name || !Number.isFinite(exp)) return null
-  return { v: 1, mid, code: code || undefined, name, nick: nick || undefined, tel: tel || undefined, gender: G[Number(g)] || undefined, birth: iso8(birth), first: iso8(first), lineId: lineId || undefined, facebook: facebook || undefined, skills: skills || undefined, serve: serve.length ? serve : undefined, serveDays: serveDays.length ? serveDays : undefined, exp }
+  return { v: 1, mid, code: code || undefined, name, nick: nick || undefined, tel: tel || undefined, gender: G[Number(g)] || undefined, birth: iso8(birth), first: iso8(first), since: iso8(since), lineId: lineId || undefined, facebook: facebook || undefined, skills: skills || undefined, serve: serve.length ? serve : undefined, serveDays: serveDays.length ? serveDays : undefined, exp }
 }
 export function decodeFormLink(d: string | null): FormLink | null {
   if (!d) return null
@@ -144,7 +150,9 @@ export function replyText(a: FormAnswer): string {
     `งานรับใช้ที่เต็มใจ: ${a.serve?.join(', ') ?? ''}`,
     `วันที่สะดวกรับใช้: ${a.serveDays?.join(', ') ?? ''}`,
     `มานมัสการครั้งแรก (ประมาณ): ${a.first ? fmtDate(a.first) : ''}`,
+    `คริสตจักรรับเป็นสมาชิกเมื่อ: ${a.since ? fmtDate(a.since) : ''}`,
     ...(a.note?.trim() ? [`หมายเหตุ: ${a.note.trim()}`] : []),
+    ...(a.at ? [`ส่งเมื่อ: ${new Date(a.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}`] : []),
     `— รหัสตรวจ: ${b64(JSON.stringify(a))}`,
   ]
   return lines.join('\n')
@@ -176,7 +184,10 @@ export function personalInvite(m: { name: string; nick?: string }, url: string):
     '• ช่องไหนยังว่าง กรุณากรอกให้ครบ',
     '• เสร็จแล้วกด “ส่งกลับทางไลน์” แล้วกดส่งข้อความถึงฝ่ายทะเบียนอีกครั้งหนึ่ง (ใช้เวลาประมาณ 3 นาที)',
     '',
-    `ลิงก์ใช้ได้ภายใน ${FORM_DAYS} วัน ขอบพระคุณมาก 🙏`,
+    `⏳ ลิงก์นี้ใช้ได้ ${FORM_DAYS} วัน — ในช่วงนี้ท่านเปิดลิงก์ซ้ำเพื่อแก้ไขหรือเพิ่มเติมข้อมูลได้ (สิ่งที่ท่านกรอกไว้ครั้งก่อนจะยังอยู่ในเครื่องของท่าน)`,
+    'ถ้าหาข้อมูลได้เพิ่มภายหลัง ให้กรอกเพิ่มแล้วกด “ส่งกลับทางไลน์” อีกครั้ง ฝ่ายทะเบียนจะใช้ข้อมูลล่าสุดที่ท่านส่ง',
+    '',
+    'ขอบพระคุณมาก 🙏',
   ].join('\n')
 }
 /** ข้อความมาตรฐานสำหรับลิงก์ส่งทั้งกลุ่ม */
@@ -193,6 +204,8 @@ export function groupInvite(url: string): string {
     '• พิมพ์ชื่อ-นามสกุลจริงให้ตรงกับที่ลงทะเบียนไว้',
     '• กรอกข้อมูลให้ครบ',
     '• เสร็จแล้วกด “ส่งกลับทางไลน์” แล้วกดส่งข้อความถึงฝ่ายทะเบียนอีกครั้งหนึ่ง (ใช้เวลาประมาณ 3 นาที)',
+    '',
+    'ท่านเปิดลิงก์ซ้ำเพื่อแก้ไขหรือเพิ่มเติมข้อมูลได้ (สิ่งที่กรอกไว้ครั้งก่อนจะยังอยู่ในเครื่องของท่าน) ถ้าหาข้อมูลได้เพิ่มภายหลัง ให้กรอกเพิ่มแล้วกด “ส่งกลับทางไลน์” อีกครั้ง',
     '',
     'ขอบพระคุณมาก 🙏',
   ].join('\n')

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import logoUrl from '../assets/logo.png'
 import Sheet from '../components/Sheet'
@@ -45,11 +45,19 @@ function GroupPicker({ group, onPick }: { group: GroupLink; onPick: (l: FormLink
   )
 }
 
+type Draft = { f: Record<string, string>; serve: string[]; days: string[] }
+const draftKey = (mid: string) => `acct.formdraft.${mid}`
+const readDraft = (mid: string): Draft | null => { try { const d = JSON.parse(localStorage.getItem(draftKey(mid)) ?? 'null') as Draft | null; return d && d.f ? d : null } catch { return null } }
+
 function FormBody({ link, grouped, onReselect }: { link: FormLink | null; grouped: boolean; onReselect: () => void }) {
-  const [f, setF] = useState({ name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', skills: link?.skills ?? '', other: (link?.serve ?? []).find((x) => x.startsWith(`${OTHER_SERVE}: `))?.slice(OTHER_SERVE.length + 2) ?? '', note: '' })
-  const [serve, setServe] = useState<string[]>((link?.serve ?? []).map((x) => (x.startsWith(`${OTHER_SERVE}: `) ? OTHER_SERVE : x)))
+  // ส่งซ้ำได้ภายในอายุลิงก์: เปิดลิงก์ใหม่ → นำสิ่งที่เคยกรอกไว้ในเครื่องนี้กลับมาให้ (ถ้ามี)
+  const saved = useMemo(() => (link ? readDraft(link.mid) : null), [link?.mid]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [restored] = useState(!!saved)
+  const [f, setF] = useState(saved?.f ? saved.f as never : { name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', since: link?.since ?? '', skills: link?.skills ?? '', other: (link?.serve ?? []).find((x) => x.startsWith(`${OTHER_SERVE}: `))?.slice(OTHER_SERVE.length + 2) ?? '', note: '' })
+  const [serve, setServe] = useState<string[]>(saved?.serve ?? (link?.serve ?? []).map((x) => (x.startsWith(`${OTHER_SERVE}: `) ? OTHER_SERVE : x)))
   const [pick, setPick] = useState<'' | 'skills' | 'serve' | 'days'>('')
-  const [days, setDays] = useState<string[]>(link?.serveDays ?? [])
+  const [days, setDays] = useState<string[]>(saved?.days ?? link?.serveDays ?? [])
+  useEffect(() => { if (link) try { localStorage.setItem(draftKey(link.mid), JSON.stringify({ f, serve, days })) } catch { /* ignore */ } }, [f, serve, days]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (list: string[], x: string, put: (a: string[]) => void) => { put(list.includes(x) ? list.filter((y) => y !== x) : [...list, x]); setCopied(false) }
   const [msg, setMsg] = useState('')
   const [copied, setCopied] = useState(false)
@@ -66,7 +74,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
   const answer = (): FormAnswer => ({
     mid: link.mid, code: link.code, name: f.name.trim(), nick: f.nick.trim() || undefined, tel: f.tel.trim() || undefined,
     lineId: f.lineId.trim() || undefined, facebook: f.facebook.trim() || undefined,
-    gender: f.gender || undefined, birth: f.birth || undefined, first: f.first || undefined, skills: f.skills.trim() || undefined,
+    gender: f.gender || undefined, birth: f.birth || undefined, first: f.first || undefined, since: f.since || undefined, at: Date.now(), skills: f.skills.trim() || undefined,
     serve: serve.length ? serve.map((x) => (x === OTHER_SERVE ? (f.other.trim() ? `${OTHER_SERVE}: ${f.other.trim()}` : OTHER_SERVE) : x)) : undefined, serveDays: days.length ? days : undefined, note: f.note.trim() || undefined,
   })
   const initial = [link.name, link.nick, link.tel, link.gender, link.birth, link.first, link.lineId, link.facebook, link.skills]
@@ -82,6 +90,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
   return shell(
     <form className="card" onSubmit={(e) => e.preventDefault()} aria-label="แบบกรอกข้อมูลสมาชิก">
       {grouped && link && <p className="small" style={{ margin: 0 }}>{link.mid === NEW_MID ? 'ท่านไม่พบชื่อในรายการ — กรอกข้อมูลของท่านด้านล่าง ฝ่ายทะเบียนจะเพิ่มชื่อให้' : <>ท่านเลือกชื่อ <b>{link.name}</b> · <button type="button" className="mini" onClick={onReselect}>เลือกใหม่</button></>}</p>}
+      {restored && <p className="small" role="status" style={{ margin: 0, background: '#e8f6ea', padding: '0.4rem 0.6rem', borderRadius: 10 }}>✅ นำข้อมูลที่ท่านกรอกไว้ครั้งก่อนกลับมาให้แล้ว — แก้ไขหรือเพิ่มเติมได้ แล้วกดส่งกลับอีกครั้ง <button type="button" className="mini" onClick={() => { try { localStorage.removeItem(draftKey(link.mid)) } catch { /* ignore */ } location.reload() }}>เริ่มใหม่จากข้อมูลตั้งต้น</button></p>}
       <p style={{ margin: 0 }}>กรุณาตรวจและกรอกข้อมูลของท่านให้ครบ ข้อมูลที่ส่งจะไปถึงฝ่ายทะเบียนเท่านั้น</p>
       {link.mid !== BY_NAME && link.mid !== NEW_MID && (
         <div className="mform__guide" role="note">
@@ -106,6 +115,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
         </div></div>
       <div className="field"><label htmlFor="mf-birth">วันเกิด{!f.birth && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span>{!f.first && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
+      <div className="field"><label htmlFor="mf-since">วัน เดือน ปี ที่คริสตจักรรับท่านเป็นสมาชิก <span className="muted small">(ไม่บังคับ · ถ้าไม่ทราบ เว้นว่างได้)</span></label><input id="mf-since" className="input" type="date" value={f.since} onChange={(e) => set({ since: e.target.value })} /></div>
       <div className="field"><label>อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label>
         <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPick('skills')}>💼 กรอก อาชีพ / ความสามารถ{f.skills.trim() ? ' (กรอกแล้ว)' : ''}</button>
         {f.skills.trim() && <Fold label="อาชีพ / ความสามารถที่กรอก"><p style={{ margin: 0 }}>{f.skills.trim()}</p></Fold>}</div>
