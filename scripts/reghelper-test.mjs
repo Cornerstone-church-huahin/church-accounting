@@ -55,6 +55,8 @@ try {
   must(await page.locator('.pcard--tap').count() === 0 && !/แผนที่บ้านสมาชิก/.test(await page.locator('body').innerText()), 'รวมสมาชิก for helper: read-only cards, no home map')
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
   await page.getByText('วันเกิด', { exact: true }).first().click()
-  must(!/อายุ \d/.test(await page.locator('body').innerText()), 'birthday page hides age/year for helper')
+  must(/อายุ \d/.test(await page.locator('body').innerText()), 'birthday page shows full birth info (age) for helper')
+  await page.getByRole('button', { name: /^ดูข้อมูล นายสมชาย/ }).click()
+  must(await page.getByRole('button', { name: /เพิ่มรูป|เปลี่ยนรูป/ }).count() === 1 && await page.getByRole('button', { name: 'ลบรูป' }).count() === 0 && await page.getByRole('button', { name: 'แก้ไขข้อมูล' }).count() === 0, 'helper can add/change photo, cannot delete photo or edit member')
   console.log('reghelper-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

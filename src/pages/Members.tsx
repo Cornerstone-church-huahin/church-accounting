@@ -160,7 +160,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {!lite && tab === 'audit' && <Audit checkOnly={merged} ext={merged ? [checkF, setCheckF] : undefined} registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {helper && tab === 'audit' && <PastoralMembers work={2} hideMap />}
       {(!lite || helper) && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
-      {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} hideYear={helper} />}
+      {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} showStatus={helper} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
@@ -174,7 +174,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       )}
       {adding && <MemberForm lite={lite} canDelete={false} member={null} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setAdding(false)} put={people.put} remove={people.remove} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
-      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} showStatus={helper} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} showStatus={helper} canPhoto={canLog || helper} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -543,7 +543,7 @@ function Roster({ toolsOnly, registry, lite, showStatus, canLog, rows, onOpen, m
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ worshipDays, lite, showStatus, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { showStatus?: boolean; worshipDays: string[]; sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ worshipDays, lite, showStatus, canPhoto, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { /** เพิ่ม/เปลี่ยนรูปได้ (ผู้บันทึก/ผู้ช่วยฝ่ายทะเบียน) */ canPhoto?: boolean; showStatus?: boolean; worshipDays: string[]; sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const { settings } = useSettings()
   const rules = effectiveRules(settings.ageRules, groups)
@@ -569,8 +569,8 @@ function Detail({ worshipDays, lite, showStatus, canLog, r, statuses, groups, to
     ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
     ...(lite ? [] : [['ที่อยู่ปัจจุบัน', m.address] as [string, ReactNode], ['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
-    ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
-    ...(lite ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
+    ...(lite && !showStatus ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
+    ...(lite && !showStatus ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
     ...(!lite && (m.statusLock || canEdit) ? [['กรณีพิเศษ (สถานะ)', m.statusLock
       ? <span key="sl">🔒 กำหนดสถานะเอง{m.statusLock.why ? ` · ${m.statusLock.why}` : ''}{m.statusLock.skipAudit ? ' · ไม่ตรวจการนมัสการ' : ''}{canEdit && <> <button type="button" className="mini" onClick={() => setLockOpen(true)}>แก้ไข</button> <button type="button" className="mini" onClick={() => put([{ ...m, statusLock: undefined, updated: Date.now() }])}>ปลดล็อก</button></>}</span>
       : <button key="sl" type="button" className="mini" onClick={() => setLockOpen(true)}>🔒 กำหนดสถานะเอง</button>] as [string, ReactNode]] : []),
@@ -587,7 +587,7 @@ function Detail({ worshipDays, lite, showStatus, canLog, r, statuses, groups, to
   return (
     <Sheet title={m.name} onClose={onClose}>
       {m.photoPath && <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}><span style={{ position: 'relative', display: 'inline-block' }}><StoredImage path={m.photoPath} alt={`รูป ${m.name}`} /><span className={`updot updot--${m.formAt ? 'ok' : 'no'}`} role="img" aria-label={m.formAt ? 'อัปเดตข้อมูลแล้ว' : 'ยังไม่ได้อัปเดตข้อมูล'} /></span></div>}
-      {canLog && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button>{m.photoPath && <button type="button" className="mini" disabled={busy} onClick={dropPhoto}>ลบรูป</button>}<input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
+      {canPhoto && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button>{m.photoPath && canLog && <button type="button" className="mini" disabled={busy} onClick={dropPhoto}>ลบรูป</button>}<input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
       <dl style={{ margin: 0 }}>
         {rows.map(([k, v]) => (
           <div key={k} className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.35rem 0', flexWrap: 'nowrap' }}>
