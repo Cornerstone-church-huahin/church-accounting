@@ -1,6 +1,6 @@
 import { blocked, blockedEdit, canEditDetail, calendarWritable, canWork, isRegistryHelper, registryCanSign, myRole, myWorkLevel, type Perm } from './access'
 import { useSharedStore } from './sharedStore'
-import { defaultTerm } from './workTerm'
+import { defaultTerm, DEFAULT_YEARS } from './workTerm'
 
 /**
  * สิทธิ์เขียนของข้อมูลที่เป็นของ “ห้องงาน” n: ผู้ดูแลหลักของห้องนั้น (ตั้งโดยแอดมิน) เพิ่ม/แก้/ลบได้เสมอ แม้บทบาทบัญชีเป็นผู้ดูอย่างเดียว
@@ -196,7 +196,7 @@ export function useWorkTeams() {
 /** วาระของแต่ละงาน: ไม่ตั้ง = ค่าตั้งต้น (1 ม.ค. ปีหน้า · 2 ปี) · แอดมินเป็นคนบันทึก ทุกคนเห็น */
 export function useWorkTerms() {
   const s = useSharedStore<WorkTerm>({ localKey: k('work-terms'), file: 'work-terms.json', label: 'วาระงาน', write: 'settings' })
-  return { ...s, of: (n: number, today: string) => { const x = s.items.find((t) => t.n === n); return x ? { start: x.start, end: x.end } : defaultTerm(today) }, save: (n: number, start: string, end: string) => s.put([{ id: `term-${n}`, n, start, end, updated: 0 }]) }
+  return { ...s, of: (n: number, today: string) => { const x = s.items.find((t) => t.n === n); return x ? { start: x.start, end: x.end, years: x.years ?? DEFAULT_YEARS } : defaultTerm(today) }, save: (n: number, start: string, end: string, years: number) => s.put([{ id: `term-${n}`, n, start, end, years, updated: 0 }]) }
 }
 
 /** การประชุมของศูนย์จัดการประชุม (ไม่แบ่งปี · แต่ละครั้งเป็นรายการเดียวที่เก็บทุกขั้น) */

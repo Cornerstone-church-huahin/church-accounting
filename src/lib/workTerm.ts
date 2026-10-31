@@ -11,9 +11,17 @@ export function thaiShort(d: string): string {
 }
 
 /** ค่าตั้งต้น: เริ่ม 1 ม.ค. ของปีหน้า สิ้นสุด 31 ธ.ค. ปีถัดไปอีกปี (รวม 2 ปีเต็ม) */
-export function defaultTerm(today: string): { start: string; end: string } {
+export const DEFAULT_YEARS = 2
+export function defaultTerm(today: string): { start: string; end: string; years: number } {
   const y = parts(today)[0] + 1
-  return { start: iso(y, 1, 1), end: iso(y + 1, 12, 31) }
+  return { start: iso(y, 1, 1), end: endFromStart(iso(y, 1, 1), DEFAULT_YEARS), years: DEFAULT_YEARS }
+}
+
+/** วันสิ้นสุด = วันเริ่ม + จำนวนปี − 1 วัน (เริ่ม 1 ม.ค. 2570 · 2 ปี → 31 ธ.ค. 2571) */
+export function endFromStart(start: string, years: number): string {
+  const [y, m, d] = parts(start)
+  const e = new Date(Date.UTC(y + years, m - 1, d - 1))
+  return iso(e.getUTCFullYear(), e.getUTCMonth() + 1, e.getUTCDate())
 }
 
 /** ระยะจาก from ถึง to เป็น ปี/เดือน/วัน (from <= to) */
