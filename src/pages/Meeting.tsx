@@ -5,6 +5,7 @@ import Members from './Members'
 import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
 import WorkTerm from '../components/WorkTerm'
+import { APP_CREDIT } from '../lib/credit'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
@@ -60,6 +61,9 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
         {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ {name}</button> : myWorks().length === 1 ? null : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
       </div>
       <WorkTeam n={n} name={name} />
+      <p className="no-print" role="note" aria-label="หมายเหตุ: อยู่ระหว่างการพัฒนา" style={{ margin: '0 0 0.4rem', padding: '0.3rem 0.6rem', background: '#fff6dd', border: '1px solid #e5c158', borderRadius: 10, color: '#4a3a00', fontSize: '0.74rem', lineHeight: 1.4, textAlign: 'center' }}>
+        🚧 <b>อยู่ระหว่างการพัฒนา</b><br /><span style={{ fontSize: '0.68rem' }}>{APP_CREDIT}</span>
+      </p>
       <WorkTerm n={n} name={name} />
     </>
   )
