@@ -30,7 +30,7 @@ await page.addInitScript(() => {
 try {
   await page.goto(`http://localhost:${PORT}/#/members`)
   await page.reload()
-  await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
+  await page.getByRole('tab', { name: 'รายงาน' }).click()
   await page.getByRole('group', { name: 'เลือกอาทิตย์' }).waitFor({ timeout: 8000 })
   must(/25 ตุลาคม 2569/.test(await page.getByRole('group', { name: 'เลือกอาทิตย์' }).innerText()), 'stats: latest recorded day selected')
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
