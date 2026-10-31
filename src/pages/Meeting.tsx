@@ -66,7 +66,8 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
 }
 
 /** รูปแบบมาตรฐานของงานที่ยังไม่มีข้อมูล: บนสุดปุ่ม 📅 ตารางงาน แล้วช่องแท็บ 1–6 — กดช่องไหนเปิดหน้าเต็มของแท็บนั้น (ว่างไว้ก่อน รอพัฒนา) */
-const DEFAULT_LABELS = ['แท็บ 1', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
+/** โครงมาตรฐานของทุกงานที่ยังไม่พัฒนา (รวมงานใหม่): ช่องแรก “รวมสมาชิก” (ทะเบียนชุดเดียวกันทุกงาน) + แท็บว่างรอพัฒนา */
+const DEFAULT_LABELS = ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
 const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'วางแผนเยี่ยม': '🗓️', 'บันทึกเยี่ยม': '📝', 'รายงานเยี่ยม': '📊', 'ตารางถวายอาหาร': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
@@ -75,7 +76,7 @@ const WORK_LABELS: Record<number, string[]> = {
   1: ['สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี', 'รวมสมาชิก', 'แท็บ 5', 'แท็บ 6'],
   4: ['รวมสมาชิก', 'วางแผนเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
-  14: ['ตารางถวายอาหาร', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  14: ['ตารางถวายอาหาร', 'รวมสมาชิก', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
 /** ความคืบหน้าการพัฒนา: จำนวนแท็บ (จาก 6) ที่ตั้งชื่อ/มีหน้าใช้งานแล้ว — งานที่มีหน้าพิเศษระบุเองตรงนี้ */
 const DEV_FIXED: Record<number, number> = { 2: 1, 3: 6 }
@@ -155,7 +156,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
   // งานเลขา › การประชุม = ศูนย์จัดการประชุม (เมนู 10 ขั้น · มีหัวและปุ่มกลับของตัวเอง)
   if (n === 1 && k === 1) return raw === 'invite' ? <InviteLetterList /> : raw === 'notice' ? <InviteLetterList kind="notice" /> : raw?.startsWith('cat-') ? <InviteLetterList key={raw} kind="doc" cat={raw.slice(4)} /> : raw?.startsWith('dl-') ? <InviteLetterPage key={raw} id={raw.slice(3)} kind="doc" /> : raw?.startsWith('notice-') ? <InviteLetterPage key={raw} id={raw.slice(7)} kind="notice" /> : raw?.startsWith('invite-') ? <InviteLetterPage key={raw} id={raw.slice(7)} /> : raw?.startsWith('f-') ? <FlowPage id={raw.slice(2)} /> : raw === undefined ? <WorkflowMenu /> : <MeetingCenter step={raw === 'meeting' ? undefined : s} />
   if (!label) return <><WorkHead n={n} name={name} /><p className="empty">ไม่พบแท็บนี้</p></>
-  const isMembers = ((n === 4 || n === 9) && k === 1) || (n === 1 && k === 4) // หน้า “รวมสมาชิก” ใช้ร่วมกัน: งานเลขา (แท็บ 4) · งานอภิบาล · งานอนุชน // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
+  const isMembers = label === 'รวมสมาชิก' // หน้า “รวมสมาชิก” ใช้ร่วมกัน: งานเลขา (แท็บ 4) · งานอภิบาล · งานอนุชน // หน้า “สมาชิก” (งานอภิบาลและงานอนุชนใช้หน้าเดียวกัน)
   return (
     <>
       <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
