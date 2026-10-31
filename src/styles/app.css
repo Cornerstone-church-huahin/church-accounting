@@ -1547,3 +1547,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .sharebar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.15rem 0 0.3rem; }
 .sharebar > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sharebar__b { flex: none; white-space: nowrap; background: #d4af37; color: #1a2b4c; border: 0; font-weight: 700; min-height: 2rem; padding: 0 0.75rem; font-size: 0.85rem; }
+
+/* หัวหนังสือแจ้งการประชุม 3 บรรทัด */
+.il__banner--3 { font-size: 14px; line-height: 1.4; padding: 4px 10px 5px; }
+.il__banner--3 > div:first-child { font-size: 17px; }
+.il__banner--3 > div + div { font-weight: 600; }

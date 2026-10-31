@@ -11,7 +11,7 @@ import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
-import { isAutoSubItem, letterDate, nextFirstSunday, noticeAgenda, noticeMeetingText } from '../lib/meetings'
+import { isAutoSubItem, letterDate, nextFirstSunday, noticeAgenda, noticeHeading, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
@@ -27,6 +27,8 @@ const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
   return { date: newDate, ...(l.toName === was.toName ? { toName: now.toName } : {}), ...(l.subject === was.subject ? { subject: now.subject } : {}), ...(l.body === was.body ? { body: now.body } : {}) }
 }
 const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: noticeAgenda(base) } : {}), attach: '', showAttach: false })
+/** เนื้อความตั้งต้นรุ่นก่อน (มีบรรทัดวัน-เวลาซ้ำกับหัวหนังสือ) — ฉบับที่ยังไม่ได้แก้ปรับเป็นแบบใหม่ให้เอง */
+const OLD_NOTICE_BODY = 'ด้วยคณะธรรมกิจคริสตจักรศิลาเอกกำหนดประชุมประจำเดือน{เดือน}\n{วันเวลา}\nณ ห้องประชุมธรรมกิจ จึงขอแจ้งวาระการประชุม ดังนี้'
 /** วาระตั้งต้นรุ่นแรก (ก่อนใช้วาระมาตรฐานตามต้นแบบ) */
 const OLD_NOTICE_AGENDA = ['รับรองรายงานการประชุมครั้งที่แล้ว', 'เรื่องแจ้งเพื่อทราบ', 'เรื่องเพื่อพิจารณา', 'เรื่องอื่นๆ']
 const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (l.agenda ?? []).map((x) => (typeof x === 'string' ? { t: x } : x))
@@ -89,7 +91,6 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
   const signed = !!l.signed && !!c.signImg
   // หนังสือภายใน (แจ้งการประชุม): แถบหัวเรื่องบอกทันทีว่าเป็นการแจ้งประชุมประจำเดือนอะไร ปีอะไร
   const mt = internal ? nextFirstSunday(l.date || todayISO()) : null
-  const MONTH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
   return (
     <ScaledPage ref={paperRef} className="a4page a4page--letter">
       <div className={`il${internal ? ' il--internal' : ''}`}>
@@ -102,7 +103,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
             {internal && <span className="il__tag">หนังสือภายใน</span>}
           </div>
         </header>
-        {mt && <div className="il__banner">แจ้งประชุมคณะธรรมกิจ ประจำเดือน{MONTH[mt.m - 1]} พ.ศ. {mt.y + 543}</div>}
+        {mt && <div className="il__banner il__banner--3">{noticeHeading(l.date || todayISO()).map((x, i) => <div key={i}>{x}</div>)}</div>}
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no || '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
@@ -251,6 +252,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (kind !== 'notice') return
     const t = agendaItems(l).map((x) => x.t.trim())
     if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) set({ agenda: noticeAgenda(l.date || todayISO()) })
+    if (l.body === fillNotice(OLD_NOTICE_BODY, l.date || todayISO())) set({ body: fillNotice(LETTER_KINDS.notice.blank.body, l.date || todayISO()) })
     // รุ่นก่อนเติมข้อย่อยตัวอย่าง (6.x/7.x/8.x) ให้ — ถ้ายังมีแต่ข้อย่อยพวกนั้น ตัดออก เหลือวาระ 1–10
     const it = agendaItems(l), subs = it.filter((x) => x.k === 'r')
     if (subs.length > 0 && subs.every(isAutoSubItem)) set({ agenda: it.filter((x) => x.k !== 'r') })
