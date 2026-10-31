@@ -52,10 +52,10 @@ try {
   await p2.getByLabel(/อาชีพ \/ ความสามารถ/).fill('พยาบาล')
   const yBirth = (await p2.getByLabel('วันเกิด').boundingBox()).y, ySk = (await p2.getByLabel(/อาชีพ \/ ความสามารถ/).boundingBox()).y, yF = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y
   must(yBirth < yF && yF < ySk, 'first-visit date directly after birth date')
-  const yFirst = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y, yServe = (await p2.getByRole('button', { name: /เลือกงานรับใช้/ }).boundingBox()).y
+  const yFirst = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y, yServe = (await p2.getByRole('button', { name: /เลือก งาน\/หน้าที่ เพื่อมีส่วนในการรับใช้/ }).boundingBox()).y
   must(yFirst < yServe, 'first-visit date is above the serve popup button')
   must(await p2.getByRole('checkbox', { name: /ครัว/ }).count() === 0, 'serve options are not inline on the form')
-  await p2.getByRole('button', { name: /เลือกงานรับใช้/ }).click()
+  await p2.getByRole('button', { name: /เลือก งาน\/หน้าที่ เพื่อมีส่วนในการรับใช้/ }).click()
   await p2.getByRole('checkbox', { name: /ครัว/ }).click()
   await p2.getByRole('checkbox', { name: /^อื่นๆ/ }).click()
   await p2.getByLabel('งานรับใช้อื่นๆ').fill('ตัดผมให้เด็ก')

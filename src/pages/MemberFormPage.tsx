@@ -108,7 +108,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
       <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span>{!f.first && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-skills">อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-skills" className="input" value={f.skills} onChange={(e) => set({ skills: e.target.value })} placeholder="เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร" /></div>
       <div className="field"><label id="mf-serve">งานรับใช้คริสตจักรที่ท่านเต็มใจช่วย <span className="muted small">(ติ๊กได้หลายข้อ · ไม่บังคับ)</span></label>
-        <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPickServe(true)}>🙌 เลือกงานรับใช้{serve.length ? ` (เลือกแล้ว ${serve.length} ข้อ)` : ''}</button>
+        <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPickServe(true)}>🙌 เลือก งาน/หน้าที่ เพื่อมีส่วนในการรับใช้{serve.length ? ` (เลือกแล้ว ${serve.length} ข้อ)` : ''}</button>
         {serve.length > 0 && (
           <div className="mform__chips" style={{ marginTop: 6 }} aria-label="งานรับใช้ที่เลือกไว้">
             {serve.map((o) => <span key={o} className="mform__chip on">✓ {o === OTHER_SERVE && f.other.trim() ? `${OTHER_SERVE}: ${f.other.trim()}` : o}</span>)}
@@ -123,7 +123,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
       <button type="button" className="btn btn--gold bigbtn btn--block" disabled={!ok} onClick={sendLine}>📤 ส่งกลับทางไลน์</button>
       <button type="button" className="btn btn--ghost btn--block" disabled={!ok} onClick={copy}>{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ (ถ้าส่งไลน์ไม่ได้)'}</button>
       {pickServe && (
-        <Sheet title="เลือกงานรับใช้" onClose={() => setPickServe(false)}>
+        <Sheet title="เลือก งาน/หน้าที่ เพื่อมีส่วนในการรับใช้" onClose={() => setPickServe(false)}>
           <p className="small muted" style={{ margin: 0 }}>ติ๊กได้หลายข้อ — งานที่ท่านเต็มใจช่วยคริสตจักร</p>
           <div className="mform__chips" role="group" aria-label="งานรับใช้">
             {[...SERVE_OPTIONS, OTHER_SERVE].map((o) => <button key={o} type="button" role="checkbox" aria-checked={serve.includes(o)} className={`mform__chip${serve.includes(o) ? ' on' : ''}`} onClick={() => toggle(serve, o, setServe)}>{serve.includes(o) ? '✓ ' : ''}{o}</button>)}
