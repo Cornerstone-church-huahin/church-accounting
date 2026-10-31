@@ -166,6 +166,12 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
   )
 }
 
+/** งานทะเบียน: แถบการเงิน/ตารางงานอยู่เฉพาะหน้าเมนูสมาชิก · เข้าไปในตรวจสอบ/ทะเบียนแล้วซ่อนเพื่อให้มีที่แสดงรายชื่อ */
+function RegistryBody() {
+  const [inMenu, setInMenu] = useState(true)
+  return <>{inMenu && <><HealthButton n={2} /><CalToggle n={2} /></>}<Members registry onMenu={setInMenu} /></>
+}
+
 const TONE = ['own', 'fund', 'total', 'indebt', 'debt', 'spare'] as const
 
 /** กดปุ่ม 🏠 หน้างาน = เปลี่ยน key เพื่อเริ่มหน้าของงานนั้นใหม่ตั้งแต่ต้น */
@@ -215,7 +221,7 @@ function MeetingRoom() {
   if (tab && k === 'health') return <ChurchHealth n={tab.n} name={tab.name} />
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
-  if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><HealthButton n={2} /><CalToggle n={2} /><Members registry /></>
+  if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />

@@ -144,6 +144,7 @@ try {
   must(await page.locator('ul.list').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 0, 'filter "not updated yet" hides the green ones')
   await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
   // ส่งลิงก์แบบกลุ่ม: ป๊อปอัพเต็มหน้า เลือกรายชื่อเหมือนตะกร้า → ข้อความเดียวมีลิงก์แยกรายคน
+  await page.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await page.getByRole('button', { name: /ส่งลิงก์แบบกลุ่ม/ }).click()
   const basket = page.getByRole('dialog', { name: 'ส่งลิงก์แบบกลุ่ม' })
   await basket.waitFor({ timeout: 8000 })
@@ -182,6 +183,7 @@ try {
   await p3.getByLabel('โทรศัพท์').fill('0822222222')
   await p3.getByRole('button', { name: /คัดลอกข้อความ/ }).click()
   const reply3 = await p3.evaluate(() => navigator.clipboard.readText())
+  await page.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await page.getByRole('button', { name: /วางข้อมูลจากสมาชิก/ }).click()
   await page.getByLabel('วางข้อความที่ได้รับ').fill(reply3)
   const cand = page.getByRole('group', { name: 'ชื่อที่ใกล้เคียงในทะเบียน' })
@@ -195,6 +197,7 @@ try {
   await p3.getByLabel('ชื่อ-สกุล').fill('มาลี ใหม่ล่าสุด')
   await p3.getByRole('button', { name: /คัดลอกข้อความ/ }).click()
   const reply4 = await p3.evaluate(() => navigator.clipboard.readText())
+  await page.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await page.getByRole('button', { name: /วางข้อมูลจากสมาชิก/ }).click()
   await page.getByLabel('วางข้อความที่ได้รับ').fill(reply4)
   await page.getByRole('button', { name: /ไม่ใช่คนในรายการ/ }).click()

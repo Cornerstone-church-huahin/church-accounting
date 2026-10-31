@@ -85,6 +85,7 @@ try {
   // บันทึกพิกัดบ้านที่งานทะเบียน (เพิ่มสมาชิกใหม่พร้อมพิกัด) → หมุดขึ้นที่หน้าสมาชิกของอภิบาล
   await page.goto(`http://localhost:${PORT}/#/meeting/2`)
   await page.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  await page.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await page.getByRole('button', { name: '＋ เพิ่มสมาชิก' }).click()
   await page.getByLabel('ชื่อ-สกุล').fill('บ้านมีพิกัด ทดสอบ')
   await page.getByLabel(/พิกัดบ้าน/).fill('หัวหิน')

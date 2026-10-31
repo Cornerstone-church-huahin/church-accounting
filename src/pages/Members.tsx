@@ -34,13 +34,13 @@ type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 /** registry = เปิดจากห้องงานฝ่ายทะเบียน (เฉพาะที่นี่มีปุ่มคัดลอกลิงก์แบบกรอกข้อมูล) */
-export default function Members({ registry }: { registry?: boolean } = {}) {
+export default function Members({ registry, onMenu }: { registry?: boolean; onMenu?: (inMenu: boolean) => void } = {}) {
   const role = useRole()
   if (!can(role, 'detail') && !can(role, 'worship')) return <NoAccess />
-  return <MembersPage registry={registry} />
+  return <MembersPage registry={registry} onMenu={onMenu} />
 }
 
-function MembersPage({ registry }: { registry?: boolean }) {
+function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMenu: boolean) => void }) {
   const role = useRole()
   const canEdit = can(role, 'registry')
   const canLog = can(role, 'worship')
@@ -65,6 +65,8 @@ function MembersPage({ registry }: { registry?: boolean }) {
   const [detail, setDetail] = useState('')
   // ในห้องทำงาน: เปิดมาเห็นเมนูช่องสี 6 ช่องอย่างเดียว · กดช่องไหน เมนูหายและหน้านั้นเต็มจอ · ‹ เมนูสมาชิก กลับมาเห็นช่องทั้งหก
   const [menu, setMenu] = useState(inRoom && !startTab)
+  useEffect(() => { onMenu?.(menu) }, [menu, onMenu])
+  const [adding, setAdding] = useState(false)
   const [editId, setEditId] = useState('') // แก้ข้อมูลคนจากหน้าลงชื่อ (ไม่มีปุ่มลบสมาชิก)
   const editMember = editId ? people.items.find((m) => m.id === editId) : undefined
   useEffect(() => { if (startTab === 'checkin' && canLog) setTab('checkin') }, [startTab, canLog])
@@ -99,6 +101,15 @@ function MembersPage({ registry }: { registry?: boolean }) {
           ))}
         </div>
       )}
+      {registry && canEdit && (tab === 'audit' || tab === 'roster') && (
+        <details className="regtools no-print">
+          <summary>🛠 เครื่องมือทะเบียน</summary>
+          <div className="regtools__grid">
+            <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มสมาชิก</button>
+            <FormTools members={people.items} put={people.put} worshipDays={worshipDays} attendance={attendance} />
+          </div>
+        </details>
+      )}
       {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} />}
       {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
@@ -106,6 +117,7 @@ function MembersPage({ registry }: { registry?: boolean }) {
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
+      {adding && <MemberForm lite={lite} canDelete={false} member={null} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setAdding(false)} put={people.put} remove={people.remove} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
       {shownDetail && <Detail worshipDays={worshipDays} lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
@@ -224,7 +236,7 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
 
 const statusKey = statusLabel
 
-function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
+function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [nameClean, setNameClean] = useState(false)
   const namePlan = useMemo(() => planNameClean(members), [members])
@@ -362,10 +374,9 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
   }
   return (
     <PrintFrame>
-      {canLog && (
-        <div className="toolbar no-print">
-          <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          {registry && <FormTools members={members} put={put} worshipDays={worshipDays} attendance={attendance} />}
+      {canLog && (() => { const tb = (
+        <div className="toolbar toolbar--3 no-print">
+          {!registry && <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>}
           {canEdit && <><button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
           <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
@@ -374,7 +385,7 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
           <input ref={memberFile} hidden type="file" aria-label="ไฟล์รายชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importMembers(e.target.files?.[0]); e.target.value = '' }} />
           <input ref={attFile} hidden type="file" aria-label="ไฟล์ลงชื่อ" accept=".xlsx,.csv,.tsv,.txt" onChange={(e) => { importAttendance(e.target.files?.[0]); e.target.value = '' }} /></>}
         </div>
-      )}
+      ); return registry ? <details className="regtools no-print"><summary>📂 นำเข้า / จัดการข้อมูล</summary>{tb}</details> : tb })()}
       {msg && <p className="small" role="status">{msg}</p>}
       {!lite && statuses.length > 1 && (
         <div className="no-print" aria-label="กรองตามสถานะ" style={{ margin: '0.3rem 0' }}>

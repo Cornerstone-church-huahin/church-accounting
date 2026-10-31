@@ -39,6 +39,7 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`); await page.reload()
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
   await page.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  await page.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await page.getByRole('button', { name: /จัดกลุ่มตามอายุ/ }).click()
   const list = page.getByRole('list', { name: 'คนที่กลุ่มไม่ตรงอายุ' })
   await list.waitFor({ timeout: 10000 })
@@ -94,6 +95,7 @@ try {
   must(back.group === '4.สตรี' && back.groupLock === true, 'undo restores the old group and locks it: ' + JSON.stringify(back))
   // แก้เกณฑ์อายุ → เตือนซ้อนทับ → แก้ให้ถูก → บันทึกแล้วทุกคนถูกปรับทันที
   await p2.keyboard.press('Escape'); await p2.waitForTimeout(300)
+  await p2.locator('details.regtools').first().evaluate((el) => { el.open = true })
   await p2.getByRole('button', { name: /จัดกลุ่มตามอายุ/ }).click()
   await p2.getByRole('button', { name: /ดู\/แก้กติกา/ }).click()
   await p2.getByLabel('2.อนุชน อายุถึง').fill('30')
