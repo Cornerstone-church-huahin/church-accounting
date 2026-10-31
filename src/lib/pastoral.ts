@@ -71,8 +71,8 @@ export function genderSplit(members: { gender?: string }[]) {
 export function groupCounts(members: { group?: string }[]) {
   const map = new Map<string, number>()
   for (const m of members) {
-    const raw = (m.group ?? '').trim().replace(/^\d+\./, '').trim()
-    const k = !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw
+    const raw = (m.group ?? '').trim() // ชื่อกลุ่มตามทะเบียน (มีเลขนำหน้าเหมือนที่เก็บไว้) — ต้องตรงกับการกรองรายบุคคล
+    const k = !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw
     map.set(k, (map.get(k) ?? 0) + 1)
   }
   return [...map.entries()].sort((a, b) => (a[0] === 'ไม่มีกลุ่ม' ? 1 : b[0] === 'ไม่มีกลุ่ม' ? -1 : b[1] - a[1]))

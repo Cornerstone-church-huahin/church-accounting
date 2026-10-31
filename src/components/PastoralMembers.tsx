@@ -22,7 +22,7 @@ const ORDERS: Record<number, { k: Ord; t: string }[]> = {
 /** สีของหลอดความสม่ำเสมอ: เต็มปี = เขียวเข้ม · ลดลงเป็นเขียวอ่อน เหลือง ส้ม แดง */
 const gaugeColor = (p: number) => (p >= 0.8 ? '#1b7f4b' : p >= 0.6 ? '#7aa63a' : p >= 0.4 ? '#d9a21b' : p >= 0.2 ? '#e0762a' : '#c0261b')
 /** ชื่อกลุ่มของสมาชิก (ตัดเลขนำหน้า · ไม่มี = ไม่มีกลุ่ม) */
-const grpName = (m: { group?: string }) => { const raw = (m.group ?? '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw === 'บรุษ' ? 'บุรุษ' : raw }
+const grpName = (m: { group?: string }) => { const raw = (m.group ?? '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw }
 const pct = (n: number, t: number) => (t ? Math.round((n / t) * 100) : 0)
 const NAVY = '#1a2b4c', GOLD = '#c99a14', BLUE = '#1f5fbf', ROSE = '#c2255c', GRAY = '#9aa3b2'
 
