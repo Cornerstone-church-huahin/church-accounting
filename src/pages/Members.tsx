@@ -465,6 +465,8 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
     ['เพศ', m.gender && m.gender],
     ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
     ...(lite ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
+    ...(!lite && m.groupMoved && Date.now() - m.groupMoved.at < 90 * 86_400_000 ? [['ย้ายกลุ่มอัตโนมัติ', <span key="gm">เมื่อ {new Date(m.groupMoved.at).toLocaleDateString('th-TH', { dateStyle: 'medium' })} (จาก {m.groupMoved.from || 'ไม่มีกลุ่ม'}){canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, group: m.groupMoved!.from || undefined, groupMoved: undefined, groupLock: true, updated: Date.now() }])}>คืนกลุ่มเดิม + ล็อก</button></>}</span>] as [string, ReactNode]] : []),
+    ...(!lite && canEdit && ageY != null ? [['ล็อกกลุ่ม', <label key="gl" className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><input type="checkbox" checked={!!m.groupLock} onChange={() => put([{ ...m, groupLock: !m.groupLock, updated: Date.now() }])} /> <span className="small">ไม่ให้ระบบย้ายกลุ่มตามอายุ</span></label>] as [string, ReactNode]] : []),
     ...(!lite && tg && tg.group !== (m.group ?? '') ? [['กลุ่มตามอายุ', <span key="tg" style={{ color: '#b45309' }}>⚠ อายุ {tg.age} ปี{m.gender ? ` · ${m.gender}` : ''} ควรอยู่กลุ่ม <b>{tg.group}</b>{canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, group: tg.group, updated: Date.now() }])}>ย้ายเลย</button></>}</span>] as [string, ReactNode]] : []),
     ['วันที่รับเป็นสมาชิก', m.since && <>{fmtDate(m.since)} ({spanText(m.since, today)}){sinceShared >= 5 && <span className="small" style={{ color: '#b45309' }}><br />⚠ หลายคน ({sinceShared}) ใช้วันนี้เหมือนกัน — อาจเป็นวันตั้งต้นของระบบเก่า ไม่ใช่วันจริง</span>}</>],
     ['มานมัสการครั้งแรก (ประมาณ)', m.firstWorship && `${fmtDate(m.firstWorship)} (${spanText(m.firstWorship, today)})`],
@@ -709,6 +711,10 @@ function RegroupSheet({ members, put, onClose }: { members: ChurchMember[]; put:
   return (
     <Sheet title="จัดกลุ่มตามอายุ" onClose={onClose}>
       <p className="small muted" style={{ margin: 0 }}>ระบบคำนวณอายุจากวันเกิดของวันนี้ แล้วเทียบกับกติกาของแต่ละกลุ่ม · เสนอเฉพาะคนที่กลุ่มไม่ตรง คุณตรวจแล้วกดย้ายทีเดียว · ไม่แตะคนที่ไม่มีวันเกิด ({noBirth} คน) คนที่อยู่กลุ่มพิเศษที่ไม่มีกติกา หรือคนที่ล็อกกลุ่มไว้</p>
+      <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <input type="checkbox" checked={settings.ageAuto !== false} onChange={() => setMsg(save({ ageAuto: settings.ageAuto === false }) ? (settings.ageAuto === false ? 'เปิดย้ายกลุ่มอัตโนมัติแล้ว' : 'ปิดย้ายกลุ่มอัตโนมัติแล้ว — ระบบจะเสนอให้กดเอง') : 'ไม่มีสิทธิ์บันทึก')} aria-label="ย้ายกลุ่มอัตโนมัติ" />
+        <span><b>ย้ายกลุ่มอัตโนมัติเมื่อถึงช่วงวัย</b><br /><span className="small muted">ระบบย้ายให้เองเมื่อเปิดแอปด้วยบัญชีที่แก้ทะเบียนได้ และแจ้งรายการให้เห็น (คืนกลุ่มเดิมได้ที่หน้ารายละเอียดของแต่ละคน)</span></span>
+      </label>
       <button type="button" className="mini" aria-expanded={showRules} onClick={() => setShowRules(!showRules)}>{showRules ? '▲ ซ่อนกติกา' : '▼ ดู/แก้กติกาของแต่ละกลุ่ม'}</button>
       {showRules && (
         <div aria-label="กติกาจัดกลุ่มตามอายุ">
