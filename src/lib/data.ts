@@ -1,4 +1,4 @@
-import { blocked, can, calendarWritable, canWork, myRole, myWorkLevel, type Perm } from './access'
+import { blocked, can, calendarWritable, canWork, isRegistryHelper, myRole, myWorkLevel, type Perm } from './access'
 import { useSharedStore } from './sharedStore'
 
 /**
@@ -102,7 +102,9 @@ export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k
  * ลงชื่อนมัสการ: รายปี (1 คน × 1 วัน = 1 รายการ) · ปีเก่าไม่ซิงก์ทุกนาที (ซิงก์ตอนเปิด/กลับมาที่แอป) เพื่อไม่กินเน็ต
  * ไฟล์เก่าที่เคยเก็บเป็น "1 วัน = รายชื่อทั้งชุด" (Attendance) ยังอ่านได้ ผ่าน toAttendance()
  */
-export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, write: 'worship', poll })
+/** ลงชื่อนมัสการ: ผู้บันทึกการนมัสการ/ผู้บันทึกบัญชี/แอดมิน + ผู้ช่วยฝ่ายทะเบียน (งาน 2) */
+const writeAttendance = () => isRegistryHelper() || !blocked('worship')
+export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, writeCheck: writeAttendance, poll })
 /** ผู้บันทึกลงชื่อ: ไฟล์เดียว (แอดมินจัดการ) */
 export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('recorders'), file: 'recorders.json', label: 'ผู้บันทึกลงชื่อ', write: 'settings' })
 

@@ -10,7 +10,7 @@ import PastoralMembers from '../components/PastoralMembers'
 import MapPickSheet from '../components/MapPickSheet'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
-import { can } from '../lib/access'
+import { can, isRegistryHelper } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
@@ -37,18 +37,20 @@ const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้�
 /** registry = เปิดจากห้องงานฝ่ายทะเบียน (เฉพาะที่นี่มีปุ่มคัดลอกลิงก์แบบกรอกข้อมูล) */
 export default function Members({ registry, onMenu }: { registry?: boolean; onMenu?: (inMenu: boolean) => void } = {}) {
   const role = useRole()
-  if (!can(role, 'detail') && !can(role, 'worship')) return <NoAccess />
+  if (!can(role, 'detail') && !can(role, 'worship') && !isRegistryHelper()) return <NoAccess />
   return <MembersPage registry={registry} onMenu={onMenu} />
 }
 
 function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMenu: boolean) => void }) {
   const role = useRole()
   const canEdit = can(role, 'registry')
-  const canLog = can(role, 'worship')
+  const helper = isRegistryHelper() // ผู้ช่วยฝ่ายทะเบียน: ลงชื่อ/ลบรายการลงชื่อได้ · ที่เหลือดูอย่างเดียว
+  const canSign = can(role, 'worship') || helper
+  const canLog = can(role, 'worship')   // แก้ข้อมูล/เพิ่มคน/รูป (ผู้ช่วยไม่มี)
   const inRoom = useLocation().pathname.startsWith('/meeting') // ในห้องทำงาน: เมนูแท็บเป็นช่องสีเหมือนหน้าแรก
   const startTab = useSearchParams()[0].get('tab') // ไอคอนลัดที่หัวแอปเปิดมาที่แท็บ ลงชื่อ ทันที
   /** ผู้บันทึกการนมัสการ: ไม่เห็นเบอร์โทร วันเกิด สถานะทะเบียน */
-  const lite = role === 'worship'
+  const lite = role === 'worship' || helper
   const thisYear = yearOf(todayISO())
   const people = useChurchMembers()
   const a0 = useAttendance(thisYear), a1 = useAttendance(thisYear - 1, false), a2 = useAttendance(thisYear - 2, false), a3 = useAttendance(thisYear - 3, false)
@@ -62,7 +64,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const criteria = { minYears: settings.memberMinYears ?? DEFAULT_CRITERIA.minYears, absentMonths: settings.memberAbsentMonths ?? DEFAULT_CRITERIA.absentMonths }
   const today = todayISO()
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canLog ? 'checkin' : lite ? 'checkin' : attendance.length === 0 && !(registry && canEdit) ? 'roster' : 'audit'))
+  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canSign ? 'checkin' : lite ? 'checkin' : attendance.length === 0 && !(registry && canEdit) ? 'roster' : 'audit'))
   const [detail, setDetail] = useState('')
   // ในห้องทำงาน: เปิดมาเห็นเมนูช่องสี 6 ช่องอย่างเดียว · กดช่องไหน เมนูหายและหน้านั้นเต็มจอ · ‹ เมนูสมาชิก กลับมาเห็นช่องทั้งหก
   const [menu, setMenu] = useState(inRoom && !startTab)
@@ -75,7 +77,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const [regQ, setRegQ] = useState('') // ช่องค้นหารายชื่อในหน้ารวมสมาชิก (ฝ่ายทะเบียน)
   const [editId, setEditId] = useState('') // แก้ข้อมูลคนจากหน้าลงชื่อ (ไม่มีปุ่มลบสมาชิก)
   const editMember = editId ? people.items.find((m) => m.id === editId) : undefined
-  useEffect(() => { if (startTab === 'checkin' && canLog) setTab('checkin') }, [startTab, canLog])
+  useEffect(() => { if (startTab === 'checkin' && canSign) setTab('checkin') }, [startTab, canSign])
   const byId = new Map(result.rows.map((r) => [r.member.id, r]))
   const shownDetail = detail ? byId.get(detail) : undefined
   /** บันทึกรายการลงชื่อ (แยกไฟล์ตามปีของวันที่) */
@@ -122,7 +124,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   return (
     <>
       {inRoom && <div className="no-print" style={{ margin: '0 0 0.4rem' }}><button type="button" className="mini" onClick={() => setMenu(true)}>‹ เมนูสมาชิก</button></div>}
-      <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
+      <div className="page-head no-print"><h1>สมาชิก</h1>{canSign && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
       {!inRoom && (
         <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
           {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
@@ -158,8 +160,8 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
-      {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
-      {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
+      {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
+      {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} showStatus={helper} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {statusMember && (
         <Sheet title={`เปลี่ยนสถานะ — ${statusMember.name}`} onClose={() => setStatusFor('')}>
           <p className="small muted" style={{ margin: 0 }}>เลือกสถานะในทะเบียน (แตะนอกกรอบหรือกด “ปิด” เพื่อยกเลิก)</p>
@@ -170,7 +172,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       )}
       {adding && <MemberForm lite={lite} canDelete={false} member={null} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setAdding(false)} put={people.put} remove={people.remove} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
-      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} showStatus={helper} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -310,7 +312,7 @@ function Audit({ checkOnly, ext, registry, onOpen, result, criteria, canEdit, ca
 
 const statusKey = statusLabel
 
-function Roster({ toolsOnly, registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { toolsOnly?: boolean; attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
+function Roster({ toolsOnly, registry, lite, showStatus, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { showStatus?: boolean; toolsOnly?: boolean; attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [nameClean, setNameClean] = useState(false)
   const namePlan = useMemo(() => planNameClean(members), [members])
@@ -490,7 +492,7 @@ function Roster({ toolsOnly, registry, lite, canLog, rows, onOpen, members, canE
                   <MemberAvatar path={m.photoPath} name={m.name} size={52} member={m} />
                   <span className="mrow__main">
                     <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{!lite && info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
-                    <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusShort(m.status), m.gender && m.gender, m.group, !lite && m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, !lite && m.tel].filter(Boolean).join(' · ')}</span>
+                    <span className="mrow__meta" style={{ display: 'block' }}>{[lite && !showStatus ? undefined : statusShort(m.status), m.gender && m.gender, m.group, !lite && m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, !lite && m.tel].filter(Boolean).join(' · ')}</span>
                     <span className="mrow__meta" style={{ display: 'block' }}>{info.get(m.id)?.visits ? `มา ${info.get(m.id)!.visits} ครั้ง` : 'ยังไม่มีบันทึกลงชื่อ'}{m.photoPath ? ' · 📷' : ''}</span>
                   </span>
                 </button>
@@ -539,7 +541,7 @@ function Roster({ toolsOnly, registry, lite, canLog, rows, onOpen, members, canE
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { worshipDays: string[]; sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ worshipDays, lite, showStatus, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { showStatus?: boolean; worshipDays: string[]; sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const { settings } = useSettings()
   const rules = effectiveRules(settings.ageRules, groups)
@@ -561,7 +563,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   const band = ageY == null ? undefined : AGE_BANDS.find((b) => ageY >= b.from && ageY <= b.to)?.label
   const tg = targetGroup(m, rules, today)
   const rows: [string, ReactNode][] = [
-    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', <>{statusLabel(m.status)}{m.statusLock ? ' 🔒' : ''}</>] as [string, ReactNode]]), ['กลุ่ม', m.group],
+    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite && !showStatus ? [] : [['สถานะในทะเบียน', <>{statusLabel(m.status)}{m.statusLock ? ' 🔒' : ''}</>] as [string, ReactNode]]), ['กลุ่ม', m.group],
     ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
     ...(lite ? [] : [['ที่อยู่ปัจจุบัน', m.address] as [string, ReactNode], ['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
