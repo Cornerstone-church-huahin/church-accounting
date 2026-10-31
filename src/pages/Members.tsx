@@ -13,7 +13,7 @@ import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPla
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
-import { effectiveRules, proposeRegroup, targetGroup } from '../lib/ageGroups'
+import { effectiveRules, needsGender, proposeRegroup, targetGroup } from '../lib/ageGroups'
 import { AGE_BANDS, ageYears } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
@@ -467,6 +467,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
     ...(lite ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
     ...(!lite && m.groupMoved && Date.now() - m.groupMoved.at < 90 * 86_400_000 ? [['ย้ายกลุ่มอัตโนมัติ', <span key="gm">เมื่อ {new Date(m.groupMoved.at).toLocaleDateString('th-TH', { dateStyle: 'medium' })} (จาก {m.groupMoved.from || 'ไม่มีกลุ่ม'}){canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, group: m.groupMoved!.from || undefined, groupMoved: undefined, groupLock: true, updated: Date.now() }])}>คืนกลุ่มเดิม + ล็อก</button></>}</span>] as [string, ReactNode]] : []),
     ...(!lite && canEdit && ageY != null ? [['ล็อกกลุ่ม', <label key="gl" className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><input type="checkbox" checked={!!m.groupLock} onChange={() => put([{ ...m, groupLock: !m.groupLock, updated: Date.now() }])} /> <span className="small">ไม่ให้ระบบย้ายกลุ่มตามอายุ</span></label>] as [string, ReactNode]] : []),
+    ...(!lite && !tg && needsGender(m, rules, today) ? [['กลุ่มตามอายุ', <span key="ng" style={{ color: '#b45309' }}>⚠ อายุ {ageY} ปี — ยังไม่ทราบเพศ จึงจัดกลุ่มบุรุษ/สตรีให้ไม่ได้ (กรอกเพศก่อน)</span>] as [string, ReactNode]] : []),
     ...(!lite && tg && tg.group !== (m.group ?? '') ? [['กลุ่มตามอายุ', <span key="tg" style={{ color: '#b45309' }}>⚠ อายุ {tg.age} ปี{m.gender ? ` · ${m.gender}` : ''} ควรอยู่กลุ่ม <b>{tg.group}</b>{canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, group: tg.group, updated: Date.now() }])}>ย้ายเลย</button></>}</span>] as [string, ReactNode]] : []),
     ['วันที่รับเป็นสมาชิก', m.since && <>{fmtDate(m.since)} ({spanText(m.since, today)}){sinceShared >= 5 && <span className="small" style={{ color: '#b45309' }}><br />⚠ หลายคน ({sinceShared}) ใช้วันนี้เหมือนกัน — อาจเป็นวันตั้งต้นของระบบเก่า ไม่ใช่วันจริง</span>}</>],
     ['มานมัสการครั้งแรก (ประมาณ)', m.firstWorship && `${fmtDate(m.firstWorship)} (${spanText(m.firstWorship, today)})`],
@@ -705,12 +706,13 @@ function RegroupSheet({ members, put, onClose }: { members: ChurchMember[]; put:
   const props = proposeRegroup(live, rules, today)
   const chosen = props.filter((p) => !skip.has(p.m.id))
   const noBirth = live.filter((x) => !x.birth).length
+  const noGender = live.filter((x) => needsGender(x, rules, today)).length
   const setRule = (i: number, patch: Partial<(typeof rules)[number]>) => setRules(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const apply = () => { if (put(chosen.map((p) => ({ ...p.m, group: p.to, updated: Date.now() })))) { setMsg(`ย้ายกลุ่มแล้ว ${chosen.length} คน`); setSkip(new Set()) } else setMsg('ไม่มีสิทธิ์บันทึก') }
   const saveRules = () => setMsg(save({ ageRules: rules }) ? 'บันทึกกติกาแล้ว' : 'ไม่มีสิทธิ์บันทึกกติกา')
   return (
     <Sheet title="จัดกลุ่มตามอายุ" onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>ระบบคำนวณอายุจากวันเกิดของวันนี้ แล้วเทียบกับกติกาของแต่ละกลุ่ม · เสนอเฉพาะคนที่กลุ่มไม่ตรง คุณตรวจแล้วกดย้ายทีเดียว · ไม่แตะคนที่ไม่มีวันเกิด ({noBirth} คน) คนที่อยู่กลุ่มพิเศษที่ไม่มีกติกา หรือคนที่ล็อกกลุ่มไว้</p>
+      <p className="small muted" style={{ margin: 0 }}>ระบบคำนวณอายุจากวันเกิดของวันนี้ แล้วเทียบกับกติกาของแต่ละกลุ่ม · เสนอเฉพาะคนที่กลุ่มไม่ตรง คุณตรวจแล้วกดย้ายทีเดียว · ไม่แตะคนที่ไม่มีวันเกิด ({noBirth} คน) คนที่อยู่กลุ่มพิเศษที่ไม่มีกติกา หรือคนที่ล็อกกลุ่มไว้{noGender > 0 ? ` · วัยบุรุษ/สตรีที่ยังไม่ทราบเพศ ${noGender} คน (ต้องกรอกเพศก่อนจึงจัดให้ได้)` : ''}</p>
       <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
         <input type="checkbox" checked={settings.ageAuto !== false} onChange={() => setMsg(save({ ageAuto: settings.ageAuto === false }) ? (settings.ageAuto === false ? 'เปิดย้ายกลุ่มอัตโนมัติแล้ว' : 'ปิดย้ายกลุ่มอัตโนมัติแล้ว — ระบบจะเสนอให้กดเอง') : 'ไม่มีสิทธิ์บันทึก')} aria-label="ย้ายกลุ่มอัตโนมัติ" />
         <span><b>ย้ายกลุ่มอัตโนมัติเมื่อถึงช่วงวัย</b><br /><span className="small muted">ระบบย้ายให้เองเมื่อเปิดแอปด้วยบัญชีที่แก้ทะเบียนได้ และแจ้งรายการให้เห็น (คืนกลุ่มเดิมได้ที่หน้ารายละเอียดของแต่ละคน)</span></span>
