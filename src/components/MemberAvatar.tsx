@@ -35,7 +35,7 @@ function loadUrl(path: string): Promise<string | null> {
 }
 
 /** member: ส่งสมาชิกมาแล้วจุดจะขึ้นเอง (เขียวถ้า formAt มี) · dot: จุดสถานะมุมซ้ายบนของรูป — ok = เขียว (นำเข้าข้อมูลที่สมาชิกกรอกแล้ว) · no = แดง (ยังไม่ได้) */
-export default function MemberAvatar({ path, name, size = 44, dot: dotIn, member }: { path?: string; name: string; size?: number; dot?: 'ok' | 'no'; member?: { formAt?: number } | null }) {
+export default function MemberAvatar({ path, name, size = 44, dot: dotIn, member }: { path?: string; name: string; size?: number; dot?: 'ok' | 'no'; member?: { formAt?: number; status?: string } | null }) {
   const dot = dotIn ?? (member ? (member.formAt ? 'ok' : 'no') : undefined)
   const box = useRef<HTMLSpanElement>(null)
   const [seen, setSeen] = useState(false)
@@ -52,7 +52,8 @@ export default function MemberAvatar({ path, name, size = 44, dot: dotIn, member
     loadUrl(path).then((u) => { if (live) setUrl(u) })
     return () => { live = false }
   }, [path, seen])
-  const style = { width: size, height: size, borderRadius: size >= 44 ? 14 : '50%', flex: 'none', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontWeight: 700, fontSize: size * 0.42 } as const
+  const gone = /เสียชีวิต/.test(member?.status ?? '') // เสียชีวิตแล้ว: รูปเป็นสีเทา
+  const style = { ...(gone ? { filter: 'grayscale(1)', opacity: 0.75 } : {}), width: size, height: size, borderRadius: size >= 44 ? 14 : '50%', flex: 'none', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontWeight: 700, fontSize: size * 0.42 } as const
   const img = (
     <span ref={box} style={style} aria-hidden>
       {url ? <img src={url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (name.trim().charAt(0) || '👤')}

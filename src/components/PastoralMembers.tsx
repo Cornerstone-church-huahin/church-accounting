@@ -168,7 +168,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: 
               <h3 className="pstat__h"><b>{sec.label}</b> · {sec.members.length.toLocaleString('th-TH')} คน</h3>
               <ul className="pcards">
                 {sec.members.map((m) => (
-                  <li key={m.id} className={`pcard${onOpen ? ' pcard--tap' : ''}`} aria-label={m.name} {...(onOpen ? { role: 'button', tabIndex: 0, onClick: () => onOpen(m.id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(m.id) } } } : {})}>
+                  <li key={m.id} className={`pcard${onOpen ? ' pcard--tap' : ''}${/เสียชีวิต/.test(m.status ?? '') ? ' pcard--gone' : ''}`} aria-label={m.name} {...(onOpen ? { role: 'button', tabIndex: 0, onClick: () => onOpen(m.id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(m.id) } } } : {})}>
                     <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={48} member={m} />
                     <div className="pcard__body">
                       <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
@@ -221,7 +221,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: 
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
           <ul className="pcards">
             {faces.map((m) => (
-              <li key={m.id} className={`pcard${onOpen ? ' pcard--tap' : ''}`} aria-label={m.name} {...(onOpen ? { role: 'button', tabIndex: 0, onClick: () => onOpen(m.id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(m.id) } } } : {})}>
+              <li key={m.id} className={`pcard${onOpen ? ' pcard--tap' : ''}${/เสียชีวิต/.test(m.status ?? '') ? ' pcard--gone' : ''}`} aria-label={m.name} {...(onOpen ? { role: 'button', tabIndex: 0, onClick: () => onOpen(m.id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(m.id) } } } : {})}>
                 <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={52} member={m} />
                 <div className="pcard__body">
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
