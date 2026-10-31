@@ -325,8 +325,10 @@ export interface ChurchMember extends SharedItem {
   nameOrig?: string
   /** สถานะตามทะเบียน เช่น สมาชิกสมบูรณ์ · เสียชีวิต · สิ้นสภาพ */
   status?: string
-  /** วันที่เข้าเป็นสมาชิก YYYY-MM-DD */
+  /** วันที่เข้าเป็นสมาชิก (คริสตจักรรับเป็นสมาชิก) YYYY-MM-DD */
   since?: string
+  /** วันที่มาร่วมนมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD — คนละอย่างกับวันที่รับเป็นสมาชิก */
+  firstWorship?: string
   /** วันเกิด YYYY-MM-DD (ค.ศ.) */
   birth?: string
   /** เพศ: ชาย / หญิง (ว่าง = ไม่ระบุ) */

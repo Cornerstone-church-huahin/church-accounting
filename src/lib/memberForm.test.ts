@@ -44,13 +44,13 @@ describe('memberForm', () => {
 
 import { personalInvite, groupInvite } from './memberForm'
 describe('ลิงก์กะทัดรัด + ข้อความมาตรฐาน', () => {
-  const full = { id: 'cm-mv9nzmoox', updated: 1, name: 'หนึ่งฤทัย ทองมี', nick: 'หนึ่ง', code: '1361', tel: '0971178583', gender: 'หญิง', birth: '1994-07-20', since: '2001-12-11', lineId: 'nueng_l', facebook: 'หนึ่ง ทองมี', skills: 'พยาบาล, ทำอาหาร', serve: ['ดนตรี (เครื่องดนตรี)', 'ครัว / อาหาร / เครื่องดื่ม', 'อื่นๆ: ตัดผม'], serveDays: ['วันเสาร์', 'ยืดหยุ่น / ตามนัด'] } as ChurchMember
+  const full = { id: 'cm-mv9nzmoox', updated: 1, name: 'หนึ่งฤทัย ทองมี', nick: 'หนึ่ง', code: '1361', tel: '0971178583', gender: 'หญิง', birth: '1994-07-20', since: '2001-12-11', firstWorship: '1999-05-05', lineId: 'nueng_l', facebook: 'หนึ่ง ทองมี', skills: 'พยาบาล, ทำอาหาร', serve: ['ดนตรี (เครื่องดนตรี)', 'ครัว / อาหาร / เครื่องดื่ม', 'อื่นๆ: ตัดผม'], serveDays: ['วันเสาร์', 'ยืดหยุ่น / ตามนัด'] } as ChurchMember
   it('v2 ถอดกลับได้ครบทุกช่อง และสั้นกว่า v1 มาก', () => {
     const p = makeFormLink(full, 1_800_000_000_000)
     const tok = encodeFormLink(p)
     expect(tok.startsWith('2.')).toBe(true)
     const d = decodeFormLink(tok)!
-    expect(d).toMatchObject({ mid: 'cm-mv9nzmoox', code: '1361', name: 'หนึ่งฤทัย ทองมี', nick: 'หนึ่ง', tel: '0971178583', gender: 'หญิง', birth: '1994-07-20', first: '2001-12-11', lineId: 'nueng_l', facebook: 'หนึ่ง ทองมี', skills: 'พยาบาล, ทำอาหาร' })
+    expect(d).toMatchObject({ mid: 'cm-mv9nzmoox', code: '1361', name: 'หนึ่งฤทัย ทองมี', nick: 'หนึ่ง', tel: '0971178583', gender: 'หญิง', birth: '1994-07-20', first: '1999-05-05', since: '2001-12-11', lineId: 'nueng_l', facebook: 'หนึ่ง ทองมี', skills: 'พยาบาล, ทำอาหาร' })
     expect(d.serve).toEqual(full.serve)
     expect(d.serveDays).toEqual(full.serveDays)
     expect(Math.abs(d.exp - p.exp)).toBeLessThan(60_000)
