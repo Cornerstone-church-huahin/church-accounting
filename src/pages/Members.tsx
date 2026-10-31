@@ -1138,7 +1138,7 @@ function Stats({ attendance, members }: { attendance: Attendance[]; members: Chu
   const last12 = stats.filter((x) => x.date >= `${yearOf(stats[0].date) - 1}${stats[0].date.slice(4)}`)
   const avg = (xs: typeof stats) => (xs.length ? Math.round(xs.reduce((a, x) => a + x.count, 0) / xs.length) : 0)
   const complete = (x: (typeof stats)[number]) => Object.entries(x.byStatus).filter(([st]) => /สมบูรณ์/.test(st)).reduce((a, [, n]) => a + n, 0)
-  const W = 360, H = 130, bw = W / recent.length
+  const W = 360, H = 64, bw = W / recent.length
   const today = todayISO()
   const picked = sel || stats[0].date
   const stat = stats.find((x) => x.date === picked)
@@ -1146,7 +1146,7 @@ function Stats({ attendance, members }: { attendance: Attendance[]; members: Chu
   return (
     <>
       <WeekStrip dates={weekDates(stats.map((x) => x.date), today)} value={picked} onPick={setSel} counts={counts} today={today} />
-      <div className="kpi">
+      <div className="kpi kpi--tight">
         <div><span>จำนวนครั้งที่มีบันทึก</span><b>{stats.length}</b></div>
         <div><span>เฉลี่ยต่อครั้ง (ทั้งหมด)</span><b>{avg(stats)}</b></div>
         <div><span>เฉลี่ยต่อครั้ง (12 เดือนล่าสุด)</span><b>{avg(last12)}</b></div>
@@ -1154,7 +1154,7 @@ function Stats({ attendance, members }: { attendance: Attendance[]; members: Chu
         <div><span>สูงสุด {fmtDate(peak.date)}</span><b>{peak.count}</b></div>
         <div><span>รวมการมาทั้งหมด</span><b>{total.toLocaleString('th-TH')}</b></div>
       </div>
-      <section className="card">
+      <section className="card card--tight">
         <h2>ผู้เข้าร่วมแต่ละครั้ง (ล่าสุด {recent.length} ครั้ง)</h2>
         <figure className="chart" style={{ margin: 0 }} aria-label="จำนวนผู้เข้าร่วมนมัสการแต่ละครั้ง">
           <svg viewBox={`0 0 ${W} ${H + 18}`} role="img" aria-label={`จำนวนผู้เข้าร่วม ${recent.map((x) => `${fmtDate(x.date)} ${x.count} คน`).join(', ')}`}>

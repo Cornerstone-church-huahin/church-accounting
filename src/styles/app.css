@@ -1534,3 +1534,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .photoav__i { position: absolute; right: -4px; bottom: -4px; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: #fff; border: 1px solid var(--line); font-size: 0.7rem; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .doneNew .pick--done { animation: donepulse 2.4s ease-out 1; }
 @keyframes donepulse { 0% { background: #fff1b8; box-shadow: 0 0 0 3px #d4af37; } 100% { background: transparent; box-shadow: none; } }
+
+/* หน้ายอดผู้มา: ตัวเลขสรุปและกราฟกะทัดรัด (สูงประมาณครึ่งเดียว) */
+.kpi--tight { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; margin-bottom: 0.4rem; }
+.kpi--tight > div { padding: 0.3rem 0.5rem; border-radius: 0.6rem; }
+.kpi--tight b { font-size: 1.05rem; line-height: 1.15; }
+.kpi--tight span { font-size: 0.68rem; line-height: 1.1; display: block; }
+.card--tight { padding: 0.45rem 0.7rem; margin: 0.3rem 0; }
+.card--tight h2 { font-size: 0.9rem; margin: 0 0 0.2rem; }
