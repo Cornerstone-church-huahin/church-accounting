@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultRules, effectiveRules, isUnassigned, needsGender, proposeRegroup, ruleWarnings, targetGroup } from './ageGroups'
+import { defaultRules, effectiveRules, mergeGroupNames, isUnassigned, needsGender, proposeRegroup, ruleWarnings, targetGroup } from './ageGroups'
 import type { ChurchMember } from './types'
 
 const groups = ['1.เด็กรวี', '2.อนุชน', '3.วัยทำงาน', '4.บุรุษ', '5.สตรี', '6.ผู้สูงวัย', '7.คณะกรรมการ']
@@ -85,5 +85,12 @@ describe('ageGroups', () => {
     expect(ruleWarnings(gap).join(' ')).toContain('อายุ 31–33 ปี ไม่มีกลุ่มรับ')
     const noWomen = rules.map((r) => (r.group === '5.สตรี' ? { ...r, on: false } : r))
     expect(ruleWarnings(noWomen).join(' ')).toContain('เพศหญิง: อายุ 46–65 ปี ไม่มีกลุ่มรับ')
+  })
+  it('รวมชื่อกลุ่มซ้ำ: อนุชน → 2.อนุชน · บุรุษ → 5.บรุษ · กลุ่มพิเศษ/ไม่มีเลขที่ไม่มีคู่ไม่แตะ', () => {
+    const ms = [
+      { id: 'a', group: '2.อนุชน' }, { id: 'b', group: 'อนุชน' }, { id: 'c', group: '5.บรุษ' }, { id: 'd', group: 'บุรุษ' },
+      { id: 'e', group: '9.คณะกรรมการ' }, { id: 'f', group: 'ทีมดนตรี' }, { id: 'g', group: 'สตรี' }, { id: 'h', group: '' },
+    ]
+    expect([...mergeGroupNames(ms)]).toEqual([['b', '2.อนุชน'], ['d', '5.บรุษ']])
   })
 })

@@ -97,3 +97,28 @@ export function ruleWarnings(rules: AgeRule[]): string[] {
   }
   return [...new Set(out)]
 }
+
+/**
+ * รวมชื่อกลุ่มซ้ำ: กลุ่มที่ไม่มีเลขนำหน้า (เช่น “อนุชน”) แต่ทะเบียนมีกลุ่มเดียวกันที่มีเลข (“2.อนุชน”) → ใช้ชื่อมีเลข
+ * (เกิดจากกติกาชื่อไม่มีเลขรุ่นก่อนที่เคยย้ายคนไปกลุ่มชื่อซ้ำ) · คืน id → ชื่อกลุ่มที่ถูกต้อง
+ */
+export function mergeGroupNames(members: Pick<ChurchMember, 'id' | 'group' | 'deleted'>[]): Map<string, string> {
+  const live = members.filter((m) => !m.deleted && m.group?.trim())
+  const key = (g: string) => { const t = strip(g.trim()); const i = STANDARD.findIndex((x) => x.re.test(t)); return i < 0 ? `t:${t}` : `s:${i}` }
+  const count = new Map<string, number>()
+  for (const m of live) count.set(m.group!.trim(), (count.get(m.group!.trim()) ?? 0) + 1)
+  const canon = new Map<string, string>()   // key → ชื่อมีเลขที่มีสมาชิกมากสุด
+  for (const [g, n] of count) {
+    if (!/^\s*\d/.test(g) || isUnassigned(g)) continue
+    const k = key(g), cur = canon.get(k)
+    if (!cur || n > (count.get(cur) ?? 0)) canon.set(k, g)
+  }
+  const out = new Map<string, string>()
+  for (const m of live) {
+    const g = m.group!.trim()
+    if (/^\s*\d/.test(g) || isUnassigned(g)) continue
+    const to = canon.get(key(g))
+    if (to && to !== g) out.set(m.id, to)
+  }
+  return out
+}

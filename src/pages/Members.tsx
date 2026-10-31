@@ -68,6 +68,10 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const [menu, setMenu] = useState(inRoom && !startTab)
   useEffect(() => { onMenu?.(menu) }, [menu, onMenu])
   const [adding, setAdding] = useState(false)
+  const [checkF, setCheckF] = useState<string[]>([])   // ตัวกรองผลตรวจเทียบการลงชื่อ (กรองการ์ดสมาชิก)
+  const [genF, setGenF] = useState('')
+  const [updF, setUpdF] = useState<'' | 'ok' | 'no'>('')
+  const [statusFor, setStatusFor] = useState('')
   const [regQ, setRegQ] = useState('') // ช่องค้นหารายชื่อในหน้ารวมสมาชิก (ฝ่ายทะเบียน)
   const [editId, setEditId] = useState('') // แก้ข้อมูลคนจากหน้าลงชื่อ (ไม่มีปุ่มลบสมาชิก)
   const editMember = editId ? people.items.find((m) => m.id === editId) : undefined
@@ -85,6 +89,28 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   }
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
   const tabItems = (lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
+  // หน้ารวมสมาชิก (งานทะเบียน): ตัวกรองจากผลตรวจ/เพศ/จุดอัปเดต รวมเป็นชุดรหัสเดียวส่งให้การ์ดสมาชิก
+  const regIds = useMemo(() => {
+    if (!merged || (!checkF.length && !genF && !updF)) return null
+    return new Set(result.rows.filter((r) => {
+      if (checkF.length && !checkF.some((f) => matchCheck(f, r))) return false
+      if (genF && (genF === 'none' ? !!r.member.gender : r.member.gender !== genF)) return false
+      if (updF && (updF === 'ok') !== !!r.member.formAt) return false
+      return true
+    }).map((r) => r.member.id))
+  }, [merged, checkF, genF, updF, result.rows])
+  const cardExtra = (m: ChurchMember) => {
+    const r = byId.get(m.id)
+    if (!r) return null
+    return (
+      <>
+        {r.suggest === 'to2' && <span className="pcard__l2" style={{ color: 'var(--bad)', fontWeight: 600 }}>{bandLabel(bandOf(r), criteria.absentMonths)}{r.idleDays != null ? ` · จริง ${Math.floor(r.idleDays / 30.44)} เดือน` : ''} → ควรเป็น สมบูรณ์ 2</span>}
+        {r.suggest === 'to1' && <span className="pcard__l2" style={{ color: 'var(--good)', fontWeight: 600 }}>กลับมานมัสการแล้ว → ควรกลับเป็น สมบูรณ์ 1</span>}
+        <span><button type="button" className="mini" onClick={(e) => { e.stopPropagation(); setStatusFor(m.id) }} aria-label={`เปลี่ยนสถานะ ${m.name}`}>เปลี่ยนสถานะ</button></span>
+      </>
+    )
+  }
+  const statusMember = statusFor ? people.items.find((x) => x.id === statusFor) : undefined
   if (inRoom && menu) {
     return (
       <>
@@ -109,24 +135,53 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
           <summary>🛠 เครื่องมือทะเบียน</summary>
           <div className="regtools__grid">
             <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มสมาชิก</button>
+            <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨 พิมพ์ / PDF</button>
             <FormTools members={people.items} put={people.put} worshipDays={worshipDays} attendance={attendance} />
           </div>
         </details>
         {tab === 'audit' && <Roster toolsOnly attendance={attendance} worshipDays={worshipDays} registry canEdit lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}</div>
       )}
-      {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} query={regQ} slot={<input className="input regsearch" type="search" value={regQ} onChange={(e) => setRegQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />} />}
-      {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {registry && canEdit && (tab === 'audit' || tab === 'roster') && (
+        <PastoralMembers work={2} onOpen={setDetail} query={regQ} idFilter={regIds} cardExtra={cardExtra}
+          slot={<>
+            <input className="input regsearch" type="search" value={regQ} onChange={(e) => setRegQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />
+            <div className="regfilt no-print">
+              <select className="input" value={genF} onChange={(e) => setGenF(e.target.value)} aria-label="กรองตามเพศ"><option value="">ทุกเพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option><option value="none">ไม่ระบุเพศ</option></select>
+              <div className="updleg" role="group" aria-label="สถานะการอัปเดตข้อมูล">
+                <button type="button" aria-pressed={updF === 'ok'} onClick={() => setUpdF(updF === 'ok' ? '' : 'ok')}><span className="updot updot--ok" /> อัปเดตแล้ว {people.items.filter((m) => !m.deleted && m.formAt).length}</button>
+                <button type="button" aria-pressed={updF === 'no'} onClick={() => setUpdF(updF === 'no' ? '' : 'no')}><span className="updot updot--no" /> ยังไม่ได้อัปเดต {people.items.filter((m) => !m.deleted && !m.formAt).length}</button>
+              </div>
+            </div>
+          </>} />
+      )}
+      {!lite && tab === 'audit' && <Audit checkOnly={merged} ext={merged ? [checkF, setCheckF] : undefined} registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
+      {statusMember && (
+        <Sheet title={`เปลี่ยนสถานะ — ${statusMember.name}`} onClose={() => setStatusFor('')}>
+          <p className="small muted" style={{ margin: 0 }}>เลือกสถานะในทะเบียน (แตะนอกกรอบหรือกด “ปิด” เพื่อยกเลิก)</p>
+          <div className="row" role="menu">
+            {statusOptions(people.items).map((st) => <button key={st} type="button" role="menuitem" className="btn btn--ghost btn--block" disabled={st === statusLabel(statusMember.status)} onClick={() => { people.put([{ ...statusMember, status: st === '(ไม่ระบุสถานะ)' ? undefined : st, override: undefined }]); setStatusFor('') }}>{st}</button>)}
+          </div>
+        </Sheet>
+      )}
       {adding && <MemberForm lite={lite} canDelete={false} member={null} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setAdding(false)} put={people.put} remove={people.remove} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
       {shownDetail && <Detail worshipDays={worshipDays} lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
+
+/** ตัวกรองผลตรวจเทียบการลงชื่อ (ใช้ร่วมกันระหว่างหน้าตรวจสอบเดิมและหน้ารวมสมาชิก) */
+const matchCheck = (f: string, r: Evaluated) =>
+  f.startsWith('st:') ? statusLabel(r.member.status) === f.slice(3)
+    : f === 'to2' ? r.suggest === 'to2'
+    : f === 'to1' ? r.suggest === 'to1'
+    : f.startsWith('band') ? r.tier === 5 && !!regLevel(r.member.status) && bandOf(r) === Number(f.slice(4))
+    : f === 'novisit' ? !!r.noRecord : true
 
 /** ปุ่มสถานะ (ตามทะเบียน) ใช้สีตามระดับ */
 const statusBadge = (st?: string) => { const l = regLevel(st); return l === 1 ? 'badge--good' : l === 2 ? 'badge--gold' : /เสียชีวิต|สิ้นสภาพ/.test(st ?? '') ? 'badge--bad' : '' }
@@ -135,9 +190,11 @@ const statusBadge = (st?: string) => { const l = regLevel(st); return l === 1 ? 
  * หน้าตรวจสอบ: สถานะตามทะเบียนเป็นหลัก (จำนวนตรงกับทะเบียนเดิม) + ใช้การลงชื่อนมัสการเตือนว่าใครควรปรับสถานะ
  * (ทะเบียนว่า สมบูรณ์ 1 แต่ขาดนมัสการเกินเกณฑ์ → ควรเป็น สมบูรณ์ 2 · และกลับกัน)
  */
-function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { registry?: boolean; onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
+function Audit({ checkOnly, ext, registry, onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { checkOnly?: boolean; ext?: [string[], React.Dispatch<React.SetStateAction<string[]>>]; registry?: boolean; onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
   const [q, setQ] = useState('')
-  const [filters, setFilters] = useState<string[]>([]) // ตัวกรองสถานะ/ผลตรวจ เลือกได้หลายอัน (ตรงอย่างใดอย่างหนึ่ง · ว่าง = ทุกสถานะ)
+  const [filtersL, setFiltersL] = useState<string[]>([])
+  const filters = ext ? ext[0] : filtersL
+  const setFilters = ext ? ext[1] : setFiltersL // ตัวกรองสถานะ/ผลตรวจ เลือกได้หลายอัน (ตรงอย่างใดอย่างหนึ่ง · ว่าง = ทุกสถานะ)
   const [group, setGroup] = useState('')
   const [menu, setMenu] = useState('')
   const [gen, setGen] = useState('')
@@ -150,12 +207,7 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
   for (const r of full) if (r.tier === 5) bands[bandOf(r)]++
   const to2 = rows.filter((r) => r.suggest === 'to2').length, to1 = rows.filter((r) => r.suggest === 'to1').length
   const groups = [...new Set(rows.map((r) => r.member.group).filter(Boolean))].sort() as string[]
-  const matchFilter = (f: string, r: Evaluated) =>
-    f.startsWith('st:') ? statusLabel(r.member.status) === f.slice(3)
-      : f === 'to2' ? r.suggest === 'to2'
-      : f === 'to1' ? r.suggest === 'to1'
-      : f.startsWith('band') ? r.tier === 5 && !!regLevel(r.member.status) && bandOf(r) === Number(f.slice(4))
-      : f === 'novisit' ? !!r.noRecord : true
+  const matchFilter = matchCheck
   const shown = rows.filter((r) => {
     if (filters.length && !filters.some((f) => matchFilter(f, r))) return false
     if (group && r.member.group !== group) return false
@@ -166,12 +218,16 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
   })
   const setStatus = (r: Evaluated, st: string) => { setMenu(''); put([{ ...r.member, status: st === '(ไม่ระบุสถานะ)' ? undefined : st, override: undefined }]) }
   if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ใช้ “เครื่องมือทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ .xlsx / CSV</p>
+  const wrapCheck = (n: ReactNode) => (checkOnly ? <details className="regtools no-print"><summary>🔍 ตรวจเทียบกับการลงชื่อนมัสการ</summary><div style={{ padding: '0.4rem' }}>{n}</div></details> : n)
   const chip = (key: string, label: string, n: number) => <button key={key} type="button" className={`mini${filters.includes(key) ? ' on' : ''}`} aria-pressed={filters.includes(key)} onClick={() => setFilters((xs) => (xs.includes(key) ? xs.filter((x) => x !== key) : [...xs, key]))}>{label} · {n}</button>
   return (
     <>
+      {!checkOnly && <>
       <div className="kpi"><div><span>รายชื่อทั้งหมด</span><b>{rows.length}</b></div><div><span>สมาชิกสมบูรณ์ (1+2)</span><b>{full.length}</b></div></div>
       <p className="small muted" style={{ margin: '0.3rem 0' }}>จำนวนตามสถานะในทะเบียน (แตะเพื่อกรอง)</p>
       <div className="chips no-print" aria-label="จำนวนตามสถานะในทะเบียน">{statuses.map(([st, n]) => chip(`st:${st}`, st, n))}</div>
+      </>}
+      {wrapCheck(<>
       {!result.hasData
         ? <p className="card small" role="note">ยังไม่มีบันทึกลงชื่อนมัสการ จึงยังตรวจเทียบกับสถานะในทะเบียนไม่ได้ — ไปแท็บ “ลงชื่อ” หรือนำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน”</p>
         : (
@@ -197,6 +253,8 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
             )}
           </section>
         )}
+      </>)}
+      {!checkOnly && <>
       <div className="toolbar no-print">
         <input className="input full" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
         <MultiPick title="กรองสถานะ / ผลตรวจ" allLabel="ทุกสถานะ" empty="ทุกสถานะ" value={filters} onChange={setFilters}
@@ -245,6 +303,7 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
         </ul>
         {shown.length === 0 && <p className="empty">ไม่พบรายชื่อตามที่กรอง</p>}
       </section>
+      </>}
     </>
   )
 }
