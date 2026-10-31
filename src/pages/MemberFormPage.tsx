@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import logoUrl from '../assets/logo.png'
 import Sheet from '../components/Sheet'
+import MapPickSheet from '../components/MapPickSheet'
 import { BY_NAME, DAY_OPTIONS, NEW_MID, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, decodeGroupLink, replyText, type FormAnswer, type FormLink, type GroupLink } from '../lib/memberForm'
 
 /**
@@ -58,6 +59,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
   const [pick, setPick] = useState<'' | 'skills' | 'serve' | 'days'>('')
   const [geo, setGeo] = useState<{ lat: number; lng: number; acc?: number } | null>((saved as { geo?: { lat: number; lng: number; acc?: number } } | null)?.geo ?? null)
   const [geoMsg, setGeoMsg] = useState('')
+  const [mapOpen, setMapOpen] = useState(false)
   const locate = () => {
     if (!navigator.geolocation) return setGeoMsg('เครื่องนี้ไม่รองรับการระบุตำแหน่ง')
     setGeoMsg('กำลังหาตำแหน่ง…')
@@ -120,6 +122,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
       <div className="field"><label htmlFor="mf-addr">ที่อยู่ปัจจุบัน <span className="muted small">(ไม่บังคับ)</span></label><textarea id="mf-addr" className="input" rows={3} value={f.address ?? ''} onChange={(e) => set({ address: e.target.value })} autoComplete="street-address" placeholder="บ้านเลขที่ ถนน ตำบล อำเภอ จังหวัด" />
         <button type="button" className="btn btn--ghost btn--block" onClick={locate} style={{ marginTop: 6 }}>📍 บันทึกพิกัดปัจจุบัน</button>
         <p className="small" role="note" style={{ margin: '0.3rem 0 0', color: '#b45309', fontWeight: 700 }}>⚠️ กดเมื่ออยู่ที่บ้านเท่านั้น — ระบบจะใช้ตำแหน่งนี้เป็นพิกัดบ้านของท่านบนแผนที่ (ถ้าไม่ได้อยู่บ้าน อย่ากด)</p>
+        <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setMapOpen(true)} style={{ marginTop: 6 }}>🗺️ {geo ? 'ปรับตำแหน่งบนแผนที่ (ลากหมุดไปที่บ้าน)' : 'เลือกตำแหน่งบ้านบนแผนที่'}</button>
         {geoMsg && <p className="small" role="status" style={{ margin: '0.2rem 0 0' }}>{geoMsg}</p>}
         {geo && <p className="small" role="status" style={{ margin: '0.2rem 0 0', color: '#1b7f4b', fontWeight: 700 }}>✅ บันทึกพิกัดแล้ว ({geo.lat}, {geo.lng}){geo.acc ? ` · คลาดเคลื่อนประมาณ ${geo.acc} ม.` : ''} <button type="button" className="mini" onClick={() => { setGeo(null); setCopied(false) }}>ลบพิกัด</button></p>}</div>
       <div className="field"><label id="mf-g">เพศ{!f.gender && <span className="mform__empty">ยังว่าง — กรุณาเลือก</span>}</label>
@@ -150,6 +153,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
       {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       <button type="button" className="btn btn--gold bigbtn btn--block" disabled={!ok} onClick={sendLine}>📤 ส่งกลับทางไลน์</button>
       <button type="button" className="btn btn--ghost btn--block" disabled={!ok} onClick={copy}>{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ (ถ้าส่งไลน์ไม่ได้)'}</button>
+      {mapOpen && <MapPickSheet initial={geo} onClose={() => setMapOpen(false)} onSave={(c) => { setGeo({ lat: c.lat, lng: c.lng }); setCopied(false); setMapOpen(false) }} />}
       {pick === 'skills' && (
         <Sheet title="กรอก อาชีพ / ความสามารถ" onClose={() => setPick('')}>
           <p className="small muted" style={{ margin: 0 }}>เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร — พิมพ์ได้หลายอย่าง คั่นด้วยเครื่องหมายจุลภาค</p>
