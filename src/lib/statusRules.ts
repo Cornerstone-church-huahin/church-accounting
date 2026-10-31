@@ -44,7 +44,7 @@ export function proposeStatusMoves(members: ChurchMember[], attendance: Attendan
   const out: StatusMove[] = []
   const covers = (months: number) => !!firstService && firstService <= addMonths(today, -months)
   for (const m of members) {
-    if (m.deleted) continue
+    if (m.deleted || m.statusLock) continue   // กำหนดสถานะเองแล้ว ระบบไม่เปลี่ยนให้
     const st = statusLabel(m.status)
     if (st !== 'คนใหม่' && st !== 'ผู้ร่วมนมัสการ') continue
     const ds = [...(days.get(m.id) ?? [])].sort()
@@ -77,3 +77,23 @@ export function statusRuleWarnings(c: StatusRuleCfg): string[] {
   if (c.workVisits < c.workMonthsPresent) w.push(`ผู้ร่วมนมัสการ: จำนวนครั้ง (${c.workVisits}) น้อยกว่าจำนวนเดือนที่ต้องมา (${c.workMonthsPresent}) — ควรเท่ากันหรือมากกว่า`)
   return w
 }
+
+export interface Review { m: ChurchMember; from: string; to: string; why: string; at: number; fits: boolean; nowWhy?: string }
+/**
+ * ตรวจรายการที่ระบบเปลี่ยนสถานะไปแล้ว (สถานะยังเป็นผลของการเปลี่ยนนั้นอยู่) ว่า “ตามเกณฑ์ปัจจุบัน” คนนั้นยังเข้าเกณฑ์ไหม
+ * · ไม่เข้า (fits = false) = เปลี่ยนไปด้วยเกณฑ์เก่าที่หลวมกว่า → เสนอคืนสถานะเดิม
+ */
+export function reviewAutoMoves(members: ChurchMember[], attendance: Attendance[], today: string, cfg: StatusRuleCfg = DEFAULT_STATUS_RULES): Review[] {
+  const out: Review[] = []
+  for (const m of members) {
+    if (m.deleted || !m.statusMoved || m.statusLock) continue
+    if (statusLabel(m.status) === statusLabel(m.statusMoved.from)) continue   // กลับไปสถานะเดิมแล้ว
+    const virtual = { ...m, status: m.statusMoved.from, statusAt: undefined, statusMoved: undefined } as ChurchMember
+    const again = proposeStatusMoves([virtual], attendance, today, cfg).find((x) => x.to === statusLabel(m.status))
+    out.push({ m, from: m.statusMoved.from, to: statusLabel(m.status), why: m.statusMoved.why, at: m.statusMoved.at, fits: !!again, nowWhy: again?.why })
+  }
+  return out.sort((a, b) => Number(a.fits) - Number(b.fits) || b.at - a.at)
+}
+/** คืนสถานะเดิมของรายการที่ระบบเปลี่ยนไป */
+export const revertStatusMoves = (rs: Review[], now: number): ChurchMember[] =>
+  rs.map((r) => ({ ...r.m, status: r.from, statusAt: undefined, statusMoved: undefined, updated: now }))

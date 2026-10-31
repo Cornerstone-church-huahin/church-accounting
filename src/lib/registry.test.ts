@@ -217,3 +217,21 @@ describe('serviceStats: คนมาใหม่', () => {
     expect(d04.people.filter((p) => p.isNew).map((p) => p.name)).toEqual(['สมศรี มาแล้ว']) // ครั้งแรกของสมศรี ส่วนสมชายเป็นสมาชิกเก่า
   })
 })
+
+describe('statusLock · ยกเว้นการตรวจการนมัสการ', () => {
+  const mk = (extra: object) => ({ id: 'p', updated: 1, name: 'ศิษยาภิบาล', status: 'สมบูรณ์ ( 1 )', since: '2000-01-01', ...extra }) as import('./types').ChurchMember
+  const att = [{ id: 'a', updated: 1, date: '2026-10-25', ids: ['other'] }]
+  it('ไม่ล็อก: ไม่มีบันทึกการมา → ขาดนมัสการเกินเกณฑ์ (ควรเป็นสมบูรณ์ 2)', () => {
+    const r = evaluate([mk({})], att, DEFAULT_CRITERIA, '2026-10-31').rows[0]
+    expect(r.suggest).toBe('to2')
+  })
+  it('ล็อก + ยกเว้นการตรวจ: ไม่ฟ้อง', () => {
+    const r = evaluate([mk({ statusLock: { why: 'ศิษยาภิบาล', skipAudit: true } })], att, DEFAULT_CRITERIA, '2026-10-31').rows[0]
+    expect(r.suggest).toBeUndefined()
+    expect(r.tier).toBe(0)
+  })
+  it('ล็อกแต่ไม่ยกเว้น: ยังตรวจตามปกติ แต่ไม่เสนอเปลี่ยนสถานะ', () => {
+    const r = evaluate([mk({ statusLock: { why: 'x' } })], att, DEFAULT_CRITERIA, '2026-10-31').rows[0]
+    expect(r.suggest).toBeUndefined()
+  })
+})

@@ -35,7 +35,7 @@ try {
     const ago = (days) => iso(new Date(Date.now() - days * 86400000))
     const lastSun = new Date(); lastSun.setUTCDate(lastSun.getUTCDate() - lastSun.getUTCDay())
     const sun = (w) => iso(new Date(lastSun.getTime() - w * 7 * 86400000))
-    const who = { n1: (w) => w < 14, n2: (w) => w >= 20 && w < 25, n3: (w) => w < 6, w1: (w) => w % 2 === 0 && w < 80, w2: (w) => w % 2 === 0 && w < 80 }
+    const who = { l1: (w) => w < 14, o1: (w) => w === 5, n1: (w) => w < 14, n2: (w) => w >= 20 && w < 25, n3: (w) => w < 6, w1: (w) => w % 2 === 0 && w < 80, w2: (w) => w % 2 === 0 && w < 80 }
     const byYear = {}
     for (let w = 0; w < 100; w++) {
       const date = sun(w), ids = ['other', ...Object.entries(who).filter(([, f]) => f(w)).map(([id]) => id)]
@@ -48,6 +48,8 @@ try {
       { id: 'n3', updated: 1, name: 'คนใหม่มาไม่ถึง 3 เดือน', status: '4.คนใหม่' },
       { id: 'w1', updated: 1, name: 'ผู้ร่วมต่อเนื่อง', status: '4.ผู้ร่วมนมัสการ' },
       { id: 'w2', updated: 1, name: 'ผู้ร่วมเพิ่งเปลี่ยน', status: 'ผู้ร่วมนมัสการ', statusAt: ago(60) },
+      { id: 'l1', updated: 1, name: 'คนใหม่ที่ล็อก', status: 'คนใหม่', statusLock: { why: 'แขกประจำ' } },
+      { id: 'o1', updated: 1, name: 'ถูกย้ายด้วยเกณฑ์เก่า', status: 'ผู้ร่วมนมัสการ', statusMoved: { from: 'คนใหม่', at: Date.now(), why: 'มานมัสการมา 19 เดือน (ตั้งแต่ 2025-03-23)' } },
       { id: 'f1', updated: 1, name: 'สมาชิกสมบูรณ์', status: '1.สมบูรณ์  ( 1 )' },
     ]))
   })
@@ -58,6 +60,7 @@ try {
   must(st.n1 === 'ผู้ร่วมนมัสการ', 'newcomer 4 months, still attending → ผู้ร่วมนมัสการ: ' + JSON.stringify(st))
   must(st.n2 === 'คนใหม่' && st.n3 === 'คนใหม่', 'inactive / under 3 months stay as newcomer (numbers stripped): ' + JSON.stringify(st))
   must(st.w1 === 'สมาชิกสำรอง' && st.w2 === 'ผู้ร่วมนมัสการ', 'continuous > 1 year → สมาชิกสำรอง; recently changed stays: ' + JSON.stringify(st))
+  must(st.l1 === 'คนใหม่' && st.o1 === 'ผู้ร่วมนมัสการ', 'locked person is not moved; the old-rule move is untouched until reviewed: ' + JSON.stringify(st))
   must(st.f1 === 'สมบูรณ์ ( 1 )', 'legacy number removed from every status: ' + st.f1)
   await page.getByRole('button', { name: /ดูรายการ/ }).click()
   must(await page.getByText(/คนใหม่ → ผู้ร่วมนมัสการ/).count() >= 1, 'banner lists the automatic status changes')
@@ -68,6 +71,15 @@ try {
   await page.getByText('สถานะในทะเบียน', { exact: true }).waitFor({ timeout: 8000 })
   const dd = await page.getByRole('dialog').innerText()
   must(/สถานะในทะเบียน\s*สมบูรณ์ \( 1 \)/.test(dd) && !/\d\.สมบูรณ์/.test(dd), 'detail shows status without a number: ' + dd.slice(0, 300))
+  // กำหนดสถานะเอง (ล็อก) รายบุคคล + ยกเว้นการตรวจการนมัสการ (หน้ารายละเอียดของ “สมาชิกสมบูรณ์” เปิดอยู่)
+  await page.getByRole('button', { name: /กำหนดสถานะเอง/ }).click()
+  await page.getByLabel('เหตุผล (ไม่บังคับ)').fill('ศิษยาภิบาล')
+  await page.getByRole('checkbox', { name: 'ยกเว้นการตรวจการนมัสการ' }).check()
+  await page.getByRole('button', { name: /^🔒 บันทึก$/ }).click()
+  const f1 = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'f1'))
+  must(f1.statusLock?.why === 'ศิษยาภิบาล' && f1.statusLock.skipAudit === true && f1.status === 'สมบูรณ์ ( 1 )', 'lock saved: ' + JSON.stringify(f1))
+  must(await page.getByText(/🔒 กำหนดสถานะเอง · ศิษยาภิบาล/).count() >= 1, 'lock reason shown on the detail page')
+  await page.keyboard.press('Escape'); await page.waitForTimeout(300)
   // เกณฑ์ปรับได้: เปิดหน้าเกณฑ์สถานะ → เห็นเหตุผล → แก้เกณฑ์แล้วบันทึก → ปรับทันที
   await page.keyboard.press('Escape'); await page.waitForTimeout(300)
   await page.getByRole('button', { name: /เกณฑ์สถานะ/ }).click()
@@ -75,6 +87,15 @@ try {
   await page.getByRole('spinbutton', { name: 'มาอย่างน้อย' }).first().fill('99')
   await page.getByText(/เข้าเกณฑ์ตอนนี้ 0 คน/).waitFor({ timeout: 5000 })
   must(await page.getByText(/ถ้าบันทึก จะเปลี่ยนสถานะ/).count() === 1, 'preview line when criteria edited')
+  // ตรวจรายการที่ระบบเปลี่ยนไปแล้ว → ❌ ไม่เข้าเกณฑ์ปัจจุบัน → คืนสถานะเดิม
+  const rl = page.getByRole('list', { name: 'รายการที่ระบบเปลี่ยนสถานะไปแล้ว' })
+  await rl.waitFor({ timeout: 5000 })
+  must(/❌[\s\S]*ถูกย้ายด้วยเกณฑ์เก่า/.test(await rl.innerText()), 'old-rule move flagged as not fitting the current criteria: ' + await rl.innerText())
+  must(await page.getByRole('list', { name: 'คนที่ล็อกสถานะ' }).getByText(/คนใหม่ที่ล็อก/).count() === 1, 'locked list shown')
+  await page.getByRole('button', { name: /คืนสถานะเดิมที่เลือก \(\d+ คน\)/ }).click()
+  await page.waitForTimeout(500)
+  const o1 = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'o1').status)
+  must(o1 === 'คนใหม่', 'reverted to the old status: ' + o1)
   await page.getByRole('button', { name: /↺ คืนค่าตั้งต้น/ }).click()
   must(true, 'reset')
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))

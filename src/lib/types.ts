@@ -352,6 +352,8 @@ export interface ChurchMember extends SharedItem {
   statusAt?: string
   /** ระบบเปลี่ยนสถานะอัตโนมัติครั้งล่าสุด: จากสถานะไหน เมื่อไร เพราะอะไร */
   statusMoved?: { from: string; at: number; why: string }
+  /** กำหนดสถานะเอง (ล็อก): ระบบอัตโนมัติไม่เปลี่ยนสถานะให้ · why = เหตุผล เช่น ศิษยาภิบาล · skipAudit = ไม่ตรวจการนมัสการ (เช่น ไม่ถูกลงชื่อ) */
+  statusLock?: { why?: string; skipAudit?: boolean }
   /** วันเกิด YYYY-MM-DD (ค.ศ.) */
   birth?: string
   /** เพศ: ชาย / หญิง (ว่าง = ไม่ระบุ) */
