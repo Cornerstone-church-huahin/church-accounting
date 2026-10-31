@@ -98,7 +98,7 @@ function MembersPage({ registry }: { registry?: boolean }) {
           ))}
         </div>
       )}
-      {!lite && tab === 'audit' && <Audit onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
+      {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
@@ -117,7 +117,7 @@ const statusBadge = (st?: string) => { const l = regLevel(st); return l === 1 ? 
  * หน้าตรวจสอบ: สถานะตามทะเบียนเป็นหลัก (จำนวนตรงกับทะเบียนเดิม) + ใช้การลงชื่อนมัสการเตือนว่าใครควรปรับสถานะ
  * (ทะเบียนว่า สมบูรณ์ 1 แต่ขาดนมัสการเกินเกณฑ์ → ควรเป็น สมบูรณ์ 2 · และกลับกัน)
  */
-function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
+function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, put, onCriteria }: { registry?: boolean; onOpen: (id: string) => void; result: ReturnType<typeof evaluate>; criteria: { minYears: number; absentMonths: number }; canEdit: boolean; canTune: boolean; today: string; put: (x: ChurchMember[]) => boolean; onCriteria: (p: { memberMinYears: number; memberAbsentMonths: number }) => void }) {
   const [q, setQ] = useState('')
   const [filters, setFilters] = useState<string[]>([]) // ตัวกรองสถานะ/ผลตรวจ เลือกได้หลายอัน (ตรงอย่างใดอย่างหนึ่ง · ว่าง = ทุกสถานะ)
   const [group, setGroup] = useState('')
@@ -183,12 +183,13 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
         <button type="button" className="btn btn--ghost full" onClick={() => window.print()}>พิมพ์ / PDF</button>
       </div>
       <p className="small"><b>{shown.length}</b> จาก {rows.length} รายชื่อ · พิมพ์ ณ {fmtDate(today)}</p>
+      {registry && <p className="updleg no-print"><span className="updot updot--ok" /> อัปเดตแล้ว {rows.filter((r) => r.member.formAt).length}<span className="updot updot--no" /> ยังไม่ได้อัปเดต {rows.filter((r) => !r.member.formAt).length}<span className="small muted">จุดข้างรูป: เขียว = วางข้อมูลที่สมาชิกกรอกและอัปเดตแล้ว · แดง = ยังไม่ได้ทำ</span></p>}
       <section className="card" aria-label="รายชื่อตามสถานะ">
         <ul className="list list--tight">
           {shown.map((r) => (
             <li key={r.member.id}>
               <div className="mrow mrow--tight mrow--top">
-                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={56} />
+                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={56} dot={registry ? (r.member.formAt ? 'ok' : 'no') : undefined} />
                 <div className="mrow__main">
                   <div className="mrow__top">
                     <button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
@@ -229,6 +230,7 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
   const [sts, setSts] = useState<string[]>([]) // สถานะที่เลือกกรอง (หลายสถานะได้ · ว่าง = ทั้งหมด)
   const [grp, setGrp] = useState('')
   const [gen, setGen] = useState('')
+  const [upd, setUpd] = useState<'' | 'ok' | 'no'>('')   // ฝ่ายทะเบียน: กรองตามสถานะการอัปเดตข้อมูล
   const [sort, setSort] = useState<'code' | 'name' | 'visits' | 'last'>('code')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
@@ -248,6 +250,7 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
   }
   const list = [...members].sort((a, b) => order[sort](a, b) || a.name.localeCompare(b.name, 'th'))
     .filter((m) => (sts.length === 0 || sts.includes(statusKey(m.status))) && (!grp || m.group === grp) && (!gen || (gen === 'none' ? !m.gender : m.gender === gen)))
+    .filter((m) => !registry || !upd || (upd === 'ok') === !!m.formAt)
     .filter((m) => !t || `${m.name}${m.nick ?? ''}${m.code ?? ''}${lite ? '' : m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
   const readCsv = async (f: File | undefined): Promise<string[][] | null> => {
     if (!f) return null
@@ -382,6 +385,13 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
         <select className="input" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="เรียงตาม"><option value="code">เรียงตามรหัส</option><option value="name">เรียงตามชื่อ</option><option value="visits">มานมัสการมากสุด</option><option value="last">มาล่าสุด</option></select>
         {groups.length > 0 && <select className="input" value={grp} onChange={(e) => setGrp(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
       </div>
+      {registry && (
+        <div className="updleg no-print" role="group" aria-label="สถานะการอัปเดตข้อมูล">
+          <button type="button" aria-pressed={upd === 'ok'} onClick={() => setUpd(upd === 'ok' ? '' : 'ok')}><span className="updot updot--ok" /> อัปเดตแล้ว {members.filter((m) => m.formAt).length}</button>
+          <button type="button" aria-pressed={upd === 'no'} onClick={() => setUpd(upd === 'no' ? '' : 'no')}><span className="updot updot--no" /> ยังไม่ได้อัปเดต {members.filter((m) => !m.formAt).length}</button>
+          <span className="small muted">จุดข้างรูป: เขียว = วางข้อมูลที่สมาชิกกรอกและอัปเดตแล้ว · แดง = ยังไม่ได้ทำ</span>
+        </div>
+      )}
       <p className="pagehint">แสดง {list.length} จาก {members.length} คน · มีรูป {count((m) => !!m.photoPath)} คน · แตะชื่อเพื่อดูข้อมูลครบทุกช่อง</p>
       <section className="card">
         {list.length === 0 ? <p className="empty">{members.length ? 'ไม่พบรายชื่อตามที่กรอง' : `ยังไม่มีสมาชิก${canEdit ? ' — เพิ่มทีละคน หรือนำเข้าไฟล์ .xlsx / CSV (หัวคอลัมน์: รหัส, ชื่อ สกุล, ชื่อเล่น, สถานะ, กลุ่ม, โทร, วันเกิด, หมายเหตุ, ว/ด/ป-เข้าร่วม)' : ''}`}</p> : (
@@ -389,7 +399,7 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
             {list.map((m) => (
               <li key={m.id}>
                 <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={52} dot={registry ? (m.formAt ? 'ok' : 'no') : undefined} />
                   <span className="mrow__main">
                     <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{!lite && info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
                     <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusShort(m.status), m.gender && m.gender, m.group, !lite && m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, !lite && m.tel].filter(Boolean).join(' · ')}</span>
