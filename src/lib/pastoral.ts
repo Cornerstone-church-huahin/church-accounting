@@ -75,7 +75,9 @@ export function groupCounts(members: { group?: string }[]) {
     const k = !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw
     map.set(k, (map.get(k) ?? 0) + 1)
   }
-  return [...map.entries()].sort((a, b) => (a[0] === 'ไม่มีกลุ่ม' ? 1 : b[0] === 'ไม่มีกลุ่ม' ? -1 : b[1] - a[1]))
+  const num = (g: string) => { const n = /^\s*(\d+)/.exec(g); return n ? Number(n[1]) : Infinity }
+  // เรียงตามเลขนำหน้าชื่อกลุ่ม น้อย → มาก · ไม่มีเลขตามหลังเรียงตามจำนวนคน · “ไม่มีกลุ่ม” ท้ายสุด
+  return [...map.entries()].sort((a, b) => (a[0] === 'ไม่มีกลุ่ม' ? 1 : b[0] === 'ไม่มีกลุ่ม' ? -1 : num(a[0]) - num(b[0]) || b[1] - a[1]))
 }
 
 /** จำนวนคนเข้าเป็นสมาชิกตามปี (ปี ค.ศ.) — ไม่ระบุวันเข้าไม่นับ */
