@@ -5,14 +5,14 @@ import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { todayISO, yearOf } from '../lib/money'
 import { statusLabel, toAttendance } from '../lib/registry'
-import { proposeStatusMoves } from '../lib/statusRules'
+import { effectiveStatusRules, proposeStatusMoves } from '../lib/statusRules'
 import type { CheckIn } from '../lib/types'
 
 type Note = { name: string; text: string }
 /**
  * งานอัตโนมัติของทะเบียน (ทำเมื่อเปิดแอปด้วยบัญชีที่แก้ทะเบียนได้ · รอดึงข้อมูลล่าสุดก่อนเสมอ):
  * 1) แปลงสถานะเดิมที่มีเลขนำหน้า (1. 5. …) ให้เป็นชื่อสถานะล้วน
- * 2) เปลี่ยนสถานะ: คนใหม่มา ≥ 3 เดือน → ผู้ร่วมนมัสการ · ผู้ร่วมนมัสการต่อเนื่อง > 1 ปี → สมาชิกสำรอง
+ * 2) เปลี่ยนสถานะตามเกณฑ์ความถี่ (ตั้งค่าได้ที่ “เกณฑ์สถานะ”): คนใหม่ → ผู้ร่วมนมัสการ → สมาชิกสำรอง
  * 3) ย้ายกลุ่มตามอายุ+เพศเมื่อถึงช่วงวัย
  * ไม่แตะคนที่ไม่มีข้อมูลพอ · ปิด 2) 3) ได้ในตั้งค่า · แจ้งผลให้เห็น
  */
@@ -42,7 +42,7 @@ export default function AutoRegroup() {
     const view = () => items.map((m) => (patches.has(m.id) ? { ...m, ...patches.get(m.id) } : m))
     // 2) เปลี่ยนสถานะตามระยะเวลาที่มานมัสการ
     if (settings.statusAuto !== false && attendance.length > 0) {
-      for (const mv of proposeStatusMoves(view(), attendance, today)) {
+      for (const mv of proposeStatusMoves(view(), attendance, today, effectiveStatusRules(settings.statusRules))) {
         apply(mv.m.id, { status: mv.to, statusAt: today, statusMoved: { from: mv.from, at: now, why: mv.why } })
         log.push({ name: mv.m.name, text: `สถานะ ${mv.from} → ${mv.to} (${mv.why})` })
       }
@@ -63,7 +63,7 @@ export default function AutoRegroup() {
     items = view()
     const changed = items.filter((m) => patches.has(m.id)).map((m) => ({ ...m, updated: now }))
     if (people.put(changed) && log.length > 0) setNotes(log)
-  }, [allowed, people.items, people.sync.state, attendance, settings.ageAuto, settings.statusAuto, settings.ageRules]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allowed, people.items, people.sync.state, attendance, settings.ageAuto, settings.statusAuto, settings.ageRules, settings.statusRules]) // eslint-disable-line react-hooks/exhaustive-deps
   if (notes.length === 0) return null
   const names = new Set(notes.map((n) => n.name)).size
   return (

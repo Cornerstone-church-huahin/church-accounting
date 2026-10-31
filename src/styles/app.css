@@ -1459,3 +1459,9 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .imp-badge--date { background: #ffd6d6; color: #b00020; }
 
 .mform__fold { margin-top: 6px; }
+
+/* ป๊อปอัพเต็มหน้า (เลือกรายชื่อส่งลิงก์แบบกลุ่ม) */
+.sheet--full { align-items: stretch; }
+.sheet--full > .card { max-height: none; height: 100dvh; border-radius: 0; display: flex; flex-direction: column; gap: 0.5rem; padding-bottom: calc(0.8rem + env(safe-area-inset-bottom, 0px)); }
+.sheet--full .fam-list { flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 0.2rem 0.5rem; }
+.fam-chip { display: inline-flex; align-items: center; gap: 4px; background: #fff3bf; border: 1px solid #d4af37; border-radius: 999px; padding: 0 8px; font-size: .85rem; }
