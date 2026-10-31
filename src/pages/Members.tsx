@@ -13,7 +13,7 @@ import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPla
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
-import { effectiveRules, needsGender, proposeRegroup, targetGroup } from '../lib/ageGroups'
+import { effectiveRules, needsGender, proposeRegroup, ruleWarnings, targetGroup } from '../lib/ageGroups'
 import { AGE_BANDS, ageYears } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
@@ -709,7 +709,18 @@ function RegroupSheet({ members, put, onClose }: { members: ChurchMember[]; put:
   const noGender = live.filter((x) => needsGender(x, rules, today)).length
   const setRule = (i: number, patch: Partial<(typeof rules)[number]>) => setRules(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const apply = () => { if (put(chosen.map((p) => ({ ...p.m, group: p.to, updated: Date.now() })))) { setMsg(`ย้ายกลุ่มแล้ว ${chosen.length} คน`); setSkip(new Set()) } else setMsg('ไม่มีสิทธิ์บันทึก') }
-  const saveRules = () => setMsg(save({ ageRules: rules }) ? 'บันทึกกติกาแล้ว' : 'ไม่มีสิทธิ์บันทึกกติกา')
+  // บันทึกกติกาแล้วปรับกลุ่มของทุกคนให้ตรงกติกาใหม่ทันที (เมื่อเปิดย้ายอัตโนมัติ) · ปิดอัตโนมัติ = บอกจำนวนที่ไม่ตรงให้กดย้ายเอง
+  const saveRules = () => {
+    if (!save({ ageRules: rules })) return setMsg('ไม่มีสิทธิ์บันทึกกติกา')
+    const all = proposeRegroup(live, rules, today)
+    if (all.length === 0) return setMsg('บันทึกกติกาแล้ว — ทุกคนอยู่ในกลุ่มที่ตรงกติกาอยู่แล้ว')
+    if (settings.ageAuto === false) return setMsg(`บันทึกกติกาแล้ว — มี ${all.length} คนที่กลุ่มไม่ตรงกติกาใหม่ กด “ย้ายกลุ่ม” เพื่อปรับ`)
+    const now = Date.now()
+    setMsg(put(all.map((p) => ({ ...p.m, group: p.to, groupMoved: { from: p.from, at: now }, updated: now }))) ? `บันทึกกติกาแล้ว และย้ายกลุ่ม ${all.length} คนให้ตรงกติกาใหม่ทันที` : 'บันทึกกติกาแล้ว แต่ย้ายกลุ่มไม่สำเร็จ (ไม่มีสิทธิ์แก้ทะเบียน)')
+  }
+  const warns = ruleWarnings(rules)
+  const saved = effectiveRules(settings.ageRules, groups)
+  const changedRules = JSON.stringify(saved) !== JSON.stringify(rules)
   return (
     <Sheet title="จัดกลุ่มตามอายุ" onClose={onClose}>
       <p className="small muted" style={{ margin: 0 }}>ระบบคำนวณอายุจากวันเกิดของวันนี้ แล้วเทียบกับกติกาของแต่ละกลุ่ม · เสนอเฉพาะคนที่กลุ่มไม่ตรง คุณตรวจแล้วกดย้ายทีเดียว · ไม่แตะคนที่ไม่มีวันเกิด ({noBirth} คน) คนที่อยู่กลุ่มพิเศษที่ไม่มีกติกา หรือคนที่ล็อกกลุ่มไว้{noGender > 0 ? ` · วัยบุรุษ/สตรีที่ยังไม่ทราบเพศ ${noGender} คน (ต้องกรอกเพศก่อนจึงจัดให้ได้)` : ''}</p>
@@ -730,7 +741,9 @@ function RegroupSheet({ members, put, onClose }: { members: ChurchMember[]; put:
               <select className="input" style={{ width: '6.5rem' }} aria-label={`${r.group} เพศ`} value={r.gender ?? ''} onChange={(e) => setRule(i, { gender: (e.target.value || undefined) as 'ชาย' | 'หญิง' | undefined })}><option value="">ทุกเพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option></select>
             </div>
           ))}
-          <button type="button" className="btn btn--ghost" style={{ marginTop: 6 }} onClick={saveRules}>💾 บันทึกกติกา</button>
+          {warns.length > 0 && <ul role="alert" className="small" style={{ color: '#b45309', margin: '0.3rem 0 0', paddingLeft: '1.2rem' }}>{warns.map((w) => <li key={w}>⚠ {w}</li>)}</ul>}
+          {changedRules && <p className="small" style={{ margin: '0.3rem 0 0' }}>ถ้าบันทึกกติกานี้ จะมี <b>{props.length} คน</b> ถูกย้ายกลุ่ม{settings.ageAuto === false ? ' (เมื่อกดย้ายเอง)' : 'ทันที'}</p>}
+          <button type="button" className="btn btn--ghost" style={{ marginTop: 6 }} onClick={saveRules}>💾 บันทึกกติกา{settings.ageAuto === false ? '' : ' + ย้ายกลุ่มทันที'}</button>
         </div>
       )}
       <p style={{ margin: 0 }}><b>กลุ่มไม่ตรงกับอายุ {props.length} คน</b></p>

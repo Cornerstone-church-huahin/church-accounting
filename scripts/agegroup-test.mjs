@@ -30,6 +30,7 @@ try {
       { id: 'm2', updated: 1, name: 'น้องเอ', status: S, group: '3.บุรุษ', gender: 'ชาย', birth: '2018-05-05' },
       { id: 'm3', updated: 1, name: 'ไม่มีวันเกิด', status: S, group: '4.สตรี', gender: 'หญิง' },
       { id: 'k1', updated: 1, name: 'เด็กยังไม่มีกลุ่ม', status: S, group: '7.ไม่มีกลุ่ม', birth: '2016-05-01' },
+      { id: 'y1', updated: 1, name: 'วัยยี่สิบเจ็ด', status: S, group: '5.วัยทำงาน', gender: 'ชาย', birth: '1999-05-05' },
       { id: 'm4', updated: 1, name: 'กลุ่มพิเศษ', status: S, group: '9.คณะกรรมการ', gender: 'ชาย', birth: '2008-01-01' },
     ]))
   }
@@ -91,6 +92,19 @@ try {
   await p2.waitForTimeout(800)
   const back = await p2.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'm1'))
   must(back.group === '4.สตรี' && back.groupLock === true, 'undo restores the old group and locks it: ' + JSON.stringify(back))
+  // แก้เกณฑ์อายุ → เตือนซ้อนทับ → แก้ให้ถูก → บันทึกแล้วทุกคนถูกปรับทันที
+  await p2.keyboard.press('Escape'); await p2.waitForTimeout(300)
+  await p2.getByRole('button', { name: /จัดกลุ่มตามอายุ/ }).click()
+  await p2.getByRole('button', { name: /ดู\/แก้กติกา/ }).click()
+  await p2.getByLabel('2.อนุชน อายุถึง').fill('30')
+  must(await p2.getByText(/ซ้อนกับ/).count() >= 1, 'overlap warning shown')
+  await p2.getByLabel('5.วัยทำงาน อายุตั้งแต่').fill('31')
+  await p2.getByText(/ซ้อนกับ/).waitFor({ state: 'detached', timeout: 5000 })
+  must(await p2.getByText(/ซ้อนกับ/).count() === 0 && await p2.getByText(/ถ้าบันทึกกติกานี้ จะมี/).count() === 1, 'no warning once fixed; preview count shown: ')
+  await p2.getByRole('button', { name: /บันทึกกติกา/ }).click()
+  await p2.getByText(/ย้ายกลุ่ม \d+ คนให้ตรงกติกาใหม่ทันที/).waitFor({ timeout: 8000 })
+  const y1 = await p2.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'y1'))
+  must(y1.group === '2.อนุชน' && y1.groupMoved?.from === '5.วัยทำงาน', 'new criteria applied to everyone immediately: ' + JSON.stringify(y1))
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('agegroup-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

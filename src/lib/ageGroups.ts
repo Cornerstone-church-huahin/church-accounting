@@ -17,14 +17,15 @@ const STANDARD: { name: string; from: number; to: number; gender?: 'ชาย' |
  * กติกามาตรฐาน: เด็กรวี 2–12 · อนุชน 13–24 · วัยทำงาน 25–39 · บุรุษ/สตรี 40–59 (แยกเพศ) · ผู้สูงวัย 60+
  * ถ้าในทะเบียนมีกลุ่มที่ชื่อตรงกัน (เช่น “4.สตรี”) ใช้ชื่อเดิมนั้น · ยังไม่มี = ใช้ชื่อมาตรฐานตามนี้ (กลุ่มจะเกิดเมื่อย้ายคนเข้า)
  */
+const ruleFor = (s: (typeof STANDARD)[number], groups: string[]): AgeRule => ({ group: groups.find((g) => s.re.test(strip(g))) ?? s.name, from: s.from, to: s.to, ...(s.gender ? { gender: s.gender } : {}), on: true })
 export function defaultRules(groups: string[]): AgeRule[] {
-  return STANDARD.map((s) => ({ group: groups.find((g) => s.re.test(strip(g))) ?? s.name, from: s.from, to: s.to, ...(s.gender ? { gender: s.gender } : {}), on: true }))
+  return STANDARD.map((s) => ruleFor(s, groups))
 }
-/** รวมกติกาที่บันทึกไว้กับกลุ่มที่มีในทะเบียน (กลุ่มใหม่ที่ยังไม่มีกติกา → ใช้ค่าตั้งต้นเดา) */
+/** รวมกติกาที่บันทึกไว้กับกลุ่มมาตรฐานที่ยังไม่มีกติกา (กติกาที่บันทึกแล้วใช้ตามที่บันทึก ไม่เพิ่มกติกาซ้ำให้กลุ่มเดียวกัน) */
 export function effectiveRules(saved: AgeRule[] | undefined, groups: string[]): AgeRule[] {
   if (!saved) return defaultRules(groups)
-  const have = new Set(saved.map((r) => r.group))
-  return [...saved, ...defaultRules(groups.filter((g) => !have.has(g)))]
+  const covered = (s: (typeof STANDARD)[number]) => saved.some((r) => s.re.test(strip(r.group)))
+  return [...saved, ...STANDARD.filter((s) => !covered(s)).map((s) => ruleFor(s, groups))]
 }
 export interface Target { group: string; age: number; rule: AgeRule }
 /**
@@ -60,4 +61,28 @@ export function needsGender(m: Pick<ChurchMember, 'birth' | 'gender' | 'group' |
   if (age == null) return false
   const on = rules.filter((r) => r.on && age >= r.from && age <= r.to)
   return on.length > 0 && on.every((r) => !!r.gender)
+}
+
+/** ตรวจกติกาที่เปิดใช้: ช่วงอายุซ้อนกัน (เพศชนกัน) หรือมีช่องว่างที่ไม่มีกลุ่มรับ (ตั้งแต่อายุเริ่มต้นต่ำสุดถึง 100 ปี แยกตามเพศ) */
+export function ruleWarnings(rules: AgeRule[]): string[] {
+  const on = rules.filter((r) => r.on)
+  const out: string[] = []
+  for (let i = 0; i < on.length; i++) {
+    for (let j = i + 1; j < on.length; j++) {
+      const a = on[i], b = on[j]
+      const genderClash = !a.gender || !b.gender || a.gender === b.gender
+      if (genderClash && a.from <= b.to && b.from <= a.to) out.push(`“${a.group}” (${a.from}–${a.to}) ซ้อนกับ “${b.group}” (${b.from}–${b.to})${a.gender && a.gender === b.gender ? ` ในเพศ${a.gender}` : ''}`)
+    }
+  }
+  if (on.length === 0) return out
+  const start = Math.min(...on.map((r) => r.from))
+  for (const g of ['ชาย', 'หญิง'] as const) {
+    let gapFrom = -1
+    for (let age = start; age <= 100; age++) {
+      const covered = on.some((r) => age >= r.from && age <= r.to && (!r.gender || r.gender === g))
+      if (!covered && gapFrom < 0) gapFrom = age
+      if ((covered || age === 100) && gapFrom >= 0) { const to = covered ? age - 1 : age; out.push(`เพศ${g}: อายุ ${gapFrom}${to > gapFrom ? `–${to}` : ''} ปี ไม่มีกลุ่มรับ`); gapFrom = -1 }
+    }
+  }
+  return [...new Set(out)]
 }
