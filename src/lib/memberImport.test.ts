@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAnswer, diffAnswer, findCandidates, guessDateFromNote, nameVerdict, normName, spanText, withNoteGuess } from './memberImport'
+import { applyAnswer, diffAnswer, findCandidates, guessDateFromNote, nameVerdict, normName, snapToWorshipDay, spanText, withNoteGuess } from './memberImport'
 import type { ChurchMember } from './types'
 
 const m = { id: 'm1', updated: 1, name: 'วีรชัย ใจดี', nick: 'ชัย', tel: '081', birth: '1990-01-01' } as ChurchMember
@@ -71,5 +71,15 @@ describe('memberImport', () => {
     expect(spanText('2014-10-01', '2026-10-31')).toBe('12 ปี')
     expect(spanText('2026-10-20', '2026-10-31')).toBe('ไม่ถึง 1 เดือน')
     expect(spanText('2025-10-31', '2026-10-30')).toBe('11 เดือน')
+  })
+  it('จับวันที่ประมาณกับวันนมัสการที่มีบันทึกใกล้ที่สุด (±3 วัน) ไม่มี = null', () => {
+    const days = ['2024-07-07', '2024-07-14', '2024-07-21']
+    expect(snapToWorshipDay('2024-07-09', days)).toBe('2024-07-07')   // พุธ → อาทิตย์ก่อนหน้า
+    expect(snapToWorshipDay('2024-07-12', days)).toBe('2024-07-14')
+    expect(snapToWorshipDay('2024-07-14', days)).toBe('2024-07-14')
+    expect(snapToWorshipDay('2024-07-17', days)).toBe('2024-07-14')   // ห่าง 3 วัน
+    expect(snapToWorshipDay('2024-07-10', ['2024-07-07', '2024-07-13'])).toBe('2024-07-07')   // ห่างเท่ากันคนละข้าง → เลือกวันที่ก่อน
+    expect(snapToWorshipDay('1981-07-17', days)).toBeNull()   // ก่อนที่ระบบจะบันทึก
+    expect(snapToWorshipDay('2024-08-10', days)).toBeNull()
   })
 })
