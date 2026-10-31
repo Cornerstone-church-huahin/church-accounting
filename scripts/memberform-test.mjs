@@ -42,6 +42,8 @@ try {
   must((await p2.getByLabel('ชื่อ-สกุล').inputValue()) === 'ดารา ผลจันทร์' && (await p2.getByLabel('โทรศัพท์').inputValue()) === '0818896490', 'prefilled from link')
   must(await p2.getByText('คริสตจักรศิลาเอก').first().isVisible() && await p2.getByText(/เชื่อมต่อ|วางลิงก์เชิญ/).count() === 0, 'standalone page (no connect gate)')
   if (process.env.SHOT) { await p2.setViewportSize({ width: 390, height: 1700 }); await p2.screenshot({ path: process.env.SHOT }) }
+  must(await p2.getByText(/ตรวจข้อมูลของท่านทุกช่อง/).count() === 1 && await p2.getByText(/แก้ไขได้ทุกจุด/).count() >= 1, 'individual link shows the check-everything guide')
+  must(await p2.getByText(/ยังว่าง — กรุณากรอก/).count() >= 1, 'empty fields are marked')
   await p2.getByLabel('โทรศัพท์').fill('0899999999')
   must(await p2.getByText(/รหัสสมาชิก/).count() === 0 && await p2.getByText(/พิกัดบ้าน/).count() === 0, 'no member code / no coordinates on form')
   await p2.getByLabel('LINE ID').fill('dara_l')
@@ -73,6 +75,8 @@ try {
   must(await page.getByRole('checkbox', { name: 'รับ โทรศัพท์' }).count() === 1 && await page.getByRole('checkbox', { name: 'รับ LINE ID' }).count() === 1, 'changed fields listed with checkboxes')
   must(await page.getByRole('checkbox', { name: 'รับ ชื่อ-สกุล' }).count() === 0, 'unchanged name not listed')
   if (process.env.SHOT2) await page.screenshot({ path: process.env.SHOT2 })
+  must(await page.getByText(/พบการเปลี่ยนแปลง \d+ ช่อง/).count() === 1, 'summary of changes shown')
+  must(await page.getByText(/เติมข้อมูลใหม่/).count() >= 1 && await page.getByText(/แก้ค่าเดิม/).count() >= 1, 'fill/edit badges shown')
   await page.getByRole('checkbox', { name: 'รับ LINE ID' }).uncheck()
   await page.getByRole('button', { name: /ยืนยันนำเข้า/ }).click()
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'm1'))

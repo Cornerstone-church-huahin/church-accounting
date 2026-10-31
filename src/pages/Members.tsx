@@ -554,13 +554,17 @@ function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember
           {nv && nv.level === 'minor' && <p role="alert" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>⚠️ ชื่อต่างจากทะเบียนเล็กน้อย ({Math.round(nv.sim * 100)}% ใกล้เคียง) — ตรวจการสะกดให้ถูกต้องก่อนรับ</p>}
           {nv && nv.level === 'major' && <p className="error" role="alert" style={{ margin: 0 }}>🚨 ชื่อต่างจากทะเบียนมาก ({Math.round(nv.sim * 100)}% ใกล้เคียง) — ตรวจให้แน่ใจว่าเป็นคนเดียวกัน ก่อนรับชื่อใหม่</p>}
           {birthGap >= 5 && <p className="error" role="alert" style={{ margin: 0 }}>🚨 ปีเกิดต่างจากทะเบียน {birthGap} ปี — ตรวจให้แน่ใจว่าถูกคน</p>}
+          {changed.length > 0 && (() => {
+            const edits = changed.filter((d) => d.old).length
+            return <p style={{ margin: 0 }} role="status"><b>พบการเปลี่ยนแปลง {changed.length} ช่อง</b> · แก้ค่าเดิม {edits} · เติมช่องว่าง {changed.length - edits} · ตรงกับทะเบียนอยู่แล้ว {diffs.length - changed.length} ช่อง</p>
+          })()}
           {changed.length === 0 ? <p style={{ margin: 0 }}>✅ ข้อมูลตรงกับทะเบียนอยู่แล้ว ไม่มีช่องที่ต้องเปลี่ยน</p> : (
             <dl style={{ margin: 0 }} aria-label="เทียบข้อมูลเดิมกับข้อมูลใหม่">
               {changed.map((d) => (
                 <div key={d.key} style={{ borderBottom: '1px solid var(--line)', padding: '0.4rem 0' }}>
                   <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
                     <input type="checkbox" checked={!skip.has(d.key)} onChange={() => setSkip((p) => { const n = new Set(p); if (n.has(d.key)) n.delete(d.key); else n.add(d.key); return n })} aria-label={`รับ ${d.label}`} />
-                    <span style={{ minWidth: 0 }}><b>{d.label}</b><br /><span className="small muted">เดิม: {d.old || '—'}</span><br /><span style={{ background: '#fff3bf', padding: '0 4px', borderRadius: 4 }}>ใหม่: {d.next}</span></span>
+                    <span style={{ minWidth: 0 }}><b>{d.label}</b>{!d.old ? <span className="imp-badge imp-badge--fill">เติมข้อมูลใหม่</span> : (d.key === 'birth' || d.key === 'since') ? <span className="imp-badge imp-badge--date">⚠ วันที่เปลี่ยน — ตรวจกับข้อมูลที่ทราบ</span> : <span className="imp-badge imp-badge--edit">แก้ค่าเดิม</span>}<br /><span className="small muted">เดิม: {d.old || '—'}</span><br /><span style={{ background: '#fff3bf', padding: '0 4px', borderRadius: 4 }}>ใหม่: {d.next}</span></span>
                   </label>
                 </div>
               ))}
