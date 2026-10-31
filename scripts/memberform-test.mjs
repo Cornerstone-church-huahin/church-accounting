@@ -41,7 +41,7 @@ try {
   await p2.getByLabel('ชื่อ-สกุล').waitFor({ timeout: 10000 })
   must((await p2.getByLabel('ชื่อ-สกุล').inputValue()) === 'ดารา ผลจันทร์' && (await p2.getByLabel('โทรศัพท์').inputValue()) === '0818896490', 'prefilled from link')
   must(await p2.getByText('คริสตจักรศิลาเอก').first().isVisible() && await p2.getByText(/เชื่อมต่อ|วางลิงก์เชิญ/).count() === 0, 'standalone page (no connect gate)')
-  if (process.env.SHOT) { await p2.setViewportSize({ width: 390, height: 1700 }); await p2.screenshot({ path: process.env.SHOT }) }
+  if (process.env.SHOT) { await p2.setViewportSize({ width: 390, height: 1500 }); await p2.screenshot({ path: process.env.SHOT }) }
   must(await p2.getByText(/ตรวจข้อมูลของท่านทุกช่อง/).count() === 1 && await p2.getByText(/แก้ไขได้ทุกจุด/).count() >= 1, 'individual link shows the check-everything guide')
   must(await p2.getByText(/ยังว่าง — กรุณากรอก/).count() >= 1, 'empty fields are marked')
   await p2.getByLabel('โทรศัพท์').fill('0899999999')
@@ -49,8 +49,15 @@ try {
   await p2.getByLabel('LINE ID').fill('dara_l')
   await p2.getByLabel(/^Facebook/).fill('ดารา ผลจันทร์')
   await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).fill('2012-05-06')
-  await p2.getByLabel(/อาชีพ \/ ความสามารถ/).fill('พยาบาล')
-  const yBirth = (await p2.getByLabel('วันเกิด').boundingBox()).y, ySk = (await p2.getByLabel(/อาชีพ \/ ความสามารถ/).boundingBox()).y, yF = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y
+  must(await p2.getByRole('textbox', { name: 'อาชีพ / ความสามารถ' }).count() === 0, 'skills input is not inline (popup)')
+  await p2.getByRole('button', { name: /กรอก อาชีพ/ }).click()
+  await p2.getByRole('textbox', { name: 'อาชีพ / ความสามารถ' }).fill('พยาบาล')
+  await p2.getByRole('button', { name: /^✓ เสร็จ$/ }).click()
+  await p2.getByRole('button', { name: /พับ อาชีพ/ }).click()
+  must(await p2.getByText('พยาบาล', { exact: true }).count() === 0, 'summary folds')
+  await p2.getByRole('button', { name: /ขยาย อาชีพ/ }).click()
+  must(await p2.getByText('พยาบาล', { exact: true }).count() === 1, 'summary expands')
+  const yBirth = (await p2.getByLabel('วันเกิด').boundingBox()).y, ySk = (await p2.getByRole('button', { name: /กรอก อาชีพ/ }).boundingBox()).y, yF = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y
   must(yBirth < yF && yF < ySk, 'first-visit date directly after birth date')
   const yFirst = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y, yServe = (await p2.getByRole('button', { name: /เลือก งาน\/หน้าที่ เพื่อมีส่วนในการรับใช้/ }).boundingBox()).y
   must(yFirst < yServe, 'first-visit date is above the serve popup button')
@@ -61,7 +68,9 @@ try {
   await p2.getByLabel('งานรับใช้อื่นๆ').fill('ตัดผมให้เด็ก')
   await p2.getByRole('button', { name: /เสร็จ/ }).click()
   must(await p2.getByText(/อื่นๆ: ตัดผมให้เด็ก/).count() >= 1 && await p2.getByRole('dialog').count() === 0, 'summary chips shown after closing popup')
+  await p2.getByRole('button', { name: /เลือก วันที่สะดวกรับใช้/ }).click()
   await p2.getByRole('checkbox', { name: /วันเสาร์/ }).click()
+  await p2.getByRole('button', { name: /เสร็จ \(1 วัน\)/ }).click()
   await p2.getByLabel(/ข้อความถึงฝ่ายทะเบียน/).fill('ย้ายบ้านใหม่')
   await p2.getByRole('button', { name: /คัดลอกข้อความ/ }).click()
   const reply = await p2.evaluate(() => navigator.clipboard.readText())
