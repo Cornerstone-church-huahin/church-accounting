@@ -46,6 +46,10 @@ export interface FormAnswer {
   note?: string
 }
 export const FORM_DAYS = 14
+/** ลิงก์กลุ่ม: ส่งทีเดียวในห้องแชตที่มีหลายคน — ทุกคนกดลิงก์เดียวกัน แล้ว “เลือกชื่อของตัวเอง” จากรายชื่อ (มีเฉพาะ รหัส/ชื่อ/ชื่อเล่น ไม่มีข้อมูลส่วนตัวอื่น) */
+export interface GroupLink { v: 2; list: { id: string; name: string; nick?: string }[]; exp: number }
+export const GROUP_MAX = 80
+export const NEW_MID = 'new'
 /** งานรับใช้ในคริสตจักร (ติ๊กได้หลายข้อ · มี “อื่นๆ” ให้พิมพ์เอง) */
 export const SERVE_OPTIONS = [
   'นำนมัสการ / ร้องเพลง / คณะนักร้อง', 'ดนตรี (เครื่องดนตรี)', 'เครื่องเสียง', 'โปรเจกเตอร์ / สไลด์ / ถ่ายทอดสด',
@@ -59,6 +63,17 @@ export const DAY_OPTIONS = ['วันอาทิตย์', 'วันจั�
 const b64 = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const unb64 = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))
 
+export function makeGroupLink(ms: { id: string; name: string; nick?: string }[], now = Date.now()): GroupLink {
+  return { v: 2, list: ms.map((m) => ({ id: m.id, name: m.name, ...(m.nick ? { nick: m.nick } : {}) })), exp: now + FORM_DAYS * 86_400_000 }
+}
+export function decodeGroupLink(d: string | null): GroupLink | null {
+  if (!d) return null
+  try {
+    const g = JSON.parse(unb64(d)) as GroupLink
+    return g && g.v === 2 && Array.isArray(g.list) && typeof g.exp === 'number' ? g : null
+  } catch { return null }
+}
+export const groupUrl = (ms: { id: string; name: string; nick?: string }[], base = `${location.origin}${location.pathname}`) => `${base}#/form?d=${b64(JSON.stringify(makeGroupLink(ms)))}`
 export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
   return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
