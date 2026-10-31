@@ -96,8 +96,8 @@ export default function VisitRecord() {
               {canPlan && <button type="button" className="mini vrec__add" aria-label={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${g}`} onClick={() => setAdding(g)}>＋ เพิ่มคน</button>}
             </div>
             <ul className="vrec__list">
-              {done.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} v={v} canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
-              {waiting.map((x) => <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} onRemove={canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } })} />)}
+              {done.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} mem={byId(v.memberId)} v={v} canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
+              {waiting.map((x) => <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} mem={byId(x.id)} onRemove={canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } })} />)}
             </ul>
           </section>
         )
@@ -122,7 +122,7 @@ export default function VisitRecord() {
           <p style={{ margin: 0 }}>เลือกคนที่จะบันทึก — เช็คอินและผู้ออกเยี่ยมของจุดนี้ใส่ให้ก่อน แต่แต่ละคนไม่ต้องเหมือนกัน</p>
           <ul className="vrec__list">
             {assigned.filter((x) => x.g === soloPick && !isDone(x.id)).map((x) => (
-              <li key={x.id} className="vrec__row"><button type="button" className="vrec__btn" onClick={() => { const g = soloPick; setSoloPick(null); setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } }) }}><MemberAvatar path={byId(x.id)?.photoPath} name={x.name} size={44} /><b>{x.name}</b></button></li>
+              <li key={x.id} className="vrec__row"><button type="button" className="vrec__btn" onClick={() => { const g = soloPick; setSoloPick(null); setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } }) }}><MemberAvatar path={byId(x.id)?.photoPath} name={x.name} size={44} member={byId(x.id)} /><b>{x.name}</b></button></li>
             ))}
           </ul>
         </Sheet>
@@ -160,11 +160,11 @@ export default function VisitRecord() {
   )
 }
 
-function Row({ name, photo, v, extra, canTap, onTap, onRemove }: { id: string; name: string; photo?: string; v?: Visit; extra?: boolean; canTap: boolean; onTap: () => void; onRemove?: () => void }) {
+function Row({ name, photo, mem, v, extra, canTap, onTap, onRemove }: { id: string; name: string; photo?: string; mem?: { formAt?: number }; v?: Visit; extra?: boolean; canTap: boolean; onTap: () => void; onRemove?: () => void }) {
   const status = v ? (v.absent ? '✗ ไม่พบ/ไม่อยู่บ้าน' : '✓ บันทึกแล้ว') : 'แตะเพื่อบันทึกการเยี่ยม'
   const inner = (
     <>
-      <MemberAvatar path={photo} name={name} size={48} />
+      <MemberAvatar path={photo} name={name} size={48} member={mem} />
       <span className="vplan__who">
         <b>{name}{extra ? ' (พบเพิ่ม)' : ''}</b>
         <small className={v ? (v.absent ? 'vrec__no' : 'vrec__ok') : 'muted'}>{status}{v && v.reason.replace(/^ไม่พบ\/ไม่อยู่บ้าน\s*—?\s*/, '') ? ` · ${v.reason.replace(/^ไม่พบ\/ไม่อยู่บ้าน\s*—?\s*/, '')}` : ''}{v?.photos?.length ? ` · 📷 ${v.photos.length}` : ''}{v?.checkin ? ` · ⏱ ${timeText(v.checkin.at)} น.` : ''}</small>

@@ -92,7 +92,7 @@ export default function VisitGroups({ plans, members, stats, today }: { plans: P
                         {canEdit
                           ? <button type="button" className="vplan__stop" aria-label={x.g > 0 ? `${x.name} จุดที่ ${x.g} (แตะเพื่อเปลี่ยนจุด)` : `กำหนดจุดเยี่ยมของ ${x.name}`} style={x.g > 0 ? { background: stopColor(x.g).dark, borderColor: stopColor(x.g).dark } : undefined} onClick={() => askStop(x)}>{x.g > 0 ? x.g : '＋'}</button>
                           : <span className="vplan__no" aria-hidden="true">{x.g > 0 ? x.g : '–'}</span>}
-                        <MemberAvatar path={m?.photoPath} name={x.name} size={44} />
+                        <MemberAvatar path={m?.photoPath} name={x.name} size={44} member={m} />
                         <span className="vplan__who"><b>{x.name}</b><small className="muted">{m ? `${statusShort(m.status)} · ${monthsText(mo)}` : 'ไม่พบในทะเบียน'}</small></span>
                         {canEdit && <button type="button" className="mini vplan__x" aria-label={`เอา ${x.name} ออกจากตะกร้า`} onClick={() => write(removeItem(doc, x.id))}>✕</button>}
                       </li>

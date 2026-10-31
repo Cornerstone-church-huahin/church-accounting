@@ -57,7 +57,7 @@ export default function VisitReports() {
               {wk.vs.filter((v) => v.date === d).sort((a, b) => a.updated - b.updated).map((v) => (
                 <article key={v.id} className="vrep__v" style={{ background: TRIP_TINT[(trip.get(v.id) ?? 1) % 2] }}>
                   <div className="vrep__top">
-                    <MemberAvatar path={photoOf(v.memberId)} name={v.memberName} size={44} />
+                    <MemberAvatar path={photoOf(v.memberId)} name={v.memberName} size={44} member={members.items.find((m) => m.id === v.memberId)} />
                     <div className="vrep__who"><b>{v.memberName}</b><span className="small muted">ออกเยี่ยมครั้งที่ {trip.get(v.id)} · ผู้ออกเยี่ยม: {v.visitor}</span></div>
                   </div>
                   {v.reason && <p className="vrep__p"><span className="muted small">เหตุผล</span> {v.reason}</p>}

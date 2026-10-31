@@ -99,7 +99,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
     return (
       <li key={m.id}>
         <div className="pick pick--card">
-          <MemberAvatar path={m.photoPath} name={m.name} size={76} />
+          <MemberAvatar path={m.photoPath} name={m.name} size={76} member={m} />
           <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
             <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
             <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
@@ -171,7 +171,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
               return (
                 <li key={c.id}>
                   <div className="pick pick--done">
-                    <span className="doneAv"><MemberAvatar path={m.photoPath} name={m.name} size={52} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
+                    <span className="doneAv"><MemberAvatar path={m.photoPath} name={m.name} size={52} member={m} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                       <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <span className="doneBy"><span className="doneBy__n">ผู้บันทึก {c.rec ?? '—'}</span>{c.tm && <span className="doneBy__t">{c.tm}</span>}</span>
@@ -328,7 +328,7 @@ function NewPerson({ lite, members, date, initialName, onClose, onSave }: {
             <ul className="list">
               {similar.map(({ member: m }) => (
                 <li key={m.id}><div className="mrow mrow--stack">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={52} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={52} member={m} />
                   <div className="mrow__main"><span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}<br /><span className="mrow__meta">{[m.code && `#${m.code}`, lite ? undefined : statusLabel(m.status)].filter(Boolean).join(' · ')}</span></div>
                   <div className="mrow__act">
                     <button type="button" className="mini" disabled={busy} onClick={async () => { setBusy(true); await onSave(null, { id: m.id, name: m.name }); setBusy(false) }}>ใช่ ลงชื่อให้คนนี้</button>

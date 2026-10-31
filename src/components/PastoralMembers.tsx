@@ -166,7 +166,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
               <ul className="pcards">
                 {sec.members.map((m) => (
                   <li key={m.id} className="pcard" aria-label={m.name}>
-                    <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={48} />
+                    <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={48} member={m} />
                     <div className="pcard__body">
                       <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
                       <span className="pcard__l2">{ev.hasData ? <>มาทั้งหมด <b>{lifeTimes(m.id).toLocaleString('th-TH')}</b> ครั้ง · </> : null}กลุ่ม {grp(m)}</span>
@@ -219,7 +219,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
           <ul className="pcards">
             {faces.map((m) => (
               <li key={m.id} className="pcard" aria-label={m.name}>
-                <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={52} />
+                <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={52} member={m} />
                 <div className="pcard__body">
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
                   {tab === 1

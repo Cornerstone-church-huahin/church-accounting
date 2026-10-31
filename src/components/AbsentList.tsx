@@ -31,7 +31,7 @@ export default function AbsentList({ members, stats, today, selectedId, selected
             const mo = absentMonths(stats.get(m.id)?.last, today), absent = mo === null || mo >= 1
             const body = (
               <>
-                <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+                <MemberAvatar path={m.photoPath} name={m.name} size={48} member={m} />
                 <span className="pvpick__body">
                   <span className="pvpick__who"><span><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''} <small className="muted">{statusShort(m.status)}</small></span>
                     <b className={absent ? 'pvpick__abs' : 'pvpick__ok'}>{monthsText(mo)}</b></span>

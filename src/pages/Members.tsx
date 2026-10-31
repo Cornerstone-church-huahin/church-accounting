@@ -189,7 +189,7 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
           {shown.map((r) => (
             <li key={r.member.id}>
               <div className="mrow mrow--tight mrow--top">
-                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={56} dot={registry ? (r.member.formAt ? 'ok' : 'no') : undefined} />
+                <MemberAvatar path={r.member.photoPath} name={r.member.name} size={56} member={r.member} />
                 <div className="mrow__main">
                   <div className="mrow__top">
                     <button type="button" style={{ all: 'unset', cursor: 'pointer', fontWeight: 700 }} onClick={() => onOpen(r.member.id)} aria-label={`ดูข้อมูล ${r.member.name}`}>{r.member.name}</button>
@@ -399,7 +399,7 @@ function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen,
             {list.map((m) => (
               <li key={m.id}>
                 <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                  <MemberAvatar path={m.photoPath} name={m.name} size={52} dot={registry ? (m.formAt ? 'ok' : 'no') : undefined} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={52} member={m} />
                   <span className="mrow__main">
                     <span className="mrow__top"><span><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{m.code ? <span className="mrow__meta"> #{m.code}</span> : null}</span>{!lite && info.get(m.id)?.suggest && <span className="badge badge--gold" title="การลงชื่อไม่ตรงกับสถานะในทะเบียน">ควรปรับ</span>}</span>
                     <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusShort(m.status), m.gender && m.gender, m.group, !lite && m.birth && `อายุ ${ageText(m.birth, todayISO()).replace(/ \d+ เดือน$/, '')}`, !lite && m.tel].filter(Boolean).join(' · ')}</span>
@@ -492,7 +492,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   ]
   return (
     <Sheet title={m.name} onClose={onClose}>
-      {m.photoPath && <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}><StoredImage path={m.photoPath} alt={`รูป ${m.name}`} /></div>}
+      {m.photoPath && <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}><span style={{ position: 'relative', display: 'inline-block' }}><StoredImage path={m.photoPath} alt={`รูป ${m.name}`} /><span className={`updot updot--${m.formAt ? 'ok' : 'no'}`} role="img" aria-label={m.formAt ? 'อัปเดตข้อมูลแล้ว' : 'ยังไม่ได้อัปเดตข้อมูล'} /></span></div>}
       {canLog && <div className="row no-print"><button type="button" className="mini" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'กำลังอัปโหลด…' : m.photoPath ? '📷 เปลี่ยนรูป' : '📷 เพิ่มรูป'}</button>{m.photoPath && <button type="button" className="mini" disabled={busy} onClick={dropPhoto}>ลบรูป</button>}<input ref={fileRef} hidden type="file" accept="image/*" aria-label="ไฟล์รูปสมาชิก" onChange={(e) => { setPhoto(e.target.files?.[0]); e.target.value = '' }} />{photoErr && <span role="alert" className="small" style={{ color: 'var(--bad)' }}>{photoErr}</span>}</div>}
       <dl style={{ margin: 0 }}>
         {rows.map(([k, v]) => (
@@ -588,7 +588,7 @@ function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { wo
   const groupChange = !!tgt && tgt.group !== (m.group ?? '')
   const total = keys.size + (groupChange && !skipGroup ? 1 : 0)
   const confirm = () => {
-    if (!a || total === 0) return
+    if (!a) return
     const next = applyAnswer(m, g?.a ?? a, keys)
     if (groupChange && !skipGroup && tgt) next.group = tgt.group
     if (!put([next])) return setErr('ไม่มีสิทธิ์บันทึกทะเบียน')
@@ -636,7 +636,7 @@ function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { wo
           )}
           {a.note && <p className="small" style={{ margin: 0 }}>💬 ข้อความจากสมาชิก: {a.note}</p>}
           {err && <p className="error" role="alert" style={{ margin: 0 }}>{err}</p>}
-          <button type="button" className="btn btn--gold bigbtn btn--block" disabled={total === 0} onClick={confirm}>✓ ยืนยันนำเข้า ({total} ช่อง)</button>
+          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={confirm}>{total === 0 ? '✓ ยืนยัน — ข้อมูลตรงกับทะเบียน (ทำเครื่องหมายอัปเดตแล้ว)' : `✓ ยืนยันนำเข้า (${total} ช่อง)`}</button>
         </>
       )}
     </Sheet>
