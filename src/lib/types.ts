@@ -437,7 +437,7 @@ export interface Note extends SharedItem { title: string; body: string; clips?: 
 export interface TeamMember { role: string; name: string }
 export interface WorkTeam extends SharedItem { n: number; people: TeamMember[] }
 /** วาระ 2 ปีของแต่ละงาน (ห้องทำงาน): วันเริ่ม/สิ้นสุด (ISO) — แอดมินตั้ง */
-export interface WorkTerm extends SharedItem { n: number; start: string; end: string }
+export interface WorkTerm extends SharedItem { n: number; start: string; end: string; /** ความยาววาระ (ปี) */ years?: number }
 
 // ---------- ตารางเยี่ยม (งานอภิบาล) ----------
 /** แผนเยี่ยมของ 1 วัน (id = plan-วันที่): รายชื่อสมาชิกที่จะไปเยี่ยม เรียงตามเส้นทาง/ลำดับที่จะไปก่อน-หลัง · แอดมิน ผู้ดูแล ผู้ช่วย แก้ร่วมกันได้ */

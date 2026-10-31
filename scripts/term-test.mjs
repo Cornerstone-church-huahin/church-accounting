@@ -30,13 +30,13 @@ try {
     if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
     await page.getByRole('button', { name: 'ตั้งวาระ' }).click()
     await page.getByLabel('วันเริ่มวาระ').fill('2027-03-01')
-    await page.getByLabel('วันสิ้นสุดวาระ').fill('2029-02-28')
+    await page.getByLabel('1 วาระ ยาวกี่ปี').selectOption('3')
     let warned = false
     page.once('dialog', (d) => { warned = /ตรวจให้ถูกต้อง/.test(d.message()); d.accept() })
     await page.getByRole('button', { name: 'บันทึกวาระ' }).click()
     await page.waitForTimeout(300)
     must(warned, 'confirm warning shown')
-    must((await box.innerText()).includes('1 มี.ค. 2570'), 'saved term')
+    must((await box.innerText()).includes('1 มี.ค. 2570') && (await box.innerText()).includes('28 ก.พ. 2573') && (await box.innerText()).includes('3 ปี'), 'saved term')
   })
   await run('viewer', [1], async (page) => {
     await page.getByLabel('วาระงานเลขา').waitFor({ timeout: 8000 })
