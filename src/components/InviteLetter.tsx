@@ -27,6 +27,8 @@ const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
   return { date: newDate, ...(l.toName === was.toName ? { toName: now.toName } : {}), ...(l.subject === was.subject ? { subject: now.subject } : {}), ...(l.body === was.body ? { body: now.body } : {}) }
 }
 const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: noticeAgenda(base) } : {}), attach: '', showAttach: false })
+/** วาระตั้งต้นรุ่นแรก (ก่อนใช้วาระมาตรฐานตามต้นแบบ) */
+const OLD_NOTICE_AGENDA = ['รับรองรายงานการประชุมครั้งที่แล้ว', 'เรื่องแจ้งเพื่อทราบ', 'เรื่องเพื่อพิจารณา', 'เรื่องอื่นๆ']
 const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (l.agenda ?? []).map((x) => (typeof x === 'string' ? { t: x } : x))
 /** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · “ลำดับ” เป็นเลขย่อยตามวาระที่อยู่เหนือมัน (6.1, 6.2 … · ย้ายไปอยู่ใต้วาระ 7 ก็เป็น 7.1) */
 const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.u ? (x.k === 'r' ? 'ลำดับ' : 'วาระ') : x.k === 'r' ? (v ? `${v}.${++r}` : `ลำดับ ${++r}`) : (r = 0, `วาระที่ ${++v}`))) }
@@ -244,6 +246,12 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
   const dupNo = !!l.no.trim() && others.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // ฉบับที่ยังเป็นวาระตั้งต้นรุ่นเก่า (4 ข้อ ยังไม่ได้แก้) → ปรับเป็นวาระมาตรฐานตามต้นแบบ 10 วาระให้เอง (ฉบับที่แก้วาระเองแล้วไม่แตะ)
+  useEffect(() => {
+    if (kind !== 'notice') return
+    const t = agendaItems(l).map((x) => x.t.trim())
+    if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) set({ agenda: noticeAgenda(l.date || todayISO()) })
+  }, [l.agenda]) // eslint-disable-line react-hooks/exhaustive-deps
   const cat = cats.list.find((c) => !c.deleted && isCat(c.name))
 
   // ลงลายเซ็น (เฉพาะแอดมิน/ผู้ลงนาม): แก้หนังสือหลังลงนามแล้ว ลายเซ็นถูกถอน ต้องลงนามใหม่

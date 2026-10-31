@@ -72,6 +72,13 @@ try {
   must(/ประจำเดือน\S+\s+ในวันอาทิตย์ที่ \d{1,2} \S+ พ\.ศ\. 25\d\d เวลา 13\.00 น\.\s+ณ ห้องประชุมธรรมกิจ/.test(bt), 'auto first-Sunday text: ' + bt)
   must(/^แจ้งประชุมคณะธรรมกิจ ประจำเดือน\S+ พ\.ศ\. 25\d\d$/.test(await admin.locator('#il-sub').inputValue()), 'auto subject')
   must(/^\d{1,2}\/\d{1,2}\/\d{4} แจ้งการประชุมประจำเดือนธรรมกิจ$/.test(tn), 'auto numeric date in to-name: ' + tn)
+  // ฉบับเก่าที่ยังเป็นวาระตั้งต้น 4 ข้อ (ไม่ได้แก้) → เปิดแล้วปรับเป็น 10 วาระตามต้นแบบเอง
+  await admin.waitForTimeout(1500)
+  await admin.evaluate(() => { const k = 'acct.noticeletter.v1'; const a = JSON.parse(localStorage.getItem(k) ?? '[]'); localStorage.setItem(k, JSON.stringify(a.map((x) => ({ ...x, agenda: ['รับรองรายงานการประชุมครั้งที่แล้ว', 'เรื่องแจ้งเพื่อทราบ', 'เรื่องเพื่อพิจารณา', 'เรื่องอื่นๆ'], updated: (x.updated ?? 0) + 5000 })))) })
+  await admin.reload()
+  await body(admin).waitFor({ timeout: 15000 })
+  await admin.waitForTimeout(1500)
+  must(await admin.getByLabel('วาระที่ 10', { exact: true }).count() === 1 && await admin.getByLabel('6.1', { exact: true }).count() === 1, 'old 4-item default draft upgraded to the 10-item model')
   // วาระมาตรฐานตามหนังสือต้นแบบ: วาระที่ 1–10 + ลำดับย่อย (6.1 …) · รายงานการเงินเป็นเดือนก่อนเดือนที่ประชุม
   must((await admin.getByLabel('วาระที่ 1', { exact: true }).inputValue()) === 'กล่าวต้อนรับ, พระวจนะ และอธิษฐานขอการทรงนำ', 'default agenda item 1')
   must(/^รายงานการเงิน ประจำเดือน\S+$/.test(await admin.getByLabel('วาระที่ 4', { exact: true }).inputValue()), 'finance item = previous month')
