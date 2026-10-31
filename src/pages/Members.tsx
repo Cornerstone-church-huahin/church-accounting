@@ -8,8 +8,9 @@ import MultiPick from '../components/MultiPick'
 import MemberAvatar from '../components/MemberAvatar'
 import PastoralMembers from '../components/PastoralMembers'
 import WeekStrip from '../components/WeekStrip'
-import PhotoAvatar from '../components/PhotoAvatar'
-import { orderedAttendees, weekDates } from '../lib/attendanceWeeks'
+import ShareReportSheet from '../components/ShareReportSheet'
+import { reportFromPeople } from '../lib/serviceReport'
+import { weekDates } from '../lib/attendanceWeeks'
 import MapPickSheet from '../components/MapPickSheet'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
@@ -164,7 +165,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {helper && tab === 'audit' && <PastoralMembers work={2} hideMap />}
       {(!lite || helper) && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
-      {tab === 'stats' && <Stats attendance={attendance} members={people.items} checkins={checkins} onOpen={setDetail} canPhoto={canLog || (helper && canSign)} put={people.put} />}
+      {tab === 'stats' && <Stats attendance={attendance} members={people.items} />}
       {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} canPhoto={canLog || (helper && canSign)} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} showStatus={helper} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {statusMember && (
@@ -1125,9 +1126,10 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
 const MAX_BARS = 26
 
 /** ยอดผู้เข้าร่วมแต่ละครั้ง: กราฟ + ตาราง (แตะแถวดูรายชื่อคนที่มา) */
-function Stats({ attendance, members, checkins, onOpen, canPhoto, put }: { attendance: Attendance[]; members: ChurchMember[]; checkins: CheckIn[]; onOpen: (id: string) => void; canPhoto: boolean; put: (x: ChurchMember[]) => boolean }) {
+function Stats({ attendance, members }: { attendance: Attendance[]; members: ChurchMember[] }) {
   const stats = useMemo(() => serviceStats(attendance, members), [attendance, members])
-  const [sel, setSel] = useState('')   // อาทิตย์ที่เลือก ('' = ล่าสุดที่มีบันทึก)
+  const [sel, setSel] = useState('')
+  const [sharing, setSharing] = useState(false)   // อาทิตย์ที่เลือก ('' = ล่าสุดที่มีบันทึก)
   if (stats.length === 0) return <p className="empty">ยังไม่มีบันทึกลงชื่อนมัสการ — นำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน” หรือลงชื่อทีละครั้งที่แท็บ “ลงชื่อ”</p>
   const total = stats.reduce((a, x) => a + x.count, 0)
   const recent = stats.slice(0, MAX_BARS).reverse()
@@ -1140,36 +1142,10 @@ function Stats({ attendance, members, checkins, onOpen, canPhoto, put }: { atten
   const today = todayISO()
   const picked = sel || stats[0].date
   const stat = stats.find((x) => x.date === picked)
-  const att = stat ? orderedAttendees(stat.people.map((p) => p.id), picked, checkins) : []
-  const memberOf = new Map(members.map((m) => [m.id, m]))
-  const newIds = new Set(stat?.people.filter((p) => p.isNew).map((p) => p.id))
   const counts = new Map(stats.map((x) => [x.date, x.count]))
   return (
     <>
       <WeekStrip dates={weekDates(stats.map((x) => x.date), today)} value={picked} onPick={setSel} counts={counts} today={today} />
-      <section className="card" aria-label={`ผู้มานมัสการ ${fmtDateLong(picked)}`}>
-        <h2>{fmtDateLong(picked)} · {att.length} คน</h2>
-        {stat && <p className="small muted" style={{ margin: '0 0 0.4rem' }}>{Object.entries(stat.byStatus).sort().map(([st, n]) => `${statusLabel(st)} ${n}`).join(' · ')}{newIds.size > 0 ? ` · คนมาใหม่ ${newIds.size}` : ''} · เรียงให้คนที่ลงชื่อล่าสุดอยู่บน (เลขในรูป = ลำดับที่มา)</p>}
-        {att.length === 0 ? <p className="empty">ไม่มีบันทึกลงชื่อวันนี้</p> : (
-          <ul className="list list--tight doneList" aria-label="ผู้มานมัสการ">
-            {[...att].reverse().map((a) => {
-              const m = memberOf.get(a.id)
-              if (!m) return null
-              return (
-                <li key={a.id}>
-                  <div className="pick pick--done">
-                    <span className="doneAv"><PhotoAvatar member={m} size={52} canPhoto={canPhoto} put={put} /><span className="doneNo" aria-label={`ลำดับที่ ${a.no}`}>{a.no}</span></span>
-                    <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                      <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{newIds.has(a.id) && <span className="badge badge--gold" style={{ marginLeft: 6 }}>ใหม่</span>}
-                      {(a.rec || a.tm) && <span className="doneBy">{a.rec && <span className="doneBy__n">ผู้บันทึก {a.rec}</span>}{a.tm && <span className="doneBy__t">{a.tm}</span>}</span>}
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
       <div className="kpi">
         <div><span>จำนวนครั้งที่มีบันทึก</span><b>{stats.length}</b></div>
         <div><span>เฉลี่ยต่อครั้ง (ทั้งหมด)</span><b>{avg(stats)}</b></div>
@@ -1197,6 +1173,13 @@ function Stats({ attendance, members, checkins, onOpen, canPhoto, put }: { atten
           </svg>
         </figure>
       </section>
+      {stat && (
+        <div className="row row--between no-print" style={{ flexWrap: 'nowrap', margin: '0.2rem 0 0.5rem' }}>
+          <span className="small muted" style={{ minWidth: 0 }}>สรุป {fmtDateLong(picked)} · {stat.count} คน</span>
+          <button type="button" className="btn btn--gold" onClick={() => setSharing(true)} aria-label={`แชร์สรุปนมัสการ ${fmtDateLong(picked)}`}>📤 แชร์สรุป</button>
+        </div>
+      )}
+      {sharing && stat && <ShareReportSheet report={reportFromPeople(picked, stat.people, members)} onClose={() => setSharing(false)} />}
       <section className="card" aria-label="ตารางผู้เข้าร่วมแต่ละครั้ง">
         <div style={{ overflowX: 'auto' }}>
           <table className="tbl" style={{ width: '100%', fontSize: '0.85rem' }}>
