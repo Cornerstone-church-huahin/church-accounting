@@ -12,7 +12,7 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, parseReply } from '../lib/memberForm'
+import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
@@ -500,16 +500,22 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, p
 function FormLinkBox({ m, put }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean }) {
   const [msg, setMsg] = useState('')
   const [importing, setImporting] = useState(false)
+  const [open, setOpen] = useState(false)
   const url = formUrl(m)
-  const copy = async () => { try { await navigator.clipboard.writeText(url); setMsg(`คัดลอกลิงก์แล้ว — นำไปวางในไลน์ของ ${m.nick || m.name} (ใช้ได้ ${FORM_DAYS} วัน)`) } catch { setMsg('คัดลอกไม่สำเร็จ — กด “ดูแบบฟอร์ม” แล้วคัดลอกลิงก์จากแถบที่อยู่') } }
+  const [text, setText] = useState(() => personalInvite(m, url))
+  const copy = async (what: string, label: string) => { try { await navigator.clipboard.writeText(what); setMsg(`คัดลอก${label}แล้ว — นำไปวางในไลน์ของ ${m.nick || m.name} (ใช้ได้ ${FORM_DAYS} วัน)`) } catch { setMsg('คัดลอกไม่สำเร็จ — กด “ดูแบบฟอร์ม” แล้วคัดลอกลิงก์จากแถบที่อยู่') } }
   return (
     <div className="no-print" style={{ margin: '0.6rem 0', padding: '0.5rem 0.6rem', border: '1px dashed var(--line)', borderRadius: 12 }}>
       <b>📝 ให้ {m.nick || m.name} กรอกข้อมูลเอง</b>
+      <p className="small muted" style={{ margin: '0.2rem 0 0' }}>ลิงก์เฉพาะของคนนี้ — คัดลอกเป็นข้อความพร้อมชื่อ แล้ววางในไลน์ของเขาได้เลย</p>
       <div className="row" style={{ gap: 6, marginTop: 6 }}>
-        <button type="button" className="btn btn--gold" onClick={copy}>📋 คัดลอกลิงก์</button>
+        <button type="button" className="btn btn--gold" onClick={() => copy(text, 'ข้อความพร้อมลิงก์')}>📋 คัดลอกข้อความ + ลิงก์</button>
+        <button type="button" className="btn btn--ghost" onClick={() => copy(url, 'ลิงก์')}>🔗 เฉพาะลิงก์</button>
         <a className="btn btn--ghost" href={url} target="_blank" rel="noreferrer">👁 ดูแบบฟอร์ม</a>
         <button type="button" className="btn btn--ghost" onClick={() => setImporting(true)}>📥 วางข้อมูลที่ได้รับ</button>
       </div>
+      <button type="button" className="mini" style={{ marginTop: 6 }} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '▲ ซ่อนข้อความ' : '▼ ดู/แก้ข้อความที่จะส่ง'}</button>
+      {open && <textarea className="input" rows={12} aria-label="ข้อความที่จะส่ง" style={{ marginTop: 6 }} value={text} onChange={(e) => setText(e.target.value)} />}
       {m.formAt && <p className="small muted" style={{ margin: '0.3rem 0 0' }}>นำเข้าข้อมูลจากแบบฟอร์มล่าสุดเมื่อ {new Date(m.formAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>}
       {importing && <ImportSheet m={m} put={put} onClose={() => setImporting(false)} />}
       {msg && <p role="status" className="small" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
@@ -595,7 +601,8 @@ function FormTools({ members, put }: { members: ChurchMember[]; put: (x: ChurchM
   const cands = a && a.mid === BY_NAME ? findCandidates(a, members) : []
   const picked = pickId ? members.find((x) => x.id === pickId) : undefined
   const reset = () => { setOpen(''); setText(''); setPickId(null); setAsNew(false) }
-  const copyLink = async () => { try { await navigator.clipboard.writeText(generalFormUrl()); setMsg('คัดลอกลิงก์แล้ว — นำไปวางในห้องแชตได้เลย (ลิงก์เดียวกันใช้ได้ทุกคน ไม่มีวันหมดอายุ)') } catch { setMsg('คัดลอกไม่สำเร็จ') } }
+  const [gText, setGText] = useState(() => groupInvite(generalFormUrl()))
+  const copyLink = async () => { try { await navigator.clipboard.writeText(gText); setMsg('คัดลอกข้อความพร้อมลิงก์แล้ว — นำไปวางในห้องแชตได้เลย (ลิงก์เดียวกันใช้ได้ทุกคน ไม่มีวันหมดอายุ)') } catch { setMsg('คัดลอกไม่สำเร็จ') } }
   return (
     <>
       <button type="button" className="btn btn--ghost" onClick={() => { setOpen('link'); setMsg('') }}>🔗 ลิงก์ส่งทั้งกลุ่ม</button>
@@ -603,14 +610,14 @@ function FormTools({ members, put }: { members: ChurchMember[]; put: (x: ChurchM
       {open === 'link' && (
         <Sheet title="ลิงก์ส่งทั้งกลุ่ม (ลิงก์สั้น ใช้ได้ทุกคน)" onClose={() => setOpen('')}>
           <ol className="small" style={{ margin: 0, paddingLeft: '1.2rem' }}>
-            <li>กด “คัดลอกลิงก์” แล้ววางในห้องแชต — ทุกคนใช้ลิงก์เดียวกัน</li>
+            <li>แก้ข้อความด้านล่างได้ตามต้องการ แล้วกด “คัดลอกข้อความ + ลิงก์” วางในห้องแชต — ทุกคนใช้ลิงก์เดียวกัน</li>
             <li>แต่ละคนกดลิงก์ พิมพ์ชื่อ-นามสกุลและข้อมูลของตัวเอง แล้วกด “ส่งกลับทางไลน์” ถึงคุณ</li>
             <li>คุณคัดลอกข้อความที่ได้รับ → กด “วางข้อมูลจากสมาชิก” → ระบบหาชื่อที่ใกล้เคียงในทะเบียนให้เลือกยืนยัน → ตารางเทียบ → ยืนยัน</li>
           </ol>
           <p className="small" style={{ margin: 0 }}>ลิงก์นี้สั้นและไม่มีรายชื่อหรือข้อมูลใครอยู่ในลิงก์เลย จึงปลอดภัยต่อการส่งในห้องแชตขนาดใหญ่</p>
-          <input className="input" readOnly aria-label="ลิงก์ส่งทั้งกลุ่ม" value={generalFormUrl()} onFocus={(e) => e.currentTarget.select()} />
+          <textarea className="input" rows={11} aria-label="ข้อความที่จะส่ง" value={gText} onChange={(e) => setGText(e.target.value)} />
           {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
-          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={copyLink}>📋 คัดลอกลิงก์</button>
+          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={copyLink}>📋 คัดลอกข้อความ + ลิงก์</button>
         </Sheet>
       )}
       {open === 'paste' && (picked && a

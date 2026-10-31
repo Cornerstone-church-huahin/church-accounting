@@ -10,7 +10,7 @@ describe('memberForm', () => {
     const d = decodeFormLink(encodeFormLink(p))
     expect(d?.name).toBe('ดารา ผลจันทร์')
     expect(d?.mid).toBe('m1')
-    expect(d!.exp).toBe(1000 + 14 * 86_400_000)
+    expect(Math.abs(d!.exp - (1000 + 14 * 86_400_000))).toBeLessThan(60_000)
   })
   it('ลิงก์เสีย/ว่าง = null', () => {
     expect(decodeFormLink(null)).toBeNull()
@@ -39,5 +39,36 @@ describe('memberForm', () => {
     expect(decodeFormLink(token)).toBeNull()
     expect(decodeGroupLink(encodeFormLink(makeFormLink(m)))).toBeNull()
     expect(d).toBeDefined()
+  })
+})
+
+import { personalInvite, groupInvite } from './memberForm'
+describe('ลิงก์กะทัดรัด + ข้อความมาตรฐาน', () => {
+  const full = { id: 'cm-mv9nzmoox', updated: 1, name: 'หนึ่งฤทัย ทองมี', nick: 'หนึ่ง', code: '1361', tel: '0971178583', gender: 'หญิง', birth: '1994-07-20', since: '2001-12-11', lineId: 'nueng_l', facebook: 'หนึ่ง ทองมี', skills: 'พยาบาล, ทำอาหาร', serve: ['ดนตรี (เครื่องดนตรี)', 'ครัว / อาหาร / เครื่องดื่ม', 'อื่นๆ: ตัดผม'], serveDays: ['วันเสาร์', 'ยืดหยุ่น / ตามนัด'] } as ChurchMember
+  it('v2 ถอดกลับได้ครบทุกช่อง และสั้นกว่า v1 มาก', () => {
+    const p = makeFormLink(full, 1_800_000_000_000)
+    const tok = encodeFormLink(p)
+    expect(tok.startsWith('2.')).toBe(true)
+    const d = decodeFormLink(tok)!
+    expect(d).toMatchObject({ mid: 'cm-mv9nzmoox', code: '1361', name: 'หนึ่งฤทัย ทองมี', nick: 'หนึ่ง', tel: '0971178583', gender: 'หญิง', birth: '1994-07-20', first: '2001-12-11', lineId: 'nueng_l', facebook: 'หนึ่ง ทองมี', skills: 'พยาบาล, ทำอาหาร' })
+    expect(d.serve).toEqual(full.serve)
+    expect(d.serveDays).toEqual(full.serveDays)
+    expect(Math.abs(d.exp - p.exp)).toBeLessThan(60_000)
+    const v1 = btoa(unescape(encodeURIComponent(JSON.stringify(p)))).length
+    expect(tok.length).toBeLessThan(v1 / 1.8)
+  })
+  it('ข้อมูลน้อย (ทะเบียนมีแค่ชื่อ) ลิงก์สั้นมาก · ลิงก์ v1 เก่ายังเปิดได้', () => {
+    const tok = encodeFormLink(makeFormLink({ id: 'cm-a', updated: 1, name: 'ดารา ผลจันทร์' } as ChurchMember))
+    expect(tok.length).toBeLessThan(60)
+    expect(decodeFormLink(tok)?.name).toBe('ดารา ผลจันทร์')
+    const old = btoa(unescape(encodeURIComponent(JSON.stringify(makeFormLink(full))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    expect(decodeFormLink(old)?.name).toBe('หนึ่งฤทัย ทองมี')
+  })
+  it('ข้อความมาตรฐานมีชื่อผู้รับและลิงก์', () => {
+    const t = personalInvite({ name: 'ดารา ผลจันทร์', nick: 'ดารา' }, 'https://x/#/form?d=2.abc')
+    expect(t).toContain('เรียน ดารา ผลจันทร์ (ดารา)')
+    expect(t).toContain('ลิงก์เฉพาะของ “ดารา ผลจันทร์”')
+    expect(t).toContain('https://x/#/form?d=2.abc')
+    expect(groupInvite('https://x/#/form')).toContain('เรียน พี่น้องสมาชิกคริสตจักรศิลาเอก')
   })
 })
