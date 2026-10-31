@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultRules, effectiveRules, isUnassigned, needsGender, proposeRegroup, targetGroup } from './ageGroups'
+import { defaultRules, effectiveRules, isUnassigned, needsGender, proposeRegroup, ruleWarnings, targetGroup } from './ageGroups'
 import type { ChurchMember } from './types'
 
 const groups = ['1.เด็กรวี', '2.อนุชน', '3.วัยทำงาน', '4.บุรุษ', '5.สตรี', '6.ผู้สูงวัย', '7.คณะกรรมการ']
@@ -73,5 +73,14 @@ describe('ageGroups', () => {
     expect(needsGender(m({ birth: '1980-01-01', group: '7.ไม่มีกลุ่ม' }), rules, T)).toBe(true)
     expect(needsGender(m({ birth: '1980-01-01', gender: 'ชาย' }), rules, T)).toBe(false)
     expect(needsGender(m({ birth: '1995-01-01' }), rules, T)).toBe(false)   // วัยทำงานไม่ต้องใช้เพศ
+  })
+  it('คำเตือนกติกา: ซ้อนทับ/ช่องว่าง (กติกามาตรฐานไม่มีคำเตือน)', () => {
+    expect(ruleWarnings(rules)).toEqual([])
+    const overlap = rules.map((r) => (r.group === '2.อนุชน' ? { ...r, to: 30 } : r))
+    expect(ruleWarnings(overlap).join(' ')).toContain('ซ้อนกับ')
+    const gap = rules.map((r) => (r.group === '3.วัยทำงาน' ? { ...r, from: 28 } : r))
+    expect(ruleWarnings(gap).join(' ')).toContain('อายุ 25–27 ปี ไม่มีกลุ่มรับ')
+    const noWomen = rules.map((r) => (r.group === '5.สตรี' ? { ...r, on: false } : r))
+    expect(ruleWarnings(noWomen).join(' ')).toContain('เพศหญิง: อายุ 40–59 ปี ไม่มีกลุ่มรับ')
   })
 })
