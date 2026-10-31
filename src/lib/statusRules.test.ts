@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_STATUS_RULES, frequency, monthsBetween, proposeStatusMoves, statusRuleWarnings } from './statusRules'
+import { DEFAULT_STATUS_RULES, frequency, monthsBetween, proposeStatusMoves, revertStatusMoves, reviewAutoMoves, statusRuleWarnings } from './statusRules'
 import type { Attendance, ChurchMember } from './types'
 
 const T = '2026-10-31'
@@ -52,5 +52,18 @@ describe('statusRules', () => {
   it('เตือนเกณฑ์ที่ไม่สมเหตุสมผล', () => {
     expect(statusRuleWarnings(DEFAULT_STATUS_RULES)).toEqual([])
     expect(statusRuleWarnings({ ...DEFAULT_STATUS_RULES, newMonthsPresent: 5 }).join()).toContain('ไม่มีใครผ่านได้')
+  })
+  it('กำหนดสถานะเอง (ล็อก): ระบบอัตโนมัติไม่เปลี่ยนให้', () => {
+    const wk = Array.from({ length: 14 }, (_, i) => i)
+    const r = proposeStatusMoves([m({ id: 'a', status: 'คนใหม่', statusLock: { why: 'แขกประจำ' } }), m({ id: 'b', status: 'คนใหม่' })], services(16, { a: wk, b: wk }), T)
+    expect(r.map((x) => x.m.id)).toEqual(['b'])
+  })
+  it('ตรวจรายการที่ระบบเปลี่ยนไปแล้ว: ยังเข้าเกณฑ์ปัจจุบัน/ไม่เข้า → คืนสถานะเดิมได้', () => {
+    const wk = Array.from({ length: 14 }, (_, i) => i)
+    const moved = (id: string) => m({ id, status: 'ผู้ร่วมนมัสการ', statusAt: T, statusMoved: { from: 'คนใหม่', at: 1, why: 'รุ่นเก่า' } })
+    const rs = reviewAutoMoves([moved('fit'), moved('nofit'), m({ id: 'back', status: 'คนใหม่', statusMoved: { from: 'คนใหม่', at: 1, why: 'x' } })], services(16, { fit: wk, nofit: [0, 13] }), T)
+    expect(rs.map((r) => [r.m.id, r.fits])).toEqual([['nofit', false], ['fit', true]])   // ไม่เข้าเกณฑ์ขึ้นก่อน · คนที่กลับสถานะเดิมแล้วไม่แสดง
+    const back = revertStatusMoves([rs[0]], 5)
+    expect(back[0]).toMatchObject({ id: 'nofit', status: 'คนใหม่', statusMoved: undefined, statusAt: undefined })
   })
 })

@@ -14,7 +14,7 @@ import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, familyInvite, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
 import { effectiveRules, needsGender, proposeRegroup, ruleWarnings, targetGroup } from '../lib/ageGroups'
-import { DEFAULT_STATUS_RULES, applyStatusMoves, effectiveStatusRules, proposeStatusMoves, statusRuleWarnings } from '../lib/statusRules'
+import { DEFAULT_STATUS_RULES, applyStatusMoves, effectiveStatusRules, proposeStatusMoves, reviewAutoMoves, revertStatusMoves, statusRuleWarnings } from '../lib/statusRules'
 import { AGE_BANDS, ageYears } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, stripStatusNo, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
@@ -444,6 +444,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   const m = r.member
   const { settings } = useSettings()
   const rules = effectiveRules(settings.ageRules, groups)
+  const [lockOpen, setLockOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -460,12 +461,16 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   const band = ageY == null ? undefined : AGE_BANDS.find((b) => ageY >= b.from && ageY <= b.to)?.label
   const tg = targetGroup(m, rules, today)
   const rows: [string, ReactNode][] = [
-    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', statusLabel(m.status)] as [string, ReactNode]]), ['กลุ่ม', m.group],
+    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', <>{statusLabel(m.status)}{m.statusLock ? ' 🔒' : ''}</>] as [string, ReactNode]]), ['กลุ่ม', m.group],
     ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
     ...(lite ? [] : [['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
     ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
     ...(lite ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
+    ...(!lite && (m.statusLock || canEdit) ? [['กรณีพิเศษ (สถานะ)', m.statusLock
+      ? <span key="sl">🔒 กำหนดสถานะเอง{m.statusLock.why ? ` · ${m.statusLock.why}` : ''}{m.statusLock.skipAudit ? ' · ไม่ตรวจการนมัสการ' : ''}{canEdit && <> <button type="button" className="mini" onClick={() => setLockOpen(true)}>แก้ไข</button> <button type="button" className="mini" onClick={() => put([{ ...m, statusLock: undefined, updated: Date.now() }])}>ปลดล็อก</button></>}</span>
+      : <button key="sl" type="button" className="mini" onClick={() => setLockOpen(true)}>🔒 กำหนดสถานะเอง</button>] as [string, ReactNode]] : []),
+    ...(!lite && m.statusMoved && Date.now() - m.statusMoved.at < 365 * 86_400_000 ? [['เปลี่ยนสถานะอัตโนมัติ', <span key="sm">เมื่อ {new Date(m.statusMoved.at).toLocaleDateString('th-TH', { dateStyle: 'medium' })} จาก {m.statusMoved.from}<br /><span className="small muted">{m.statusMoved.why}</span>{canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, status: m.statusMoved!.from, statusAt: undefined, statusMoved: undefined, statusLock: { why: 'คืนสถานะเดิมโดยผู้ดูแล' }, updated: Date.now() }])}>คืนสถานะเดิม + ล็อก</button></>}</span>] as [string, ReactNode]] : []),
     ...(!lite && m.groupMoved && Date.now() - m.groupMoved.at < 90 * 86_400_000 ? [['ย้ายกลุ่มอัตโนมัติ', <span key="gm">เมื่อ {new Date(m.groupMoved.at).toLocaleDateString('th-TH', { dateStyle: 'medium' })} (จาก {m.groupMoved.from || 'ไม่มีกลุ่ม'}){canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, group: m.groupMoved!.from || undefined, groupMoved: undefined, groupLock: true, updated: Date.now() }])}>คืนกลุ่มเดิม + ล็อก</button></>}</span>] as [string, ReactNode]] : []),
     ...(!lite && canEdit && ageY != null ? [['ล็อกกลุ่ม', <label key="gl" className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><input type="checkbox" checked={!!m.groupLock} onChange={() => put([{ ...m, groupLock: !m.groupLock, updated: Date.now() }])} /> <span className="small">ไม่ให้ระบบย้ายกลุ่มตามอายุ</span></label>] as [string, ReactNode]] : []),
     ...(!lite && !tg && needsGender(m, rules, today) ? [['กลุ่มตามอายุ', <span key="ng" style={{ color: '#b45309' }}>⚠ อายุ {ageY} ปี — ยังไม่ทราบเพศ จึงจัดกลุ่มบุรุษ/สตรีให้ไม่ได้ (กรอกเพศก่อน)</span>] as [string, ReactNode]] : []),
@@ -505,6 +510,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.visits ? `${r.visits} ครั้ง · 12 เดือนล่าสุด ${r.recent} · ครั้งแรก ${fmtDate(r.firstAtt)} · ล่าสุด ${fmtDate(r.last)}` : <span className="muted">ยังไม่มีบันทึกลงชื่อ</span>}</dd>
         </div>
       </dl>
+      {lockOpen && <StatusLockSheet m={m} put={put} onClose={() => setLockOpen(false)} />}
       {formLink && <FormLinkBox m={m} put={put} worshipDays={worshipDays} />}
       {canLog && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
     </Sheet>
@@ -740,6 +746,33 @@ function FamilyLinksSheet({ members, onClose }: { members: ChurchMember[]; onClo
   )
 }
 
+/** กำหนดสถานะเองรายบุคคล (ล็อก): เลือกสถานะ + เหตุผล (+ ไม่ตรวจการนมัสการ) → ระบบอัตโนมัติไม่เปลี่ยนสถานะคนนี้ */
+function StatusLockSheet({ m, put, onClose }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void }) {
+  const people = useChurchMembers()
+  const [status, setStatus] = useState(statusLabel(m.status))
+  const [why, setWhy] = useState(m.statusLock?.why ?? '')
+  const [skip, setSkip] = useState(!!m.statusLock?.skipAudit)
+  const options = statusOptions(people.items)
+  if (!options.includes(status)) options.push(status)
+  const save = () => {
+    const changed = statusLabel(m.status) !== status
+    if (put([{ ...m, status, statusLock: { ...(why.trim() ? { why: why.trim() } : {}), ...(skip ? { skipAudit: true } : {}) }, ...(changed ? { statusAt: todayISO(), statusMoved: undefined } : {}), updated: Date.now() }])) onClose()
+  }
+  return (
+    <Sheet title={`กำหนดสถานะเอง — ${m.nick || m.name}`} onClose={onClose}>
+      <p className="small muted" style={{ margin: 0 }}>ใช้กับกรณีพิเศษเฉพาะคน (เช่น ศิษยาภิบาล) ระบบอัตโนมัติจะไม่เปลี่ยนสถานะของคนนี้ จนกว่าจะปลดล็อก · แสดงผลเหมือนสถานะปกติ</p>
+      <div className="field"><label htmlFor="sl-st">สถานะ</label>
+        <select id="sl-st" className="input" value={status} onChange={(e) => setStatus(e.target.value)}>{options.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>
+      <div className="field"><label htmlFor="sl-why">เหตุผล (ไม่บังคับ)</label><input id="sl-why" className="input" value={why} onChange={(e) => setWhy(e.target.value)} placeholder="เช่น ศิษยาภิบาล · คณะธรรมกิจ" /></div>
+      <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <input type="checkbox" checked={skip} onChange={() => setSkip(!skip)} aria-label="ยกเว้นการตรวจการนมัสการ" />
+        <span><b>ยกเว้นการตรวจการนมัสการ</b><br /><span className="small muted">ไม่ฟ้องว่า “ขาดนมัสการเกินเกณฑ์” เช่น คนที่มาทุกอาทิตย์แต่ไม่ถูกลงชื่อ</span></span>
+      </label>
+      <button type="button" className="btn btn--gold bigbtn btn--block" onClick={save}>🔒 บันทึก</button>
+    </Sheet>
+  )
+}
+
 /** เกณฑ์เปลี่ยนสถานะอัตโนมัติ (ความถี่การมานมัสการ): แก้ได้ → ดูตัวอย่างคนที่จะเปลี่ยน → บันทึกแล้วปรับทุกคนทันที */
 function StatusRulesSheet({ members, attendance, put, onClose }: { members: ChurchMember[]; attendance: Attendance[]; put: (x: ChurchMember[]) => boolean; onClose: () => void }) {
   const { settings, save } = useSettings()
@@ -749,6 +782,9 @@ function StatusRulesSheet({ members, attendance, put, onClose }: { members: Chur
   const live = members.filter((x) => !x.deleted)
   const moves = proposeStatusMoves(live, attendance, today, cfg)
   const warns = statusRuleWarnings(cfg)
+  const reviews = reviewAutoMoves(live, attendance, today, effectiveStatusRules(settings.statusRules))
+  const [revertIds, setRevertIds] = useState<Set<string>>(() => new Set(reviewAutoMoves(live, attendance, today, effectiveStatusRules(settings.statusRules)).filter((r) => !r.fits).map((r) => r.m.id)))
+  const locked = live.filter((x) => x.statusLock)
   const changed = JSON.stringify(cfg) !== JSON.stringify(effectiveStatusRules(settings.statusRules))
   const num = (k: keyof typeof cfg, label: string, unit: string) => (
     <label className="row" style={{ gap: 6, flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'space-between', padding: '0.2rem 0' }}>
@@ -786,6 +822,27 @@ function StatusRulesSheet({ members, attendance, put, onClose }: { members: Chur
         <div style={{ maxHeight: '28vh', overflow: 'auto' }} role="list" aria-label="คนที่เข้าเกณฑ์เปลี่ยนสถานะ">
           {moves.map((v) => <div key={v.m.id} role="listitem" style={{ borderBottom: '1px solid var(--line)', padding: '0.25rem 0' }}><b>{v.m.name}</b><br /><span className="small">{v.from} → <b>{v.to}</b></span><br /><span className="small muted">{v.why}</span></div>)}
         </div>
+      )}
+      <b>ตรวจรายการที่ระบบเปลี่ยนไปแล้ว</b>
+      {reviews.length === 0 ? <p className="small muted" style={{ margin: 0 }}>ยังไม่มีรายการที่ระบบเปลี่ยนสถานะให้</p> : (
+        <>
+          <p className="small muted" style={{ margin: 0 }}>เทียบกับเกณฑ์ปัจจุบัน: ✅ ยังเข้าเกณฑ์ · ❌ ไม่เข้า (เปลี่ยนไปด้วยเกณฑ์รุ่นก่อนที่หลวมกว่า) — ติ๊กคนที่ต้องการคืนสถานะเดิม</p>
+          <div style={{ maxHeight: '30vh', overflow: 'auto' }} role="list" aria-label="รายการที่ระบบเปลี่ยนสถานะไปแล้ว">
+            {reviews.map((r) => (
+              <label key={r.m.id} role="listitem" className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', padding: '0.25rem 0' }}>
+                <input type="checkbox" checked={revertIds.has(r.m.id)} onChange={() => setRevertIds((q) => { const n = new Set(q); if (n.has(r.m.id)) n.delete(r.m.id); else n.add(r.m.id); return n })} aria-label={`คืนสถานะเดิม ${r.m.name}`} />
+                <span style={{ minWidth: 0 }}>{r.fits ? '✅' : '❌'} <b>{r.m.name}</b><br /><span className="small">{r.from} → <b>{r.to}</b></span><br /><span className="small muted">{r.fits ? r.nowWhy : `ไม่เข้าเกณฑ์ปัจจุบัน (ตอนนั้น: ${r.why})`}</span></span>
+              </label>
+            ))}
+          </div>
+          <button type="button" className="btn btn--ghost btn--block" disabled={revertIds.size === 0} onClick={() => { const rs = reviews.filter((r) => revertIds.has(r.m.id)); setMsg(put(revertStatusMoves(rs, Date.now())) ? `คืนสถานะเดิม ${rs.length} คนแล้ว` : 'ไม่มีสิทธิ์แก้ทะเบียน'); setRevertIds(new Set()) }}>↩︎ คืนสถานะเดิมที่เลือก ({revertIds.size} คน)</button>
+        </>
+      )}
+      {locked.length > 0 && (
+        <>
+          <b>คนที่กำหนดสถานะเอง (ล็อก) {locked.length} คน</b>
+          <div role="list" aria-label="คนที่ล็อกสถานะ">{locked.map((x) => <div key={x.id} role="listitem" className="row row--between" style={{ borderBottom: '1px solid var(--line)', padding: '0.25rem 0', flexWrap: 'nowrap' }}><span>🔒 <b>{x.name}</b> · {statusLabel(x.status)}{x.statusLock?.why ? ` · ${x.statusLock.why}` : ''}</span><button type="button" className="mini" onClick={() => put([{ ...x, statusLock: undefined, updated: Date.now() }])}>ปลดล็อก</button></div>)}</div>
+        </>
       )}
       {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       <button type="button" className="btn btn--gold bigbtn btn--block" onClick={save1}>💾 บันทึกเกณฑ์{settings.statusAuto === false ? '' : ' + เปลี่ยนสถานะทันที'}</button>

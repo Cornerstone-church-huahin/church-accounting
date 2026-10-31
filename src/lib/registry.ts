@@ -74,14 +74,15 @@ export function evaluate(members: ChurchMember[], attendance: Attendance[], crit
     // ตรวจเฉพาะคนที่ทะเบียนระบุว่าเป็นสมาชิกสมบูรณ์ (หรือยังไม่ระบุสถานะ) · คนใหม่/ผู้ร่วมนมัสการ/สมาชิกสำรองไม่นับเป็นสมาชิกสมบูรณ์ แม้มานานแล้ว
     const eligible = !status.trim() || /สมบูรณ์/.test(status)
     const sinceCutoff = days.filter((d) => d >= cutoff).length
-    const absent = hasData && eligible && !dead && oldEnough && sinceCutoff === 0
-    const qualified = hasData && eligible && !dead && oldEnough && sinceCutoff > 0
+    const exempt = !!m.statusLock?.skipAudit   // กำหนดสถานะเอง + ไม่ตรวจการนมัสการ (เช่น ศิษยาภิบาลที่ไม่ถูกลงชื่อ)
+    const absent = hasData && eligible && !dead && !exempt && oldEnough && sinceCutoff === 0
+    const qualified = hasData && eligible && !dead && (exempt || (oldEnough && sinceCutoff > 0))
     const baseTier: Tier = deceased ? 3 : dead ? 2 : qualified ? 0 : absent ? 5 : 6
     const last = days[visits - 1] ?? ''
     const recent = days.filter((d) => diffDays(today, d) <= YEAR).length
     const idleFrom = last || (m.since && services[0] && m.since > services[0] ? m.since : services[0] ?? m.since ?? '')
     const lvl = regLevel(status)
-    const suggest: Suggest | undefined = m.override ? undefined : lvl === 1 && baseTier === 5 ? 'to2' : lvl === 2 && baseTier === 0 ? 'to1' : undefined
+    const suggest: Suggest | undefined = m.override || m.statusLock ? undefined : lvl === 1 && baseTier === 5 ? 'to2' : lvl === 2 && baseTier === 0 ? 'to1' : undefined
     return {
       member: m, baseTier, suggest, tier: m.override ? OVERRIDE_TIER[m.override] : baseTier,
       visits, recent, possible, yearPct: Math.min(1, recent / Math.max(1, yearServices)), tenureY,
