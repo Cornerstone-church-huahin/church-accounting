@@ -1465,3 +1465,12 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .sheet--full > .card { max-height: none; height: 100dvh; border-radius: 0; display: flex; flex-direction: column; gap: 0.5rem; padding-bottom: calc(0.8rem + env(safe-area-inset-bottom, 0px)); }
 .sheet--full .fam-list { flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 0.2rem 0.5rem; }
 .fam-chip { display: inline-flex; align-items: center; gap: 4px; background: #fff3bf; border: 1px solid #d4af37; border-radius: 999px; padding: 0 8px; font-size: .85rem; }
+
+/* จุดสถานะการอัปเดตข้อมูลสมาชิก (ฝ่ายทะเบียน): เขียว = นำเข้าแล้ว · แดง = ยังไม่ได้ */
+.updot { position: absolute; top: -5px; left: -5px; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.updot--ok { background: #1fa24a; }
+.updot--no { background: #d62839; }
+.updleg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0.3rem 0; font-size: .88rem; }
+.updleg button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line, #e0d8c8); background: transparent; border-radius: 999px; padding: 0.15rem 0.7rem; font: inherit; cursor: pointer; }
+.updleg button[aria-pressed="true"] { background: #fff3bf; border-color: #d4af37; font-weight: 700; }
+.updleg .updot { position: static; width: 11px; height: 11px; border: 0; box-shadow: none; }

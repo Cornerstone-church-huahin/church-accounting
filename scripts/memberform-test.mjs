@@ -134,6 +134,13 @@ try {
   must(m1b.firstWorship === '2026-10-18', 'approximate first date snapped to the nearest recorded Sunday: ' + m1b.firstWorship)
   await page.keyboard.press('Escape'); await page.waitForTimeout(300)
   // ลิงก์ส่งทั้งกลุ่ม: ลิงก์สั้นลิงก์เดียว ไม่มีรายชื่อในลิงก์ → สมาชิกพิมพ์ชื่อเอง → ฝ่ายทะเบียนจับคู่จากชื่อ
+  if (process.env.SHOT4) await page.screenshot({ path: process.env.SHOT4 })
+  // จุดสถานะการอัปเดต: เขียว = วางข้อมูลแล้ว (ดารา) · แดง = ยังไม่ได้ (คนอื่น)
+  must(await page.getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 1 && await page.getByRole('img', { name: 'ยังไม่ได้นำเข้าข้อมูลที่สมาชิกกรอก' }).count() >= 1, 'green dot for the updated member, red for the others')
+  must(await page.getByRole('button', { name: /อัปเดตแล้ว 1/ }).count() === 1, 'legend counts the updated ones')
+  await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
+  must(await page.getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 0, 'filter "not updated yet" hides the green ones')
+  await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
   // ส่งลิงก์แบบกลุ่ม: ป๊อปอัพเต็มหน้า เลือกรายชื่อเหมือนตะกร้า → ข้อความเดียวมีลิงก์แยกรายคน
   await page.getByRole('button', { name: /ส่งลิงก์แบบกลุ่ม/ }).click()
   const basket = page.getByRole('dialog', { name: 'ส่งลิงก์แบบกลุ่ม' })
