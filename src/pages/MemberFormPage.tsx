@@ -54,8 +54,8 @@ export default function MemberFormPage() {
           {['ชาย', 'หญิง'].map((g) => <button key={g} type="button" role="radio" aria-checked={f.gender === g} className={f.gender === g ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ gender: f.gender === g ? '' : g })}>{g}</button>)}
         </div></div>
       <div className="field"><label htmlFor="mf-birth">วันเกิด</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
-      <div className="field"><label htmlFor="mf-skills">อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-skills" className="input" value={f.skills} onChange={(e) => set({ skills: e.target.value })} placeholder="เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร" /></div>
       <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span></label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
+      <div className="field"><label htmlFor="mf-skills">อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-skills" className="input" value={f.skills} onChange={(e) => set({ skills: e.target.value })} placeholder="เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร" /></div>
       <div className="field"><label id="mf-serve">งานรับใช้คริสตจักรที่ท่านเต็มใจช่วย <span className="muted small">(ติ๊กได้หลายข้อ · ไม่บังคับ)</span></label>
         <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPickServe(true)}>🙌 เลือกงานรับใช้{serve.length ? ` (เลือกแล้ว ${serve.length} ข้อ)` : ''}</button>
         {serve.length > 0 && (
