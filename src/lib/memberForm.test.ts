@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeFormLink, encodeFormLink, makeFormLink, parseReply, replyText } from './memberForm'
+import { decodeFormLink, decodeGroupLink, encodeFormLink, groupUrl, makeFormLink, parseReply, replyText } from './memberForm'
 import type { ChurchMember } from './types'
 
 const m = { id: 'm1', updated: 1, name: 'ดารา ผลจันทร์', nick: 'ดารา', code: '1329', tel: '0818896490', gender: 'หญิง', birth: '2008-09-09' } as ChurchMember
@@ -28,5 +28,16 @@ describe('memberForm', () => {
     const back = parseReply(`ข้อความจากไลน์\n${t}\nขอบคุณ`)
     expect(back).toMatchObject({ mid: 'm1', name: 'ดารา ผลจันทร์', tel: '081', lineId: 'dara_l', first: '2012-05-01', note: 'ย้ายบ้าน' })
     expect(parseReply('ไม่มีรหัส')).toBeNull()
+  })
+  it('ลิงก์กลุ่มมีเฉพาะ รหัส/ชื่อ/ชื่อเล่น และถอดกลับได้ · ลิงก์รายคนไม่ใช่ลิงก์กลุ่ม', () => {
+    const url = groupUrl([m, { id: 'm2', name: 'สมชาย ใจดี' }], 'https://x/app/')
+    const d = new URL(url.replace('#/', '')).hash
+    const token = url.split('d=')[1]
+    const g = decodeGroupLink(token)
+    expect(g?.list).toEqual([{ id: 'm1', name: 'ดารา ผลจันทร์', nick: 'ดารา' }, { id: 'm2', name: 'สมชาย ใจดี' }])
+    expect(JSON.stringify(g)).not.toContain('0818896490')
+    expect(decodeFormLink(token)).toBeNull()
+    expect(decodeGroupLink(encodeFormLink(makeFormLink(m)))).toBeNull()
+    expect(d).toBeDefined()
   })
 })

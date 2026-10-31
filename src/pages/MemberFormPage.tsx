@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import logoUrl from '../assets/logo.png'
 import Sheet from '../components/Sheet'
-import { DAY_OPTIONS, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, replyText, type FormAnswer } from '../lib/memberForm'
+import { DAY_OPTIONS, NEW_MID, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, decodeGroupLink, replyText, type FormAnswer, type FormLink, type GroupLink } from '../lib/memberForm'
 
 /**
  * หน้าให้สมาชิกกรอกข้อมูลเอง (เปิดจากลิงก์ที่ฝ่ายทะเบียนส่งให้ในไลน์) — ไม่ต้องเข้าแอป ไม่มีการเขียนข้อมูลเข้าระบบ
@@ -10,7 +10,39 @@ import { DAY_OPTIONS, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, replyText, typ
  */
 export default function MemberFormPage() {
   const [params] = useSearchParams()
-  const link = decodeFormLink(params.get('d'))
+  const group = decodeGroupLink(params.get('d'))
+  const [picked, setPicked] = useState<FormLink | null>(null)
+  if (group && !picked) return <GroupPicker group={group} onPick={setPicked} />
+  return <FormBody key={picked?.mid ?? 'one'} link={picked ?? decodeFormLink(params.get('d'))} grouped={!!group} onReselect={() => setPicked(null)} />
+}
+
+/** ลิงก์กลุ่ม ขั้นที่ 1: เลือกชื่อของตัวเองจากรายชื่อ */
+function GroupPicker({ group, onPick }: { group: GroupLink; onPick: (l: FormLink) => void }) {
+  const [q, setQ] = useState('')
+  const t = q.trim().toLowerCase().replace(/\s+/g, '')
+  const shown = group.list.filter((x) => !t || `${x.name}${x.nick ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
+  return (
+    <main className="mform">
+      <header className="mform__head"><img src={logoUrl} alt="" width={56} height={56} /><div><b>คริสตจักรศิลาเอก</b><br /><span className="small muted">แบบกรอกข้อมูลสมาชิก</span></div></header>
+      {group.exp < Date.now()
+        ? <section className="card"><p className="error" role="alert" style={{ margin: 0 }}>ลิงก์นี้หมดอายุแล้ว กรุณาขอลิงก์ใหม่จากฝ่ายทะเบียน</p></section>
+        : (
+          <section className="card" aria-label="เลือกชื่อของท่าน">
+            <p style={{ margin: 0 }}><b>ขั้นที่ 1:</b> เลือกชื่อของท่านจากรายชื่อ</p>
+            <p className="mform__warn" role="note">⚠️ เลือกให้ตรงกับตัวท่านเอง เพราะข้อมูลที่กรอกจะถูกบันทึกในชื่อที่เลือก</p>
+            <div className="field"><label htmlFor="mf-find">🔎 พิมพ์ชื่อเพื่อค้นหา</label><input id="mf-find" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์ชื่อหรือชื่อเล่น" /></div>
+            <div role="list" aria-label="รายชื่อ" style={{ display: 'grid', gap: 6 }}>
+              {shown.map((x) => <button key={x.id} role="listitem" type="button" className="btn btn--ghost" style={{ textAlign: 'left' }} onClick={() => onPick({ v: 1, mid: x.id, name: x.name, nick: x.nick, exp: group.exp })}>{x.name}{x.nick ? <span className="muted small"> ({x.nick})</span> : null}</button>)}
+              {shown.length === 0 && <p className="muted small" style={{ margin: 0 }}>ไม่พบชื่อที่ค้นหา</p>}
+            </div>
+            <button type="button" className="btn btn--ghost btn--block" style={{ marginTop: 8 }} onClick={() => onPick({ v: 1, mid: NEW_MID, name: '', exp: group.exp })}>➕ ไม่พบชื่อของฉันในรายการ</button>
+          </section>
+        )}
+    </main>
+  )
+}
+
+function FormBody({ link, grouped, onReselect }: { link: FormLink | null; grouped: boolean; onReselect: () => void }) {
   const [f, setF] = useState({ name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', skills: link?.skills ?? '', other: (link?.serve ?? []).find((x) => x.startsWith(`${OTHER_SERVE}: `))?.slice(OTHER_SERVE.length + 2) ?? '', note: '' })
   const [serve, setServe] = useState<string[]>((link?.serve ?? []).map((x) => (x.startsWith(`${OTHER_SERVE}: `) ? OTHER_SERVE : x)))
   const [pickServe, setPickServe] = useState(false)
@@ -43,6 +75,7 @@ export default function MemberFormPage() {
   const set = (p: Partial<typeof f>) => { setF({ ...f, ...p }); setCopied(false) }
   return shell(
     <form className="card" onSubmit={(e) => e.preventDefault()} aria-label="แบบกรอกข้อมูลสมาชิก">
+      {grouped && link && <p className="small" style={{ margin: 0 }}>{link.mid === NEW_MID ? 'ท่านไม่พบชื่อในรายการ — กรอกข้อมูลของท่านด้านล่าง ฝ่ายทะเบียนจะเพิ่มชื่อให้' : <>ท่านเลือกชื่อ <b>{link.name}</b> · <button type="button" className="mini" onClick={onReselect}>เลือกใหม่</button></>}</p>}
       <p style={{ margin: 0 }}>กรุณาตรวจและกรอกข้อมูลของท่านให้ครบ ข้อมูลที่ส่งจะไปถึงฝ่ายทะเบียนเท่านั้น</p>
       <p className="mform__warn" role="note">⚠️ กรุณาตรวจ <b>ชื่อ-นามสกุล</b> และ <b>ชื่อเล่น</b> ให้ถูกต้อง เพราะจะใช้เป็นชื่อในทะเบียนของคริสตจักร ถ้าสะกดไม่ถูก ให้แก้ในช่องด้านล่างก่อนส่ง</p>
       <div className="field"><label htmlFor="mf-name">ชื่อ-สกุล <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-name" className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="name" /></div>
