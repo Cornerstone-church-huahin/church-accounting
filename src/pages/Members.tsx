@@ -12,8 +12,9 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
+import { BY_NAME, FORM_DAYS, NEW_MID, familyInvite, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
 import { effectiveRules, needsGender, proposeRegroup, ruleWarnings, targetGroup } from '../lib/ageGroups'
+import { DEFAULT_STATUS_RULES, applyStatusMoves, effectiveStatusRules, proposeStatusMoves, statusRuleWarnings } from '../lib/statusRules'
 import { AGE_BANDS, ageYears } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, stripStatusNo, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
@@ -102,7 +103,7 @@ function MembersPage({ registry }: { registry?: boolean }) {
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
-      {tab === 'roster' && <Roster worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
+      {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
       {shownDetail && <Detail worshipDays={worshipDays} lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
@@ -220,7 +221,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
 
 const statusKey = statusLabel
 
-function Roster({ worshipDays, registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
+function Roster({ attendance, worshipDays, registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [nameClean, setNameClean] = useState(false)
   const namePlan = useMemo(() => planNameClean(members), [members])
@@ -359,7 +360,7 @@ function Roster({ worshipDays, registry, lite, canLog, rows, onOpen, members, ca
       {canLog && (
         <div className="toolbar no-print">
           <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          {registry && <FormTools members={members} put={put} worshipDays={worshipDays} />}
+          {registry && <FormTools members={members} put={put} worshipDays={worshipDays} attendance={attendance} />}
           {canEdit && <><button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
           <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
@@ -631,9 +632,8 @@ function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { wo
  * 🔗 ลิงก์กลุ่ม = ลิงก์เดียวสำหรับรายชื่อที่กรองอยู่ (ส่งทีเดียวในห้องแชต ทุกคนเลือกชื่อตัวเอง)
  * 📥 วางข้อมูลจากสมาชิก = วางข้อความที่ได้รับที่เดียว ระบบหาเองว่าเป็นของใคร (ไม่ต้องเปิดทีละคน)
  */
-function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean; worshipDays: string[] }) {
-  const [open, setOpen] = useState<'' | 'link' | 'paste' | 'age'>('')
-  const [msg, setMsg] = useState('')
+function FormTools({ members, put, worshipDays, attendance }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean; worshipDays: string[]; attendance: Attendance[] }) {
+  const [open, setOpen] = useState<'' | 'link' | 'paste' | 'age' | 'status'>('')
   const [text, setText] = useState('')
   const [pickId, setPickId] = useState<string | null>(null)   // ลิงก์ทั่วไป: สมาชิกที่ฝ่ายทะเบียนเลือกจับคู่
   const [asNew, setAsNew] = useState(false)
@@ -642,27 +642,15 @@ function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put
   const cands = a && a.mid === BY_NAME ? findCandidates(a, members) : []
   const picked = pickId ? members.find((x) => x.id === pickId) : undefined
   const reset = () => { setOpen(''); setText(''); setPickId(null); setAsNew(false) }
-  const [gText, setGText] = useState(() => groupInvite(generalFormUrl()))
-  const copyLink = async () => { try { await navigator.clipboard.writeText(gText); setMsg('คัดลอกข้อความพร้อมลิงก์แล้ว — นำไปวางในห้องแชตได้เลย (ลิงก์เดียวกันใช้ได้ทุกคน ไม่มีวันหมดอายุ)') } catch { setMsg('คัดลอกไม่สำเร็จ') } }
   return (
     <>
-      <button type="button" className="btn btn--ghost" onClick={() => { setOpen('link'); setMsg('') }}>🔗 ลิงก์ส่งทั้งกลุ่ม</button>
+      <button type="button" className="btn btn--ghost" onClick={() => setOpen('link')}>🔗 ส่งลิงก์แบบกลุ่ม</button>
       <button type="button" className="btn btn--ghost" onClick={() => { setOpen('paste'); setText(''); setPickId(null); setAsNew(false) }}>📥 วางข้อมูลจากสมาชิก</button>
       <button type="button" className="btn btn--ghost" onClick={() => setOpen('age')}>🎂 จัดกลุ่มตามอายุ</button>
+      <button type="button" className="btn btn--ghost" onClick={() => setOpen('status')}>📊 เกณฑ์สถานะ</button>
+      {open === 'status' && <StatusRulesSheet members={members} attendance={attendance} put={put} onClose={() => setOpen('')} />}
       {open === 'age' && <RegroupSheet members={members} put={put} onClose={() => setOpen('')} />}
-      {open === 'link' && (
-        <Sheet title="ลิงก์ส่งทั้งกลุ่ม (ลิงก์สั้น ใช้ได้ทุกคน)" onClose={() => setOpen('')}>
-          <ol className="small" style={{ margin: 0, paddingLeft: '1.2rem' }}>
-            <li>แก้ข้อความด้านล่างได้ตามต้องการ แล้วกด “คัดลอกข้อความ + ลิงก์” วางในห้องแชต — ทุกคนใช้ลิงก์เดียวกัน</li>
-            <li>แต่ละคนกดลิงก์ พิมพ์ชื่อ-นามสกุลและข้อมูลของตัวเอง แล้วกด “ส่งกลับทางไลน์” ถึงคุณ</li>
-            <li>คุณคัดลอกข้อความที่ได้รับ → กด “วางข้อมูลจากสมาชิก” → ระบบหาชื่อที่ใกล้เคียงในทะเบียนให้เลือกยืนยัน → ตารางเทียบ → ยืนยัน</li>
-          </ol>
-          <p className="small" style={{ margin: 0 }}>ลิงก์นี้สั้นและไม่มีรายชื่อหรือข้อมูลใครอยู่ในลิงก์เลย จึงปลอดภัยต่อการส่งในห้องแชตขนาดใหญ่</p>
-          <textarea className="input" rows={11} aria-label="ข้อความที่จะส่ง" value={gText} onChange={(e) => setGText(e.target.value)} />
-          {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
-          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={copyLink}>📋 คัดลอกข้อความ + ลิงก์</button>
-        </Sheet>
-      )}
+      {open === 'link' && <FamilyLinksSheet members={members} onClose={() => setOpen('')} />}
       {open === 'paste' && (picked && a
         ? <ImportSheet worshipDays={worshipDays} m={picked} put={put} onClose={reset} initial={text} asMid={picked.id} />
         : target
@@ -690,6 +678,119 @@ function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put
               </Sheet>
             ))}
     </>
+  )
+}
+
+/**
+ * ส่งลิงก์แบบกลุ่ม (ป๊อปอัพเต็มหน้า): เลือกรายชื่อคล้ายตะกร้า → ได้ข้อความเดียวที่มีลิงก์แยกรายคนตามลำดับ (คนที่ 1, 2, …) คัดลอกไปวางทีเดียว
+ * เหมาะกับบ้านหนึ่งหลัง: ส่งชุดเดียว ลูกกรอกให้พ่อแม่ได้ · ลิงก์สั้นลงได้ด้วยตัวเลือก “ไม่เติมข้อมูลเดิม”
+ */
+const FAMILY_MAX = 20
+function FamilyLinksSheet({ members, onClose }: { members: ChurchMember[]; onClose: () => void }) {
+  const [picked, setPicked] = useState<string[]>([])
+  const [q, setQ] = useState('')
+  const [short, setShort] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [showText, setShowText] = useState(false)
+  const live = useMemo(() => members.filter((x) => !x.deleted).sort((a, b) => a.name.localeCompare(b.name, 'th')), [members])
+  const t = q.trim().toLowerCase().replace(/\s+/g, '')
+  const shown = t ? live.filter((x) => `${x.name}${x.nick ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) : live.slice(0, 60)
+  const chosen = picked.map((id) => live.find((x) => x.id === id)).filter(Boolean) as ChurchMember[]
+  const generated = useMemo(() => (chosen.length === 0 ? '' : familyInvite(chosen.map((m) => ({ name: m.name, nick: m.nick, url: formUrl(m, undefined, short) })))), [picked, short]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [text, setText] = useState('')
+  useEffect(() => { setText(generated) }, [generated])
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= FAMILY_MAX ? p : [...p, id]))
+  const copy = async () => { try { await navigator.clipboard.writeText(text); setMsg(`คัดลอกข้อความพร้อม ${chosen.length} ลิงก์แล้ว — นำไปวางในไลน์ได้เลย`) } catch { setMsg('คัดลอกไม่สำเร็จ') } }
+  const copyGeneral = async () => { try { await navigator.clipboard.writeText(groupInvite(generalFormUrl())); setMsg('คัดลอกข้อความ + ลิงก์ทั่วไป (ให้ทุกคนพิมพ์ชื่อเอง) แล้ว') } catch { setMsg('คัดลอกไม่สำเร็จ') } }
+  return (
+    <div className="sheet sheet--full no-print" role="dialog" aria-modal="true" aria-label="ส่งลิงก์แบบกลุ่ม">
+      <div className="card">
+        <div className="row row--between" style={{ flexWrap: 'nowrap' }}><h2 style={{ margin: 0 }}>🔗 ส่งลิงก์แบบกลุ่ม</h2><button type="button" className="mini" onClick={onClose}>ปิด</button></div>
+        <p className="small muted" style={{ margin: 0 }}>เลือกรายชื่อ (เช่น คนในบ้านเดียวกัน) → ได้ข้อความเดียวที่มีลิงก์แยกรายคน คนที่ 1, 2, 3 … ส่งทีเดียว · ใครได้ข้อความนี้ช่วยกรอกให้คนอื่นในชุดได้</p>
+        <div className="row" style={{ gap: 6, alignItems: 'center' }} aria-label="รายชื่อที่เลือก">
+          <span className="fam-chip"><b>เลือกแล้ว {chosen.length}</b> / {FAMILY_MAX} คน</span>
+          {chosen.map((m, i) => <span key={m.id} className="fam-chip">{i + 1}. {m.nick || m.name} <button type="button" className="mini" aria-label={`เอา ${m.name} ออก`} onClick={() => toggle(m.id)}>✕</button></span>)}
+        </div>
+        <input className="input" type="search" aria-label="ค้นหาสมาชิก" placeholder="🔎 พิมพ์ชื่อหรือชื่อเล่นเพื่อค้นหา แล้วติ๊กเลือก" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="fam-list" role="list" aria-label="รายชื่อสมาชิก">
+          {shown.map((m) => (
+            <label key={m.id} role="listitem" className="row" style={{ gap: 8, flexWrap: 'nowrap', padding: '0.25rem 0', borderBottom: '1px solid var(--line)' }}>
+              <input type="checkbox" checked={picked.includes(m.id)} onChange={() => toggle(m.id)} aria-label={`เลือก ${m.name}`} />
+              <span>{m.name}{m.nick ? <span className="muted small"> ({m.nick})</span> : null}{m.formAt ? <span className="small" style={{ color: '#1b6b2b' }}> ✓ อัปเดตแล้ว</span> : null}</span>
+            </label>
+          ))}
+          {shown.length === 0 && <p className="muted small" style={{ margin: '0.5rem 0' }}>ไม่พบชื่อที่ค้นหา</p>}
+          {!t && live.length > 60 && <p className="muted small" style={{ margin: '0.5rem 0' }}>แสดง 60 รายชื่อแรก — พิมพ์ค้นหาเพื่อหาคนอื่น</p>}
+        </div>
+        <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+          <input type="checkbox" checked={short} onChange={() => setShort(!short)} aria-label="ลิงก์สั้น" />
+          <span className="small"><b>ลิงก์สั้น</b> — ไม่เติมข้อมูลเดิมของแต่ละคนให้ในฟอร์ม (ลิงก์สั้นลงมาก เหมาะกับส่งหลายคนพร้อมกัน)</span>
+        </label>
+        {chosen.length > 0 && (
+          <div>
+            <button type="button" className="mini" aria-expanded={showText} onClick={() => setShowText(!showText)}>{showText ? '▲ ซ่อนข้อความ' : '▼ ดู/แก้ข้อความที่จะส่ง'}</button>
+            {showText && <textarea className="input" rows={14} aria-label="ข้อความที่จะส่ง" style={{ marginTop: 6 }} value={text} onChange={(e) => setText(e.target.value)} />}
+          </div>
+        )}
+        {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
+        <button type="button" className="btn btn--gold bigbtn btn--block" disabled={chosen.length === 0} onClick={copy}>📋 คัดลอกข้อความ + {chosen.length} ลิงก์</button>
+        <button type="button" className="btn btn--ghost btn--block" onClick={copyGeneral}>ลิงก์ทั่วไปให้ทุกคนพิมพ์ชื่อเอง (ลิงก์เดียว)</button>
+      </div>
+    </div>
+  )
+}
+
+/** เกณฑ์เปลี่ยนสถานะอัตโนมัติ (ความถี่การมานมัสการ): แก้ได้ → ดูตัวอย่างคนที่จะเปลี่ยน → บันทึกแล้วปรับทุกคนทันที */
+function StatusRulesSheet({ members, attendance, put, onClose }: { members: ChurchMember[]; attendance: Attendance[]; put: (x: ChurchMember[]) => boolean; onClose: () => void }) {
+  const { settings, save } = useSettings()
+  const [cfg, setCfg] = useState(() => effectiveStatusRules(settings.statusRules))
+  const [msg, setMsg] = useState('')
+  const today = todayISO()
+  const live = members.filter((x) => !x.deleted)
+  const moves = proposeStatusMoves(live, attendance, today, cfg)
+  const warns = statusRuleWarnings(cfg)
+  const changed = JSON.stringify(cfg) !== JSON.stringify(effectiveStatusRules(settings.statusRules))
+  const num = (k: keyof typeof cfg, label: string, unit: string) => (
+    <label className="row" style={{ gap: 6, flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'space-between', padding: '0.2rem 0' }}>
+      <span>{label}</span>
+      <span className="row" style={{ gap: 4, flexWrap: 'nowrap', alignItems: 'center' }}><input className="input" style={{ width: '4.5rem' }} type="number" min={0} aria-label={label} value={cfg[k]} onChange={(e) => setCfg({ ...cfg, [k]: Math.max(0, Number(e.target.value)) })} /><span className="small muted">{unit}</span></span>
+    </label>
+  )
+  const save1 = () => {
+    if (!save({ statusRules: cfg })) return setMsg('ไม่มีสิทธิ์บันทึกเกณฑ์')
+    if (moves.length === 0) return setMsg('บันทึกเกณฑ์แล้ว — ตอนนี้ยังไม่มีใครต้องเปลี่ยนสถานะ')
+    if (settings.statusAuto === false) return setMsg(`บันทึกเกณฑ์แล้ว — มี ${moves.length} คนเข้าเกณฑ์ ปิดเปลี่ยนอัตโนมัติอยู่ กดปุ่ม “เปลี่ยนสถานะ” เพื่อปรับ`)
+    setMsg(put(applyStatusMoves(moves, today, Date.now())) ? `บันทึกเกณฑ์แล้ว และเปลี่ยนสถานะ ${moves.length} คนให้ตรงเกณฑ์ใหม่ทันที` : 'บันทึกเกณฑ์แล้ว แต่เปลี่ยนสถานะไม่สำเร็จ (ไม่มีสิทธิ์แก้ทะเบียน)')
+  }
+  return (
+    <Sheet title="เกณฑ์เปลี่ยนสถานะอัตโนมัติ" onClose={onClose}>
+      <p className="small muted" style={{ margin: 0 }}>วัดจากความถี่การมานมัสการที่ลงชื่อไว้ในระบบ (เดือนละหลายอาทิตย์ จึงนับ “มากี่ครั้ง” กับ “มาครบกี่เดือน” ควบคู่กัน) · ไม่ตัดสินคนที่ระบบยังมีข้อมูลลงชื่อไม่ครอบคลุมช่วงที่วัด</p>
+      <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <input type="checkbox" checked={settings.statusAuto !== false} onChange={() => setMsg(save({ statusAuto: settings.statusAuto === false }) ? (settings.statusAuto === false ? 'เปิดเปลี่ยนสถานะอัตโนมัติแล้ว' : 'ปิดเปลี่ยนสถานะอัตโนมัติแล้ว') : 'ไม่มีสิทธิ์บันทึก')} aria-label="เปลี่ยนสถานะอัตโนมัติ" />
+        <span><b>เปลี่ยนสถานะอัตโนมัติ</b><br /><span className="small muted">ระบบเปลี่ยนให้เองเมื่อเปิดแอปด้วยบัญชีที่แก้ทะเบียนได้ และแจ้งรายการให้เห็น</span></span>
+      </label>
+      <b>คนใหม่ → ผู้ร่วมนมัสการ</b>
+      {num('newMonths', 'มานมัสการมาแล้วอย่างน้อย', 'เดือน (นับจากครั้งแรก)')}
+      {num('newVisits', 'มาอย่างน้อย', 'ครั้ง ในช่วงนั้น')}
+      {num('newMonthsPresent', 'มาครบอย่างน้อย', 'เดือน (เดือนละ ≥ 1 ครั้ง)')}
+      {num('newLastDays', 'ครั้งล่าสุดไม่เกิน', 'วันที่แล้ว')}
+      <b>ผู้ร่วมนมัสการ → สมาชิกสำรอง</b>
+      {num('workMonths', 'เป็นผู้ร่วมต่อเนื่องเกิน', 'เดือน')}
+      {num('workVisits', 'มาอย่างน้อย', 'ครั้ง ในช่วงนั้น')}
+      {num('workMonthsPresent', 'มาครบอย่างน้อย', 'เดือน (เดือนละ ≥ 1 ครั้ง)')}
+      {num('workLastDays', 'ครั้งล่าสุดไม่เกิน', 'วันที่แล้ว')}
+      <button type="button" className="mini" onClick={() => setCfg(DEFAULT_STATUS_RULES)}>↺ คืนค่าตั้งต้น</button>
+      {warns.length > 0 && <ul role="alert" className="small" style={{ color: '#b45309', margin: 0, paddingLeft: '1.2rem' }}>{warns.map((w) => <li key={w}>⚠ {w}</li>)}</ul>}
+      <p style={{ margin: 0 }}><b>เข้าเกณฑ์ตอนนี้ {moves.length} คน</b>{changed ? ` (ตามเกณฑ์ที่กำลังแก้ · ถ้าบันทึก จะเปลี่ยนสถานะ${settings.statusAuto === false ? 'เมื่อกดเอง' : 'ทันที'})` : ''}</p>
+      {moves.length > 0 && (
+        <div style={{ maxHeight: '28vh', overflow: 'auto' }} role="list" aria-label="คนที่เข้าเกณฑ์เปลี่ยนสถานะ">
+          {moves.map((v) => <div key={v.m.id} role="listitem" style={{ borderBottom: '1px solid var(--line)', padding: '0.25rem 0' }}><b>{v.m.name}</b><br /><span className="small">{v.from} → <b>{v.to}</b></span><br /><span className="small muted">{v.why}</span></div>)}
+        </div>
+      )}
+      {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
+      <button type="button" className="btn btn--gold bigbtn btn--block" onClick={save1}>💾 บันทึกเกณฑ์{settings.statusAuto === false ? '' : ' + เปลี่ยนสถานะทันที'}</button>
+      {settings.statusAuto === false && moves.length > 0 && <button type="button" className="btn btn--ghost btn--block" onClick={() => setMsg(put(applyStatusMoves(moves, today, Date.now())) ? `เปลี่ยนสถานะ ${moves.length} คนแล้ว` : 'ไม่มีสิทธิ์แก้ทะเบียน')}>เปลี่ยนสถานะ ({moves.length} คน)</button>}
+    </Sheet>
   )
 }
 

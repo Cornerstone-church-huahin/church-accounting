@@ -84,7 +84,8 @@ export function decodeGroupLink(d: string | null): GroupLink | null {
   } catch { return null }
 }
 export const groupUrl = (ms: { id: string; name: string; nick?: string }[], base = `${location.origin}${location.pathname}`) => `${base}#/form?d=${b64(JSON.stringify(makeGroupLink(ms)))}`
-export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
+export function makeFormLink(m: ChurchMember, now = Date.now(), minimal = false): FormLink {
+  if (minimal) return { v: 1, mid: m.id, name: m.name, nick: m.nick, exp: now + FORM_DAYS * 86_400_000 }   // ลิงก์สั้น: ไม่เติมข้อมูลเดิมให้
   return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.firstWorship, since: m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
 /**
@@ -134,7 +135,7 @@ export function decodeFormLink(d: string | null): FormLink | null {
   } catch { return null }
 }
 /** ลิงก์เต็มของแบบฟอร์ม (หน้า #/form) บนที่อยู่แอปปัจจุบัน */
-export const formUrl = (m: ChurchMember, base = `${location.origin}${location.pathname}`) => `${base}#/form?d=${encodeFormLink(makeFormLink(m))}`
+export const formUrl = (m: ChurchMember, base = `${location.origin}${location.pathname}`, minimal = false) => `${base}#/form?d=${encodeFormLink(makeFormLink(m, Date.now(), minimal))}`
 
 /** ข้อความที่สมาชิกส่งกลับ: บรรทัดอ่านง่าย + บรรทัดรหัสตรวจท้ายสุดให้แอปอ่านตอนนำเข้า */
 export function replyText(a: FormAnswer): string {
@@ -209,6 +210,29 @@ export function groupInvite(url: string): string {
     '• เสร็จแล้วกด “ส่งกลับทางไลน์” แล้วกดส่งข้อความถึงฝ่ายทะเบียนอีกครั้งหนึ่ง (ใช้เวลาประมาณ 3 นาที)',
     '',
     'ท่านเปิดลิงก์ซ้ำเพื่อแก้ไขหรือเพิ่มเติมข้อมูลได้ (สิ่งที่กรอกไว้ครั้งก่อนจะยังอยู่ในเครื่องของท่าน) ถ้าหาข้อมูลได้เพิ่มภายหลัง ให้กรอกเพิ่มแล้วกด “ส่งกลับทางไลน์” อีกครั้ง',
+    '',
+    'ขอบพระคุณมาก 🙏',
+    '',
+    `— ${APP_CREDIT}`,
+  ].join('\n')
+}
+
+/** ข้อความมาตรฐานที่ส่งหลายลิงก์ในชุดเดียว (เช่น คนในบ้านเดียวกัน — ลูกกรอกให้พ่อแม่ได้): แต่ละลิงก์เป็นของคนนั้นโดยเฉพาะ */
+export function familyInvite(people: { name: string; nick?: string; url: string }[]): string {
+  return [
+    'เรียน ท่านเจ้าของข้อความนี้',
+    '',
+    'ฝ่ายทะเบียน คริสตจักรศิลาเอก ขอความกรุณาตรวจและกรอกข้อมูลสมาชิกให้เป็นปัจจุบัน เพื่อใช้ในการดูแลและติดต่อสื่อสารภายในคริสตจักร',
+    '',
+    `📝 ลิงก์ด้านล่างมี ${people.length} ลิงก์ — แต่ละลิงก์เป็นของคนที่ระบุชื่อกำกับไว้เท่านั้น กดลิงก์ของใคร จะเป็นแบบฟอร์มข้อมูลของคนนั้น (ท่านช่วยกรอกให้คนอื่นในบ้านได้ เช่น ลูกกรอกให้พ่อแม่)`,
+    '',
+    ...people.flatMap((p, i) => [`${i + 1}. ${p.name}${p.nick ? ` (${p.nick})` : ''}`, p.url, '']),
+    'ในแบบฟอร์มของแต่ละคน',
+    '• ข้อมูลที่เรามีอยู่แล้วจะขึ้นให้ ตรวจดูให้ถูกต้อง แก้ไขได้ทุกจุด',
+    '• ช่องไหนยังว่าง กรุณากรอกให้ครบ',
+    '• เสร็จแล้วกด “ส่งกลับทางไลน์” แล้วกดส่งข้อความถึงฝ่ายทะเบียน (ใช้เวลาประมาณ 3 นาทีต่อคน) — ทำทีละลิงก์ ทีละคน',
+    '',
+    `⏳ ลิงก์ใช้ได้ ${FORM_DAYS} วัน เปิดซ้ำเพื่อแก้ไขหรือเพิ่มเติมได้ (สิ่งที่กรอกไว้ครั้งก่อนจะยังอยู่ในเครื่องของท่าน) ถ้าหาข้อมูลได้เพิ่มภายหลัง กรอกเพิ่มแล้วกดส่งกลับอีกครั้ง`,
     '',
     'ขอบพระคุณมาก 🙏',
     '',

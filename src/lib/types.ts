@@ -41,8 +41,15 @@ export interface Settings extends SharedItem {
   ageAuto?: boolean
   /** เปลี่ยนสถานะอัตโนมัติ: คนใหม่มา ≥ 3 เดือน → ผู้ร่วมนมัสการ · ผู้ร่วมนมัสการต่อเนื่อง > 1 ปี → สมาชิกสำรอง (ว่าง/true = เปิด) */
   statusAuto?: boolean
+  /** เกณฑ์ความถี่ของการเปลี่ยนสถานะอัตโนมัติ (ว่าง = ค่าตั้งต้น) */
+  statusRules?: Partial<StatusRuleCfg>
   /** ข้อความสรุปสถานการณ์การเงินถึงผู้นำงาน (แอดมินเขียน แสดงบนหน้า ภาพรวม) */
   leaderNote?: { text: string; at: number }
+}
+/** เกณฑ์เปลี่ยนสถานะอัตโนมัติ: คนใหม่ → ผู้ร่วมนมัสการ (new…) · ผู้ร่วมนมัสการ → สมาชิกสำรอง (work…) */
+export interface StatusRuleCfg {
+  newMonths: number; newVisits: number; newMonthsPresent: number; newLastDays: number
+  workMonths: number; workVisits: number; workMonthsPresent: number; workLastDays: number
 }
 /** กติกา 1 กลุ่ม: สมาชิกที่อายุ from–to ปี (และเพศตรง ถ้ากำหนด) ควรอยู่กลุ่มนี้ · on = เปิดใช้ */
 export interface AgeRule { group: string; from: number; to: number; gender?: 'ชาย' | 'หญิง'; on: boolean }

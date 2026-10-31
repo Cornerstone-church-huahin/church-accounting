@@ -33,15 +33,19 @@ try {
     localStorage.setItem('acct.settings.v1', JSON.stringify([{ id: 'settings', ageAuto: false, updated: 1 }]))   // ปิดย้ายกลุ่ม ให้ทดสอบสถานะล้วนๆ
     const iso = (d) => d.toISOString().slice(0, 10)
     const ago = (days) => iso(new Date(Date.now() - days * 86400000))
+    const lastSun = new Date(); lastSun.setUTCDate(lastSun.getUTCDate() - lastSun.getUTCDay())
+    const sun = (w) => iso(new Date(lastSun.getTime() - w * 7 * 86400000))
+    const who = { n1: (w) => w < 14, n2: (w) => w >= 20 && w < 25, n3: (w) => w < 6, w1: (w) => w % 2 === 0 && w < 80, w2: (w) => w % 2 === 0 && w < 80 }
     const byYear = {}
-    const add = (date, ...ids) => { const y = date.slice(0, 4); (byYear[y] ??= []).push({ id: `a-${date}-${ids[0]}`, updated: 1, date, ids }) }
-    add(ago(120), 'n1', 'n2', 'w1', 'w2'); add(ago(40), 'n3'); add(ago(7), 'n1', 'n3', 'w1', 'w2')
-    add(ago(500), 'w1', 'w2')   // ครั้งแรกเมื่อ ~16 เดือนก่อน → ผู้ร่วมนมัสการ w1 เกิน 1 ปีแล้ว
+    for (let w = 0; w < 100; w++) {
+      const date = sun(w), ids = ['other', ...Object.entries(who).filter(([, f]) => f(w)).map(([id]) => id)]
+      ;(byYear[date.slice(0, 4)] ??= []).push({ id: `a-${date}`, updated: 1, date, ids })
+    }
     for (const [y, items] of Object.entries(byYear)) localStorage.setItem(`acct.attendance.${y}.v1`, JSON.stringify(items))
     localStorage.setItem('acct.church-members.v1', JSON.stringify([
       { id: 'n1', updated: 1, name: 'คนใหม่มา 4 เดือน', status: '5.คนใหม่' },
       { id: 'n2', updated: 1, name: 'คนใหม่ไม่มาแล้ว', status: 'คนใหม่' },
-      { id: 'n3', updated: 1, name: 'คนใหม่มาไม่ถึง 3 เดือน', status: '4.คนใหม่', firstWorship: ago(40) },
+      { id: 'n3', updated: 1, name: 'คนใหม่มาไม่ถึง 3 เดือน', status: '4.คนใหม่' },
       { id: 'w1', updated: 1, name: 'ผู้ร่วมต่อเนื่อง', status: '4.ผู้ร่วมนมัสการ' },
       { id: 'w2', updated: 1, name: 'ผู้ร่วมเพิ่งเปลี่ยน', status: 'ผู้ร่วมนมัสการ', statusAt: ago(60) },
       { id: 'f1', updated: 1, name: 'สมาชิกสมบูรณ์', status: '1.สมบูรณ์  ( 1 )' },
@@ -64,6 +68,15 @@ try {
   await page.getByText('สถานะในทะเบียน', { exact: true }).waitFor({ timeout: 8000 })
   const dd = await page.getByRole('dialog').innerText()
   must(/สถานะในทะเบียน\s*สมบูรณ์ \( 1 \)/.test(dd) && !/\d\.สมบูรณ์/.test(dd), 'detail shows status without a number: ' + dd.slice(0, 300))
+  // เกณฑ์ปรับได้: เปิดหน้าเกณฑ์สถานะ → เห็นเหตุผล → แก้เกณฑ์แล้วบันทึก → ปรับทันที
+  await page.keyboard.press('Escape'); await page.waitForTimeout(300)
+  await page.getByRole('button', { name: /เกณฑ์สถานะ/ }).click()
+  must(await page.getByLabel('มาอย่างน้อย').count() === 2, 'criteria inputs shown (new + worship)')
+  await page.getByRole('spinbutton', { name: 'มาอย่างน้อย' }).first().fill('99')
+  await page.getByText(/เข้าเกณฑ์ตอนนี้ 0 คน/).waitFor({ timeout: 5000 })
+  must(await page.getByText(/ถ้าบันทึก จะเปลี่ยนสถานะ/).count() === 1, 'preview line when criteria edited')
+  await page.getByRole('button', { name: /↺ คืนค่าตั้งต้น/ }).click()
+  must(true, 'reset')
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('statusauto-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
