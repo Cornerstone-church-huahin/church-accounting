@@ -13,7 +13,7 @@ import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPla
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
-import { applyAnswer, diffAnswer, findCandidates, nameVerdict, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
+import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
@@ -50,6 +50,7 @@ function MembersPage({ registry }: { registry?: boolean }) {
   const stores = [a3, a2, a1, a0] // ปีเก่า → ใหม่
   const rawItems = useMemo(() => stores.flatMap((st) => st.items), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const attendance = useMemo(() => toAttendance(rawItems), [rawItems])
+  const worshipDays = useMemo(() => attendance.filter((x) => x.ids.length > 0).map((x) => x.date).sort(), [attendance])   // วันที่มีบันทึกนมัสการในระบบ
   const checkins = useMemo(() => rawItems.filter((x): x is CheckIn => 'mid' in x), [rawItems])
   const recorders = useRecorders()
   const { settings, save } = useSettings()
@@ -99,9 +100,9 @@ function MembersPage({ registry }: { registry?: boolean }) {
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} onOpen={setDetail} />}
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
-      {tab === 'roster' && <Roster registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
+      {tab === 'roster' && <Roster worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
-      {shownDetail && <Detail lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -217,7 +218,7 @@ function Audit({ onOpen, result, criteria, canEdit, canTune, today, put, onCrite
 
 const statusKey = statusLabel
 
-function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
+function Roster({ worshipDays, registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [nameClean, setNameClean] = useState(false)
   const namePlan = useMemo(() => planNameClean(members), [members])
@@ -356,7 +357,7 @@ function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, r
       {canLog && (
         <div className="toolbar no-print">
           <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          {registry && <FormTools members={members} put={put} />}
+          {registry && <FormTools members={members} put={put} worshipDays={worshipDays} />}
           {canEdit && <><button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
           <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
@@ -436,7 +437,7 @@ function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, r
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { worshipDays: string[]; sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
@@ -491,14 +492,14 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, s
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.visits ? `${r.visits} ครั้ง · 12 เดือนล่าสุด ${r.recent} · ครั้งแรก ${fmtDate(r.firstAtt)} · ล่าสุด ${fmtDate(r.last)}` : <span className="muted">ยังไม่มีบันทึกลงชื่อ</span>}</dd>
         </div>
       </dl>
-      {formLink && <FormLinkBox m={m} put={put} />}
+      {formLink && <FormLinkBox m={m} put={put} worshipDays={worshipDays} />}
       {canLog && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
     </Sheet>
   )
 }
 
 /** ฝ่ายทะเบียน: คัดลอกลิงก์ให้สมาชิกคนนี้กรอกข้อมูลเอง (ไปวางในไลน์ของเขา) · ดูหน้าฟอร์มได้ */
-function FormLinkBox({ m, put }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean }) {
+function FormLinkBox({ m, put, worshipDays }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean; worshipDays: string[] }) {
   const [msg, setMsg] = useState('')
   const [importing, setImporting] = useState(false)
   const [open, setOpen] = useState(false)
@@ -518,14 +519,14 @@ function FormLinkBox({ m, put }: { m: ChurchMember; put: (x: ChurchMember[]) => 
       <button type="button" className="mini" style={{ marginTop: 6 }} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '▲ ซ่อนข้อความ' : '▼ ดู/แก้ข้อความที่จะส่ง'}</button>
       {open && <textarea className="input" rows={12} aria-label="ข้อความที่จะส่ง" style={{ marginTop: 6 }} value={text} onChange={(e) => setText(e.target.value)} />}
       {m.formAt && <p className="small muted" style={{ margin: '0.3rem 0 0' }}>นำเข้าข้อมูลจากแบบฟอร์มล่าสุดเมื่อ {new Date(m.formAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>}
-      {importing && <ImportSheet m={m} put={put} onClose={() => setImporting(false)} />}
+      {importing && <ImportSheet worshipDays={worshipDays} m={m} put={put} onClose={() => setImporting(false)} />}
       {msg && <p role="status" className="small" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
     </div>
   )
 }
 
 /** วางข้อความที่สมาชิกส่งกลับ → ตารางเทียบ เดิม → ใหม่ → ติ๊กช่องที่รับ → ยืนยันครั้งเดียว (ไม่เขียนทับอัตโนมัติ) */
-function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void; initial?: string; asMid?: string }) {
+function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { worshipDays: string[]; m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void; initial?: string; asMid?: string }) {
   const people = useChurchMembers()
   const plans = useVisitPlans()
   const [text, setText] = useState(initial)
@@ -534,8 +535,18 @@ function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember
   const a0 = text.trim() ? parseReply(text) : null
   const a = a0 && asMid ? { ...a0, mid: asMid } : a0   // ลิงก์ทั่วไป: ฝ่ายทะเบียนเลือกเองว่าเป็นสมาชิกคนไหน
   const owner = a && a.mid !== m.id ? people.items.find((x) => x.id === a.mid) : undefined
-  const g = a && a.mid === m.id ? withNoteGuess(m, a) : null   // ถ้าสมาชิกไม่ได้กรอกวันมาครั้งแรก แต่หมายเหตุมีวันที่ → เสนอเป็นวันมาครั้งแรก
-  const diffs = g ? diffAnswer(m, g.a).map((d) => (d.key === 'firstWorship' && g.guess ? { ...d, source: `อ่านจากหมายเหตุ “${g.guess.text}”${g.guess.yearOnly ? ' (ระบุเฉพาะปี → ใส่เป็น 1 ม.ค.)' : ''}` } : d)) : []
+  const g0 = a && a.mid === m.id ? withNoteGuess(m, a) : null   // ถ้าสมาชิกไม่ได้กรอกวันมาครั้งแรก แต่หมายเหตุมีวันที่ → เสนอเป็นวันมาครั้งแรก
+  // วันมาครั้งแรกที่เป็นค่าประมาณ → จับกับวันนมัสการที่มีบันทึกในระบบที่ใกล้ที่สุด (±3 วัน) · ไม่มีบันทึกใกล้เคียง = ตามที่สมาชิกเขียน
+  const written = g0?.a.first
+  const snapped = written && !g0?.guess?.yearOnly ? snapToWorshipDay(written, worshipDays) : null
+  const g = g0 && { ...g0, a: snapped && snapped !== written ? { ...g0.a, first: snapped } : g0.a }
+  const firstSource = g0 && written ? [
+    g0.guess ? `อ่านจากหมายเหตุ “${g0.guess.text}”${g0.guess.yearOnly ? ' (ระบุเฉพาะปี → ใส่เป็น 1 ม.ค.)' : ''}` : '',
+    snapped && snapped !== written ? `ปรับเป็นวันนมัสการที่มีบันทึกในระบบ ${fmtDate(snapped)} (สมาชิกเขียน ${fmtDate(written)})`
+      : worshipDays.length === 0 ? '' : written < worshipDays[0] ? 'ก่อนที่ระบบจะเริ่มบันทึกนมัสการ — ใช้ตามที่สมาชิกเขียน'
+      : snapped ? '' : g0.guess?.yearOnly ? '' : 'ไม่พบบันทึกนมัสการใกล้เคียง — ใช้ตามที่สมาชิกเขียน',
+  ].filter(Boolean).join(' · ') : ''
+  const diffs = g ? diffAnswer(m, g.a).map((d) => (d.key === 'firstWorship' && firstSource ? { ...d, source: firstSource } : d)) : []
   const changed = diffs.filter((d) => d.changed)
   const nv = a && a.mid === m.id ? nameVerdict(m.name, a.name) : null
   const birthGap = a?.birth && m.birth ? Math.abs(Number(a.birth.slice(0, 4)) - Number(m.birth.slice(0, 4))) : 0
@@ -594,7 +605,7 @@ function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember
  * 🔗 ลิงก์กลุ่ม = ลิงก์เดียวสำหรับรายชื่อที่กรองอยู่ (ส่งทีเดียวในห้องแชต ทุกคนเลือกชื่อตัวเอง)
  * 📥 วางข้อมูลจากสมาชิก = วางข้อความที่ได้รับที่เดียว ระบบหาเองว่าเป็นของใคร (ไม่ต้องเปิดทีละคน)
  */
-function FormTools({ members, put }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean }) {
+function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean; worshipDays: string[] }) {
   const [open, setOpen] = useState<'' | 'link' | 'paste'>('')
   const [msg, setMsg] = useState('')
   const [text, setText] = useState('')
@@ -625,9 +636,9 @@ function FormTools({ members, put }: { members: ChurchMember[]; put: (x: ChurchM
         </Sheet>
       )}
       {open === 'paste' && (picked && a
-        ? <ImportSheet m={picked} put={put} onClose={reset} initial={text} asMid={picked.id} />
+        ? <ImportSheet worshipDays={worshipDays} m={picked} put={put} onClose={reset} initial={text} asMid={picked.id} />
         : target
-          ? <ImportSheet m={target} put={put} onClose={reset} initial={text} />
+          ? <ImportSheet worshipDays={worshipDays} m={target} put={put} onClose={reset} initial={text} />
           : a && (a.mid === NEW_MID || asNew)
             ? <NewMemberSheet a={a} put={put} onClose={reset} />
             : (

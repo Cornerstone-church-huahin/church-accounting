@@ -139,3 +139,18 @@ export function spanText(fromIso: string, todayIso: string): string {
   if (y === 0 && mo === 0) return 'ไม่ถึง 1 เดือน'
   return [y ? `${y} ปี` : '', mo ? `${mo} เดือน` : ''].filter(Boolean).join(' ')
 }
+
+/**
+ * วันที่ “มานมัสการครั้งแรก” ที่สมาชิกเขียนแบบประมาณ → จับกับวันนมัสการที่มีบันทึกในระบบที่ใกล้ที่สุด (ภายใน ±3 วัน = วันอาทิตย์ของสัปดาห์นั้น)
+ * ไม่มีบันทึกใกล้เคียง = null (ใช้ตามที่สมาชิกเขียน) · วันที่เท่ากันอยู่แล้ว/ใกล้เท่ากัน เลือกวันที่ก่อน
+ */
+export function snapToWorshipDay(iso: string, days: string[], windowDays = 3): string | null {
+  const t = Date.parse(`${iso}T00:00:00Z`)
+  if (!Number.isFinite(t)) return null
+  let best: { d: string; diff: number } | null = null
+  for (const d of days) {
+    const diff = Math.abs(Date.parse(`${d}T00:00:00Z`) - t) / 86_400_000
+    if (diff <= windowDays && (!best || diff < best.diff || (diff === best.diff && d < best.d))) best = { d, diff }
+  }
+  return best ? best.d : null
+}
