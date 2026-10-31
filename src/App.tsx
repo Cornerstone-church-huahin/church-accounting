@@ -20,6 +20,7 @@ import DetailGate from './components/DetailGate'
 import Settings from './pages/Settings'
 import Install from './pages/Install'
 import Join from './pages/Join'
+import MemberFormPage from './pages/MemberFormPage'
 
 // HashRouter: ใช้ได้บนทุก Static Hosting (GitHub Pages) โดยไม่ต้องตั้งค่า rewrite
 // MemoryRouter: ใช้เฉพาะไฟล์พรีวิว (npm run build:preview) ที่เปิดในกรอบซึ่งไม่มี URL จริง
@@ -31,6 +32,8 @@ export default function App() {
   return (
     <Router {...(import.meta.env.VITE_EMBED ? { initialEntries: [startAt] } : {})}>
       <Routes>
+        {/* แบบกรอกข้อมูลสำหรับสมาชิก: หน้าเดียวอิสระ ไม่ต้องเข้าแอป/ไม่ต้องเชื่อมต่อ */}
+        <Route path="form" element={<MemberFormPage />} />
         <Route element={<AppShell />}>
           <Route index element={<HomeHub />} />
           <Route path="income" element={<Income />} />

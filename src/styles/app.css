@@ -1438,3 +1438,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 /* ข้อพระคัมภีร์: ชิดล่างของหน้า ใกล้ส่วนลงนาม (เนื้อหาด้านบนขยายลงมาได้ตามจำนวนวาระ) */
 .letter__verse--bottom { margin: 0 0 8px; line-height: 1.35; }
+
+/* แบบกรอกข้อมูลสมาชิก (หน้าอิสระ) */
+.mform { max-width: 560px; margin: 0 auto; padding: 16px; }
+.mform__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }

@@ -215,7 +215,7 @@ function MeetingRoom() {
   if (tab && k === 'health') return <ChurchHealth n={tab.n} name={tab.name} />
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
-  if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><HealthButton n={2} /><CalToggle n={2} /><Members /></>
+  if (tab?.n === 2) return <><WorkHead n={tab.n} name={tab.name} /><HealthButton n={2} /><CalToggle n={2} /><Members registry /></>
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
