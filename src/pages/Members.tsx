@@ -1174,9 +1174,9 @@ function Stats({ attendance, members }: { attendance: Attendance[]; members: Chu
         </figure>
       </section>
       {stat && (
-        <div className="row row--between no-print" style={{ flexWrap: 'nowrap', margin: '0.2rem 0 0.5rem' }}>
-          <span className="small muted" style={{ minWidth: 0 }}>สรุป {fmtDateLong(picked)} · {stat.count} คน</span>
-          <button type="button" className="btn btn--gold" onClick={() => setSharing(true)} aria-label={`แชร์สรุปนมัสการ ${fmtDateLong(picked)}`}>📤 แชร์สรุป</button>
+        <div className="sharebar no-print">
+          <span className="small muted">สรุป {fmtDate(picked)} · {stat.count} คน</span>
+          <button type="button" className="mini sharebar__b" onClick={() => setSharing(true)} aria-label={`แชร์สรุปนมัสการ ${fmtDateLong(picked)}`}>📤 แชร์</button>
         </div>
       )}
       {sharing && stat && <ShareReportSheet report={reportFromPeople(picked, stat.people, members)} onClose={() => setSharing(false)} />}

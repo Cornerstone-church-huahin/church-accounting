@@ -1542,3 +1542,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .kpi--tight span { font-size: 0.68rem; line-height: 1.1; display: block; }
 .card--tight { padding: 0.45rem 0.7rem; margin: 0.3rem 0; }
 .card--tight h2 { font-size: 0.9rem; margin: 0 0 0.2rem; }
+
+/* แถบแชร์สรุป (ยอดผู้มา): บรรทัดเดียว ปุ่มเล็ก */
+.sharebar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.15rem 0 0.3rem; }
+.sharebar > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sharebar__b { flex: none; white-space: nowrap; background: #d4af37; color: #1a2b4c; border: 0; font-weight: 700; min-height: 2rem; padding: 0 0.75rem; font-size: 0.85rem; }
