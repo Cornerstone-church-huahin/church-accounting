@@ -252,7 +252,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (kind !== 'notice') return
     const t = agendaItems(l).map((x) => x.t.trim())
     if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) set({ agenda: noticeAgenda(l.date || todayISO()) })
-    // เนื้อความตั้งต้น (รุ่นเก่า หรือรุ่นใหม่ที่ตัดบรรทัดหาย) ที่ยังไม่ได้แก้ → ใช้แบบ 3 บรรทัดมาตรฐาน (เวลา / ณ ห้องประชุม ขึ้นบรรทัดใหม่)
+    // เนื้อความตั้งต้น (รุ่นเก่า หรือรุ่นที่แบ่งบรรทัดต่างกัน) ที่ยังไม่ได้แก้ → ใช้แบบ 2 บรรทัดมาตรฐาน (ด้วยคณะ… / เวลา 13.00 น. ณ ห้องประชุม…)
     const base = l.date || todayISO(), std = fillNotice(LETTER_KINDS.notice.blank.body, base), flat = (x: string) => x.replace(/\s+/g, ' ').trim()
     if (l.body !== std && (l.body === fillNotice(OLD_NOTICE_BODY, base) || flat(l.body) === flat(std))) set({ body: std })
     // รุ่นก่อนเติมข้อย่อยตัวอย่าง (6.x/7.x/8.x) ให้ — ถ้ายังมีแต่ข้อย่อยพวกนั้น ตัดออก เหลือวาระ 1–10
