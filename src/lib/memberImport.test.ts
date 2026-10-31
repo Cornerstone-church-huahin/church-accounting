@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAnswer, diffAnswer, findCandidates, guessDateFromNote, nameVerdict, normName, snapToWorshipDay, spanText, withNoteGuess } from './memberImport'
+import { applyAnswer, diffAnswer, sinceFromFirst, findCandidates, guessDateFromNote, nameVerdict, normName, snapToWorshipDay, spanText, withNoteGuess } from './memberImport'
 import type { ChurchMember } from './types'
 
 const m = { id: 'm1', updated: 1, name: 'วีรชัย ใจดี', nick: 'ชัย', tel: '081', birth: '1990-01-01' } as ChurchMember
@@ -52,7 +52,7 @@ describe('memberImport', () => {
     expect(guessDateFromNote('1 ต.ค. 2570', t)).toBeNull()   // อนาคตไม่เอา
     expect(guessDateFromNote('', t)).toBeNull()
   })
-  it('หมายเหตุช่วยเติม “มาครั้งแรก” เท่านั้น ไม่แตะวันรับเป็นสมาชิก · ที่สมาชิกกรอกเองมาก่อน', () => {
+  it('หมายเหตุช่วยเติม “มาครั้งแรก” เท่านั้น (ตารางเทียบไม่เสนอเปลี่ยนวันรับเป็นสมาชิก) · ที่สมาชิกกรอกเองมาก่อน', () => {
     const mm = { ...m, since: '2022-12-11' } as ChurchMember
     const g = withNoteGuess(mm, { mid: 'm1', name: 'x', note: 'เป็นสมาชิกวันที่1ตค2014' })
     expect(g.a.first).toBe('2014-10-01')
@@ -62,7 +62,7 @@ describe('memberImport', () => {
     expect(d.find((x) => x.key === 'since')?.changed).toBe(false)
     const out = applyAnswer(mm, g.a, new Set(['firstWorship']))
     expect(out.firstWorship).toBe('2014-10-01')
-    expect(out.since).toBe('2022-12-11')
+    expect(out.since).toBe('2014-10-01')   // วันตั้งต้น 11/12/2565 เปลี่ยนตามวันมาครั้งแรกที่นำเข้า
     // สมาชิกกรอกวันมาครั้งแรกเอง → ไม่เอาจากหมายเหตุ
     expect(withNoteGuess(mm, { mid: 'm1', name: 'x', first: '2010-05-01', note: '1 ต.ค. 2014' }).a.first).toBe('2010-05-01')
   })
@@ -90,5 +90,16 @@ describe('memberImport', () => {
     const n = applyAnswer(m, a, new Set(['address', 'geo'] as const))
     expect(n.address).toBe('1 ถ.เพชรเกษม หัวหิน')
     expect([n.lat, n.lng]).toEqual([12.5712, 99.9577])
+  })
+  it('วันรับเป็นสมาชิกตั้งต้น 11/12/2565 เปลี่ยนตามวันมานมัสการครั้งแรก · วันอื่นไม่แตะ', () => {
+    expect(sinceFromFirst({ firstWorship: '2014-10-01', since: '2022-12-11' })).toBe('2014-10-01')
+    expect(sinceFromFirst({ firstWorship: '2014-10-01' })).toBeUndefined()   // ช่องว่างไม่แตะ (เปลี่ยนเฉพาะค่าตั้งต้น)
+    expect(sinceFromFirst({ firstWorship: '2014-10-01', since: '2016-05-01' })).toBeUndefined()
+    expect(sinceFromFirst({ since: '2022-12-11' })).toBeUndefined()
+    const base = { ...m, since: '2022-12-11' } as ChurchMember
+    const a = { mid: 'm1', name: 'วีรชัย ใจดี', first: '2014-10-01' }
+    const n = applyAnswer(base, a, new Set(['firstWorship'] as const))
+    expect([n.firstWorship, n.since]).toEqual(['2014-10-01', '2014-10-01'])
+    expect(applyAnswer({ ...base, since: '2016-05-01' } as ChurchMember, a, new Set(['firstWorship'] as const)).since).toBe('2016-05-01')
   })
 })

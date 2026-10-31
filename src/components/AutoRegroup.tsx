@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { can } from '../lib/access'
 import { effectiveRules, mergeGroupNames, proposeRegroup } from '../lib/ageGroups'
+import { sinceFromFirst } from '../lib/memberImport'
+import { SINCE_PLACEHOLDER } from '../lib/memberForm'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { todayISO, yearOf } from '../lib/money'
@@ -44,6 +46,14 @@ export default function AutoRegroup() {
       const m = items.find((x) => x.id === id)!
       apply(id, { group: to })
       log.push({ name: m.name, text: `กลุ่ม ${m.group} → ${to} (รวมชื่อกลุ่มซ้ำ)` })
+    }
+    // 1.6) วันรับเป็นสมาชิกยังเป็นค่าตั้งต้น (11/12/2565) แต่มีวันมานมัสการครั้งแรกแล้ว → ใช้วันมาครั้งแรก
+    for (const m of items) {
+      if (m.since !== SINCE_PLACEHOLDER) continue
+      const s = sinceFromFirst(m)
+      if (!s) continue
+      apply(m.id, { since: s })
+      log.push({ name: m.name, text: `วันรับเป็นสมาชิก 11/12/2565 (ค่าตั้งต้น) → ${s} (ตามวันมานมัสการครั้งแรก)` })
     }
     const view = () => items.map((m) => (patches.has(m.id) ? { ...m, ...patches.get(m.id) } : m))
     // 2) เปลี่ยนสถานะตามระยะเวลาที่มานมัสการ

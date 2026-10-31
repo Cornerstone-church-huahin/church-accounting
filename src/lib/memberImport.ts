@@ -1,5 +1,5 @@
 import { fmtDate } from './money'
-import type { FormAnswer } from './memberForm'
+import { SINCE_PLACEHOLDER, type FormAnswer } from './memberForm'
 import type { ChurchMember } from './types'
 
 /** ตัดคำนำหน้า ช่องว่าง จุด วงเล็บ และวรรณยุกต์/ทัณฑฆาต เพื่อเทียบชื่อที่สะกดต่างกันเล็กน้อย */
@@ -30,6 +30,10 @@ export type FieldKey = 'name' | 'nick' | 'tel' | 'lineId' | 'facebook' | 'gender
 export interface Diff { key: FieldKey; label: string; old: string; next: string; changed: boolean; /** ที่มาของค่า เช่น อ่านจากหมายเหตุ */ source?: string }
 
 const txt = (v?: string) => (v ?? '').trim()
+/** วันที่ตั้งต้นในช่อง “รับเป็นสมาชิก”: มาจากคอลัมน์เวลา (11 ธ.ค. 2565) ของทะเบียนเก่าที่นำเข้ามา — ไม่ใช่วันจริงของสมาชิก */
+/** วันรับเป็นสมาชิกที่ควรเป็น: มีวันมานมัสการครั้งแรก และช่องรับเป็นสมาชิกเป็นค่าตั้งต้น 11/12/2565 พอดี → ใช้วันมาครั้งแรก · ไม่ใช่กรณีนั้น = undefined (ไม่แตะ) */
+export const sinceFromFirst = (m: { firstWorship?: string; since?: string }): string | undefined =>
+  m.firstWorship && m.since === SINCE_PLACEHOLDER && m.since !== m.firstWorship ? m.firstWorship : undefined
 /** เทียบข้อมูลที่สมาชิกส่งกลับกับทะเบียน · ช่องที่สมาชิกเว้นว่างไม่ถือว่าเปลี่ยน (ไม่ลบข้อมูลเดิม) */
 export function diffAnswer(m: ChurchMember, a: FormAnswer): Diff[] {
   const row = (key: FieldKey, label: string, old: string, next: string): Diff => ({ key, label, old, next, changed: next !== '' && next !== old })
@@ -67,6 +71,8 @@ export function applyAnswer(m: ChurchMember, a: FormAnswer, keys: Set<FieldKey>)
   if (keys.has('skills') && txt(a.skills)) n.skills = txt(a.skills)
   if (keys.has('serve') && a.serve?.length) n.serve = a.serve
   if (keys.has('serveDays') && a.serveDays?.length) n.serveDays = a.serveDays
+  const s = sinceFromFirst(n)
+  if (s) n.since = s   // วันมาครั้งแรกเข้ามาแล้ว วันตั้งต้นของช่องรับเป็นสมาชิกเปลี่ยนตามทันที
   return n
 }
 
