@@ -11,7 +11,7 @@ import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
-import { letterDate, nextFirstSunday, noticeMeetingText } from '../lib/meetings'
+import { letterDate, nextFirstSunday, noticeAgenda, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
@@ -26,10 +26,10 @@ const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
   const was = blankOf('notice', l.date || todayISO()), now = blankOf('notice', newDate || todayISO())
   return { date: newDate, ...(l.toName === was.toName ? { toName: now.toName } : {}), ...(l.subject === was.subject ? { subject: now.subject } : {}), ...(l.body === was.body ? { body: now.body } : {}) }
 }
-const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: [...LETTER_KINDS[kind].agenda!] } : {}), attach: '', showAttach: false })
+const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: noticeAgenda(base) } : {}), attach: '', showAttach: false })
 const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (l.agenda ?? []).map((x) => (typeof x === 'string' ? { t: x } : x))
-/** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · เรื่องที่ 1, 2, … นับใหม่ทุกครั้งที่ขึ้นวาระใหม่ */
-const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.u ? (x.k === 'r' ? 'เรื่อง' : 'วาระ') : x.k === 'r' ? `เรื่องที่ ${++r}` : (r = 0, `วาระที่ ${++v}`))) }
+/** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · “ลำดับ” เป็นเลขย่อยตามวาระที่อยู่เหนือมัน (6.1, 6.2 … · ย้ายไปอยู่ใต้วาระ 7 ก็เป็น 7.1) */
+const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.u ? (x.k === 'r' ? 'ลำดับ' : 'วาระ') : x.k === 'r' ? (v ? `${v}.${++r}` : `ลำดับ ${++r}`) : (r = 0, `วาระที่ ${++v}`))) }
 /** บรรทัดที่ขึ้นบนหนังสือ: เรียงตามที่ลากไว้ทุกข้อ (ข้อที่ยังไม่พิมพ์ชื่อขึ้นเป็น ……… ให้เห็นโครงที่จัดไว้) */
 const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
@@ -108,7 +108,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
-          {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}><b>{x.label}</b> {x.t}</div>)}</div>}
+          {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}>{x.r ? `${x.label} ${x.t}` : <b>{x.label} {x.t}</b>}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
         </div>
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
@@ -405,7 +405,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         </div>
         <div className="field"><label htmlFor="il-body"><No n="7" ok={okOf['7']} />ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
-        {K.agenda && <AgendaEditor items={agendaItems(l)} onChange={(a) => set({ agenda: a })} />}
+        {K.agenda && <AgendaEditor items={agendaItems(l)} onChange={(a) => set({ agenda: a })} template={kind === 'notice' ? noticeAgenda(l.date || todayISO()) : undefined} />}
 
         {K.verse && (
           <div className="field"><label htmlFor="il-verse"><No n="8" ok={filled(l.verse)} />ข้อพระคัมภีร์ <span className="muted small">(ไม่บังคับ · ขึ้นชิดล่างของหน้า เหนือคำลงท้าย · ขึ้นบรรทัดใหม่ได้)</span></label>
@@ -572,7 +572,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
 }
 
 /** วาระการประชุม: กรอกเป็นข้อๆ · ลากที่แถบ ⠿ (กฎเลื่อน) เพื่อเรียงลำดับ เลขข้อเรียงใหม่อัตโนมัติ · เพิ่มวาระใหม่ต่อท้ายแล้วลากขึ้นไปแทรกได้ */
-function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void }) {
+function AgendaEditor({ items, onChange, template }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void; template?: AgendaItem[] }) {
   const rows = useRef<(HTMLDivElement | null)[]>([])
   const [drag, setDrag] = useState<number | null>(null)
   const labels = agendaLabels(items)
@@ -597,21 +597,22 @@ function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (a: 
     el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end)
   }
   return (
-    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(พิมพ์แค่ชื่อ · เลข “วาระที่/เรื่องที่” ใส่ให้เองเมื่อลากไปวาง)</span></label>
+    <div className="field" role="group" aria-label="วาระการประชุม"><label>วาระการประชุม <span className="muted small">(พิมพ์แค่ชื่อ · เลข “วาระที่/ลำดับ” ใส่ให้เองเมื่อลากไปวาง)</span></label>
       {items.map((x, i) => (
         <div key={i} ref={(el) => { rows.current[i] = el }} className={`agenda-row${x.k === 'r' ? ' agenda-row--r' : ''}${drag === i ? ' agenda-row--drag' : ''}`}>
           <b className="agenda-row__n">{labels[i]}</b>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={labels[i]} value={x.t} onChange={(e) => upd(i, e.target.value)} placeholder={x.k === 'r' ? 'ชื่อเรื่อง' : 'ชื่อวาระ เช่น แจ้งเพื่อทราบ'} />
+          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={labels[i]} value={x.t} onChange={(e) => upd(i, e.target.value)} placeholder={x.k === 'r' ? 'ชื่อลำดับ (ข้อย่อยใต้วาระ)' : 'ชื่อวาระ เช่น แจ้งเพื่อทราบ'} />
           <button type="button" className="agenda-row__grip" aria-label={`ลากเพื่อเลื่อน${labels[i]}`} title="ลากขึ้น/ลงเพื่อเรียงลำดับ" onPointerDown={(e) => start(e, i)} onKeyDown={(e) => { if (e.key === 'ArrowUp' && i > 0) swap(i, -1); if (e.key === 'ArrowDown' && i < items.length - 1) swap(i, 1) }}>⠿<small>👆</small></button>
           <button type="button" className="mini" aria-label={`ลบ${labels[i]}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>🗑️</button>
         </div>
       ))}
       <div className="row" style={{ gap: 6 }}>
         <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', u: true }])}>➕ เพิ่มวาระ</button>
-        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', k: 'r', u: true }])}>➕ เพิ่มเรื่อง</button>
+        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', k: 'r', u: true }])}>➕ เพิ่มลำดับ</button>
       </div>
-      {items.some((x) => x.u) && <span className="small" role="note">👆 ข้อที่ยังไม่มีเลข: กดค้างที่แถบ ⠿ แล้วลากไปวางตำแหน่งที่ต้องการ จึงจะได้เลขวาระที่/เรื่องที่ตามที่วาง</span>}
-      {items.length > 1 && <span className="small muted">“เรื่องที่” นับใหม่ใต้แต่ละวาระ · ตัวแรกของวาระเป็นวาระที่ 1 เอง</span>}
+      {template && <button type="button" className="mini" onClick={() => { if (items.length === 0 || confirm('แทนที่วาระทั้งหมดด้วยวาระมาตรฐานตามหนังสือต้นแบบ?')) onChange(template) }}>↺ ใช้วาระมาตรฐานตามต้นแบบ</button>}
+      {items.some((x) => x.u) && <span className="small" role="note">👆 ข้อที่ยังไม่มีเลข: กดค้างที่แถบ ⠿ แล้วลากไปวางตำแหน่งที่ต้องการ จึงจะได้เลขวาระที่/ลำดับตามที่วาง</span>}
+      {items.length > 1 && <span className="small muted">“ลำดับ” เป็นข้อย่อย: ลากไปไว้ใต้วาระไหนก็เป็นเลขของวาระนั้นให้เอง เช่น ใต้วาระที่ 6 → 6.1, 6.2 · ลากไปใต้วาระที่ 7 → 7.1, 7.2</span>}
     </div>
   )
 }
