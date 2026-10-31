@@ -142,10 +142,10 @@ try {
   // ลิงก์ส่งทั้งกลุ่ม: ลิงก์สั้นลิงก์เดียว ไม่มีรายชื่อในลิงก์ → สมาชิกพิมพ์ชื่อเอง → ฝ่ายทะเบียนจับคู่จากชื่อ
   if (process.env.SHOT4) await page.screenshot({ path: process.env.SHOT4 })
   // จุดสถานะการอัปเดต: เขียว = วางข้อมูลแล้ว (ดารา) · แดง = ยังไม่ได้ (คนอื่น)
-  must(await page.locator('ul.list').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 1 && await page.locator('ul.list').getByRole('img', { name: 'ยังไม่ได้นำเข้าข้อมูลที่สมาชิกกรอก' }).count() >= 1, 'green dot for the updated member, red for the others')
+  must(await page.locator('.pcards').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 1 && await page.locator('.pcards').getByRole('img', { name: 'ยังไม่ได้นำเข้าข้อมูลที่สมาชิกกรอก' }).count() >= 1, 'green dot for the updated member, red for the others')
   must(await page.getByRole('button', { name: /อัปเดตแล้ว 1/ }).count() === 1, 'legend counts the updated ones')
   await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
-  must(await page.locator('ul.list').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 0, 'filter "not updated yet" hides the green ones')
+  must(await page.locator('.pcards').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 0, 'filter "not updated yet" hides the green ones')
   await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
   // ส่งลิงก์แบบกลุ่ม: ป๊อปอัพเต็มหน้า เลือกรายชื่อเหมือนตะกร้า → ข้อความเดียวมีลิงก์แยกรายคน
   await page.locator('details.regtools').first().evaluate((el) => { el.open = true })

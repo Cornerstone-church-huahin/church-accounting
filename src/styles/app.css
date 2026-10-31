@@ -1497,3 +1497,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 .pcard--gone { background: var(--surface-2); }
 .pcard--gone .pcard__name { color: var(--ink-soft); }
+
+.regfilt { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.regfilt > .input { width: 6.5rem; min-height: 2.2rem; padding: 0.15rem 0.4rem; font-size: 0.85rem; }
+.regfilt .updleg { margin: 0; }

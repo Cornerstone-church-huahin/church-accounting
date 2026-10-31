@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { can } from '../lib/access'
-import { effectiveRules, proposeRegroup } from '../lib/ageGroups'
+import { effectiveRules, mergeGroupNames, proposeRegroup } from '../lib/ageGroups'
 import { useAttendance, useChurchMembers, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { todayISO, yearOf } from '../lib/money'
@@ -38,6 +38,12 @@ export default function AutoRegroup() {
     // 1) เอาเลขนำหน้าสถานะออก
     for (const m of items) {
       if (m.status && m.status !== statusLabel(m.status) && statusLabel(m.status) !== statusLabel(undefined)) apply(m.id, { status: statusLabel(m.status) })
+    }
+    // 1.5) รวมชื่อกลุ่มซ้ำ (ไม่มีเลข → มีเลข) ก่อนจัดกลุ่มตามอายุ
+    for (const [id, to] of mergeGroupNames(items)) {
+      const m = items.find((x) => x.id === id)!
+      apply(id, { group: to })
+      log.push({ name: m.name, text: `กลุ่ม ${m.group} → ${to} (รวมชื่อกลุ่มซ้ำ)` })
     }
     const view = () => items.map((m) => (patches.has(m.id) ? { ...m, ...patches.get(m.id) } : m))
     // 2) เปลี่ยนสถานะตามระยะเวลาที่มานมัสการ

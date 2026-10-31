@@ -67,7 +67,7 @@ try {
   // หน้ารายละเอียดไม่มีเลขนำหน้า
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
   await page.getByRole('tab', { name: /รวมสมาชิก/ }).first().click()
-  await page.locator('ul.list').getByText('สมาชิกสมบูรณ์').first().click()
+  await page.locator('.pcards').getByText('สมาชิกสมบูรณ์', { exact: false }).first().click()
   await page.getByText('สถานะในทะเบียน', { exact: true }).waitFor({ timeout: 8000 })
   const dd = await page.getByRole('dialog').innerText()
   must(/สถานะในทะเบียน\s*สมบูรณ์ \( 1 \)/.test(dd) && !/\d\.สมบูรณ์/.test(dd), 'detail shows status without a number: ' + dd.slice(0, 300))

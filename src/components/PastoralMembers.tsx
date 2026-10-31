@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { canRole, canWork } from '../lib/access'
 import MultiPick from './MultiPick'
 import { useAttendance, useChurchMembers } from '../lib/data'
+import type { ChurchMember } from '../lib/types'
 import { useRole } from '../lib/members'
 import { hasCoord } from '../lib/geo'
 import { todayISO } from '../lib/money'
@@ -62,7 +63,7 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
  */
 /** work = ห้องงานที่เปิดหน้านี้ (ใช้ตรวจสิทธิ์ดู): งานอภิบาล (4) และงานอนุชน (9) ใช้หน้าเดียวกัน ข้อมูลสมาชิกชุดเดียวกัน */
 /** query: คำค้นชื่อ/นามสกุล/ชื่อเล่น/รหัส/เบอร์/หมายเหตุ (ใช้ในหน้ารวมสมาชิกของงานทะเบียน) · onOpen: ใส่เมื่อใช้ในงานทะเบียน (แอดมิน) — แตะการ์ดเพื่อเปิดรายละเอียดและแก้ไขได้ */
-export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: { work?: number; onOpen?: (id: string) => void; query?: string; slot?: React.ReactNode } = {}) {
+export default function PastoralMembers({ work = 4, onOpen, query = '', slot, idFilter, cardExtra }: { work?: number; onOpen?: (id: string) => void; query?: string; slot?: React.ReactNode; /** กรองเพิ่ม (งานทะเบียน): แสดงเฉพาะรหัสที่อยู่ในชุดนี้ */ idFilter?: Set<string> | null; /** ข้อความ/ปุ่มเสริมใต้การ์ดแต่ละคน (งานทะเบียน) */ cardExtra?: (m: ChurchMember) => React.ReactNode } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
@@ -78,7 +79,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: 
   const stats = useMemo(() => visitStats(att, todayISO()), [att])
   const all = people.items
   const qn = query.trim().toLowerCase().replace(/\s+/g, '')
-  const sel = useMemo(() => all.filter((m) => (gs.length === 0 || gs.some((x) => inGroup(m, x))) && (!qn || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(qn))), [all, gs, qn])
+  const sel = useMemo(() => all.filter((m) => (gs.length === 0 || gs.some((x) => inGroup(m, x))) && (!idFilter || idFilter.has(m.id)) && (!qn || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(qn))), [all, gs, qn, idFilter])
   const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData, yearServices: r.yearServices } }, [all, att])
   const head = useMemo(() => headline(all), [all])
   const ages = useMemo(() => ageBands(sel, today), [sel, today])
@@ -173,6 +174,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: 
                     <div className="pcard__body">
                       <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
                       <span className="pcard__l2">{ev.hasData ? <>มาทั้งหมด <b>{lifeTimes(m.id).toLocaleString('th-TH')}</b> ครั้ง · </> : null}กลุ่ม {grp(m)}</span>
+                      {cardExtra?.(m)}
                     </div>
                   </li>
                 ))}
@@ -235,6 +237,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: 
                         </>
                       )
                       : <span className="pcard__l2">ยังไม่มีบันทึกลงชื่อนมัสการ</span>}
+                  {cardExtra?.(m)}
                 </div>
               </li>
             ))}
