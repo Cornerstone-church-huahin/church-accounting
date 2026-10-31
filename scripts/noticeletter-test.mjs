@@ -69,7 +69,9 @@ try {
   await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
   await body(admin).waitFor({ timeout: 15000 })
   const bt = await body(admin).inputValue(), tn = await admin.locator('#il-tn').inputValue()
-  must(/ประจำเดือน\S+\s+ในวันอาทิตย์ที่ \d{1,2} \S+ พ\.ศ\. 25\d\d เวลา 13\.00 น\.\s+ณ ห้องประชุมธรรมกิจ/.test(bt), 'auto first-Sunday text: ' + bt)
+  must(/ประชุมสามัญประจำเดือน\S+\s+เวลา 13\.00 น\.\s+ณ ห้องประชุมธรรมกิจ/.test(bt) && !/ในวันอาทิตย์ที่/.test(bt), 'body: month, time, place (date lives in the heading): ' + bt)
+  const head = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
+  must(head.includes('วาระการประชุมธรรมกิจคริสตจักรศิลาเอก') && /สมัยสามัญ ครั้งที่ \S+\/\d{4}/.test(head) && /วันอาทิตย์ที่ \d{1,2} \S+ \d{4}/.test(head), 'letter heading has the 3 standard lines: ' + head.slice(0, 300))
   must(/^แจ้งประชุมคณะธรรมกิจ ประจำเดือน\S+ พ\.ศ\. 25\d\d$/.test(await admin.locator('#il-sub').inputValue()), 'auto subject')
   must(/^\d{1,2}\/\d{1,2}\/\d{4} แจ้งการประชุมประจำเดือนธรรมกิจ$/.test(tn), 'auto numeric date in to-name: ' + tn)
   // ฉบับเก่าที่ยังเป็นวาระตั้งต้น 4 ข้อ (ไม่ได้แก้) → เปิดแล้วปรับเป็น 10 วาระตามต้นแบบเอง
@@ -110,6 +112,8 @@ try {
   pp = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
   must(pp.includes('7.1 ลำดับทดสอบ') && pp.includes('วาระที่ 1 ข้อห้า'), 'paper shows 7.1 and วาระที่ 1: ' + pp.slice(0, 600))
   await admin.locator('#il-date').fill('2026-12-02')
+  { const h2 = await admin.getByLabel('ตัวอย่างหนังสือ').innerText(); must(h2.includes('สมัยสามัญ ครั้งที่ ธ.ค./2026') && h2.includes('วันอาทิตย์ที่ 6 ธันวาคม 2026'), 'heading follows the first Sunday of the month automatically: ' + h2.slice(0, 250)) }
+  if (process.env.SHOT) await admin.getByLabel('ตัวอย่างหนังสือ').screenshot({ path: process.env.SHOT })
   must((await admin.locator('#il-sub').inputValue()) === 'แจ้งประชุมคณะธรรมกิจ ประจำเดือนธันวาคม พ.ศ. 2569', 'subject follows date month: ' + await admin.locator('#il-sub').inputValue())
   await admin.locator('#il-sub').fill('เรื่องที่แก้เอง')
   await admin.locator('#il-date').fill('2027-02-10')
