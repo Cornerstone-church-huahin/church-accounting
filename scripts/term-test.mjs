@@ -22,6 +22,8 @@ async function run(role, works, fn) {
 }
 try {
   await run('admin', [], async (page) => {
+    const dev = await page.getByRole('note', { name: /อยู่ระหว่างการพัฒนา/ }).innerText()
+    must(/อยู่ระหว่างการพัฒนา/.test(dev) && /ออกแบบและพัฒนาระบบโดย มน.สมเจต เสมาทอง/.test(dev), 'dev note + credit: ' + dev)
     const box = page.getByLabel('วาระงานเลขา')
     await box.waitFor({ timeout: 8000 })
     const y = new Date().getFullYear() + 543 + 1
