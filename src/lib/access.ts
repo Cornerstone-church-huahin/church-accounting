@@ -161,6 +161,19 @@ export function myRole(): AccessRole {
 }
 
 /** ใช้ก่อนเขียนข้อมูล: true = ถูกกัน (สิทธิ์ไม่พอ) พร้อมแจ้งผู้ใช้ */
+/**
+ * “ดูรายละเอียด” ที่ได้จากตำแหน่งผู้ช่วยงาน/ที่ปรึกษาของห้องเหรัญญิก (เพื่อดูรายงานการเงิน) ใช้แก้ข้อมูลห้องอื่นไม่ได้
+ * — สิทธิ์แก้ข้อมูลของห้องอื่นที่อิงสิทธิ์ detail ต้องมาจากบทบาทบัญชี (แอดมิน/ผู้บันทึกบัญชี/ผู้ตรวจ) หรือเป็นผู้ดูแลขึ้นไปของห้องเหรัญญิก
+ */
+const financeViewOnly = (role: AccessRole): boolean => { const l = financeLevel(); return (l === 'helper' || l === 'advisor') && !canRole(role, 'detail') }
+export const canEditDetail = (role: AccessRole): boolean => can(role, 'detail') && !financeViewOnly(role)
+/** เช็คสิทธิ์เขียน (เหมือน blocked แต่ detail = สิทธิ์แก้ ไม่รวมสิทธิ์ดูอย่างเดียวของห้องเหรัญญิก) */
+export function blockedEdit(p: Perm): boolean {
+  if (p !== 'detail') return blocked(p)
+  if (canEditDetail(myRole())) return false
+  window.dispatchEvent(new Event(READONLY_EVENT))
+  return true
+}
 export function blocked(p: Perm): boolean {
   if (can(myRole(), p)) return false
   window.dispatchEvent(new Event(READONLY_EVENT))
