@@ -11,7 +11,7 @@ import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
-import { WORK_LEVELS, workLevelHelp, WORK_LEVEL_LABEL, workLevelOf, type WorkLevel } from '../lib/access'
+import { WORK_LEVELS, workLevelHelp, WORK_LEVEL_LABEL, workLevelOf, type Member, type WorkLevel } from '../lib/access'
 import { buildInstallOnlyMessage, buildInviteMessage, installUrlOf } from '../lib/inviteMessage'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
@@ -253,31 +253,7 @@ function Members() {
                     </details>
                   )}
                   {!rolesOf(x).includes('admin') && !rolesOf(x).includes('fundkeeper') && (
-                    <div style={{ flexBasis: '100%' }} role="group" aria-label={`ห้องงานและตำแหน่งของ ${x.name}`}>
-                      <p className="small" style={{ margin: '0.2rem 0' }}><b>ห้องงานและตำแหน่ง</b> <span className="muted">เปิดสวิตช์ = ได้ไอคอนห้อง · ไม่ต้องส่งลิงก์ใหม่ · เห็นเมื่อซิงก์</span></p>
-                      <ul className="rgrid" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
-                        {MEETING_TABS.map((t) => {
-                          const lv = workLevelOf(x, t.n)
-                          const setLv = (next: WorkLevel | null) => {
-                            const pos: Record<number, WorkLevel | null> = {}
-                            for (const z of MEETING_TABS) pos[z.n] = workLevelOf(x, z.n)
-                            pos[t.n] = next
-                            if (m.setPositions(x.id, pos)) flash(next ? `${x.name} เป็น${WORK_LEVEL_LABEL[next]}ของ${t.name}` : `เอา ${x.name} ออกจาก${t.name}`)
-                          }
-                          return (
-                            <li key={t.n} className="rgrid__row">
-                              <span className="rgrid__n" title={lv ? workLevelHelp(lv, t.n) : undefined}>{t.name.replace(/^งาน/, '')}</span>
-                              <select className="input rgrid__sel" disabled={!lv} aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} title={lv ? workLevelHelp(lv, t.n) : undefined} value={lv ?? ''} onChange={(e) => setLv((e.target.value || null) as WorkLevel | null)}>
-                                <option value="">—</option>
-                                {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
-                              </select>
-                              <button type="button" role="switch" aria-checked={!!lv} aria-label={t.name} className={`swt swt--sm${lv ? ' swt--on' : ''}`} onClick={() => setLv(lv ? null : 'helper')}><i /></button>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                      <details><summary className="small">ตำแหน่งแต่ละแบบทำอะไรได้</summary><ul className="small">{WORK_LEVELS.map((l) => <li key={l}><b>{WORK_LEVEL_LABEL[l]}</b> — {workLevelHelp(l)}</li>)}</ul></details>
-                    </div>
+                    <RoomRows x={x} onSet={(pos, text) => { if (m.setPositions(x.id, pos)) flash(text) }} />
                   )}
                 </>
               ) : <span className="badge">{rolesLabel(rolesOf(x))}{x.works?.length ? ` · ${x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ')}` : ''}</span>}
@@ -655,6 +631,52 @@ function SwitchRow({ label, title, on, onChange, disabled, small }: { label: str
     <div className="swrow" title={title}>
       <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`swt${small ? ' swt--sm' : ''}${on ? ' swt--on' : ''}`} onClick={() => onChange(!on)}><i /></button>
       <span className="swrow__t"><b>{label}</b></span>
+    </div>
+  )
+}
+
+/** ห้องงานและตำแหน่งของผู้ใช้ 1 คน: แสดงเฉพาะห้องที่รับผิดชอบจริง + แถวว่าง 1 แถวไว้เพิ่มห้องใหม่ (เลือกห้อง → เลือกตำแหน่ง → เปิดสวิตช์) */
+function RoomRows({ x, onSet }: { x: Member; onSet: (pos: Record<number, WorkLevel | null>, text: string) => void }) {
+  const [room, setRoom] = useState('')
+  const [level, setLevel] = useState('')
+  const mine = MEETING_TABS.filter((t) => workLevelOf(x, t.n))
+  const positions = (): Record<number, WorkLevel | null> => { const pos: Record<number, WorkLevel | null> = {}; for (const z of MEETING_TABS) pos[z.n] = workLevelOf(x, z.n); return pos }
+  const free = MEETING_TABS.filter((t) => !workLevelOf(x, t.n))
+  const nameOf = (n: number) => MEETING_TABS.find((t) => t.n === n)?.name ?? `งาน ${n}`
+  const ready = !!room && !!level
+  return (
+    <div style={{ flexBasis: '100%' }} role="group" aria-label={`ห้องงานและตำแหน่งของ ${x.name}`}>
+      <p className="small" style={{ margin: '0.2rem 0' }}><b>ห้องงานและตำแหน่ง</b> <span className="muted">ส่งลิงก์ใหม่ไม่ต้อง · เห็นเมื่อซิงก์</span></p>
+      <ul className="rgrid" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
+        {mine.map((t) => {
+          const lv = workLevelOf(x, t.n)!
+          return (
+            <li key={t.n} className="rgrid__row">
+              <select className="input rgrid__sel rgrid__room" aria-label={`ห้องงานของ ${x.name} ${t.name}`} value={t.n} onChange={(e) => { const to = Number(e.target.value); if (to === t.n) return; const pos = positions(); pos[t.n] = null; pos[to] = lv; onSet(pos, `ย้าย ${x.name} จาก${t.name} ไป${nameOf(to)} (${WORK_LEVEL_LABEL[lv]})`) }}>
+                <option value={t.n}>{t.name}</option>
+                {free.map((f) => <option key={f.n} value={f.n}>{f.name}</option>)}
+              </select>
+              <select className="input rgrid__sel" aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} title={workLevelHelp(lv, t.n)} value={lv} onChange={(e) => { const pos = positions(); pos[t.n] = e.target.value as WorkLevel; onSet(pos, `${x.name} เป็น${WORK_LEVEL_LABEL[e.target.value as WorkLevel]}ของ${t.name}`) }}>
+                {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
+              </select>
+              <button type="button" role="switch" aria-checked="true" aria-label={t.name} className="swt swt--sm swt--on" onClick={() => { const pos = positions(); pos[t.n] = null; onSet(pos, `เอา ${x.name} ออกจาก${t.name}`) }}><i /></button>
+            </li>
+          )
+        })}
+        {free.length > 0 && (
+          <li className="rgrid__row">
+            <select className="input rgrid__sel rgrid__room" aria-label={`ห้องงานใหม่ของ ${x.name}`} value={room} onChange={(e) => setRoom(e.target.value)}>
+              <option value="">+ เลือกห้องงานเพิ่ม</option>
+              {free.map((f) => <option key={f.n} value={f.n}>{f.name}</option>)}
+            </select>
+            <select className="input rgrid__sel" aria-label={`ตำแหน่งใหม่ของ ${x.name}`} disabled={!room} value={level} onChange={(e) => setLevel(e.target.value)}>
+              <option value="">— ตำแหน่ง —</option>
+              {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
+            </select>
+            <button type="button" role="switch" aria-checked="false" aria-label={`เปิดห้องงานใหม่ของ ${x.name}`} disabled={!ready} className="swt swt--sm" onClick={() => { const pos = positions(); pos[Number(room)] = level as WorkLevel; onSet(pos, `${x.name} เป็น${WORK_LEVEL_LABEL[level as WorkLevel]}ของ${nameOf(Number(room))}`); setRoom(''); setLevel('') }}><i /></button>
+          </li>
+        )}
+      </ul>
     </div>
   )
 }
