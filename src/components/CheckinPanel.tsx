@@ -20,7 +20,7 @@ const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padSt
  */
 export default function CheckinPanel({ lite, readOnly, showStatus, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, onEdit, minYear }: {
   lite: boolean
-  /** ผู้ช่วยฝ่ายทะเบียน: ลงชื่อ/ลบรายการลงชื่อได้ แต่เพิ่มคนใหม่/แก้ข้อมูลสมาชิกไม่ได้ */
+  /** ผู้ช่วยฝ่ายทะเบียน: ลงชื่อ/ลบรายการลงชื่อ/เพิ่มคนที่มาครั้งแรกได้ แต่แก้ข้อมูลสมาชิกที่มีอยู่ไม่ได้ (ซ่อนปุ่มแก้ไข) */
   readOnly?: boolean
   showStatus?: boolean
   members: ChurchMember[]
@@ -124,13 +124,13 @@ export default function CheckinPanel({ lite, readOnly, showStatus, members, chec
           {shown.length === 0 ? (
             <div className="found__none">
               <p style={{ margin: 0 }}><b>ไม่พบรายชื่อ “{q.trim()}”</b> ในทะเบียน</p>
-              {readOnly ? <p className="pagehint" style={{ margin: 0 }}>ถ้าไม่มีชื่อในทะเบียน ให้แจ้งแอดมินเพิ่มชื่อก่อน</p> : <button type="button" className="btn btn--gold bigbtn btn--block" onClick={() => setAdding(true)}>＋ เพิ่มใหม่ “{q.trim()}”</button>}
+              <button type="button" className="btn btn--gold bigbtn btn--block" onClick={() => setAdding(true)}>＋ เพิ่มใหม่ “{q.trim()}”</button>
             </div>
           ) : (
             <>
               <p className="pagehint" style={{ margin: 0 }}>พบ {shown.length} คน — เลือกคนที่ใช่ แล้วกด “ลงทะเบียน”</p>
               <ul className="list list--tight">{shown.slice(0, 20).map((m) => row(m))}</ul>
-              {!readOnly && <button type="button" className="btn btn--ghost bigbtn btn--block" onClick={() => setAdding(true)}>ไม่ใช่คนข้างบน — ＋ เพิ่มใหม่</button>}
+              <button type="button" className="btn btn--ghost bigbtn btn--block" onClick={() => setAdding(true)}>ไม่ใช่คนข้างบน — ＋ เพิ่มใหม่</button>
             </>
           )}
         </div>
