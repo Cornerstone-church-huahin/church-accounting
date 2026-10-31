@@ -12,7 +12,7 @@ import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
-import { WORK_LEVELS, WORK_LEVEL_HELP, WORK_LEVEL_LABEL, workLevelOf, type WorkLevel } from '../lib/access'
+import { WORK_LEVELS, workLevelHelp, WORK_LEVEL_LABEL, workLevelOf, type WorkLevel } from '../lib/access'
 import { buildInstallOnlyMessage, buildInviteMessage, installUrlOf } from '../lib/inviteMessage'
 import { DEFAULT_MODEL, getGemini, publishSharedGemini, refreshSharedGemini, saveGemini, testGemini } from '../lib/gemini'
 import { be } from '../lib/money'
@@ -116,7 +116,7 @@ function Members() {
     } catch { /* ผู้ใช้ปิดหน้าต่างแชร์ */ }
   }
   const installUrl = installUrlOf(location.origin, location.pathname)
-  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link, level: inviteWork ? `${WORK_LEVEL_LABEL[inviteLevel]} ของ${MEETING_TABS.find((t) => t.n === inviteWork)?.name} — ${WORK_LEVEL_HELP[inviteLevel]}` : 'ผู้ดู (ดูข้อมูลทั่วไป ยังไม่ได้ระบุงาน)' }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
+  const share = () => send(buildInviteMessage({ forName: inviteFor, installUrl, inviteUrl: link, level: inviteWork ? `${WORK_LEVEL_LABEL[inviteLevel]} ของ${MEETING_TABS.find((t) => t.n === inviteWork)?.name} — ${workLevelHelp(inviteLevel, inviteWork)}` : 'ผู้ดู (ดูข้อมูลทั่วไป ยังไม่ได้ระบุงาน)' }), 'เข้าร่วมแอปบัญชีคริสตจักร', 'คัดลอกข้อความเชิญแล้ว วางในแชตส่วนตัวได้เลย (อย่าโพสต์ในกลุ่ม)')
   const shareInstall = () => send(buildInstallOnlyMessage(installUrl), 'ติดตั้งแอปบัญชีคริสตจักร', 'คัดลอกลิงก์ติดตั้งแล้ว')
   return (
     <Fold id="h-mem" open={m.isAdmin && m.pending.length > 0} title={<>👤 ผู้ใช้ร่วมและสิทธิ์ {m.isAdmin && m.pending.length > 0 && <span className="badge badge--gold">รออนุมัติ {m.pending.length}</span>}</>}>
@@ -136,7 +136,7 @@ function Members() {
                 {WORK_LEVELS.map((l) => (
                   <button key={l} type="button" role="radio" aria-checked={inviteLevel === l} className={`lvlcard${inviteLevel === l ? ' lvlcard--on' : ''}`} onClick={() => setInviteLevel(l)}>
                     <b>{WORK_LEVEL_LABEL[l]}</b>
-                    <span className="small">{WORK_LEVEL_HELP[l]}</span>
+                    <span className="small">{workLevelHelp(l, inviteWork)}</span>
                   </button>
                 ))}
               </div>
@@ -144,7 +144,7 @@ function Members() {
           )}
           <details className="lvlhelp"><summary><b>ℹ️ สรุปตำแหน่ง (ไว้ดูกันลืม · ใช้เหมือนกันทุกงาน)</b></summary>
             <ul className="list">
-              {WORK_LEVELS.map((l) => <li key={l} style={{ display: 'block' }}><b>{WORK_LEVEL_LABEL[l]}</b><br /><span className="small">{WORK_LEVEL_HELP[l]}</span></li>)}
+              {WORK_LEVELS.map((l) => <li key={l} style={{ display: 'block' }}><b>{WORK_LEVEL_LABEL[l]}</b><br /><span className="small">{workLevelHelp(l)}</span></li>)}
             </ul>
             <p className="small muted">แอดมินอยู่เหนือทุกงาน · ผู้ดูแลหลักเชิญหรือตั้งตำแหน่งเองไม่ได้ ต้องให้แอดมินตั้งให้ · งานเหรัญญิก: ผู้ดูแลหลัก = ทำงานบัญชีครบ · ผู้ช่วย/ที่ปรึกษา = ดูรายละเอียดอย่างเดียว · ยืนยันยอดนับ/รับรองใบเบิก ตอนนี้เป็นของแอดมิน (เพิ่ม “ผู้ตรวจ” ได้ภายหลัง) · สิทธิ์เฉพาะทาง (นมัสการ ดูแลกองทุน แอดมิน) ตั้งที่รายชื่อผู้ใช้ร่วม</p>
             <p className="small"><b>เปลี่ยนตำแหน่งของใครก็ได้ทุกเมื่อ:</b> ที่รายชื่อ “ผู้ใช้ร่วม” ด้านล่าง เปิด “ตำแหน่งในงาน” ของคนนั้นแล้วเลือกใหม่ ทันทีที่เลือกมีผลกับเขา · พักสิทธิ์หรือลบได้เช่นกัน</p>

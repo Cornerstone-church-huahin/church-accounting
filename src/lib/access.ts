@@ -179,6 +179,9 @@ export const WORK_LEVEL_HELP: Record<WorkLevel, string> = {
   helper: 'ลงปฏิทินงานและแชทกับแอดมินได้ · ข้อมูลอื่นของงานดูอย่างเดียว',
   advisor: 'แชทกับแอดมินได้ · ที่เหลือดูอย่างเดียว (ลงปฏิทินเองไม่ได้)',
 }
+/** คำอธิบายตำแหน่ง (ห้องงานทะเบียนมีสิทธิ์ของผู้ช่วยต่างจากห้องอื่น) */
+export const workLevelHelp = (l: WorkLevel, n?: number | null): string =>
+  n === 2 && l === 'helper' ? 'ลงชื่อนมัสการได้ และลบรายการลงชื่อที่ลงผิดได้ · ดูชื่อ ชื่อเล่น กลุ่ม รูป หมายเหตุ สถานะ (ดูอย่างเดียว) · ไม่เห็นข้อมูลส่วนตัวอื่น · แก้ไข/ลบสมาชิกไม่ได้ · ลงปฏิทินและแชทกับแอดมินได้' : WORK_LEVEL_HELP[l]
 export const WORK_PERMS: Record<WorkLevel, WorkPerm[]> = { lead: ['view', 'edit', 'calendar', 'chat'], helper: ['view', 'calendar', 'chat'], advisor: ['view', 'chat'] }
 export const levelCan = (l: WorkLevel, p: WorkPerm) => WORK_PERMS[l].includes(p)
 /** ตำแหน่งของคนนั้นในห้อง n (null = ไม่ได้อยู่ในห้องนี้) · อยู่ใน works แต่ไม่ได้ระบุตำแหน่ง = ผู้ดูแลหลัก */
@@ -187,6 +190,8 @@ export const workLevelOf = (m: { works?: number[]; workRoles?: Record<string, Wo
   if (r && WORK_LEVELS.includes(r) && m.works?.includes(n)) return r
   return m.works?.includes(n) ? 'lead' : null
 }
+/** งานทะเบียน = งานที่ 2: ผู้ช่วยฝ่ายทะเบียน = ลงชื่อ/ลบรายการลงชื่อที่ลงผิดได้ · ดูชื่อ ชื่อเล่น กลุ่ม รูป หมายเหตุ สถานะ (ดูอย่างเดียว) · ไม่เห็นข้อมูลส่วนตัวอื่น · แก้/ลบสมาชิกไม่ได้ · ไม่ล็อกให้เห็นแค่หน้าเดียว (บทบาทบัญชียังเป็นเดิม) */
+export const REGISTRY_WORK = 2
 /** ตำแหน่งของเครื่องนี้ในห้อง n: 'admin' (แอดมิน/โหมดทดลอง) · ผู้ดูแลหลัก/ผู้ช่วย/ที่ปรึกษา · null */
 export function myWorkLevel(n: number): 'admin' | WorkLevel | null {
   if (!getSync() || myRole() === 'admin') return 'admin'
@@ -194,6 +199,8 @@ export function myWorkLevel(n: number): 'admin' | WorkLevel | null {
   const mine = me && readAllMembers().find((m) => m.id === me.id)
   return mine && !mine.deleted ? workLevelOf(mine, n) : null
 }
+/** เป็นผู้ช่วยฝ่ายทะเบียนอยู่หรือไม่ (ตำแหน่ง “ผู้ช่วย” ในงานที่ 2 และบทบาทบัญชีไม่ได้ให้สิทธิ์สมาชิกอยู่แล้ว) */
+export const isRegistryHelper = (): boolean => myWorkLevel(REGISTRY_WORK) === 'helper' && !canRole(myRole(), 'worship') && !canRole(myRole(), 'detail')
 /** เครื่องนี้ทำ perm ในห้อง n ได้ไหม (ตามตำแหน่งในห้อง — ไม่รวมสิทธิ์ตามบทบาทบัญชี) */
 export const canWork = (n: number, p: WorkPerm): boolean => { const l = myWorkLevel(n); return l === 'admin' || (!!l && levelCan(l, p)) }
 /** ลงปฏิทินของงาน n ได้: บทบาทที่มีสิทธิ์ดูรายละเอียด หรือเป็นผู้ดูแลหลัก/ผู้ช่วยของงานนั้น (ทั่วไป n=0 = เฉพาะบทบาทที่มีสิทธิ์) */

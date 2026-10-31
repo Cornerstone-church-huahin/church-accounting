@@ -18,8 +18,11 @@ const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padSt
  * - แตะ "ลงชื่อ" = บันทึกคนนั้นทันที (1 คน × 1 วัน) · ถ้าลงไปแล้วโดยเครื่องอื่น: ขึ้นเตือนว่าใครลง กี่โมง และไม่ลงซ้ำ
  * - คนใหม่: รูป + ชื่อ-นามสกุล (+ กรอบข้อมูลเสริม) · ชื่อคล้ายกับที่มีอยู่ ถามก่อนว่าใช่คนเดิมไหม
  */
-export default function CheckinPanel({ lite, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, onEdit, minYear }: {
+export default function CheckinPanel({ lite, readOnly, showStatus, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, onEdit, minYear }: {
   lite: boolean
+  /** ผู้ช่วยฝ่ายทะเบียน: ลงชื่อ/ลบรายการลงชื่อได้ แต่เพิ่มคนใหม่/แก้ข้อมูลสมาชิกไม่ได้ */
+  readOnly?: boolean
+  showStatus?: boolean
   members: ChurchMember[]
   checkins: CheckIn[]
   recorders: Recorder[]
@@ -102,7 +105,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
           <MemberAvatar path={m.photoPath} name={m.name} size={76} member={m} />
           <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
             <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
-            <span className="mrow__meta" style={{ display: 'block' }}>{[lite ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
+            <span className="mrow__meta" style={{ display: 'block' }}>{[lite && !showStatus ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
             {c && <span className="mrow__ok" style={{ display: 'block' }}>✓ ลงแล้ว · {c.rec ?? '—'}{c.tm ? ` · ${c.tm}` : ''}</span>}
             {m.note?.trim() && <span className="cardNote">หมายเหตุ: {m.note.trim()}</span>}
           </button>
@@ -121,13 +124,13 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
           {shown.length === 0 ? (
             <div className="found__none">
               <p style={{ margin: 0 }}><b>ไม่พบรายชื่อ “{q.trim()}”</b> ในทะเบียน</p>
-              <button type="button" className="btn btn--gold bigbtn btn--block" onClick={() => setAdding(true)}>＋ เพิ่มใหม่ “{q.trim()}”</button>
+              {readOnly ? <p className="pagehint" style={{ margin: 0 }}>ถ้าไม่มีชื่อในทะเบียน ให้แจ้งแอดมินเพิ่มชื่อก่อน</p> : <button type="button" className="btn btn--gold bigbtn btn--block" onClick={() => setAdding(true)}>＋ เพิ่มใหม่ “{q.trim()}”</button>}
             </div>
           ) : (
             <>
               <p className="pagehint" style={{ margin: 0 }}>พบ {shown.length} คน — เลือกคนที่ใช่ แล้วกด “ลงทะเบียน”</p>
               <ul className="list list--tight">{shown.slice(0, 20).map((m) => row(m))}</ul>
-              <button type="button" className="btn btn--ghost bigbtn btn--block" onClick={() => setAdding(true)}>ไม่ใช่คนข้างบน — ＋ เพิ่มใหม่</button>
+              {!readOnly && <button type="button" className="btn btn--ghost bigbtn btn--block" onClick={() => setAdding(true)}>ไม่ใช่คนข้างบน — ＋ เพิ่มใหม่</button>}
             </>
           )}
         </div>
@@ -178,7 +181,7 @@ export default function CheckinPanel({ lite, members, checkins, recorders, putCh
                       {m.note?.trim() && <span className="cardNote">หมายเหตุ: {m.note.trim()}</span>}
                     </button>
                     <div className="pick__btns">
-                      <button type="button" className="mini pick__edit" onClick={() => onEdit(m.id)} aria-label={`แก้ไขข้อมูล ${m.name}`}>✎ แก้ไข</button>
+                      {!readOnly && <button type="button" className="mini pick__edit" onClick={() => onEdit(m.id)} aria-label={`แก้ไขข้อมูล ${m.name}`}>✎ แก้ไข</button>}
                       <button type="button" className="mini pick__del" onClick={() => setAskDel(c)} aria-label={`ลบการลงชื่อของ ${m.name}`}>🗑 ลบ</button>
                     </div>
                   </div>
