@@ -55,6 +55,7 @@ export default function MemberFormPage() {
         </div></div>
       <div className="field"><label htmlFor="mf-birth">วันเกิด</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-skills">อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-skills" className="input" value={f.skills} onChange={(e) => set({ skills: e.target.value })} placeholder="เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร" /></div>
+      <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span></label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
       <div className="field"><label id="mf-serve">งานรับใช้คริสตจักรที่ท่านเต็มใจช่วย <span className="muted small">(ติ๊กได้หลายข้อ · ไม่บังคับ)</span></label>
         <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPickServe(true)}>🙌 เลือกงานรับใช้{serve.length ? ` (เลือกแล้ว ${serve.length} ข้อ)` : ''}</button>
         {serve.length > 0 && (
@@ -66,7 +67,6 @@ export default function MemberFormPage() {
         <div className="mform__chips" role="group" aria-labelledby="mf-days">
           {DAY_OPTIONS.map((o) => <button key={o} type="button" role="checkbox" aria-checked={days.includes(o)} className={`mform__chip${days.includes(o) ? ' on' : ''}`} onClick={() => toggle(days, o, setDays)}>{days.includes(o) ? '✓ ' : ''}{o}</button>)}
         </div></div>
-      <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span></label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-note">ข้อความถึงฝ่ายทะเบียน <span className="muted small">(ไม่บังคับ เช่น ย้ายที่อยู่ เปลี่ยนเบอร์)</span></label><textarea id="mf-note" className="input" rows={2} value={f.note} onChange={(e) => set({ note: e.target.value })} /></div>
       {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       <button type="button" className="btn btn--gold bigbtn btn--block" disabled={!ok} onClick={sendLine}>📤 ส่งกลับทางไลน์</button>

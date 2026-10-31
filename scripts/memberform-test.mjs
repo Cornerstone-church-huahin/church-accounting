@@ -48,6 +48,8 @@ try {
   await p2.getByLabel(/^Facebook/).fill('ดารา ผลจันทร์')
   await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).fill('2012-05-06')
   await p2.getByLabel(/อาชีพ \/ ความสามารถ/).fill('พยาบาล')
+  const yFirst = (await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).boundingBox()).y, yServe = (await p2.getByRole('button', { name: /เลือกงานรับใช้/ }).boundingBox()).y
+  must(yFirst < yServe, 'first-visit date is above the serve popup button')
   must(await p2.getByRole('checkbox', { name: /ครัว/ }).count() === 0, 'serve options are not inline on the form')
   await p2.getByRole('button', { name: /เลือกงานรับใช้/ }).click()
   await p2.getByRole('checkbox', { name: /ครัว/ }).click()
