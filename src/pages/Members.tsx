@@ -6,6 +6,7 @@ import Sheet from '../components/Sheet'
 import StoredImage from '../components/StoredImage'
 import MultiPick from '../components/MultiPick'
 import MemberAvatar from '../components/MemberAvatar'
+import PastoralMembers from '../components/PastoralMembers'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
 import { can } from '../lib/access'
@@ -98,6 +99,7 @@ function MembersPage({ registry }: { registry?: boolean }) {
           ))}
         </div>
       )}
+      {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} />}
       {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}

@@ -34,6 +34,8 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`); await page.reload()
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
   await page.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  must(await page.getByRole('tab', { name: /สม่ำเสมอ/ }).count() === 1, 'pastoral tabs in registry')
+  must(await page.locator('.pcard--tap').count() > 0, 'tappable cards')
   await page.getByText('ดารา ผลจันทร์').first().click()
   await page.getByRole('button', { name: /คัดลอกข้อความ \+ ลิงก์/ }).waitFor({ timeout: 10000 })
   await page.getByRole('button', { name: /คัดลอกข้อความ \+ ลิงก์/ }).click()
@@ -136,10 +138,10 @@ try {
   // ลิงก์ส่งทั้งกลุ่ม: ลิงก์สั้นลิงก์เดียว ไม่มีรายชื่อในลิงก์ → สมาชิกพิมพ์ชื่อเอง → ฝ่ายทะเบียนจับคู่จากชื่อ
   if (process.env.SHOT4) await page.screenshot({ path: process.env.SHOT4 })
   // จุดสถานะการอัปเดต: เขียว = วางข้อมูลแล้ว (ดารา) · แดง = ยังไม่ได้ (คนอื่น)
-  must(await page.getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 1 && await page.getByRole('img', { name: 'ยังไม่ได้นำเข้าข้อมูลที่สมาชิกกรอก' }).count() >= 1, 'green dot for the updated member, red for the others')
+  must(await page.locator('ul.list').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 1 && await page.locator('ul.list').getByRole('img', { name: 'ยังไม่ได้นำเข้าข้อมูลที่สมาชิกกรอก' }).count() >= 1, 'green dot for the updated member, red for the others')
   must(await page.getByRole('button', { name: /อัปเดตแล้ว 1/ }).count() === 1, 'legend counts the updated ones')
   await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
-  must(await page.getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 0, 'filter "not updated yet" hides the green ones')
+  must(await page.locator('ul.list').getByRole('img', { name: 'นำเข้าข้อมูลที่สมาชิกกรอกแล้ว' }).count() === 0, 'filter "not updated yet" hides the green ones')
   await page.getByRole('button', { name: /ยังไม่ได้อัปเดต/ }).click()
   // ส่งลิงก์แบบกลุ่ม: ป๊อปอัพเต็มหน้า เลือกรายชื่อเหมือนตะกร้า → ข้อความเดียวมีลิงก์แยกรายคน
   await page.getByRole('button', { name: /ส่งลิงก์แบบกลุ่ม/ }).click()

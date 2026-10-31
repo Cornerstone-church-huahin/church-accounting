@@ -858,6 +858,8 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 .pcards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .pcard { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0.7rem; background: var(--surface); border: 1px solid var(--line); border-radius: 0.8rem; pointer-events: none; user-select: none; content-visibility: auto; contain-intrinsic-size: 4.6rem; }
+.pcard--tap { pointer-events: auto; cursor: pointer; }
+.pcard--tap:active { background: var(--surface-2); }
 .pcard > :first-child { flex: none; }
 .pcard__body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1; }
 .pcard__l1 { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; min-width: 0; }

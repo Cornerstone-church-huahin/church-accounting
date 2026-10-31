@@ -61,7 +61,8 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
  * อ่านจากทะเบียนจริง ไม่แก้ข้อมูลใด · พิกัดบ้านบันทึกที่งานทะเบียน (แอดมิน/ผู้บันทึกทะเบียน) · การติดตามจะแยกเป็นไอคอนต่อไป
  */
 /** work = ห้องงานที่เปิดหน้านี้ (ใช้ตรวจสิทธิ์ดู): งานอภิบาล (4) และงานอนุชน (9) ใช้หน้าเดียวกัน ข้อมูลสมาชิกชุดเดียวกัน */
-export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
+/** onOpen: ใส่เมื่อใช้ในงานทะเบียน (แอดมิน) — แตะการ์ดเพื่อเปิดรายละเอียดและแก้ไขได้ */
+export default function PastoralMembers({ work = 4, onOpen }: { work?: number; onOpen?: (id: string) => void } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
@@ -165,7 +166,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
               <h3 className="pstat__h"><b>{sec.label}</b> · {sec.members.length.toLocaleString('th-TH')} คน</h3>
               <ul className="pcards">
                 {sec.members.map((m) => (
-                  <li key={m.id} className="pcard" aria-label={m.name}>
+                  <li key={m.id} className={`pcard${onOpen ? ' pcard--tap' : ''}`} aria-label={m.name} {...(onOpen ? { role: 'button', tabIndex: 0, onClick: () => onOpen(m.id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(m.id) } } } : {})}>
                     <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={48} member={m} />
                     <div className="pcard__body">
                       <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
@@ -218,7 +219,7 @@ export default function PastoralMembers({ work = 4 }: { work?: number } = {}) {
         {faces.length === 0 ? <p className="empty">ไม่มีสมาชิกในสถานะนี้</p> : (
           <ul className="pcards">
             {faces.map((m) => (
-              <li key={m.id} className="pcard" aria-label={m.name}>
+              <li key={m.id} className={`pcard${onOpen ? ' pcard--tap' : ''}`} aria-label={m.name} {...(onOpen ? { role: 'button', tabIndex: 0, onClick: () => onOpen(m.id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(m.id) } } } : {})}>
                 <MemberAvatar path={m.photoPath} name={shortName(m.name)} size={52} member={m} />
                 <div className="pcard__body">
                   <span className="pcard__l1"><b className="pcard__name">{m.name}{m.nick?.trim() ? <span className="pcard__nick"> ({m.nick.trim()})</span> : null}</b>{absLabel(m) && <b className="pcard__abs">{absLabel(m)}</b>}</span>
