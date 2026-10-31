@@ -29,6 +29,7 @@ try {
       { id: 'm1', updated: 1, name: 'ดารา ผลจันทร์', status: S, group: '4.สตรี', gender: 'หญิง', birth: '2008-09-09' },
       { id: 'm2', updated: 1, name: 'น้องเอ', status: S, group: '3.บุรุษ', gender: 'ชาย', birth: '2018-05-05' },
       { id: 'm3', updated: 1, name: 'ไม่มีวันเกิด', status: S, group: '4.สตรี', gender: 'หญิง' },
+      { id: 'k1', updated: 1, name: 'เด็กยังไม่มีกลุ่ม', status: S, group: '7.ไม่มีกลุ่ม', birth: '2016-05-01' },
       { id: 'm4', updated: 1, name: 'กลุ่มพิเศษ', status: S, group: '9.คณะกรรมการ', gender: 'ชาย', birth: '2008-01-01' },
     ]))
   }
@@ -40,13 +41,15 @@ try {
   await page.getByRole('button', { name: /จัดกลุ่มตามอายุ/ }).click()
   const list = page.getByRole('list', { name: 'คนที่กลุ่มไม่ตรงอายุ' })
   await list.waitFor({ timeout: 10000 })
-  must(await list.getByRole('listitem').count() === 2, 'two proposals (ดารา → อนุชน, น้องเอ → เด็ก): ' + await list.innerText())
+  must(await list.getByRole('listitem').count() === 3, 'three proposals (ดารา, น้องเอ, เด็กยังไม่มีกลุ่ม): ' + await list.innerText())
   must(/ดารา ผลจันทร์[\s\S]*4\.สตรี[\s\S]*2\.อนุชน/.test(await list.innerText()) && /น้องเอ[\s\S]*3\.บุรุษ[\s\S]*1\.เด็กรวี/.test(await list.innerText()), 'from → to shown')
   must(!/ไม่มีวันเกิด|กลุ่มพิเศษ/.test(await list.innerText()), 'no birth / special group untouched')
+  must(/เด็กยังไม่มีกลุ่ม[\s\S]*7\.ไม่มีกลุ่ม[\s\S]*1\.เด็กรวี/.test(await list.innerText()), '“7.ไม่มีกลุ่ม” is treated as no group and gets proposed')
+  await page.getByRole('checkbox', { name: 'ย้าย เด็กยังไม่มีกลุ่ม' }).uncheck()
   await page.getByRole('checkbox', { name: 'ย้าย น้องเอ' }).uncheck()
   await page.getByRole('button', { name: /ย้ายกลุ่ม \(1 คน\)/ }).click()
   const ms = await page.evaluate(() => Object.fromEntries(JSON.parse(localStorage.getItem('acct.church-members.v1')).map((x) => [x.id, x.group])))
-  must(ms.m1 === '2.อนุชน' && ms.m2 === '3.บุรุษ' && ms.m3 === '4.สตรี' && ms.m4 === '9.คณะกรรมการ', 'only the ticked person moved: ' + JSON.stringify(ms))
+  must(ms.m1 === '2.อนุชน' && ms.m2 === '3.บุรุษ' && ms.k1 === '7.ไม่มีกลุ่ม' && ms.m3 === '4.สตรี' && ms.m4 === '9.คณะกรรมการ', 'only the ticked person moved: ' + JSON.stringify(ms))
   // รายละเอียด: แถวอายุ + เตือนกลุ่มไม่ตรง
   await page.getByRole('button', { name: /^ปิด$/ }).first().click().catch(() => {})
   await page.getByText('น้องเอ').first().click()
@@ -76,9 +79,9 @@ try {
   const p2 = await ctx2.newPage(); p2.on('pageerror', (e) => errors.push(String(e)))
   await p2.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`)
   await p2.getByText(/ย้ายกลุ่มตามอายุอัตโนมัติ/).waitFor({ timeout: 15000 })
-  must(await p2.getByText(/2 คน/).count() >= 1, 'banner shows how many were moved automatically')
+  must(await p2.getByText(/3 คน/).count() >= 1, 'banner shows how many were moved automatically')
   const auto = await p2.evaluate(() => Object.fromEntries(JSON.parse(localStorage.getItem('acct.church-members.v1')).map((x) => [x.id, x.group + '|' + (x.groupMoved?.from ?? '')])))
-  must(auto.m1 === '2.อนุชน|4.สตรี' && auto.m2 === '1.เด็กรวี|3.บุรุษ' && auto.m3 === '4.สตรี|' && auto.m4 === '9.คณะกรรมการ|', 'auto moved the mismatched, left the rest: ' + JSON.stringify(auto))
+  must(auto.m1 === '2.อนุชน|4.สตรี' && auto.m2 === '1.เด็กรวี|3.บุรุษ' && auto.k1 === '1.เด็กรวี|7.ไม่มีกลุ่ม' && auto.m3 === '4.สตรี|' && auto.m4 === '9.คณะกรรมการ|', 'auto moved the mismatched, left the rest: ' + JSON.stringify(auto))
   // คืนกลุ่มเดิม (ล็อกกันย้ายซ้ำ)
   await p2.getByRole('button', { name: /เมนูสมาชิก/ }).click()
   await p2.getByRole('tab', { name: /ทะเบียน/ }).first().click()

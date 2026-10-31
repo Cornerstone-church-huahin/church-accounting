@@ -2,6 +2,8 @@ import { ageYears, isLive } from './pastoral'
 import type { AgeRule, ChurchMember } from './types'
 
 const strip = (g: string) => g.replace(/^\s*\d+\s*[.)\-]?\s*/, '')
+/** “ยังไม่มีกลุ่ม”: ว่าง หรือกลุ่มที่ชื่อบอกว่าไม่มีกลุ่ม (เช่น “7.ไม่มีกลุ่ม”) — จัดให้ตามอายุได้ ไม่ถือเป็นกลุ่มพิเศษ */
+export const isUnassigned = (g?: string) => !g?.trim() || /^(ไม่มีกลุ่ม|ไม่ระบุ(กลุ่ม)?|ไม่สังกัด(กลุ่ม)?|ยังไม่มีกลุ่ม|-)$/.test(strip(g).trim())
 /** กลุ่มมาตรฐานของคริสตจักร: ชื่อ · ช่วงอายุ · เพศ · คำที่ใช้หากลุ่มเดิมในทะเบียน (เช่น “4.สตรี”, “บรุษ”) */
 const STANDARD: { name: string; from: number; to: number; gender?: 'ชาย' | 'หญิง'; re: RegExp }[] = [
   { name: 'เด็กรวี', from: 2, to: 12, re: /เด็ก|รวี|โรงเรียนอาทิตย์/ },
@@ -33,7 +35,7 @@ export function targetGroup(m: Pick<ChurchMember, 'birth' | 'gender' | 'group' |
   const age = ageYears(m.birth, today)
   if (age == null) return null
   const on = rules.filter((r) => r.on)
-  if (m.group && !on.some((r) => r.group === m.group)) return null
+  if (!isUnassigned(m.group) && !on.some((r) => r.group === m.group)) return null
   const fit = on.filter((r) => age >= r.from && age <= r.to && (!r.gender || m.gender === r.gender))
   if (!fit.length) return null
   fit.sort((a, b) => Number(!!b.gender) - Number(!!a.gender) || (a.to - a.from) - (b.to - b.from))
@@ -49,4 +51,13 @@ export function proposeRegroup(members: ChurchMember[], rules: AgeRule[], today:
     if (t && t.group !== (m.group ?? '')) out.push({ m, from: m.group ?? '', to: t.group, age: t.age })
   }
   return out
+}
+
+/** วัยที่ต้องแยกบุรุษ/สตรี (หรือกลุ่มที่ระบุเพศ) แต่ยังไม่ทราบเพศ → จัดกลุ่มให้ไม่ได้จนกว่าจะรู้เพศ */
+export function needsGender(m: Pick<ChurchMember, 'birth' | 'gender' | 'group' | 'groupLock'>, rules: AgeRule[], today: string): boolean {
+  if (m.groupLock || m.gender) return false
+  const age = ageYears(m.birth, today)
+  if (age == null) return false
+  const on = rules.filter((r) => r.on && age >= r.from && age <= r.to)
+  return on.length > 0 && on.every((r) => !!r.gender)
 }

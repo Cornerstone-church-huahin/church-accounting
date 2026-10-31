@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultRules, effectiveRules, proposeRegroup, targetGroup } from './ageGroups'
+import { defaultRules, effectiveRules, isUnassigned, needsGender, proposeRegroup, targetGroup } from './ageGroups'
 import type { ChurchMember } from './types'
 
 const groups = ['1.เด็กรวี', '2.อนุชน', '3.วัยทำงาน', '4.บุรุษ', '5.สตรี', '6.ผู้สูงวัย', '7.คณะกรรมการ']
@@ -61,5 +61,17 @@ describe('ageGroups', () => {
     const e = effectiveRules(saved, groups)
     expect(e.find((r) => r.group === '2.อนุชน')?.to).toBe(30)
     expect(e.find((r) => r.group === '1.เด็กรวี')?.to).toBe(12)
+  })
+  it('กลุ่ม “7.ไม่มีกลุ่ม” = ยังไม่มีกลุ่ม → จัดให้ตามอายุได้ (ไม่ใช่กลุ่มพิเศษ)', () => {
+    expect(isUnassigned('7.ไม่มีกลุ่ม')).toBe(true)
+    expect(isUnassigned('')).toBe(true)
+    expect(isUnassigned('7.คณะกรรมการ')).toBe(false)
+    expect(targetGroup(m({ birth: '2016-05-01', group: '7.ไม่มีกลุ่ม' }), rules, T)?.group).toBe('1.เด็กรวี')   // 10 ปี
+    expect(proposeRegroup([m({ id: 'k', birth: '2014-03-03', group: '7.ไม่มีกลุ่ม' })], rules, T).map((p) => [p.from, p.to])).toEqual([['7.ไม่มีกลุ่ม', '1.เด็กรวี']])
+  })
+  it('วัย 40–59 ที่ไม่ทราบเพศ: จัดบุรุษ/สตรีไม่ได้ → แจ้งว่าต้องรู้เพศ', () => {
+    expect(needsGender(m({ birth: '1980-01-01', group: '7.ไม่มีกลุ่ม' }), rules, T)).toBe(true)
+    expect(needsGender(m({ birth: '1980-01-01', gender: 'ชาย' }), rules, T)).toBe(false)
+    expect(needsGender(m({ birth: '1995-01-01' }), rules, T)).toBe(false)   // วัยทำงานไม่ต้องใช้เพศ
   })
 })
