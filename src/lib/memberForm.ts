@@ -56,6 +56,8 @@ export interface FormAnswer {
   /** เวลาที่สมาชิกกดส่ง (ms) — ไว้เทียบเมื่อส่งซ้ำหลายครั้ง */
   at?: number
 }
+/** วันที่ตั้งต้นในช่อง “รับเป็นสมาชิก”: มาจากคอลัมน์เวลา (11 ธ.ค. 2565) ของทะเบียนเก่าที่นำเข้ามา — ไม่ใช่วันจริงของสมาชิก */
+export const SINCE_PLACEHOLDER = '2022-12-11'
 export const FORM_DAYS = 14
 /** ลิงก์กลุ่ม: ส่งทีเดียวในห้องแชตที่มีหลายคน — ทุกคนกดลิงก์เดียวกัน แล้ว “เลือกชื่อของตัวเอง” จากรายชื่อ (มีเฉพาะ รหัส/ชื่อ/ชื่อเล่น ไม่มีข้อมูลส่วนตัวอื่น) */
 export interface GroupLink { v: 2; list: { id: string; name: string; nick?: string }[]; exp: number }
@@ -90,7 +92,7 @@ export function decodeGroupLink(d: string | null): GroupLink | null {
 export const groupUrl = (ms: { id: string; name: string; nick?: string }[], base = `${location.origin}${location.pathname}`) => `${base}#/form?d=${b64(JSON.stringify(makeGroupLink(ms)))}`
 export function makeFormLink(m: ChurchMember, now = Date.now(), minimal = false): FormLink {
   if (minimal) return { v: 1, mid: m.id, name: m.name, nick: m.nick, exp: now + FORM_DAYS * 86_400_000 }   // ลิงก์สั้น: ไม่เติมข้อมูลเดิมให้
-  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.firstWorship, since: m.since, exp: now + FORM_DAYS * 86_400_000 }
+  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.firstWorship, since: m.since === SINCE_PLACEHOLDER ? undefined : m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
 /**
  * รหัสในลิงก์รุ่นกะทัดรัด (v2 · ขึ้นต้น “2.”): ช่องคั่นด้วย | · ตัวอักษรไทยเก็บเป็น 1 ไบต์ (TIS-620) แทน 3 ไบต์ของ UTF-8

@@ -14,11 +14,11 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { BY_NAME, FORM_DAYS, NEW_MID, familyInvite, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
+import { BY_NAME, FORM_DAYS, NEW_MID, SINCE_PLACEHOLDER, familyInvite, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
 import { effectiveRules, needsGender, proposeRegroup, ruleWarnings, targetGroup } from '../lib/ageGroups'
 import { DEFAULT_STATUS_RULES, applyStatusMoves, effectiveStatusRules, proposeStatusMoves, reviewAutoMoves, revertStatusMoves, statusRuleWarnings } from '../lib/statusRules'
 import { AGE_BANDS, ageYears } from '../lib/pastoral'
-import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
+import { applyAnswer, diffAnswer, findCandidates, nameVerdict, sinceFromFirst, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, stripStatusNo, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
@@ -1084,9 +1084,10 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
             {[...new Set([...groups, f.group].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th', { numeric: true })).map((g) => <option key={g}>{g}</option>)}
           </select>
         </div>
-        {!lite && text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date')}
-        {text('since', 'วันที่รับเป็นสมาชิก (วันที่เริ่มมา)', 'date')}
-        {text('firstWorship', 'มานมัสการครั้งแรก (ประมาณ)', 'date')}
+        {!lite && text('birth', `วันเกิด${f.birth ? ` · อายุ ${ageText(f.birth, todayISO())}` : ''}`, 'date', true)}
+        <div className="field full"><label htmlFor="m-firstWorship">มานมัสการครั้งแรก (ประมาณ)</label><input id="m-firstWorship" className="input" type="date" value={f.firstWorship} onChange={(e) => { const v = e.target.value; setF({ ...f, firstWorship: v, since: sinceFromFirst({ firstWorship: v, since: f.since }) ?? f.since }) }} /></div>
+        {text('since', 'วันที่รับเป็นสมาชิก', 'date', true)}
+        {f.since === SINCE_PLACEHOLDER && !f.firstWorship && <p className="small muted full" style={{ margin: 0 }}>11/12/2565 เป็นวันตั้งต้นจากทะเบียนเก่า — กรอก “มานมัสการครั้งแรก” แล้วช่องนี้จะเปลี่ยนตามให้</p>}
         {text('note', 'หมายเหตุ', 'text', true)}
         {!lite && text('address', 'ที่อยู่ปัจจุบัน', 'text', true)}
         {!lite && (
