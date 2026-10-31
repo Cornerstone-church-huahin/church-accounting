@@ -80,10 +80,48 @@ export const groupUrl = (ms: { id: string; name: string; nick?: string }[], base
 export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
   return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
-export const encodeFormLink = (p: FormLink) => b64(JSON.stringify(p))
+/**
+ * รหัสในลิงก์รุ่นกะทัดรัด (v2 · ขึ้นต้น “2.”): ช่องคั่นด้วย | · ตัวอักษรไทยเก็บเป็น 1 ไบต์ (TIS-620) แทน 3 ไบต์ของ UTF-8
+ * · งานรับใช้/วันเก็บเป็นลำดับข้อ · วันที่เป็น YYYYMMDD → ลิงก์สั้นลงราว 2 เท่า (รุ่น v1 แบบ JSON ยังเปิดได้)
+ */
+const toTis = (t: string): number[] => Array.from(t).map((ch) => {
+  const c = ch.charCodeAt(0)
+  if (c < 0x80) return c
+  if (c >= 0x0e01 && c <= 0x0e3a) return c - 0x0e01 + 0xa1
+  if (c >= 0x0e3f && c <= 0x0e5b) return c - 0x0e3f + 0xdf
+  return 0x3f
+})
+const fromTis = (bytes: number[]): string => bytes.map((c) => (c < 0x80 ? String.fromCharCode(c) : c >= 0xa1 && c <= 0xda ? String.fromCharCode(c - 0xa1 + 0x0e01) : c >= 0xdf && c <= 0xfb ? String.fromCharCode(c - 0xdf + 0x0e3f) : '?')).join('')
+const bytesToB64 = (b: number[]) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const b64ToBytes = (s: string): number[] => Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/'))).map((c) => c.charCodeAt(0))
+const clean = (x?: string) => (x ?? '').replace(/\|/g, '/')
+const d8 = (iso?: string) => (iso ?? '').replace(/-/g, '')
+const iso8 = (x: string) => (/^\d{8}$/.test(x) ? `${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6)}` : undefined)
+const G = ['', 'ชาย', 'หญิง']
+export function encodeFormLink(p: FormLink): string {
+  const serve = p.serve ?? []
+  const idx = serve.map((x) => SERVE_OPTIONS.indexOf(x)).filter((i) => i >= 0)
+  const otherItem = serve.find((x) => x === OTHER_SERVE || x.startsWith(`${OTHER_SERVE}: `))
+  const other = otherItem ? (otherItem === OTHER_SERVE ? '*' : otherItem.slice(OTHER_SERVE.length + 2)) : ''
+  const days = (p.serveDays ?? []).map((x) => DAY_OPTIONS.indexOf(x)).filter((i) => i >= 0)
+  const f = [p.mid, p.code ?? '', p.name, p.nick ?? '', p.tel ?? '', String(Math.max(0, G.indexOf(p.gender ?? ''))), d8(p.birth), d8(p.first), Math.round(p.exp / 60000).toString(36), p.lineId ?? '', p.facebook ?? '', p.skills ?? '', idx.join(','), other, days.join(',')].map(clean)
+  while (f.length > 9 && f[f.length - 1] === '') f.pop()   // ตัดช่องท้ายที่ว่าง
+  return '2.' + bytesToB64(toTis(f.join('|')))
+}
+function decodeV2(d: string): FormLink | null {
+  const f = fromTis(b64ToBytes(d.slice(2))).split('|')
+  if (f.length < 9) return null
+  const [mid, code, name, nick, tel, g, birth, first, exp36, lineId, facebook, skills, idx = '', other = '', days = ''] = f
+  const serve = [...idx.split(',').filter(Boolean).map((i) => SERVE_OPTIONS[Number(i)]).filter(Boolean), ...(other ? [other === '*' ? OTHER_SERVE : `${OTHER_SERVE}: ${other}`] : [])]
+  const serveDays = days.split(',').filter(Boolean).map((i) => DAY_OPTIONS[Number(i)]).filter(Boolean)
+  const exp = parseInt(exp36, 36) * 60000
+  if (!mid || !name || !Number.isFinite(exp)) return null
+  return { v: 1, mid, code: code || undefined, name, nick: nick || undefined, tel: tel || undefined, gender: G[Number(g)] || undefined, birth: iso8(birth), first: iso8(first), lineId: lineId || undefined, facebook: facebook || undefined, skills: skills || undefined, serve: serve.length ? serve : undefined, serveDays: serveDays.length ? serveDays : undefined, exp }
+}
 export function decodeFormLink(d: string | null): FormLink | null {
   if (!d) return null
   try {
+    if (d.startsWith('2.')) return decodeV2(d)
     const p = JSON.parse(unb64(d)) as FormLink
     return p && p.v === 1 && typeof p.mid === 'string' && typeof p.name === 'string' && typeof p.exp === 'number' ? p : null
   } catch { return null }
@@ -119,4 +157,43 @@ export function parseReply(text: string): FormAnswer | null {
     const a = JSON.parse(unb64(m[1])) as FormAnswer
     return a && typeof a.mid === 'string' && typeof a.name === 'string' ? a : null
   } catch { return null }
+}
+
+/** ข้อความมาตรฐานที่ส่งพร้อมลิงก์รายบุคคล (ใช้ชื่อของคนที่ส่งให้ — ลิงก์เป็นของเขาคนเดียว) */
+export function personalInvite(m: { name: string; nick?: string }, url: string): string {
+  const who = m.nick ? `${m.name} (${m.nick})` : m.name
+  return [
+    `เรียน ${who}`,
+    '',
+    'ฝ่ายทะเบียน คริสตจักรศิลาเอก ขอความกรุณาตรวจและกรอกข้อมูลสมาชิกของท่านให้เป็นปัจจุบัน เพื่อใช้ในการดูแลและติดต่อสื่อสารภายในคริสตจักร',
+    '',
+    `📝 ลิงก์นี้เป็นลิงก์เฉพาะของ “${m.name}” เท่านั้น (กรุณาไม่ส่งต่อ)`,
+    'กดลิงก์เพื่อตรวจและกรอกข้อมูล:',
+    url,
+    '',
+    'ในแบบฟอร์ม',
+    '• ข้อมูลที่เรามีอยู่แล้วจะขึ้นให้ ตรวจดูให้ถูกต้อง แก้ไขได้ทุกจุด',
+    '• ช่องไหนยังว่าง กรุณากรอกให้ครบ',
+    '• เสร็จแล้วกด “ส่งกลับทางไลน์” แล้วกดส่งข้อความถึงฝ่ายทะเบียนอีกครั้งหนึ่ง (ใช้เวลาประมาณ 3 นาที)',
+    '',
+    `ลิงก์ใช้ได้ภายใน ${FORM_DAYS} วัน ขอบพระคุณมาก 🙏`,
+  ].join('\n')
+}
+/** ข้อความมาตรฐานสำหรับลิงก์ส่งทั้งกลุ่ม */
+export function groupInvite(url: string): string {
+  return [
+    'เรียน พี่น้องสมาชิกคริสตจักรศิลาเอก',
+    '',
+    'ฝ่ายทะเบียน ขอความกรุณาท่านกรอกข้อมูลสมาชิกให้เป็นปัจจุบัน เพื่อใช้ในการดูแลและติดต่อสื่อสารภายในคริสตจักร',
+    '',
+    'กดลิงก์เพื่อกรอกข้อมูล:',
+    url,
+    '',
+    'ในแบบฟอร์ม',
+    '• พิมพ์ชื่อ-นามสกุลจริงให้ตรงกับที่ลงทะเบียนไว้',
+    '• กรอกข้อมูลให้ครบ',
+    '• เสร็จแล้วกด “ส่งกลับทางไลน์” แล้วกดส่งข้อความถึงฝ่ายทะเบียนอีกครั้งหนึ่ง (ใช้เวลาประมาณ 3 นาที)',
+    '',
+    'ขอบพระคุณมาก 🙏',
+  ].join('\n')
 }

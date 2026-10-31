@@ -25,15 +25,19 @@ try {
   await page.goto(`http://localhost:${PORT}/#/members?tab=roster`)
   await page.getByText('ดารา ผลจันทร์').first().click()
   await page.getByRole('dialog').waitFor({ timeout: 10000 })
-  must(await page.getByRole('button', { name: /คัดลอกลิงก์/ }).count() === 0, 'no copy-link button outside registry room')
+  must(await page.getByRole('button', { name: /คัดลอกข้อความ \+ ลิงก์/ }).count() === 0, 'no copy-link button outside registry room')
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: /^ปิด$/ }).click().catch(() => {})
   // ในห้องงานฝ่ายทะเบียน (งาน 2) มีปุ่ม
   await page.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`); await page.reload()
   await page.getByText('ดารา ผลจันทร์').first().click()
-  await page.getByRole('button', { name: /คัดลอกลิงก์/ }).waitFor({ timeout: 10000 })
-  await page.getByRole('button', { name: /คัดลอกลิงก์/ }).click()
-  const link = await page.evaluate(() => navigator.clipboard.readText())
-  must(/#\/form\?d=/.test(link), 'copied link: ' + link)
+  await page.getByRole('button', { name: /คัดลอกข้อความ \+ ลิงก์/ }).waitFor({ timeout: 10000 })
+  await page.getByRole('button', { name: /คัดลอกข้อความ \+ ลิงก์/ }).click()
+  const msgText = await page.evaluate(() => navigator.clipboard.readText())
+  must(/เรียน ดารา ผลจันทร์ \(ดารา\)/.test(msgText) && /ลิงก์เฉพาะของ “ดารา ผลจันทร์”/.test(msgText), 'standard message with the person name: ' + msgText.slice(0, 200))
+  const link = msgText.match(/https?:\/\/\S+/)[0]
+  must(/#\/form\?d=2\./.test(link) && link.length < 260, 'compact link: ' + link.length + ' ' + link)
+  await page.getByRole('button', { name: /^🔗 เฉพาะลิงก์/ }).click()
+  must((await page.evaluate(() => navigator.clipboard.readText())) === link, 'link-only copy')
   // สมาชิก: เครื่องใหม่ ไม่เชื่อมต่ออะไรเลย
   const ctx2 = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH', permissions: ['clipboard-read', 'clipboard-write', 'geolocation'], geolocation: { latitude: 12.5684, longitude: 99.9577 } })
   const p2 = await ctx2.newPage(); p2.on('pageerror', (e) => errors.push(String(e)))
@@ -93,8 +97,10 @@ try {
   await page.keyboard.press('Escape'); await page.waitForTimeout(300)
   // ลิงก์ส่งทั้งกลุ่ม: ลิงก์สั้นลิงก์เดียว ไม่มีรายชื่อในลิงก์ → สมาชิกพิมพ์ชื่อเอง → ฝ่ายทะเบียนจับคู่จากชื่อ
   await page.getByRole('button', { name: /ลิงก์ส่งทั้งกลุ่ม/ }).click()
-  await page.getByRole('button', { name: /คัดลอกลิงก์/ }).click()
-  const glink = await page.evaluate(() => navigator.clipboard.readText())
+  await page.getByRole('button', { name: /คัดลอกข้อความ \+ ลิงก์/ }).click()
+  const gmsg = await page.evaluate(() => navigator.clipboard.readText())
+  must(/เรียน พี่น้องสมาชิกคริสตจักรศิลาเอก/.test(gmsg), 'group standard message')
+  const glink = gmsg.match(/https?:\/\/\S+/)[0]
   must(/#\/form$/.test(glink) && glink.length < 120, 'short general link: ' + glink)
   await page.keyboard.press('Escape')
   const ctx3 = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH', permissions: ['clipboard-read', 'clipboard-write'] })
