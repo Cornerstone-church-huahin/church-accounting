@@ -104,17 +104,16 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
         </div>
       )}
       {registry && canEdit && (tab === 'audit' || tab === 'roster') && (
-        <><details className="regtools no-print">
+        <div className="regbar"><details className="regtools no-print">
           <summary>🛠 เครื่องมือทะเบียน</summary>
           <div className="regtools__grid">
             <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มสมาชิก</button>
             <FormTools members={people.items} put={people.put} worshipDays={worshipDays} attendance={attendance} />
           </div>
         </details>
-        {tab === 'audit' && <Roster toolsOnly attendance={attendance} worshipDays={worshipDays} registry canEdit lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}        <input className="input regsearch" type="search" value={regQ} onChange={(e) => setRegQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />
-</>
+        {tab === 'audit' && <Roster toolsOnly attendance={attendance} worshipDays={worshipDays} registry canEdit lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}</div>
       )}
-      {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} query={regQ} />}
+      {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} query={regQ} slot={<input className="input regsearch" type="search" value={regQ} onChange={(e) => setRegQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />} />}
       {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
