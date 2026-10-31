@@ -33,7 +33,7 @@ try {
   // ในห้องงานฝ่ายทะเบียน (งาน 2) มีปุ่ม
   await page.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`); await page.reload()
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
-  await page.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  await page.getByRole('tab', { name: /รวมสมาชิก/ }).first().click()
   must(await page.getByRole('tab', { name: /สม่ำเสมอ/ }).count() === 1, 'pastoral tabs in registry')
   must(await page.locator('.pcard--tap').count() > 0, 'tappable cards')
   await page.getByText('ดารา ผลจันทร์').first().click()

@@ -66,7 +66,7 @@ try {
   must(await page.getByText(/คนใหม่ → ผู้ร่วมนมัสการ/).count() >= 1, 'banner lists the automatic status changes')
   // หน้ารายละเอียดไม่มีเลขนำหน้า
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
-  await page.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  await page.getByRole('tab', { name: /รวมสมาชิก/ }).first().click()
   await page.locator('ul.list').getByText('สมาชิกสมบูรณ์').first().click()
   await page.getByText('สถานะในทะเบียน', { exact: true }).waitFor({ timeout: 8000 })
   const dd = await page.getByRole('dialog').innerText()

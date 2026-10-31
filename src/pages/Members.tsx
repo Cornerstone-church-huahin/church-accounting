@@ -61,7 +61,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const criteria = { minYears: settings.memberMinYears ?? DEFAULT_CRITERIA.minYears, absentMonths: settings.memberAbsentMonths ?? DEFAULT_CRITERIA.absentMonths }
   const today = todayISO()
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canLog ? 'checkin' : lite ? 'checkin' : attendance.length === 0 ? 'roster' : 'audit'))
+  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canLog ? 'checkin' : lite ? 'checkin' : attendance.length === 0 && !(registry && canEdit) ? 'roster' : 'audit'))
   const [detail, setDetail] = useState('')
   // ในห้องทำงาน: เปิดมาเห็นเมนูช่องสี 6 ช่องอย่างเดียว · กดช่องไหน เมนูหายและหน้านั้นเต็มจอ · ‹ เมนูสมาชิก กลับมาเห็นช่องทั้งหก
   const [menu, setMenu] = useState(inRoom && !startTab)
@@ -81,7 +81,8 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
     }
     return true
   }
-  const tabItems = (lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).map(([key, label, icon]) => ({ key, label, icon }))
+  const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
+  const tabItems = (lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['checkin', 'ลงชื่อ', '✍️'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
   if (inRoom && menu) {
     return (
       <>
@@ -96,19 +97,20 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       <div className="page-head no-print"><h1>สมาชิก</h1>{canLog && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
       {!inRoom && (
         <div className={`seg ${lite ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
-          {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).map(([k, l]) => (
+          {(lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['stats', 'ยอดผู้มา'], ['checkin', 'ลงชื่อ'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
       )}
       {registry && canEdit && (tab === 'audit' || tab === 'roster') && (
-        <details className="regtools no-print">
+        <><details className="regtools no-print">
           <summary>🛠 เครื่องมือทะเบียน</summary>
           <div className="regtools__grid">
             <button type="button" className="btn btn--gold" onClick={() => setAdding(true)}>＋ เพิ่มสมาชิก</button>
             <FormTools members={people.items} put={people.put} worshipDays={worshipDays} attendance={attendance} />
           </div>
         </details>
+        {tab === 'audit' && <Roster toolsOnly attendance={attendance} worshipDays={worshipDays} registry canEdit lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}</>
       )}
       {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} />}
       {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
@@ -136,6 +138,8 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
   const [filters, setFilters] = useState<string[]>([]) // ตัวกรองสถานะ/ผลตรวจ เลือกได้หลายอัน (ตรงอย่างใดอย่างหนึ่ง · ว่าง = ทุกสถานะ)
   const [group, setGroup] = useState('')
   const [menu, setMenu] = useState('')
+  const [gen, setGen] = useState('')
+  const [upd, setUpd] = useState<'' | 'ok' | 'no'>('')
   const rows = useMemo(() => [...result.rows].sort((a, b) => statusLabel(a.member.status).localeCompare(statusLabel(b.member.status), 'th')), [result.rows])
   const statuses = useMemo(() => { const m = new Map<string, number>(); for (const r of rows) m.set(statusLabel(r.member.status), (m.get(statusLabel(r.member.status)) ?? 0) + 1); return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'th')) }, [rows])
   const full = rows.filter((r) => regLevel(r.member.status))
@@ -153,11 +157,13 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
   const shown = rows.filter((r) => {
     if (filters.length && !filters.some((f) => matchFilter(f, r))) return false
     if (group && r.member.group !== group) return false
+    if (gen && (gen === 'none' ? !!r.member.gender : r.member.gender !== gen)) return false
+    if (registry && upd && (upd === 'ok') !== !!r.member.formAt) return false
     const t = q.trim().toLowerCase()
     return !t || `${r.member.name} ${r.member.nick ?? ''} ${r.member.code ?? ''} ${r.member.note ?? ''}`.toLowerCase().includes(t)
   })
   const setStatus = (r: Evaluated, st: string) => { setMenu(''); put([{ ...r.member, status: st === '(ไม่ระบุสถานะ)' ? undefined : st, override: undefined }]) }
-  if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ไปที่แท็บ “ทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ .xlsx / CSV</p>
+  if (rows.length === 0) return <p className="empty">ยังไม่มีสมาชิกในทะเบียน — ใช้ “เครื่องมือทะเบียน” เพื่อเพิ่มหรือนำเข้าไฟล์ .xlsx / CSV</p>
   const chip = (key: string, label: string, n: number) => <button key={key} type="button" className={`mini${filters.includes(key) ? ' on' : ''}`} aria-pressed={filters.includes(key)} onClick={() => setFilters((xs) => (xs.includes(key) ? xs.filter((x) => x !== key) : [...xs, key]))}>{label} · {n}</button>
   return (
     <>
@@ -193,11 +199,18 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
         <input className="input full" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส / หมายเหตุ" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหา" />
         <MultiPick title="กรองสถานะ / ผลตรวจ" allLabel="ทุกสถานะ" empty="ทุกสถานะ" value={filters} onChange={setFilters}
           options={[...statuses.map(([st, n]) => ({ value: `st:${st}`, label: `${st} (${n})` })), { value: 'to2', label: `ควรปรับเป็น สมบูรณ์ 2 (${to2})` }, { value: 'to1', label: `ควรกลับเป็น สมบูรณ์ 1 (${to1})` }, { value: 'novisit', label: 'ไม่มีบันทึกนมัสการ' }]} />
+        <select className="input" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="กรองตามเพศ"><option value="">ทุกเพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option><option value="none">ไม่ระบุเพศ</option></select>
         {groups.length > 0 && <select className="input" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="กรองตามกลุ่ม"><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g}>{g}</option>)}</select>}
         <button type="button" className="btn btn--ghost full" onClick={() => window.print()}>พิมพ์ / PDF</button>
       </div>
       <p className="small"><b>{shown.length}</b> จาก {rows.length} รายชื่อ · พิมพ์ ณ {fmtDate(today)}</p>
-      {registry && <p className="updleg no-print"><span className="updot updot--ok" /> อัปเดตแล้ว {rows.filter((r) => r.member.formAt).length}<span className="updot updot--no" /> ยังไม่ได้อัปเดต {rows.filter((r) => !r.member.formAt).length}<span className="small muted">จุดข้างรูป: เขียว = วางข้อมูลที่สมาชิกกรอกและอัปเดตแล้ว · แดง = ยังไม่ได้ทำ</span></p>}
+      {registry && (
+        <div className="updleg no-print" role="group" aria-label="สถานะการอัปเดตข้อมูล">
+          <button type="button" aria-pressed={upd === 'ok'} onClick={() => setUpd(upd === 'ok' ? '' : 'ok')}><span className="updot updot--ok" /> อัปเดตแล้ว {rows.filter((r) => r.member.formAt).length}</button>
+          <button type="button" aria-pressed={upd === 'no'} onClick={() => setUpd(upd === 'no' ? '' : 'no')}><span className="updot updot--no" /> ยังไม่ได้อัปเดต {rows.filter((r) => !r.member.formAt).length}</button>
+          <span className="small muted">จุดข้างรูป: เขียว = วางข้อมูลที่สมาชิกกรอกและอัปเดตแล้ว · แดง = ยังไม่ได้ทำ</span>
+        </div>
+      )}
       <section className="card" aria-label="รายชื่อตามสถานะ">
         <ul className="list list--tight">
           {shown.map((r) => (
@@ -236,7 +249,7 @@ function Audit({ registry, onOpen, result, criteria, canEdit, canTune, today, pu
 
 const statusKey = statusLabel
 
-function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
+function Roster({ toolsOnly, registry, lite, canLog, rows, onOpen, members, canEdit, put, remove, putCheckIns, checkins, recorders, putRecorders, canManage }: { toolsOnly?: boolean; attendance: Attendance[]; worshipDays: string[]; rows: Evaluated[]; registry?: boolean; onOpen: (id: string) => void; members: ChurchMember[]; lite: boolean; canLog: boolean; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; putCheckIns: (x: CheckIn[]) => boolean; checkins: CheckIn[]; recorders: Recorder[]; putRecorders: (x: Recorder[]) => boolean; canManage: boolean }) {
   const [edit, setEdit] = useState<ChurchMember | 'new' | null>(null)
   const [nameClean, setNameClean] = useState(false)
   const namePlan = useMemo(() => planNameClean(members), [members])
@@ -387,6 +400,7 @@ function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, r
         </div>
       ); return registry ? <details className="regtools no-print"><summary>📂 นำเข้า / จัดการข้อมูล</summary>{tb}</details> : tb })()}
       {msg && <p className="small" role="status">{msg}</p>}
+      {!toolsOnly && <>
       {!lite && statuses.length > 1 && (
         <div className="no-print" aria-label="กรองตามสถานะ" style={{ margin: '0.3rem 0' }}>
           <MultiPick title="สถานะสมาชิก" allLabel="ทุกสถานะ" empty={`ทุกสถานะ · ${members.length}`} value={sts} onChange={setSts} options={statuses.map((x) => ({ value: x, label: `${x} (${count((m) => statusKey(m.status) === x)})` }))} />
@@ -425,6 +439,7 @@ function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, r
         )}
       </section>
       {!lite && <p className="small muted">ข้อมูลส่วนตัว (เบอร์โทร วันเกิด) เก็บใน repo ข้อมูล (Private) และเห็นได้เฉพาะผู้ใช้ที่มีสิทธิ์ดูรายการรายตัว</p>}
+      </>}
       {nameClean && (
         <Sheet title="จัดชื่อกับชื่อเล่น" onClose={() => setNameClean(false)}>
           <p className="pagehint" style={{ margin: 0 }}>ตัดวงเล็บออกจากชื่อ เหลือชื่อ-นามสกุล · วงเล็บที่เป็นชื่อเล่นไปช่องชื่อเล่น · วงเล็บที่เป็นคำอธิบาย (ลูก… เพื่อน… ภรรยา…) ไปช่องหมายเหตุ · เก็บชื่อเดิมไว้ในข้อมูลเผื่อกู้คืน</p>
