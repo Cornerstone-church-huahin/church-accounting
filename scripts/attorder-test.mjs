@@ -18,7 +18,7 @@ await page.addInitScript(() => {
   localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
   localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
   localStorage.setItem('acct.church-members.v1', JSON.stringify([
-    { id: 'a', name: 'คนที่หนึ่ง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี', gender: 'หญิง', updated: 1 }, { id: 'b', name: 'คนที่สอง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี', gender: 'หญิง', updated: 1 }, { id: 'c', name: 'คนที่สาม', status: 'สมบูรณ์ ( 1 )', group: '1.เด็กรวี', gender: 'ชาย', updated: 1 }, { id: 'd', name: 'คนอีกสัปดาห์', status: 'สมบูรณ์ ( 1 )', updated: 1 },
+    { id: 'a', name: 'คนที่หนึ่ง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี', gender: 'หญิง', updated: 1 }, { id: 'b', name: 'คนที่สอง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี', gender: 'หญิง', updated: 1 }, { id: 'c', name: 'คนที่สาม', status: 'สมบูรณ์ ( 1 )', group: '1.เด็กรวี', gender: 'ชาย', updated: 1 }, { id: 'd', name: 'คนอีกสัปดาห์', status: 'สมบูรณ์ ( 1 )', birth: '1990-03-03', updated: 1 }, { id: 'e', name: 'คนไม่เคยมา', status: 'สมบูรณ์ ( 1 )', birth: '1991-04-04', updated: 1 },
   ]))
   localStorage.setItem('acct.attendance.2026.v1', JSON.stringify([
     { id: 'ck1', date: '2026-10-25', mid: 'a', tm: '09:00', rec: 'ก', updated: 1000 },
@@ -47,6 +47,10 @@ try {
   await page.getByRole('group', { name: 'เลือกอาทิตย์' }).waitFor({ timeout: 8000 })
   await page.getByRole('button', { name: 'อาทิตย์ก่อนหน้า' }).click()
   must(/อาทิตย์|วัน/.test(await page.locator('#ck-date').inputValue().catch(() => '')) || (await page.locator('#ck-date').inputValue()).length > 0, 'check-in page has the stepper and a date')
+  await page.getByRole('tab', { name: 'วันเกิด' }).click()
+  await page.getByText('คนไม่เคยมา').first().waitFor({ timeout: 8000 })
+  const bd = await page.locator('body').innerText()
+  must(/คนไม่เคยมา[\s\S]{0,40}ไม่เคยมีบันทึกการมา/.test(bd), 'birthday row shows the red absence label: ' + bd.slice(0, 400))
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('attorder-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
