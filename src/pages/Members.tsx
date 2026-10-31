@@ -21,7 +21,7 @@ import { fmtDate, fmtDateLong, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, SINCE_PLACEHOLDER, familyInvite, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
 import { effectiveRules, needsGender, proposeRegroup, ruleWarnings, targetGroup } from '../lib/ageGroups'
 import { DEFAULT_STATUS_RULES, applyStatusMoves, effectiveStatusRules, proposeStatusMoves, reviewAutoMoves, revertStatusMoves, statusRuleWarnings } from '../lib/statusRules'
-import { AGE_BANDS, ageYears } from '../lib/pastoral'
+import { AGE_BANDS, absence, ageYears, isLive, visitStats } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, sinceFromFirst, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, stripStatusNo, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
@@ -93,6 +93,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
     }
     return true
   }
+  const absStats = useMemo(() => visitStats(attendance, today), [attendance, today]) // ขาดนมัสการมานานเท่าไร (ใช้ในหน้าวันเกิด)
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
   const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
   const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
@@ -164,7 +165,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {!lite && tab === 'audit' && <Audit checkOnly={merged} ext={merged ? [checkF, setCheckF] : undefined} registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {helper && tab === 'audit' && <PastoralMembers work={2} hideMap />}
       {(!lite || helper) && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
-      {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
+      {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} absLabel={(m) => (isLive(m) ? absence(absStats.get(m.id)?.last, today).label : '')} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} />}
       {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} canPhoto={canLog || (helper && canSign)} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} showStatus={helper} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
