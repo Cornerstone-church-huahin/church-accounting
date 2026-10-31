@@ -33,9 +33,10 @@ const LeafletMap = lazy(() => import('../components/LeafletMap'))
 import CheckinPanel, { RecorderChip } from '../components/CheckinPanel'
 import BirthdayList from '../components/BirthdayList'
 import GenderView from '../components/GenderView'
+import AgeView from '../components/AgeView'
 import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender' | 'age'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 /** registry = เปิดจากห้องงานฝ่ายทะเบียน (เฉพาะที่นี่มีปุ่มคัดลอกลิงก์แบบกรอกข้อมูล) */
@@ -95,8 +96,8 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   }
   const absStats = useMemo(() => visitStats(attendance, today), [attendance, today]) // ขาดนมัสการมานานเท่าไร (ใช้ในหน้าวันเกิด)
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
-  const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
-  const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
+  const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
+  const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
   // หน้ารวมสมาชิก (งานทะเบียน): ตัวกรองจากผลตรวจ/เพศ/จุดอัปเดต รวมเป็นชุดรหัสเดียวส่งให้การ์ดสมาชิก
   const regIds = useMemo(() => {
     if (!merged || (!checkF.length && !genF && !updF)) return null
@@ -132,8 +133,8 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {inRoom && <div className="no-print" style={{ margin: '0 0 0.4rem' }}><button type="button" className="mini" onClick={() => setMenu(true)}>‹ เมนูสมาชิก</button></div>}
       <div className="page-head no-print"><h1>สมาชิก</h1>{canSign && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
       {!inRoom && (
-        <div className={`seg ${lite && !helper ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
-          {(helper ? HELPER_TABS.map(([k, l]) => [k, l] as const) : lite ? [['checkin', 'ลงชื่อ'], ['stats', 'รายงาน'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['checkin', 'ลงชื่อ'], ['stats', 'รายงาน'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
+        <div className={`seg ${lite && !helper ? 'seg--3' : 'seg--7'} no-print`} role="tablist" aria-label="หมวด">
+          {(helper ? HELPER_TABS.map(([k, l]) => [k, l] as const) : lite ? [['checkin', 'ลงชื่อ'], ['stats', 'รายงาน'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['checkin', 'ลงชื่อ'], ['stats', 'รายงาน'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ'], ['age', 'อายุ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
@@ -165,6 +166,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {!lite && tab === 'audit' && <Audit checkOnly={merged} ext={merged ? [checkF, setCheckF] : undefined} registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {helper && tab === 'audit' && <PastoralMembers work={2} hideMap />}
       {(!lite || helper) && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
+      {(!lite || helper) && tab === 'age' && <AgeView members={people.items} today={today} onOpen={setDetail} />}
       {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} absLabel={(m) => (isLive(m) ? absence(absStats.get(m.id)?.last, today).label : '')} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} />}
       {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} canPhoto={canLog || (helper && canSign)} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}

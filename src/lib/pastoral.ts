@@ -219,3 +219,24 @@ export function visitCandidates<T extends { id: string; name: string; nick?: str
 
 /** ความยาวแถบสีแดงของคนที่ขาด: 1 เดือนสั้น → ยาวขึ้นตามเดือนที่ขาด เต็มแถบที่ 12 เดือนขึ้นไป (ไม่เคยมีบันทึก = เต็ม) */
 export const absenceBar = (months: number | null): number => (months === null ? 1 : Math.min(1, Math.max(0, months) / 12))
+
+/** สรุปอายุ: เฉลี่ย/มัธยฐาน/ต่ำสุด/สูงสุด + นับต่อช่วงวัย (แยกเพศ) + ต่อช่วง 10 ปี (ปิรามิดประชากร) */
+export function ageStats(members: { birth?: string; gender?: string }[], today: string) {
+  const ages: number[] = []
+  const bands = AGE_BANDS.map((b) => ({ key: b.key as string, label: b.label, from: b.from, to: b.to, male: 0, female: 0, other: 0, count: 0 }))
+  const decades = Array.from({ length: 10 }, (_, i) => ({ from: i * 10, label: i === 9 ? '90+' : `${i * 10}–${i * 10 + 9}`, male: 0, female: 0, other: 0 }))
+  let unknown = 0
+  for (const m of members) {
+    const a = ageYears(m.birth, today)
+    if (a == null) { unknown++; continue }
+    ages.push(a)
+    const k = m.gender === 'ชาย' ? 'male' : m.gender === 'หญิง' ? 'female' : 'other'
+    const b = bands.find((x) => a >= x.from && a <= x.to); if (b) { b[k]++; b.count++ }
+    decades[Math.min(9, Math.floor(a / 10))][k]++
+  }
+  ages.sort((x, y) => x - y)
+  const n = ages.length
+  const avg = n ? ages.reduce((s, x) => s + x, 0) / n : 0
+  const median = n ? (n % 2 ? ages[(n - 1) / 2] : (ages[n / 2 - 1] + ages[n / 2]) / 2) : 0
+  return { known: n, unknown, avg, median, min: n ? ages[0] : 0, max: n ? ages[n - 1] : 0, bands, decades }
+}
