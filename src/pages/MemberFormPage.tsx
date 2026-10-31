@@ -69,6 +69,9 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
     gender: f.gender || undefined, birth: f.birth || undefined, first: f.first || undefined, skills: f.skills.trim() || undefined,
     serve: serve.length ? serve.map((x) => (x === OTHER_SERVE ? (f.other.trim() ? `${OTHER_SERVE}: ${f.other.trim()}` : OTHER_SERVE) : x)) : undefined, serveDays: days.length ? days : undefined, note: f.note.trim() || undefined,
   })
+  const initial = [link.name, link.nick, link.tel, link.gender, link.birth, link.first, link.lineId, link.facebook, link.skills]
+  const have = initial.filter((x) => (x ?? '').trim()).length
+  const empty = initial.length - have
   const ok = f.name.trim().length > 0
   const sendLine = () => { if (!ok) return setMsg('ใส่ชื่อ-สกุลก่อนส่ง'); window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(replyText(answer()))}` }
   const copy = async () => {
@@ -80,19 +83,29 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
     <form className="card" onSubmit={(e) => e.preventDefault()} aria-label="แบบกรอกข้อมูลสมาชิก">
       {grouped && link && <p className="small" style={{ margin: 0 }}>{link.mid === NEW_MID ? 'ท่านไม่พบชื่อในรายการ — กรอกข้อมูลของท่านด้านล่าง ฝ่ายทะเบียนจะเพิ่มชื่อให้' : <>ท่านเลือกชื่อ <b>{link.name}</b> · <button type="button" className="mini" onClick={onReselect}>เลือกใหม่</button></>}</p>}
       <p style={{ margin: 0 }}>กรุณาตรวจและกรอกข้อมูลของท่านให้ครบ ข้อมูลที่ส่งจะไปถึงฝ่ายทะเบียนเท่านั้น</p>
+      {link.mid !== BY_NAME && link.mid !== NEW_MID && (
+        <div className="mform__guide" role="note">
+          <b>📋 ตรวจข้อมูลของท่านทุกช่อง</b>
+          <ul>
+            <li>ข้อมูลที่ฝ่ายทะเบียนมีอยู่แล้ว ระบบ<b>ดึงมาใส่ให้</b>ในแต่ละช่องแล้ว ({have} ช่อง) — <b>แก้ไขได้ทุกจุด</b></li>
+            <li>ช่องที่ยังว่าง ({empty} ช่อง) กรุณา<b>กรอกให้ครบ</b></li>
+            <li>ถ้าข้อมูลไหนไม่ตรงกับความจริง เช่น ชื่อ เบอร์โทร วัน เดือน ปีเกิด ให้<b>แก้ก่อนส่ง</b> ฝ่ายทะเบียนจะตรวจส่วนที่เปลี่ยนอีกครั้ง</li>
+          </ul>
+        </div>
+      )}
       {link.mid === BY_NAME && <p className="mform__warn" role="note">✍️ พิมพ์ <b>ชื่อ-นามสกุลจริง</b> ให้ตรงกับที่ลงทะเบียนไว้กับคริสตจักร เพื่อให้ฝ่ายทะเบียนจับคู่ข้อมูลของท่านได้ถูกต้อง</p>}
       <p className="mform__warn" role="note">⚠️ กรุณาตรวจ <b>ชื่อ-นามสกุล</b> และ <b>ชื่อเล่น</b> ให้ถูกต้อง เพราะจะใช้เป็นชื่อในทะเบียนของคริสตจักร ถ้าสะกดไม่ถูก ให้แก้ในช่องด้านล่างก่อนส่ง</p>
       <div className="field"><label htmlFor="mf-name">ชื่อ-สกุล <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-name" className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="name" /></div>
       <div className="field"><label htmlFor="mf-nick">ชื่อเล่น <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-nick" className="input" value={f.nick} onChange={(e) => set({ nick: e.target.value })} /></div>
-      <div className="field"><label htmlFor="mf-tel">โทรศัพท์</label><input id="mf-tel" className="input" type="tel" inputMode="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} autoComplete="tel" /></div>
+      <div className="field"><label htmlFor="mf-tel">โทรศัพท์{!f.tel.trim() && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-tel" className="input" type="tel" inputMode="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} autoComplete="tel" /></div>
       <div className="field"><label htmlFor="mf-line">LINE ID <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-line" className="input" value={f.lineId} onChange={(e) => set({ lineId: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="ไอดีไลน์ของท่าน" /></div>
       <div className="field"><label htmlFor="mf-fb">Facebook <span className="muted small">(ไม่บังคับ · พิมพ์ชื่อเฟซบุ๊ก/ชื่อเพจ หรือวางลิงก์ก็ได้)</span></label><input id="mf-fb" className="input" value={f.facebook} onChange={(e) => set({ facebook: e.target.value })} placeholder="ชื่อใน Facebook หรือลิงก์โปรไฟล์/เพจ" /></div>
-      <div className="field"><label id="mf-g">เพศ</label>
+      <div className="field"><label id="mf-g">เพศ{!f.gender && <span className="mform__empty">ยังว่าง — กรุณาเลือก</span>}</label>
         <div className="row" role="radiogroup" aria-labelledby="mf-g" style={{ gap: 6 }}>
           {['ชาย', 'หญิง'].map((g) => <button key={g} type="button" role="radio" aria-checked={f.gender === g} className={f.gender === g ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ gender: f.gender === g ? '' : g })}>{g}</button>)}
         </div></div>
-      <div className="field"><label htmlFor="mf-birth">วันเกิด</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
-      <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span></label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
+      <div className="field"><label htmlFor="mf-birth">วันเกิด{!f.birth && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-birth" className="input" type="date" value={f.birth} onChange={(e) => set({ birth: e.target.value })} /></div>
+      <div className="field"><label htmlFor="mf-first">วัน เดือน ปี ที่มาร่วมนมัสการครั้งแรก <span className="muted small">(โดยประมาณ · จำไม่ได้แน่ ใส่วันที่ใกล้เคียงได้)</span>{!f.first && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-first" className="input" type="date" value={f.first} onChange={(e) => set({ first: e.target.value })} /></div>
       <div className="field"><label htmlFor="mf-skills">อาชีพ / ความสามารถของท่าน <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-skills" className="input" value={f.skills} onChange={(e) => set({ skills: e.target.value })} placeholder="เช่น ครู พยาบาล ช่างไฟ เล่นกีตาร์ ทำอาหาร" /></div>
       <div className="field"><label id="mf-serve">งานรับใช้คริสตจักรที่ท่านเต็มใจช่วย <span className="muted small">(ติ๊กได้หลายข้อ · ไม่บังคับ)</span></label>
         <button type="button" className="btn btn--ghost btn--block" aria-haspopup="dialog" onClick={() => setPickServe(true)}>🙌 เลือกงานรับใช้{serve.length ? ` (เลือกแล้ว ${serve.length} ข้อ)` : ''}</button>
