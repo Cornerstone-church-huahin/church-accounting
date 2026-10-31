@@ -45,6 +45,7 @@ try {
   await page.getByRole('button', { name: /^ลงทะเบียน นายสมชาย/ }).click()
   await page.locator('.doneList li', { hasText: 'นายสมชาย' }).waitFor({ timeout: 8000 })
   must(await page.getByRole('button', { name: /^แก้ไขข้อมูล นายสมชาย/ }).count() === 0, 'helper has no edit button')
+  must(await page.getByRole('button', { name: /^(เพิ่ม|เปลี่ยน)รูป นายสมชาย/ }).count() === 1, 'helper can tap the photo in the check-in list')
   await page.getByRole('button', { name: /^ลบการลงชื่อของ นายสมชาย/ }).click()
   await page.getByRole('dialog', { name: 'ลบการลงชื่อนี้?' }).getByRole('button', { name: 'ลบ', exact: true }).click()
   await page.getByRole('status').filter({ hasText: 'ลบการลงชื่อของ' }).waitFor({ timeout: 5000 })
