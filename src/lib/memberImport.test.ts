@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAnswer, diffAnswer, nameVerdict, normName } from './memberImport'
+import { applyAnswer, diffAnswer, findCandidates, nameVerdict, normName } from './memberImport'
 import type { ChurchMember } from './types'
 
 const m = { id: 'm1', updated: 1, name: 'วีรชัย ใจดี', nick: 'ชัย', tel: '081', birth: '1990-01-01' } as ChurchMember
@@ -29,5 +29,14 @@ describe('memberImport', () => {
   })
   it('ไม่เลือกช่องไหน ช่องนั้นไม่เปลี่ยน', () => {
     expect(applyAnswer(m, { mid: 'm1', name: 'คนอื่น' }, new Set()).name).toBe('วีรชัย ใจดี')
+  })
+  it('จับคู่ชื่อจากลิงก์ทั่วไป: ชื่อใกล้เคียง + เบอร์/วันเกิดช่วยให้คะแนนสูงขึ้น', () => {
+    const ms = [m, { id: 'm2', updated: 1, name: 'สมชาย แสนสุข', tel: '0899999999' } as ChurchMember, { id: 'm3', updated: 1, name: 'มาลี ดีใจ' } as ChurchMember]
+    const c = findCandidates({ mid: 'by-name', name: 'วีระชัย ใจดี', tel: '081' }, ms)
+    expect(c[0].m.id).toBe('m1')
+    expect(c.some((x) => x.m.id === 'm3')).toBe(false)
+    const byTel = findCandidates({ mid: 'by-name', name: 'สมชาย แสนสข', tel: '089-999-9999' }, ms)
+    expect(byTel[0].m.id).toBe('m2')
+    expect(byTel[0].reasons.join()).toContain('เบอร์โทรตรงกัน')
   })
 })

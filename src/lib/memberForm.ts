@@ -50,6 +50,9 @@ export const FORM_DAYS = 14
 export interface GroupLink { v: 2; list: { id: string; name: string; nick?: string }[]; exp: number }
 export const GROUP_MAX = 80
 export const NEW_MID = 'new'
+/** ลิงก์ทั่วไป (สั้น) สำหรับส่งทั้งกลุ่ม: ไม่มีรายชื่อในลิงก์ — สมาชิกพิมพ์ชื่อเอง ฝ่ายทะเบียนจับคู่จากชื่อตอนวางข้อความ */
+export const BY_NAME = 'by-name'
+export const generalFormUrl = (base = `${location.origin}${location.pathname}`) => `${base}#/form`
 /** งานรับใช้ในคริสตจักร (ติ๊กได้หลายข้อ · มี “อื่นๆ” ให้พิมพ์เอง) */
 export const SERVE_OPTIONS = [
   'นำนมัสการ / ร้องเพลง / คณะนักร้อง', 'ดนตรี (เครื่องดนตรี)', 'เครื่องเสียง', 'โปรเจกเตอร์ / สไลด์ / ถ่ายทอดสด',
