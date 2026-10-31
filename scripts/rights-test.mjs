@@ -66,6 +66,7 @@ try {
   must(!/ผู้บันทึกการนมัสการ/.test(st.split('ตำแหน่งในห้องงานแต่ละแบบ')[0]) && /ห้องงานและตำแหน่ง/.test(st), 'settings: no old role picker, new room × position switches')
   await p.getByRole('switch', { name: 'งานทะเบียน' }).first().click()
   await p.waitForTimeout(500)
+  if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT, fullPage: false })
   await p.getByLabel('ตำแหน่งของ คนทดสอบ ใน งานทะเบียน').selectOption('advisor')
   await p.waitForTimeout(500)
   const u5 = await p.evaluate(() => JSON.parse(localStorage.getItem('acct.members.v1')).find((x) => x.id === 'u5'))
