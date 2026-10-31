@@ -8,6 +8,7 @@ import MultiPick from '../components/MultiPick'
 import MemberAvatar from '../components/MemberAvatar'
 import PastoralMembers from '../components/PastoralMembers'
 import WeekStrip from '../components/WeekStrip'
+import PhotoAvatar from '../components/PhotoAvatar'
 import { orderedAttendees, weekDates } from '../lib/attendanceWeeks'
 import MapPickSheet from '../components/MapPickSheet'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
@@ -163,8 +164,8 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {helper && tab === 'audit' && <PastoralMembers work={2} hideMap />}
       {(!lite || helper) && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
-      {tab === 'stats' && <Stats attendance={attendance} members={people.items} checkins={checkins} onOpen={setDetail} />}
-      {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
+      {tab === 'stats' && <Stats attendance={attendance} members={people.items} checkins={checkins} onOpen={setDetail} canPhoto={canLog || (helper && canSign)} put={people.put} />}
+      {tab === 'checkin' && (canSign ? <CheckinPanel lite={lite} readOnly={helper} canPhoto={canLog || (helper && canSign)} showStatus={helper} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster attendance={attendance} worshipDays={worshipDays} registry={!!registry && canEdit} lite={lite} showStatus={helper} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {statusMember && (
         <Sheet title={`เปลี่ยนสถานะ — ${statusMember.name}`} onClose={() => setStatusFor('')}>
@@ -1124,7 +1125,7 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
 const MAX_BARS = 26
 
 /** ยอดผู้เข้าร่วมแต่ละครั้ง: กราฟ + ตาราง (แตะแถวดูรายชื่อคนที่มา) */
-function Stats({ attendance, members, checkins, onOpen }: { attendance: Attendance[]; members: ChurchMember[]; checkins: CheckIn[]; onOpen: (id: string) => void }) {
+function Stats({ attendance, members, checkins, onOpen, canPhoto, put }: { attendance: Attendance[]; members: ChurchMember[]; checkins: CheckIn[]; onOpen: (id: string) => void; canPhoto: boolean; put: (x: ChurchMember[]) => boolean }) {
   const stats = useMemo(() => serviceStats(attendance, members), [attendance, members])
   const [sel, setSel] = useState('')   // อาทิตย์ที่เลือก ('' = ล่าสุดที่มีบันทึก)
   if (stats.length === 0) return <p className="empty">ยังไม่มีบันทึกลงชื่อนมัสการ — นำเข้าไฟล์ลงชื่อที่แท็บ “ทะเบียน” หรือลงชื่อทีละครั้งที่แท็บ “ลงชื่อ”</p>
@@ -1157,7 +1158,7 @@ function Stats({ attendance, members, checkins, onOpen }: { attendance: Attendan
               return (
                 <li key={a.id}>
                   <div className="pick pick--done">
-                    <span className="doneAv"><MemberAvatar path={m.photoPath} name={m.name} size={52} member={m} /><span className="doneNo" aria-label={`ลำดับที่ ${a.no}`}>{a.no}</span></span>
+                    <span className="doneAv"><PhotoAvatar member={m} size={52} canPhoto={canPhoto} put={put} /><span className="doneNo" aria-label={`ลำดับที่ ${a.no}`}>{a.no}</span></span>
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                       <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{newIds.has(a.id) && <span className="badge badge--gold" style={{ marginLeft: 6 }}>ใหม่</span>}
                       {(a.rec || a.tm) && <span className="doneBy">{a.rec && <span className="doneBy__n">ผู้บันทึก {a.rec}</span>}{a.tm && <span className="doneBy__t">{a.tm}</span>}</span>}

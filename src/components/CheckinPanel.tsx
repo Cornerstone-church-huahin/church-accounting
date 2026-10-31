@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
 import WeekStrip from './WeekStrip'
+import PhotoAvatar from './PhotoAvatar'
 import { weekDates } from '../lib/attendanceWeeks'
 import Sheet from './Sheet'
 import { dow, fmtDateLong, todayISO, yearOf } from '../lib/money'
@@ -20,11 +21,13 @@ const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padSt
  * - แตะ "ลงชื่อ" = บันทึกคนนั้นทันที (1 คน × 1 วัน) · ถ้าลงไปแล้วโดยเครื่องอื่น: ขึ้นเตือนว่าใครลง กี่โมง และไม่ลงซ้ำ
  * - คนใหม่: รูป + ชื่อ-นามสกุล (+ กรอบข้อมูลเสริม) · ชื่อคล้ายกับที่มีอยู่ ถามก่อนว่าใช่คนเดิมไหม
  */
-export default function CheckinPanel({ lite, readOnly, showStatus, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, onEdit, minYear }: {
+export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, members, checkins, recorders, putCheckIns, syncNow, addMember, onOpen, onEdit, minYear }: {
   lite: boolean
   /** ผู้ช่วยฝ่ายทะเบียน: ลงชื่อ/ลบรายการลงชื่อ/เพิ่มคนที่มาครั้งแรกได้ แต่แก้ข้อมูลสมาชิกที่มีอยู่ไม่ได้ (ซ่อนปุ่มแก้ไข) */
   readOnly?: boolean
   showStatus?: boolean
+  /** แตะที่รูปเพื่อเพิ่ม/เปลี่ยนรูปได้ */
+  canPhoto?: boolean
   members: ChurchMember[]
   checkins: CheckIn[]
   recorders: Recorder[]
@@ -107,7 +110,7 @@ export default function CheckinPanel({ lite, readOnly, showStatus, members, chec
     return (
       <li key={m.id}>
         <div className="pick pick--card">
-          <MemberAvatar path={m.photoPath} name={m.name} size={76} member={m} />
+          <PhotoAvatar member={m} size={76} canPhoto={canPhoto} put={addMember} />
           <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
             <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
             <span className="mrow__meta" style={{ display: 'block' }}>{[lite && !showStatus ? undefined : statusLabel(m.status), m.gender, m.group, !lite && m.birth && ageText(m.birth, today)].filter(Boolean).join(' · ')}</span>
@@ -180,7 +183,7 @@ export default function CheckinPanel({ lite, readOnly, showStatus, members, chec
               return (
                 <li key={c.id}>
                   <div className="pick pick--done">
-                    <span className="doneAv"><MemberAvatar path={m.photoPath} name={m.name} size={52} member={m} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
+                    <span className="doneAv"><PhotoAvatar member={m} size={52} canPhoto={canPhoto} put={addMember} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                       <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <span className="doneBy"><span className="doneBy__n">ผู้บันทึก {c.rec ?? '—'}</span>{c.tm && <span className="doneBy__t">{c.tm}</span>}</span>

@@ -41,6 +41,7 @@ try {
   must(h < 50, 'week stepper is short: ' + h)
   await page.getByRole('button', { name: 'อาทิตย์ก่อนหน้า' }).click()
   must(/18 ตุลาคม 2569/.test(await page.getByRole('group', { name: 'เลือกอาทิตย์' }).innerText()) && (await page.locator('.doneList .mrow__name').allInnerTexts()).join('|') === 'คนอีกสัปดาห์', 'previous week shows that day only')
+  must(await page.getByRole('button', { name: /^(เพิ่ม|เปลี่ยน)รูป/ }).count() >= 1, 'admin can tap the photo to add/change it')
   await page.getByRole('tab', { name: 'ลงชื่อ' }).click()
   await page.getByRole('group', { name: 'เลือกอาทิตย์' }).waitFor({ timeout: 8000 })
   await page.getByRole('button', { name: 'อาทิตย์ก่อนหน้า' }).click()
