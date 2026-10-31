@@ -1552,3 +1552,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .il__banner--3 { font-size: 14px; line-height: 1.4; padding: 4px 10px 5px; }
 .il__banner--3 > div:first-child { font-size: 17px; }
 .il__banner--3 > div + div { font-weight: 600; }
+
+/* หนังสือภายใน: คำลงท้ายขยับลงมา 1 บรรทัด (ช่องลายเซ็นเตี้ยลง) */
+.il__sign--s { max-height: 60px; }
