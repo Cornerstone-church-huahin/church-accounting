@@ -1,8 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import { MEETING_TABS } from '../lib/workTabs'
-import { can, normalizeRoles, ROLE_HELP, ROLE_LABEL, ROLES, rolesLabel, rolesOf, type Role } from '../lib/access'
-import RolePicker from '../components/RolePicker'
+import { can, normalizeRoles, ROLE_HELP, ROLE_LABEL, rolesLabel, rolesOf, type Role } from '../lib/access'
 import { isFundType } from '../lib/funds'
 import { makeExpenseGroup, makeIncomeType } from '../lib/catalog'
 import { DEFAULT_EXPENSE_CATS } from '../lib/expenseCats'
@@ -209,7 +208,18 @@ function Members() {
               <span className="grow" style={{ flexBasis: '100%' }}><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
               {m.isAdmin ? (
                 <>
-                  <div style={{ width: '12.5rem', maxWidth: '100%' }}><RolePicker only={['viewer', 'worship', 'fundkeeper', 'admin']} label={`สิทธิ์เฉพาะทางของ ${x.name}`} value={rolesOf(x)} disabled={lastAdmin} onChange={(rs) => { if (m.setRole(x.id, rs)) flash(`ตั้งสิทธิ์ ${x.name}: ${rolesLabel(rs)}`); else flash('ต้องมีแอดมินอย่างน้อย 1 คน') }} /></div>
+                  {(() => {
+                    const rs = rolesOf(x), isAd = rs.includes('admin'), isFk = rs.includes('fundkeeper')
+                    const legacy = rs.filter((r): r is 'bookkeeper' | 'worship' | 'auditor' => r !== 'viewer' && r !== 'admin' && r !== 'fundkeeper')
+                    const keep = rs.filter((r) => !(legacy as Role[]).includes(r))
+                    return (
+                      <div className="rightsbox" style={{ flexBasis: '100%' }}>
+                        <SwitchRow label="แอดมินระบบ" sub="ทำได้ทุกอย่างทั้งระบบ (จัดการผู้ใช้ ประเภทถวาย งบประมาณ) · ไม่ต้องกำหนดห้องงาน" on={isAd} disabled={lastAdmin} onChange={(v) => { if (m.setRole(x.id, v ? ['admin'] : ['viewer'])) flash(`${v ? 'ตั้ง' : 'เอา'} ${x.name} ${v ? 'เป็น' : 'ออกจาก'}แอดมินระบบ`) }} />
+                        {!isAd && <SwitchRow label="ผู้ดูแลกองทุน" sub="เห็นเฉพาะกองทุนที่กำหนดด้านล่าง (ใช้แทนห้องงาน)" on={isFk} onChange={(v) => { if (m.setRole(x.id, v ? ['fundkeeper'] : ['viewer'])) flash(`${v ? 'ตั้ง' : 'เอา'} ${x.name} ${v ? 'เป็น' : 'ออกจาก'}ผู้ดูแลกองทุน`) }} />}
+                        {legacy.length > 0 && <p className="small" style={{ margin: '0.3rem 0 0' }}>สิทธิ์เดิม: <b>{rolesLabel(legacy)}</b> <button type="button" className="mini" aria-label={`ล้างสิทธิ์เดิมของ ${x.name}`} onClick={() => { if (m.setRole(x.id, keep.length ? keep : ['viewer'])) flash(`ล้างสิทธิ์เดิมของ ${x.name}`) }}>ล้าง ✕</button> <span className="muted">(ให้ตั้งห้องงาน × ตำแหน่งด้านล่างแทน)</span></p>}
+                      </div>
+                    )
+                  })()}
                   {!rolesOf(x).includes('admin') && <button type="button" className="mini" onClick={() => m.setPaused(x.id, !x.paused)} aria-label={`${x.paused ? 'เปิดสิทธิ์คืน' : 'พักสิทธิ์'} ${x.name}`}>{x.paused ? '▶ เปิดคืน' : '⏸ พัก'}</button>}
                   {delId === x.id ? (
                     <span className="row"><button type="button" className="btn btn--danger" onClick={() => { if (!m.removeMember(x.id)) flash('ลบแอดมินคนสุดท้ายไม่ได้'); setDelId(null) }}>ลบ {x.name}</button><button type="button" className="btn btn--ghost" onClick={() => setDelId(null)}>ไม่ลบ</button></span>
@@ -240,29 +250,34 @@ function Members() {
                       })}
                     </details>
                   )}
-                  <details style={{ flexBasis: '100%' }}>
-                    <summary className="small">ตำแหน่งในงาน: {x.works?.length ? x.works.map((n) => `${MEETING_TABS.find((t) => t.n === n)?.name} (${WORK_LEVEL_LABEL[workLevelOf(x, n) ?? 'lead']})`).join(', ') : 'ยังไม่มี (ผู้ดูทั่วไป)'}</summary>
-                    <p className="small muted" style={{ margin: '0.3rem 0' }}>ตัวเลือกเหมือนกันทุกงาน: ผู้ดูแลหลัก · ผู้ช่วย · ที่ปรึกษา · เปลี่ยนได้ทุกเมื่อ มีผลทันที</p>
-                    <ul className="list" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
-                      {MEETING_TABS.map((t) => {
-                        const lv = workLevelOf(x, t.n)
-                        return (
-                          <li key={t.n} className="row row--between" style={{ alignItems: 'center' }}>
-                            <span>{t.name}</span>
-                            <select className="input" style={{ width: '9.5rem' }} aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} value={lv ?? ''} onChange={(e) => {
-                              const next: Record<number, WorkLevel | null> = {}
-                              for (const z of MEETING_TABS) next[z.n] = workLevelOf(x, z.n)
-                              next[t.n] = (e.target.value || null) as WorkLevel | null
-                              if (m.setPositions(x.id, next)) flash(e.target.value ? `${x.name} เป็น${WORK_LEVEL_LABEL[e.target.value as WorkLevel]}ของ${t.name}` : `เอา ${x.name} ออกจาก${t.name}`)
-                            }}>
-                              <option value="">— ไม่อยู่ในงานนี้</option>
-                              {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
-                            </select>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </details>
+                  {!rolesOf(x).includes('admin') && !rolesOf(x).includes('fundkeeper') && (
+                    <div style={{ flexBasis: '100%' }} role="group" aria-label={`ห้องงานและตำแหน่งของ ${x.name}`}>
+                      <p className="small" style={{ margin: '0.3rem 0' }}><b>ห้องงานและตำแหน่ง</b> <span className="muted">เปิดสวิตช์ = ได้ไอคอนห้องนั้นตามตำแหน่งที่เลือก · ไม่ต้องส่งลิงก์ใหม่ · เครื่องของเขาเห็นเมื่อซิงก์ (กดรีเฟรช)</span></p>
+                      <ul className="list" aria-label={`ตำแหน่งของ ${x.name} ในแต่ละงาน`}>
+                        {MEETING_TABS.map((t) => {
+                          const lv = workLevelOf(x, t.n)
+                          const setLv = (next: WorkLevel | null) => {
+                            const pos: Record<number, WorkLevel | null> = {}
+                            for (const z of MEETING_TABS) pos[z.n] = workLevelOf(x, z.n)
+                            pos[t.n] = next
+                            if (m.setPositions(x.id, pos)) flash(next ? `${x.name} เป็น${WORK_LEVEL_LABEL[next]}ของ${t.name}` : `เอา ${x.name} ออกจาก${t.name}`)
+                          }
+                          return (
+                            <li key={t.n} style={{ display: 'block' }}>
+                              <div className="row row--between" style={{ alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
+                                <SwitchRow label={t.name} on={!!lv} compact onChange={(v) => setLv(v ? 'helper' : null)} />
+                                <select className="input" style={{ width: '9.5rem', flex: 'none' }} disabled={!lv} aria-label={`ตำแหน่งของ ${x.name} ใน ${t.name}`} value={lv ?? ''} onChange={(e) => setLv((e.target.value || null) as WorkLevel | null)}>
+                                  <option value="">— ปิด —</option>
+                                  {WORK_LEVELS.map((l) => <option key={l} value={l}>{WORK_LEVEL_LABEL[l]}</option>)}
+                                </select>
+                              </div>
+                              {lv && <p className="small muted" style={{ margin: '0.1rem 0 0.3rem' }}>{workLevelHelp(lv, t.n)}</p>}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </>
               ) : <span className="badge">{rolesLabel(rolesOf(x))}{x.works?.length ? ` · ${x.works.map((n) => MEETING_TABS.find((t) => t.n === n)?.name).filter(Boolean).join(', ')}` : ''}</span>}
             </li>
@@ -271,8 +286,8 @@ function Members() {
       </ul>
       {msg && <p className="ok" role="status">{msg}</p>}
       <details>
-        <summary>สิทธิ์แต่ละระดับทำอะไรได้</summary>
-        <ul>{ROLES.map((r) => <li key={r}><b>{ROLE_LABEL[r]}</b> — {ROLE_HELP[r]}</li>)}</ul>
+        <summary>ตำแหน่งในห้องงานแต่ละแบบทำอะไรได้</summary>
+        <ul>{WORK_LEVELS.map((l) => <li key={l}><b>{WORK_LEVEL_LABEL[l]}</b> — {workLevelHelp(l)}</li>)}<li><b>แอดมินระบบ</b> — {ROLE_HELP.admin}</li><li><b>ผู้ดูแลกองทุน</b> — {ROLE_HELP.fundkeeper}</li></ul>
       </details>
       <p className="foot-note">สิทธิ์เป็นการกันในแอป ไม่ใช่การล็อกระดับ GitHub — ใครมีรหัสเข้าใช้ร่วมก็อ่าน repo ข้อมูลได้ตรง ๆ จึงควรแจกรหัสเฉพาะคนที่ไว้ใจ และเปลี่ยนรหัสใหม่เมื่อมีคนออก</p>
     </Fold>
@@ -630,5 +645,15 @@ function OpeningCard() {
       <button type="button" className="btn btn--gold" onClick={save}>บันทึกยอดยกมา</button>
       {msg && <p className={msg.startsWith('บันทึก') ? 'ok' : 'err'} role="status">{msg}</p>}
     </Fold>
+  )
+}
+
+/** สวิตช์เปิด/ปิด: เปิด = เขียว · compact = บรรทัดเดียว (ชื่ออยู่ขวาของสวิตช์) */
+function SwitchRow({ label, sub, on, onChange, disabled, compact }: { label: string; sub?: string; on: boolean; onChange: (v: boolean) => void; disabled?: boolean; compact?: boolean }) {
+  return (
+    <div className="swrow" style={compact ? { flex: 1, minWidth: 0 } : undefined}>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} className={`swt${on ? ' swt--on' : ''}`} onClick={() => onChange(!on)}><i /></button>
+      <span className="swrow__t"><b>{label}</b>{sub && <><br /><span className="small muted">{sub}</span></>}</span>
+    </div>
   )
 }

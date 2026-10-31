@@ -43,11 +43,9 @@ const PERMS: Record<Role, Perm[]> = {
 }
 /** งานเหรัญญิก = งานที่ 3: ตำแหน่งในงานนี้ให้สิทธิ์งานบัญชี (แก้ตารางเดียว) · ผู้ดูแลหลัก = ทำงานบัญชีครบ · ผู้ช่วย/ที่ปรึกษา = ดูรายละเอียดอย่างเดียว · ยืนยันยอด/รับรองใบเบิก = แอดมิน (เพิ่ม "ผู้ตรวจ" เฉพาะจุดภายหลัง) */
 export const FINANCE_WORK = 3
-export const FINANCE_PERMS: Record<WorkLevel, Perm[]> = {
-  lead: ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry', 'worship'],
-  helper: ['detail'],
-  advisor: ['detail'],
-}
+const FINANCE_LEAD: Perm[] = ['income', 'count', 'verifyCount', 'deposit', 'statement', 'voucherCreate', 'voucherPay', 'attach', 'detail', 'registry', 'worship']
+/** แอดมิน/ผู้ช่วยแอดมินของห้องเหรัญญิก = สิทธิ์เท่าผู้ดูแล (ไม่ขยายสิทธิ์การเงินเกินกว่านี้) */
+export const FINANCE_PERMS: Record<WorkLevel, Perm[]> = { owner: FINANCE_LEAD, deputy: FINANCE_LEAD, lead: FINANCE_LEAD, helper: ['detail'], advisor: ['detail'] }
 const financeLevel = (): WorkLevel | null => {
   if (!getSync()) return null
   const me = getMe()
@@ -89,6 +87,9 @@ export const can = (role: AccessRole, p: Perm) => {
     // ตำแหน่งในงานเหรัญญิก (งาน 3) ให้สิทธิ์งานบัญชีตามระดับ — มาตรฐานเดียวกับทุกงาน
     const fl = financeLevel()
     if (fl && FINANCE_PERMS[fl].includes(p)) return true
+    // แอดมิน/ผู้ช่วยแอดมินของงานทะเบียน (งาน 2) = จัดการทะเบียนเต็ม
+    const rl = registryRoomLevel()
+    if ((rl === 'owner' || rl === 'deputy') && (p === 'detail' || p === 'registry' || p === 'worship')) return true
   }
   return false
 }
@@ -170,19 +171,24 @@ export function blocked(p: Perm): boolean {
  * ตำแหน่งในห้องงาน (ต่อห้อง): ผู้ดูแลหลัก = แก้ไขได้ทุกอย่างของงานนั้น · ผู้ช่วย = ลงปฏิทินได้ + แชท ที่เหลือดูอย่างเดียว · ที่ปรึกษา = แชท ที่เหลือดูอย่างเดียว
  * แอดมินอยู่เหนือทุกงาน · แก้ตารางนี้ที่เดียว สิทธิ์เปลี่ยนทุกห้องพร้อมกัน
  */
-export type WorkLevel = 'lead' | 'helper' | 'advisor'
+/** ตำแหน่งในห้อง 5 แบบ (สูง → ต่ำ): แอดมิน (owner) · ผู้ช่วยแอดมิน (deputy) · ผู้ดูแล (lead) · ผู้ช่วยงาน (helper) · ที่ปรึกษา (advisor) */
+export type WorkLevel = 'owner' | 'deputy' | 'lead' | 'helper' | 'advisor'
 export type WorkPerm = 'view' | 'edit' | 'calendar' | 'chat'
-export const WORK_LEVELS: WorkLevel[] = ['lead', 'helper', 'advisor']
-export const WORK_LEVEL_LABEL: Record<WorkLevel, string> = { lead: 'ผู้ดูแลหลัก', helper: 'ผู้ช่วย', advisor: 'ที่ปรึกษา' }
+export const WORK_LEVELS: WorkLevel[] = ['owner', 'deputy', 'lead', 'helper', 'advisor']
+export const WORK_LEVEL_LABEL: Record<WorkLevel, string> = { owner: 'แอดมิน', deputy: 'ผู้ช่วยแอดมิน', lead: 'ผู้ดูแล', helper: 'ผู้ช่วยงาน', advisor: 'ที่ปรึกษา' }
 export const WORK_LEVEL_HELP: Record<WorkLevel, string> = {
-  lead: 'เพิ่ม แก้ไข ลบ ข้อมูลของงานได้ทุกอย่าง รวมปฏิทิน และแชทกับแอดมิน',
+  owner: 'ทำได้ทุกอย่างในงานนี้ (เหมือนผู้ช่วยแอดมิน) · ไม่รวมสิทธิ์ระดับระบบ เช่น จัดการผู้ใช้',
+  deputy: 'ทำได้ทุกอย่างในงานนี้ (เหมือนแอดมินของงาน) · ไม่รวมสิทธิ์ระดับระบบ เช่น จัดการผู้ใช้',
+  lead: 'ทำงานในระบบของงานนี้ได้ รวมปฏิทินและแชท · แก้ข้อมูลสมาชิกโดยตรงไม่ได้ เห็น/แก้ได้บางส่วน',
   helper: 'ลงปฏิทินงานและแชทกับแอดมินได้ · ข้อมูลอื่นของงานดูอย่างเดียว',
   advisor: 'แชทกับแอดมินได้ · ที่เหลือดูอย่างเดียว (ลงปฏิทินเองไม่ได้)',
 }
 /** คำอธิบายตำแหน่ง (ห้องงานทะเบียนมีสิทธิ์ของผู้ช่วยต่างจากห้องอื่น) */
 export const workLevelHelp = (l: WorkLevel, n?: number | null): string =>
-  n === 2 && l === 'helper' ? 'ลงชื่อนมัสการได้ และลบรายการลงชื่อที่ลงผิดได้ · ดูชื่อ ชื่อเล่น กลุ่ม รูป หมายเหตุ สถานะ (ดูอย่างเดียว) · ไม่เห็นข้อมูลส่วนตัวอื่น · แก้ไข/ลบสมาชิกไม่ได้ · ลงปฏิทินและแชทกับแอดมินได้' : WORK_LEVEL_HELP[l]
-export const WORK_PERMS: Record<WorkLevel, WorkPerm[]> = { lead: ['view', 'edit', 'calendar', 'chat'], helper: ['view', 'calendar', 'chat'], advisor: ['view', 'chat'] }
+  n === 2 && (l === 'helper' || l === 'lead') ? 'ลงชื่อนมัสการ ลบรายการลงชื่อที่ลงผิด เพิ่มชื่อผู้มาครั้งแรก เพิ่ม/เปลี่ยนรูปได้ · ดูชื่อ กลุ่ม หมายเหตุ สถานะ วันเกิด (ดูอย่างเดียว) · ไม่เห็นเบอร์โทร ที่อยู่ พิกัด · แก้/ลบสมาชิกไม่ได้'
+  : n === 2 && l === 'advisor' ? 'ดูอย่างเดียวทุกไอคอน (รวมสมาชิก ยอดผู้มา วันเกิด เพศ) · ลงชื่อ/แก้ไขไม่ได้ · ไม่เห็นเบอร์โทร ที่อยู่ พิกัด'
+  : n === 2 ? 'จัดการทะเบียนสมาชิกได้เต็ม (เพิ่ม แก้ ลบ นำเข้า ลิงก์ให้สมาชิกกรอกเอง ฯลฯ)' : WORK_LEVEL_HELP[l]
+export const WORK_PERMS: Record<WorkLevel, WorkPerm[]> = { owner: ['view', 'edit', 'calendar', 'chat'], deputy: ['view', 'edit', 'calendar', 'chat'], lead: ['view', 'edit', 'calendar', 'chat'], helper: ['view', 'calendar', 'chat'], advisor: ['view', 'chat'] }
 export const levelCan = (l: WorkLevel, p: WorkPerm) => WORK_PERMS[l].includes(p)
 /** ตำแหน่งของคนนั้นในห้อง n (null = ไม่ได้อยู่ในห้องนี้) · อยู่ใน works แต่ไม่ได้ระบุตำแหน่ง = ผู้ดูแลหลัก */
 export const workLevelOf = (m: { works?: number[]; workRoles?: Record<string, WorkLevel> }, n: number): WorkLevel | null => {
@@ -200,7 +206,15 @@ export function myWorkLevel(n: number): 'admin' | WorkLevel | null {
   return mine && !mine.deleted ? workLevelOf(mine, n) : null
 }
 /** เป็นผู้ช่วยฝ่ายทะเบียนอยู่หรือไม่ (ตำแหน่ง “ผู้ช่วย” ในงานที่ 2 และบทบาทบัญชีไม่ได้ให้สิทธิ์สมาชิกอยู่แล้ว) */
-export const isRegistryHelper = (): boolean => myWorkLevel(REGISTRY_WORK) === 'helper' && !canRole(myRole(), 'worship') && !canRole(myRole(), 'detail')
+const registryRoomLevel = (): WorkLevel | null => {
+  if (!getSync()) return null
+  const me = getMe()
+  const mine = me && readAllMembers().find((m) => m.id === me.id)
+  return mine && !mine.deleted && !mine.paused && mine.status !== 'pending' ? workLevelOf(mine, REGISTRY_WORK) : null
+}
+export const isRegistryHelper = (): boolean => { const l = registryRoomLevel(); return (l === 'lead' || l === 'helper' || l === 'advisor') && !canRole(myRole(), 'worship') && !canRole(myRole(), 'detail') }
+/** ผู้ดูแล/ผู้ช่วยงานของห้องทะเบียนลงชื่อได้ · ที่ปรึกษาดูอย่างเดียว */
+export const registryCanSign = (): boolean => { const l = registryRoomLevel(); return l === 'lead' || l === 'helper' }
 /** เครื่องนี้ทำ perm ในห้อง n ได้ไหม (ตามตำแหน่งในห้อง — ไม่รวมสิทธิ์ตามบทบาทบัญชี) */
 export const canWork = (n: number, p: WorkPerm): boolean => { const l = myWorkLevel(n); return l === 'admin' || (!!l && levelCan(l, p)) }
 /** ลงปฏิทินของงาน n ได้: บทบาทที่มีสิทธิ์ดูรายละเอียด หรือเป็นผู้ดูแลหลัก/ผู้ช่วยของงานนั้น (ทั่วไป n=0 = เฉพาะบทบาทที่มีสิทธิ์) */

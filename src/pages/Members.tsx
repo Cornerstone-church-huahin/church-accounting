@@ -10,7 +10,7 @@ import PastoralMembers from '../components/PastoralMembers'
 import MapPickSheet from '../components/MapPickSheet'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
-import { can, isRegistryHelper } from '../lib/access'
+import { can, isRegistryHelper, registryCanSign } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
@@ -45,7 +45,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const role = useRole()
   const canEdit = can(role, 'registry')
   const helper = isRegistryHelper() // ผู้ช่วยฝ่ายทะเบียน: ลงชื่อ/ลบรายการลงชื่อได้ · ที่เหลือดูอย่างเดียว
-  const canSign = can(role, 'worship') || helper
+  const canSign = can(role, 'worship') || (helper && registryCanSign())
   const canLog = can(role, 'worship')   // แก้ข้อมูล/เพิ่มคน/รูป (ผู้ช่วยไม่มี)
   const inRoom = useLocation().pathname.startsWith('/meeting') // ในห้องทำงาน: เมนูแท็บเป็นช่องสีเหมือนหน้าแรก
   const startTab = useSearchParams()[0].get('tab') // ไอคอนลัดที่หัวแอปเปิดมาที่แท็บ ลงชื่อ ทันที
@@ -64,7 +64,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const criteria = { minYears: settings.memberMinYears ?? DEFAULT_CRITERIA.minYears, absentMonths: settings.memberAbsentMonths ?? DEFAULT_CRITERIA.absentMonths }
   const today = todayISO()
   const result = useMemo(() => evaluate(people.items, attendance, criteria, today), [people.items, attendance, criteria.minYears, criteria.absentMonths, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canSign ? 'checkin' : lite ? 'checkin' : attendance.length === 0 && !(registry && canEdit) ? 'roster' : 'audit'))
+  const [tab, setTab] = useState<Tab>(() => (startTab === 'checkin' && canSign ? 'checkin' : lite ? (helper && !canSign ? 'audit' : 'checkin') : attendance.length === 0 && !(registry && canEdit) ? 'roster' : 'audit'))
   const [detail, setDetail] = useState('')
   // ในห้องทำงาน: เปิดมาเห็นเมนูช่องสี 6 ช่องอย่างเดียว · กดช่องไหน เมนูหายและหน้านั้นเต็มจอ · ‹ เมนูสมาชิก กลับมาเห็นช่องทั้งหก
   const [menu, setMenu] = useState(inRoom && !startTab)
@@ -90,7 +90,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
     return true
   }
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
-  const HELPER_TABS = [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
+  const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
   const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
   // หน้ารวมสมาชิก (งานทะเบียน): ตัวกรองจากผลตรวจ/เพศ/จุดอัปเดต รวมเป็นชุดรหัสเดียวส่งให้การ์ดสมาชิก
   const regIds = useMemo(() => {
@@ -174,7 +174,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       )}
       {adding && <MemberForm lite={lite} canDelete={false} member={null} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setAdding(false)} put={people.put} remove={people.remove} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
-      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} showStatus={helper} canPhoto={canLog || helper} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail worshipDays={worshipDays} lite={lite} showStatus={helper} canPhoto={canLog || (helper && canSign)} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} sinceShared={shownDetail.member.since ? people.items.filter((x) => !x.deleted && x.since === shownDetail.member.since).length : 0} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }

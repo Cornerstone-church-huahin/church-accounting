@@ -9,5 +9,11 @@ export const MEETING_TABS = [
 
 /** ปุ่ม “‹ หน้าแรก” ในหัวของทุกงาน: กลับหน้าแรก (ห้องทำงาน) เหมือนกันทุกงาน ทุกบทบาท */
 export const workHomePath = (_works: number[]) => '/'
-/** งานที่แสดงในหน้าเลือกงาน: ไม่ได้กำหนด = ทุกงาน · กำหนดแล้ว = เฉพาะงานของตน */
-export const visibleWorks = (works: number[]) => (works.length ? MEETING_TABS.filter((t) => works.includes(t.n)) : MEETING_TABS)
+/** ห้องที่ยังไม่ได้ตั้งชื่อ (แท็บ 15–18): เห็นเฉพาะแอดมิน */
+export const isUnnamedWork = (t: { name: string }) => /^แท็บ \d+$/.test(t.name)
+/** งานที่แสดงในหน้าเลือกงาน: กำหนดแล้ว = เฉพาะงานของตน · ไม่ได้กำหนด = ทุกงาน (แอดมิน/บัญชีที่เห็นรายละเอียดเท่านั้น: all) หรือไม่เห็นเลย · ห้องที่ยังไม่มีชื่อเห็นเฉพาะแอดมิน */
+export const visibleWorks = (works: number[], opts: { all?: boolean; admin?: boolean } = {}) => {
+  const { all = true, admin = true } = opts
+  const base = works.length ? MEETING_TABS.filter((t) => works.includes(t.n)) : all ? MEETING_TABS : []
+  return admin ? base : base.filter((t) => !isUnnamedWork(t))
+}
