@@ -41,16 +41,21 @@ try {
   await p2.getByLabel('ชื่อ-สกุล').waitFor({ timeout: 10000 })
   must((await p2.getByLabel('ชื่อ-สกุล').inputValue()) === 'ดารา ผลจันทร์' && (await p2.getByLabel('โทรศัพท์').inputValue()) === '0818896490', 'prefilled from link')
   must(await p2.getByText('คริสตจักรศิลาเอก').first().isVisible() && await p2.getByText(/เชื่อมต่อ|วางลิงก์เชิญ/).count() === 0, 'standalone page (no connect gate)')
-  if (process.env.SHOT) { await p2.setViewportSize({ width: 390, height: 1250 }); await p2.screenshot({ path: process.env.SHOT }) }
+  if (process.env.SHOT) { await p2.setViewportSize({ width: 390, height: 1700 }); await p2.screenshot({ path: process.env.SHOT }) }
   await p2.getByLabel('โทรศัพท์').fill('0899999999')
   must(await p2.getByText(/รหัสสมาชิก/).count() === 0 && await p2.getByText(/พิกัดบ้าน/).count() === 0, 'no member code / no coordinates on form')
   await p2.getByLabel('LINE ID').fill('dara_l')
   await p2.getByLabel(/^Facebook/).fill('ดารา ผลจันทร์')
   await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).fill('2012-05-06')
+  await p2.getByLabel(/อาชีพ \/ ความสามารถ/).fill('พยาบาล')
+  await p2.getByRole('checkbox', { name: /ครัว/ }).click()
+  await p2.getByRole('checkbox', { name: /^อื่นๆ/ }).click()
+  await p2.getByLabel('งานรับใช้อื่นๆ').fill('ตัดผมให้เด็ก')
+  await p2.getByRole('checkbox', { name: /วันเสาร์/ }).click()
   await p2.getByLabel(/ข้อความถึงฝ่ายทะเบียน/).fill('ย้ายบ้านใหม่')
   await p2.getByRole('button', { name: /คัดลอกข้อความ/ }).click()
   const reply = await p2.evaluate(() => navigator.clipboard.readText())
-  must(reply.includes('โทรศัพท์: 0899999999') && reply.includes('หมายเหตุ: ย้ายบ้านใหม่') && reply.includes('รหัสตรวจ:') && reply.includes('LINE ID: dara_l') && reply.includes('Facebook: ดารา ผลจันทร์') && /มานมัสการครั้งแรก \(ประมาณ\): 6 พ\.ค\./.test(reply), 'reply text: ' + reply)
+  must(reply.includes('โทรศัพท์: 0899999999') && reply.includes('หมายเหตุ: ย้ายบ้านใหม่') && reply.includes('รหัสตรวจ:') && reply.includes('LINE ID: dara_l') && reply.includes('อาชีพ/ความสามารถ: พยาบาล') && reply.includes('ครัว / อาหาร / เครื่องดื่ม, อื่นๆ: ตัดผมให้เด็ก') && reply.includes('วันที่สะดวกรับใช้: วันเสาร์') && reply.includes('Facebook: ดารา ผลจันทร์') && /มานมัสการครั้งแรก \(ประมาณ\): 6 พ\.ค\./.test(reply), 'reply text: ' + reply)
   // ลิงก์เสีย
   await p2.goto(`http://localhost:${PORT}/#/form?d=xxx`)
   await p2.getByText(/ลิงก์นี้ไม่ถูกต้อง/).waitFor({ timeout: 8000 })

@@ -15,6 +15,10 @@ export interface FormLink {
   tel?: string
   lineId?: string
   facebook?: string
+  skills?: string
+  /** งานรับใช้ที่เต็มใจ (ข้อ “อื่นๆ” ขึ้นเป็น อื่นๆ: …) */
+  serve?: string[]
+  serveDays?: string[]
   gender?: string
   birth?: string
   /** วันที่มานมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD */
@@ -31,6 +35,10 @@ export interface FormAnswer {
   tel?: string
   lineId?: string
   facebook?: string
+  skills?: string
+  /** งานรับใช้ที่เต็มใจ (ข้อ “อื่นๆ” ขึ้นเป็น อื่นๆ: …) */
+  serve?: string[]
+  serveDays?: string[]
   gender?: string
   birth?: string
   /** วันที่มานมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD */
@@ -38,12 +46,21 @@ export interface FormAnswer {
   note?: string
 }
 export const FORM_DAYS = 14
+/** งานรับใช้ในคริสตจักร (ติ๊กได้หลายข้อ · มี “อื่นๆ” ให้พิมพ์เอง) */
+export const SERVE_OPTIONS = [
+  'นำนมัสการ / ร้องเพลง / คณะนักร้อง', 'ดนตรี (เครื่องดนตรี)', 'เครื่องเสียง', 'โปรเจกเตอร์ / สไลด์ / ถ่ายทอดสด',
+  'ถ่ายภาพ / วิดีโอ', 'ต้อนรับ / ลงชื่อ / ประสานงาน', 'ครัว / อาหาร / เครื่องดื่ม', 'จัดสถานที่ / ดอกไม้ / ตกแต่ง',
+  'ทำความสะอาด / ซ่อมบำรุง / ช่าง', 'โรงเรียนอาทิตย์ / ดูแลเด็ก', 'อนุชน / เยาวชน', 'เยี่ยมเยียน / อภิบาล / ติดตามผู้ใหม่',
+  'อธิษฐานเผื่อ', 'ขับรถ / รับส่ง', 'บัญชี / การเงิน / เอกสาร', 'ออกแบบ / สื่อ / โซเชียล / ประชาสัมพันธ์', 'แปลภาษา',
+]
+export const OTHER_SERVE = 'อื่นๆ'
+export const DAY_OPTIONS = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์', 'ยืดหยุ่น / ตามนัด']
 
 const b64 = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const unb64 = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))
 
 export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
-  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, gender: m.gender, birth: m.birth, first: m.since, exp: now + FORM_DAYS * 86_400_000 }
+  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, lineId: m.lineId, facebook: m.facebook, skills: m.skills, serve: m.serve, serveDays: m.serveDays, gender: m.gender, birth: m.birth, first: m.since, exp: now + FORM_DAYS * 86_400_000 }
 }
 export const encodeFormLink = (p: FormLink) => b64(JSON.stringify(p))
 export function decodeFormLink(d: string | null): FormLink | null {
@@ -67,6 +84,9 @@ export function replyText(a: FormAnswer): string {
     `Facebook: ${a.facebook ?? ''}`,
     `เพศ: ${a.gender ?? ''}`,
     `วันเกิด: ${a.birth ? fmtDate(a.birth) : ''}`,
+    `อาชีพ/ความสามารถ: ${a.skills ?? ''}`,
+    `งานรับใช้ที่เต็มใจ: ${a.serve?.join(', ') ?? ''}`,
+    `วันที่สะดวกรับใช้: ${a.serveDays?.join(', ') ?? ''}`,
     `มานมัสการครั้งแรก (ประมาณ): ${a.first ? fmtDate(a.first) : ''}`,
     ...(a.note?.trim() ? [`หมายเหตุ: ${a.note.trim()}`] : []),
     `— รหัสตรวจ: ${b64(JSON.stringify(a))}`,
