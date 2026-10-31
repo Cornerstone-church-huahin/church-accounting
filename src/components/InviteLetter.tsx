@@ -11,7 +11,7 @@ import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
-import { letterDate, nextFirstSunday, noticeAgenda, noticeMeetingText } from '../lib/meetings'
+import { isAutoSubItem, letterDate, nextFirstSunday, noticeAgenda, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
@@ -251,6 +251,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (kind !== 'notice') return
     const t = agendaItems(l).map((x) => x.t.trim())
     if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) set({ agenda: noticeAgenda(l.date || todayISO()) })
+    // รุ่นก่อนเติมข้อย่อยตัวอย่าง (6.x/7.x/8.x) ให้ — ถ้ายังมีแต่ข้อย่อยพวกนั้น ตัดออก เหลือวาระ 1–10
+    const it = agendaItems(l), subs = it.filter((x) => x.k === 'r')
+    if (subs.length > 0 && subs.every(isAutoSubItem)) set({ agenda: it.filter((x) => x.k !== 'r') })
   }, [l.agenda]) // eslint-disable-line react-hooks/exhaustive-deps
   const cat = cats.list.find((c) => !c.deleted && isCat(c.name))
 
