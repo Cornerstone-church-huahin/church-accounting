@@ -148,3 +148,14 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
     expect(w(1095).services).toBe(5); expect(w(1095).times.get('b')).toBe(3) // 2020 อยู่นอกช่วง 3 ปี
   })
 })
+
+import { ageStats } from './pastoral'
+describe('ageStats', () => {
+  it('สรุปอายุ/ช่วงวัย/ไม่ทราบ', () => {
+    const s = ageStats([{ birth: '2020-01-01', gender: 'ชาย' }, { birth: '1990-01-01', gender: 'หญิง' }, { birth: '1950-01-01' }, {}], '2026-06-01')
+    expect(s.known).toBe(3); expect(s.unknown).toBe(1)
+    expect(s.min).toBe(6); expect(s.max).toBe(76); expect(s.median).toBe(36)
+    expect(s.bands.find((b) => b.key === 'child')!.male).toBe(1)
+    expect(s.decades[3].female).toBe(1); expect(s.decades[7].other).toBe(1)
+  })
+})
