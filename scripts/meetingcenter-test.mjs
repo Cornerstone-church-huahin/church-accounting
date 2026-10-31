@@ -30,7 +30,7 @@ try {
   await noOverflow(page, 'hub 390')
   // รายละเอียดแต่ละขั้น
   for (let n = 1; n <= 10; n++) {
-    await page.goto(`http://localhost:${PORT}/#/meeting/1/1/${n}`)
+    await page.goto(`http://localhost:${PORT}/#/meeting/1/4/${n}`)
     if (n <= 10) await page.getByText('คำอธิบายขั้นตอนนี้').click()
     await page.getByRole('heading', { name: `${n}. ${TITLES[n - 1]}`, level: 1 }).waitFor({ timeout: 5000 })
     const items = await page.getByRole('list', { name: `หัวข้อของ ${TITLES[n - 1]}` }).locator('li').allInnerTexts()
@@ -46,7 +46,7 @@ try {
   }
   // ===== ใช้งานจริง ขั้น 1–3 =====
   const wp = await mk(390, 844)
-  const U = `http://localhost:${PORT}/#/meeting/1/1/meeting`
+  const U = `http://localhost:${PORT}/#/meeting/1/4/meeting`
   await wp.goto(U)
   must(await wp.getByText(/ยังไม่มีการประชุม/).first().isVisible() && await wp.locator('.mcbar').count() === 0, 'no meeting yet: hint shown, no check bar')
   await wp.getByRole('button', { name: '＋ สร้างการประชุมใหม่' }).click()
@@ -179,7 +179,7 @@ try {
   await wp.getByRole('button', { name: /เก็บเอกสารเข้าแฟ้ม/ }).click()
   await wp.getByRole('dialog').waitFor({ timeout: 5000 })
   must((await wp.getByRole('dialog').getByLabel(/ชื่อเอกสาร/).first().inputValue()).includes('รายงานการประชุม'), 'closing the file forwards to the library with a prefilled form')
-  await wp.goto(`http://localhost:${PORT}/#/meeting/1/1/10`); await wp.locator('.mcbar__dot').first().waitFor({ timeout: 8000 })
+  await wp.goto(`http://localhost:${PORT}/#/meeting/1/4/10`); await wp.locator('.mcbar__dot').first().waitFor({ timeout: 8000 })
   must(await wp.locator('.mcbar__dot--done').count() === 10, 'archived → all ten steps ✓')
   must(await wp.locator('[data-credit="app"]').count() === 1, 'app credit on step 10')
   // หัวจดหมาย: แอดมินตั้งจากรูปจดหมายตัวอย่าง → หัวขึ้นบนเอกสาร
@@ -189,10 +189,10 @@ try {
   await wp.locator('img[alt="จดหมายตัวอย่าง"]').waitFor({ timeout: 5000 })
   await wp.getByRole('button', { name: 'บันทึกหัว-ท้ายจดหมาย' }).click()
   await wp.getByRole('heading', { name: 'ศูนย์จัดการประชุม', level: 1 }).waitFor({ timeout: 5000 })
-  await wp.goto(`http://localhost:${PORT}/#/meeting/1/1/2`); await wp.locator('.letter__head img[alt="หัวจดหมาย"]').waitFor({ timeout: 8000 })
+  await wp.goto(`http://localhost:${PORT}/#/meeting/1/4/2`); await wp.locator('.letter__head img[alt="หัวจดหมาย"]').waitFor({ timeout: 8000 })
   must(await wp.locator('.letter__foot img[alt="ท้ายจดหมาย"]').count() >= 1, 'letterhead header+footer images are used on the documents')
   // ก่อนหน้า/ถัดไป/กลับ
-  await page.goto(`http://localhost:${PORT}/#/meeting/1/1/4`); await page.getByText('คำอธิบายขั้นตอนนี้').click()
+  await page.goto(`http://localhost:${PORT}/#/meeting/1/4/4`); await page.getByText('คำอธิบายขั้นตอนนี้').click()
   must(/4\.1ใบลงชื่อผู้ประชุม|4\.1\s+ใบลงชื่อผู้ประชุม/.test((await page.locator('.mc__items li').first().innerText()).replace(/\n/g, ' ').replace(/\s+/g, ' ').replace('4.1 ', '4.1')), 'content of 4.1')
   await page.getByRole('link', { name: /ขั้นตอนถัดไป/ }).click(); await page.getByRole('heading', { name: '5. เริ่มประชุม', level: 1 }).waitFor({ timeout: 5000 })
   await page.getByRole('link', { name: /ขั้นตอนก่อนหน้า/ }).click(); await page.getByRole('heading', { name: '4. เตรียมเอกสาร / พิมพ์', level: 1 }).waitFor({ timeout: 5000 })
@@ -225,7 +225,7 @@ try {
   // หนังสือเชิญร่วมงาน (หน้าเดียว)
   const fp = await mk(390, 844)
   await fp.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {})
-  await fp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
+  await fp.goto(`http://localhost:${PORT}/#/meeting/1/4`)
   await fp.locator('#wf-pick').selectOption({ label: '✉️ หนังสือเชิญร่วมงาน' }); await fp.getByRole('link', { name: /^เปิด หนังสือเชิญร่วมงาน/ }).click()
   await fp.getByRole('heading', { name: /หนังสือเชิญร่วมงาน/, level: 1 }).waitFor({ timeout: 5000 })
   must(await fp.getByText(/ยังไม่มีหนังสือ/).count() === 1 && await fp.getByLabel('ค้นหาหรือเพิ่มหนังสือ').count() === 1, 'letters page: search + add zone, empty list hint')
@@ -289,7 +289,7 @@ try {
     if (req.method() === 'PUT' && m) { gh.set(m[1], 1); return route.fulfill({ status: 201, headers: cors, contentType: 'application/json', body: JSON.stringify({ content: { sha: 'x' } }) }) }
     return route.fulfill({ status: 404, headers: cors, contentType: 'application/json', body: '{}' })
   })
-  await sp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  await sp.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   await sp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await sp.locator('#il-date').waitFor({ timeout: 5000 })
   await sp.getByLabel(/^5\. เรื่อง/).fill('ขอเชิญงานทดสอบส่งคลัง'); await sp.getByLabel(/^6\. เรียน/).fill('ท่านผู้ใหญ่')
   const spPng = await sp.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 200; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 400, 200); x.strokeStyle = '#111'; x.lineWidth = 6; x.beginPath(); x.moveTo(40, 150); x.bezierCurveTo(120, 20, 200, 180, 360, 60); x.stroke(); return c.toDataURL('image/png').split(',')[1] })
@@ -322,7 +322,7 @@ try {
   sg.on('pageerror', (e) => errors.push(String(e)))
   await sg.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])) })
   await sg.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
-  await sg.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  await sg.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   await sg.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await sg.locator('#il-date').waitFor({ timeout: 5000 })
   await sg.getByLabel(/^5\. เรื่อง/).fill('ทดสอบลายเซ็น')
   must(await sg.getByRole('button', { name: /✍️ 11\. ลงลายเซ็น/ }).count() === 1, 'admin sees the sign button')
@@ -355,7 +355,7 @@ try {
   ft.on('pageerror', (e) => errors.push(String(e)))
   await ft.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])) })
   await ft.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
-  await ft.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  await ft.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   await ft.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await ft.locator('#il-date').waitFor({ timeout: 5000 })
   await ft.getByRole('button', { name: /✍️ 11\. ลงลายเซ็น/ }).click()
   const dlg = ft.getByRole('dialog', { name: /ใส่รูปลายเซ็นครั้งแรก/ }); await dlg.waitFor({ timeout: 5000 })
@@ -395,7 +395,7 @@ try {
   const emp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
   await emp.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])) })
   await emp.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
-  await emp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite-letter-notyet`)
+  await emp.goto(`http://localhost:${PORT}/#/meeting/1/4/invite-letter-notyet`)
   await emp.getByText(/กำลังดึงหนังสือจากระบบ/).waitFor({ timeout: 8000 })
   await emp.waitForTimeout(1200)
   must(await emp.evaluate(() => !(localStorage.getItem('acct.inviteletter.v1') ?? '').includes('letter-notyet')), 'opening an unknown letter link never creates a blank letter')
@@ -406,7 +406,7 @@ try {
   const secp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
   await secp.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'เลขาธิการ' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'sec1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }, { id: 'sec1', name: 'เลขาธิการ', role: 'bookkeeper', joined: 2, updated: 1, works: [1] }])) })
   await secp.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
-  await secp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  await secp.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   await secp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await secp.locator('#il-date').waitFor({ timeout: 8000 })
   must(await secp.getByRole('button', { name: /✍️ 11\. ลงลายเซ็น/ }).count() === 0 && await secp.getByText(/ลงลายเซ็น/).count() === 0 && await secp.getByText(/รอประธานเซ็น/).count() >= 1 && await secp.getByRole('button', { name: /📨 10\. แจ้งประธานตรวจสอบ/ }).count() === 1 && await secp.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).isDisabled(), 'the secretary sees no sign button, only the waiting bar, can notify, and cannot send to the library yet')
   // เลขาเปิดหนังสือที่ประธานเซ็นแล้ว: แถบเขียว "ประธานเซ็นแล้ว" + ส่งเข้าคลังได้
@@ -418,7 +418,7 @@ try {
   must(await secB.getByText(/รอประธานเซ็น/).count() === 0 && await secB.getByRole('button', { name: /✍️/ }).count() === 0 && !(await secB.getByRole('button', { name: /12\. ส่งเข้าคลังเอกสาร/ }).isDisabled()), 'after the president signs the secretary sees the green bar and can continue')
   // รายการหนังสือ: การ์ดต่อฉบับ ใหม่สุดบน · ค้นหา · ลบ · เปิดการ์ดเข้าหน้ากรอก
   const lp = await mk(390, 844)
-  await lp.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  await lp.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   for (const [subj, day, who] of [['งานคริสต์มาส', '2026-12-25', 'อำนวย'], ['งานปีใหม่', '2027-01-01', 'นพพร'], ['งานวันขอบคุณพระเจ้า', '2026-11-15', 'สมชาย']]) {
     await lp.getByRole('button', { name: 'เพิ่มหนังสือฉบับใหม่' }).click(); await lp.locator('#il-date').waitFor({ timeout: 5000 })
     await lp.locator('#il-date').fill(day); await lp.getByLabel(/^5\. เรื่อง/).fill(subj); await lp.getByLabel(/^1\. ส่งถึง/).fill(who); await lp.waitForTimeout(1000)
@@ -446,7 +446,7 @@ try {
   must((await lp.locator('output#il-no').innerText()).trim() === 'ศอช.004', 'deleting the last letter frees its number for the next one')
   // เพิ่ม/แก้/ลบการ์ดลำดับงาน
   const cp = await mk(390, 844)
-  await cp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
+  await cp.goto(`http://localhost:${PORT}/#/meeting/1/4`)
   await cp.getByRole('button', { name: '➕ เพิ่มลำดับงาน' }).click()
   await cp.getByRole('button', { name: 'บันทึก', exact: true }).click()
   must(await cp.getByRole('alert').filter({ hasText: 'ใส่ชื่อ' }).count() === 1, 'name required')
@@ -458,16 +458,16 @@ try {
   must(await cp.getByRole('checkbox').count() === 4 && /เก็บเอกสาร/.test(await cp.getByRole('checkbox').last().getAttribute('aria-label')), 'custom flow has its three steps + the automatic last step เก็บเอกสาร')
   await cp.getByRole('checkbox').first().click(); await cp.reload(); await cp.getByRole('checkbox').first().waitFor({ timeout: 5000 })
   must(await cp.getByRole('checkbox').first().getAttribute('aria-checked') === 'true', 'custom flow tick persists')
-  await cp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
+  await cp.goto(`http://localhost:${PORT}/#/meeting/1/4`)
   await cp.getByRole('button', { name: 'แก้ไข เตรียมงานคริสต์มาส' }).click()
   await cp.getByLabel(/ขั้นตอนตามลำดับ/).fill('ตั้งคณะทำงาน | ประชุมผู้รับผิดชอบ\nวางแผนงบ\nจัดหาของ\nสรุปงาน'); await cp.getByRole('button', { name: 'บันทึก', exact: true }).click()
   await cp.getByRole('link', { name: /^เปิด เตรียมงานคริสต์มาส/ }).click()
   must(await cp.getByRole('checkbox').count() === 5 && await cp.getByRole('checkbox').first().getAttribute('aria-checked') === 'true', 'edit adds a step and keeps the tick')
-  await cp.goto(`http://localhost:${PORT}/#/meeting/1/1`)
+  await cp.goto(`http://localhost:${PORT}/#/meeting/1/4`)
   cp.once('dialog', (d) => d.accept()); await cp.getByRole('button', { name: 'ลบ เตรียมงานคริสต์มาส' }).click()
   must(await links.count() === 2, 'deleted card is gone')
   // ขั้นที่ไม่มี
-  await page.goto(`http://localhost:${PORT}/#/meeting/1/1/11`); must(await page.getByText('ไม่พบขั้นตอนนี้').isVisible(), 'unknown step handled')
+  await page.goto(`http://localhost:${PORT}/#/meeting/1/4/11`); must(await page.getByText('ไม่พบขั้นตอนนี้').isVisible(), 'unknown step handled')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('meetingcenter-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

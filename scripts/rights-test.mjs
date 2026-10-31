@@ -61,7 +61,7 @@ try {
   must(/ย้ายสิทธิ์ “ผู้บันทึกการนมัสการ”/.test(await body(p)), 'admin sees the migration notice')
   // 7) ที่ปรึกษา/ผู้ช่วยห้องเหรัญญิกดูรายงานการเงินได้ แต่แก้ข้อมูลห้องเลขาไม่ได้ · ผู้ดูแลห้องเลขาแก้ได้
   const mk = async (me, rec, label) => {
-    const q = await open(me, [rec], '#/meeting/1/1/invite')
+    const q = await open(me, [rec], '#/meeting/1/4/invite')
     await q.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click().catch(() => {})
     await q.waitForTimeout(1200)
     const n = await q.evaluate(() => JSON.parse(localStorage.getItem('acct.inviteletter.v1') ?? '[]').filter((x) => !x.deleted).length)

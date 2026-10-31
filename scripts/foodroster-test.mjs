@@ -15,8 +15,8 @@ const must2 = must
 try {
   await page.goto(`http://localhost:${PORT}/#/meeting/14`); await page.waitForLoadState('networkidle')
   must(await page.getByRole('heading', { name: 'งานโรงครัว', exact: true }).isVisible(), 'work page named งานโรงครัว')
-  must(/ตารางถวายอาหาร/.test(await page.locator('.tiletabs').innerText()), 'tab 1 is ตารางถวายอาหาร')
-  await page.getByRole('link', { name: /ตารางถวายอาหาร/ }).click()
+  must(/ตารางถวาย/.test(await page.locator('.tiletabs').innerText()), 'tab 2 is ตารางถวาย')
+  await page.getByRole('link', { name: /ตารางถวาย/ }).click()
   await page.getByLabel('เริ่มเดือน').selectOption('10'); await page.getByLabel('ปี พ.ศ.').selectOption('2026')
   const o = (await page.getByLabel('เดือนตุลาคม 2569').first().innerText()).replace(/\s+/g, ' ')
   must(/4\/10\/69/.test(o) && /11\/10\/69/.test(o) && /18\/10\/69/.test(o) && /25\/10\/69/.test(o) && !/1\/10\/69/.test(o.replace(/11\/10\/69/, '')), 'October 2569: Sundays 4, 11, 18, 25 only: ' + o)

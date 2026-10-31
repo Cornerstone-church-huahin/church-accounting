@@ -22,7 +22,7 @@ try {
     localStorage.setItem('acct.doccats.v1', JSON.stringify([{ id: 'c1', updated: 1, name: 'หนังสือเชิญร่วมงาน', prefix: 'ศอ/จช' }]))
     localStorage.setItem('acct.inviteletter.v1', JSON.stringify(l))
   }, [[L('อ้าย', 'ศอช.001')]])
-  await page.goto(`http://localhost:${PORT}/#/meeting/1/1/invite`)
+  await page.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   await page.getByRole('button', { name: /เพิ่ม/ }).first().click()
   await page.waitForURL(/invite-letter/)
   await page.waitForTimeout(800)
@@ -30,7 +30,7 @@ try {
   must(JSON.stringify(nos) === JSON.stringify(['ศอ/จช.001', 'ศอ/จช.002']), 'old letter follows category prefix, new one runs on: ' + nos)
   // เปลี่ยนตัวย่อของหมวดในคลังเอกสาร → เลขที่ของทุกฉบับตามไปด้วย
   ans = 'นน'
-  await page.goto(`http://localhost:${PORT}/#/meeting/1/2`); await page.waitForTimeout(600)
+  await page.goto(`http://localhost:${PORT}/#/meeting/1/5`); await page.waitForTimeout(600)
   await page.getByRole('button', { name: /จัดการหมวด/ }).click()
   await page.getByRole('button', { name: /ตัวย่อ/ }).first().click(); await page.waitForTimeout(500)
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.inviteletter.v1')).map((x) => x.no).sort())

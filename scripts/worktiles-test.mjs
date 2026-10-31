@@ -33,7 +33,7 @@ try {
   await page.getByText('สมาชิกทดสอบ').first().waitFor({ timeout: 8000 })
   await page.goto(`http://localhost:${PORT}/#/meeting/14`); await page.reload()
   const l14 = await page.locator('nav.tiletabs b').allInnerTexts()
-  must(l14[0] === 'ตารางถวายอาหาร' && l14[1] === 'รวมสมาชิก', 'room 14: ' + l14)
+  must(l14[0] === 'รวมสมาชิก' && l14[1] === 'ตารางถวาย', 'room 14: ' + l14)
   must(!errors.length, errors.join('|'))
   console.log('worktiles-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

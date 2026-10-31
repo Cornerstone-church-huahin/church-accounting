@@ -40,13 +40,13 @@ export function WorkflowMenu() {
     const prefix = cleanPrefix(c?.prefix ?? '') || (kd ? LETTER_KINDS[kd].numPrefix ?? 'ศอช' : 'ศอช')
     return {
       key: `cat:${n}`, title: n, created: -1 - i, flow: undefined as FlowTicks | undefined,
-      to: kd ? `/meeting/1/1/${LETTER_KINDS[kd].slug}` : meeting ? '/meeting/1/1/meeting' : `/meeting/1/1/cat-${encodeURIComponent(n)}`,
+      to: kd ? `/meeting/1/4/${LETTER_KINDS[kd].slug}` : meeting ? '/meeting/1/4/meeting' : `/meeting/1/4/cat-${encodeURIComponent(n)}`,
       icon: kd ? LETTER_KINDS[kd].icon : meeting ? '🗓️' : '📄',
       blurb: meeting ? 'เช็คลิสต์ 10 ขั้น ตั้งแต่เตรียมประชุมจนเก็บเอกสาร' : `เลขที่ ${prefix}.### · ตามหมวดในคลังเอกสาร`,
     }
   })
   const allCards = [
-    ...f.flows.map((x) => ({ key: x.id, to: x.id === 'invite' ? '/meeting/1/1/invite' : `/meeting/1/1/f-${x.id}`, icon: x.icon || '📋', title: x.title || 'ลำดับงาน', blurb: `${x.steps.length + 1} ขั้น (รวมเก็บเอกสาร) · ติ๊กแล้ว ${[...x.steps, FILE_STEP].filter((s) => x.ticks.includes(s.id)).length}`, created: x.created ?? 0, flow: x })),
+    ...f.flows.map((x) => ({ key: x.id, to: x.id === 'invite' ? '/meeting/1/4/invite' : `/meeting/1/4/f-${x.id}`, icon: x.icon || '📋', title: x.title || 'ลำดับงาน', blurb: `${x.steps.length + 1} ขั้น (รวมเก็บเอกสาร) · ติ๊กแล้ว ${[...x.steps, FILE_STEP].filter((s) => x.ticks.includes(s.id)).length}`, created: x.created ?? 0, flow: x })),
     ...catCards,
   ]
   const cards = allCards.sort((a, b) => b.created - a.created)
@@ -128,7 +128,7 @@ export function FlowPage({ id }: { id: string }) {
   const lib = useDocLibrary(), cats = useDocCategories()
   const navigate = useNavigate()
   const x = f.flows.find((y) => y.id === id)
-  if (!x) return <><div className="page-head no-print"><h1>สร้างเอกสาร</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
+  if (!x) return <><div className="page-head no-print"><h1>สร้างเอกสาร</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
   const steps = [...x.steps, FILE_STEP]
   const done = steps.filter((s) => x.ticks.includes(s.id)).length
   const set = (next: string[]) => f.put([{ ...x, ticks: next, updated: Date.now() }])
@@ -140,11 +140,11 @@ export function FlowPage({ id }: { id: string }) {
   const toggle = (s: FlowStep) => {
     const on = !x.ticks.includes(s.id)
     if (!set(on ? [...x.ticks, s.id] : x.ticks.filter((k) => k !== s.id))) return
-    if (on && s.id === 'file') navigate('/meeting/1/2', { state: { importMeeting: { title: x.title, date: x.date || todayISO(), note: `จากลำดับงาน ${x.title}` } } })
+    if (on && s.id === 'file') navigate('/meeting/1/5', { state: { importMeeting: { title: x.title, date: x.date || todayISO(), note: `จากลำดับงาน ${x.title}` } } })
   }
   return (
     <>
-      <div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/1" className="mini">‹ สร้างเอกสาร</Link></div>
+      <div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div>
       <section className="card mcard" aria-label={`ลำดับงาน${x.title}`}>
         <div className="mcard__head"><div><b>ลำดับสิ่งที่ต้องทำ</b><div className="small muted">ติ๊กเมื่อทำเสร็จแต่ละข้อ</div></div><span className="mcard__n" aria-label={`ทำแล้ว ${done} จาก ${steps.length} ข้อ`}>{done}/{steps.length}</span></div>
         <ol className="mcheck" aria-label={`เช็คลิสต์${x.title}`}>
