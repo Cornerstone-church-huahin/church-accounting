@@ -233,7 +233,8 @@ function Hub({ home }: { home?: boolean }) {
   const role = useRole()
   const works = myWorks()
   // ผู้ดูแลงานเดียว: เข้าหน้าแรกแล้วเข้าห้องงานของตัวเองทันที (ไม่ผ่านหน้า "ห้องทำงานคริสตจักร" ที่เป็นของแอดมิน/หลายงาน)
-  if (works.length === 1) return <Navigate to={`/meeting/${works[0]}`} replace />
+  const shown = visibleWorks(works, { all: role === 'admin' || can(role, 'detail'), admin: role === 'admin' })
+  if (works.length === 1 && shown.length === 1) return <Navigate to={`/meeting/${works[0]}`} replace />
   return (
     <div className={home ? `hubhome${can(role, 'settings') ? ' hubhome--cal' : ''}` : undefined}>
       <div className="page-head"><h1>🧑‍🤝‍🧑 ห้องทำงานคริสตจักร</h1>{can(role, 'settings') && <AnnounceAdmin />}<Link to="/meeting/notes" className="topbar__go" aria-label="บันทึกโน้ต" title="บันทึกโน้ต"><IconNote /></Link></div>
@@ -241,7 +242,7 @@ function Hub({ home }: { home?: boolean }) {
       {home && <BalanceStrip compact />}
       <p className="home-label">เลือกแท็บ <span>(ทุกงานมีปุ่ม “ตารางงาน” ไว้บนสุด · งานเหรัญญิกและงานทะเบียนพร้อมใช้ · งานอื่นมีแท็บ 1–6 รอพัฒนา)</span></p>
       <nav className={`balance-tiles${home ? ' hubgrid' : ''}`} aria-label="โหมดประชุม แท็บ 1 ถึง 18">
-        {visibleWorks(works).map((t) => {
+        {shown.map((t) => {
           const d = devDone(t.n)
           return (
             <Link key={t.n} to={`/meeting/${t.n}`} className={`btile btile--${TONE[(t.n - 1) % TONE.length]}`} aria-label={`${t.n} ${t.name} · พัฒนาแล้ว ${d} จาก 6 แท็บ`}>

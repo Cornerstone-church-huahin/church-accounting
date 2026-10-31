@@ -27,6 +27,19 @@ const invitedRole = (): Role => {
   return r === 'bookkeeper' || r === 'auditor' || r === 'worship' ? r : 'viewer' // ลิงก์เชิญให้ได้ไม่เกินผู้บันทึก/ผู้ตรวจสอบ · แอดมินตั้งตอนอนุมัติเท่านั้น
 }
 
+/** ตัดสิทธิ์บัญชี “ผู้บันทึกการนมัสการ” ออก (ย้ายไปเป็นผู้ช่วยงานของงานทะเบียนแทน) */
+export const withoutWorshipRole = (rs: Role[]): Role[] => normalizeRoles(rs.filter((r) => r !== 'worship'))
+/** ผู้ใช้ที่ยังมีสิทธิ์เดิม “ผู้บันทึกการนมัสการ”: แปลงเป็นผู้ช่วยงานของงานทะเบียน (คนที่มีสิทธิ์บัญชีสูงกว่าอยู่แล้ว แค่ตัดสิทธิ์เดิมออก) */
+export const migrateWorshipRole = (m: Member): Member | null => {
+  const rs = rolesOf(m)
+  if (!rs.includes('worship')) return null
+  const rest = withoutWorshipRole(rs)
+  const solo = rest.length === 1 && rest[0] === 'viewer'
+  const roles = rest.length > 1 ? rest : undefined
+  const base = { ...m, role: primaryRole(rest), roles }
+  if (!solo || m.workRoles?.['2']) return base
+  return { ...base, works: [...new Set([...(m.works ?? []), 2])].sort((a, b) => a - b), workRoles: { ...(m.workRoles ?? {}), '2': 'helper' as WorkLevel } }
+}
 /** รายชื่อผู้ใช้ร่วม (members.json) + การจัดการโดยแอดมิน */
 export function useMembers() {
   const store = useSharedStore<Member>({ localKey: MEMBERS_KEY, file: 'members.json', label: 'ผู้ใช้ร่วม', scope: 'members' })
@@ -52,13 +65,24 @@ export function useMembers() {
       if (!isAdmin) return false
       const m = pending.find((x) => x.id === id)
       if (!m) return false
-      const rs = normalizeRoles(Array.isArray(roles) ? roles : [roles])
+      const asked = normalizeRoles(Array.isArray(roles) ? roles : [roles])
+      const rs = withoutWorshipRole(asked)
       const iw = work === undefined ? m.invitedWork : work ?? undefined
-      const works = iw ? [...new Set([...(m.works ?? []), iw.n])].sort((a, b) => a - b) : m.works
-      const workRoles = iw ? { ...(m.workRoles ?? {}), [String(iw.n)]: iw.level } : m.workRoles
+      let works = iw ? [...new Set([...(m.works ?? []), iw.n])].sort((a, b) => a - b) : m.works
+      let workRoles = iw ? { ...(m.workRoles ?? {}), [String(iw.n)]: iw.level } : m.workRoles
+      // ลิงก์/สิทธิ์เดิม “ผู้บันทึกการนมัสการ” = ผู้ช่วยงานของงานทะเบียน
+      if (asked.includes('worship') && !workRoles?.['2']) { works = [...new Set([...(works ?? []), 2])].sort((a, b) => a - b); workRoles = { ...(workRoles ?? {}), '2': 'helper' } }
       store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined, ...(iw ? { works, workRoles, invitedWork: undefined } : { invitedWork: undefined }) }])
       announce()
       return true
+    },
+    /** แอดมินเปิดแอป: แปลงสิทธิ์เดิม “ผู้บันทึกการนมัสการ” ของทุกคนเป็นผู้ช่วยงานของงานทะเบียน · คืนชื่อคนที่ถูกแปลง */
+    migrateWorship: (): string[] => {
+      if (!isAdmin) return []
+      const changed = everyone.map((m) => (m.deleted ? null : migrateWorshipRole(m))).filter((x): x is Member => !!x).map((x) => ({ ...x, updated: Date.now() }))
+      if (changed.length === 0 || !store.put(changed)) return []
+      announce()
+      return changed.map((x) => x.name)
     },
     reject: (id: string) => {
       if (!isAdmin) return false
@@ -73,7 +97,7 @@ export function useMembers() {
       const cfg = getSync()
       if (!me || !cfg) return
       let invitedWork: { n: number; level: WorkLevel } | undefined
-      try { const w = JSON.parse(localStorage.getItem(INVITE_WORK_KEY) ?? 'null'); if (w && Number.isInteger(w.n) && ['lead', 'helper', 'advisor'].includes(w.level)) invitedWork = { n: w.n, level: w.level } } catch { /* ignore */ }
+      try { const w = JSON.parse(localStorage.getItem(INVITE_WORK_KEY) ?? 'null'); if (w && Number.isInteger(w.n) && ['owner', 'deputy', 'lead', 'helper', 'advisor'].includes(w.level)) invitedWork = { n: w.n, level: w.level } } catch { /* ignore */ }
       const ua = navigator.userAgent
       const device = `${/iphone|ipad|ipod/i.test(ua) ? 'iPhone/iPad' : /android/i.test(ua) ? 'Android' : 'คอมพิวเตอร์'} · ${isInstalled() ? 'แอปที่ติดตั้ง' : 'เบราว์เซอร์'}`
       store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, device, ...(invitedFor ? { invitedFor } : {}), ...(invitedWork ? { invitedWork } : {}), updated: 0 }])

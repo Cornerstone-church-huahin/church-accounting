@@ -1,4 +1,4 @@
-import { blocked, can, calendarWritable, canWork, isRegistryHelper, myRole, myWorkLevel, type Perm } from './access'
+import { blocked, can, calendarWritable, canWork, isRegistryHelper, registryCanSign, myRole, myWorkLevel, type Perm } from './access'
 import { useSharedStore } from './sharedStore'
 
 /**
@@ -8,11 +8,11 @@ import { useSharedStore } from './sharedStore'
 const workWriter = (n: number, perm: Perm) => () => canWork(n, 'edit') || !blocked(perm)
 const writeWork1 = workWriter(1, 'detail')   // งานเลขา: หนังสือเชิญ ลำดับงาน การประชุม โน้ต
 // แผนเยี่ยมรายวัน: แอดมิน + ผู้ดูแลหลัก + ผู้ช่วยของงานอภิบาล แก้ร่วมกันได้ (ที่ปรึกษาดูอย่างเดียว)
-const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l === 'lead' || l === 'helper' || can(myRole(), 'detail') } // ไม่แจ้งเตือน (ใช้ตอนเรนเดอร์)
+const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l === 'owner' || l === 'deputy' || l === 'lead' || l === 'helper' || can(myRole(), 'detail') } // ไม่แจ้งเตือน (ใช้ตอนเรนเดอร์)
 const writePlan4 = () => canPlan4() || !blocked('detail')
 // งานอภิบาล: บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม — แอดมิน ผู้ดูแลหลัก และผู้ช่วยทำได้ครบเหมือนกัน (มีเช็คอินพิกัดกลางกับรูปถ่ายคุมความถูกต้องอยู่แล้ว)
 const writeWork4 = writePlan4
-const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || isRegistryHelper() || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
+const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || (isRegistryHelper() && registryCanSign()) || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
@@ -103,7 +103,7 @@ export const useChurchMembers = () => useSharedStore<ChurchMember>({ localKey: k
  * ไฟล์เก่าที่เคยเก็บเป็น "1 วัน = รายชื่อทั้งชุด" (Attendance) ยังอ่านได้ ผ่าน toAttendance()
  */
 /** ลงชื่อนมัสการ: ผู้บันทึกการนมัสการ/ผู้บันทึกบัญชี/แอดมิน + ผู้ช่วยฝ่ายทะเบียน (งาน 2) */
-const writeAttendance = () => isRegistryHelper() || !blocked('worship')
+const writeAttendance = () => (isRegistryHelper() && registryCanSign()) || !blocked('worship')
 export const useAttendance = (year: number, poll = true) => useSharedStore<CheckIn | Attendance>({ localKey: k(`attendance.${year}`), file: `attendance-${year}.json`, label: `ลงชื่อนมัสการ ${year}`, writeCheck: writeAttendance, poll })
 /** ผู้บันทึกลงชื่อ: ไฟล์เดียว (แอดมินจัดการ) */
 export const useRecorders = () => useSharedStore<Recorder>({ localKey: k('recorders'), file: 'recorders.json', label: 'ผู้บันทึกลงชื่อ', write: 'settings' })

@@ -2,8 +2,8 @@ import { AppCredit } from './Credit'
 import { MEETING_TABS } from '../lib/workTabs'
 import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { can, isSolo, myFunds, READONLY_EVENT, whoAmI } from '../lib/access'
-import { useMembership, useRole } from '../lib/members'
+import { can, isSolo, myFunds, myWorks, rolesOf, READONLY_EVENT, whoAmI } from '../lib/access'
+import { useMembers, useMembership, useRole } from '../lib/members'
 import { useIncomeTypes, useSettings, useVouchers } from '../lib/data'
 import { tasksFor } from '../lib/ledger'
 import { be, todayISO, yearOf } from '../lib/money'
@@ -55,6 +55,8 @@ export default function AppShell() {
   const setYear = (y: number) => { setYearState(y); saveYear(y) }
   const [roToast, setRoToast] = useState(false)
   const full = can(role, 'detail')
+  // ผู้ใช้ทั่วไปที่แอดมินยังไม่ได้กำหนดห้องงาน/ตำแหน่งให้: ยังไม่เห็นอะไร (สิทธิ์ทั้งหมดมาจากห้องงาน × ตำแหน่ง)
+  const noRights = role === 'viewer' && !!getSync() && myWorks().length === 0 && pathname !== '/join'
   // ผู้ดูแลกองทุน: เห็นเมนูเดียวคือกองทุนที่ได้รับมอบหมาย (เข้าหน้ากองทุนนั้นทันที ไม่เห็นกองทุนอื่น/หน้าอื่น)
   const fk = role === 'fundkeeper' ? myFunds() ?? [] : null
   const fundNames = useIncomeTypes().list
@@ -98,6 +100,7 @@ export default function AppShell() {
     <YearContext.Provider value={{ year, setYear }}>
       <div className="app">
         <AutoRegroup />
+        <MigrateWorship />
         <header className="topbar">
           {/* โลโก้คริสตจักรซ้ายบน: หน้าหลัก ห้องงานทุกห้อง และหน้าที่ไม่มีที่ให้ย้อนกลับ (กดแล้วไปหน้าแรก) · หน้าอื่นเป็นปุ่มย้อนกลับ */}
           {ROOTS.includes(pathname) || pathname.startsWith('/meeting') || ((window.history.state as { idx?: number } | null)?.idx ?? 0) < 1 ? (
@@ -160,7 +163,7 @@ export default function AppShell() {
             <AppCredit />
           </main>
         ) : (
-          <main className="main">{workBack && <Link to={`/meeting/${workBack.n}`} state={{ home: Date.now() }} className="mini workback no-print">🏠 หน้า{workBack.name}</Link>}<Outlet /><AppCredit /></main>
+          <main className="main">{workBack && <Link to={`/meeting/${workBack.n}`} state={{ home: Date.now() }} className="mini workback no-print">🏠 หน้า{workBack.name}</Link>}{noRights ? <NoRights /> : <Outlet />}<AppCredit /></main>
         )}
 
         <nav className="bottomnav" aria-label="เมนูหลัก">
@@ -187,4 +190,35 @@ function TaskBadge({ year }: { year: number }) {
   const { settings } = useSettings()
   const n = tasksFor(role, whoAmI().id, v.items, settings.twoStepOver, isSolo()).length
   return n > 0 ? <b className="nav-badge" aria-label={`มี ${n} งานที่ท่านต้องทำ`}>{n}</b> : null
+}
+
+/** ยังไม่ได้รับสิทธิ์ห้องงานใดเลย */
+function NoRights() {
+  return (
+    <section className="card" role="status" aria-label="ยังไม่ได้รับสิทธิ์">
+      <h2 style={{ margin: 0 }}>ยังไม่ได้รับสิทธิ์ใช้งานห้องงาน</h2>
+      <p style={{ margin: '0.4rem 0 0' }}>แจ้งแอดมินให้กำหนด <b>ห้องงาน</b> และ <b>ตำแหน่ง</b> ให้ท่าน แล้วกดปุ่ม “กดรีเฟรชเพื่ออัปเดต” ที่แถบด้านบน ไอคอนห้องงานจะขึ้นเองโดยไม่ต้องส่งลิงก์ใหม่</p>
+    </section>
+  )
+}
+
+/** แอดมินเปิดแอป: แปลงสิทธิ์เดิม “ผู้บันทึกการนมัสการ” เป็นผู้ช่วยงานของงานทะเบียน (แจ้งชื่อที่ถูกแปลง) */
+function MigrateWorship() {
+  const ms = useMembers()
+  const [done, setDone] = useState<string[]>([])
+  const tried = useRef('')
+  useEffect(() => {
+    if (!ms.isAdmin || (ms.sync.state !== 'ok' && ms.sync.state !== 'off')) return
+    const sig = ms.all.filter((m) => !m.deleted && rolesOf(m).includes('worship')).map((m) => m.id).join(',')
+    if (!sig || tried.current === sig) return
+    tried.current = sig
+    const names = ms.migrateWorship()
+    if (names.length) setDone(names)
+  }, [ms.isAdmin, ms.sync.state, ms.all]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (done.length === 0) return null
+  return (
+    <div className="no-print" role="status" style={{ background: '#e8f6ea', borderBottom: '1px solid #9bd2a4', padding: '0.4rem 0.8rem', fontSize: '0.92rem' }}>
+      🔄 ย้ายสิทธิ์ “ผู้บันทึกการนมัสการ” เป็น <b>ผู้ช่วยงาน ห้องงานทะเบียน</b> แล้ว {done.length} คน: {done.join(', ')} <button type="button" className="mini" onClick={() => setDone([])}>ปิด</button>
+    </div>
+  )
 }
