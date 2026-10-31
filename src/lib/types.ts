@@ -35,9 +35,13 @@ export interface Settings extends SharedItem {
   /** เกณฑ์ตรวจสมาชิก: เป็นสมาชิกครบกี่ปีถึงเป็นสมาชิกสมบูรณ์ · ไม่มานมัสการเกินกี่เดือนถือว่าขาด */
   memberMinYears?: number
   memberAbsentMonths?: number
+  /** กติกาจัดกลุ่มสมาชิกตามอายุ (+เพศ): ว่าง = ใช้ค่าตั้งต้นที่เดาจากชื่อกลุ่ม */
+  ageRules?: AgeRule[]
   /** ข้อความสรุปสถานการณ์การเงินถึงผู้นำงาน (แอดมินเขียน แสดงบนหน้า ภาพรวม) */
   leaderNote?: { text: string; at: number }
 }
+/** กติกา 1 กลุ่ม: สมาชิกที่อายุ from–to ปี (และเพศตรง ถ้ากำหนด) ควรอยู่กลุ่มนี้ · on = เปิดใช้ */
+export interface AgeRule { group: string; from: number; to: number; gender?: 'ชาย' | 'หญิง'; on: boolean }
 export interface CsvMap { date: number; desc: number; credit: number; debit: number; amount: number; balance: number }
 
 export type Method = 'cash' | 'transfer'
@@ -329,6 +333,8 @@ export interface ChurchMember extends SharedItem {
   since?: string
   /** วันที่มาร่วมนมัสการครั้งแรก (โดยประมาณ) YYYY-MM-DD — คนละอย่างกับวันที่รับเป็นสมาชิก */
   firstWorship?: string
+  /** ล็อกกลุ่ม: ระบบไม่เสนอเปลี่ยนกลุ่มตามอายุให้คนนี้ */
+  groupLock?: boolean
   /** วันเกิด YYYY-MM-DD (ค.ศ.) */
   birth?: string
   /** เพศ: ชาย / หญิง (ว่าง = ไม่ระบุ) */
