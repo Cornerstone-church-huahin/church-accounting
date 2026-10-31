@@ -1,5 +1,5 @@
 import { addDays, diffDays } from './money'
-import { statusLabel, type Evaluated } from './registry'
+import { OFFICIAL_STATUSES, regLevel, statusLabel, type Evaluated } from './registry'
 import type { ChurchMember } from './types'
 
 /** สถานะที่ใช้กรองดูข้อมูลในหน้าสมาชิกของงานอภิบาล */
@@ -12,8 +12,8 @@ export const STATUS_GROUPS: { key: StatusGroup; label: string }[] = [
 ]
 /** สถานะตามทะเบียน → กลุ่มที่ใช้กรอง (ดูเลขนำหน้า 1–7 · ไม่รู้จัก = นับในทุกสถานะเท่านั้น) */
 export function groupOf(status?: string): BaseGroup | undefined {
-  const n = statusLabel(status).match(/^(\d)\./)?.[1]
-  return n === '1' || n === '2' ? 'complete' : n === '3' ? 'reserve' : n === '4' ? 'newcomer' : n === '5' ? 'worship' : n === '6' ? 'resigned' : n === '7' ? 'deceased' : undefined
+  const n = statusLabel(status)
+  return /สมบูรณ์/.test(n) ? 'complete' : /สำรอง/.test(n) ? 'reserve' : /คนใหม่/.test(n) ? 'newcomer' : /ผู้ร่วมนมัสการ/.test(n) ? 'worship' : /สิ้นสภาพ|ลาออก/.test(n) ? 'resigned' : /เสียชีวิต/.test(n) ? 'deceased' : undefined
 }
 /** ตัวเลือกสถานะในป๊อปอัพกรอง (ทุกสถานะ เป็นแถวแรกของตัวเลือกเอง) เรียงจากสถานะที่ผูกพันกับคริสตจักรมากสุด: สมบูรณ์ 1 → 2 → สำรอง → คนใหม่ → ผู้ร่วมนมัสการ → สิ้นสภาพ → เสียชีวิต */
 export const PICK_STATUS_GROUPS: { key: Exclude<StatusGroup, 'all' | 'complete'>; label: string }[] = [
@@ -23,7 +23,7 @@ export const PICK_STATUS_GROUPS: { key: Exclude<StatusGroup, 'all' | 'complete'>
 export const statusGroupLabel = (k: StatusGroup) => [...PICK_STATUS_GROUPS, { key: 'complete', label: 'สมาชิกสมบูรณ์' }, { key: 'all', label: 'ทุกสถานะ' }].find((x) => x.key === k)?.label ?? k
 export const inGroup = (m: { status?: string }, g: StatusGroup) => {
   if (g === 'all') return true
-  if (g === 'full1' || g === 'full2') return statusLabel(m.status).startsWith(g === 'full1' ? '1.' : '2.')
+  if (g === 'full1' || g === 'full2') return regLevel(m.status) === (g === 'full1' ? 1 : 2)
   return groupOf(m.status) === g
 }
 /** ยังอยู่ในทะเบียน (ไม่นับสิ้นสภาพ/เสียชีวิต) */
@@ -109,8 +109,8 @@ export function visitStats(attendance: { date: string; ids: string[]; deleted?: 
   const from = addDays(today, -365)
   return new Map([...days].map(([id, d]) => { const ds = [...d]; return [id, { recent: ds.filter((x) => x > from && x <= today).length, total: ds.length, last: ds.reduce((m, x) => (x > m ? x : m), '') }] }))
 }
-/** ลำดับสถานะตามเลขนำหน้า 1–7 (ไม่มีเลข = ท้ายสุด) */
-export const statusRank = (status?: string) => Number(statusLabel(status).match(/^(\d)\./)?.[1] ?? 9)
+/** ลำดับสถานะตามลำดับทะเบียน 1–7 (ไม่รู้จัก = ท้ายสุด) */
+export const statusRank = (status?: string) => { const i = OFFICIAL_STATUSES.indexOf(statusLabel(status)); return i >= 0 ? i + 1 : 9 }
 /** ระดับการขาด: 0 = ไม่ขาด (มาภายใน 3 เดือน) · 1 = ขาดเกิน 3 เดือน · 2 = 6 เดือน · 3 = 1 ปี · 4 = ปีครึ่ง · 5 = 2 ปีขึ้นไป · 6 = ไม่เคยมีบันทึก */
 export const ABSENCE_LABELS = ['', 'ขาดเกิน 3 เดือน', 'ขาดเกิน 6 เดือน', 'ขาดเกิน 1 ปี', 'ขาดเกิน 1 ปีครึ่ง', 'ขาดเกิน 2 ปี', 'ไม่เคยมีบันทึกการมา']
 export function absence(last: string | undefined, today: string): { tier: number; days: number | null; label: string } {

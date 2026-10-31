@@ -79,7 +79,7 @@ try {
   await ctx2.addInitScript(seed, true)
   const p2 = await ctx2.newPage(); p2.on('pageerror', (e) => errors.push(String(e)))
   await p2.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`)
-  await p2.getByText(/ย้ายกลุ่มตามอายุอัตโนมัติ/).waitFor({ timeout: 15000 })
+  await p2.getByText(/ปรับข้อมูลทะเบียนอัตโนมัติ/).waitFor({ timeout: 15000 })
   must(await p2.getByText(/3 คน/).count() >= 1, 'banner shows how many were moved automatically')
   const auto = await p2.evaluate(() => Object.fromEntries(JSON.parse(localStorage.getItem('acct.church-members.v1')).map((x) => [x.id, x.group + '|' + (x.groupMoved?.from ?? '')])))
   must(auto.m1 === '2.อนุชน|4.สตรี' && auto.m2 === '1.เด็กรวี|3.บุรุษ' && auto.k1 === '1.เด็กรวี|7.ไม่มีกลุ่ม' && auto.m3 === '4.สตรี|' && auto.m4 === '9.คณะกรรมการ|', 'auto moved the mismatched, left the rest: ' + JSON.stringify(auto))

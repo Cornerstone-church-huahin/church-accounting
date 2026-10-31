@@ -39,6 +39,8 @@ export interface Settings extends SharedItem {
   ageRules?: AgeRule[]
   /** ย้ายกลุ่มตามอายุอัตโนมัติเมื่อถึงช่วงวัย (ว่าง/true = เปิด · false = ปิด เสนอให้กดเอง) */
   ageAuto?: boolean
+  /** เปลี่ยนสถานะอัตโนมัติ: คนใหม่มา ≥ 3 เดือน → ผู้ร่วมนมัสการ · ผู้ร่วมนมัสการต่อเนื่อง > 1 ปี → สมาชิกสำรอง (ว่าง/true = เปิด) */
+  statusAuto?: boolean
   /** ข้อความสรุปสถานการณ์การเงินถึงผู้นำงาน (แอดมินเขียน แสดงบนหน้า ภาพรวม) */
   leaderNote?: { text: string; at: number }
 }
@@ -339,6 +341,10 @@ export interface ChurchMember extends SharedItem {
   groupLock?: boolean
   /** ระบบย้ายกลุ่มตามอายุอัตโนมัติครั้งล่าสุด: จากกลุ่มไหน เมื่อไร (ไว้แสดงผลและคืนกลุ่มเดิม) */
   groupMoved?: { from: string; at: number }
+  /** วันที่เปลี่ยนมาเป็นสถานะปัจจุบัน (YYYY-MM-DD) — ไว้นับระยะเวลาของสถานะ เช่น ผู้ร่วมนมัสการต่อเนื่องเกิน 1 ปี */
+  statusAt?: string
+  /** ระบบเปลี่ยนสถานะอัตโนมัติครั้งล่าสุด: จากสถานะไหน เมื่อไร เพราะอะไร */
+  statusMoved?: { from: string; at: number; why: string }
   /** วันเกิด YYYY-MM-DD (ค.ศ.) */
   birth?: string
   /** เพศ: ชาย / หญิง (ว่าง = ไม่ระบุ) */
