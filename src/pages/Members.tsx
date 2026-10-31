@@ -12,8 +12,8 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
-import { FORM_DAYS, GROUP_MAX, NEW_MID, formUrl, groupUrl, parseReply } from '../lib/memberForm'
-import { applyAnswer, diffAnswer, nameVerdict, type FieldKey } from '../lib/memberImport'
+import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, parseReply } from '../lib/memberForm'
+import { applyAnswer, diffAnswer, findCandidates, nameVerdict, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
@@ -356,7 +356,7 @@ function Roster({ registry, lite, canLog, rows, onOpen, members, canEdit, put, r
       {canLog && (
         <div className="toolbar no-print">
           <button type="button" className="btn btn--gold full" onClick={() => setEdit('new')}>＋ เพิ่มสมาชิก</button>
-          {registry && <FormTools list={list} members={members} put={put} />}
+          {registry && <FormTools members={members} put={put} />}
           {canEdit && <><button type="button" className="btn btn--ghost" disabled={busy} onClick={() => memberFile.current?.click()}>{busy ? 'กำลังนำเข้า…' : 'นำเข้ารายชื่อ'}</button>
           <button type="button" className="btn btn--ghost" onClick={() => attFile.current?.click()}>นำเข้าลงชื่อ</button>
           <button type="button" className="btn btn--ghost full" disabled={busy} onClick={() => photoFiles.current?.click()}>นำเข้ารูป (หลายไฟล์)</button>
@@ -518,13 +518,14 @@ function FormLinkBox({ m, put }: { m: ChurchMember; put: (x: ChurchMember[]) => 
 }
 
 /** วางข้อความที่สมาชิกส่งกลับ → ตารางเทียบ เดิม → ใหม่ → ติ๊กช่องที่รับ → ยืนยันครั้งเดียว (ไม่เขียนทับอัตโนมัติ) */
-function ImportSheet({ m, put, onClose, initial = '' }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void; initial?: string }) {
+function ImportSheet({ m, put, onClose, initial = '', asMid }: { m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void; initial?: string; asMid?: string }) {
   const people = useChurchMembers()
   const plans = useVisitPlans()
   const [text, setText] = useState(initial)
   const [skip, setSkip] = useState<Set<FieldKey>>(new Set())
   const [err, setErr] = useState('')
-  const a = text.trim() ? parseReply(text) : null
+  const a0 = text.trim() ? parseReply(text) : null
+  const a = a0 && asMid ? { ...a0, mid: asMid } : a0   // ลิงก์ทั่วไป: ฝ่ายทะเบียนเลือกเองว่าเป็นสมาชิกคนไหน
   const owner = a && a.mid !== m.id ? people.items.find((x) => x.id === a.mid) : undefined
   const diffs = a && a.mid === m.id ? diffAnswer(m, a) : []
   const changed = diffs.filter((d) => d.changed)
@@ -579,57 +580,61 @@ function ImportSheet({ m, put, onClose, initial = '' }: { m: ChurchMember; put: 
  * 🔗 ลิงก์กลุ่ม = ลิงก์เดียวสำหรับรายชื่อที่กรองอยู่ (ส่งทีเดียวในห้องแชต ทุกคนเลือกชื่อตัวเอง)
  * 📥 วางข้อมูลจากสมาชิก = วางข้อความที่ได้รับที่เดียว ระบบหาเองว่าเป็นของใคร (ไม่ต้องเปิดทีละคน)
  */
-function FormTools({ list, members, put }: { list: ChurchMember[]; members: ChurchMember[]; put: (x: ChurchMember[]) => boolean }) {
-  const [open, setOpen] = useState<'' | 'group' | 'paste'>('')
+function FormTools({ members, put }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean }) {
+  const [open, setOpen] = useState<'' | 'link' | 'paste'>('')
   const [msg, setMsg] = useState('')
   const [text, setText] = useState('')
-  const [skipIds, setSkipIds] = useState<Set<string>>(new Set())
-  const chosen = list.filter((m) => !skipIds.has(m.id))
+  const [pickId, setPickId] = useState<string | null>(null)   // ลิงก์ทั่วไป: สมาชิกที่ฝ่ายทะเบียนเลือกจับคู่
+  const [asNew, setAsNew] = useState(false)
   const a = text.trim() ? parseReply(text) : null
-  const target = a && a.mid !== NEW_MID ? members.find((x) => x.id === a.mid) : undefined
-  const copyGroup = async () => {
-    if (chosen.length === 0) return setMsg('ยังไม่ได้เลือกใคร')
-    if (chosen.length > GROUP_MAX) return setMsg(`เลือกได้ไม่เกิน ${GROUP_MAX} คนต่อลิงก์ (ลิงก์จะยาวเกินไป) — กรองตามกลุ่ม/สถานะให้น้อยลงแล้วสร้างหลายลิงก์`)
-    try { await navigator.clipboard.writeText(groupUrl(chosen)); setMsg(`คัดลอกลิงก์กลุ่ม ${chosen.length} คนแล้ว — นำไปวางในห้องแชตได้เลย (ใช้ได้ ${FORM_DAYS} วัน)`) } catch { setMsg('คัดลอกไม่สำเร็จ') }
-  }
+  const target = a && a.mid !== NEW_MID && a.mid !== BY_NAME ? members.find((x) => x.id === a.mid) : undefined
+  const cands = a && a.mid === BY_NAME ? findCandidates(a, members) : []
+  const picked = pickId ? members.find((x) => x.id === pickId) : undefined
+  const reset = () => { setOpen(''); setText(''); setPickId(null); setAsNew(false) }
+  const copyLink = async () => { try { await navigator.clipboard.writeText(generalFormUrl()); setMsg('คัดลอกลิงก์แล้ว — นำไปวางในห้องแชตได้เลย (ลิงก์เดียวกันใช้ได้ทุกคน ไม่มีวันหมดอายุ)') } catch { setMsg('คัดลอกไม่สำเร็จ') } }
   return (
     <>
-      <button type="button" className="btn btn--ghost" onClick={() => { setOpen('group'); setMsg('') }}>🔗 ลิงก์กลุ่ม</button>
-      <button type="button" className="btn btn--ghost" onClick={() => { setOpen('paste'); setText('') }}>📥 วางข้อมูลจากสมาชิก</button>
-      {open === 'group' && (
-        <Sheet title="ลิงก์กลุ่ม — ส่งทีเดียว ทุกคนเลือกชื่อตัวเอง" onClose={() => setOpen('')}>
+      <button type="button" className="btn btn--ghost" onClick={() => { setOpen('link'); setMsg('') }}>🔗 ลิงก์ส่งทั้งกลุ่ม</button>
+      <button type="button" className="btn btn--ghost" onClick={() => { setOpen('paste'); setText(''); setPickId(null); setAsNew(false) }}>📥 วางข้อมูลจากสมาชิก</button>
+      {open === 'link' && (
+        <Sheet title="ลิงก์ส่งทั้งกลุ่ม (ลิงก์สั้น ใช้ได้ทุกคน)" onClose={() => setOpen('')}>
           <ol className="small" style={{ margin: 0, paddingLeft: '1.2rem' }}>
-            <li>กรองรายชื่อก่อน (กลุ่ม/สถานะ/ค้นหา) แล้วเปิดหน้าต่างนี้ — ลิงก์จะมีเฉพาะคนที่เห็นในรายการ</li>
-            <li>เอาติ๊กออกจากคนที่ไม่ต้องการ แล้วกด “คัดลอกลิงก์กลุ่ม”</li>
-            <li>วางลิงก์ในห้องแชต — แต่ละคนกดลิงก์ เลือกชื่อตัวเอง กรอก แล้วส่งกลับให้คุณทางไลน์ส่วนตัว</li>
-            <li>รับข้อความทีละคน → กด “วางข้อมูลจากสมาชิก” → ระบบรู้เองว่าเป็นของใคร → ตรวจ → ยืนยัน</li>
+            <li>กด “คัดลอกลิงก์” แล้ววางในห้องแชต — ทุกคนใช้ลิงก์เดียวกัน</li>
+            <li>แต่ละคนกดลิงก์ พิมพ์ชื่อ-นามสกุลและข้อมูลของตัวเอง แล้วกด “ส่งกลับทางไลน์” ถึงคุณ</li>
+            <li>คุณคัดลอกข้อความที่ได้รับ → กด “วางข้อมูลจากสมาชิก” → ระบบหาชื่อที่ใกล้เคียงในทะเบียนให้เลือกยืนยัน → ตารางเทียบ → ยืนยัน</li>
           </ol>
-          <p style={{ margin: 0 }}><b>เลือกแล้ว {chosen.length} คน</b> <span className="muted small">(ไม่เกิน {GROUP_MAX} คนต่อลิงก์)</span></p>
-          <div style={{ maxHeight: '38vh', overflow: 'auto', border: '1px solid var(--line)', borderRadius: 10, padding: '0.3rem 0.5rem' }} role="list" aria-label="คนในลิงก์กลุ่ม">
-            {list.map((m) => (
-              <label key={m.id} role="listitem" className="row" style={{ gap: 8, flexWrap: 'nowrap', padding: '0.15rem 0' }}>
-                <input type="checkbox" checked={!skipIds.has(m.id)} onChange={() => setSkipIds((p) => { const n = new Set(p); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n })} />
-                <span>{m.name}{m.nick ? <span className="muted small"> ({m.nick})</span> : null}</span>
-              </label>
-            ))}
-          </div>
+          <p className="small" style={{ margin: 0 }}>ลิงก์นี้สั้นและไม่มีรายชื่อหรือข้อมูลใครอยู่ในลิงก์เลย จึงปลอดภัยต่อการส่งในห้องแชตขนาดใหญ่</p>
+          <input className="input" readOnly aria-label="ลิงก์ส่งทั้งกลุ่ม" value={generalFormUrl()} onFocus={(e) => e.currentTarget.select()} />
           {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
-          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={copyGroup}>📋 คัดลอกลิงก์กลุ่ม ({chosen.length} คน)</button>
-          <p className="small muted" style={{ margin: 0 }}>ลิงก์มีเฉพาะชื่อ/ชื่อเล่นของคนในรายการ ไม่มีเบอร์โทรหรือข้อมูลส่วนตัวอื่น · ผู้ที่ได้ลิงก์เห็นรายชื่อทุกคนในลิงก์ ควรใช้กับห้องแชตของกลุ่มนั้นเท่านั้น</p>
+          <button type="button" className="btn btn--gold bigbtn btn--block" onClick={copyLink}>📋 คัดลอกลิงก์</button>
         </Sheet>
       )}
-      {open === 'paste' && (target
-        ? <ImportSheet m={target} put={put} onClose={() => setOpen('')} initial={text} />
-        : a && a.mid === NEW_MID
-          ? <NewMemberSheet a={a} put={put} onClose={() => setOpen('')} />
-          : (
-            <Sheet title="วางข้อมูลจากสมาชิก" onClose={() => setOpen('')}>
-              <p className="small muted" style={{ margin: 0 }}>วางข้อความที่สมาชิกส่งกลับ ระบบหาเองว่าเป็นของใคร แล้วแสดงตารางเทียบให้ตรวจ</p>
-              <textarea className="input" rows={6} aria-label="วางข้อความที่ได้รับ" value={text} onChange={(e) => setText(e.target.value)} placeholder="วางข้อความที่ขึ้นต้นว่า 📝 ข้อมูลสมาชิก…" />
-              {text.trim() && !a && <p className="error" role="alert" style={{ margin: 0 }}>ไม่พบรหัสตรวจในข้อความ — คัดลอกให้ครบทั้งข้อความรวมบรรทัด “— รหัสตรวจ: …” ท้ายสุด</p>}
-              {a && !target && <p className="error" role="alert" style={{ margin: 0 }}>ไม่พบสมาชิกคนนี้ในทะเบียน (อาจถูกลบไปแล้ว)</p>}
-            </Sheet>
-          ))}
+      {open === 'paste' && (picked && a
+        ? <ImportSheet m={picked} put={put} onClose={reset} initial={text} asMid={picked.id} />
+        : target
+          ? <ImportSheet m={target} put={put} onClose={reset} initial={text} />
+          : a && (a.mid === NEW_MID || asNew)
+            ? <NewMemberSheet a={a} put={put} onClose={reset} />
+            : (
+              <Sheet title="วางข้อมูลจากสมาชิก" onClose={reset}>
+                <p className="small muted" style={{ margin: 0 }}>วางข้อความที่สมาชิกส่งกลับ — ถ้ามาจากลิงก์ทั่วไป ระบบจะหาชื่อที่ใกล้เคียงในทะเบียนให้เลือกยืนยัน</p>
+                <textarea className="input" rows={6} aria-label="วางข้อความที่ได้รับ" value={text} onChange={(e) => setText(e.target.value)} placeholder="วางข้อความที่ขึ้นต้นว่า 📝 ข้อมูลสมาชิก…" />
+                {text.trim() && !a && <p className="error" role="alert" style={{ margin: 0 }}>ไม่พบรหัสตรวจในข้อความ — คัดลอกให้ครบทั้งข้อความรวมบรรทัด “— รหัสตรวจ: …” ท้ายสุด</p>}
+                {a && a.mid !== BY_NAME && !target && <p className="error" role="alert" style={{ margin: 0 }}>ไม่พบสมาชิกคนนี้ในทะเบียน (อาจถูกลบไปแล้ว)</p>}
+                {a && a.mid === BY_NAME && (
+                  <div role="group" aria-label="ชื่อที่ใกล้เคียงในทะเบียน">
+                    <p style={{ margin: '0 0 0.3rem' }}>ข้อความนี้กรอกโดย <b>{a.name}</b> — ใช่คนไหนในทะเบียน?</p>
+                    {cands.length === 0 && <p className="small muted" style={{ margin: 0 }}>ไม่พบชื่อที่ใกล้เคียงในทะเบียน</p>}
+                    {cands.map((c) => (
+                      <button key={c.m.id} type="button" className="btn btn--ghost btn--block" style={{ textAlign: 'left', marginBottom: 6 }} onClick={() => setPickId(c.m.id)}>
+                        <b>{c.m.name}</b>{c.m.nick ? ` (${c.m.nick})` : ''}<br /><span className="small muted">{c.reasons.join(' · ')}</span>
+                      </button>
+                    ))}
+                    <button type="button" className="btn btn--ghost btn--block" onClick={() => setAsNew(true)}>➕ ไม่ใช่คนในรายการ — เพิ่มเป็นสมาชิกใหม่</button>
+                  </div>
+                )}
+              </Sheet>
+            ))}
     </>
   )
 }

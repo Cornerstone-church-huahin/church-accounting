@@ -63,3 +63,23 @@ export function applyAnswer(m: ChurchMember, a: FormAnswer, keys: Set<FieldKey>)
   if (keys.has('serveDays') && a.serveDays?.length) n.serveDays = a.serveDays
   return n
 }
+
+export interface Candidate { m: ChurchMember; score: number; reasons: string[] }
+const digits = (s?: string) => (s ?? '').replace(/\D/g, '')
+/** หาสมาชิกที่น่าจะเป็นคนเดียวกับข้อความที่ได้รับ (จับคู่จากชื่อ + หลักฐานเสริม: ชื่อเล่น เบอร์โทร วันเกิด) · เรียงคะแนนมากไปน้อย */
+export function findCandidates(a: FormAnswer, members: ChurchMember[], limit = 5): Candidate[] {
+  return members
+    .filter((m) => !m.deleted)
+    .map((m) => {
+      const sim = nameSimilarity(a.name, m.name)
+      const reasons = [`ชื่อใกล้เคียง ${Math.round(sim * 100)}%`]
+      let score = sim
+      if (a.nick && m.nick && normName(a.nick) === normName(m.nick)) { score += 0.1; reasons.push('ชื่อเล่นตรงกัน') }
+      if (digits(a.tel).length >= 9 && digits(a.tel) === digits(m.tel)) { score += 0.3; reasons.push('เบอร์โทรตรงกัน') }
+      if (a.birth && m.birth && a.birth === m.birth) { score += 0.3; reasons.push('วันเกิดตรงกัน') }
+      return { m, score, reasons }
+    })
+    .filter((c) => c.score >= 0.5)
+    .sort((x, y) => y.score - x.score)
+    .slice(0, limit)
+}

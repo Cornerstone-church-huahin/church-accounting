@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import logoUrl from '../assets/logo.png'
 import Sheet from '../components/Sheet'
-import { DAY_OPTIONS, NEW_MID, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, decodeGroupLink, replyText, type FormAnswer, type FormLink, type GroupLink } from '../lib/memberForm'
+import { BY_NAME, DAY_OPTIONS, NEW_MID, OTHER_SERVE, SERVE_OPTIONS, decodeFormLink, decodeGroupLink, replyText, type FormAnswer, type FormLink, type GroupLink } from '../lib/memberForm'
 
 /**
  * หน้าให้สมาชิกกรอกข้อมูลเอง (เปิดจากลิงก์ที่ฝ่ายทะเบียนส่งให้ในไลน์) — ไม่ต้องเข้าแอป ไม่มีการเขียนข้อมูลเข้าระบบ
@@ -13,7 +13,10 @@ export default function MemberFormPage() {
   const group = decodeGroupLink(params.get('d'))
   const [picked, setPicked] = useState<FormLink | null>(null)
   if (group && !picked) return <GroupPicker group={group} onPick={setPicked} />
-  return <FormBody key={picked?.mid ?? 'one'} link={picked ?? decodeFormLink(params.get('d'))} grouped={!!group} onReselect={() => setPicked(null)} />
+  const d = params.get('d')
+  // ไม่มี d = ลิงก์ทั่วไป (ส่งทั้งกลุ่ม): กรอกเอง ฝ่ายทะเบียนจับคู่จากชื่อ
+  const link: FormLink | null = picked ?? (d ? decodeFormLink(d) : { v: 1, mid: BY_NAME, name: '', exp: Number.MAX_SAFE_INTEGER })
+  return <FormBody key={picked?.mid ?? 'one'} link={link} grouped={!!group} onReselect={() => setPicked(null)} />
 }
 
 /** ลิงก์กลุ่ม ขั้นที่ 1: เลือกชื่อของตัวเองจากรายชื่อ */
@@ -77,6 +80,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
     <form className="card" onSubmit={(e) => e.preventDefault()} aria-label="แบบกรอกข้อมูลสมาชิก">
       {grouped && link && <p className="small" style={{ margin: 0 }}>{link.mid === NEW_MID ? 'ท่านไม่พบชื่อในรายการ — กรอกข้อมูลของท่านด้านล่าง ฝ่ายทะเบียนจะเพิ่มชื่อให้' : <>ท่านเลือกชื่อ <b>{link.name}</b> · <button type="button" className="mini" onClick={onReselect}>เลือกใหม่</button></>}</p>}
       <p style={{ margin: 0 }}>กรุณาตรวจและกรอกข้อมูลของท่านให้ครบ ข้อมูลที่ส่งจะไปถึงฝ่ายทะเบียนเท่านั้น</p>
+      {link.mid === BY_NAME && <p className="mform__warn" role="note">✍️ พิมพ์ <b>ชื่อ-นามสกุลจริง</b> ให้ตรงกับที่ลงทะเบียนไว้กับคริสตจักร เพื่อให้ฝ่ายทะเบียนจับคู่ข้อมูลของท่านได้ถูกต้อง</p>}
       <p className="mform__warn" role="note">⚠️ กรุณาตรวจ <b>ชื่อ-นามสกุล</b> และ <b>ชื่อเล่น</b> ให้ถูกต้อง เพราะจะใช้เป็นชื่อในทะเบียนของคริสตจักร ถ้าสะกดไม่ถูก ให้แก้ในช่องด้านล่างก่อนส่ง</p>
       <div className="field"><label htmlFor="mf-name">ชื่อ-สกุล <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-name" className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="name" /></div>
       <div className="field"><label htmlFor="mf-nick">ชื่อเล่น <span className="mform__chk">ตรวจให้ถูกต้อง</span></label><input id="mf-nick" className="input" value={f.nick} onChange={(e) => set({ nick: e.target.value })} /></div>
