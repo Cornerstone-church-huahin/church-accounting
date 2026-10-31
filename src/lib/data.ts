@@ -1,15 +1,15 @@
-import { blocked, can, calendarWritable, canWork, isRegistryHelper, registryCanSign, myRole, myWorkLevel, type Perm } from './access'
+import { blocked, blockedEdit, canEditDetail, calendarWritable, canWork, isRegistryHelper, registryCanSign, myRole, myWorkLevel, type Perm } from './access'
 import { useSharedStore } from './sharedStore'
 
 /**
  * สิทธิ์เขียนของข้อมูลที่เป็นของ “ห้องงาน” n: ผู้ดูแลหลักของห้องนั้น (ตั้งโดยแอดมิน) เพิ่ม/แก้/ลบได้เสมอ แม้บทบาทบัญชีเป็นผู้ดูอย่างเดียว
  * · คนอื่นเป็นไปตามบทบาทบัญชีเดิม (perm) · ต้องเป็นฟังก์ชันคงที่ (ไม่สร้างใหม่ทุกครั้งที่เรนเดอร์)
  */
-const workWriter = (n: number, perm: Perm) => () => canWork(n, 'edit') || !blocked(perm)
+const workWriter = (n: number, perm: Perm) => () => canWork(n, 'edit') || !blockedEdit(perm)
 const writeWork1 = workWriter(1, 'detail')   // งานเลขา: หนังสือเชิญ ลำดับงาน การประชุม โน้ต
 // แผนเยี่ยมรายวัน: แอดมิน + ผู้ดูแลหลัก + ผู้ช่วยของงานอภิบาล แก้ร่วมกันได้ (ที่ปรึกษาดูอย่างเดียว)
-const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l === 'owner' || l === 'deputy' || l === 'lead' || l === 'helper' || can(myRole(), 'detail') } // ไม่แจ้งเตือน (ใช้ตอนเรนเดอร์)
-const writePlan4 = () => canPlan4() || !blocked('detail')
+const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l === 'owner' || l === 'deputy' || l === 'lead' || l === 'helper' || canEditDetail(myRole()) } // ไม่แจ้งเตือน (ใช้ตอนเรนเดอร์)
+const writePlan4 = () => canPlan4() || !blockedEdit('detail')
 // งานอภิบาล: บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม — แอดมิน ผู้ดูแลหลัก และผู้ช่วยทำได้ครบเหมือนกัน (มีเช็คอินพิกัดกลางกับรูปถ่ายคุมความถูกต้องอยู่แล้ว)
 const writeWork4 = writePlan4
 const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || (isRegistryHelper() && registryCanSign()) || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)

@@ -59,6 +59,17 @@ try {
   const w1 = await p.evaluate(() => JSON.parse(localStorage.getItem('acct.members.v1')).find((x) => x.id === 'w1'))
   must(w1.role === 'viewer' && w1.works?.includes(2) && w1.workRoles?.['2'] === 'helper', 'legacy worship role migrated to registry helper: ' + JSON.stringify(w1))
   must(/ย้ายสิทธิ์ “ผู้บันทึกการนมัสการ”/.test(await body(p)), 'admin sees the migration notice')
+  // 7) ที่ปรึกษา/ผู้ช่วยห้องเหรัญญิกดูรายงานการเงินได้ แต่แก้ข้อมูลห้องเลขาไม่ได้ · ผู้ดูแลห้องเลขาแก้ได้
+  const mk = async (me, rec, label) => {
+    const q = await open(me, [rec], '#/meeting/1/1/invite')
+    await q.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click().catch(() => {})
+    await q.waitForTimeout(1200)
+    const n = await q.evaluate(() => JSON.parse(localStorage.getItem('acct.inviteletter.v1') ?? '[]').filter((x) => !x.deleted).length)
+    return n
+  }
+  must(await mk('f1', { id: 'f1', name: 'ที่ปรึกษาเหรัญญิก', role: 'viewer', works: [3], workRoles: { 3: 'advisor' }, joined: 2, updated: 1 }) === 0, 'finance advisor cannot create a secretary letter')
+  must(await mk('f2', { id: 'f2', name: 'ผู้ช่วยเหรัญญิก', role: 'viewer', works: [3], workRoles: { 3: 'helper' }, joined: 2, updated: 1 }) === 0, 'finance helper cannot create a secretary letter')
+  must(await mk('f3', { id: 'f3', name: 'ผู้ดูแลเลขา', role: 'viewer', works: [1], workRoles: { 1: 'lead' }, joined: 2, updated: 1 }) === 1, 'secretary-room lead can create a letter')
   // 6) หน้าตั้งค่า (แอดมิน): สวิตช์ห้องงาน × ตำแหน่ง แทนช่องสิทธิ์เดิม
   p = await open('ad1', [{ id: 'u5', name: 'คนทดสอบ', role: 'viewer', joined: 2, updated: 1 }], '#/settings')
   await p.getByText(/ผู้ใช้ร่วมและสิทธิ์/).first().click()
