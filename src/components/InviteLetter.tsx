@@ -110,7 +110,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           <div className="letter__row"><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
-          <div style={{ margin: '18px 0 8px', minHeight: 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
+          <div style={{ margin: internal ? '10px 0 6px' : '18px 0 8px', minHeight: internal ? 0 : 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
           {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}>{x.r ? `${x.label} ${x.t}` : <b>{x.label} {x.t}</b>}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
         </div>
@@ -252,7 +252,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (kind !== 'notice') return
     const t = agendaItems(l).map((x) => x.t.trim())
     if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) set({ agenda: noticeAgenda(l.date || todayISO()) })
-    if (l.body === fillNotice(OLD_NOTICE_BODY, l.date || todayISO())) set({ body: fillNotice(LETTER_KINDS.notice.blank.body, l.date || todayISO()) })
+    // เนื้อความตั้งต้น (รุ่นเก่า หรือรุ่นใหม่ที่ตัดบรรทัดหาย) ที่ยังไม่ได้แก้ → ใช้แบบ 3 บรรทัดมาตรฐาน (เวลา / ณ ห้องประชุม ขึ้นบรรทัดใหม่)
+    const base = l.date || todayISO(), std = fillNotice(LETTER_KINDS.notice.blank.body, base), flat = (x: string) => x.replace(/\s+/g, ' ').trim()
+    if (l.body !== std && (l.body === fillNotice(OLD_NOTICE_BODY, base) || flat(l.body) === flat(std))) set({ body: std })
     // รุ่นก่อนเติมข้อย่อยตัวอย่าง (6.x/7.x/8.x) ให้ — ถ้ายังมีแต่ข้อย่อยพวกนั้น ตัดออก เหลือวาระ 1–10
     const it = agendaItems(l), subs = it.filter((x) => x.k === 'r')
     if (subs.length > 0 && subs.every(isAutoSubItem)) set({ agenda: it.filter((x) => x.k !== 'r') })

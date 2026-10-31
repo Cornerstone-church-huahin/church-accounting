@@ -81,6 +81,12 @@ try {
   await body(admin).waitFor({ timeout: 15000 })
   await admin.waitForTimeout(1500)
   must(await admin.getByLabel('วาระที่ 10', { exact: true }).count() === 1 && await admin.getByLabel('6.1', { exact: true }).count() === 0, 'old 4-item default draft upgraded to the 10-item model (no sub-items)')
+  // เนื้อความตั้งต้นที่บรรทัด “เวลา / ณ ห้องประชุม” ติดกัน (ยังไม่ได้แก้) → ปรับเป็น 3 บรรทัดมาตรฐาน
+  await admin.evaluate(() => { const k = 'acct.noticeletter.v1'; const a = JSON.parse(localStorage.getItem(k) ?? '[]'); localStorage.setItem(k, JSON.stringify(a.map((x) => ({ ...x, body: x.body.replace(/\n/g, ' ').replace(/ประจำเดือน(\S+) /, 'ประจำเดือน$1\n'), updated: (x.updated ?? 0) + 7000 })))) })
+  await admin.reload()
+  await body(admin).waitFor({ timeout: 15000 })
+  await admin.waitForTimeout(1500)
+  must(/13\.00 น\.\nณ ห้องประชุมธรรมกิจ/.test(await body(admin).inputValue()), 'body rows: time, then place on a new line: ' + JSON.stringify(await body(admin).inputValue()))
   // ฉบับที่รุ่นก่อนเติมข้อย่อยตัวอย่าง (6.x/7.x) ให้ แต่ยังไม่ได้แก้ → ตัดข้อย่อยออก เหลือวาระ 1–10
   await admin.evaluate(() => { const k = 'acct.noticeletter.v1'; const a = JSON.parse(localStorage.getItem(k) ?? '[]'); localStorage.setItem(k, JSON.stringify(a.map((x) => ({ ...x, agenda: [...x.agenda.slice(0, 6), { t: 'ความร่วมมือกับ ม.ฮันดง', k: 'r' }, { t: 'การรีทรีตทีมรับใช้ 2027-2028', k: 'r' }, ...x.agenda.slice(6)], updated: (x.updated ?? 0) + 5000 })))) })
   await admin.reload()
