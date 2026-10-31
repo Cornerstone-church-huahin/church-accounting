@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
+import WeekStrip from './WeekStrip'
+import { weekDates } from '../lib/attendanceWeeks'
 import Sheet from './Sheet'
 import { dow, fmtDateLong, todayISO, yearOf } from '../lib/money'
 import { ageText, checkInId, nameKey, NEW_PERSON_STATUS, similarNames, statusLabel, uniqueId } from '../lib/registry'
@@ -64,6 +66,9 @@ export default function CheckinPanel({ lite, readOnly, showStatus, members, chec
   const stamp = (c: CheckIn) => c.updated || 0
   const doneRows = [...done.values()].filter((c) => byId.has(c.mid)).sort((a, b) => stamp(a) - stamp(b) || (a.tm ?? '').localeCompare(b.tm ?? ''))
   const doneNewestFirst = [...doneRows].reverse()
+  const dayCounts = new Map<string, number>()
+  for (const c of checkins) if (!c.deleted) dayCounts.set(c.date, (dayCounts.get(c.date) ?? 0) + 1)
+  const weeks = weekDates([...dayCounts.keys()], today)
   /** ลงชื่อ 1 คน: ซิงก์ก่อน (เห็นรายการของเครื่องอื่น) แล้วเช็กซ้ำอีกครั้งก่อนเขียน · true = ลงสำเร็จ */
   const record = async (mid: string, who = ''): Promise<boolean> => {
     if (!recorder) { window.dispatchEvent(new Event(OPEN_RECORDER)); setMsg({ text: 'เลือกผู้บันทึกของเครื่องนี้ก่อนลงทะเบียน', bad: true }); return false }
@@ -135,6 +140,7 @@ export default function CheckinPanel({ lite, readOnly, showStatus, members, chec
           )}
         </div>
       )}
+      <WeekStrip dates={weeks} value={date} onPick={(d) => { setDate(d); setMsg(null) }} counts={dayCounts} today={today} />
       <div className="formgrid">
         <div className="field">
           <label htmlFor="ck-date">วันนมัสการ</label>

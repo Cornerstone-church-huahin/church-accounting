@@ -1520,3 +1520,11 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .swt--sm { width: 2.6rem; height: 1.45rem; }
 .swt--sm i { top: 0.17rem; left: 0.17rem; width: 1.11rem; height: 1.11rem; }
 .swt--sm.swt--on i { left: 1.32rem; }
+
+/* ตัวเลื่อนอาทิตย์ (หน้าลงชื่อ/ยอดผู้มา): บรรทัดเดียว เตี้ย */
+.weekstep { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.3rem; touch-action: pan-y; }
+.weekstep__b { flex: none; width: 2.2rem; height: 2.2rem; border-radius: 50%; border: 1.5px solid #3a6fc4; background: var(--surface); color: #3a6fc4; font-size: 1.2rem; line-height: 1; padding: 0; cursor: pointer; }
+.weekstep__b:disabled { opacity: 0.35; cursor: default; }
+.weekstep__t { flex: 1; min-width: 0; text-align: center; font-size: 0.92rem; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weekstep__t small { color: var(--ink-soft); font-size: 0.8rem; }
+.weekstep__off { color: var(--bad) !important; }
