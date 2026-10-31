@@ -19,6 +19,7 @@ try {
     localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, status: 'active', updated: 1 }]))
     localStorage.setItem('acct.attendance.2026.v1', JSON.stringify([{ id: 'a1', updated: 1, date: '2026-10-18', ids: ['m2'] }, { id: 'a2', updated: 1, date: '2026-10-25', ids: ['m2'] }]))
+    localStorage.setItem('acct.settings.v1', JSON.stringify([{ id: 'settings', ageAuto: false, updated: 1 }]))
     localStorage.setItem('acct.church-members.v1', JSON.stringify([{ id: 'm9', updated: 1, name: 'อนุชนตัวอย่าง', status: '1.สมบูรณ์ ( 1 )', group: '2.อนุชน', gender: 'หญิง', birth: '2010-01-01' }, { id: 'm2', updated: 1, name: 'สมชาย ใจดี', nick: 'ชาย', tel: '0811111111', status: '1.สมบูรณ์ ( 1 )', group: '4.สตรี' }, { id: 'm1', updated: 1, name: 'ดารา ผลจันทร์', nick: 'ดารา', code: '1329', tel: '0818896490', gender: 'หญิง', birth: '2008-09-09', status: '1.สมบูรณ์ ( 1 )', group: '4.สตรี' }]))
   })
   const page = await ctx.newPage(); page.on('pageerror', (e) => errors.push(String(e)))

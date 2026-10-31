@@ -12,9 +12,10 @@ const errors = []
 try {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })
   await ctx.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
-  await ctx.addInitScript(() => {
+  const seed = (auto) => {
     if (localStorage.getItem('seeded')) return
     localStorage.setItem('seeded', '1')
+    if (!auto) localStorage.setItem('acct.settings.v1', JSON.stringify([{ id: 'settings', ageAuto: false, updated: 1 }]))
     localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' }))
     localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, status: 'active', updated: 1 }]))
@@ -30,7 +31,8 @@ try {
       { id: 'm3', updated: 1, name: 'ไม่มีวันเกิด', status: S, group: '4.สตรี', gender: 'หญิง' },
       { id: 'm4', updated: 1, name: 'กลุ่มพิเศษ', status: S, group: '9.คณะกรรมการ', gender: 'ชาย', birth: '2008-01-01' },
     ]))
-  })
+  }
+  await ctx.addInitScript(seed, false)
   const page = await ctx.newPage(); page.on('pageerror', (e) => errors.push(String(e)))
   await page.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`); await page.reload()
   await page.getByRole('button', { name: /เมนูสมาชิก/ }).click()
@@ -53,6 +55,39 @@ try {
   await page.getByRole('button', { name: /ย้ายเลย/ }).click()
   const m2 = await page.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'm2').group)
   must(m2 === '1.เด็กรวี', 'quick move from detail')
+  // โหมดอัตโนมัติ (ค่าตั้งต้น): เปิดแอปแล้วย้ายเอง + แจ้งผล + คืนกลุ่มเดิมได้
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })
+  // GitHub จำลองให้ดึงข้อมูลสำเร็จ (ระบบรอดึงข้อมูลล่าสุดก่อนย้ายอัตโนมัติ)
+  const files = new Map(); let n = 0
+  await ctx2.route('https://api.github.com/**', async (route) => {
+    const url = new URL(route.request().url())
+    const m = url.pathname.match(/^\/repos\/x\/y(?:\/contents\/(.+))?$/)
+    const json = (status, body) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }, body: JSON.stringify(body) })
+    if (route.request().method() === 'OPTIONS') return json(204, {})
+    if (!m) return json(404, {})
+    if (!m[1]) return json(200, { private: true, permissions: { push: true } })
+    const path = decodeURIComponent(m[1])
+    if (route.request().method() === 'GET') { const f = files.get(path); return f ? json(200, { sha: f.sha, encoding: 'base64', content: Buffer.from(f.text).toString('base64') }) : json(404, {}) }
+    if (route.request().method() === 'PUT') { const b = JSON.parse(route.request().postData()); files.set(path, { text: Buffer.from(b.content, 'base64').toString('utf8'), sha: `s${++n}` }); return json(200, { content: { sha: `s${n}` } }) }
+    return json(404, {})
+  })
+
+  await ctx2.addInitScript(seed, true)
+  const p2 = await ctx2.newPage(); p2.on('pageerror', (e) => errors.push(String(e)))
+  await p2.goto(`http://localhost:${PORT}/#/meeting/2?tab=roster`)
+  await p2.getByText(/ย้ายกลุ่มตามอายุอัตโนมัติ/).waitFor({ timeout: 15000 })
+  must(await p2.getByText(/2 คน/).count() >= 1, 'banner shows how many were moved automatically')
+  const auto = await p2.evaluate(() => Object.fromEntries(JSON.parse(localStorage.getItem('acct.church-members.v1')).map((x) => [x.id, x.group + '|' + (x.groupMoved?.from ?? '')])))
+  must(auto.m1 === '2.อนุชน|4.สตรี' && auto.m2 === '1.เด็กรวี|3.บุรุษ' && auto.m3 === '4.สตรี|' && auto.m4 === '9.คณะกรรมการ|', 'auto moved the mismatched, left the rest: ' + JSON.stringify(auto))
+  // คืนกลุ่มเดิม (ล็อกกันย้ายซ้ำ)
+  await p2.getByRole('button', { name: /เมนูสมาชิก/ }).click()
+  await p2.getByRole('tab', { name: /ทะเบียน/ }).first().click()
+  await p2.getByText('ดารา ผลจันทร์').first().click()
+  await p2.getByText(/ย้ายกลุ่มอัตโนมัติ$/).waitFor({ timeout: 8000 })
+  await p2.getByRole('button', { name: /คืนกลุ่มเดิม/ }).click()
+  await p2.waitForTimeout(800)
+  const back = await p2.evaluate(() => JSON.parse(localStorage.getItem('acct.church-members.v1')).find((x) => x.id === 'm1'))
+  must(back.group === '4.สตรี' && back.groupLock === true, 'undo restores the old group and locks it: ' + JSON.stringify(back))
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
   console.log('agegroup-test OK')
 } catch (e) { console.error(e); process.exitCode = 1 } finally { await browser.close(); server.kill() }

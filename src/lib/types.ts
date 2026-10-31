@@ -37,6 +37,8 @@ export interface Settings extends SharedItem {
   memberAbsentMonths?: number
   /** กติกาจัดกลุ่มสมาชิกตามอายุ (+เพศ): ว่าง = ใช้ค่าตั้งต้นที่เดาจากชื่อกลุ่ม */
   ageRules?: AgeRule[]
+  /** ย้ายกลุ่มตามอายุอัตโนมัติเมื่อถึงช่วงวัย (ว่าง/true = เปิด · false = ปิด เสนอให้กดเอง) */
+  ageAuto?: boolean
   /** ข้อความสรุปสถานการณ์การเงินถึงผู้นำงาน (แอดมินเขียน แสดงบนหน้า ภาพรวม) */
   leaderNote?: { text: string; at: number }
 }
@@ -335,6 +337,8 @@ export interface ChurchMember extends SharedItem {
   firstWorship?: string
   /** ล็อกกลุ่ม: ระบบไม่เสนอเปลี่ยนกลุ่มตามอายุให้คนนี้ */
   groupLock?: boolean
+  /** ระบบย้ายกลุ่มตามอายุอัตโนมัติครั้งล่าสุด: จากกลุ่มไหน เมื่อไร (ไว้แสดงผลและคืนกลุ่มเดิม) */
+  groupMoved?: { from: string; at: number }
   /** วันเกิด YYYY-MM-DD (ค.ศ.) */
   birth?: string
   /** เพศ: ชาย / หญิง (ว่าง = ไม่ระบุ) */

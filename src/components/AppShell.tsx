@@ -11,6 +11,7 @@ import { refreshSharedGemini } from '../lib/gemini'
 import { installFieldErrors } from '../lib/fieldErrors'
 import { getSync, SYNC_EVENT } from '../lib/sync'
 import ConnectGate from './ConnectGate'
+import AutoRegroup from './AutoRegroup'
 import { initialYear, saveYear, YearContext } from '../lib/year'
 import OpenInChrome from './OpenInChrome'
 import SyncButton from './SyncButton'
@@ -96,6 +97,7 @@ export default function AppShell() {
   return (
     <YearContext.Provider value={{ year, setYear }}>
       <div className="app">
+        <AutoRegroup />
         <header className="topbar">
           {/* โลโก้คริสตจักรซ้ายบน: หน้าหลัก ห้องงานทุกห้อง และหน้าที่ไม่มีที่ให้ย้อนกลับ (กดแล้วไปหน้าแรก) · หน้าอื่นเป็นปุ่มย้อนกลับ */}
           {ROOTS.includes(pathname) || pathname.startsWith('/meeting') || ((window.history.state as { idx?: number } | null)?.idx ?? 0) < 1 ? (
