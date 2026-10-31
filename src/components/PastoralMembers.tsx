@@ -61,8 +61,8 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
  * อ่านจากทะเบียนจริง ไม่แก้ข้อมูลใด · พิกัดบ้านบันทึกที่งานทะเบียน (แอดมิน/ผู้บันทึกทะเบียน) · การติดตามจะแยกเป็นไอคอนต่อไป
  */
 /** work = ห้องงานที่เปิดหน้านี้ (ใช้ตรวจสิทธิ์ดู): งานอภิบาล (4) และงานอนุชน (9) ใช้หน้าเดียวกัน ข้อมูลสมาชิกชุดเดียวกัน */
-/** onOpen: ใส่เมื่อใช้ในงานทะเบียน (แอดมิน) — แตะการ์ดเพื่อเปิดรายละเอียดและแก้ไขได้ */
-export default function PastoralMembers({ work = 4, onOpen }: { work?: number; onOpen?: (id: string) => void } = {}) {
+/** query: คำค้นชื่อ/นามสกุล/ชื่อเล่น/รหัส/เบอร์/หมายเหตุ (ใช้ในหน้ารวมสมาชิกของงานทะเบียน) · onOpen: ใส่เมื่อใช้ในงานทะเบียน (แอดมิน) — แตะการ์ดเพื่อเปิดรายละเอียดและแก้ไขได้ */
+export default function PastoralMembers({ work = 4, onOpen, query = '' }: { work?: number; onOpen?: (id: string) => void; query?: string } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
@@ -77,7 +77,8 @@ export default function PastoralMembers({ work = 4, onOpen }: { work?: number; o
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, todayISO()), [att])
   const all = people.items
-  const sel = useMemo(() => all.filter((m) => gs.length === 0 || gs.some((x) => inGroup(m, x))), [all, gs])
+  const qn = query.trim().toLowerCase().replace(/\s+/g, '')
+  const sel = useMemo(() => all.filter((m) => (gs.length === 0 || gs.some((x) => inGroup(m, x))) && (!qn || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(qn))), [all, gs, qn])
   const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData, yearServices: r.yearServices } }, [all, att])
   const head = useMemo(() => headline(all), [all])
   const ages = useMemo(() => ageBands(sel, today), [sel, today])
