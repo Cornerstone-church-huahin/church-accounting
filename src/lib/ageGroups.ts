@@ -6,12 +6,12 @@ const strip = (g: string) => g.replace(/^\s*\d+\s*[.)\-]?\s*/, '')
 export const isUnassigned = (g?: string) => !g?.trim() || /^(ไม่มีกลุ่ม|ไม่ระบุ(กลุ่ม)?|ไม่สังกัด(กลุ่ม)?|ยังไม่มีกลุ่ม|-)$/.test(strip(g).trim())
 /** กลุ่มมาตรฐานของคริสตจักร: ชื่อ · ช่วงอายุ · เพศ · คำที่ใช้หากลุ่มเดิมในทะเบียน (เช่น “4.สตรี”, “บรุษ”) */
 const STANDARD: { name: string; from: number; to: number; gender?: 'ชาย' | 'หญิง'; re: RegExp }[] = [
-  { name: 'เด็กรวี', from: 2, to: 12, re: /เด็ก|รวี|โรงเรียนอาทิตย์/ },
-  { name: 'อนุชน', from: 13, to: 24, re: /เยาวชน|อนุชน/ },
-  { name: 'วัยทำงาน', from: 25, to: 39, re: /วัยทำงาน/ },
-  { name: 'บุรุษ', from: 40, to: 59, gender: 'ชาย', re: /บุรุษ|บรุษ/ },
-  { name: 'สตรี', from: 40, to: 59, gender: 'หญิง', re: /สตรี/ },
-  { name: 'ผู้สูงวัย', from: 60, to: 200, re: /ผู้สูงอายุ|สูงวัย/ },
+  { name: '1.เด็กรวี', from: 3, to: 11, re: /เด็ก|รวี|โรงเรียนอาทิตย์/ },
+  { name: '2.อนุชน', from: 12, to: 30, re: /เยาวชน|อนุชน/ },
+  { name: '3.วัยทำงาน', from: 31, to: 45, re: /วัยทำงาน/ },
+  { name: '5.บุรุษ', from: 46, to: 65, gender: 'ชาย', re: /บุรุษ|บรุษ/ },
+  { name: '4.สตรี', from: 46, to: 65, gender: 'หญิง', re: /สตรี/ },
+  { name: '6.ผู้สูงวัย', from: 66, to: 200, re: /ผู้สูงอายุ|สูงวัย/ },
 ]
 /**
  * กติกามาตรฐาน: เด็กรวี 2–12 · อนุชน 13–24 · วัยทำงาน 25–39 · บุรุษ/สตรี 40–59 (แยกเพศ) · ผู้สูงวัย 60+
@@ -23,9 +23,20 @@ export function defaultRules(groups: string[]): AgeRule[] {
 }
 /** รวมกติกาที่บันทึกไว้กับกลุ่มมาตรฐานที่ยังไม่มีกติกา (กติกาที่บันทึกแล้วใช้ตามที่บันทึก ไม่เพิ่มกติกาซ้ำให้กลุ่มเดียวกัน) */
 export function effectiveRules(saved: AgeRule[] | undefined, groups: string[]): AgeRule[] {
-  if (!saved) return defaultRules(groups)
-  const covered = (s: (typeof STANDARD)[number]) => saved.some((r) => s.re.test(strip(r.group)))
-  return [...saved, ...STANDARD.filter((s) => !covered(s)).map((s) => ruleFor(s, groups))]
+  if (!saved || saved.length === 0) return defaultRules(groups)
+  return dedupeRules(saved, groups)
+}
+/** ชุดเดียว: ถ้ามีกติกาซ้ำของกลุ่มเดียวกัน (เช่น “1.เด็กรวี” กับ “เด็กรวี”) เก็บอันที่ชื่อตรงกับกลุ่มจริงในทะเบียน ไม่มีเลย = เก็บอันแรก */
+export function dedupeRules(rules: AgeRule[], groups: string[]): AgeRule[] {
+  const key = (r: AgeRule) => { const i = STANDARD.findIndex((s) => s.re.test(strip(r.group))); return i < 0 ? '' : `${i}|${r.gender ?? ''}` }
+  const keep = new Map<string, AgeRule>()
+  for (const r of rules) {
+    const k = key(r)
+    if (!k) continue
+    const cur = keep.get(k)
+    if (!cur || (!groups.includes(cur.group) && groups.includes(r.group))) keep.set(k, r)
+  }
+  return rules.filter((r) => { const k = key(r); return !k || keep.get(k) === r })
 }
 export interface Target { group: string; age: number; rule: AgeRule }
 /**
