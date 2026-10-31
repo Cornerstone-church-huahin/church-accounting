@@ -20,7 +20,7 @@ export function daysUntilBirthday(birth: string, today: string): number {
  * ดูวันเกิด: เรียงตาม เดือน → วัน → ปี พ.ศ. (จัดกลุ่มตามเดือน) · ตัวกรองเดือน · ไฮไลต์คนที่ใกล้ถึงวันเกิด
  * อายุคำนวณใหม่ทุกวันจากวันเกิดที่บันทึกไว้ ไม่ต้องรีเฟรช
  */
-export default function BirthdayList({ members, today, onOpen }: { members: ChurchMember[]; today: string; onOpen: (id: string) => void }) {
+export default function BirthdayList({ members, today, onOpen, hideYear }: { members: ChurchMember[]; today: string; onOpen: (id: string) => void; /** ผู้ช่วยฝ่ายทะเบียน: เห็นแค่ วัน-เดือน เกิด ไม่เห็นปีเกิด/อายุ */ hideYear?: boolean }) {
   const [month, setMonth] = useState(0)
   const [q, setQ] = useState('')
   const withBirth = members.filter((m) => m.birth && /^\d{4}-\d{2}-\d{2}$/.test(m.birth))
@@ -60,8 +60,8 @@ export default function BirthdayList({ members, today, onOpen }: { members: Chur
                   <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <MemberAvatar path={m.photoPath} name={m.name} size={48} member={m} />
                     <span className="mrow__main"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
-                      <br /><span style={{ fontWeight: 600 }}>{longDate(m.birth!)}</span>
-                      <br /><span className="small muted">อายุ {ageText(m.birth, today)} · {statusLabel(m.status)}</span>
+                      <br /><span style={{ fontWeight: 600 }}>{hideYear ? longDate(m.birth!).replace(/\s\d{4}$/, '') : longDate(m.birth!)}</span>
+                      <br /><span className="small muted">{hideYear ? '' : `อายุ ${ageText(m.birth, today)} · `}{statusLabel(m.status)}</span>
                     </span>
                     {until === 0 ? <span className="badge badge--gold">🎂 วันนี้</span> : until <= 7 ? <span className="badge">อีก {until} วัน</span> : null}
                   </button>

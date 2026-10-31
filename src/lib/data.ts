@@ -12,7 +12,7 @@ const canPlan4 = () => { const l = myWorkLevel(4); return l === 'admin' || l ===
 const writePlan4 = () => canPlan4() || !blocked('detail')
 // งานอภิบาล: บันทึกการเยี่ยม / รายชื่อผู้ออกเยี่ยม — แอดมิน ผู้ดูแลหลัก และผู้ช่วยทำได้ครบเหมือนกัน (มีเช็คอินพิกัดกลางกับรูปถ่ายคุมความถูกต้องอยู่แล้ว)
 const writeWork4 = writePlan4
-const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
+const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || isRegistryHelper() || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'

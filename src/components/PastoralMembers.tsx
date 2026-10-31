@@ -63,7 +63,7 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
  */
 /** work = ห้องงานที่เปิดหน้านี้ (ใช้ตรวจสิทธิ์ดู): งานอภิบาล (4) และงานอนุชน (9) ใช้หน้าเดียวกัน ข้อมูลสมาชิกชุดเดียวกัน */
 /** query: คำค้นชื่อ/นามสกุล/ชื่อเล่น/รหัส/เบอร์/หมายเหตุ (ใช้ในหน้ารวมสมาชิกของงานทะเบียน) · onOpen: ใส่เมื่อใช้ในงานทะเบียน (แอดมิน) — แตะการ์ดเพื่อเปิดรายละเอียดและแก้ไขได้ */
-export default function PastoralMembers({ work = 4, onOpen, query = '', slot, idFilter, cardExtra }: { work?: number; onOpen?: (id: string) => void; query?: string; slot?: React.ReactNode; /** กรองเพิ่ม (งานทะเบียน): แสดงเฉพาะรหัสที่อยู่ในชุดนี้ */ idFilter?: Set<string> | null; /** ข้อความ/ปุ่มเสริมใต้การ์ดแต่ละคน (งานทะเบียน) */ cardExtra?: (m: ChurchMember) => React.ReactNode } = {}) {
+export default function PastoralMembers({ work = 4, onOpen, query = '', slot, idFilter, cardExtra, hideMap }: { /** ซ่อนแผนที่บ้านสมาชิก (ผู้ช่วยฝ่ายทะเบียน) */ hideMap?: boolean; work?: number; onOpen?: (id: string) => void; query?: string; slot?: React.ReactNode; /** กรองเพิ่ม (งานทะเบียน): แสดงเฉพาะรหัสที่อยู่ในชุดนี้ */ idFilter?: Set<string> | null; /** ข้อความ/ปุ่มเสริมใต้การ์ดแต่ละคน (งานทะเบียน) */ cardExtra?: (m: ChurchMember) => React.ReactNode } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
@@ -245,7 +245,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
         )}
       </section>
 
-      {tab === 1 && <details className="pmore">
+      {tab === 1 && !hideMap && <details className="pmore">
         <summary>รายละเอียดเพิ่มเติม (การ์ดสรุป)</summary>
       <section className="card" aria-labelledby="pm-2">
         <h2 id="pm-2">2 · สถานะสมาชิก <span className="muted small">(แตะเพื่อกรองส่วนที่ 3–5)</span></h2>
