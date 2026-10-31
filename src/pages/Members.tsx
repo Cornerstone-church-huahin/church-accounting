@@ -13,6 +13,8 @@ import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPla
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
 import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, parseReply, personalInvite } from '../lib/memberForm'
+import { effectiveRules, proposeRegroup, targetGroup } from '../lib/ageGroups'
+import { AGE_BANDS, ageYears } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
@@ -439,6 +441,8 @@ function Roster({ worshipDays, registry, lite, canLog, rows, onOpen, members, ca
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
 function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit, formLink, sinceShared = 0, put, remove, onClose }: { worshipDays: string[]; sinceShared?: number; formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
+  const { settings } = useSettings()
+  const rules = effectiveRules(settings.ageRules, groups)
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -451,12 +455,17 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   }
   if (editing) return <MemberForm lite={lite} canDelete={canEdit} member={m} statuses={statuses} groups={groups} onClose={() => { setEditing(false); onClose() }} put={put} remove={remove} />
   const age = ageText(m.birth, today)
+  const ageY = ageYears(m.birth, today)
+  const band = ageY == null ? undefined : AGE_BANDS.find((b) => ageY >= b.from && ageY <= b.to)?.label
+  const tg = targetGroup(m, rules, today)
   const rows: [string, ReactNode][] = [
     ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', m.status] as [string, ReactNode]]), ['กลุ่ม', m.group],
     ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
     ...(lite ? [] : [['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
     ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
+    ...(lite ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
+    ...(!lite && tg && tg.group !== (m.group ?? '') ? [['กลุ่มตามอายุ', <span key="tg" style={{ color: '#b45309' }}>⚠ อายุ {tg.age} ปี{m.gender ? ` · ${m.gender}` : ''} ควรอยู่กลุ่ม <b>{tg.group}</b>{canEdit && <> <button type="button" className="mini" onClick={() => put([{ ...m, group: tg.group, updated: Date.now() }])}>ย้ายเลย</button></>}</span>] as [string, ReactNode]] : []),
     ['วันที่รับเป็นสมาชิก', m.since && <>{fmtDate(m.since)} ({spanText(m.since, today)}){sinceShared >= 5 && <span className="small" style={{ color: '#b45309' }}><br />⚠ หลายคน ({sinceShared}) ใช้วันนี้เหมือนกัน — อาจเป็นวันตั้งต้นของระบบเก่า ไม่ใช่วันจริง</span>}</>],
     ['มานมัสการครั้งแรก (ประมาณ)', m.firstWorship && `${fmtDate(m.firstWorship)} (${spanText(m.firstWorship, today)})`],
     ...(lite ? [] : [['พิกัดบ้าน', hasCoord(m) && <a href={mapsLink({ lat: m.lat, lng: m.lng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.lat, lng: m.lng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
@@ -529,6 +538,8 @@ function FormLinkBox({ m, put, worshipDays }: { m: ChurchMember; put: (x: Church
 function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { worshipDays: string[]; m: ChurchMember; put: (x: ChurchMember[]) => boolean; onClose: () => void; initial?: string; asMid?: string }) {
   const people = useChurchMembers()
   const plans = useVisitPlans()
+  const { settings } = useSettings()
+  const [skipGroup, setSkipGroup] = useState(false)
   const [text, setText] = useState(initial)
   const [skip, setSkip] = useState<Set<FieldKey>>(new Set())
   const [err, setErr] = useState('')
@@ -551,9 +562,15 @@ function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { wo
   const nv = a && a.mid === m.id ? nameVerdict(m.name, a.name) : null
   const birthGap = a?.birth && m.birth ? Math.abs(Number(a.birth.slice(0, 4)) - Number(m.birth.slice(0, 4))) : 0
   const keys = new Set(changed.filter((d) => !skip.has(d.key)).map((d) => d.key))
+  // จัดกลุ่มตามอายุ+เพศหลังนำเข้า (ใช้วันเกิด/เพศใหม่ที่จะบันทึก)
+  const projected = g ? applyAnswer(m, g.a, keys) : m
+  const tgt = g ? targetGroup(projected, effectiveRules(settings.ageRules, [...new Set(people.items.map((x) => x.group).filter(Boolean) as string[])]), todayISO()) : null
+  const groupChange = !!tgt && tgt.group !== (m.group ?? '')
+  const total = keys.size + (groupChange && !skipGroup ? 1 : 0)
   const confirm = () => {
-    if (!a || keys.size === 0) return
+    if (!a || total === 0) return
     const next = applyAnswer(m, g?.a ?? a, keys)
+    if (groupChange && !skipGroup && tgt) next.group = tgt.group
     if (!put([next])) return setErr('ไม่มีสิทธิ์บันทึกทะเบียน')
     // ชื่อใหม่: ปรับสำเนาชื่อในแผนเยี่ยมให้ตรงกัน
     if (keys.has('name') && next.name !== m.name) {
@@ -591,9 +608,15 @@ function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { wo
               ))}
             </dl>
           )}
+          {groupChange && tgt && (
+            <label className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start', borderTop: '1px solid var(--line)', paddingTop: '0.4rem' }}>
+              <input type="checkbox" checked={!skipGroup} onChange={() => setSkipGroup(!skipGroup)} aria-label="รับ กลุ่ม" />
+              <span style={{ minWidth: 0 }}><b>กลุ่ม</b><span className="imp-badge imp-badge--edit">ตามอายุ</span><br /><span className="small muted">เดิม: {m.group || '—'}</span><br /><span style={{ background: '#fff3bf', padding: '0 4px', borderRadius: 4 }}>ใหม่: {tgt.group}</span><br /><span className="small" style={{ color: '#1d4ed8' }}>🔎 อายุ {tgt.age} ปี{projected.gender ? ` · ${projected.gender}` : ''} (คำนวณจากวันเกิดที่รับ)</span></span>
+            </label>
+          )}
           {a.note && <p className="small" style={{ margin: 0 }}>💬 ข้อความจากสมาชิก: {a.note}</p>}
           {err && <p className="error" role="alert" style={{ margin: 0 }}>{err}</p>}
-          <button type="button" className="btn btn--gold bigbtn btn--block" disabled={keys.size === 0} onClick={confirm}>✓ ยืนยันนำเข้า ({keys.size} ช่อง)</button>
+          <button type="button" className="btn btn--gold bigbtn btn--block" disabled={total === 0} onClick={confirm}>✓ ยืนยันนำเข้า ({total} ช่อง)</button>
         </>
       )}
     </Sheet>
@@ -606,7 +629,7 @@ function ImportSheet({ worshipDays, m, put, onClose, initial = '', asMid }: { wo
  * 📥 วางข้อมูลจากสมาชิก = วางข้อความที่ได้รับที่เดียว ระบบหาเองว่าเป็นของใคร (ไม่ต้องเปิดทีละคน)
  */
 function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean; worshipDays: string[] }) {
-  const [open, setOpen] = useState<'' | 'link' | 'paste'>('')
+  const [open, setOpen] = useState<'' | 'link' | 'paste' | 'age'>('')
   const [msg, setMsg] = useState('')
   const [text, setText] = useState('')
   const [pickId, setPickId] = useState<string | null>(null)   // ลิงก์ทั่วไป: สมาชิกที่ฝ่ายทะเบียนเลือกจับคู่
@@ -622,6 +645,8 @@ function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put
     <>
       <button type="button" className="btn btn--ghost" onClick={() => { setOpen('link'); setMsg('') }}>🔗 ลิงก์ส่งทั้งกลุ่ม</button>
       <button type="button" className="btn btn--ghost" onClick={() => { setOpen('paste'); setText(''); setPickId(null); setAsNew(false) }}>📥 วางข้อมูลจากสมาชิก</button>
+      <button type="button" className="btn btn--ghost" onClick={() => setOpen('age')}>🎂 จัดกลุ่มตามอายุ</button>
+      {open === 'age' && <RegroupSheet members={members} put={put} onClose={() => setOpen('')} />}
       {open === 'link' && (
         <Sheet title="ลิงก์ส่งทั้งกลุ่ม (ลิงก์สั้น ใช้ได้ทุกคน)" onClose={() => setOpen('')}>
           <ol className="small" style={{ margin: 0, paddingLeft: '1.2rem' }}>
@@ -662,6 +687,58 @@ function FormTools({ members, put, worshipDays }: { members: ChurchMember[]; put
               </Sheet>
             ))}
     </>
+  )
+}
+
+/** จัดกลุ่มตามอายุ+เพศ: ตารางกติกา (แก้ได้) + รายชื่อที่กลุ่มไม่ตรงกับอายุ → ติ๊กตรวจแล้วย้ายทีเดียว */
+function RegroupSheet({ members, put, onClose }: { members: ChurchMember[]; put: (x: ChurchMember[]) => boolean; onClose: () => void }) {
+  const { settings, save } = useSettings()
+  const live = members.filter((x) => !x.deleted)
+  const groups = [...new Set(live.map((x) => x.group?.trim()).filter(Boolean) as string[])].sort()
+  const [rules, setRules] = useState(() => effectiveRules(settings.ageRules, groups))
+  const [skip, setSkip] = useState<Set<string>>(new Set())
+  const [showRules, setShowRules] = useState(false)
+  const [msg, setMsg] = useState('')
+  const today = todayISO()
+  const props = proposeRegroup(live, rules, today)
+  const chosen = props.filter((p) => !skip.has(p.m.id))
+  const noBirth = live.filter((x) => !x.birth).length
+  const setRule = (i: number, patch: Partial<(typeof rules)[number]>) => setRules(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const apply = () => { if (put(chosen.map((p) => ({ ...p.m, group: p.to, updated: Date.now() })))) { setMsg(`ย้ายกลุ่มแล้ว ${chosen.length} คน`); setSkip(new Set()) } else setMsg('ไม่มีสิทธิ์บันทึก') }
+  const saveRules = () => setMsg(save({ ageRules: rules }) ? 'บันทึกกติกาแล้ว' : 'ไม่มีสิทธิ์บันทึกกติกา')
+  return (
+    <Sheet title="จัดกลุ่มตามอายุ" onClose={onClose}>
+      <p className="small muted" style={{ margin: 0 }}>ระบบคำนวณอายุจากวันเกิดของวันนี้ แล้วเทียบกับกติกาของแต่ละกลุ่ม · เสนอเฉพาะคนที่กลุ่มไม่ตรง คุณตรวจแล้วกดย้ายทีเดียว · ไม่แตะคนที่ไม่มีวันเกิด ({noBirth} คน) คนที่อยู่กลุ่มพิเศษที่ไม่มีกติกา หรือคนที่ล็อกกลุ่มไว้</p>
+      <button type="button" className="mini" aria-expanded={showRules} onClick={() => setShowRules(!showRules)}>{showRules ? '▲ ซ่อนกติกา' : '▼ ดู/แก้กติกาของแต่ละกลุ่ม'}</button>
+      {showRules && (
+        <div aria-label="กติกาจัดกลุ่มตามอายุ">
+          {rules.length === 0 && <p className="small muted" style={{ margin: 0 }}>ยังไม่มีกลุ่มที่ระบบเดากติกาได้จากชื่อ</p>}
+          {rules.map((r, i) => (
+            <div key={r.group} className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--line)', padding: '0.3rem 0' }}>
+              <label className="row" style={{ gap: 6, flex: '1 1 8rem' }}><input type="checkbox" checked={r.on} onChange={() => setRule(i, { on: !r.on })} aria-label={`ใช้กติกา ${r.group}`} /><b>{r.group}</b></label>
+              <input className="input" style={{ width: '4.2rem' }} type="number" min={0} aria-label={`${r.group} อายุตั้งแต่`} value={r.from} onChange={(e) => setRule(i, { from: Number(e.target.value) })} />
+              <span>–</span>
+              <input className="input" style={{ width: '4.2rem' }} type="number" min={0} aria-label={`${r.group} อายุถึง`} value={r.to} onChange={(e) => setRule(i, { to: Number(e.target.value) })} />
+              <select className="input" style={{ width: '6.5rem' }} aria-label={`${r.group} เพศ`} value={r.gender ?? ''} onChange={(e) => setRule(i, { gender: (e.target.value || undefined) as 'ชาย' | 'หญิง' | undefined })}><option value="">ทุกเพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option></select>
+            </div>
+          ))}
+          <button type="button" className="btn btn--ghost" style={{ marginTop: 6 }} onClick={saveRules}>💾 บันทึกกติกา</button>
+        </div>
+      )}
+      <p style={{ margin: 0 }}><b>กลุ่มไม่ตรงกับอายุ {props.length} คน</b></p>
+      {props.length === 0 ? <p style={{ margin: 0 }}>✅ ทุกคนที่มีวันเกิดอยู่ในกลุ่มที่ตรงกับอายุแล้ว</p> : (
+        <div style={{ maxHeight: '40vh', overflow: 'auto' }} role="list" aria-label="คนที่กลุ่มไม่ตรงอายุ">
+          {props.map((p) => (
+            <label key={p.m.id} role="listitem" className="row" style={{ gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', padding: '0.3rem 0' }}>
+              <input type="checkbox" checked={!skip.has(p.m.id)} onChange={() => setSkip((q) => { const n = new Set(q); if (n.has(p.m.id)) n.delete(p.m.id); else n.add(p.m.id); return n })} aria-label={`ย้าย ${p.m.name}`} />
+              <span style={{ minWidth: 0 }}><b>{p.m.name}</b>{p.m.nick ? ` (${p.m.nick})` : ''} <span className="small muted">อายุ {p.age} ปี{p.m.gender ? ` · ${p.m.gender}` : ''}</span><br /><span className="small">{p.from || '(ไม่มีกลุ่ม)'} → <b>{p.to}</b></span></span>
+            </label>
+          ))}
+        </div>
+      )}
+      {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
+      <button type="button" className="btn btn--gold bigbtn btn--block" disabled={chosen.length === 0} onClick={apply}>✓ ย้ายกลุ่ม ({chosen.length} คน)</button>
+    </Sheet>
   )
 }
 
