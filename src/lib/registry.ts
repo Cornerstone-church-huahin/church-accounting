@@ -157,6 +157,7 @@ export function parseMemberRows(rows: string[][]): MemberImport | null {
     const birth = get('birth') ? parseDateCell(get('birth')) : ''
     const m: Omit<ChurchMember, 'id' | 'updated'> = { name: name.replace(/[\u200b\u200c\u200d]/g, '').replace(/\s+/g, ' ') }
     for (const k of ['nick', 'code', 'tel', 'group', 'note', 'status'] as const) if (get(k)) m[k] = get(k).replace(/[\u200b\u200c\u200d]/g, '')
+    if (m.status) m.status = stripStatusNo(m.status)
     if (since) m.since = since
     if (birth) m.birth = birth
     const g = parseGender(get('gender'))
@@ -224,17 +225,20 @@ const dayNum = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 864e
  */
 export const isFirstTimer = (m: { since?: string }, date: string, firstDate: string | undefined) =>
   firstDate === date && !(m.since && dayNum(date) - dayNum(m.since) > 30)
-/** ชื่อสถานะตามทะเบียน (ยุบช่องว่างซ้ำ เพื่อให้ "1.สมบูรณ์  ( 1 )" กับ "1.สมบูรณ์ ( 1 )" นับเป็นอันเดียวกัน) */
-export const statusLabel = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim()
-  // ลำดับใหม่: 4 = คนใหม่ (ถือเป็นสมาชิก) · 5 = ผู้ร่วมนมัสการ (คนนอก) — ข้อมูลเดิมที่บันทึกเป็น “4.ผู้ร่วมนมัสการ / 5.คนใหม่” แปลงให้ตอนอ่าน (ไม่ต้องแก้ข้อมูล)
-  .replace(/^4\.\s*(ผู้ร่วมนมัสการ)/, '5.$1').replace(/^5\.\s*(คนใหม่)/, '4.$1') || '(ไม่ระบุสถานะ)'
-/** ชื่อสถานะแบบสั้น (ตัดช่องว่างในวงเล็บ) สำหรับป้ายเล็กในรายการ เช่น "1.สมบูรณ์(1)" */
+/** ตัดเลขนำหน้าสถานะ “1.” “5.” “01 ” ออก — สถานะใช้ชื่ออย่างเดียว (ข้อมูลเดิมที่มีเลขนำหน้ายังอ่านได้ และถูกแปลงให้เมื่อเปิดแอป) */
+export const stripStatusNo = (st?: string) => (st ?? '').replace(/\s+/g, ' ').trim().replace(/^\d{1,2}(?:\s*[.)]\s*|\s+(?=[ก-๙]))/, '').trim()
+/** ชื่อสถานะตามทะเบียน: ไม่มีเลขนำหน้า · ยุบช่องว่างซ้ำ เพื่อให้ "สมบูรณ์  ( 1 )" กับ "สมบูรณ์ ( 1 )" นับเป็นอันเดียวกัน */
+export const statusLabel = (st?: string) => stripStatusNo(st) || '(ไม่ระบุสถานะ)'
+/** ชื่อสถานะแบบสั้น (ตัดช่องว่างในวงเล็บ) สำหรับป้ายเล็กในรายการ เช่น "สมบูรณ์(1)" */
 export const statusShort = (st?: string) => statusLabel(st).replace(/\s*\(\s*(\d)\s*\)/, '($1)')
-/** สถานะจริงตามทะเบียนของคริสตจักร — เลือกได้เสมอ แม้ตอนนี้ยังไม่มีใครอยู่ในสถานะนั้น (คณะธรรมกิจ/กรรมการกำหนดเกณฑ์เลื่อนขั้น แอปไม่เลื่อนให้เอง) */
-export const OFFICIAL_STATUSES = ['1.สมบูรณ์ ( 1 )', '2.สมบูรณ์ ( 2 )', '3.สมาชิกสำรอง', '4.คนใหม่', '5.ผู้ร่วมนมัสการ', '6.สิ้นสภาพสมาชิก', '7.เสียชีวิต']
-export const NEW_PERSON_STATUS = '4.คนใหม่'
-/** ตัวเลือกสถานะ = สถานะจริงทั้ง 7 + สถานะอื่นที่มีในข้อมูล (เผื่อมีการตั้งเพิ่ม) */
-export const statusOptions = (members: { status?: string }[]) => [...new Set([...OFFICIAL_STATUSES, ...members.map((m) => statusLabel(m.status)).filter((x) => x !== statusLabel(undefined))])].sort((a, b) => a.localeCompare(b, 'th'))
+/** สถานะจริงตามทะเบียนของคริสตจักร (เรียงตามลำดับนี้) — เลือกได้เสมอ แม้ตอนนี้ยังไม่มีใครอยู่ในสถานะนั้น */
+export const OFFICIAL_STATUSES = ['สมบูรณ์ ( 1 )', 'สมบูรณ์ ( 2 )', 'สมาชิกสำรอง', 'คนใหม่', 'ผู้ร่วมนมัสการ', 'สิ้นสภาพสมาชิก', 'เสียชีวิต']
+export const NEW_PERSON_STATUS = 'คนใหม่'
+/** ตัวเลือกสถานะ = สถานะจริงทั้ง 7 (ตามลำดับ) + สถานะอื่นที่มีในข้อมูล (เผื่อมีการตั้งเพิ่ม) */
+export const statusOptions = (members: { status?: string }[]) => {
+  const extra = [...new Set(members.map((m) => statusLabel(m.status)).filter((x) => x !== statusLabel(undefined) && !OFFICIAL_STATUSES.includes(x)))].sort((a, b) => a.localeCompare(b, 'th'))
+  return [...OFFICIAL_STATUSES, ...extra]
+}
 /** ยอดผู้มานมัสการแต่ละครั้ง (นับเฉพาะคนที่ยังอยู่ในทะเบียน) พร้อมแยกตามสถานะ · เรียงใหม่ → เก่า */
 export function serviceStats(attendance: Attendance[], members: ChurchMember[]): ServiceStat[] {
   const byId = new Map(members.map((m) => [m.id, m]))
@@ -336,7 +340,8 @@ export function genderStats(members: { gender?: string; status?: string; group?:
     bump(gp.get(b) ?? gp.set(b, blank(b)).get(b)!, m)
   }
   const sort = (x: GenderRow[]) => x.sort((p, q) => p.key.localeCompare(q.key, 'th'))
-  return { total, byStatus: sort([...st.values()]), byGroup: sort([...gp.values()]) }
+  const rank = (k: string) => { const i = OFFICIAL_STATUSES.indexOf(k); return i >= 0 ? i : 99 }   // สถานะเรียงตามลำดับทะเบียน (ไม่ใช่ตามตัวอักษร)
+  return { total, byStatus: [...st.values()].sort((p, q) => rank(p.key) - rank(q.key) || p.key.localeCompare(q.key, 'th')), byGroup: sort([...gp.values()]) }
 }
 /** เดาเพศจากกลุ่มที่ชื่อบอกเพศ (สตรี → หญิง · บรุษ/บุรุษ → ชาย) · ใช้เป็นตัวช่วยเติมที่ผู้ใช้กดยืนยันเอง ไม่เติมเงียบ ๆ */
 export const genderFromGroup = (group?: string): 'ชาย' | 'หญิง' | undefined => (/สตรี/.test(group ?? '') ? 'หญิง' : /บรุษ|บุรุษ/.test(group ?? '') ? 'ชาย' : undefined)

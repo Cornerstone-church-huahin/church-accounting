@@ -51,19 +51,19 @@ describe('evaluate', () => {
 
 describe('worship register import', () => {
   it('reads the register layout (timestamp date, nick/status/group) and keeps info for unknown people', () => {
-    const r = parseAttendanceRows([['วันที่', 'ชื่อ สกุล', 'ชื่อเล่น', 'สถานะ', 'กลุ่ม'], ['2567-07-07 10:16:22', 'ก\u200b ข', 'เก', '5.คนใหม่', '7.ไม่มีกลุ่ม'], ['2567-07-07 10:20:00', 'ก ข', '', '', '']])!
+    const r = parseAttendanceRows([['วันที่', 'ชื่อ สกุล', 'ชื่อเล่น', 'สถานะ', 'กลุ่ม'], ['2567-07-07 10:16:22', 'ก\u200b ข', 'เก', 'คนใหม่', '7.ไม่มีกลุ่ม'], ['2567-07-07 10:20:00', 'ก ข', '', '', '']])!
     expect(r.byDate.get('2024-07-07')).toEqual(['ก ข', 'ก ข'])
-    expect(r.info.get('กข')).toEqual({ name: 'ก ข', nick: 'เก', status: '5.คนใหม่', group: '7.ไม่มีกลุ่ม' })
+    expect(r.info.get('กข')).toEqual({ name: 'ก ข', nick: 'เก', status: 'คนใหม่', group: '7.ไม่มีกลุ่ม' })
   })
   it('matches names ignoring a trailing (nickname) when the exact name is absent', () => {
     const ms = [m('1', { name: 'สมใจ ดี(ใจ)' }), m('2', { name: 'สมศรี ดี' })]
     expect(matchNames(['สมใจ ดี', 'สมศรี ดี(ศรี', 'ใคร ก็ไม่รู้'], ms)).toEqual({ ids: ['1', '2'], unknown: ['ใคร ก็ไม่รู้'], ambiguous: [] })
   })
   it('counts each person once per service and groups by status', () => {
-    const ms = [m('a', { status: '1.สมบูรณ์' }), m('b', { status: '5.คนใหม่' }), m('c')]
+    const ms = [m('a', { status: 'สมบูรณ์' }), m('b', { status: 'คนใหม่' }), m('c')]
     const st = serviceStats([att('2026-10-04', 'a', 'a', 'b', 'zz'), { ...att('2026-10-04', 'c'), id: 'x' }, att('2026-09-27', 'a')], ms)
     expect(st.map((x) => [x.date, x.count])).toEqual([['2026-10-04', 3], ['2026-09-27', 1]])
-    expect(st[0].byStatus).toEqual({ '1.สมบูรณ์': 1, '4.คนใหม่': 1, '(ไม่ระบุสถานะ)': 1 })
+    expect(st[0].byStatus).toEqual({ 'สมบูรณ์': 1, 'คนใหม่': 1, '(ไม่ระบุสถานะ)': 1 })
   })
 })
 
@@ -82,7 +82,7 @@ describe('photo matching', () => {
 
 describe('registry status gates the check', () => {
   it('only people registered as สมบูรณ์ can be complete-1/2 (new/visitor/reserve stay pending)', () => {
-    const members = ['1.สมบูรณ์  ( 1 )', '2.สมบูรณ์  ( 2 )', '3.สมาชิกสำรอง', '4.ผู้ร่วมนมัสการ', '5.คนใหม่'].map((status, i) => m(`s${i}`, { status }))
+    const members = ['สมบูรณ์  ( 1 )', 'สมบูรณ์  ( 2 )', 'สมาชิกสำรอง', 'ผู้ร่วมนมัสการ', 'คนใหม่'].map((status, i) => m(`s${i}`, { status }))
     const a = [att('2026-10-04', 's0', 's3', 's4'), att('2026-01-04', 's1')]
     const t = Object.fromEntries(evaluate(members, a, DEFAULT_CRITERIA, TODAY).rows.map((r) => [r.member.id, r.tier]))
     expect(t).toEqual({ s0: 0, s1: 5, s2: 6, s3: 6, s4: 6 })
@@ -91,8 +91,8 @@ describe('registry status gates the check', () => {
 
 describe('suggestions from attendance vs registry status', () => {
   it('parses the registry level and suggests only when attendance contradicts it', () => {
-    expect([regLevel('1.สมบูรณ์  ( 1 )'), regLevel('2.สมบูรณ์ (2)'), regLevel('5.คนใหม่')]).toEqual([1, 2, undefined])
-    const members = [m('a', { status: '1.สมบูรณ์  ( 1 )' }), m('b', { status: '1.สมบูรณ์  ( 1 )' }), m('c', { status: '2.สมบูรณ์  ( 2 )' }), m('d', { status: '2.สมบูรณ์  ( 2 )' })]
+    expect([regLevel('สมบูรณ์  ( 1 )'), regLevel('สมบูรณ์ (2)'), regLevel('คนใหม่')]).toEqual([1, 2, undefined])
+    const members = [m('a', { status: 'สมบูรณ์  ( 1 )' }), m('b', { status: 'สมบูรณ์  ( 1 )' }), m('c', { status: 'สมบูรณ์  ( 2 )' }), m('d', { status: 'สมบูรณ์  ( 2 )' })]
     const a = [att('2026-10-04', 'b', 'c'), att('2026-01-04', 'a', 'd')]
     const s = Object.fromEntries(evaluate(members, a, DEFAULT_CRITERIA, TODAY).rows.map((r) => [r.member.id, r.suggest]))
     expect(s).toEqual({ a: 'to2', b: undefined, c: 'to1', d: undefined })
@@ -101,7 +101,7 @@ describe('suggestions from attendance vs registry status', () => {
 
 describe('no attendance data', () => {
   it('does not call everyone absent when nothing has been recorded', () => {
-    const r = evaluate([m('a'), m('b', { status: '7.เสียชีวิต' })], [], DEFAULT_CRITERIA, TODAY)
+    const r = evaluate([m('a'), m('b', { status: 'เสียชีวิต' })], [], DEFAULT_CRITERIA, TODAY)
     expect(r.hasData).toBe(false)
     expect(Object.fromEntries(r.rows.map((x) => [x.member.id, x.tier]))).toEqual({ a: 6, b: 3 })
   })
@@ -110,8 +110,8 @@ describe('no attendance data', () => {
 describe('import', () => {
   it('reads the church roster layout (truncated date header, สถานะ 1–7, BE datetimes, zero-width chars)', () => {
     const r = parseMemberRows([['ว/ด/ป-เข้าร่วมส', ' Image', 'สมัคร', 'รหัส', 'ชื่อ สกุล', 'ชื่อเล่น', 'สถานะ', 'กลุ่ม', 'โทร', 'หมายเหต*', 'วันเกิด', 'อายุ'],
-      ['2565-12-11 00:01:01', 'Img/a.jpg', 'Yes', '1320', 'สมใจ\u200b  ตัวอย่าง', 'ใจ', '1.สมบูรณ์  ( 1 )', '7.ไม่มีกลุ่ม', '0900000000', 'พี่สาว', '2550-02-23 00:00:00', '17 ปี']])!
-    expect(r.members[0]).toEqual({ name: 'สมใจ ตัวอย่าง', nick: 'ใจ', code: '1320', tel: '0900000000', group: '7.ไม่มีกลุ่ม', note: 'พี่สาว', status: '1.สมบูรณ์  ( 1 )', since: '2022-12-11', birth: '2007-02-23', applied: true, photo: 'Img/a.jpg' })
+      ['2565-12-11 00:01:01', 'Img/a.jpg', 'Yes', '1320', 'สมใจ\u200b  ตัวอย่าง', 'ใจ', 'สมบูรณ์  ( 1 )', '7.ไม่มีกลุ่ม', '0900000000', 'พี่สาว', '2550-02-23 00:00:00', '17 ปี']])!
+    expect(r.members[0]).toEqual({ name: 'สมใจ ตัวอย่าง', nick: 'ใจ', code: '1320', tel: '0900000000', group: '7.ไม่มีกลุ่ม', note: 'พี่สาว', status: 'สมบูรณ์ ( 1 )', since: '2022-12-11', birth: '2007-02-23', applied: true, photo: 'Img/a.jpg' })
   })
   it('computes age text', () => {
     expect(ageText('2007-02-23', '2026-10-15')).toBe('19 ปี 7 เดือน')
@@ -168,10 +168,10 @@ describe('similar names', () => {
 
 describe('status options', () => {
   it('always offers the 7 official statuses and treats spacing variants as one', () => {
-    expect(statusLabel('1.สมบูรณ์  ( 1 )')).toBe('1.สมบูรณ์ ( 1 )')
-    const o = statusOptions([{ status: '1.สมบูรณ์  ( 1 )' }, { status: 'สถานะพิเศษ' }, {}])
+    expect(statusLabel('สมบูรณ์  ( 1 )')).toBe('สมบูรณ์ ( 1 )')
+    const o = statusOptions([{ status: 'สมบูรณ์  ( 1 )' }, { status: 'สถานะพิเศษ' }, {}])
     expect(OFFICIAL_STATUSES.every((x) => o.includes(x))).toBe(true)
-    expect(o.filter((x) => x.startsWith('1.')).length).toBe(1)
+    expect(o.filter((x) => x.startsWith('สมบูรณ์ ( 1 )')).length).toBe(1)
     expect(o).toContain('สถานะพิเศษ')
   })
 })
@@ -186,10 +186,10 @@ describe('gender', () => {
 
 describe('gender stats', () => {
   it('counts male/female/unspecified overall, by status and by group', () => {
-    const ms = [{ gender: 'ชาย', status: '1.สมบูรณ์  ( 1 )', group: '5.บรุษ' }, { gender: 'หญิง', status: '1.สมบูรณ์ ( 1 )', group: '4.สตรี' }, { status: '5.คนใหม่' }, { gender: 'หญิง', status: '5.คนใหม่', group: '4.สตรี' }]
+    const ms = [{ gender: 'ชาย', status: 'สมบูรณ์  ( 1 )', group: '5.บรุษ' }, { gender: 'หญิง', status: 'สมบูรณ์ ( 1 )', group: '4.สตรี' }, { status: 'คนใหม่' }, { gender: 'หญิง', status: 'คนใหม่', group: '4.สตรี' }]
     const g = genderStats(ms)
     expect([g.total.ชาย, g.total.หญิง, g.total.ไม่ระบุ, g.total.total]).toEqual([1, 2, 1, 4])
-    expect(g.byStatus.map((r) => [r.key, r.ชาย, r.หญิง, r.ไม่ระบุ])).toEqual([['1.สมบูรณ์ ( 1 )', 1, 1, 0], ['4.คนใหม่', 0, 1, 1]])
+    expect(g.byStatus.map((r) => [r.key, r.ชาย, r.หญิง, r.ไม่ระบุ])).toEqual([['สมบูรณ์ ( 1 )', 1, 1, 0], ['คนใหม่', 0, 1, 1]])
     expect(g.byGroup.find((r) => r.key === '4.สตรี')?.total).toBe(2)
     expect(g.byGroup.find((r) => r.key === '(ไม่มีกลุ่ม)')?.ไม่ระบุ).toBe(1)
   })
@@ -200,9 +200,9 @@ describe('gender stats', () => {
 
 describe('serviceStats: คนมาใหม่', () => {
   const ms2 = [
-    { id: 'a', name: 'สมชาย เก่า', status: '1.สมบูรณ์ ( 1 )', since: '2000-01-01', updated: 1 },
-    { id: 'b', name: 'ดารา ใหม่วันนี้', status: '5.คนใหม่', since: '2026-10-18', updated: 1 },
-    { id: 'c', name: 'สมศรี มาแล้ว', status: '5.คนใหม่', since: '2026-10-04', updated: 1 },
+    { id: 'a', name: 'สมชาย เก่า', status: 'สมบูรณ์ ( 1 )', since: '2000-01-01', updated: 1 },
+    { id: 'b', name: 'ดารา ใหม่วันนี้', status: 'คนใหม่', since: '2026-10-18', updated: 1 },
+    { id: 'c', name: 'สมศรี มาแล้ว', status: 'คนใหม่', since: '2026-10-04', updated: 1 },
   ] as ChurchMember[]
   const att2 = [
     { id: '2026-10-04', date: '2026-10-04', ids: ['a', 'c'], updated: 1 },

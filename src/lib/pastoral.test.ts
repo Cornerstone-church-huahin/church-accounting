@@ -4,22 +4,25 @@ import { OFFICIAL_STATUSES, statusLabel, type Evaluated } from './registry'
 
 describe('ข้อมูลสมาชิกสำหรับงานอภิบาล', () => {
   it('จัดกลุ่มสถานะตามเลขนำหน้าในทะเบียน (ช่องว่างในวงเล็บไม่มีผล)', () => {
-    expect(groupOf('1.สมบูรณ์  ( 1 )')).toBe('complete')
-    expect(groupOf('2.สมบูรณ์ ( 2 )')).toBe('complete')
-    expect(groupOf('3.สมาชิกสำรอง')).toBe('reserve')
+    expect(groupOf('สมบูรณ์  ( 1 )')).toBe('complete')
+    expect(groupOf('สมบูรณ์ ( 2 )')).toBe('complete')
+    expect(groupOf('สมาชิกสำรอง')).toBe('reserve')
     // ลำดับใหม่: 4 = คนใหม่ · 5 = ผู้ร่วมนมัสการ — ข้อมูลเดิม (4.ผู้ร่วมนมัสการ / 5.คนใหม่) แปลงให้ตอนอ่าน
-    expect(groupOf('4.คนใหม่')).toBe('newcomer'); expect(groupOf('5.ผู้ร่วมนมัสการ')).toBe('worship')
-    expect(groupOf('4.ผู้ร่วมนมัสการ')).toBe('worship'); expect(groupOf('5.คนใหม่')).toBe('newcomer')
-    expect(statusLabel('5.  คนใหม่')).toBe('4.คนใหม่'); expect(statusLabel('4.ผู้ร่วมนมัสการ')).toBe('5.ผู้ร่วมนมัสการ'); expect(statusRank('5.คนใหม่')).toBeLessThan(statusRank('4.ผู้ร่วมนมัสการ'))
-    expect(OFFICIAL_STATUSES.slice(3, 5)).toEqual(['4.คนใหม่', '5.ผู้ร่วมนมัสการ']); expect(STATUS_GROUPS.map((g) => g.key).slice(3, 5)).toEqual(['newcomer', 'worship'])
-    expect(groupOf('7.เสียชีวิต')).toBe('deceased')
-    expect(groupOf('6.สิ้นสภาพสมาชิก')).toBe('resigned')
+    expect(groupOf('คนใหม่')).toBe('newcomer'); expect(groupOf('ผู้ร่วมนมัสการ')).toBe('worship')
+    expect(groupOf('ผู้ร่วมนมัสการ')).toBe('worship'); expect(groupOf('คนใหม่')).toBe('newcomer')
+    expect(statusLabel('คนใหม่')).toBe('คนใหม่'); expect(statusLabel('ผู้ร่วมนมัสการ')).toBe('ผู้ร่วมนมัสการ'); expect(statusRank('คนใหม่')).toBeLessThan(statusRank('ผู้ร่วมนมัสการ'))
+    expect(OFFICIAL_STATUSES.slice(3, 5)).toEqual(['คนใหม่', 'ผู้ร่วมนมัสการ']); expect(STATUS_GROUPS.map((g) => g.key).slice(3, 5)).toEqual(['newcomer', 'worship'])
+    expect(groupOf('เสียชีวิต')).toBe('deceased')
+    expect(groupOf('สิ้นสภาพสมาชิก')).toBe('resigned')
+    // ข้อมูลเดิมที่มีเลขนำหน้า (1. 5. 01 …) ตัดเลขออก ใช้ชื่อสถานะอย่างเดียว
+    expect(statusLabel('5.คนใหม่')).toBe('คนใหม่'); expect(statusLabel('4.ผู้ร่วมนมัสการ')).toBe('ผู้ร่วมนมัสการ'); expect(statusLabel('01 สมบูรณ์  ( 1 )')).toBe('สมบูรณ์ ( 1 )'); expect(statusLabel('2) สมบูรณ์ ( 2 )')).toBe('สมบูรณ์ ( 2 )')
+    expect(groupOf('5.คนใหม่')).toBe('newcomer'); expect(groupOf('6.ลาออก')).toBe('resigned'); expect(groupOf('7.เสียชีวิต')).toBe('deceased')
     expect(groupOf(undefined)).toBeUndefined()
-    expect(inGroup({ status: '3.สมาชิกสำรอง' }, 'all')).toBe(true)
-    expect(inGroup({ status: '3.สมาชิกสำรอง' }, 'complete')).toBe(false)
+    expect(inGroup({ status: 'สมาชิกสำรอง' }, 'all')).toBe(true)
+    expect(inGroup({ status: 'สมาชิกสำรอง' }, 'complete')).toBe(false)
   })
   it('ตัวเลขสำคัญ', () => {
-    const h = headline([{ status: '1.สมบูรณ์ ( 1 )' }, { status: '2.สมบูรณ์ ( 2 )' }, { status: '3.สมาชิกสำรอง' }, { status: '5.คนใหม่' }, { status: '5.คนใหม่' }, { status: '7.เสียชีวิต' }, {}])
+    const h = headline([{ status: 'สมบูรณ์ ( 1 )' }, { status: 'สมบูรณ์ ( 2 )' }, { status: 'สมาชิกสำรอง' }, { status: 'คนใหม่' }, { status: 'คนใหม่' }, { status: 'เสียชีวิต' }, {}])
     expect(h).toEqual({ total: 7, complete: 2, reserve: 1, worship: 0, newcomer: 2, resigned: 0, deceased: 1 })
   })
   it('ช่วงวัย: นับเฉพาะที่ทราบวันเกิด และบอกจำนวนที่ไม่ทราบ', () => {
@@ -40,7 +43,7 @@ describe('ข้อมูลสมาชิกสำหรับงานอภ�
   })
   it('คนที่ควรติดตาม: เฉพาะสมาชิกสมบูรณ์ (1+2) ที่ขาดเกินกำหนด · ขาดนานสุดก่อน · ไม่นับสถานะอื่นหรือคนที่ไม่เคยมีบันทึก', () => {
     const row = (id: string, status: string, idleDays: number | null, noRecord = false): Evaluated => ({ member: { id, name: id, status, updated: 1 }, idleDays, noRecord, last: '2026-01-01' } as unknown as Evaluated)
-    const rows = [row('a', '1.สมบูรณ์ ( 1 )', 40), row('b', '3.สมาชิกสำรอง', 100), row('c', '7.เสียชีวิต', 200), row('d', '5.คนใหม่', 10), row('e', '4.ผู้ร่วมนมัสการ', 300), row('f', '1.สมบูรณ์ ( 1 )', 20), row('g', '2.สมบูรณ์  ( 2 )', 90), row('h', '2.สมบูรณ์ ( 2 )', null, true)]
+    const rows = [row('a', 'สมบูรณ์ ( 1 )', 40), row('b', 'สมาชิกสำรอง', 100), row('c', 'เสียชีวิต', 200), row('d', 'คนใหม่', 10), row('e', 'ผู้ร่วมนมัสการ', 300), row('f', 'สมบูรณ์ ( 1 )', 20), row('g', 'สมบูรณ์  ( 2 )', 90), row('h', 'สมบูรณ์ ( 2 )', null, true)]
     expect(followUp(rows, 4).map((x) => x.id)).toEqual(['g', 'a'])
     expect(followUp(rows, 8).map((x) => x.id)).toEqual(['g'])
     expect(followUp(rows, 26)).toEqual([])
@@ -54,7 +57,7 @@ describe('เรียงสมาชิกตามการมานมัส�
     { date: '2026-06-01', ids: ['c'] }, { date: '2026-02-01', ids: ['d'] }, { date: '2025-01-05', ids: ['e', 'x'] }, { date: '2023-01-01', ids: ['f'] },
     { date: '2026-10-18', ids: ['b'], deleted: true },
   ]
-  const ms = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => ({ id, name: id, status: '1.สมบูรณ์ ( 1 )' })).concat([{ id: 'x', name: 'x', status: '7.เสียชีวิต' }])
+  const ms = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => ({ id, name: id, status: 'สมบูรณ์ ( 1 )' })).concat([{ id: 'x', name: 'x', status: 'เสียชีวิต' }])
   it('นับครั้งใน 1 ปีและวันล่าสุด ไม่นับรายการที่ยกเลิก', () => {
     const st = visitStats(att, T)
     expect(st.get('b')).toEqual({ recent: 3, total: 3, last: '2026-10-18' })
@@ -102,8 +105,8 @@ describe('แท็บเก่าแก่ · สม่ำเสมอ · ส�
     expect(orderByFrequency(ms, (id) => t[id], false).map((m) => m.id)).toEqual(['a', 'd', 'b', 'c'])
   })
   it('นับตามสถานะเรียงจากดีที่สุด และเพศแยกตามสถานะ', () => {
-    const ms = [{ status: '2.สมบูรณ์ ( 2 )', gender: 'หญิง' }, { status: '1.สมบูรณ์ ( 1 )', gender: 'ชาย' }, { status: '1.สมบูรณ์ ( 1 )', gender: 'หญิง' }, { status: '7.เสียชีวิต' }, { gender: 'ชาย' }]
-    expect(statusBreakdown(ms).map((r) => [r.label, r.count])).toEqual([['1.สมบูรณ์ ( 1 )', 2], ['2.สมบูรณ์ ( 2 )', 1], ['7.เสียชีวิต', 1], ['(ไม่ระบุสถานะ)', 1]])
+    const ms = [{ status: 'สมบูรณ์ ( 2 )', gender: 'หญิง' }, { status: 'สมบูรณ์ ( 1 )', gender: 'ชาย' }, { status: 'สมบูรณ์ ( 1 )', gender: 'หญิง' }, { status: 'เสียชีวิต' }, { gender: 'ชาย' }]
+    expect(statusBreakdown(ms).map((r) => [r.label, r.count])).toEqual([['สมบูรณ์ ( 1 )', 2], ['สมบูรณ์ ( 2 )', 1], ['เสียชีวิต', 1], ['(ไม่ระบุสถานะ)', 1]])
     expect(genderByStatus(ms)[0]).toMatchObject({ ชาย: 1, หญิง: 1, ไม่ระบุ: 0 })
   })
 })
@@ -117,13 +120,13 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
   ].map((x) => ({ ...x, updated: 0, id: x.date }))
   const stats = visitStats(att, T)
   const ms = [
-    { id: 'a', name: 'เอ', status: '1.สมบูรณ์ ( 1 )' }, { id: 'b', name: 'บี', status: '1.สมบูรณ์ ( 1 )' },
-    { id: 'c', name: 'ซี', status: '3.สมาชิกสำรอง' }, { id: 'd', name: 'ดี', status: '6.ลาออก' },
+    { id: 'a', name: 'เอ', status: 'สมบูรณ์ ( 1 )' }, { id: 'b', name: 'บี', status: 'สมบูรณ์ ( 1 )' },
+    { id: 'c', name: 'ซี', status: 'สมาชิกสำรอง' }, { id: 'd', name: 'ดี', status: 'ลาออก' },
   ]
   it('ไม่ค้นหา: เฉพาะคนที่ขาด ≥ 1 เดือน เรียงขาดน้อย→มาก ไม่เคยมีบันทึกอยู่ท้าย ไม่นับคนที่ลาออก', () => {
     expect(visitCandidates(ms, { status: [], q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
-    expect(visitCandidates(ms, { status: ['3.สมาชิกสำรอง'], q: '' }, stats, T).map((m) => m.id)).toEqual(['c'])
-    expect(visitCandidates(ms, { status: ['3.สมาชิกสำรอง', '1.สมบูรณ์ ( 1 )'], q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
+    expect(visitCandidates(ms, { status: ['สมาชิกสำรอง'], q: '' }, stats, T).map((m) => m.id)).toEqual(['c'])
+    expect(visitCandidates(ms, { status: ['สมาชิกสำรอง', 'สมบูรณ์ ( 1 )'], q: '' }, stats, T).map((m) => m.id)).toEqual(['b', 'c'])
   })
   it('พิมพ์ค้นหา: เห็นทุกคนที่ตรงชื่อ แม้ไม่ได้ขาด', () => {
     expect(visitCandidates(ms, { status: [], q: 'เอ' }, stats, T).map((m) => m.id)).toEqual(['a'])

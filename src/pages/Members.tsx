@@ -16,7 +16,7 @@ import { BY_NAME, FORM_DAYS, NEW_MID, formUrl, generalFormUrl, groupInvite, pars
 import { effectiveRules, needsGender, proposeRegroup, ruleWarnings, targetGroup } from '../lib/ageGroups'
 import { AGE_BANDS, ageYears } from '../lib/pastoral'
 import { applyAnswer, diffAnswer, findCandidates, nameVerdict, snapToWorshipDay, spanText, withNoteGuess, type FieldKey } from '../lib/memberImport'
-import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
+import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, stripStatusNo, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
 import { useLocation, useSearchParams } from 'react-router-dom'
@@ -325,7 +325,7 @@ function Roster({ worshipDays, registry, lite, canLog, rows, onOpen, members, ca
       let added: ChurchMember[] = []
       if (unknown.length && confirm(`พบ ${unknown.length} ชื่อในไฟล์ที่ยังไม่อยู่ในทะเบียน (เช่น ${unknown.slice(0, 3).join(', ')})\n\nตกลง = เพิ่มเป็นสมาชิกใหม่แล้วนับการมาด้วย\nยกเลิก = ข้ามชื่อเหล่านี้`)) {
         const taken = new Set(members.map((m) => m.id))
-        added = unknown.map((n) => { const i = r.info.get(nameKey(n)); return { id: uniqueId(taken), name: i?.name ?? n, ...(i?.nick ? { nick: i.nick } : {}), status: i?.status ?? '5.ผู้ร่วมนมัสการ', ...(i?.group ? { group: i.group } : {}), updated: 0 } })
+        added = unknown.map((n) => { const i = r.info.get(nameKey(n)); return { id: uniqueId(taken), name: i?.name ?? n, ...(i?.nick ? { nick: i.nick } : {}), status: stripStatusNo(i?.status) || 'ผู้ร่วมนมัสการ', ...(i?.group ? { group: i.group } : {}), updated: 0 } })
         if (!put(added)) return
       }
       const pool = [...members, ...added]
@@ -459,7 +459,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   const band = ageY == null ? undefined : AGE_BANDS.find((b) => ageY >= b.from && ageY <= b.to)?.label
   const tg = targetGroup(m, rules, today)
   const rows: [string, ReactNode][] = [
-    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', m.status] as [string, ReactNode]]), ['กลุ่ม', m.group],
+    ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', statusLabel(m.status)] as [string, ReactNode]]), ['กลุ่ม', m.group],
     ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
     ...(lite ? [] : [['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
@@ -783,7 +783,7 @@ function NewMemberSheet({ a, put, onClose }: { a: NonNullable<ReturnType<typeof 
 const groupOptions = (ms: { group?: string }[]) => [...new Set(ms.map((m) => m.group?.trim()).filter(Boolean))] as string[]
 
 function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, remove }: { lite: boolean; canDelete: boolean; member: ChurchMember | null; statuses: string[]; groups: string[]; onClose: () => void; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean }) {
-  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ?? NEW_PERSON_STATUS, since: member?.since ?? '', firstWorship: member?.firstWorship ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
+  const [f, setF] = useState({ name: member?.name ?? '', nick: member?.nick ?? '', code: member?.code ?? '', tel: member?.tel ?? '', group: member?.group ?? '', status: member?.status ? statusLabel(member.status) : NEW_PERSON_STATUS, since: member?.since ?? '', firstWorship: member?.firstWorship ?? '', note: member?.note ?? '', birth: member?.birth ?? '', gender: member?.gender ?? '' })
   const [err, setErr] = useState('')
   // พิกัดบ้าน: พิมพ์/วางลิงก์ Google Maps · ใช้ตำแหน่งปัจจุบัน · แตะ/ลากหมุดบนแผนที่
   const [coord, setCoord] = useState<Coord | null>(member && hasCoord(member) ? { lat: member.lat, lng: member.lng } : null)
@@ -800,7 +800,7 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
     if (!f.name.trim()) return setErr('ใส่ชื่อ-สกุล')
     if (coordText.trim() && !coord) return setErr('พิกัดบ้านอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps หรือเลือกบนแผนที่')
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
-    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng }), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
+    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng }), ...(!member || statusLabel(member.status) !== statusLabel(f.status) ? { statusAt: todayISO() } : {}), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
   const text = (k: keyof typeof f, label: string, type = 'text', full = false) => <div className={`field${full ? ' full' : ''}`}><label htmlFor={`m-${k}`}>{label}</label><input id={`m-${k}`} className="input" type={type} value={f[k]} onChange={set(k)} /></div>
   return (
