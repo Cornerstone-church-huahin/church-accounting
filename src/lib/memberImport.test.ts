@@ -82,4 +82,13 @@ describe('memberImport', () => {
     expect(snapToWorshipDay('1981-07-17', days)).toBeNull()   // ก่อนที่ระบบจะบันทึก
     expect(snapToWorshipDay('2024-08-10', days)).toBeNull()
   })
+  it('ที่อยู่ปัจจุบันและพิกัดบ้านที่สมาชิกกรอก: เทียบและนำเข้าได้', () => {
+    const a = { mid: 'm1', name: 'วีรชัย ใจดี', address: '1 ถ.เพชรเกษม หัวหิน', lat: 12.5712, lng: 99.9577 }
+    const d = diffAnswer(m, a)
+    expect(d.find((x) => x.key === 'address')?.changed).toBe(true)
+    expect(d.find((x) => x.key === 'geo')?.changed).toBe(true)
+    const n = applyAnswer(m, a, new Set(['address', 'geo'] as const))
+    expect(n.address).toBe('1 ถ.เพชรเกษม หัวหิน')
+    expect([n.lat, n.lng]).toEqual([12.5712, 99.9577])
+  })
 })

@@ -31,6 +31,10 @@ export interface FormLink {
 }
 /** ข้อมูลที่สมาชิกกรอกกลับ */
 export interface FormAnswer {
+  /** ที่อยู่ปัจจุบัน + พิกัดที่กดบันทึกตอนอยู่บ้าน */
+  address?: string
+  lat?: number
+  lng?: number
   mid: string
   code?: string
   name: string
@@ -144,6 +148,8 @@ export function replyText(a: FormAnswer): string {
     `ชื่อ-สกุล: ${a.name}`,
     `ชื่อเล่น: ${a.nick ?? ''}`,
     `โทรศัพท์: ${a.tel ?? ''}`,
+    `ที่อยู่ปัจจุบัน: ${a.address ?? ''}`,
+    ...(a.lat != null && a.lng != null ? [`พิกัดบ้าน: ${a.lat}, ${a.lng}`] : []),
     `LINE ID: ${a.lineId ?? ''}`,
     `Facebook: ${a.facebook ?? ''}`,
     `เพศ: ${a.gender ?? ''}`,

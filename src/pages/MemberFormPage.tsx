@@ -53,11 +53,18 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
   // ส่งซ้ำได้ภายในอายุลิงก์: เปิดลิงก์ใหม่ → นำสิ่งที่เคยกรอกไว้ในเครื่องนี้กลับมาให้ (ถ้ามี)
   const saved = useMemo(() => (link ? readDraft(link.mid) : null), [link?.mid]) // eslint-disable-line react-hooks/exhaustive-deps
   const [restored] = useState(!!saved)
-  const [f, setF] = useState(saved?.f ? saved.f as never : { name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', since: link?.since ?? '', skills: link?.skills ?? '', other: (link?.serve ?? []).find((x) => x.startsWith(`${OTHER_SERVE}: `))?.slice(OTHER_SERVE.length + 2) ?? '', note: '' })
+  const [f, setF] = useState<{ name: string; nick: string; tel: string; lineId: string; facebook: string; gender: string; birth: string; first: string; since: string; skills: string; other: string; note: string; address?: string }>(saved?.f ? saved.f as never : { name: link?.name ?? '', nick: link?.nick ?? '', tel: link?.tel ?? '', lineId: link?.lineId ?? '', facebook: link?.facebook ?? '', gender: link?.gender ?? '', birth: link?.birth ?? '', first: link?.first ?? '', since: link?.since ?? '', skills: link?.skills ?? '', other: (link?.serve ?? []).find((x) => x.startsWith(`${OTHER_SERVE}: `))?.slice(OTHER_SERVE.length + 2) ?? '', note: '' })
   const [serve, setServe] = useState<string[]>(saved?.serve ?? (link?.serve ?? []).map((x) => (x.startsWith(`${OTHER_SERVE}: `) ? OTHER_SERVE : x)))
   const [pick, setPick] = useState<'' | 'skills' | 'serve' | 'days'>('')
+  const [geo, setGeo] = useState<{ lat: number; lng: number; acc?: number } | null>((saved as { geo?: { lat: number; lng: number; acc?: number } } | null)?.geo ?? null)
+  const [geoMsg, setGeoMsg] = useState('')
+  const locate = () => {
+    if (!navigator.geolocation) return setGeoMsg('เครื่องนี้ไม่รองรับการระบุตำแหน่ง')
+    setGeoMsg('กำลังหาตำแหน่ง…')
+    navigator.geolocation.getCurrentPosition((p) => { setGeo({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6, acc: Math.round(p.coords.accuracy) }); setGeoMsg(''); setCopied(false) }, () => setGeoMsg('หาตำแหน่งไม่ได้ — กรุณาอนุญาตการเข้าถึงตำแหน่งในเบราว์เซอร์แล้วลองใหม่'), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  }
   const [days, setDays] = useState<string[]>(saved?.days ?? link?.serveDays ?? [])
-  useEffect(() => { if (link) try { localStorage.setItem(draftKey(link.mid), JSON.stringify({ f, serve, days })) } catch { /* ignore */ } }, [f, serve, days]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (link) try { localStorage.setItem(draftKey(link.mid), JSON.stringify({ f, serve, days, geo })) } catch { /* ignore */ } }, [f, serve, days, geo]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (list: string[], x: string, put: (a: string[]) => void) => { put(list.includes(x) ? list.filter((y) => y !== x) : [...list, x]); setCopied(false) }
   const [msg, setMsg] = useState('')
   const [copied, setCopied] = useState(false)
@@ -73,6 +80,7 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
 
   const answer = (): FormAnswer => ({
     mid: link.mid, code: link.code, name: f.name.trim(), nick: f.nick.trim() || undefined, tel: f.tel.trim() || undefined,
+    address: (f.address ?? '').trim() || undefined, ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
     lineId: f.lineId.trim() || undefined, facebook: f.facebook.trim() || undefined,
     gender: f.gender || undefined, birth: f.birth || undefined, first: f.first || undefined, since: f.since || undefined, at: Date.now(), skills: f.skills.trim() || undefined,
     serve: serve.length ? serve.map((x) => (x === OTHER_SERVE ? (f.other.trim() ? `${OTHER_SERVE}: ${f.other.trim()}` : OTHER_SERVE) : x)) : undefined, serveDays: days.length ? days : undefined, note: f.note.trim() || undefined,
@@ -109,6 +117,11 @@ function FormBody({ link, grouped, onReselect }: { link: FormLink | null; groupe
       <div className="field"><label htmlFor="mf-tel">โทรศัพท์{!f.tel.trim() && <span className="mform__empty">ยังว่าง — กรุณากรอก</span>}</label><input id="mf-tel" className="input" type="tel" inputMode="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} autoComplete="tel" /></div>
       <div className="field"><label htmlFor="mf-line">LINE ID <span className="muted small">(ไม่บังคับ)</span></label><input id="mf-line" className="input" value={f.lineId} onChange={(e) => set({ lineId: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="ไอดีไลน์ของท่าน" /></div>
       <div className="field"><label htmlFor="mf-fb">Facebook <span className="muted small">(ไม่บังคับ · พิมพ์ชื่อเฟซบุ๊ก/ชื่อเพจ หรือวางลิงก์ก็ได้)</span></label><input id="mf-fb" className="input" value={f.facebook} onChange={(e) => set({ facebook: e.target.value })} placeholder="ชื่อใน Facebook หรือลิงก์โปรไฟล์/เพจ" /></div>
+      <div className="field"><label htmlFor="mf-addr">ที่อยู่ปัจจุบัน <span className="muted small">(ไม่บังคับ)</span></label><textarea id="mf-addr" className="input" rows={3} value={f.address ?? ''} onChange={(e) => set({ address: e.target.value })} autoComplete="street-address" placeholder="บ้านเลขที่ ถนน ตำบล อำเภอ จังหวัด" />
+        <button type="button" className="btn btn--ghost btn--block" onClick={locate} style={{ marginTop: 6 }}>📍 บันทึกพิกัดปัจจุบัน</button>
+        <p className="small" role="note" style={{ margin: '0.3rem 0 0', color: '#b45309', fontWeight: 700 }}>⚠️ กดเมื่ออยู่ที่บ้านเท่านั้น — ระบบจะใช้ตำแหน่งนี้เป็นพิกัดบ้านของท่านบนแผนที่ (ถ้าไม่ได้อยู่บ้าน อย่ากด)</p>
+        {geoMsg && <p className="small" role="status" style={{ margin: '0.2rem 0 0' }}>{geoMsg}</p>}
+        {geo && <p className="small" role="status" style={{ margin: '0.2rem 0 0', color: '#1b7f4b', fontWeight: 700 }}>✅ บันทึกพิกัดแล้ว ({geo.lat}, {geo.lng}){geo.acc ? ` · คลาดเคลื่อนประมาณ ${geo.acc} ม.` : ''} <button type="button" className="mini" onClick={() => { setGeo(null); setCopied(false) }}>ลบพิกัด</button></p>}</div>
       <div className="field"><label id="mf-g">เพศ{!f.gender && <span className="mform__empty">ยังว่าง — กรุณาเลือก</span>}</label>
         <div className="row" role="radiogroup" aria-labelledby="mf-g" style={{ gap: 6 }}>
           {['ชาย', 'หญิง'].map((g) => <button key={g} type="button" role="radio" aria-checked={f.gender === g} className={f.gender === g ? 'btn btn--gold' : 'btn btn--ghost'} onClick={() => set({ gender: f.gender === g ? '' : g })}>{g}</button>)}

@@ -366,6 +366,8 @@ export interface ChurchMember extends SharedItem {
   photo?: string
   /** ที่อยู่รูปที่อัปโหลดแล้ว (ใน repo ข้อมูล) */
   photoPath?: string
+  /** ที่อยู่ปัจจุบัน (สมาชิกกรอกเองในแบบฟอร์ม) */
+  address?: string
   /** พิกัดบ้าน (ละติจูด/ลองจิจูด · องศาทศนิยม) — แอดมิน/ผู้บันทึกทะเบียนเป็นคนบันทึก แสดงบนแผนที่ของงานอภิบาล */
   lat?: number
   lng?: number

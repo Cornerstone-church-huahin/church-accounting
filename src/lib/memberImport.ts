@@ -26,7 +26,7 @@ export function nameVerdict(oldName: string, newName: string): { level: 'same' |
   return { level: normName(oldName) === normName(newName) ? 'same' : sim >= 0.75 ? 'minor' : 'major', sim }
 }
 
-export type FieldKey = 'name' | 'nick' | 'tel' | 'lineId' | 'facebook' | 'gender' | 'birth' | 'firstWorship' | 'since' | 'skills' | 'serve' | 'serveDays'
+export type FieldKey = 'name' | 'nick' | 'tel' | 'lineId' | 'facebook' | 'gender' | 'birth' | 'firstWorship' | 'since' | 'skills' | 'serve' | 'serveDays' | 'address' | 'geo'
 export interface Diff { key: FieldKey; label: string; old: string; next: string; changed: boolean; /** ที่มาของค่า เช่น อ่านจากหมายเหตุ */ source?: string }
 
 const txt = (v?: string) => (v ?? '').trim()
@@ -37,6 +37,8 @@ export function diffAnswer(m: ChurchMember, a: FormAnswer): Diff[] {
     row('name', 'ชื่อ-สกุล', txt(m.name), txt(a.name)),
     row('nick', 'ชื่อเล่น', txt(m.nick), txt(a.nick)),
     row('tel', 'โทรศัพท์', txt(m.tel), txt(a.tel)),
+    row('address', 'ที่อยู่ปัจจุบัน', txt(m.address), txt(a.address)),
+    { ...row('geo', 'พิกัดบ้าน (บันทึกที่บ้าน)', m.lat != null && m.lng != null ? `${m.lat}, ${m.lng}` : '', a.lat != null && a.lng != null ? `${a.lat}, ${a.lng}` : '') },
     row('lineId', 'LINE ID', txt(m.lineId), txt(a.lineId)),
     row('facebook', 'Facebook', txt(m.facebook), txt(a.facebook)),
     row('gender', 'เพศ', txt(m.gender), txt(a.gender)),
@@ -54,6 +56,8 @@ export function applyAnswer(m: ChurchMember, a: FormAnswer, keys: Set<FieldKey>)
   if (keys.has('name') && txt(a.name)) { if (!n.nameOrig && txt(m.name) !== txt(a.name)) n.nameOrig = m.name; n.name = txt(a.name) }
   if (keys.has('nick') && txt(a.nick)) n.nick = txt(a.nick)
   if (keys.has('tel') && txt(a.tel)) n.tel = txt(a.tel)
+  if (keys.has('address') && txt(a.address)) n.address = txt(a.address)
+  if (keys.has('geo') && a.lat != null && a.lng != null) { n.lat = a.lat; n.lng = a.lng }
   if (keys.has('lineId') && txt(a.lineId)) n.lineId = txt(a.lineId)
   if (keys.has('facebook') && txt(a.facebook)) n.facebook = txt(a.facebook)
   if (keys.has('gender') && (a.gender === 'ชาย' || a.gender === 'หญิง')) { n.gender = a.gender; n.genderGuess = undefined }
