@@ -119,7 +119,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           {l.verse?.trim() && <div className="letter__verse letter__verse--bottom">{l.verse.trim().split(/\n/).map((x, i) => <div key={i}>{x}</div>)}</div>}
           <div className="letter__sign">
             {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
-            <div style={{ height: 88, position: 'relative' }}>{signed && <img src={c.signImg} alt="ลายเซ็น" className="il__sign" />}</div>
+            <div style={{ height: internal ? 66 : 88, position: 'relative' }}>{signed && <img src={c.signImg} alt="ลายเซ็น" className={`il__sign${internal ? ' il__sign--s' : ''}`} />}</div>
             <div>{c.signName ? `(${c.signName})` : '(………………………)'}</div>
             <div>{c.signRole}</div>
           </div>
