@@ -100,7 +100,7 @@ try {
   await snap('1d-gender')
   await page.getByRole('tab', { name: 'ตรวจสอบ', exact: true }).click()
   // ยอดผู้มา
-  await page.getByRole('tab', { name: 'ยอดผู้มา' }).click()
+  await page.getByRole('tab', { name: 'รายงาน' }).click()
   must(await page.locator('table.tbl tbody tr').count() >= 40, 'stats table lists every service: ' + await page.locator('table.tbl tbody tr').count())
   await page.locator('table.tbl tbody tr').first().click()
   must(/สมชาย/.test(await page.locator('table.tbl').innerText()), 'expanding a service lists who came')

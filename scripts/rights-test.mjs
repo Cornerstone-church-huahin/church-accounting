@@ -49,7 +49,7 @@ try {
   // 3) ที่ปรึกษาห้องทะเบียน: ดูอย่างเดียว ไม่มีไอคอนลงชื่อ
   p = await open('u3', [{ id: 'u3', name: 'ที่ปรึกษา', role: 'viewer', works: [2], workRoles: { 2: 'advisor' }, joined: 2, updated: 1 }], '#/meeting/2')
   let t = await body(p)
-  must(/รวมสมาชิก/.test(t) && /ยอดผู้มา/.test(t) && !/ลงชื่อ/.test(t), 'advisor of registry: view icons only, no ลงชื่อ: ' + t.slice(0, 300))
+  must(/รวมสมาชิก/.test(t) && /รายงาน/.test(t) && !/ลงชื่อ/.test(t), 'advisor of registry: view icons only, no ลงชื่อ: ' + t.slice(0, 300))
   // 4) แอดมินห้องทะเบียน: จัดการทะเบียนเต็ม (เครื่องมือทะเบียน)
   p = await open('u4', [{ id: 'u4', name: 'แอดมินห้อง', role: 'viewer', works: [2], workRoles: { 2: 'owner' }, joined: 2, updated: 1 }], '#/meeting/2')
   await p.getByText('รวมสมาชิก', { exact: true }).first().click()

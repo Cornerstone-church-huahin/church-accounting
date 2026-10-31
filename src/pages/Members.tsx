@@ -94,8 +94,8 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
     return true
   }
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
-  const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'ยอดผู้มา', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
-  const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'ยอดผู้มา', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
+  const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
+  const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
   // หน้ารวมสมาชิก (งานทะเบียน): ตัวกรองจากผลตรวจ/เพศ/จุดอัปเดต รวมเป็นชุดรหัสเดียวส่งให้การ์ดสมาชิก
   const regIds = useMemo(() => {
     if (!merged || (!checkF.length && !genF && !updF)) return null
@@ -132,7 +132,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       <div className="page-head no-print"><h1>สมาชิก</h1>{canSign && tab === 'checkin' && <RecorderChip recorders={recorders.items} canManage={can(role, 'settings')} put={recorders.put} remove={recorders.remove} />}</div>
       {!inRoom && (
         <div className={`seg ${lite && !helper ? 'seg--3' : 'seg--6'} no-print`} role="tablist" aria-label="หมวด">
-          {(helper ? HELPER_TABS.map(([k, l]) => [k, l] as const) : lite ? [['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['checkin', 'ลงชื่อ'], ['stats', 'ยอดผู้มา'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
+          {(helper ? HELPER_TABS.map(([k, l]) => [k, l] as const) : lite ? [['checkin', 'ลงชื่อ'], ['stats', 'รายงาน'], ['roster', 'ทะเบียน']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ'], ['checkin', 'ลงชื่อ'], ['stats', 'รายงาน'], ['roster', 'ทะเบียน'], ['birth', 'วันเกิด'], ['gender', 'เพศ']] as const).filter(([k]) => !(merged && k === 'roster')).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>

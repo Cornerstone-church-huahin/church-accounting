@@ -41,10 +41,10 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting`)
   await tiles.nth(1).click()
   await page.getByRole('tab', { name: /ตรวจสอบ/ }).first().waitFor({ timeout: 8000 })
-  for (const t of ['ตรวจสอบ', 'ยอดผู้มา', 'ลงชื่อ', 'ทะเบียน', 'วันเกิด', 'เพศ']) must(await page.getByRole('tab', { name: new RegExp(t) }).first().isVisible(), 'registry tab ' + t)
+  for (const t of ['ตรวจสอบ', 'รายงาน', 'ลงชื่อ', 'ทะเบียน', 'วันเกิด', 'เพศ']) must(await page.getByRole('tab', { name: new RegExp(t) }).first().isVisible(), 'registry tab ' + t)
   must(await page.getByText('ลงชื่อวันนี้แล้ว').count() === 0 && await page.locator('.kpi').count() === 0, 'registry opens on the six-tile menu only (content zone empty)')
   // กดช่อง → เมนูหายและหน้านั้นเต็มจอ · ‹ เมนูสมาชิก → กลับมาเห็นช่องทั้งหก (ทดสอบทุกช่อง)
-  for (const [t, probe] of [['ตรวจสอบ', null], ['ยอดผู้มา', null], ['ลงชื่อ', /ลงชื่อวันนี้แล้ว/], ['ทะเบียน', null], ['วันเกิด', null], ['เพศ', null]]) {
+  for (const [t, probe] of [['ตรวจสอบ', null], ['รายงาน', null], ['ลงชื่อ', /ลงชื่อวันนี้แล้ว/], ['ทะเบียน', null], ['วันเกิด', null], ['เพศ', null]]) {
     await page.getByRole('tab', { name: new RegExp(t) }).first().click()
     await page.getByRole('button', { name: '‹ เมนูสมาชิก' }).waitFor({ timeout: 5000 })
     must(await page.getByRole('tab').count() === 0, t + ': tile menu is hidden while the page is open')

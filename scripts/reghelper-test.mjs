@@ -34,7 +34,7 @@ try {
   await page.reload()
   await page.waitForTimeout(1200)
   const menu = await page.locator('body').innerText()
-  must(/รวมสมาชิก/.test(menu) && /ลงชื่อ/.test(menu) && /ยอดผู้มา/.test(menu) && /วันเกิด/.test(menu) && /เพศ/.test(menu), 'helper sees all 5 member icons: ' + menu.slice(0, 300))
+  must(/รวมสมาชิก/.test(menu) && /ลงชื่อ/.test(menu) && /รายงาน/.test(menu) && /วันเกิด/.test(menu) && /เพศ/.test(menu), 'helper sees all 5 member icons: ' + menu.slice(0, 300))
   must(!/ตารางงาน|สถานะการเงิน|ตำแหน่งของคุณ|ผู้รับผิดชอบ/.test(menu), 'helper sees nothing else in the registry room: ' + menu.slice(0, 400))
   await page.getByText('ลงชื่อ', { exact: true }).first().click()
   await page.getByLabel('ค้นหาชื่อ').waitFor({ timeout: 8000 })
