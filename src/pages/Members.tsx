@@ -67,6 +67,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const [menu, setMenu] = useState(inRoom && !startTab)
   useEffect(() => { onMenu?.(menu) }, [menu, onMenu])
   const [adding, setAdding] = useState(false)
+  const [regQ, setRegQ] = useState('') // ช่องค้นหารายชื่อในหน้ารวมสมาชิก (ฝ่ายทะเบียน)
   const [editId, setEditId] = useState('') // แก้ข้อมูลคนจากหน้าลงชื่อ (ไม่มีปุ่มลบสมาชิก)
   const editMember = editId ? people.items.find((m) => m.id === editId) : undefined
   useEffect(() => { if (startTab === 'checkin' && canLog) setTab('checkin') }, [startTab, canLog])
@@ -110,9 +111,10 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
             <FormTools members={people.items} put={people.put} worshipDays={worshipDays} attendance={attendance} />
           </div>
         </details>
-        {tab === 'audit' && <Roster toolsOnly attendance={attendance} worshipDays={worshipDays} registry canEdit lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}</>
+        {tab === 'audit' && <Roster toolsOnly attendance={attendance} worshipDays={worshipDays} registry canEdit lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}        <input className="input regsearch" type="search" value={regQ} onChange={(e) => setRegQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />
+</>
       )}
-      {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} />}
+      {registry && canEdit && (tab === 'audit' || tab === 'roster') && <PastoralMembers work={2} onOpen={setDetail} query={regQ} />}
       {!lite && tab === 'audit' && <Audit registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {!lite && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
       {!lite && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} />}
