@@ -70,5 +70,7 @@ describe('ลิงก์กะทัดรัด + ข้อความมา�
     expect(t).toContain('ลิงก์เฉพาะของ “ดารา ผลจันทร์”')
     expect(t).toContain('https://x/#/form?d=2.abc')
     expect(groupInvite('https://x/#/form')).toContain('เรียน พี่น้องสมาชิกคริสตจักรศิลาเอก')
+    expect(t).toContain('— ออกแบบและพัฒนาระบบโดย มน.สมเจต เสมาทอง')
+    expect(groupInvite('https://x/#/form').trimEnd().endsWith('มน.สมเจต เสมาทอง')).toBe(true)
   })
 })
