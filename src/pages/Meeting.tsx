@@ -4,6 +4,7 @@ import Home, { type HomeTab } from './Home'
 import Members from './Members'
 import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
+import WorkTerm from '../components/WorkTerm'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import PastoralVisits from '../components/PastoralVisits'
@@ -59,6 +60,7 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
         {back ? <button type="button" className="mini" onClick={back} aria-label="ไปหน้าแรกของงาน">‹ {name}</button> : myWorks().length === 1 ? null : <Link to={to} state={{ home: Date.now() }} className="mini">‹ หน้าแรก</Link>}
       </div>
       <WorkTeam n={n} name={name} />
+      <WorkTerm n={n} name={name} />
     </>
   )
 }
