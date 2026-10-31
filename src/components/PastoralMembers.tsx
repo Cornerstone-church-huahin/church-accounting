@@ -62,7 +62,7 @@ function Columns({ data, label, color = BLUE }: { data: { key: string; value: nu
  */
 /** work = ห้องงานที่เปิดหน้านี้ (ใช้ตรวจสิทธิ์ดู): งานอภิบาล (4) และงานอนุชน (9) ใช้หน้าเดียวกัน ข้อมูลสมาชิกชุดเดียวกัน */
 /** query: คำค้นชื่อ/นามสกุล/ชื่อเล่น/รหัส/เบอร์/หมายเหตุ (ใช้ในหน้ารวมสมาชิกของงานทะเบียน) · onOpen: ใส่เมื่อใช้ในงานทะเบียน (แอดมิน) — แตะการ์ดเพื่อเปิดรายละเอียดและแก้ไขได้ */
-export default function PastoralMembers({ work = 4, onOpen, query = '' }: { work?: number; onOpen?: (id: string) => void; query?: string } = {}) {
+export default function PastoralMembers({ work = 4, onOpen, query = '', slot }: { work?: number; onOpen?: (id: string) => void; query?: string; slot?: React.ReactNode } = {}) {
   const role = useRole()
   const today = todayISO()
   const people = useChurchMembers()
@@ -133,6 +133,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '' }: { work
             </button>
           ))}
         </nav>
+        {slot}
         <div className="pfilters pfilters--slim">
           <div className="field"><label htmlFor="pf-status">สถานะ</label>
             <MultiPick id="pf-status" title="สถานะ" allLabel="ทุกสถานะ" options={PICK_STATUS_GROUPS.map((x) => ({ value: x.key, label: x.label }))} value={gs} onChange={(v) => setGs(v as Exclude<StatusGroup, 'all'>[])} empty="ทุกสถานะ" /></div>
