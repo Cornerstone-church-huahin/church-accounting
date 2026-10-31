@@ -90,7 +90,7 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
             {review.slice(0, rshown).map((m) => (
               <li key={m.id}>
                 <div className="mrow mrow--tight">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} member={m} />
                   <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small">เดาว่า <b>{m.gender}</b> · {confLabel[m.genderGuess!]}</span> <span className="small muted">({guessGender(m)?.why ?? ''})</span>
@@ -117,7 +117,7 @@ export default function GenderView({ members, canEdit, put, onOpen }: { members:
             {list.slice(0, shown).map((m) => (
               <li key={m.id}>
                 <div className="mrow mrow--tight">
-                  <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+                  <MemberAvatar path={m.photoPath} name={m.name} size={48} member={m} />
                   <button type="button" className="mrow__main" style={{ all: 'unset', cursor: 'pointer', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.4 }} onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
                     <b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                     <br /><span className="small muted">{[m.code && `#${m.code}`, statusLabel(m.status), m.group].filter(Boolean).join(' · ')}</span>

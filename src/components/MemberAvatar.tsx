@@ -34,8 +34,9 @@ function loadUrl(path: string): Promise<string | null> {
   return run
 }
 
-/** dot: จุดสถานะมุมซ้ายบนของรูป — ok = เขียว (นำเข้าข้อมูลที่สมาชิกกรอกแล้ว) · no = แดง (ยังไม่ได้) */
-export default function MemberAvatar({ path, name, size = 44, dot }: { path?: string; name: string; size?: number; dot?: 'ok' | 'no' }) {
+/** member: ส่งสมาชิกมาแล้วจุดจะขึ้นเอง (เขียวถ้า formAt มี) · dot: จุดสถานะมุมซ้ายบนของรูป — ok = เขียว (นำเข้าข้อมูลที่สมาชิกกรอกแล้ว) · no = แดง (ยังไม่ได้) */
+export default function MemberAvatar({ path, name, size = 44, dot: dotIn, member }: { path?: string; name: string; size?: number; dot?: 'ok' | 'no'; member?: { formAt?: number } | null }) {
+  const dot = dotIn ?? (member ? (member.formAt ? 'ok' : 'no') : undefined)
   const box = useRef<HTMLSpanElement>(null)
   const [seen, setSeen] = useState(false)
   const [url, setUrl] = useState<string | null>(path ? urls.get(path) ?? null : null)

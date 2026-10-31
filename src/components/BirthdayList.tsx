@@ -58,7 +58,7 @@ export default function BirthdayList({ members, today, onOpen }: { members: Chur
               return (
                 <li key={m.id}>
                   <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                    <MemberAvatar path={m.photoPath} name={m.name} size={48} />
+                    <MemberAvatar path={m.photoPath} name={m.name} size={48} member={m} />
                     <span className="mrow__main"><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
                       <br /><span style={{ fontWeight: 600 }}>{longDate(m.birth!)}</span>
                       <br /><span className="small muted">อายุ {ageText(m.birth, today)} · {statusLabel(m.status)}</span>
