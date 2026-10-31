@@ -56,7 +56,7 @@ try {
   must(await p2.getByText(/ตรวจข้อมูลของท่านทุกช่อง/).count() === 1 && await p2.getByText(/แก้ไขได้ทุกจุด/).count() >= 1, 'individual link shows the check-everything guide')
   must(await p2.getByText(/ยังว่าง — กรุณากรอก/).count() >= 1, 'empty fields are marked')
   await p2.getByLabel('โทรศัพท์').fill('0899999999')
-  must(await p2.getByText(/รหัสสมาชิก/).count() === 0 && await p2.getByText(/พิกัดบ้าน/).count() === 0, 'no member code / no coordinates on form')
+  must(await p2.getByText(/รหัสสมาชิก/).count() === 0 && await p2.getByRole('button', { name: /บันทึกพิกัดปัจจุบัน/ }).count() === 1 && await p2.getByText(/กดเมื่ออยู่ที่บ้านเท่านั้น/).count() === 1, 'no member code · address + home-only coordinate button on form')
   await p2.getByLabel('LINE ID').fill('dara_l')
   await p2.getByLabel(/^Facebook/).fill('ดารา ผลจันทร์')
   await p2.getByLabel(/ที่มาร่วมนมัสการครั้งแรก/).fill('2012-05-06')

@@ -502,7 +502,7 @@ function Detail({ worshipDays, lite, canLog, r, statuses, groups, today, canEdit
   const rows: [string, ReactNode][] = [
     ['รหัสสมาชิก', m.code], ['ชื่อ-สกุล', m.name], ['ชื่อเล่น', m.nick], ...(lite ? [] : [['สถานะในทะเบียน', <>{statusLabel(m.status)}{m.statusLock ? ' 🔒' : ''}</>] as [string, ReactNode]]), ['กลุ่ม', m.group],
     ...(lite ? [] : [['โทรศัพท์', m.tel && <a href={`tel:${m.tel}`}>{m.tel}</a>] as [string, ReactNode]]),
-    ...(lite ? [] : [['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
+    ...(lite ? [] : [['ที่อยู่ปัจจุบัน', m.address] as [string, ReactNode], ['LINE ID', m.lineId] as [string, ReactNode], ['Facebook', m.facebook] as [string, ReactNode], ['อาชีพ / ความสามารถ', m.skills] as [string, ReactNode], ['งานรับใช้ที่เต็มใจ', m.serve?.join(', ')] as [string, ReactNode], ['วันที่สะดวกรับใช้', m.serveDays?.join(', ')] as [string, ReactNode]]),
     ['เพศ', m.gender && m.gender],
     ...(lite ? [] : [['วันเกิด', m.birth && `${fmtDate(m.birth)}${age ? ` (อายุ ${age})` : ''}`] as [string, ReactNode]]),
     ...(lite ? [] : [['อายุ (อัปเดตเองทุกวัน)', ageY != null && <><b>{age}</b>{band ? ` · ${band}` : ''}</>] as [string, ReactNode]]),
