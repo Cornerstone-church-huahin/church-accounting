@@ -12,6 +12,7 @@ import { can } from '../lib/access'
 import { useAttendance, useChurchMembers, useRecorders, useSettings } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
+import { FORM_DAYS, formUrl } from '../lib/memberForm'
 import { ageText, bandLabel, bandOf, DEFAULT_CRITERIA, evaluate, regLevel, matchNames, matchPhotoFile, NEW_PERSON_STATUS, nameKey, serviceStats, statusLabel, statusOptions, statusShort, toAttendance, checkInId, uniqueId, parseAttendanceRows, parseMemberRows, summarize, type Evaluated } from '../lib/registry'
 import { parseCSV } from '../lib/statement'
 import { readXlsxRows } from '../lib/xlsx'
@@ -27,13 +28,14 @@ import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
-export default function Members() {
+/** registry = เปิดจากห้องงานฝ่ายทะเบียน (เฉพาะที่นี่มีปุ่มคัดลอกลิงก์แบบกรอกข้อมูล) */
+export default function Members({ registry }: { registry?: boolean } = {}) {
   const role = useRole()
   if (!can(role, 'detail') && !can(role, 'worship')) return <NoAccess />
-  return <MembersPage />
+  return <MembersPage registry={registry} />
 }
 
-function MembersPage() {
+function MembersPage({ registry }: { registry?: boolean }) {
   const role = useRole()
   const canEdit = can(role, 'registry')
   const canLog = can(role, 'worship')
@@ -98,7 +100,7 @@ function MembersPage() {
       {tab === 'checkin' && (canLog ? <CheckinPanel lite={lite} members={people.items} checkins={checkins} recorders={recorders.items} putCheckIns={putCheckIns} syncNow={a0.syncNow} addMember={people.put} onOpen={setDetail} onEdit={setEditId} minYear={thisYear - YEARS_BACK} /> : <p className="empty">ลงชื่อนมัสการได้เฉพาะผู้บันทึกบัญชีและแอดมิน</p>)}
       {tab === 'roster' && <Roster lite={lite} canLog={canLog} rows={result.rows} onOpen={setDetail} members={people.items} canEdit={canEdit} put={people.put} remove={people.remove} putCheckIns={putCheckIns} checkins={checkins} recorders={recorders.items} putRecorders={recorders.put} canManage={can(role, 'settings')} />}
       {editMember && <MemberForm lite={lite} canDelete={false} member={editMember} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} onClose={() => setEditId('')} put={people.put} remove={people.remove} />}
-      {shownDetail && <Detail lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
+      {shownDetail && <Detail lite={lite} canLog={canLog} r={shownDetail} statuses={statusOptions(people.items)} groups={groupOptions(people.items)} today={today} canEdit={canEdit} formLink={!!registry && canEdit} put={people.put} remove={people.remove} onClose={() => setDetail('')} />}
     </>
   )
 }
@@ -432,7 +434,7 @@ function Roster({ lite, canLog, rows, onOpen, members, canEdit, put, remove, put
 }
 
 /** ข้อมูลรายคนครบทุกช่อง + ผลตรวจ + สถิติการมา */
-function Detail({ lite, canLog, r, statuses, groups, today, canEdit, put, remove, onClose }: { r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
+function Detail({ lite, canLog, r, statuses, groups, today, canEdit, formLink, put, remove, onClose }: { formLink?: boolean; r: Evaluated; statuses: string[]; groups: string[]; lite: boolean; canLog: boolean; today: string; canEdit: boolean; put: (x: ChurchMember[]) => boolean; remove: (id: string) => boolean; onClose: () => void }) {
   const m = r.member
   const [editing, setEditing] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
@@ -485,8 +487,26 @@ function Detail({ lite, canLog, r, statuses, groups, today, canEdit, put, remove
           <dd style={{ margin: 0, textAlign: 'right' }}>{r.visits ? `${r.visits} ครั้ง · 12 เดือนล่าสุด ${r.recent} · ครั้งแรก ${fmtDate(r.firstAtt)} · ล่าสุด ${fmtDate(r.last)}` : <span className="muted">ยังไม่มีบันทึกลงชื่อ</span>}</dd>
         </div>
       </dl>
+      {formLink && <FormLinkBox m={m} />}
       {canLog && <div className="row row--between"><span /><button type="button" className="btn" onClick={() => setEditing(true)}>แก้ไขข้อมูล</button></div>}
     </Sheet>
+  )
+}
+
+/** ฝ่ายทะเบียน: คัดลอกลิงก์ให้สมาชิกคนนี้กรอกข้อมูลเอง (ไปวางในไลน์ของเขา) · ดูหน้าฟอร์มได้ */
+function FormLinkBox({ m }: { m: ChurchMember }) {
+  const [msg, setMsg] = useState('')
+  const url = formUrl(m)
+  const copy = async () => { try { await navigator.clipboard.writeText(url); setMsg(`คัดลอกลิงก์แล้ว — นำไปวางในไลน์ของ ${m.nick || m.name} (ใช้ได้ ${FORM_DAYS} วัน)`) } catch { setMsg('คัดลอกไม่สำเร็จ — กด “ดูแบบฟอร์ม” แล้วคัดลอกลิงก์จากแถบที่อยู่') } }
+  return (
+    <div className="no-print" style={{ margin: '0.6rem 0', padding: '0.5rem 0.6rem', border: '1px dashed var(--line)', borderRadius: 12 }}>
+      <b>📝 ให้ {m.nick || m.name} กรอกข้อมูลเอง</b>
+      <div className="row" style={{ gap: 6, marginTop: 6 }}>
+        <button type="button" className="btn btn--gold" onClick={copy}>📋 คัดลอกลิงก์</button>
+        <a className="btn btn--ghost" href={url} target="_blank" rel="noreferrer">👁 ดูแบบฟอร์ม</a>
+      </div>
+      {msg && <p role="status" className="small" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
+    </div>
   )
 }
 

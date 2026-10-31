@@ -1,0 +1,79 @@
+import { fmtDate } from './money'
+import { formatCoord } from './geo'
+import type { ChurchMember } from './types'
+
+/**
+ * ลิงก์ให้สมาชิกกรอกข้อมูลเอง (ไม่ต้องเข้าแอป ไม่มีรหัสเขียนข้อมูลในลิงก์):
+ * ลิงก์พก “สมาชิกคนไหน + ข้อมูลเดิม” → สมาชิกกรอก → ส่งข้อความกลับทางไลน์ → ฝ่ายทะเบียนวางตรวจและนำเข้า
+ */
+export interface FormLink {
+  v: 1
+  /** รหัสภายในของสมาชิก (ไว้จับคู่ตอนนำเข้า) */
+  mid: string
+  code?: string
+  name: string
+  nick?: string
+  tel?: string
+  gender?: string
+  birth?: string
+  lat?: number
+  lng?: number
+  /** หมดอายุ (ms) */
+  exp: number
+}
+/** ข้อมูลที่สมาชิกกรอกกลับ */
+export interface FormAnswer {
+  mid: string
+  code?: string
+  name: string
+  nick?: string
+  tel?: string
+  gender?: string
+  birth?: string
+  lat?: number
+  lng?: number
+  note?: string
+}
+export const FORM_DAYS = 14
+
+const b64 = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const unb64 = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))
+
+export function makeFormLink(m: ChurchMember, now = Date.now()): FormLink {
+  return { v: 1, mid: m.id, code: m.code, name: m.name, nick: m.nick, tel: m.tel, gender: m.gender, birth: m.birth, lat: m.lat, lng: m.lng, exp: now + FORM_DAYS * 86_400_000 }
+}
+export const encodeFormLink = (p: FormLink) => b64(JSON.stringify(p))
+export function decodeFormLink(d: string | null): FormLink | null {
+  if (!d) return null
+  try {
+    const p = JSON.parse(unb64(d)) as FormLink
+    return p && p.v === 1 && typeof p.mid === 'string' && typeof p.name === 'string' && typeof p.exp === 'number' ? p : null
+  } catch { return null }
+}
+/** ลิงก์เต็มของแบบฟอร์ม (หน้า #/form) บนที่อยู่แอปปัจจุบัน */
+export const formUrl = (m: ChurchMember, base = `${location.origin}${location.pathname}`) => `${base}#/form?d=${encodeFormLink(makeFormLink(m))}`
+
+/** ข้อความที่สมาชิกส่งกลับ: บรรทัดอ่านง่าย + บรรทัดรหัสตรวจท้ายสุดให้แอปอ่านตอนนำเข้า */
+export function replyText(a: FormAnswer): string {
+  const lines = [
+    '📝 ข้อมูลสมาชิก (ส่งกลับให้ฝ่ายทะเบียน คริสตจักรศิลาเอก)',
+    `ชื่อ-สกุล: ${a.name}`,
+    `ชื่อเล่น: ${a.nick ?? ''}`,
+    `โทรศัพท์: ${a.tel ?? ''}`,
+    `เพศ: ${a.gender ?? ''}`,
+    `วันเกิด: ${a.birth ? fmtDate(a.birth) : ''}`,
+    `พิกัดบ้าน: ${typeof a.lat === 'number' && typeof a.lng === 'number' ? formatCoord({ lat: a.lat, lng: a.lng }) : ''}`,
+    ...(a.note?.trim() ? [`หมายเหตุ: ${a.note.trim()}`] : []),
+    `— รหัสตรวจ: ${b64(JSON.stringify(a))}`,
+  ]
+  return lines.join('\n')
+}
+/** อ่านข้อความที่ส่งกลับ (ฝั่งฝ่ายทะเบียน) — ไม่พบ/เสียหาย = null */
+export function parseReply(text: string): FormAnswer | null {
+  const m = /รหัสตรวจ:\s*([A-Za-z0-9_-]+)/.exec(text)
+  if (!m) return null
+  try {
+    const a = JSON.parse(unb64(m[1])) as FormAnswer
+    return a && typeof a.mid === 'string' && typeof a.name === 'string' ? a : null
+  } catch { return null }
+}
