@@ -24,6 +24,8 @@ try {
   await run('admin', [], async (page) => {
     const dev = await page.getByRole('note', { name: /อยู่ระหว่างการพัฒนา/ }).innerText()
     must(/อยู่ระหว่างการพัฒนา/.test(dev) && /ออกแบบและพัฒนาระบบโดย มน.สมเจต เสมาทอง/.test(dev), 'dev note + credit: ' + dev)
+    for (const w of [360, 390, 412]) { await page.setViewportSize({ width: w, height: 900 }); const h = await page.getByRole('note', { name: /อยู่ระหว่างการพัฒนา/ }).evaluate((e) => ({ h: e.getBoundingClientRect().height, sw: e.scrollWidth, cw: e.clientWidth })); must(h.h < 26 && h.sw <= h.cw + 1, `dev note is one line at ${w}px: ` + JSON.stringify(h)) }
+    await page.setViewportSize({ width: 390, height: 900 })
     const box = page.getByLabel('วาระงานเลขา')
     await box.waitFor({ timeout: 8000 })
     const y = new Date().getFullYear() + 543 + 1
