@@ -1561,3 +1561,15 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .memhead__name { font-size: 1.3rem; line-height: 1.35; color: var(--navy); overflow-wrap: anywhere; }
 :root[data-theme='dark'] .memhead__name { color: var(--gold); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .memhead__name { color: var(--gold); } }
+
+/* ห้องงาน: ส่วนหัวแนวตั้งแคบลง (หมายเหตุ · วาระ · สถานะการเงิน · ตารางงาน) เพื่อให้มีที่แสดงเมนูมากขึ้น */
+.devnote { margin: -0.5rem 0 0; padding: 0.15rem 0.5rem; background: #fff6dd; border: 1px solid #e5c158; border-radius: 8px; color: #4a3a00; font-size: 0.68rem; line-height: 1.3; text-align: center; }
+.workterm { margin: -0.55rem 0 0; padding: 0.25rem 0.55rem; background: var(--surface-2); border-radius: 8px; font-size: 0.76rem; line-height: 1.3; }
+.workterm__r { display: flex; align-items: center; gap: 0.4rem; }
+.workterm__r--2 { margin-top: 0.1rem; gap: 0.5rem; }
+.workterm__bar { flex: 1; height: 4px; background: var(--line, #ddd); border-radius: 2px; overflow: hidden; }
+.main > .acctlinks:has(.healthbtn) { margin-top: -0.45rem; margin-bottom: 0; }
+.main > .acctlinks .healthbtn { padding: 0.25rem 0.7rem; font-size: 0.9rem; border-radius: 0.8rem; }
+.main > .acctlinks .healthbtn__s { font-size: 0.76rem; }
+.main > .caltoggle { margin-top: -0.55rem; margin-bottom: 0; }
+.main > .caltoggle > .btn { min-height: 2.1rem; padding-block: 0.15rem; font-size: 0.92rem; margin-bottom: 0.2rem; }

@@ -23,15 +23,15 @@ export default function WorkTerm({ n, name }: { n: number; name: string }) {
   const [editing, setEditing] = useState(false)
   const label = st.kind === 'before' ? `ยังไม่เริ่ม · อีก ${ymdText(st.left)} จะเริ่มวาระ` : st.kind === 'active' ? `เหลืออีก ${ymdText(st.left)}` : `หมดวาระแล้ว ${ymdText(st.left)}`
   return (
-    <div className="no-print" aria-label={`วาระ${name}`} style={{ margin: '0 0 0.5rem', padding: '0.4rem 0.6rem', background: 'var(--surface-2)', borderRadius: 10, fontSize: '0.82rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+    <div className="no-print workterm" aria-label={`วาระ${name}`}>
+      <div className="workterm__r">
         <span aria-hidden>⏳</span>
         <span style={{ flex: 1 }}>วาระ {t.years} ปี · <b>{thaiShort(t.start)}</b> – <b>{thaiShort(t.end)}</b></span>
         {can(role, 'settings') && <button type="button" className="workteam__edit" aria-label="ตั้งวาระ" title="ตั้งวาระ (แอดมิน)" onClick={() => setEditing(true)}>✏️</button>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+      <div className="workterm__r workterm__r--2">
         <b role="status" style={{ color: st.kind === 'ended' ? '#b3261e' : 'inherit' }}>{label}</b>
-        <span aria-hidden style={{ flex: 1, height: 6, background: 'var(--line, #ddd)', borderRadius: 3, overflow: 'hidden' }}><span style={{ display: 'block', width: `${st.pct}%`, height: '100%', background: st.kind === 'ended' ? '#b3261e' : '#c9a227' }} /></span>
+        <span aria-hidden className="workterm__bar"><span style={{ display: 'block', width: `${st.pct}%`, height: '100%', background: st.kind === 'ended' ? '#b3261e' : '#c9a227' }} /></span>
       </div>
       {editing && <TermEditor name={name} start={t.start} years={t.years} onClose={() => setEditing(false)} onSave={(s, e, y) => terms.save(n, s, e, y)} />}
     </div>
