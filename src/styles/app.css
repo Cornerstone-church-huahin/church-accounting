@@ -1555,3 +1555,9 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 
 /* หนังสือภายใน: คำลงท้ายขยับลงมา 1 บรรทัด (ช่องลายเซ็นเตี้ยลง) */
 .il__sign--s { max-height: 44px; bottom: 0; }
+
+/* รายชื่อผู้ใช้ร่วม (ตั้งค่า): ชื่อใหญ่ สีเด่น มีแถบสีทองหน้าชื่อ เห็นชัดว่าแถวไหนเป็นของใคร */
+.memhead { padding: 0.35rem 0.6rem; border-left: 6px solid var(--gold); background: var(--surface-2); border-radius: 0 10px 10px 0; }
+.memhead__name { font-size: 1.3rem; line-height: 1.35; color: var(--navy); overflow-wrap: anywhere; }
+:root[data-theme='dark'] .memhead__name { color: var(--gold); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .memhead__name { color: var(--gold); } }

@@ -205,7 +205,7 @@ function Members() {
           const lastAdmin = rolesOf(x).includes('admin') && m.adminCount <= 1
           return (
             <li key={x.id} style={{ flexWrap: 'wrap', gap: '0.4rem 0.5rem' }}>
-              <span className="grow" style={{ flexBasis: '100%' }}><b>{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
+              <span className="grow memhead" style={{ flexBasis: '100%' }}><b className="memhead__name">{x.name}</b> {x.id === m.meId && <span className="badge">คุณ</span>} {x.paused && <span className="badge badge--gold">พักสิทธิ์</span>}<br /><span className="small muted">เข้าร่วม {fmtJoined(x.joined)}</span></span>
               {m.isAdmin ? (
                 <>
                   {(() => {
