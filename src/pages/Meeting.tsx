@@ -229,6 +229,7 @@ function MeetingRoom() {
   if (tab && k === 'admin') return <AdminNotes n={tab.n} name={tab.name} />
   if (tab && k === 'health') return <ChurchHealth n={tab.n} name={tab.name} />
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
+  if (tab?.n === 3 && k === 'members') return <><div className="page-head page-head--tight no-print"><h1>👥 รวมสมาชิก</h1><Link to="/meeting/3" className="mini">‹ {tab.name}</Link></div><PastoralMembers work={3} /></>
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />

@@ -1590,3 +1590,7 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 /* คนใหม่ (ลงชื่อครั้งแรก): ตัวเลขลำดับสีส้มแดง + ป้าย NEW */
 .doneNo--new { background: #d6336c; }
 .newTag { display: inline-block; margin-left: 0.35rem; padding: 0.02rem 0.45rem; border-radius: 999px; background: #d6336c; color: #fff; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; vertical-align: 0.1em; }
+/* งานเหรัญญิก: ปุ่มรวมสมาชิก (แถวกว้างใต้ขั้นตอน 1–6 — ไม่แทนที่ขั้นตอนเดิม) */
+.memtile { display: flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; margin: 0.45rem 0 0; padding: 0.3rem 0.8rem; border-radius: 1rem; background: #1f6f5c; color: #fff; font-weight: 800; font-size: 1.05rem; text-decoration: none; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18); }
+.memtile small { font-weight: 500; font-size: 0.75rem; opacity: 0.9; }
+.memtile:active { transform: scale(0.99); }
