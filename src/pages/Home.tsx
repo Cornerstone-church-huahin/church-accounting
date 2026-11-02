@@ -72,6 +72,7 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
               </button>
             ))}
           </div>
+          <Link to="/meeting/3/members" className="memtile no-print" aria-label="รวมสมาชิก"><span aria-hidden="true">👥</span> รวมสมาชิก <small>ทะเบียนสมาชิกทั้งหมด</small></Link>
         </>
       )}
       {full && (
