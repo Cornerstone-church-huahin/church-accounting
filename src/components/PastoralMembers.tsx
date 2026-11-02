@@ -10,6 +10,7 @@ import { ageBands, genderByStatus, genderSplit, groupCounts, headline, inGroup, 
 import { DEFAULT_CRITERIA, evaluate, OFFICIAL_STATUSES, statusLabel, statusShort, toAttendance } from '../lib/registry'
 import type { MapPin } from './LeafletMap'
 import MemberAvatar from './MemberAvatar'
+import QuickReports from './QuickReports'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
@@ -88,7 +89,8 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   const joins = useMemo(() => joinYears(sel).slice(-6), [sel])
   const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
-  if (!canRole(role, 'detail') && !canWork(work, 'view')) return <p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p>
+  const quick = !onOpen && !idFilter ? <QuickReports members={all} attendance={att} /> : null // หน้ารวมสมาชิกของห้องงาน: ทางลัดวันเกิด/รายงานนมัสการ (ดูอย่างเดียว ทุกระดับ)
+  if (!canRole(role, 'detail') && !canWork(work, 'view')) return <>{quick}<p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p></>
   const gName = gs.length === 0 ? 'ทุกสถานะ' : PICK_STATUS_GROUPS.filter((x) => gs.includes(x.key)).concat(gs.filter((k) => !PICK_STATUS_GROUPS.some((x) => x.key === k)).map((k) => ({ key: k as never, label: statusGroupLabel(k) }))).map((x) => x.label).join(' + ')
 
   const TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
@@ -125,6 +127,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   const shortName = (n: string) => n.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*/, '').trim() || n
   return (
     <div className="pastoral">
+      {quick}
       {/* โซน 1: แท็บ 1–4 (แถบเตี้ย ชิดบนสุด) + ตัวเลือกค้นหา 2 ตัว */}
       <section className="pzone1 no-print" aria-label="เลือกแท็บและตัวเลือก">
         <nav className="ptabs" role="tablist" aria-label="แท็บสมาชิก">

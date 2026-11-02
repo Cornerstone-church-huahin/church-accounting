@@ -16,11 +16,18 @@ export function daysUntilBirthday(birth: string, today: string): number {
   return d >= 0 ? d : diffDays(at(ty + 1), today)
 }
 
+/** แถวสมาชิก: แตะเปิดข้อมูลได้ (ปกติ) หรือแสดงเฉยๆ (ดูอย่างเดียว) */
+function Row({ ro, onClick, label, children }: { ro: boolean; onClick: () => void; label: string; children: React.ReactNode }) {
+  return ro
+    ? <div className="mrow mrow--tight" style={{ cursor: 'default' }}>{children}</div>
+    : <button type="button" className="mrow mrow--tight" onClick={onClick} aria-label={label}>{children}</button>
+}
+
 /**
  * ดูวันเกิด: เรียงตาม เดือน → วัน → ปี พ.ศ. (จัดกลุ่มตามเดือน) · ตัวกรองเดือน · ไฮไลต์คนที่ใกล้ถึงวันเกิด
  * อายุคำนวณใหม่ทุกวันจากวันเกิดที่บันทึกไว้ ไม่ต้องรีเฟรช
  */
-export default function BirthdayList({ members, today, onOpen, hideYear, absLabel }: { /** ข้อความสีแดงบรรทัดแรก เช่น “ขาดเกิน 1 ปีครึ่ง” (ว่าง = ไม่แสดง) */ absLabel?: (m: ChurchMember) => string; members: ChurchMember[]; today: string; onOpen: (id: string) => void; /** ผู้ช่วยฝ่ายทะเบียน: เห็นแค่ วัน-เดือน เกิด ไม่เห็นปีเกิด/อายุ */ hideYear?: boolean }) {
+export default function BirthdayList({ members, today, onOpen, hideYear, absLabel, readOnly }: { /** ดูอย่างเดียว: ไม่มีปุ่มแตะเปิดข้อมูล ไม่แสดงสถานะ/อายุ/ข้อความแนะนำการแก้ไข */ readOnly?: boolean; /** ข้อความสีแดงบรรทัดแรก เช่น “ขาดเกิน 1 ปีครึ่ง” (ว่าง = ไม่แสดง) */ absLabel?: (m: ChurchMember) => string; members: ChurchMember[]; today: string; onOpen: (id: string) => void; /** ผู้ช่วยฝ่ายทะเบียน: เห็นแค่ วัน-เดือน เกิด ไม่เห็นปีเกิด/อายุ */ hideYear?: boolean }) {
   const [month, setMonth] = useState(0)
   const [q, setQ] = useState('')
   const withBirth = members.filter((m) => m.birth && /^\d{4}-\d{2}-\d{2}$/.test(m.birth))
@@ -47,7 +54,7 @@ export default function BirthdayList({ members, today, onOpen, hideYear, absLabe
           {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{monthName(i + 1)} ({counts.get(i + 1) ?? 0})</option>)}
         </select>
       </div>
-      <p className="pagehint">เรียงตาม เดือน → วัน → ปีเกิด (พ.ศ.) · แตะชื่อเพื่อดูข้อมูลครบ · เพิ่ม/แก้วันเกิดได้ในข้อมูลรายคน</p>
+      {!readOnly && <p className="pagehint">เรียงตาม เดือน → วัน → ปีเกิด (พ.ศ.) · แตะชื่อเพื่อดูข้อมูลครบ · เพิ่ม/แก้วันเกิดได้ในข้อมูลรายคน</p>}
       {list.length === 0 && <p className="empty">{withBirth.length ? 'ไม่พบรายชื่อตามที่กรอง' : 'ยังไม่มีใครบันทึกวันเกิด — กรอกในข้อมูลรายคน หรือใส่คอลัมน์ “วันเกิด” ในไฟล์นำเข้า'}</p>}
       {months.map((mo) => (
         <section className="card" key={mo} aria-label={`เกิดเดือน${monthName(mo)}`}>
@@ -57,14 +64,14 @@ export default function BirthdayList({ members, today, onOpen, hideYear, absLabe
               const until = daysUntilBirthday(m.birth!, today)
               return (
                 <li key={m.id}>
-                  <button type="button" className="mrow mrow--tight" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
+                  <Row ro={!!readOnly} onClick={() => onOpen(m.id)} label={`ดูข้อมูล ${m.name}`}>
                     <MemberAvatar path={m.photoPath} name={m.name} size={48} member={m} />
                     <span className="mrow__main"><span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}><span style={{ minWidth: 0 }}><b>{m.name}</b>{m.nick ? <span className="muted"> ({m.nick})</span> : null}</span>{absLabel?.(m) && <b className="pcard__abs" style={{ whiteSpace: 'nowrap' }}>{absLabel(m)}</b>}</span>
                       <span style={{ fontWeight: 600 }}>{hideYear ? longDate(m.birth!).replace(/\s\d{4}$/, '') : longDate(m.birth!)}</span>
-                      <br /><span className="small muted">{hideYear ? '' : `อายุ ${ageText(m.birth, today)} · `}{statusLabel(m.status)}</span>
+                      <br /><span className="small muted">{hideYear || readOnly ? '' : `อายุ ${ageText(m.birth, today)} · `}{readOnly ? '' : statusLabel(m.status)}</span>
                     </span>
                     {until === 0 ? <span className="badge badge--gold">🎂 วันนี้</span> : until <= 7 ? <span className="badge">อีก {until} วัน</span> : null}
-                  </button>
+                  </Row>
                 </li>
               )
             })}
