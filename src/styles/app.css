@@ -1631,7 +1631,7 @@ body.split-on .vdock { bottom: var(--split-bar-b, 3.6rem); padding: 0 0.4rem; }
 body.split-on .vdock__bar { height: 44px; width: 100%; gap: 0.3rem; justify-content: flex-end; pointer-events: none; }
 body.split-on .vdock__bar > * { pointer-events: auto; }
 body.split-on .vdock__target--bar { display: inline-flex; align-items: center; gap: 0.25rem; margin-right: auto; max-width: 38%; color: #fff; font-size: 0.78rem; white-space: nowrap; overflow: hidden; background: rgba(0,0,0,.25); border-radius: 999px; padding: 0 0.4rem; }
-body.split-on .vdock__target--bar .mini { padding: 0 0.35rem; min-height: 1.5rem; min-width: 1.5rem; border-radius: 999px; line-height: 1; font-size: 0.7rem; flex: none; }
+body.split-on .vdock__target--bar .mini { color: var(--navy); font-weight: 800; padding: 0 0.35rem; min-height: 1.5rem; min-width: 1.5rem; border-radius: 999px; line-height: 1; font-size: 0.7rem; flex: none; }
 body.split-on .vdock__target--below, body.split-on .vdock__hint { display: none; }
 body.split-on .vdock__lbl { display: none; }
 body.split-on .vdock__log, body.split-on .vdock__bar .mini { min-height: 2.2rem; padding: 0 0.5rem; }

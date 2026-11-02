@@ -43,19 +43,18 @@ export default function VoiceDock({ scope, onStart }: { scope: string; /** เ�
   const [busy, setBusy] = useState(false)
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
-  const [note, setNote] = useState('')
   const [log, setLog] = useState<string[]>([])
   const [showLog, setShowLog] = useState(false)
   const stopRef = useRef<(() => void) | null>(null)
   const baseRef = useRef('')
   const mode = voiceMode()
   // ข้อความแจ้งสถานะหายเองหลัง 5 วินาที (ไม่บังฟอร์ม)
-  useEffect(() => { if (!err && !note) return; const t = window.setTimeout(() => { setErr(''); setNote('') }, 5000); return () => window.clearTimeout(t) }, [err, note])
+  useEffect(() => { if (!err) return; const t = window.setTimeout(() => setErr(''), 5000); return () => window.clearTimeout(t) }, [err])
 
   /** แตะเพื่อเริ่มพูด (ข้อความขึ้นสดระหว่างพูด) · แตะอีกครั้งเพื่อหยุด */
   const toggle = () => {
     if (listening) { stopRef.current?.(); return }
-    setErr(''); setNote('')
+    setErr('')
     baseRef.current = text.trim() ? `${text.trim()} ` : ''
     setListening(true)
     onStart?.()
@@ -70,14 +69,13 @@ export default function VoiceDock({ scope, onStart }: { scope: string; /** เ�
   const send = () => {
     const t = text.trim()
     if (!t) return
-    setErr(''); setNote('')
+    setErr('')
     if (!target || !document.contains(target)) return setErr('แตะช่องที่ต้องการใส่ข้อความก่อน (เช่น ช่องข้อย่อย 7.1) แล้วแตะไมค์พูด และกดส่ง')
     const prev = target.value, label = labelOf(target)
     hist.current.push({ el: target, prev, label })
     setValue(target, prev.trim() ? `${prev}${target instanceof HTMLTextAreaElement ? '\n' : ' '}${t}` : t)
     setSteps(hist.current.size)
     setLog((l) => [`${label}: ${t}`, ...l].slice(0, 20))
-    setNote(`ใส่ลงช่อง “${label}” แล้ว`)
     setText('')
   }
   const undo = () => {
@@ -86,17 +84,16 @@ export default function VoiceDock({ scope, onStart }: { scope: string; /** เ�
     if (!h) return
     if (!document.contains(h.el)) return setErr('ย้อนไม่ได้ — ช่องนั้นถูกลบหรือย้ายไปแล้ว')
     setValue(h.el, h.prev)
-    setErr(''); setNote(`ย้อนกลับช่อง “${h.label}” แล้ว`)
+    setErr('')
   }
 
   return (
     <div className="vdock no-print" role="region" aria-label="พูดสั่งงาน">
-      {(text || err || note || listening || showLog) && (
+      {(text || err || listening || showLog) && (
         <div className="vdock__panel">
           {listening && <p className="vdock__live" role="status">🎙️ กำลังฟัง… พูดได้เลย ข้อความจะขึ้นทันที · แตะไมค์อีกครั้งเมื่อพูดจบ{busy ? ' (กำลังถอดเสียง…)' : ''}</p>}
           {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
-          {note && <p className="small" role="status" style={{ margin: 0 }}>✓ {note}</p>}
-          {(err || note) && !text && <button type="button" className="mini" style={{ alignSelf: 'flex-end' }} onClick={() => { setErr(''); setNote('') }} aria-label="ปิดข้อความ">ปิด</button>}
+          {err && !text && <button type="button" className="mini" style={{ alignSelf: 'flex-end' }} onClick={() => { setErr('') }} aria-label="ปิดข้อความ">ปิด</button>}
           {text && (
             <>
               <label className="small muted" htmlFor="vd-text">ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)</label>
