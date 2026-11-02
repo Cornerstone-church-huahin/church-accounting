@@ -50,7 +50,7 @@ function CalToggle({ n, defaultOpen = false }: { n: number; defaultOpen?: boolea
  * หัวของทุกงาน: ชื่องาน + ปุ่ม ‹ หน้าแรก ตำแหน่งเดียวกันทุกงาน (กลับหน้าแรก = ห้องทำงาน)
  * แอดมิน → กลับหน้าเลือกงานทั้งหมด · ผู้รับผิดชอบงานเดียว (เลขา อนุชน ฯลฯ) → กลับหน้าหลักของงานตัวเอง (เริ่มใหม่ตั้งแต่ต้น)
  */
-function WorkHead({ n, name, back }: { n: number; name: string; /** เปิดขั้นตอนอยู่ในงาน: ปุ่มกลับเป็น หน้าแรกของงาน (ปิดขั้นตอน) แทนหน้าแรกของแอป */ back?: () => void }) {
+function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ปุ่มพิเศษของห้อง (วางใต้กล่องวาระ เหนือทางลัดวันเกิด/รายงาน) */ extra?: React.ReactNode; /** เปิดขั้นตอนอยู่ในงาน: ปุ่มกลับเป็น หน้าแรกของงาน (ปิดขั้นตอน) แทนหน้าแรกของแอป */ back?: () => void }) {
   const role = useRole() // สิทธิ์/งานที่รับผิดชอบเปลี่ยนเมื่อรายชื่อซิงก์ → วาดใหม่
   const to = workHomePath(myWorks())
   return (
@@ -66,6 +66,7 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
         🚧 <b>อยู่ระหว่างการพัฒนา</b> · {APP_CREDIT}
       </p>
       <WorkTerm n={n} name={name} />
+      {extra}
       <QuickReports />
     </>
   )
@@ -230,7 +231,7 @@ function MeetingRoom() {
   if (tab && k === 'health') return <ChurchHealth n={tab.n} name={tab.name} />
   if (tab && (k === 'in' || k === 'out' || k === 'all')) return <AccountView n={tab.n} name={tab.name} kind={k} />
   if (tab?.n === 3 && k === 'members') return <><div className="page-head page-head--tight no-print"><h1>👥 รวมสมาชิก</h1><Link to="/meeting/3" className="mini">‹ {tab.name}</Link></div><PastoralMembers work={3} /></>
-  if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
+  if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} extra={step ? undefined : <Link to="/meeting/3/members" className="memtile no-print" aria-label="รวมสมาชิก"><span aria-hidden="true">👥</span> รวมสมาชิก <small>ทะเบียนสมาชิกทั้งหมด</small></Link>} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4
