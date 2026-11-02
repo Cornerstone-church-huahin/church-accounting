@@ -9,7 +9,7 @@ const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chrom
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
 async function run(role, works, shot) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 1000 }, locale: 'th-TH' })
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 837 }, locale: 'th-TH' })
   await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
   const page = await ctx.newPage()
   await page.addInitScript(([role, works]) => {
@@ -23,8 +23,10 @@ async function run(role, works, shot) {
     const tile = page.getByRole('link', { name: 'รวมสมาชิก' })
     await tile.waitFor({ timeout: 10000 })
     must(await page.locator('.stepbtn').count() === 6, 'six original step tiles intact')
-    const yTile = (await tile.boundingBox()).y, ySteps = (await page.locator('.stepbtn').last().boundingBox()).y
-    must(yTile > ySteps, 'members tile sits below the six steps')
+    const yTile = (await tile.boundingBox()).y, yPills = (await page.getByRole('group', { name: 'ทางลัดดูอย่างเดียว' }).boundingBox()).y
+    must(yTile < yPills, 'members tile sits above the birthday/report shortcuts')
+    const lastB = await page.locator('.stepbtn').last().boundingBox(), navTop = (await page.locator('.bottomnav').boundingBox()).y
+    must(lastB.y + lastB.height <= navTop, `whole page fits above bottom nav without scrolling: ${lastB.y + lastB.height} <= ${navTop}`)
     if (shot) await page.screenshot({ path: shot })
     await tile.click()
     await page.getByRole('heading', { name: /รวมสมาชิก/ }).waitFor({ timeout: 8000 })
