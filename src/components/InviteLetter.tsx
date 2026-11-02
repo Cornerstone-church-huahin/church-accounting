@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import VoiceDock from './VoiceDock'
+import SplitLayout from './SplitLayout'
 import { Link, useNavigate } from 'react-router-dom'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
@@ -112,7 +113,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: internal ? '10px 0 6px' : '18px 0 8px', minHeight: internal ? 0 : 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
-          {agendaOf(l).length > 0 && <div className="letter__agenda">{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}>{x.r ? `${x.label} ${x.t}` : <b>{x.label} {x.t}</b>}</div>)}</div>}
+          {agendaOf(l).length > 0 && <div className="letter__agenda" data-split-focus>{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}>{x.r ? `${x.label} ${x.t}` : <b>{x.label} {x.t}</b>}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
         </div>
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
@@ -185,6 +186,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const cfg: Cfg = { ...DEF, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => toDraft(kind, saved))
   const [editNo, setEditNo] = useState(false)
+  const [split, setSplit] = useState(false) // โหมดจัดวาระแบบแบ่งจอ: บน = ฟอร์ม · ล่าง = ตัวอย่างเอกสาร
   const [signSetup, setSignSetup] = useState(false)
   const [copied, setCopied] = useState(false)
   const [menu, setMenu] = useState<'share' | 'download' | null>(null)
@@ -388,13 +390,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     </div>
   )
 
-  return (
-    <>
-      {kind === 'notice' && <VoiceDock scope="[data-voice-scope]" />}
-      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/4/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
-      {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
-      <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
-      <section className="card no-print" aria-label={`กรอก${NAME}`} data-voice-scope>
+  const formCard = (
+    <section className="card no-print" aria-label={`กรอก${NAME}`} data-voice-scope>
         <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
 
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
@@ -422,7 +419,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         </div>
         <div className="field"><label htmlFor="il-body"><No n="7" ok={okOf['7']} />ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
-        {K.agenda && <AgendaEditor items={agendaItems(l)} onChange={(a) => set({ agenda: a })} template={kind === 'notice' ? noticeAgenda(l.date || todayISO()) : undefined} />}
+        {K.agenda && <AgendaEditor items={agendaItems(l)} onAdd={() => setSplit(true)} onChange={(a) => set({ agenda: a })} template={kind === 'notice' ? noticeAgenda(l.date || todayISO()) : undefined} />}
 
         {K.verse && (
           <div className="field"><label htmlFor="il-verse"><No n="8" ok={filled(l.verse)} />ข้อพระคัมภีร์ <span className="muted small">(ไม่บังคับ · ขึ้นชิดล่างของหน้า เหนือคำลงท้าย · ขึ้นบรรทัดใหม่ได้)</span></label>
@@ -432,12 +429,25 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
       </section>
+  )
+  const paperBlock = (
+      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} internal={!!K.secretarySigns} /></div>
+  )
+  return (
+    <>
+      {kind === 'notice' && <VoiceDock scope="[data-voice-scope]" onStart={() => { if (K.agenda) setSplit(true) }} />}
+      <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/4/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
+      {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
+      <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
+      <SplitLayout active={split} top={formCard} onDone={() => setSplit(false)} scrollKey={JSON.stringify(l.agenda ?? [])} bottom={<>
 
       <div className="row no-print" style={{ margin: '0.5rem 0 0' }}>
         <button type="button" className="mini" onClick={copy} aria-label="คัดลอกข้อความทั้งหมด">{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ'}</button>
       </div>
       <div className="no-print" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
-      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} internal={!!K.secretarySigns} /></div>
+      {paperBlock}
+      </>} />
+      {!split && (
       <section className="card no-print" aria-label="ไฟล์หนังสือ">
         <button type="button" className="btn btn--ghost il-bar" disabled={missing.length > 0 && !l.notified} onClick={notify}>📨 <No n={shift('10')} ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
         {missing.length > 0 && !l.notified && <p className="small" role="note" style={{ margin: 0 }}>⏳ ทำข้อ {missing.map(shift).join(', ')} ให้เสร็จ (วงกลมเขียวครบ) ก่อน จึงแจ้งประธานตรวจสอบได้</p>}
@@ -477,6 +487,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         )}
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
+      )}
       {done && (
         <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>
           <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
@@ -588,16 +599,17 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
   )
 }
 
+/** ช่องวาระที่ต้องย้ายเคอร์เซอร์ไปหลังเพิ่มข้อ (เก็บนอกคอมโพเนนต์ เพื่อให้ไม่หายถ้าหน้าถูกวาดใหม่) */
+let agendaFocus: number | null = null
 /** วาระการประชุม: กรอกเป็นข้อๆ · ลากที่แถบ ⠿ (กฎเลื่อน) เพื่อเรียงลำดับ เลขข้อเรียงใหม่อัตโนมัติ · เพิ่มวาระใหม่ต่อท้ายแล้วลากขึ้นไปแทรกได้ */
-function AgendaEditor({ items, onChange, template }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void; template?: AgendaItem[] }) {
+function AgendaEditor({ items, onChange, onAdd, template }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void; /** เมื่อกดเพิ่มวาระ/ข้อย่อย (เปิดโหมดแบ่งจอ) */ onAdd?: () => void; template?: AgendaItem[] }) {
   const rows = useRef<(HTMLDivElement | null)[]>([])
   const inputs = useRef<(HTMLInputElement | null)[]>([])
   const [drag, setDrag] = useState<number | null>(null)
-  const [focusAt, setFocusAt] = useState<number | null>(null)
   const labels = agendaLabels(items)
-  useEffect(() => { if (focusAt !== null) { inputs.current[focusAt]?.focus(); setFocusAt(null) } }, [focusAt, items])
+  useEffect(() => { if (agendaFocus !== null) { inputs.current[agendaFocus]?.focus(); agendaFocus = null } }) // อยู่ข้ามการวาดใหม่ (เช่น เปิดโหมดแบ่งจอ)
   /** กด ＋ ที่วาระ (หรือที่ข้อย่อย) = เพิ่มข้อย่อยถัดไปใต้วาระนั้นทันที (7.1 → 7.2 …) แล้วเลื่อนเคอร์เซอร์ไปที่ช่องนั้น */
-  const addSub = (i: number) => { let j = i; while (items[j + 1]?.k === 'r') j++; const next = [...items]; next.splice(j + 1, 0, { t: '', k: 'r' }); onChange(next); setFocusAt(j + 1) }
+  const addSub = (i: number) => { let j = i; while (items[j + 1]?.k === 'r') j++; const next = [...items]; next.splice(j + 1, 0, { t: '', k: 'r' }); onChange(next); agendaFocus = j + 1; onAdd?.() }
   const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? { ...x, t: v } : x)))
   const swap = (i: number, d: number) => { const a = items.map((x, k) => (k === i ? { ...x, u: undefined } : x)); const j = i + d;[a[i], a[j]] = [a[j], a[i]]; onChange(a) }
   const start = (e: React.PointerEvent<HTMLButtonElement>, from: number) => {
@@ -630,7 +642,7 @@ function AgendaEditor({ items, onChange, template }: { items: AgendaItem[]; onCh
         </div>
       ))}
       <div className="row" style={{ gap: 6 }}>
-        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', u: true }])}>➕ เพิ่มวาระ</button>
+        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => { onChange([...items, { t: '', u: true }]); onAdd?.() }}>➕ เพิ่มวาระ</button>
       </div>
       {template && <button type="button" className="mini" onClick={() => { if (items.length === 0 || confirm('แทนที่วาระทั้งหมดด้วยวาระมาตรฐานตามหนังสือต้นแบบ?')) onChange(template) }}>↺ ใช้วาระมาตรฐานตามต้นแบบ</button>}
       {items.some((x) => x.u) && <span className="small" role="note">👆 ข้อที่ยังไม่มีเลข: กดค้างที่แถบ ⠿ แล้วลากไปวางตำแหน่งที่ต้องการ จึงจะได้เลขวาระที่/ลำดับตามที่วาง</span>}

@@ -1610,3 +1610,15 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 @keyframes vdpulse { 0% { box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.5); } 100% { box-shadow: 0 0 0 16px rgba(179, 38, 30, 0); } }
 .agenda-row__add { min-width: 2.2rem; min-height: 2.6rem; font-size: 1.3rem; font-weight: 800; }
 .vdock__target { display: flex; align-items: center; gap: 0.4rem; }
+
+/* โหมดแบ่งจอ (จัดวาระ): บน = ฟอร์ม · ล่าง = ตัวอย่างเอกสาร · ลากแถบกลางปรับสัดส่วน */
+.sp-plain { display: contents; }
+.split { position: fixed; left: 0; right: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg, #faf8f3); }
+.split__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.split__top { flex: 0 0 50%; min-height: 0; overflow-y: auto; padding: 0.5rem var(--gutter); }
+.split__bottom { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0.5rem var(--gutter); background: #ece8dd; border-top: 2px solid var(--navy); }
+.split__bar { flex: 0 0 22px; display: grid; place-items: center; background: var(--navy); cursor: row-resize; touch-action: none; }
+.split__bar i { width: 3rem; height: 5px; border-radius: 3px; background: #fff; opacity: 0.85; }
+.split__done { flex: 0 0 auto; padding: 0.4rem var(--gutter); background: var(--surface); border-top: 1px solid var(--line); display: flex; justify-content: center; }
+.split__done .btn { width: 100%; min-height: 2.8rem; font-size: 1.05rem; }
+body.split-on .vdock { bottom: calc(3.6rem + 3.8rem + env(safe-area-inset-bottom, 0px)); }
