@@ -27,9 +27,18 @@ export default function VoiceDock({ scope, onStart }: { scope: string; /** เ�
   const [steps, setSteps] = useState(0)
   useEffect(() => {
     const on = (e: FocusEvent) => { if (isFillable(e.target) && document.querySelector(scope)?.contains(e.target)) setTarget(e.target) }
+    // เลือกช่องเป็นเป้าหมายโดยไม่โฟกัส (เช่น หลังกด ＋ ในรายการวาระ) — ไม่เรียกแป้นพิมพ์ขึ้นมา
+    const pick = (e: Event) => { const el = (e as CustomEvent<Element>).detail; if (isFillable(el) && document.querySelector(scope)?.contains(el)) setTarget(el) }
     document.addEventListener('focusin', on)
-    return () => document.removeEventListener('focusin', on)
+    window.addEventListener('voice-target', pick)
+    return () => { document.removeEventListener('focusin', on); window.removeEventListener('voice-target', pick) }
   }, [scope])
+  // ไฮไลต์ช่องที่เสียงจะใส่ให้
+  useEffect(() => {
+    if (!target) return
+    target.setAttribute('data-voice-target', '1')
+    return () => target.removeAttribute('data-voice-target')
+  }, [target])
   const [listening, setListening] = useState(false)
   const [busy, setBusy] = useState(false)
   const [text, setText] = useState('')
@@ -107,14 +116,15 @@ export default function VoiceDock({ scope, onStart }: { scope: string; /** เ�
         </div>
       )}
       <div className="vdock__bar">
-        <button type="button" className="mini" onClick={() => setShowLog((v) => !v)} aria-pressed={showLog}>🕘 ประวัติ</button>
-        <button type="button" className="mini" disabled={steps === 0} onClick={undo} aria-label="ย้อนกลับ">↩ ย้อนกลับ ({steps})</button>
+        {target && document.contains(target) && <span className="vdock__target--bar" role="status">✍️ <b>{labelOf(target)}</b> <button type="button" className="mini" onClick={() => setTarget(null)} aria-label="ยกเลิกการเลือก">✕</button></span>}
+        <button type="button" className="mini vdock__log" onClick={() => setShowLog((v) => !v)} aria-pressed={showLog} aria-label="ประวัติ">🕘<span className="vdock__lbl"> ประวัติ</span></button>
+        <button type="button" className="mini" disabled={steps === 0} onClick={undo} aria-label="ย้อนกลับ">↩<span className="vdock__lbl"> ย้อนกลับ</span> ({steps})</button>
         <button type="button" className={`vdock__mic${listening ? ' vdock__mic--on' : ''}`} aria-label={listening ? 'แตะเพื่อหยุดพูด' : 'แตะเพื่อพูด'} aria-pressed={listening} aria-describedby="vd-hint"
           disabled={mode === 'none'} onClick={toggle}>
           {listening ? '⏹' : '🎤'}
         </button>
       </div>
-      {target && document.contains(target) && <p className="vdock__hint vdock__target" role="status">✍️ จะใส่ลงช่อง: <b>{labelOf(target)}</b> <button type="button" className="mini" onClick={() => setTarget(null)}>ยกเลิกการเลือก</button></p>}
+      {target && document.contains(target) && <p className="vdock__hint vdock__target vdock__target--below" role="status">✍️ จะใส่ลงช่อง: <b>{labelOf(target)}</b> <button type="button" className="mini" onClick={() => setTarget(null)}>ยกเลิกการเลือก</button></p>}
       <p id="vd-hint" className="vdock__hint">{mode === 'none' ? 'เครื่องนี้ใช้พูดสั่งไม่ได้' : 'แตะไมค์เพื่อพูด · ข้อความขึ้นทันที · แตะอีกครั้งเพื่อหยุด'}</p>
     </div>
   )

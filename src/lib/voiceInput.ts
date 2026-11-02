@@ -19,6 +19,26 @@ export interface ListenHandlers {
   onBusy?: (busy: boolean) => void
 }
 
+/**
+ * รวมผลจากระบบพูดให้พิมพ์เป็นข้อความเดียว โดยตัดข้อความที่ซ้ำ: บางเครื่อง (Android/Chrome โหมดต่อเนื่อง) ส่งประโยคเดิมซ้ำเป็นผลสุดท้าย + ผลชั่วคราว
+ * ทำให้พูดครั้งเดียวขึ้นสองรอบ เช่น “การทำอาหาร การทำอาหาร”
+ */
+export function mergeSpeech(parts: string[]): string {
+  const out: string[] = []
+  for (const raw of parts) {
+    const t = raw.trim()
+    if (!t) continue
+    const prev = out[out.length - 1]
+    if (prev === t || (prev && prev.startsWith(t))) continue   // ซ้ำเดิม / เป็นช่วงต้นของที่มีแล้ว
+    if (prev && t.startsWith(prev)) { out[out.length - 1] = t; continue }   // ผลชั่วคราวที่ยาวขึ้น → แทนที่
+    out.push(t)
+  }
+  let text = out.join(' ')
+  // ทั้งก้อนเป็นประโยคเดียวกันซ้ำสองครั้งติดกัน (มีหรือไม่มีเว้นวรรค) → เหลือครั้งเดียว
+  for (let k = 0; k < 3; k++) { const m = /^(.{2,}?)\s*\1$/s.exec(text); if (!m) break; text = m[1].trim() }
+  return text
+}
+
 /** ความยาวช่วงอัดเสียงของโหมด record (มิลลิวินาที) */
 const segMs = () => (window as unknown as { __voiceSegMs?: number }).__voiceSegMs ?? 5000
 
@@ -32,8 +52,8 @@ export function startListening(h: ListenHandlers, mode: VoiceMode = voiceMode())
     let err: string | undefined
     let got = false
     r.onresult = (e) => {
-      const all = Array.from(e.results as ArrayLike<{ 0: { transcript: string } }>, (x) => x[0].transcript.trim()).filter(Boolean)
-      if (all.length) { got = true; h.onText(all.join(' ')) }
+      const text = mergeSpeech(Array.from(e.results as ArrayLike<{ 0: { transcript: string } }>, (x) => x[0].transcript))
+      if (text) { got = true; h.onText(text) }
     }
     r.onerror = (e) => { err = e.error === 'not-allowed' ? 'ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน — เปิดสิทธิ์ไมค์ในการตั้งค่าเบราว์เซอร์' : e.error === 'no-speech' || e.error === 'aborted' ? undefined : `พูดให้พิมพ์ไม่สำเร็จ (${e.error})` }
     r.onend = () => { if (err) h.onError(err); else if (!got) h.onError('ไม่ได้ยินเสียงพูด — แตะไมค์แล้วพูดอีกครั้ง'); h.onDone() }
@@ -51,7 +71,7 @@ export function startListening(h: ListenHandlers, mode: VoiceMode = voiceMode())
   const transcribe = (blob: Blob) => {
     pending++; h.onBusy?.(true)
     chain = chain.then(() => transcribeAudio(blob)).then(
-      (t) => { acc = acc ? `${acc} ${t}` : t; h.onText(acc) },
+      (t) => { acc = mergeSpeech([acc, t]); h.onText(acc) },
       (e) => { const m = e instanceof Error ? e.message : 'ถอดเสียงไม่สำเร็จ'; if (!/ไม่ได้ยินเสียงพูด/.test(m)) h.onError(m) },
     ).finally(() => { pending--; if (pending === 0) h.onBusy?.(false); finishIfIdle() })
   }
