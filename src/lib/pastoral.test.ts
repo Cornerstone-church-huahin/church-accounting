@@ -142,6 +142,7 @@ describe('ตารางเยี่ยม: รายชื่อที่ข�
     ]
     const w = (d: number) => attendanceInWindow(att, T, d)
     expect(REG_PERIODS.map((p) => p.k)).toEqual(['3y', '2y', '1y', '6m', '3m', '2m', '1m'])
+    expect(REG_PERIODS.map((p) => p.label)).toEqual(['ช่วง 3 ปี', 'ช่วง 2 ปี', 'ช่วง 1 ปี', 'ช่วง 6 เดือน', 'ช่วง 3 เดือน', 'ช่วง 2 เดือน', 'ช่วง 1 เดือน'])
     expect(REG_PERIODS.map((p) => p.days)).toEqual([1095, 730, 365, 183, 91, 61, 30])
     expect(w(91).services).toBe(3); expect(w(91).times.get('a')).toBe(3); expect(w(91).times.get('b')).toBe(2)
     expect(w(365).services).toBe(4); expect(w(365).times.get('a')).toBe(4)

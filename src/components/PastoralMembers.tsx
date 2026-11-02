@@ -73,7 +73,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   const [tab, setTab] = useState(1)
   const [order, setOrder] = useState<Ord>('old')
   const [grpSel, setGrpSel] = useState<string[]>([]) // แท็บกลุ่ม: กลุ่มที่เลือกดูรายบุคคล (ว่าง = ดูภาพรวมทุกกลุ่ม)
-  const [period, setPeriod] = useState<RegPeriod>('1y') // ช่วงเวลาที่ใช้วัดความสม่ำเสมอ
+  const [period, setPeriod] = useState<RegPeriod>('3y') // ช่วงเวลาที่ใช้วัดความสม่ำเสมอ (ค่าเริ่มต้น 3 ปี)
   const changeTab = (n: number) => { setTab(n); setOrder(n === 2 ? 'pct' : 'old') }
   const a0 = useAttendance(new Date().getFullYear()), a1 = useAttendance(new Date().getFullYear() - 1, false), a2 = useAttendance(new Date().getFullYear() - 2, false), a3 = useAttendance(new Date().getFullYear() - 3, false)
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,7 +97,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   const orderName = ORDERS[tab]?.find((o) => o.k === order)?.t ?? ''
   // โซน 3: การ์ดสมาชิก 1 คน 1 การ์ด (ดูอย่างเดียว) · เริ่มต้นเรียงคนที่มานมัสการบ่อยที่สุดก่อน แล้วตามสถานะ 1,2,3…
   const tenureMap = useMemo(() => new Map(all.map((m) => [m.id, tenureDays(m.since, ev.map.get(m.id)?.firstAtt, today)])), [all, ev, today])
-  const per = REG_PERIODS.find((x) => x.k === period) ?? REG_PERIODS[2]
+  const per = REG_PERIODS.find((x) => x.k === period) ?? REG_PERIODS[0]
   const winP = useMemo(() => attendanceInWindow(att, today, per.days), [att, today, per.days])
   const winY = useMemo(() => attendanceInWindow(att, today, 365), [att, today])
   const byGroup = tab === 4 // แท็บกลุ่ม: วัดความสม่ำเสมอ 1 ปีล่าสุดเสมอ
@@ -145,8 +145,8 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
             <select id="pf-order" className="input" value={order} onChange={(e) => setOrder(e.target.value as Ord)}>{ORDERS[tab].map((o) => <option key={o.k} value={o.k}>{o.t}</option>)}</select></div>}
           {tab === 4 && <div className="field"><label htmlFor="pf-group">กลุ่ม</label>
             <MultiPick id="pf-group" title="กลุ่ม" options={groups.map(([k, n]) => ({ value: k, label: `${k} (${n})` }))} value={grpSel} onChange={setGrpSel} empty="ทุกกลุ่ม" /></div>}
-          {tab === 2 && <div className="field"><label htmlFor="pf-period">สม่ำเสมอภายใน</label>
-            <select id="pf-period" className="input" value={period} onChange={(e) => setPeriod(e.target.value as RegPeriod)}>{REG_PERIODS.map((x) => <option key={x.k} value={x.k}>{x.t.replace('สม่ำเสมอภายใน', '')}</option>)}</select></div>}
+          {tab === 2 && <div className="field"><label htmlFor="pf-period">ความสม่ำเสมอ</label>
+            <select id="pf-period" className="input" value={period} onChange={(e) => setPeriod(e.target.value as RegPeriod)}>{REG_PERIODS.map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}</select></div>}
         </div>
       </section>
 
