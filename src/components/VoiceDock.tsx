@@ -1,58 +1,99 @@
-import { useRef, useState } from 'react'
-import { holdTalk, voiceMode, type VoiceState } from '../lib/voiceInput'
+import { useEffect, useRef, useState } from 'react'
+import { createHistory } from '../lib/editHistory'
+import { startListening, voiceMode } from '../lib/voiceInput'
+
+type Field = HTMLInputElement | HTMLTextAreaElement
+const isFillable = (el: EventTarget | null): el is Field =>
+  (el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && ['text', 'search', ''].includes(el.type))) && !el.readOnly && !el.disabled
+/** ใส่ค่าแล้วให้ React รับรู้เหมือนพิมพ์เอง (ช่องของฟอร์มเป็น controlled) */
+function setValue(el: Field, v: string) {
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, v)
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+}
+const labelOf = (el: Field) => {
+  const t = el.getAttribute('aria-label') || (el.id ? document.querySelector(`label[for="${el.id}"]`)?.textContent : '') || el.placeholder || 'ช่องนี้'
+  return t.replace(/\s*[(·].*$/, '').trim().slice(0, 30)
+}
 
 /**
- * แถบพูดสั่งงานติดล่างหน้า (ระยะ 1: พูด → เห็นข้อความ → ส่ง/พูดใหม่ · ยังไม่ส่งให้ AI)
- * กดปุ่มไมค์ค้างเพื่อพูด ปล่อยเพื่อหยุด · ตรวจ/แก้ข้อความได้ก่อนกดส่ง เพราะเสียงภาษาไทยอาจฟังผิด
- * onSend คืนข้อความสั้นๆ ที่บอกผู้ใช้ว่าเกิดอะไรขึ้น · undo = ปุ่มย้อนกลับ (จำนวนขั้นที่ย้อนได้ + ฟังก์ชันย้อน)
+ * แถบพูดสั่งงานติดล่างหน้า: แตะไมค์เพื่อพูด → ข้อความขึ้นทันทีระหว่างพูด (แก้ได้) → ส่ง/พูดใหม่
+ * ส่ง = ใส่ข้อความลง “ช่องที่แตะเลือกไว้” ในฟอร์ม (เฉพาะช่องกรอกข้อความใน scope · ไม่แตะเลขที่/วันที่/หัวท้าย/ลายเซ็น) · ย้อนกลับได้
+ * ยังไม่ส่งให้ AI (ระยะ 2)
  */
-export default function VoiceDock({ onSend, undo }: { onSend: (text: string) => string | void; undo?: { steps: number; run: () => void } }) {
-  const [state, setState] = useState<VoiceState | 'idle'>('idle')
+export default function VoiceDock({ scope }: { scope: string }) {
+  const [target, setTarget] = useState<Field | null>(null)
+  const hist = useRef(createHistory<{ el: Field; prev: string; label: string }>(50))
+  const [steps, setSteps] = useState(0)
+  useEffect(() => {
+    const on = (e: FocusEvent) => { if (isFillable(e.target) && document.querySelector(scope)?.contains(e.target)) setTarget(e.target) }
+    document.addEventListener('focusin', on)
+    return () => document.removeEventListener('focusin', on)
+  }, [scope])
+  const [listening, setListening] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
   const [log, setLog] = useState<string[]>([])
   const [showLog, setShowLog] = useState(false)
   const stopRef = useRef<(() => void) | null>(null)
+  const baseRef = useRef('')
   const mode = voiceMode()
+  // ข้อความแจ้งสถานะหายเองหลัง 5 วินาที (ไม่บังฟอร์ม)
+  useEffect(() => { if (!err && !note) return; const t = window.setTimeout(() => { setErr(''); setNote('') }, 5000); return () => window.clearTimeout(t) }, [err, note])
 
-  const down = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (stopRef.current || state === 'transcribing') return
-    e.currentTarget.setPointerCapture?.(e.pointerId)
+  /** แตะเพื่อเริ่มพูด (ข้อความขึ้นสดระหว่างพูด) · แตะอีกครั้งเพื่อหยุด */
+  const toggle = () => {
+    if (listening) { stopRef.current?.(); return }
     setErr(''); setNote('')
-    stopRef.current = holdTalk({
-      onState: setState,
-      onText: (t) => { setState('idle'); stopRef.current = null; setText((old) => (old ? `${old} ${t}` : t)) },
-      onError: (m) => { setState('idle'); stopRef.current = null; setErr(m) },
+    baseRef.current = text.trim() ? `${text.trim()} ` : ''
+    setListening(true)
+    stopRef.current = startListening({
+      onText: (t) => setText(baseRef.current + t),
+      onBusy: setBusy,
+      onError: (m) => setErr(m),
+      onDone: () => { setListening(false); stopRef.current = null },
     })
   }
-  const up = () => { const s = stopRef.current; if (s && state === 'listening') s() }
 
   const send = () => {
     const t = text.trim()
     if (!t) return
-    const msg = onSend(t)
-    setLog((l) => [t, ...l].slice(0, 20))
-    setNote(typeof msg === 'string' ? msg : 'ส่งแล้ว')
+    setErr(''); setNote('')
+    if (!target || !document.contains(target)) return setErr('แตะช่องที่ต้องการใส่ข้อความก่อน (เช่น ช่องข้อย่อย 7.1) แล้วแตะไมค์พูด และกดส่ง')
+    const prev = target.value, label = labelOf(target)
+    hist.current.push({ el: target, prev, label })
+    setValue(target, prev.trim() ? `${prev}${target instanceof HTMLTextAreaElement ? '\n' : ' '}${t}` : t)
+    setSteps(hist.current.size)
+    setLog((l) => [`${label}: ${t}`, ...l].slice(0, 20))
+    setNote(`ใส่ลงช่อง “${label}” แล้ว`)
     setText('')
   }
+  const undo = () => {
+    const h = hist.current.undo()
+    setSteps(hist.current.size)
+    if (!h) return
+    if (!document.contains(h.el)) return setErr('ย้อนไม่ได้ — ช่องนั้นถูกลบหรือย้ายไปแล้ว')
+    setValue(h.el, h.prev)
+    setErr(''); setNote(`ย้อนกลับช่อง “${h.label}” แล้ว`)
+  }
 
-  const busy = state !== 'idle'
   return (
     <div className="vdock no-print" role="region" aria-label="พูดสั่งงาน">
-      {(text || err || note || busy || showLog) && (
+      {(text || err || note || listening || showLog) && (
         <div className="vdock__panel">
-          {state === 'listening' && <p className="vdock__live" role="status">🎙️ กำลังฟัง… ปล่อยนิ้วเมื่อพูดจบ</p>}
-          {state === 'transcribing' && <p className="vdock__live" role="status">⏳ กำลังแปลงเสียงเป็นข้อความ…</p>}
+          {listening && <p className="vdock__live" role="status">🎙️ กำลังฟัง… พูดได้เลย ข้อความจะขึ้นทันที · แตะไมค์อีกครั้งเมื่อพูดจบ{busy ? ' (กำลังถอดเสียง…)' : ''}</p>}
           {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
           {note && <p className="small" role="status" style={{ margin: 0 }}>✓ {note}</p>}
+          {(err || note) && !text && <button type="button" className="mini" style={{ alignSelf: 'flex-end' }} onClick={() => { setErr(''); setNote('') }} aria-label="ปิดข้อความ">ปิด</button>}
           {text && (
             <>
               <label className="small muted" htmlFor="vd-text">ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)</label>
-              <textarea id="vd-text" className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+              <textarea id="vd-text" className="input" rows={3} value={text} readOnly={listening} onChange={(e) => setText(e.target.value)} />
               <div className="vdock__btns">
-                <button type="button" className="btn btn--gold" onClick={send}>ส่ง</button>
-                <button type="button" className="btn btn--ghost" onClick={() => { setText(''); setErr('') }}>พูดใหม่</button>
+                <button type="button" className="btn btn--gold" onClick={send} disabled={listening}>ส่ง</button>
+                <button type="button" className="btn btn--ghost" onClick={() => { stopRef.current?.(); setText(''); setErr('') }}>พูดใหม่</button>
               </div>
             </>
           )}
@@ -66,13 +107,14 @@ export default function VoiceDock({ onSend, undo }: { onSend: (text: string) => 
       )}
       <div className="vdock__bar">
         <button type="button" className="mini" onClick={() => setShowLog((v) => !v)} aria-pressed={showLog}>🕘 ประวัติ</button>
-        <button type="button" className="mini" disabled={!undo || undo.steps === 0} onClick={undo?.run} aria-label="ย้อนกลับ">↩ ย้อนกลับ{undo ? ` (${undo.steps})` : ''}</button>
-        <button type="button" className={`vdock__mic${busy ? ' vdock__mic--on' : ''}`} aria-label="กดค้างเพื่อพูด" aria-describedby="vd-hint"
-          disabled={mode === 'none'} onPointerDown={down} onPointerUp={up} onPointerCancel={up} onContextMenu={(e) => e.preventDefault()}>
-          🎤
+        <button type="button" className="mini" disabled={steps === 0} onClick={undo} aria-label="ย้อนกลับ">↩ ย้อนกลับ ({steps})</button>
+        <button type="button" className={`vdock__mic${listening ? ' vdock__mic--on' : ''}`} aria-label={listening ? 'แตะเพื่อหยุดพูด' : 'แตะเพื่อพูด'} aria-pressed={listening} aria-describedby="vd-hint"
+          disabled={mode === 'none'} onClick={toggle}>
+          {listening ? '⏹' : '🎤'}
         </button>
       </div>
-      <p id="vd-hint" className="vdock__hint">{mode === 'none' ? 'เครื่องนี้ใช้พูดสั่งไม่ได้' : 'กดค้างเพื่อพูด · ปล่อยเพื่อหยุด'}</p>
+      {target && document.contains(target) && <p className="vdock__hint vdock__target" role="status">✍️ จะใส่ลงช่อง: <b>{labelOf(target)}</b> <button type="button" className="mini" onClick={() => setTarget(null)}>ยกเลิกการเลือก</button></p>}
+      <p id="vd-hint" className="vdock__hint">{mode === 'none' ? 'เครื่องนี้ใช้พูดสั่งไม่ได้' : 'แตะไมค์เพื่อพูด · ข้อความขึ้นทันที · แตะอีกครั้งเพื่อหยุด'}</p>
     </div>
   )
 }

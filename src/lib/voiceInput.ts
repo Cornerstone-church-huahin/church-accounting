@@ -1,59 +1,86 @@
-import { canDictate, canRecord, pickAudioType, startDictation } from './audioNote'
+import { canDictate, canRecord, pickAudioType, speechCtor } from './audioNote'
 import { transcribeAudio } from './gemini'
 
 /**
- * กดค้างเพื่อพูด ปล่อยเพื่อหยุด → ได้ข้อความภาษาไทย
- * · native = ระบบพูดให้พิมพ์ของเบราว์เซอร์ (Android/Chrome ฟรี ไม่ใช้โควตา)
- * · record = อัดเสียงแล้วให้ Gemini ถอดเสียง (iPhone/Safari ที่ไม่มีระบบพูดให้พิมพ์) — ใช้รหัส Gemini เดียวกับตัวอ่านใบถวาย
+ * พูดแล้วเห็นข้อความทันที: แตะปุ่มไมค์ครั้งเดียวเพื่อเริ่ม · ข้อความขึ้นระหว่างพูด · แตะอีกครั้งเพื่อหยุด
+ * · native = ระบบพูดให้พิมพ์ของเบราว์เซอร์ (Android/Chrome) ข้อความขึ้นสดทีละคำ ฟรี ไม่ใช้โควตา
+ * · record = เครื่องที่ไม่มีระบบนั้น (iPhone/Safari): อัดเสียงเป็นช่วงสั้นๆ แล้วให้ Gemini ถอดเสียงทีละช่วง ข้อความขึ้นช้ากว่าเสียงเล็กน้อย
  */
 export type VoiceMode = 'native' | 'record' | 'none'
 export const voiceMode = (): VoiceMode => (canDictate() ? 'native' : canRecord() ? 'record' : 'none')
 
-export type VoiceState = 'listening' | 'transcribing'
-export interface HoldTalkHandlers { onState: (s: VoiceState) => void; onText: (t: string) => void; onError: (m: string) => void }
+export interface ListenHandlers {
+  /** ข้อความรวมของรอบพูดนี้ (อัปเดตสดระหว่างพูด) */
+  onText: (full: string) => void
+  /** จบรอบพูดแล้ว (หยุดเอง/แตะหยุด) */
+  onDone: () => void
+  onError: (m: string) => void
+  /** กำลังถอดเสียงช่วงที่เพิ่งพูด (เฉพาะโหมดอัดเสียง) */
+  onBusy?: (busy: boolean) => void
+}
 
-/** เริ่มฟัง (เรียกตอนกดลง) · คืน stop() เรียกตอนปล่อย */
-export function holdTalk(h: HoldTalkHandlers, mode: VoiceMode = voiceMode()): () => void {
-  if (mode === 'none') { h.onError('เบราว์เซอร์นี้ยังใช้พูดสั่งไม่ได้ — พิมพ์เองได้ตามปกติ'); return () => undefined }
+/** ความยาวช่วงอัดเสียงของโหมด record (มิลลิวินาที) */
+const segMs = () => (window as unknown as { __voiceSegMs?: number }).__voiceSegMs ?? 5000
+
+/** เริ่มฟัง · คืนฟังก์ชันหยุด */
+export function startListening(h: ListenHandlers, mode: VoiceMode = voiceMode()): () => void {
+  if (mode === 'none') { h.onError('เบราว์เซอร์นี้ยังใช้พูดสั่งไม่ได้ — พิมพ์เองได้ตามปกติ'); h.onDone(); return () => undefined }
   if (mode === 'native') {
-    const parts: string[] = []
-    h.onState('listening')
-    const stop = startDictation((t) => { if (t) parts.push(t) }, (err) => {
-      const text = parts.join(' ').trim()
-      if (text) h.onText(text)
-      else h.onError(err ?? 'ไม่ได้ยินเสียงพูด — กดค้างแล้วพูดใหม่อีกครั้ง')
-    })
-    return () => { h.onState('transcribing'); stop() }
+    const C = speechCtor()!
+    const r = new C()
+    r.lang = 'th-TH'; r.continuous = true; r.interimResults = true
+    let err: string | undefined
+    let got = false
+    r.onresult = (e) => {
+      const all = Array.from(e.results as ArrayLike<{ 0: { transcript: string } }>, (x) => x[0].transcript.trim()).filter(Boolean)
+      if (all.length) { got = true; h.onText(all.join(' ')) }
+    }
+    r.onerror = (e) => { err = e.error === 'not-allowed' ? 'ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน — เปิดสิทธิ์ไมค์ในการตั้งค่าเบราว์เซอร์' : e.error === 'no-speech' || e.error === 'aborted' ? undefined : `พูดให้พิมพ์ไม่สำเร็จ (${e.error})` }
+    r.onend = () => { if (err) h.onError(err); else if (!got) h.onError('ไม่ได้ยินเสียงพูด — แตะไมค์แล้วพูดอีกครั้ง'); h.onDone() }
+    r.start()
+    return () => r.stop()
   }
-  // record
-  let stopped = false
-  let rec: MediaRecorder | null = null
+  // record: อัดเป็นช่วงสั้นๆ ต่อเนื่อง ถอดเสียงทีละช่วงตามลำดับ
+  let active = true
   let stream: MediaStream | null = null
-  const chunks: Blob[] = []
+  let acc = ''
+  let chain: Promise<void> = Promise.resolve()
+  let pending = 0
   const release = () => stream?.getTracks().forEach((t) => t.stop())
-  h.onState('listening')
+  const finishIfIdle = () => { if (!active && pending === 0) { release(); h.onDone() } }
+  const transcribe = (blob: Blob) => {
+    pending++; h.onBusy?.(true)
+    chain = chain.then(() => transcribeAudio(blob)).then(
+      (t) => { acc = acc ? `${acc} ${t}` : t; h.onText(acc) },
+      (e) => { const m = e instanceof Error ? e.message : 'ถอดเสียงไม่สำเร็จ'; if (!/ไม่ได้ยินเสียงพูด/.test(m)) h.onError(m) },
+    ).finally(() => { pending--; if (pending === 0) h.onBusy?.(false); finishIfIdle() })
+  }
+  const type = pickAudioType()
+  const segment = () => {
+    if (!stream) return
+    const chunks: Blob[] = []
+    const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: type || 'audio/webm' })
+      if (blob.size >= 1500) transcribe(blob)
+      if (active) segment(); else finishIfIdle()
+    }
+    rec.start()
+    window.setTimeout(() => { if (rec.state !== 'inactive') rec.stop() }, segMs())
+    stopCur = () => { if (rec.state !== 'inactive') rec.stop() }
+  }
+  let stopCur: () => void = () => undefined
   void (async () => {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      if (stopped) return release() // ปล่อยนิ้วก่อนที่ไมค์จะพร้อม (เช่น กำลังขอสิทธิ์)
-      const type = pickAudioType()
-      rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
-      rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
-      rec.onstop = () => {
-        release()
-        const blob = new Blob(chunks, { type: type || 'audio/webm' })
-        if (blob.size < 1500) return h.onError('สั้นเกินไป — กดค้างแล้วพูดให้นานขึ้นอีกนิด')
-        h.onState('transcribing')
-        transcribeAudio(blob).then(h.onText, (e) => h.onError(e instanceof Error ? e.message : 'ถอดเสียงไม่สำเร็จ'))
-      }
-      rec.start()
+      if (!active) { release(); h.onDone(); return }
+      segment()
     } catch (e) {
-      release()
+      active = false; release()
       h.onError((e as DOMException)?.name === 'NotAllowedError' ? 'ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน — เปิดสิทธิ์ไมค์ในการตั้งค่าเบราว์เซอร์' : 'เปิดไมโครโฟนไม่ได้')
+      h.onDone()
     }
   })()
-  return () => {
-    stopped = true
-    if (rec && rec.state !== 'inactive') { h.onState('transcribing'); rec.stop() }
-  }
+  return () => { active = false; stopCur() }
 }

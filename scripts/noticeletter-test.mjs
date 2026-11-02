@@ -108,12 +108,12 @@ try {
   await admin.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await admin.mouse.down()
   await admin.mouse.move(g.x + g.width / 2, t.y + 5, { steps: 12 }); await admin.mouse.up()
   must((await admin.getByLabel('วาระที่ 1', { exact: true }).inputValue()) === 'ข้อห้า', 'agenda drag to first = วาระที่ 1')
-  await admin.getByRole('button', { name: /เพิ่มลำดับ/ }).click()
-  await admin.getByLabel('ลำดับ', { exact: true }).fill('ลำดับทดสอบ')
-  await admin.setViewportSize({ width: 390, height: 5000 })   // รายการวาระยาว: ให้เห็นทั้งหมดในจอเดียวตอนลาก
-  const g2 = await admin.getByLabel('ลากเพื่อเลื่อนลำดับ', { exact: true }).boundingBox(), t2 = await admin.getByLabel('วาระที่ 7', { exact: true }).boundingBox()
-  await admin.mouse.move(g2.x + g2.width / 2, g2.y + g2.height / 2); await admin.mouse.down()
-  await admin.mouse.move(g2.x + g2.width / 2, t2.y + t2.height - 5, { steps: 120 }); await admin.mouse.up()
+  // กด ＋ ที่วาระที่ 7 = ข้อย่อย 7.1 ทันที (ไม่ต้องลาก) · กดอีกครั้ง = 7.2
+  await admin.getByRole('button', { name: 'เพิ่มข้อย่อยใต้วาระที่ 7', exact: true }).click()
+  await admin.getByLabel('7.1', { exact: true }).fill('ลำดับทดสอบ')
+  await admin.getByRole('button', { name: 'เพิ่มข้อย่อยใต้วาระที่ 7', exact: true }).click()
+  must(await admin.getByLabel('7.2', { exact: true }).count() === 1, 'second ＋ gives 7.2')
+  await admin.getByLabel('7.2', { exact: true }).locator('xpath=..').getByRole('button', { name: /^ลบ/ }).click()
   must((await admin.getByLabel('7.1', { exact: true }).inputValue()) === 'ลำดับทดสอบ', 'dragged ลำดับ under วาระที่ 7 becomes 7.1')
   pp = await admin.getByLabel('ตัวอย่างหนังสือ').innerText()
   must(pp.includes('7.1 ลำดับทดสอบ') && pp.includes('วาระที่ 1 ข้อห้า'), 'paper shows 7.1 and วาระที่ 1: ' + pp.slice(0, 600))

@@ -390,11 +390,11 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
   return (
     <>
-      {kind === 'notice' && <VoiceDock onSend={() => 'บันทึกคำสั่งไว้แล้ว (ระยะ 1: ยังไม่ส่งให้ AI เติมฟอร์ม)'} undo={{ steps: 0, run: () => undefined }} />}
+      {kind === 'notice' && <VoiceDock scope="[data-voice-scope]" />}
       <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/4/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
-      <section className="card no-print" aria-label={`กรอก${NAME}`}>
+      <section className="card no-print" aria-label={`กรอก${NAME}`} data-voice-scope>
         <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
 
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}
@@ -591,8 +591,13 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
 /** วาระการประชุม: กรอกเป็นข้อๆ · ลากที่แถบ ⠿ (กฎเลื่อน) เพื่อเรียงลำดับ เลขข้อเรียงใหม่อัตโนมัติ · เพิ่มวาระใหม่ต่อท้ายแล้วลากขึ้นไปแทรกได้ */
 function AgendaEditor({ items, onChange, template }: { items: AgendaItem[]; onChange: (a: AgendaItem[]) => void; template?: AgendaItem[] }) {
   const rows = useRef<(HTMLDivElement | null)[]>([])
+  const inputs = useRef<(HTMLInputElement | null)[]>([])
   const [drag, setDrag] = useState<number | null>(null)
+  const [focusAt, setFocusAt] = useState<number | null>(null)
   const labels = agendaLabels(items)
+  useEffect(() => { if (focusAt !== null) { inputs.current[focusAt]?.focus(); setFocusAt(null) } }, [focusAt, items])
+  /** กด ＋ ที่วาระ (หรือที่ข้อย่อย) = เพิ่มข้อย่อยถัดไปใต้วาระนั้นทันที (7.1 → 7.2 …) แล้วเลื่อนเคอร์เซอร์ไปที่ช่องนั้น */
+  const addSub = (i: number) => { let j = i; while (items[j + 1]?.k === 'r') j++; const next = [...items]; next.splice(j + 1, 0, { t: '', k: 'r' }); onChange(next); setFocusAt(j + 1) }
   const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? { ...x, t: v } : x)))
   const swap = (i: number, d: number) => { const a = items.map((x, k) => (k === i ? { ...x, u: undefined } : x)); const j = i + d;[a[i], a[j]] = [a[j], a[i]]; onChange(a) }
   const start = (e: React.PointerEvent<HTMLButtonElement>, from: number) => {
@@ -618,18 +623,18 @@ function AgendaEditor({ items, onChange, template }: { items: AgendaItem[]; onCh
       {items.map((x, i) => (
         <div key={i} ref={(el) => { rows.current[i] = el }} className={`agenda-row${x.k === 'r' ? ' agenda-row--r' : ''}${drag === i ? ' agenda-row--drag' : ''}`}>
           <b className="agenda-row__n">{labels[i]}</b>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} aria-label={labels[i]} value={x.t} onChange={(e) => upd(i, e.target.value)} placeholder={x.k === 'r' ? 'ชื่อลำดับ (ข้อย่อยใต้วาระ)' : 'ชื่อวาระ เช่น แจ้งเพื่อทราบ'} />
+          <input ref={(el) => { inputs.current[i] = el }} className="input" style={{ flex: 1, minWidth: 0 }} aria-label={labels[i]} value={x.t} onChange={(e) => upd(i, e.target.value)} placeholder={x.k === 'r' ? 'ชื่อลำดับ (ข้อย่อยใต้วาระ)' : 'ชื่อวาระ เช่น แจ้งเพื่อทราบ'} />
+          {!x.u && <button type="button" className="mini agenda-row__add" aria-label={`เพิ่มข้อย่อยใต้${x.k === 'r' ? 'ข้อ ' : ''}${labels[i]}`} title="เพิ่มข้อย่อย (7.1, 7.2 …)" onClick={() => addSub(i)}>＋</button>}
           <button type="button" className="agenda-row__grip" aria-label={`ลากเพื่อเลื่อน${labels[i]}`} title="ลากขึ้น/ลงเพื่อเรียงลำดับ" onPointerDown={(e) => start(e, i)} onKeyDown={(e) => { if (e.key === 'ArrowUp' && i > 0) swap(i, -1); if (e.key === 'ArrowDown' && i < items.length - 1) swap(i, 1) }}>⠿<small>👆</small></button>
           <button type="button" className="mini" aria-label={`ลบ${labels[i]}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>🗑️</button>
         </div>
       ))}
       <div className="row" style={{ gap: 6 }}>
         <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', u: true }])}>➕ เพิ่มวาระ</button>
-        <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={() => onChange([...items, { t: '', k: 'r', u: true }])}>➕ เพิ่มลำดับ</button>
       </div>
       {template && <button type="button" className="mini" onClick={() => { if (items.length === 0 || confirm('แทนที่วาระทั้งหมดด้วยวาระมาตรฐานตามหนังสือต้นแบบ?')) onChange(template) }}>↺ ใช้วาระมาตรฐานตามต้นแบบ</button>}
       {items.some((x) => x.u) && <span className="small" role="note">👆 ข้อที่ยังไม่มีเลข: กดค้างที่แถบ ⠿ แล้วลากไปวางตำแหน่งที่ต้องการ จึงจะได้เลขวาระที่/ลำดับตามที่วาง</span>}
-      {items.length > 1 && <span className="small muted">“ลำดับ” เป็นข้อย่อย: ลากไปไว้ใต้วาระไหนก็เป็นเลขของวาระนั้นให้เอง เช่น ใต้วาระที่ 6 → 6.1, 6.2 · ลากไปใต้วาระที่ 7 → 7.1, 7.2</span>}
+      {items.length > 1 && <span className="small muted">กด ＋ ที่วาระไหน ก็เพิ่มข้อย่อยใต้วาระนั้นทันที เช่น กด ＋ ที่วาระที่ 7 → 7.1 กดอีกครั้ง → 7.2</span>}
     </div>
   )
 }

@@ -51,10 +51,13 @@ async function device(meId, name) {
 
 // ระยะ 1 พูดสั่งงาน: ปุ่มไมค์ติดล่าง กดค้างพูด → เห็นข้อความ → ส่ง/พูดใหม่ · ไม่แตะฟอร์ม
 const FAKE_NATIVE = () => {
-  window.SpeechRecognition = class { constructor() { this.n = 0 } start() { setTimeout(() => this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: 'ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน' }], { isFinal: true })] }), 60) } stop() { setTimeout(() => this.onend && this.onend(), 20) } }
+  window.SpeechRecognition = class {
+    start() { const say = (t) => this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => say('ประชุมวัน'), 60); setTimeout(() => say('ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 200) }
+    stop() { setTimeout(() => this.onend && this.onend(), 20) }
+  }
 }
 const FAKE_RECORD = () => {
-  delete window.SpeechRecognition; delete window.webkitSpeechRecognition
+  delete window.SpeechRecognition; delete window.webkitSpeechRecognition; window.__voiceSegMs = 300
   navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] })
   window.MediaRecorder = class { static isTypeSupported() { return true } constructor() { this.state = 'inactive' } start() { this.state = 'recording' } stop() { this.state = 'inactive'; this.ondataavailable && this.ondataavailable({ data: new Blob([new Uint8Array(3000)], { type: 'audio/mp4' }), size: 3000 }); this.onstop && this.onstop() } }
 }
@@ -63,40 +66,69 @@ async function open(page) {
   await page.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
   await page.getByLabel(/ข้อความในหนังสือ/).waitFor({ timeout: 15000 })
 }
-async function hold(page, ms = 250) {
-  const mic = page.getByRole('button', { name: 'กดค้างเพื่อพูด' })
-  const b = await mic.boundingBox()
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
-  await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up()
+/** แตะไมค์เพื่อเริ่ม → ข้อความต้องขึ้นทันทีระหว่างพูด (ยังไม่แตะหยุด) → แตะหยุด */
+async function hold(page, expect) {
+  const mic = page.getByRole('button', { name: 'แตะเพื่อพูด', exact: true })
+  await mic.click()
+  const box = page.getByLabel('ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)')
+  await box.waitFor({ timeout: 8000 })
+  await page.getByRole('button', { name: 'แตะเพื่อหยุดพูด' }).waitFor({ timeout: 3000 })   // ยังฟังอยู่ แต่ข้อความขึ้นแล้ว
+  if (expect) await page.waitForFunction((t) => document.querySelector('#vd-text')?.value.includes(t), expect, { timeout: 8000 })
+  await page.getByRole('button', { name: 'แตะเพื่อหยุดพูด' }).click()
+  await page.getByRole('button', { name: 'แตะเพื่อพูด', exact: true }).waitFor({ timeout: 8000 })
 }
 try {
   // ----- Android/Chrome: ระบบพูดให้พิมพ์ของเบราว์เซอร์ -----
   const a = await device('ad1', 'แอดมิน')
   await a.addInitScript(FAKE_NATIVE)
   await open(a)
-  const mic = a.getByRole('button', { name: 'กดค้างเพื่อพูด' })
+  const mic = a.getByRole('button', { name: 'แตะเพื่อพูด', exact: true })
   await mic.waitFor()
   const vb = a.viewportSize(), mb = await mic.boundingBox()
   must(mb.y + mb.height <= vb.height && mb.width >= 56, 'big mic fixed at the bottom of the screen: ' + JSON.stringify(mb))
   await a.evaluate(() => window.scrollTo(0, 600))
   must(Math.abs((await mic.boundingBox()).y - mb.y) < 2, 'mic stays in place while page scrolls')
-  const subjectBefore = await a.getByLabel(/^.*เรื่อง/).first().inputValue().catch(() => '')
   const bodyBefore = await a.getByLabel(/ข้อความในหนังสือ/).inputValue()
-  await hold(a)
   const box = a.getByLabel('ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)')
-  await box.waitFor({ timeout: 5000 })
-  must((await box.inputValue()) === 'ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน', 'transcript shown for review: ' + await box.inputValue())
+  await hold(a, 'ประชุมวันอาทิตย์ที่ 8')
+  must((await box.inputValue()).startsWith('ประชุมวันอาทิตย์ที่ 8'), 'transcript shown live: ' + await box.inputValue())
   await a.getByRole('button', { name: 'พูดใหม่' }).click()
   must(await box.count() === 0, 'พูดใหม่ clears the transcript')
-  await hold(a)
-  await box.waitFor({ timeout: 5000 })
+  // ยังไม่ได้เลือกช่อง → ส่งแล้วไม่เข้าฟอร์ม · บอกให้แตะช่องก่อน
+  await hold(a, 'พฤศจิกายน')
   await a.getByRole('button', { name: 'ส่ง', exact: true }).click()
-  await a.getByText(/บันทึกคำสั่งไว้แล้ว/).waitFor({ timeout: 3000 })
+  await a.getByText(/แตะช่องที่ต้องการใส่ข้อความก่อน/).first().waitFor({ timeout: 3000 })
+  must((await a.getByLabel(/ข้อความในหนังสือ/).inputValue()) === bodyBefore, 'nothing written when no field is selected')
+  // ＋ ที่วาระที่ 7 = 7.1 ทันที (ไม่ต้องลาก) · กดอีกครั้ง = 7.2
+  must(await a.getByRole('button', { name: /เพิ่มลำดับ/ }).count() === 0, 'old add-sub button removed')
+  await a.getByRole('button', { name: 'พูดใหม่' }).click()   // ล้างข้อความที่ค้างอยู่ก่อนไปแตะช่อง
+  await a.getByRole('button', { name: 'เพิ่มข้อย่อยใต้วาระที่ 7', exact: true }).click()
+  const s71 = a.getByLabel('7.1', { exact: true })
+  await s71.waitFor({ timeout: 3000 })
+  must(await s71.evaluate((e) => e === document.activeElement), 'new 7.1 row is focused')
+  // พูดแล้วส่ง → เข้าช่อง 7.1
+  await hold(a, 'พฤศจิกายน')
+  await a.getByRole('button', { name: 'ส่ง', exact: true }).click()
+  await a.getByText(/ใส่ลงช่อง “7.1” แล้ว/).waitFor({ timeout: 3000 })
+  must((await s71.inputValue()) === 'ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน', '7.1 filled by voice: ' + await s71.inputValue())
+  must((await a.getByLabel('ตัวอย่างหนังสือ').innerText()).includes('7.1 ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 'paper shows 7.1 immediately')
   await a.getByRole('button', { name: /ประวัติ/ }).click()
-  must((await a.getByLabel('ประวัติคำสั่ง').innerText()).includes('ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 'command kept in history')
-  must(await a.getByRole('button', { name: /ย้อนกลับ/ }).isDisabled(), 'undo disabled while nothing to undo')
-  must((await a.getByLabel(/ข้อความในหนังสือ/).inputValue()) === bodyBefore, 'letter body untouched in phase 1')
-  must((await a.getByLabel(/^.*เรื่อง/).first().inputValue().catch(() => '')) === subjectBefore, 'subject untouched in phase 1')
+  must((await a.getByLabel('ประวัติคำสั่ง').innerText()).includes('7.1: ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 'command kept in history')
+  // ＋ อีกครั้ง = 7.2
+  if (await a.getByRole('button', { name: 'ปิดข้อความ' }).count()) await a.getByRole('button', { name: 'ปิดข้อความ' }).click()
+  await a.getByRole('button', { name: 'เพิ่มข้อย่อยใต้วาระที่ 7', exact: true }).click()
+  await a.getByLabel('7.2', { exact: true }).waitFor({ timeout: 3000 })
+  // ย้อนกลับ: 7.1 กลับเป็นว่าง
+  const undoBtn = a.getByRole('button', { name: /ย้อนกลับ/ })
+  must(!(await undoBtn.isDisabled()), 'undo enabled after a voice edit')
+  await undoBtn.click()
+  must((await s71.inputValue()) === '', 'undo restores 7.1 to empty')
+  must(await undoBtn.isDisabled(), 'undo disabled again when history is empty')
+  // ช่องที่ล็อก (วันที่) ไม่รับเสียง
+  await a.locator('#il-date').focus()
+  await hold(a, 'พฤศจิกายน')
+  await a.getByRole('button', { name: 'ส่ง', exact: true }).click()
+  must((await a.locator('#il-date').inputValue()) !== 'ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน', 'date field is never filled by voice')
   await a.screenshot({ path: process.env.SHOT || '/tmp/voice1.png' })
 
   // ----- iPhone/Safari: ไม่มีระบบพูดให้พิมพ์ → อัดเสียงแล้วให้ Gemini ถอดเสียง -----
@@ -106,10 +138,9 @@ try {
   let sent = null
   await ip.route('https://generativelanguage.googleapis.com/**', (r) => { sent = r.request().postData(); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' }, body: JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ลบวาระที่ 5' }] } }] }) }) })
   await open(ip)
-  await hold(ip)
   const box2 = ip.getByLabel('ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)')
-  await box2.waitFor({ timeout: 8000 })
-  must((await box2.inputValue()) === 'ลบวาระที่ 5', 'Gemini transcription shown: ' + await box2.inputValue())
+  await hold(ip, 'ลบวาระที่ 5')
+  must((await box2.inputValue()).startsWith('ลบวาระที่ 5'), 'Gemini transcription shown live (segments appended): ' + await box2.inputValue())
   must(sent && /inline_data/.test(sent) && /audio\/webm/.test(sent), 'audio sent to Gemini')
   console.log('voicedock-test OK')
   must(errors.length === 0, 'no page errors: ' + errors.join(';'))
