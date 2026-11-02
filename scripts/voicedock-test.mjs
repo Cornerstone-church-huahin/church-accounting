@@ -135,7 +135,8 @@ try {
   // พูดแล้วส่ง → เข้าช่อง 7.1
   await hold(a, 'พฤศจิกายน')
   await a.getByRole('button', { name: 'ส่ง', exact: true }).click()
-  await a.getByText(/ใส่ลงช่อง “7.1” แล้ว/).waitFor({ timeout: 3000 })
+  must(await a.getByText(/ใส่ลงช่อง “7.1” แล้ว/).count() === 0, 'no confirmation pop-up after sending')
+  must(await a.getByLabel('ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)').count() === 0, 'panel closes right after sending')
   must((await s71.inputValue()) === 'ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน', '7.1 filled by voice: ' + await s71.inputValue())
   must((await a.getByLabel('ตัวอย่างหนังสือ').innerText()).includes('7.1 ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 'paper shows 7.1 immediately')
   await a.getByRole('button', { name: /ประวัติ/ }).click()
