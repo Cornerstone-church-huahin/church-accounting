@@ -9,7 +9,7 @@ export const audioExt = (type: string) => (type.includes('mp4') ? 'm4a' : type.i
 export const canRecord = () => typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
 
 type SR = { lang: string; continuous: boolean; interimResults: boolean; start(): void; stop(): void; onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null; onerror: ((e: { error: string }) => void) | null; onend: (() => void) | null }
-const speechCtor = (): (new () => SR) | null => {
+export const speechCtor = (): (new () => SR) | null => {
   const w = window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR }
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
 }
