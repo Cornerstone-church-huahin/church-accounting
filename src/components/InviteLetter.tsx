@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import VoiceDock from './VoiceDock'
 import { Link, useNavigate } from 'react-router-dom'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
@@ -389,6 +390,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
   return (
     <>
+      {kind === 'notice' && <VoiceDock onSend={() => 'บันทึกคำสั่งไว้แล้ว (ระยะ 1: ยังไม่ส่งให้ AI เติมฟอร์ม)'} undo={{ steps: 0, run: () => undefined }} />}
       <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/4/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>

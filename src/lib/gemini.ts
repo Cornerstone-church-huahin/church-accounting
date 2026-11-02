@@ -113,28 +113,22 @@ const b64 = (buf: ArrayBuffer) => {
 const FALLBACKS = ['gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-/** เรียก Gemini ให้อ่านรูปแล้วตอบ JSON: ถ้ารุ่นหนึ่งไม่ว่าง (503/500/429) หรือไม่พบ (404) จะลองซ้ำแล้วสลับไปรุ่นสำรองให้เอง */
-async function geminiJson(file: Blob & { name?: string }, prompt: string, schema: unknown): Promise<string> {
+/** ส่งคำขอ generateContent: ถ้ารุ่นหนึ่งไม่ว่าง (503/500/429) หรือไม่พบ (404) จะลองซ้ำแล้วสลับไปรุ่นสำรอง · คืนข้อความที่ Gemini ตอบ */
+async function callGemini(body: string, what = 'อ่านรูป'): Promise<string> {
   const { key, model } = getGemini()
   if (!key) throw new Error('ยังไม่ได้ใส่รหัส Gemini API')
-  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
-  const { data } = await compressImage(f, 1800, 0.8, 0)
-  const body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
-  })
   let last = ''
   for (const m of [...new Set([model, ...FALLBACKS])]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       let r: Response
       try {
         r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body })
-      } catch { throw new Error('ไม่มีอินเทอร์เน็ต — อ่านรูปไม่ได้') }
+      } catch { throw new Error(`ไม่มีอินเทอร์เน็ต — ${what}ไม่ได้`) }
       if (r.ok) {
         const j = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
         const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
         if (text) return text
-        last = 'Gemini ไม่ส่งผลการอ่านกลับมา'
+        last = 'Gemini ไม่ส่งผลกลับมา'
         break
       }
       const detail = ((await r.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? ''
@@ -145,6 +139,32 @@ async function geminiJson(file: Blob & { name?: string }, prompt: string, schema
     }
   }
   throw new Error(`${last} — ลองอีกครั้งในอีกสักครู่ หรือกรอกเอง`)
+}
+
+/** เรียก Gemini ให้อ่านรูปแล้วตอบ JSON */
+async function geminiJson(file: Blob & { name?: string }, prompt: string, schema: unknown): Promise<string> {
+  const f = file instanceof File ? file : new File([file], 'image.jpg', { type: file.type || 'image/jpeg' })
+  const { data } = await compressImage(f, 1800, 0.8, 0)
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'image/jpeg', data: b64(data) } }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
+  })
+  return callGemini(body)
+}
+
+/** ถอดเสียงพูดภาษาไทยเป็นข้อความ (สำหรับเครื่องที่เบราว์เซอร์ไม่มีระบบพูดให้พิมพ์ เช่น iPhone) */
+export async function transcribeAudio(audio: Blob): Promise<string> {
+  const mime = (audio.type || 'audio/webm').split(';')[0]
+  const body = JSON.stringify({
+    contents: [{ parts: [
+      { text: 'ถอดเสียงพูดภาษาไทยในไฟล์เสียงนี้เป็นข้อความตามที่ได้ยินอย่างตรงตัว ใช้เลขอารบิกสำหรับตัวเลข ห้ามแต่งเติม ห้ามอธิบาย ตอบเฉพาะข้อความที่ถอดได้ ถ้าไม่มีเสียงพูดชัดเจนให้ตอบว่า [ว่าง]' },
+      { inline_data: { mime_type: mime, data: b64(await audio.arrayBuffer()) } },
+    ] }],
+    generationConfig: { temperature: 0 },
+  })
+  const text = (await callGemini(body, 'ถอดเสียง')).trim()
+  if (!text || /^\[?ว่าง\]?$/.test(text)) throw new Error('ไม่ได้ยินเสียงพูดชัดเจน — กดค้างแล้วพูดใหม่อีกครั้ง')
+  return text
 }
 
 export async function readSheet(file: Blob & { name?: string }): Promise<SheetRead> {
