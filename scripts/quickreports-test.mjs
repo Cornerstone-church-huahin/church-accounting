@@ -8,7 +8,7 @@ await new Promise((r) => setTimeout(r, 2500))
 const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined
 const browser = await chromium.launch(exe ? { executablePath: exe } : {})
 const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
-async function run(role, works, fn, shot) {
+async function run(role, works, fn, shot, path = '/meeting/4/1') {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 1000 }, locale: 'th-TH' })
   await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
   const page = await ctx.newPage()
@@ -26,7 +26,7 @@ async function run(role, works, fn, shot) {
       { id: 'k2', date: '2026-10-25', mid: 'b', tm: '09:05', rec: 'ก', updated: 1001 },
     ]))
   }, [role, works])
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/1`); await page.reload()
+  await page.goto(`http://localhost:${PORT}/#${path}`); await page.reload()
   try { await fn(page); if (shot) await page.screenshot({ path: shot }) } finally { await ctx.close() }
 }
 const check = async (page) => {
@@ -53,5 +53,8 @@ const check = async (page) => {
 try {
   await run('admin', [], check, process.env.SHOT)
   await run('viewer', [4], check)
+  // ทุกห้องงาน: หน้าหลักของห้องมีทางลัดชุดเดียวกัน
+  for (const n of [1, 2, 3, 5, 8, 14, 18]) await run('admin', [], check, undefined, `/meeting/${n}`)
+  await run('viewer', [9], check, undefined, '/meeting/9')
   console.log('quickreports-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
