@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
 import WeekStrip from './WeekStrip'
 import PhotoAvatar from './PhotoAvatar'
 import { weekDates } from '../lib/attendanceWeeks'
 import Sheet from './Sheet'
 import { dow, fmtDateLong, todayISO, yearOf } from '../lib/money'
-import { ageText, checkInId, nameKey, NEW_PERSON_STATUS, similarNames, statusLabel, uniqueId } from '../lib/registry'
+import { ageText, checkInId, isFirstTimer, nameKey, NEW_PERSON_STATUS, similarNames, statusLabel, uniqueId } from '../lib/registry'
 import { uploadMemberPhoto } from '../lib/memberPhoto'
 import { clearEtagCache, SYNC_EVENT } from '../lib/sync'
 import { useGlobalSync } from '../lib/syncStatus'
@@ -102,6 +102,8 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
   }
   /** สรุปผู้มาของวันที่เลือก: เปิดป๊อปอัพให้ตรวจข้อความก่อน แล้วค่อยกดแชร์ไป LINE/Messenger/Facebook */
   const report = serviceReport(checkins, members, date)
+  // ลงชื่อครั้งแรกในระบบวันนี้ = คนใหม่ (นับแบบเดียวกับรายงานนมัสการ) → ป้าย NEW + ตัวเลขสีต่างจากคนอื่น
+  const firstDay = useMemo(() => { const f = new Map<string, string>(); for (const c of checkins) if (!c.deleted && c.mid && (f.get(c.mid) ?? '9999') > c.date) f.set(c.mid, c.date); return f }, [checkins])
   const registerFrom = async (m: ChurchMember) => { if (await record(m.id) && t) setQ('') } // ลงแล้วล้างช่องค้นหา พร้อมคนถัดไป
 
   /** การ์ดผลค้นหา: รูป ชื่อ และปุ่มลงทะเบียน */
@@ -180,12 +182,13 @@ export default function CheckinPanel({ lite, readOnly, canPhoto, showStatus, mem
           <ul ref={doneRef} className="list list--tight doneList" aria-label="รายชื่อที่ลงแล้ว">
             {doneNewestFirst.map((c) => {
               const m = byId.get(c.mid)!
+              const isNewC = (x: CheckIn) => isFirstTimer(byId.get(x.mid) ?? {}, date, firstDay.get(x.mid))
               return (
                 <li key={c.id} className={justId === c.mid ? 'doneNew' : undefined}>
                   <div className="pick pick--done">
-                    <span className="doneAv"><PhotoAvatar member={m} size={52} canPhoto={canPhoto} put={addMember} /><span className="doneNo" aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}`}>{doneRows.indexOf(c) + 1}</span></span>
+                    <span className="doneAv"><PhotoAvatar member={m} size={52} canPhoto={canPhoto} put={addMember} /><span className={`doneNo${isNewC(c) ? ' doneNo--new' : ''}`} aria-label={`ลำดับที่ ${doneRows.indexOf(c) + 1}${isNewC(c) ? ' คนใหม่' : ''}`}>{doneRows.indexOf(c) + 1}</span></span>
                     <button type="button" className="pick__main" onClick={() => onOpen(m.id)} aria-label={`ดูข้อมูล ${m.name}`}>
-                      <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}
+                      <span className="mrow__name">{m.name}</span>{m.nick ? <span className="muted"> ({m.nick})</span> : null}{isNewC(c) && <span className="newTag" aria-label="คนใหม่">NEW</span>}
                       <span className="doneBy"><span className="doneBy__n">ผู้บันทึก {c.rec ?? '—'}</span>{c.tm && <span className="doneBy__t">{c.tm}</span>}</span>
                       {m.note?.trim() && <span className="cardNote">หมายเหตุ: {m.note.trim()}</span>}
                     </button>
