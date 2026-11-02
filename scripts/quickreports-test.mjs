@@ -53,8 +53,11 @@ const check = async (page) => {
 try {
   await run('admin', [], check, process.env.SHOT)
   await run('viewer', [4], check)
-  // ทุกห้องงาน: หน้าหลักของห้องมีทางลัดชุดเดียวกัน
-  for (const n of [1, 2, 5, 8, 14, 18]) await run('admin', [], check, undefined, `/meeting/${n}`)
-  await run('viewer', [9], check, undefined, '/meeting/9')
+  // หน้าหลักของห้องงานไม่มีทางลัดนี้ (อยู่เฉพาะหน้ารวมสมาชิก)
+  for (const n of [1, 2, 3, 5, 14]) await run('admin', [], async (page) => {
+    await page.getByRole('heading').first().waitFor({ timeout: 10000 })
+    await page.waitForTimeout(500)
+    must(await page.getByRole('group', { name: 'ทางลัดดูอย่างเดียว' }).count() === 0, `no shortcuts on room ${n} home`)
+  }, undefined, `/meeting/${n}`)
   console.log('quickreports-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

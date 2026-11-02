@@ -5,7 +5,6 @@ import Members from './Members'
 import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
 import WorkTerm from '../components/WorkTerm'
-import QuickReports from '../components/QuickReports'
 import { APP_CREDIT } from '../lib/credit'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
@@ -67,7 +66,6 @@ function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ป�
       </p>
       <WorkTerm n={n} name={name} />
       {extra}
-      {n !== 3 && <QuickReports />} {/* งานเหรัญญิกมีปุ่มรวมสมาชิกอยู่แล้ว (ข้างในมีวันเกิด/รายงานครบ) */}
     </>
   )
 }
