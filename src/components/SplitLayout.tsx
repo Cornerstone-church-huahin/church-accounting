@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 const KEY = 'acct.split.pct.v1'
-const read = () => { try { const v = Number(localStorage.getItem(KEY)); return v >= 20 && v <= 80 ? v : 50 } catch { return 50 } }
+const read = () => { try { const v = Number(localStorage.getItem(KEY)); return v >= 20 && v <= 80 ? v : 38 } catch { return 50 } }
 
 /**
  * จอแบ่งสองส่วนตั้งแต่ใต้แถบบนถึงเหนือเมนูล่าง: บน = ส่วนที่กำลังทำงาน (ฟอร์ม) · ล่าง = ตัวอย่างเอกสารสมจริง
@@ -21,6 +21,15 @@ export default function SplitLayout({ active, top, bottom, onDone, scrollKey }: 
     document.body.classList.add('split-on')
     return () => { window.removeEventListener('resize', fit); document.body.classList.remove('split-on') }
   }, [active])
+  // บอก CSS ว่าแถบกลางอยู่ตรงไหน (ระยะจากขอบล่างจอ) เพื่อให้แผงไมค์เกาะอยู่บนแถบ ไม่บังตัวอย่างเอกสารด้านล่าง
+  const barRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!active) { document.documentElement.style.removeProperty('--split-bar-b'); return }
+    const place = () => { const r = barRef.current?.getBoundingClientRect(); if (r) document.documentElement.style.setProperty('--split-bar-b', `${Math.round(window.innerHeight - r.bottom)}px`) }
+    place(); const id = window.requestAnimationFrame(place)
+    window.addEventListener('resize', place)
+    return () => { window.cancelAnimationFrame(id); window.removeEventListener('resize', place); document.documentElement.style.removeProperty('--split-bar-b') }
+  }, [active, pct, edge])
   useEffect(() => {
     if (!active) return
     const el = bottomRef.current?.querySelector('[data-split-focus]')
@@ -48,7 +57,7 @@ export default function SplitLayout({ active, top, bottom, onDone, scrollKey }: 
       <div ref={box} className={active ? 'split__panes' : 'sp-plain'}>
         <div className={active ? 'split__top' : 'sp-plain'} style={active ? { flexBasis: `${pct}%` } : undefined}>{top}</div>
         {active && (
-          <div className="split__bar no-print" role="separator" aria-orientation="horizontal" aria-label="ลากเพื่อปรับสัดส่วนส่วนบนและส่วนล่าง" tabIndex={0}
+          <div ref={barRef} className="split__bar no-print" role="separator" aria-orientation="horizontal" aria-label="ลากเพื่อปรับสัดส่วนส่วนบนและส่วนล่าง" tabIndex={0}
             onPointerDown={drag} onKeyDown={(e) => { if (e.key === 'ArrowUp') nudge(-5); if (e.key === 'ArrowDown') nudge(5) }}>
             <i aria-hidden="true" />
           </div>

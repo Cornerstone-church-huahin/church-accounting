@@ -36,7 +36,7 @@ const fake = async (route) => {
   return json(404, {})
 }
 async function device(meId, name) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })
   await ctx.route('https://api.github.com/**', fake)
   await ctx.addInitScript(([id, n, members, repo]) => {
     if (localStorage.getItem('seeded')) return
@@ -52,7 +52,7 @@ async function device(meId, name) {
 // ระยะ 1 พูดสั่งงาน: ปุ่มไมค์ติดล่าง กดค้างพูด → เห็นข้อความ → ส่ง/พูดใหม่ · ไม่แตะฟอร์ม
 const FAKE_NATIVE = () => {
   window.SpeechRecognition = class {
-    start() { const say = (t) => this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => say('ประชุมวัน'), 60); setTimeout(() => say('ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 200) }
+    start() { const say = (t) => this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: t }], { isFinal: true }), Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => say('ประชุมวัน'), 60); setTimeout(() => say('ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน'), 200) }
     stop() { setTimeout(() => this.onend && this.onend(), 20) }
   }
 }
@@ -92,6 +92,7 @@ try {
   const box = a.getByLabel('ข้อความที่ฟังได้ (แก้ได้ก่อนส่ง)')
   await hold(a, 'ประชุมวันอาทิตย์ที่ 8')
   must((await box.inputValue()).startsWith('ประชุมวันอาทิตย์ที่ 8'), 'transcript shown live: ' + await box.inputValue())
+  must((await box.inputValue()).split('ประชุมวันอาทิตย์').length === 2, 'sentence appears once even when the browser repeats it: ' + await box.inputValue())
   await a.getByRole('button', { name: 'พูดใหม่' }).click()
   must(await box.count() === 0, 'พูดใหม่ clears the transcript')
   // ยังไม่ได้เลือกช่อง → ส่งแล้วไม่เข้าฟอร์ม · บอกให้แตะช่องก่อน
@@ -105,13 +106,25 @@ try {
   await a.getByRole('button', { name: 'เพิ่มข้อย่อยใต้วาระที่ 7', exact: true }).click()
   const s71 = a.getByLabel('7.1', { exact: true })
   await s71.waitFor({ timeout: 3000 })
-  must(await s71.evaluate((e) => e === document.activeElement), 'new 7.1 row is focused')
+  must(!(await s71.evaluate((e) => e === document.activeElement)), 'new 7.1 row is NOT focused (no on-screen keyboard)')
+  must((await s71.getAttribute('data-voice-target')) === '1', 'new 7.1 row is highlighted as the voice target')
   // กด ＋ แล้วเข้าโหมดแบ่งจอเอง: ส่วนบน (ฟอร์ม) + ส่วนล่าง (ตัวอย่างเอกสาร) ลากปรับสัดส่วนได้ มีปุ่มเรียบร้อยแล้ว
   const region = a.getByRole('region', { name: /แบ่งจอ/ })
   await region.waitFor({ timeout: 3000 })
-  must(await s71.evaluate((e) => e === document.activeElement), '7.1 still focused after entering split mode')
+  must((await s71.getAttribute('data-voice-target')) === '1', '7.1 still the voice target after entering split mode')
+  must(await region.getByRole('status').filter({ hasText: '7.1' }).count() >= 0, 'target chip present')
   must(await region.locator('.split__top').getByLabel('7.1', { exact: true }).count() === 1, 'form is in the top pane')
   must(await region.locator('.split__bottom').getByLabel('ตัวอย่างหนังสือ').count() === 1, 'document preview is in the bottom pane')
+  { const mb = await a.getByRole('button', { name: /แตะเพื่อ(พูด|หยุดพูด)/ }).boundingBox(), pv = await region.locator('.split__bottom').boundingBox(), br = await region.getByRole('separator').boundingBox()
+    must(mb.y + mb.height <= pv.y + 2, `mic sits on the divider bar, above the preview pane: mic bottom ${mb.y + mb.height} <= preview top ${pv.y}`)
+    must(mb.y >= br.y - 6 && mb.height <= 48, 'mic is compact and on the bar: ' + JSON.stringify({ mb, br })) }
+  { // ตัวอย่างด้านล่าง: เริ่มที่ เรื่อง/เรียน จบที่ลายเซ็น และอยู่ในกล่องครบ ไม่ล้น ไม่ต้องเลื่อน
+    const pane = await region.locator('.split__bottom').boundingBox()
+    const sub = await region.locator('[data-split-start]').boundingBox(), sign = await region.locator('.letter__sign').boundingBox()
+    must(sub.y >= pane.y - 1 && sub.y <= pane.y + 24, `preview starts at เรื่อง: ${sub.y} vs pane top ${pane.y}`)
+    must(sign.y + sign.height <= pane.y + pane.height + 1, `preview reaches the signature inside the pane: ${sign.y + sign.height} <= ${pane.y + pane.height}`)
+    const hdr = await region.locator('.il__head').boundingBox().catch(() => null)
+    must(!hdr || hdr.y + hdr.height <= pane.y + 2, 'letterhead is cropped out of the split preview') }
   const hb0 = (await region.locator('.split__top').boundingBox()).height
   const bar = region.getByRole('separator')
   const bb = await bar.boundingBox()

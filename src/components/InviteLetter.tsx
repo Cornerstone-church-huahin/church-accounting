@@ -89,12 +89,12 @@ export function letterText(l: Draft, c: Cfg): string {
 }
 
 /** หน้า A4: หัวจดหมาย (โลโก้ + ข้อความ) บน · เนื้อหากลาง · ลงนามขวา · ข้อมูลติดต่อล็อกท้ายกระดาษ */
-function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement>; internal?: boolean }) {
+function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement>; internal?: boolean; /** โหมดแบ่งจอ: แสดงตั้งแต่ เรื่อง/เรียน จนถึงลายเซ็น ย่อให้พอดีกล่อง */ crop?: boolean }) {
   const signed = !!l.signed && !!c.signImg
   // หนังสือภายใน (แจ้งการประชุม): แถบหัวเรื่องบอกทันทีว่าเป็นการแจ้งประชุมประจำเดือนอะไร ปีอะไร
   const mt = internal ? nextFirstSunday(l.date || todayISO()) : null
   return (
-    <ScaledPage ref={paperRef} className="a4page a4page--letter">
+    <ScaledPage ref={paperRef} className="a4page a4page--letter" crop={crop ? { from: '[data-split-start]', to: '.letter__sign', container: '.split__bottom' } : null}>
       <div className={`il${internal ? ' il--internal' : ''}`}>
         <header className="il__head">
           <img src={logoUrl} alt="" className="il__logo" />
@@ -109,7 +109,7 @@ function Paper({ l, c, paperRef, internal }: { l: Draft; c: Cfg; paperRef: React
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no || '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
-          <div className="letter__row"><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
+          <div className="letter__row" data-split-start><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: internal ? '10px 0 6px' : '18px 0 8px', minHeight: internal ? 0 : 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
@@ -431,7 +431,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       </section>
   )
   const paperBlock = (
-      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} internal={!!K.secretarySigns} /></div>
+      <div aria-label="ตัวอย่างหนังสือ"><Paper l={l} c={cfg} paperRef={ref} internal={!!K.secretarySigns} crop={split} /></div>
   )
   return (
     <>
@@ -441,10 +441,10 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <SplitLayout active={split} top={formCard} onDone={() => setSplit(false)} scrollKey={JSON.stringify(l.agenda ?? [])} bottom={<>
 
-      <div className="row no-print" style={{ margin: '0.5rem 0 0' }}>
+      <div className="row no-print il-hide-in-split" style={{ margin: '0.5rem 0 0' }}>
         <button type="button" className="mini" onClick={copy} aria-label="คัดลอกข้อความทั้งหมด">{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ'}</button>
       </div>
-      <div className="no-print" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
+      <div className="no-print il-hide-in-split" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
       {paperBlock}
       </>} />
       {!split && (
@@ -607,7 +607,15 @@ function AgendaEditor({ items, onChange, onAdd, template }: { items: AgendaItem[
   const inputs = useRef<(HTMLInputElement | null)[]>([])
   const [drag, setDrag] = useState<number | null>(null)
   const labels = agendaLabels(items)
-  useEffect(() => { if (agendaFocus !== null) { inputs.current[agendaFocus]?.focus(); agendaFocus = null } }) // อยู่ข้ามการวาดใหม่ (เช่น เปิดโหมดแบ่งจอ)
+  // หลังกด ＋: เลือกช่องใหม่เป็นเป้าหมายของเสียง (ไฮไลต์ + เลื่อนให้เห็น) โดย **ไม่โฟกัส** เพื่อไม่ให้แป้นพิมพ์เด้งขึ้นมาบังจอ — แตะช่องเองถึงจะพิมพ์ได้
+  useEffect(() => {
+    if (agendaFocus === null) return
+    const el = inputs.current[agendaFocus]
+    agendaFocus = null
+    if (!el) return
+    window.dispatchEvent(new CustomEvent('voice-target', { detail: el }))
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }) // อยู่ข้ามการวาดใหม่ (เช่น เปิดโหมดแบ่งจอ)
   /** กด ＋ ที่วาระ (หรือที่ข้อย่อย) = เพิ่มข้อย่อยถัดไปใต้วาระนั้นทันที (7.1 → 7.2 …) แล้วเลื่อนเคอร์เซอร์ไปที่ช่องนั้น */
   const addSub = (i: number) => { let j = i; while (items[j + 1]?.k === 'r') j++; const next = [...items]; next.splice(j + 1, 0, { t: '', k: 'r' }); onChange(next); agendaFocus = j + 1; onAdd?.() }
   const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? { ...x, t: v } : x)))
