@@ -127,6 +127,7 @@ try {
   must((await admin.locator('#il-tn').inputValue()).startsWith('7/3/2027'), 'to-name follows date: ' + await admin.locator('#il-tn').inputValue())
   await admin.locator('#il-verse').fill('จงเปรมปรีดิ์ในองค์พระผู้เป็นเจ้าเสมอ\n(ฟีลิปปี 4:4)')
   must((await admin.getByLabel('ตัวอย่างหนังสือ').innerText()).includes('ฟีลิปปี 4:4'), 'verse on paper')
+  await admin.getByRole('button', { name: /เรียบร้อยแล้ว/ }).click()   // กด ＋ เปิดโหมดแบ่งจออัตโนมัติ — กลับสู่โหมดปกติเพื่อไปขั้นแจ้งประธาน/ลายเซ็น
   must((await admin.getByRole('button', { name: /ส่งเข้าคลังเอกสาร/ }).innerText().then(() => admin.getByRole('button', { name: /13\. ส่งเข้าคลังเอกสาร/ }).count())) === 1, 'numbering shifted: library step is 13')
   must(await admin.getByRole('button', { name: /11\. แจ้งประธานตรวจสอบ/ }).count() === 1, 'notify step is 11')
   if (process.env.SHOT) await admin.setViewportSize({ width: 390, height: 1700 })

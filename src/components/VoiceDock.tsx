@@ -21,7 +21,7 @@ const labelOf = (el: Field) => {
  * ส่ง = ใส่ข้อความลง “ช่องที่แตะเลือกไว้” ในฟอร์ม (เฉพาะช่องกรอกข้อความใน scope · ไม่แตะเลขที่/วันที่/หัวท้าย/ลายเซ็น) · ย้อนกลับได้
  * ยังไม่ส่งให้ AI (ระยะ 2)
  */
-export default function VoiceDock({ scope }: { scope: string }) {
+export default function VoiceDock({ scope, onStart }: { scope: string; /** เริ่มพูดแล้ว (เช่น เปิดโหมดแบ่งจอ) */ onStart?: () => void }) {
   const [target, setTarget] = useState<Field | null>(null)
   const hist = useRef(createHistory<{ el: Field; prev: string; label: string }>(50))
   const [steps, setSteps] = useState(0)
@@ -49,6 +49,7 @@ export default function VoiceDock({ scope }: { scope: string }) {
     setErr(''); setNote('')
     baseRef.current = text.trim() ? `${text.trim()} ` : ''
     setListening(true)
+    onStart?.()
     stopRef.current = startListening({
       onText: (t) => setText(baseRef.current + t),
       onBusy: setBusy,

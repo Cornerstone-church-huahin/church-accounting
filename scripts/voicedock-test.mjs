@@ -106,6 +106,19 @@ try {
   const s71 = a.getByLabel('7.1', { exact: true })
   await s71.waitFor({ timeout: 3000 })
   must(await s71.evaluate((e) => e === document.activeElement), 'new 7.1 row is focused')
+  // กด ＋ แล้วเข้าโหมดแบ่งจอเอง: ส่วนบน (ฟอร์ม) + ส่วนล่าง (ตัวอย่างเอกสาร) ลากปรับสัดส่วนได้ มีปุ่มเรียบร้อยแล้ว
+  const region = a.getByRole('region', { name: /แบ่งจอ/ })
+  await region.waitFor({ timeout: 3000 })
+  must(await s71.evaluate((e) => e === document.activeElement), '7.1 still focused after entering split mode')
+  must(await region.locator('.split__top').getByLabel('7.1', { exact: true }).count() === 1, 'form is in the top pane')
+  must(await region.locator('.split__bottom').getByLabel('ตัวอย่างหนังสือ').count() === 1, 'document preview is in the bottom pane')
+  const hb0 = (await region.locator('.split__top').boundingBox()).height
+  const bar = region.getByRole('separator')
+  const bb = await bar.boundingBox()
+  await a.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await a.mouse.down()
+  await a.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2 + 120, { steps: 8 }); await a.mouse.up()
+  const hb1 = (await region.locator('.split__top').boundingBox()).height
+  must(hb1 > hb0 + 60, `dragging the bar resizes the panes: ${hb0} -> ${hb1}`)
   // พูดแล้วส่ง → เข้าช่อง 7.1
   await hold(a, 'พฤศจิกายน')
   await a.getByRole('button', { name: 'ส่ง', exact: true }).click()
@@ -130,6 +143,10 @@ try {
   await a.getByRole('button', { name: 'ส่ง', exact: true }).click()
   must((await a.locator('#il-date').inputValue()) !== 'ประชุมวันอาทิตย์ที่ 8 พฤศจิกายน', 'date field is never filled by voice')
   await a.screenshot({ path: process.env.SHOT || '/tmp/voice1.png' })
+  await a.getByRole('button', { name: /เรียบร้อยแล้ว/ }).click()
+  must(await a.getByRole('region', { name: /แบ่งจอ/ }).count() === 0, 'split mode closes with เรียบร้อยแล้ว')
+  must(await a.getByRole('button', { name: /แจ้งประธานตรวจสอบ/ }).count() === 1, 'signing / notify steps available again after exit')
+  await a.getByLabel('7.1', { exact: true }).waitFor()
 
   // ----- iPhone/Safari: ไม่มีระบบพูดให้พิมพ์ → อัดเสียงแล้วให้ Gemini ถอดเสียง -----
   const ip = await device('ad1', 'แอดมิน')
