@@ -23,8 +23,7 @@ async function run(role, works, shot) {
     const tile = page.getByRole('link', { name: 'รวมสมาชิก' })
     await tile.waitFor({ timeout: 10000 })
     must(await page.locator('.stepbtn').count() === 6, 'six original step tiles intact')
-    const yTile = (await tile.boundingBox()).y, yPills = (await page.getByRole('group', { name: 'ทางลัดดูอย่างเดียว' }).boundingBox()).y
-    must(yTile < yPills, 'members tile sits above the birthday/report shortcuts')
+    must(await page.getByRole('group', { name: 'ทางลัดดูอย่างเดียว' }).count() === 0, 'no duplicate birthday/report shortcuts on the treasurer page')
     const lastB = await page.locator('.stepbtn').last().boundingBox(), navTop = (await page.locator('.bottomnav').boundingBox()).y
     must(lastB.y + lastB.height <= navTop, `whole page fits above bottom nav without scrolling: ${lastB.y + lastB.height} <= ${navTop}`)
     if (shot) await page.screenshot({ path: shot })
