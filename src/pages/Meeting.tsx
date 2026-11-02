@@ -67,7 +67,7 @@ function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ป�
       </p>
       <WorkTerm n={n} name={name} />
       {extra}
-      <QuickReports />
+      {n !== 3 && <QuickReports />} {/* งานเหรัญญิกมีปุ่มรวมสมาชิกอยู่แล้ว (ข้างในมีวันเกิด/รายงานครบ) */}
     </>
   )
 }

@@ -54,7 +54,7 @@ try {
   await run('admin', [], check, process.env.SHOT)
   await run('viewer', [4], check)
   // ทุกห้องงาน: หน้าหลักของห้องมีทางลัดชุดเดียวกัน
-  for (const n of [1, 2, 3, 5, 8, 14, 18]) await run('admin', [], check, undefined, `/meeting/${n}`)
+  for (const n of [1, 2, 5, 8, 14, 18]) await run('admin', [], check, undefined, `/meeting/${n}`)
   await run('viewer', [9], check, undefined, '/meeting/9')
   console.log('quickreports-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
