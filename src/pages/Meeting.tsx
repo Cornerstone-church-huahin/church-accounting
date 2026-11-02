@@ -5,6 +5,7 @@ import Members from './Members'
 import { IconNote } from '../components/Icons'
 import WorkTeam from '../components/WorkTeam'
 import WorkTerm from '../components/WorkTerm'
+import QuickReports from '../components/QuickReports'
 import { APP_CREDIT } from '../lib/credit'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
@@ -65,6 +66,7 @@ function WorkHead({ n, name, back }: { n: number; name: string; /** เปิด
         🚧 <b>อยู่ระหว่างการพัฒนา</b> · {APP_CREDIT}
       </p>
       <WorkTerm n={n} name={name} />
+      <QuickReports />
     </>
   )
 }

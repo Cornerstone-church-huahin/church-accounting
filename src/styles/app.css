@@ -1584,3 +1584,6 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .qpill--att { border-color: #1f6f5c; }
 .qpill--att .qpill__ic { background: #d8f0ea; }
 .qpill:active { transform: scale(0.98); }
+/* ทางลัดในหัวห้องงาน: ชิดกล่องวาระ ไม่เพิ่มช่องว่างแนวตั้ง */
+.main > .qrow { margin-top: -0.5rem; margin-bottom: 0; }
+.main > .qrow .qpill { min-height: 2.3rem; font-size: 0.84rem; }

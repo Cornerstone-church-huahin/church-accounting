@@ -89,7 +89,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   const joins = useMemo(() => joinYears(sel).slice(-6), [sel])
   const pins = useMemo<MapPin[]>(() => sel.filter(hasCoord).map((m) => ({ id: m.id, lat: m.lat as number, lng: m.lng as number, label: m.name, sub: statusShort(m.status) })), [sel])
 
-  const quick = !onOpen && !idFilter ? <QuickReports members={all} attendance={att} /> : null // หน้ารวมสมาชิกของห้องงาน: ทางลัดวันเกิด/รายงานนมัสการ (ดูอย่างเดียว ทุกระดับ)
+  const quick = !onOpen && !idFilter ? <QuickReports /> : null // หน้ารวมสมาชิกของห้องงาน: ทางลัดวันเกิด/รายงานนมัสการ (ดูอย่างเดียว ทุกระดับ)
   if (!canRole(role, 'detail') && !canWork(work, 'view')) return <>{quick}<p className="empty">ไม่มีสิทธิ์ดูข้อมูลสมาชิก</p></>
   const gName = gs.length === 0 ? 'ทุกสถานะ' : PICK_STATUS_GROUPS.filter((x) => gs.includes(x.key)).concat(gs.filter((k) => !PICK_STATUS_GROUPS.some((x) => x.key === k)).map((k) => ({ key: k as never, label: statusGroupLabel(k) }))).map((x) => x.label).join(' + ')
 
