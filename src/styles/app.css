@@ -1652,8 +1652,8 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .sheetpaper.tkind-out thead th { background: #fbe4e2; border-bottom: 2px solid #c4332a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 /* บันทึก: รับ + จ่ายในหน้าเดียว */
-.stepbtn--wide { width: 100%; margin: 0.4rem 0 0; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 0.6rem; min-height: 3rem; background: linear-gradient(90deg, #1b8a4b 0 50%, #b3261e 50% 100%); color: #fff; border: 0; border-radius: 1rem; font-weight: 800; font-size: 1.05rem; box-shadow: 0 2px 0 rgba(0,0,0,.18); }
-.stepbtn--wide small { font-weight: 500; font-size: 0.75rem; opacity: 0.95; }
+
+
 .home-tab--rec { grid-column: 1 / -1; border-color: var(--navy); }
 .home-tab--rec.on { background: var(--navy); color: #fff; }
 
@@ -1686,3 +1686,15 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .rec-fold { margin: 0.2rem 0; border: 1px solid var(--line); border-radius: 10px; padding: 0.2rem 0.6rem; background: var(--surface); }
 .rec-fold > summary { cursor: pointer; font-weight: 700; font-size: 0.88rem; min-height: 2rem; display: flex; align-items: center; }
 .rec-tool--scan { cursor: pointer; }
+
+/* งานเหรัญญิก: 3 แท็บใต้ขั้นตอน (บันทึก · แดชบอร์ด · แท็บ 3) */
+.exttabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; margin: 0.45rem 0 0; }
+.exttab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; min-height: 3.2rem; padding: 0.2rem 0.3rem; border: 0; border-radius: 0.9rem; color: #fff; font: inherit; font-weight: 800; font-size: 0.98rem; box-shadow: 0 2px 0 rgba(0,0,0,.18); cursor: pointer; }
+.exttab small { font-weight: 500; font-size: 0.68rem; opacity: 0.95; }
+.exttab--rec { background: linear-gradient(90deg, #1b8a4b 0 50%, #b3261e 50% 100%); }
+.exttab--dash { background: var(--navy); }
+.exttab--3 { background: var(--surface-2); color: var(--ink); border: 1.5px dashed var(--line); box-shadow: none; }
+.dash__h { margin: 0.4rem 0; }
+.dash__bal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; text-align: center; }
+.dash__bal span { display: block; font-size: 0.74rem; color: var(--ink-soft); }
+.dash__bal b { font-size: 1.05rem; }
