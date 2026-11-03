@@ -1677,3 +1677,12 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .record__sec { margin: 0.2rem 0 0.2rem; padding-top: 0; }
 .record__h { margin: 0.25rem 0; padding: 0.25rem 0.6rem; font-size: 1rem; }
 .record .no-print { margin-block: 0; }
+
+/* หน้า บันทึก: ช่องบันทึก 1–4 เป็นปุ่มเล็กแถวเดียว · รายการใต้ใบพับเก็บ · ปุ่มสแกนในแถบเครื่องมือ */
+.record .subtabs { gap: 0.3rem; margin: 0.3rem 0; }
+.record .subtabs button { flex-direction: row; justify-content: center; gap: 0.25rem; min-height: 2.2rem; padding: 0.1rem 0.2rem; border-width: 1.5px; border-radius: 0.7rem; font-size: 0.78rem; }
+.record .subtabs button .dot { width: 1.2rem; height: 1.2rem; font-size: 0.7rem; }
+.record .subtabs button span { font-size: 0.74rem; line-height: 1.1; text-align: left; }
+.rec-fold { margin: 0.2rem 0; border: 1px solid var(--line); border-radius: 10px; padding: 0.2rem 0.6rem; background: var(--surface); }
+.rec-fold > summary { cursor: pointer; font-weight: 700; font-size: 0.88rem; min-height: 2rem; display: flex; align-items: center; }
+.rec-tool--scan { cursor: pointer; }
