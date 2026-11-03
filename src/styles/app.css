@@ -1666,4 +1666,14 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .record__h--in { background: #1f8a4c; }
 .record__h--out { background: #c4332a; }
 .record__back { margin: 0.3rem 0 0; }
-.record .dlrow .btn { font-size: 0.82rem; padding: 0.3rem 0.6rem; min-height: 2.6rem; }
+
+
+/* หน้า บันทึก: แถบเครื่องมือเล็ก (ไอคอนเส้นบาง) + ลดช่องไฟระหว่างส่วนรับ/จ่าย */
+.rec-tools { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.3rem; margin: 0.25rem 0 0; }
+.rec-tool { display: inline-flex; align-items: center; gap: 0.3rem; height: 2rem; padding: 0 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.rec-tool:hover { background: var(--surface-2); }
+.rec-tool:disabled { opacity: 0.5; }
+:root[data-theme='dark'] .rec-tool { color: var(--ink); }
+.record__sec { margin: 0.2rem 0 0.2rem; padding-top: 0; }
+.record__h { margin: 0.25rem 0; padding: 0.25rem 0.6rem; font-size: 1rem; }
+.record .no-print { margin-block: 0; }
