@@ -18,6 +18,10 @@ await page.addInitScript(() => {
   navigator.share = async (x) => { window.__shares.push({ name: x.files[0].name, type: x.files[0].type, size: x.files[0].size }) }
   localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' }))
   localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
+  const t = new Date(), ls = new Date(t); ls.setDate(t.getDate() - t.getDay())   // อาทิตย์ล่าสุด = ใบของสัปดาห์ก่อนหน้า
+  const d = `${ls.getFullYear()}-${String(ls.getMonth() + 1).padStart(2, '0')}-${String(ls.getDate()).padStart(2, '0')}`
+  localStorage.setItem(`acct.income.${ls.getFullYear()}.v1`, JSON.stringify([{ id: 'i1', date: d, typeId: 'tt1', amount: 500000, method: 'cash', source: 'manual', updated: 1 }]))
+  localStorage.setItem(`acct.expenses.${ls.getFullYear()}.v1`, JSON.stringify([{ id: 'e1', channel: 'manual', date: d, amount: 120000, desc: 'ค่าของทดสอบบอร์ด', status: 'paid', method: 'cash', updated: 2 }]))
   localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
 })
 try {
@@ -42,6 +46,17 @@ try {
   must(h1 !== h0, 'week changed: ' + h0 + ' -> ' + h1)
   const sheetWeeks = await page.locator('.a4page').evaluateAll((els) => els.map((e) => (e.innerText.match(/ระหว่างวันที่[^\n]*/) || [''])[0]))
   must(new Set(sheetWeeks.filter(Boolean)).size === 1 && sheetWeeks.filter(Boolean).length >= 2, 'income and expense sheets both follow the shared week: ' + JSON.stringify(sheetWeeks))
+  // ส่วนที่ 3: ใบสรุปสำหรับติดบอร์ดประกาศ (คำนวณจากรายการของสัปดาห์ที่เลือก)
+  const board = page.getByRole('region', { name: 'สำหรับติดบอร์ดประกาศ' })
+  await board.waitFor({ timeout: 10000 })
+  must(await board.getByText('สำหรับติดบอร์ดประกาศ').count() >= 1, 'board section title')
+  await board.getByText('สรุปรายรับ - รายจ่ายประจำสัปดาห์').first().waitFor({ timeout: 10000 })
+  must(await board.getByText('ค่าของทดสอบบอร์ด').count() >= 1, 'board notice lists the expense of the selected week (linked)')
+  must(await board.getByRole('button', { name: /ดาวน์โหลด PDF ใบสำหรับติดบอร์ด/ }).count() === 1 && await board.getByRole('button', { name: /แชร์ใบสำหรับติดบอร์ด/ }).count() === 1, 'board tools present')
+  await page.getByRole('button', { name: 'สัปดาห์ถัดไป' }).click()
+  await page.waitForTimeout(600)
+  must(await board.getByText('ค่าของทดสอบบอร์ด').count() === 0, 'board follows the shared week (next week has no such expense)')
+  await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click()
   // หัวงาน/ตารางงาน/แท็บขั้นตอน/แถบสลับยังตัดออก (เฉพาะหน้านี้) แต่ฟังก์ชันรับ/จ่ายครบเหมือนหน้าเดิม
   must(await page.getByRole('heading', { name: 'งานเหรัญญิก' }).count() === 0, 'room header removed')
   must(await page.getByRole('button', { name: /ตารางงาน/ }).count() === 0, 'calendar toggle removed')
