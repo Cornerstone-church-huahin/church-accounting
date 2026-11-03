@@ -39,7 +39,7 @@ const kindOf = (x: IncomeEntry): 'sheet' | 'slip' | 'unknown' | 'manual' =>
 const byDateDesc = (a: IncomeEntry, b: IncomeEntry) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated - a.updated)
 
 /** โหมด "รับ": ช่อง 1 บันทึกด้วยมือ · 2 บันทึกสลิป · 3 ใบบันทึกการถวาย → รวมเป็นใบสรุปรายสัปดาห์ (4) ใบเดียว */
-export default function Receive({ year, fund, view }: { year: number; /** ดูอย่างเดียว: แสดงเฉพาะใบบันทึกการถวายรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: รับของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) */ fund?: FundScope }) {
+export default function Receive({ year, fund, view, weekCtl, hideWeekBar }: { year: number; /** หน้า “บันทึก” (รับ+จ่ายในหน้าเดียว): ใช้สัปดาห์ร่วมกัน + ซ่อนแถบสัปดาห์ของตัวเอง */ weekCtl?: { sunday: string; set: (s: string) => void }; hideWeekBar?: boolean; /** ดูอย่างเดียว: แสดงเฉพาะใบบันทึกการถวายรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: รับของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) */ fund?: FundScope }) {
   const role = useRole()
   const inc = useIncome(year)
   const passbook = usePassbook(year)
@@ -51,10 +51,12 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
   const [newSheetFile, setNewSheetFile] = useState<File | null>(null)
   const [attach, setAttach] = useState<SheetFile | 'new' | null>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
-  const [sunday, setSunday] = useState(() => {
+  const [sundayOwn, setSundayOwn] = useState(() => {
     const s = sheetSunday(todayISO())
     return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0])
   })
+  const sunday = weekCtl ? weekCtl.sunday : sundayOwn
+  const setSunday = weekCtl ? weekCtl.set : setSundayOwn
   const [sub, setSub] = useState<Sub>(null)
   const [scanFiles, setScanFiles] = useState<File[] | null>(null) // สแกนใบบันทึกการถวายที่เขียนมือไว้
   const [rowEdit, setRowEdit] = useState<{ entry: IncomeEntry | null } | null>(null)
@@ -174,14 +176,14 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
   if (view) {
     return (
       <>
-        <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+        {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
         <div className="no-print"><IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload /></div>
       </>
     )
   }
   return (
     <>
-      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+      {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
       <div className="no-print">
         <IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} sunday={sunday} onScan={canWrite && !fid ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
         {canWrite && !fid && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
