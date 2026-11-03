@@ -104,7 +104,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
       return (
         <>
           <div style={{ fontWeight: 800, fontSize: 13.5, background: tint, borderLeft: `6px solid ${color}`, padding: '2px 8px', margin: '4px 0 2px' }}>{title}</div>
-          <table className="sheetpaper sheetpaper--full sheetpaper--inc" aria-label={`ใบบันทึกการถวาย ${title} (A4)`}>
+          <table className="sheetpaper sheetpaper--full sheetpaper--inc tkind-in" aria-label={`ใบบันทึกการถวาย ${title} (A4)`}>
             <colgroup><col style={{ width: '11%' }} /><col style={{ width: '6%' }} /><col style={{ width: '25%' }} /><col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /><col style={{ width: '6%' }} /></colgroup>
             <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>ซอง</th><th>เงินสด</th><th>โอน</th><th>เงินโอน</th><th>รวม</th><th style={{ fontSize: 10 }}>ไฟล์แนบ</th></tr></thead>
             <tbody>
@@ -134,7 +134,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
     return (
       <div>
         {Array.from({ length: np }, (_, k) => (
-          <ScaledPage key={k} ref={(el) => { refs.current[k] = el }}>
+          <ScaledPage key={k} className="a4page a4page--inc" ref={(el) => { refs.current[k] = el }}>
             <>
               <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${np > 1 ? ` · แผ่นที่ ${k + 1}/${np}` : ''}`} compact />
               <div style={{ flex: 3, minHeight: 0 }}>{tbl(circ, k, CR, 'รายรับเงินหมุนเวียน', '#1a2b4c', '#eef1f7')}</div>
@@ -154,10 +154,10 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
   return (
     <div>
       {pages.map(({ rows, gi, gn }, pi) => (
-        <ScaledPage key={pi} landscape className="a4page a4page--sheet" ref={(el) => { refs.current[pi] = el }}>
+        <ScaledPage key={pi} landscape className="a4page a4page--sheet a4page--inc" ref={(el) => { refs.current[pi] = el }}>
           <>
             <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${gn > 1 ? ` · แผ่นที่ ${gi + 1}/${gn}` : ''}`} compact />
-            <table className="sheetpaper sheetpaper--land" aria-label="ใบบันทึกการถวาย (A4 แนวนอน)">
+            <table className="sheetpaper sheetpaper--land tkind-in" aria-label="ใบบันทึกการถวาย (A4 แนวนอน)">
               <colgroup><col style={{ width: '9%' }} /><col style={{ width: '5%' }} /><col style={{ width: '26%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '14%' }} /><col style={{ width: '8%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th><th>ไฟล์แนบ</th></tr></thead>
               <tbody>
@@ -237,10 +237,10 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
   return (
     <div>
       {pages.map((rows, pi) => (
-        <ScaledPage key={pi} ref={(el) => { refs.current[pi] = el }}>
+        <ScaledPage key={pi} className="a4page a4page--exp" ref={(el) => { refs.current[pi] = el }}>
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
-            <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
+            <table className="sheetpaper sheetpaper--full tkind-out" aria-label="ใบเบิก-จ่ายเงินสด (A4)">
               <colgroup><col style={{ width: '11%' }} /><col style={{ width: '5%' }} /><col style={{ width: '24%' }} /><col style={{ width: '10%' }} /><col style={{ width: '21%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '8%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th>ผู้วางบิล</th><th>ผู้รับเงิน</th><th>ไฟล์แนบ</th></tr></thead>
               <tbody>
@@ -273,7 +273,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
         </ScaledPage>
       ))}
       {!wl.own && (
-        <ScaledPage ref={(el) => { refs.current[pages.length] = el }}>
+        <ScaledPage className="a4page a4page--exp" ref={(el) => { refs.current[pages.length] = el }}>
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด (ต่อ)" sub={`${heading} · หมายเหตุ ต้องเบิก`} compact />
             <WithdrawNote summary={summary} />
@@ -281,10 +281,10 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
         </ScaledPage>
       )}
       {!scope && (blank || (fundRows?.length ?? 0) > 0) && (
-        <ScaledPage ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el }}>
+        <ScaledPage className="a4page a4page--exp" ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el }}>
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด · เงินกองทุน (เตรียมนำฝาก)" sub={`${heading} · ถอนพร้อมเงินหมุนเวียน เก็บไว้เตรียมนำฝากเข้าบัญชีกองทุน`} />
-            <table className="sheetpaper sheetpaper--full" aria-label="ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)">
+            <table className="sheetpaper sheetpaper--full tkind-out" aria-label="ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)">
               <colgroup><col style={{ width: '12%' }} /><col style={{ width: '6%' }} /><col style={{ width: '38%' }} /><col style={{ width: '17%' }} /><col style={{ width: '27%' }} /></colgroup>
               <thead><tr><th>วันที่</th><th>ลำดับที่</th><th>กองทุน</th><th>จำนวนเงิน</th><th>หมายเหตุ</th></tr></thead>
               <tbody>
@@ -317,10 +317,10 @@ export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note, fund
   return (
     <>
       {pages.map((rs, pi) => (
-        <ScaledPage key={pi} landscape className="a4page a4page--sheet" ref={(el) => { if (el) pagesRef.current[pi] = el }}>
+        <ScaledPage key={pi} landscape className="a4page a4page--sheet a4page--inc" ref={(el) => { if (el) pagesRef.current[pi] = el }}>
           <>
             <PaperHead church={church} title="ใบบันทึกการถวาย" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} compact />
-            <table className="sheetpaper sheetpaper--land" aria-label="สรุปรายรับ (ใบบันทึกการถวาย)">
+            <table className="sheetpaper sheetpaper--land tkind-in" aria-label="สรุปรายรับ (ใบบันทึกการถวาย)">
               <colgroup><col style={{ width: '6%' }} /><col style={{ width: '34%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} /></colgroup>
               <thead><tr><th>No.</th><th>รายการ</th><th>จำนวนซอง</th><th>จำนวนเงิน</th><th>จำนวนโอน</th><th>จำนวนเงิน</th><th>รวม</th></tr></thead>
               <tbody>
@@ -339,7 +339,7 @@ export function IncomeSummaryPaper({ church, rows, heading, pagesRef, note, fund
               <tfoot><tr><td colSpan={2}>รวมทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n)}</td><td className="num">{m(cash(rs))}</td><td className="num">{sum(rs, (r) => r.transfer.n)}</td><td className="num">{m(tr(rs))}</td><td className="num">{m(cash(rs) + tr(rs))}</td></tr></tfoot>
             </table>
             {pi === pages.length - 1 && fundRows.length > 0 && (
-              <table className="sheetpaper sheetpaper--land" style={{ marginTop: 6 }} aria-label="เงินถวายกองทุน (แยกจากเงินหมุนเวียน)">
+              <table className="sheetpaper sheetpaper--land tkind-in" style={{ marginTop: 6 }} aria-label="เงินถวายกองทุน (แยกจากเงินหมุนเวียน)">
                 <thead><tr><th colSpan={7} style={{ textAlign: 'left' }}>เงินถวายกองทุน (แยกจากเงินหมุนเวียน — ไม่รวมในยอดข้างบน)</th></tr></thead>
                 <tbody>{fundRows.map((r) => <tr key={r.key}><td style={{ width: '40%' }}>{r.label}</td><td className="num">{r.cash.n || ''}</td><td className="num">{r.cash.amt ? m(r.cash.amt) : ''}</td><td className="num">{r.transfer.n || ''}</td><td className="num">{r.transfer.amt ? m(r.transfer.amt) : ''}</td><td className="num"><b>{m(r.cash.amt + r.transfer.amt)}</b></td></tr>)}</tbody>
                 <tfoot><tr><td>รวมกองทุน</td><td className="num">{sum(fundRows, (r) => r.cash.n)}</td><td className="num">{m(cash(fundRows))}</td><td className="num">{sum(fundRows, (r) => r.transfer.n)}</td><td className="num">{m(tr(fundRows))}</td><td className="num">{m(cash(fundRows) + tr(fundRows))}</td></tr></tfoot>
@@ -367,10 +367,10 @@ export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children,
   return (
     <>
       {pages.map((rs, pi) => (
-        <ScaledPage key={pi} ref={(el) => { if (el) pagesRef.current[pi] = el }}>
+        <ScaledPage key={pi} className="a4page a4page--exp" ref={(el) => { if (el) pagesRef.current[pi] = el }}>
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด (สรุปรายจ่าย)" sub={`${heading}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
-            <table className="sheetpaper sheetpaper--full" aria-label="สรุปรายจ่าย (ใบเบิก-จ่ายเงินสด)">
+            <table className="sheetpaper sheetpaper--full tkind-out" aria-label="สรุปรายจ่าย (ใบเบิก-จ่ายเงินสด)">
               <colgroup><col style={{ width: '7%' }} /><col style={{ width: '31%' }} /><col style={{ width: '9%' }} /><col style={{ width: '15%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /></colgroup>
               <thead><tr><th>ลำดับที่</th><th>หมวดรายจ่าย</th><th>รายการ</th><th>จ่ายเงินสด</th><th>จ่ายโอน</th><th>ค้างจ่าย</th><th>รวม</th></tr></thead>
               <tbody>
@@ -389,7 +389,7 @@ export function ExpenseSummaryPaper({ church, rows, heading, pagesRef, children,
               <tfoot><tr><td colSpan={2} style={{ textAlign: 'center' }}>รวมจ่ายเป็นเงินทั้งสิ้น{pages.length > 1 ? ' (แผ่นนี้)' : ''}</td><td className="num">{sum(rs, (r) => r.cash.n + r.transfer.n + (r.pending?.n ?? 0))}</td><td className="num">{m(sum(rs, (r) => r.cash.amt))}</td><td className="num">{m(sum(rs, (r) => r.transfer.amt))}</td><td className="num">{m(sum(rs, (r) => r.pending?.amt ?? 0))}</td><td className="num">{m(sum(rs, tot))}</td></tr></tfoot>
             </table>
             {pi === pages.length - 1 && fundRows.length > 0 && (
-              <table className="sheetpaper" style={{ marginTop: 6, width: '100%' }} aria-label="รายจ่ายกองทุน (โอนออกเข้ากองทุน)">
+              <table className="sheetpaper tkind-out" style={{ marginTop: 6, width: '100%' }} aria-label="รายจ่ายกองทุน (โอนออกเข้ากองทุน)">
                 <thead><tr><th colSpan={3} style={{ textAlign: 'left' }}>รายจ่ายกองทุน (โอนออกเข้ากองทุน — แยกจากเงินหมุนเวียน)</th></tr></thead>
                 <tbody>{fundRows.map((r) => <tr key={r.key}><td>{r.label}</td><td>เข้ากองทุน · รอเบิก</td><td className="num"><b>{m(r.cash.amt + r.transfer.amt)}</b></td></tr>)}</tbody>
                 <tfoot><tr><td colSpan={2}>รวมโอนออกเข้ากองทุน</td><td className="num">{m(sum(fundRows, (r) => r.cash.amt + r.transfer.amt))}</td></tr></tfoot>
@@ -458,7 +458,7 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
     </>
   )
   return (
-    <table className="sheetpaper" style={{ marginTop: 6, fontSize: many ? 10.5 : undefined, border: '2px solid #1a2b4c' }} aria-label="หมายเหตุ ต้องเบิก">
+    <table className="sheetpaper" style={{ marginTop: 6, fontSize: many ? 10.5 : undefined, border: '2px solid #1a2b4c', borderTop: '4px solid #c4332a' }} aria-label="หมายเหตุ ต้องเบิก">
       <colgroup>{Array.from({ length: COLS }, (_, c) => <col key={c} style={{ width: `${100 / COLS}%` }} />)}</colgroup>
       <thead><tr><th colSpan={COLS} style={{ textAlign: 'left' }}>หมายเหตุ · ต้องเบิก</th></tr></thead>
       <tbody>
@@ -491,7 +491,7 @@ function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }:
               <div style={{ height: 8, background: color, margin: '-4px 0 6px', borderRadius: 4 }} aria-hidden="true" />
               <PaperHead church={church} title={`ใบกองทุน · ${fundName}`} sub={`ต่อเนื่องทุกสัปดาห์ ไม่แยกรายสัปดาห์ · ${span}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
               <div style={{ textAlign: 'center', margin: '0 0 6px' }}><span style={{ display: 'inline-block', padding: '2px 18px', borderRadius: 999, background: color, color: '#fff', fontWeight: 800, fontSize: 15 }}>{kind === 'in' ? '● ' : '● '}{title} {kind === 'in' ? '(รายรับ)' : '(รายจ่าย)'}</span></div>
-              <table className="sheetpaper sheetpaper--full" aria-label={`ใบกองทุน ${fundName} ${title} (A4)`}>
+              <table className={`sheetpaper sheetpaper--full tkind-${kind}`} aria-label={`ใบกองทุน ${fundName} ${title} (A4)`}>
                 <colgroup><col style={{ width: '14%' }} /><col style={{ width: '7%' }} /><col style={{ width: '43%' }} /><col style={{ width: '17%' }} /><col style={{ width: '19%' }} /></colgroup>
                 <thead><tr style={{ background: tint }}><th style={{ background: tint }}>วันที่</th><th style={{ background: tint }}>ลำดับที่</th><th style={{ background: tint }}>รายการ</th><th style={{ background: tint, color }}>{kind === 'in' ? 'จำนวนเงินรับ' : 'จำนวนเงินจ่าย'}</th><th style={{ background: tint }}>เงินคงเหลือ</th></tr></thead>
                 <tbody>

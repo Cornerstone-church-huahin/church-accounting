@@ -37,7 +37,7 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
             <div className="zone zone--circ" style={{ border: '3px solid #1a2b4c', background: '#f4f7fd' }}>
               {zoneHead('■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)', '#1a2b4c')}
               <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>รายรับเงินหมุนเวียน</div>
-              <table className="sheetpaper sheetpaper--full" aria-label="รายรับเงินหมุนเวียน">
+              <table className="sheetpaper sheetpaper--full tkind-in" aria-label="รายรับเงินหมุนเวียน">
                 <colgroup><col style={{ width: '7%' }} /><col style={{ width: '53%' }} /><col style={{ width: '22%' }} /><col style={{ width: '18%' }} /></colgroup>
                 <thead><tr><th style={th}>ที่</th><th style={th}>รายการ</th><th style={th}>จำนวนเงิน</th><th style={th}>ร้อยละ</th></tr></thead>
                 <tbody>
@@ -47,7 +47,7 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
                 <tfoot><tr><td colSpan={2}>รวมรายรับ</td><td className="num">{m(incTotal)}</td><td /></tr></tfoot>
               </table>
               <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>รายจ่ายเงินหมุนเวียน (แยกตามหมวด)</div>
-              <table className="sheetpaper sheetpaper--full" aria-label="รายจ่ายเงินหมุนเวียนแยกหมวด">
+              <table className="sheetpaper sheetpaper--full tkind-out" aria-label="รายจ่ายเงินหมุนเวียนแยกหมวด">
                 <colgroup><col style={{ width: '7%' }} /><col style={{ width: '53%' }} /><col style={{ width: '22%' }} /><col style={{ width: '18%' }} /></colgroup>
                 <thead><tr><th style={th}>ที่</th><th style={th}>หมวดรายจ่าย</th><th style={th}>จำนวนเงิน</th><th style={th}>% ของรายรับ</th></tr></thead>
                 <tbody>
@@ -59,7 +59,7 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
               {d.compTotal > 0 && (named ? (
                 <>
                   <div style={{ fontWeight: 800, fontSize: 15, margin: '8px 0 2px' }}>ค่าตอบแทนและสวัสดิการ (รายบุคคล · ภายในคณะทำงาน)</div>
-                  <table className="sheetpaper sheetpaper--full" aria-label="ค่าตอบแทนรายบุคคล">
+                  <table className="sheetpaper sheetpaper--full tkind-out" aria-label="ค่าตอบแทนรายบุคคล">
                     <colgroup><col style={{ width: '7%' }} /><col style={{ width: '71%' }} /><col style={{ width: '22%' }} /></colgroup>
                     <thead><tr><th style={th}>ที่</th><th style={th}>ผู้รับ / รายการ</th><th style={th}>จำนวนเงิน</th></tr></thead>
                     <tbody>{d.comp.map((c, i) => <tr key={i}><td style={{ textAlign: 'center' }}>{i + 1}</td><td data-c="x"><span className="pname">{c.name}</span></td><td className="num"><b>{m(c.amount)}</b></td></tr>)}</tbody>

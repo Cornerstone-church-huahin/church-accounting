@@ -258,7 +258,7 @@ export default function Receive({ year, fund, view }: { year: number; /** ดู
               <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
             </div>
           </div>
-          <ScaledPage ref={paperRef} className="a4page a4page--doc">
+          <ScaledPage ref={paperRef} className="a4page a4page--doc a4page--inc">
             <>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
