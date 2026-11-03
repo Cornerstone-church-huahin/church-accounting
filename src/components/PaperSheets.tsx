@@ -44,11 +44,30 @@ export function PaperHead({ church, title, sub, compact }: { church: string; tit
 }
 
 /** ปุ่มดาวน์โหลดใต้ใบ: ไฟล์เปล่า (ไว้จดมือ) + ไฟล์ข้อมูล (พิมพ์ เซ็นกำกับ เก็บเข้าแฟ้ม) — A4 ขนาดจริงทั้งคู่ */
-function DownloadRow({ onData, kind, church, sunday, onScan }: { onData: () => void; kind: 'offering' | 'voucher'; church: string; sunday?: string; /** ใส่มา = มีปุ่มสแกนใบที่เขียนมือไว้ (เลือก/ถ่ายหลายรูปได้) แล้วกรอกลงใบให้อัตโนมัติ */ onScan?: (files: File[]) => void }) {
+/** แชร์ PDF ของใบนี้ (เมนูแชร์ของเครื่อง · แชร์ไฟล์ไม่ได้ → ดาวน์โหลดให้แทน) + พิมพ์ */
+function ShareBtns({ share }: { share: { els: () => HTMLDivElement[]; file: string; mode: 'full' | 'landscape'; title: string } }) {
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true)
+    try {
+      const r = await sharePdf(share.els(), share.file, share.mode, share.title)
+      if (r === 'unsupported') { await downloadSheetPdf(share.els(), share.file, share.mode); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
+    } finally { setBusy(false) }
+  }
+  return (
+    <>
+      <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run()} aria-label={`แชร์${share.title}`}>{busy ? 'กำลังสร้าง…' : '📤 แชร์'}</button>
+      <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label={`พิมพ์${share.title}`}>🖨️ พิมพ์</button>
+    </>
+  )
+}
+
+function DownloadRow({ onData, kind, church, sunday, onScan, share }: { /** หน้า “บันทึก”: เพิ่มปุ่มแชร์ + พิมพ์ของใบนี้ */ share?: { els: () => HTMLDivElement[]; file: string; mode: 'full' | 'landscape'; title: string }; onData: () => void; kind: 'offering' | 'voucher'; church: string; sunday?: string; /** ใส่มา = มีปุ่มสแกนใบที่เขียนมือไว้ (เลือก/ถ่ายหลายรูปได้) แล้วกรอกลงใบให้อัตโนมัติ */ onScan?: (files: File[]) => void }) {
   return (
     <div className="row no-print dlrow" style={{ margin: '0.4rem 0', flexWrap: 'wrap' }}>
       <button type="button" className="btn btn--ghost grow" onClick={() => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet(kind, church, sunday))}>⬇️ ดาวน์โหลด PDF ไฟล์เปล่า</button>
       <button type="button" className="btn btn--gold grow" onClick={onData}>⬇️ ดาวน์โหลด PDF ข้อมูล</button>
+      {share && <ShareBtns share={share} />}
       {onScan && (
         <label className="btn btn--blue grow" style={{ flexBasis: '100%', textAlign: 'center', cursor: 'pointer' }}>
           📷 สแกนใบที่เขียนไว้ (กรอกลงใบให้อัตโนมัติ)
@@ -84,7 +103,7 @@ function SheetHint() {
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, onFileClick, scope, onScan, blank, noDownload }: { /** แตะ 📎 ในช่องไฟล์แนบ = เปิดดูรูปที่แนบ */ onFileClick?: (x: IncomeEntry) => void; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, onFileClick, scope, onScan, blank, noDownload, withShare }: { /** เพิ่มปุ่มแชร์/พิมพ์ในแถวดาวน์โหลด */ withShare?: boolean; /** แตะ 📎 ในช่องไฟล์แนบ = เปิดดูรูปที่แนบ */ onFileClick?: (x: IncomeEntry) => void; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -147,7 +166,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
             {onRowClick && !blank && k === 0 && circ.length <= CR / 2 && <SheetHint />}
           </ScaledPage>
         ))}
-        {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />}
+        {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'full', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />}
       </div>
     )
   }
@@ -188,7 +207,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
           {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint />}
         </ScaledPage>
       ))}
-      {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />}
+      {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'landscape', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />}
     </div>
   )
 }
@@ -203,7 +222,7 @@ const withdrawLayout = (summary?: WeekSummary) => {
   const rows = rC + rF + 1 + (nF ? 1 : 0) // + แถบป้ายโซน
   return { n, cols, rows, rC, rF, own: rows <= 11 }
 }
-export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance }: { /** เงินกองทุนที่เบิกพร้อมเงินหมุนเวียน เตรียมนำฝาก — ตารางแยกอีกแผ่น ไม่รวมในรายจ่ายหมุนเวียน */ fundRows?: ExpenseEntry[]; /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
+export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance, withShare }: { /** เพิ่มปุ่มแชร์/พิมพ์ในแถวดาวน์โหลด */ withShare?: boolean; /** เงินกองทุนที่เบิกพร้อมเงินหมุนเวียน เตรียมนำฝาก — ตารางแยกอีกแผ่น ไม่รวมในรายจ่ายหมุนเวียน */ fundRows?: ExpenseEntry[]; /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   // แถวในตารางลดลงตามความสูงของช่องต้องเบิก (ใบเดียวต้องพอดี A4 เห็นครบถึงยอดรวมต้องเบิก)
   const wl0 = withdrawLayout(summary)
   const refs = useRef<(HTMLDivElement | null)[]>([])
@@ -302,7 +321,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
           </>
         </ScaledPage>
       )}
-      {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
+      {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'cash-voucher.pdf', mode: 'full', title: 'ใบเบิก-จ่ายเงินสด' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
     </div>
   )
 }

@@ -82,17 +82,17 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
           </button>
         </>
       )}
-      {full && (
+      {full && tab !== 'rec' && (
         <div className="fullbar no-print">
           <button type="button" className="fullbar__back" onClick={() => setTab(null)} aria-label="กลับหน้าแรก" title="กลับหน้าแรก">‹ 🏠</button>
           <div className="home-tabs home-tabs--mini" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
-            <button type="button" role="tab" aria-selected={tab === 'rec'} className={`home-tab home-tab--rec${tab === 'rec' ? ' on' : ''}`} onClick={() => setTab('rec')} title={REC.name}><span>{REC.icon} {REC.short}</span></button>
+            <button type="button" role="tab" aria-selected={false} className="home-tab home-tab--rec" onClick={() => setTab('rec')} title={REC.name}><span>{REC.icon} {REC.short}</span></button>
             {STEPS.map((x) => <button key={x.k} type="button" role="tab" aria-selected={tab === x.k} className={`home-tab home-tab--${x.k}${tab === x.k ? ' on' : ''}`} onClick={() => setTab(x.k)} title={x.name}><span>{x.icon} {x.short}</span></button>)}
           </div>
         </div>
       )}
       <div className={full ? 'fullmode' : undefined}>
-      {tab === 'rec' && <Record key={year} year={year} />}
+      {tab === 'rec' && <Record key={year} year={year} onBack={() => setTab(null)} />}
       {tab === 'in' && <Receive key={year} year={year} />}
       {tab === 'adj' && <Adjust key={year} year={year} />}
       {tab === 'sum' && <Summary key={year} year={year} />}
