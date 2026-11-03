@@ -51,7 +51,7 @@ const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidD
 const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b) ? 1 : effDate(a) > effDate(b) ? -1 : b.updated - a.updated)
 
 /** โหมด "จ่าย": 1 บันทึกด้วยมือ · 2 วางบิล · 3 สำรองจ่าย · 4 รวมจ่าย (หักลบกับรายรับในแท็บสรุป) */
-export default function Pay({ year, fund, view }: { year: number; /** ดูอย่างเดียว: แสดงเฉพาะใบเบิก-จ่ายเงินสดรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
+export default function Pay({ year, fund, view, weekCtl, hideWeekBar }: { year: number; /** หน้า “บันทึก” (รับ+จ่ายในหน้าเดียว): ใช้สัปดาห์ร่วมกัน + ซ่อนแถบสัปดาห์ของตัวเอง */ weekCtl?: { sunday: string; set: (s: string) => void }; hideWeekBar?: boolean; /** ดูอย่างเดียว: แสดงเฉพาะใบเบิก-จ่ายเงินสดรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
   const role = useRole()
   const expRaw = useExpenses(year)
   const subsOn = !!fund?.subs?.length
@@ -98,7 +98,9 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   const [payFor, setPayFor] = useState<ExpenseEntry | null>(null)
   const [scope, setScope] = useState<'week' | 'year'>('year')
   const sundays = useMemo(() => sundaysOf(year), [year])
-  const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
+  const [sundayOwn, setSundayOwn] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
+  const sunday = weekCtl ? weekCtl.sunday : sundayOwn
+  const setSunday = weekCtl ? weekCtl.set : setSundayOwn
   const [allWeeks, setAllWeeks] = useState(true)
   const paperRef = useRef<HTMLDivElement>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
@@ -236,14 +238,14 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
   if (view) {
     return (
       <>
-        <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+        {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
         <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} entries={can(role, 'detail') ? [...weekAll.map(sheetOf)] : [...maskExpenses(weekAll.map(sheetOf))]} sunday={sunday} summary={can(role, 'detail') ? weekSummary : { ...weekSummary, pending: maskPending(weekSummary.pending) }} noDownload noBalance={!canSeeBalances(role)} /></div>
       </>
     )
   }
   return (
     <>
-      <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+      {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
       <div className="no-print">
         <VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} entries={[...weekAll.map(sheetOf), ...(fund && (fcat === 'all' || fcat === '') ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} onScan={canWrite && !fid ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && !fid && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}

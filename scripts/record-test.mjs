@@ -1,0 +1,45 @@
+// บันทึก: รับ + จ่าย ในหน้าเดียว — ปุ่มใต้ขั้นตอน 1–6 · แถบสัปดาห์เดียวใช้ร่วมกัน · มีใบรายรับและใบรายจ่ายในหน้าเดียว
+import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+const PORT = 4209
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' })
+await new Promise((r) => setTimeout(r, 2500))
+const exe = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined
+const browser = await chromium.launch(exe ? { executablePath: exe } : {})
+const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
+const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })
+await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+const page = await ctx.newPage()
+const errors = []; page.on('pageerror', (e) => errors.push(String(e)))
+await page.addInitScript(() => {
+  localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' }))
+  localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
+  localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
+})
+try {
+  await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.reload()
+  const rec = page.getByRole('button', { name: 'บันทึก รับและจ่ายในหน้าเดียว' })
+  await rec.waitFor({ timeout: 10000 })
+  must(await page.locator('.stepbtn:not(.stepbtn--wide)').count() === 6, 'six original step tiles intact')
+  const yRec = (await rec.boundingBox()).y, yLast = (await page.locator('.stepbtn').nth(5).boundingBox()).y
+  must(yRec > yLast, 'record button sits below the six steps')
+  await rec.click()
+  const inSec = page.getByRole('region', { name: 'บันทึกรายรับ' }), outSec = page.getByRole('region', { name: 'บันทึกรายจ่าย' })
+  await inSec.waitFor({ timeout: 10000 })
+  must(await outSec.count() === 1, 'expense section on the same page')
+  await inSec.locator('table[aria-label^="ใบบันทึกการถวาย"]').first().waitFor({ timeout: 10000 })
+  await outSec.locator('table[aria-label^="ใบเบิก-จ่ายเงินสด"]').first().waitFor({ timeout: 10000 })
+  must(await page.locator('.weekbar').count() === 1, 'one shared week bar: ' + await page.locator('.weekbar').count())
+  const heading = async () => (await page.locator('.weekbar__title').innerText()).replace(/\s+/g, ' ')
+  const h0 = await heading()
+  await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click()
+  const h1 = await heading()
+  must(h1 !== h0, 'week changed: ' + h0 + ' -> ' + h1)
+  const sheetWeeks = await page.locator('.a4page').evaluateAll((els) => els.map((e) => (e.innerText.match(/ระหว่างวันที่[^\n]*/) || [''])[0]))
+  must(new Set(sheetWeeks.filter(Boolean)).size === 1 && sheetWeeks.filter(Boolean).length >= 2, 'income and expense sheets both follow the shared week: ' + JSON.stringify(sheetWeeks))
+  await page.getByRole('tab', { name: /รายจ่าย/ }).click()
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
+  must(errors.length === 0, 'no page errors: ' + errors.join('|'))
+  console.log('record-test OK')
+} catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
