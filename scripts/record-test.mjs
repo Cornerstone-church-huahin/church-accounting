@@ -13,6 +13,9 @@ await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: 404, bod
 const page = await ctx.newPage()
 const errors = []; page.on('pageerror', (e) => errors.push(String(e)))
 await page.addInitScript(() => {
+  navigator.canShare = () => true
+  window.__shares = []
+  navigator.share = async (x) => { window.__shares.push({ name: x.files[0].name, type: x.files[0].type, size: x.files[0].size }) }
   localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' }))
   localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
   localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
@@ -38,8 +41,28 @@ try {
   must(h1 !== h0, 'week changed: ' + h0 + ' -> ' + h1)
   const sheetWeeks = await page.locator('.a4page').evaluateAll((els) => els.map((e) => (e.innerText.match(/ระหว่างวันที่[^\n]*/) || [''])[0]))
   must(new Set(sheetWeeks.filter(Boolean)).size === 1 && sheetWeeks.filter(Boolean).length >= 2, 'income and expense sheets both follow the shared week: ' + JSON.stringify(sheetWeeks))
-  await page.getByRole('tab', { name: /รายจ่าย/ }).click()
+  // ตัดส่วนอื่นออก เหลือเฉพาะแผ่นรับ/จ่าย + ช่วงวันที่ + ปุ่มดาวน์โหลด/แชร์/พิมพ์
+  must(await page.getByRole('heading', { name: 'งานเหรัญญิก' }).count() === 0, 'room header removed')
+  must(await page.getByRole('button', { name: /ตารางงาน/ }).count() === 0, 'calendar toggle removed')
+  must(await page.locator('.fullbar, .home-tabs').count() === 0, 'step tab bar removed')
+  must(await page.getByRole('tablist', { name: 'ไปส่วนรับหรือส่วนจ่าย' }).count() === 0, 'jump bar removed')
+  must(await page.getByText(/สแกนใบที่เขียนไว้/).count() === 0, 'scan button removed')
+  must(await page.locator('.subtabs').count() === 0, 'numbered entry-method circles removed')
+  must(await page.getByText('รายการในใบนี้').count() === 0, 'entry list below the sheet removed')
+  must(await page.locator('.sheethint').count() === 0, 'hint text removed')
+  for (const [sec, dl] of [[inSec, 'ดาวน์โหลด PDF ข้อมูล'], [outSec, 'ดาวน์โหลด PDF ข้อมูล']]) {
+    must(await sec.getByRole('button', { name: new RegExp(dl) }).count() === 1, 'download button kept')
+    must(await sec.getByRole('button', { name: /^แชร์/ }).count() === 1 && await sec.getByRole('button', { name: /^พิมพ์/ }).count() === 1, 'share + print buttons present in each section')
+  }
+  await inSec.getByRole('button', { name: /^แชร์/ }).click()
+  await page.waitForFunction(() => window.__shares.length === 1, null, { timeout: 40000 })
+  await outSec.getByRole('button', { name: /^แชร์/ }).click()
+  await page.waitForFunction(() => window.__shares.length === 2, null, { timeout: 40000 })
+  const shares = await page.evaluate(() => window.__shares)
+  must(shares.every((x) => x.type === 'application/pdf' && x.size > 1000) && shares[0].name !== shares[1].name, 'each section shares its own PDF: ' + JSON.stringify(shares))
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
+  await page.getByRole('button', { name: 'กลับหน้างานเหรัญญิก' }).click()
+  await page.locator('.stepbtn').first().waitFor({ timeout: 8000 })
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('record-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }

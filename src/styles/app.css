@@ -1656,12 +1656,14 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .stepbtn--wide small { font-weight: 500; font-size: 0.75rem; opacity: 0.95; }
 .home-tab--rec { grid-column: 1 / -1; border-color: var(--navy); }
 .home-tab--rec.on { background: var(--navy); color: #fff; }
-.record__jump { position: sticky; top: 0; z-index: 5; display: flex; gap: 0.4rem; padding: 0.3rem 0; background: var(--bg, #faf8f3); }
-.record__jump button { flex: 1; min-height: 2.4rem; border-radius: 999px; font: inherit; font-weight: 800; border: 2px solid; background: var(--surface); cursor: pointer; }
-.record__jump-in { border-color: #1f8a4c; color: #1f8a4c; }
-.record__jump-out { border-color: #c4332a; color: #c4332a; }
+
+
+
+
 .record__sec { margin: 0.6rem 0 1rem; padding-top: 0.2rem; scroll-margin-top: 3rem; }
 .record__h { display: flex; align-items: baseline; gap: 0.5rem; margin: 0.4rem 0; padding: 0.35rem 0.7rem; border-radius: 10px; color: #fff; font-size: 1.1rem; }
 .record__h small { font-weight: 500; font-size: 0.78rem; opacity: 0.95; }
 .record__h--in { background: #1f8a4c; }
 .record__h--out { background: #c4332a; }
+.record__back { margin: 0.3rem 0 0; }
+.record .dlrow .btn { font-size: 0.82rem; padding: 0.3rem 0.6rem; min-height: 2.6rem; }
