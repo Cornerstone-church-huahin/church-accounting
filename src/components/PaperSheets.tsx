@@ -1,7 +1,7 @@
 import { UNKNOWN_INCOME_LABEL } from '../lib/types'
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { addDays, be, fmtBaht, fmtDate, monthName, monthShort } from '../lib/money'
-import { downloadSheetPdf } from '../lib/pdf'
+import { downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { isCompensation } from '../lib/maskPay'
 import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 import type { LRow } from '../lib/weekLedger'
@@ -534,12 +534,24 @@ function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }:
 export function FundSheetPaper({ church, fundName, sheets }: { church: string; fundName: string; sheets: FundSheets }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const nIn = chunk([0, ...sheets.inn], FUND_ROWS).length
+  const [busy, setBusy] = useState(false)
+  const els = () => refs.current.filter((e): e is HTMLDivElement => !!e)
+  const file = `fund-${fundName}.pdf`
+  /** แชร์ PDF ใบกองทุน (เมนูแชร์ของเครื่อง · ถ้าเครื่องแชร์ไฟล์ไม่ได้ → ดาวน์โหลดให้แทน) */
+  const share = async () => {
+    setBusy(true)
+    try {
+      const r = await sharePdf(els(), file, 'full', `ใบกองทุน ${fundName}`)
+      if (r === 'unsupported') { await downloadSheetPdf(els(), file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
+    } finally { setBusy(false) }
+  }
   return (
     <div>
       <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />
       <FundLedgerPages church={church} fundName={fundName} kind="out" lines={sheets.out} sheets={sheets} refs={refs} start={nIn} />
       <div className="row no-print dlrow" style={{ margin: '0.4rem 0' }}>
         <button type="button" className="btn btn--gold grow" onClick={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), `fund-${fundName}.pdf`, 'full')}>⬇️ ดาวน์โหลด PDF ใบกองทุน</button>
+        <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void share()} aria-label="แชร์ใบกองทุน">{busy ? 'กำลังสร้าง…' : '📤 แชร์'}</button>
         <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
       </div>
     </div>
