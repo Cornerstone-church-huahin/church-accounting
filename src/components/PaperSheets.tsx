@@ -7,7 +7,7 @@ import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 import type { LRow } from '../lib/weekLedger'
 import type { FundLine, FundSheets } from '../lib/fundSheet'
 import ScaledPage from './ScaledPage'
-import { IconBlank, IconDownload, IconPrint, IconShare } from './ToolIcons'
+import { IconBlank, IconDownload, IconPrint, IconScan, IconShare } from './ToolIcons'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 const chunk = <T,>(xs: T[], n: number): T[][] => { const out: T[][] = []; for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out.length ? out : [[]] }
@@ -72,6 +72,12 @@ function DownloadRow({ onData, kind, church, sunday, onScan, share }: { /** ห�
         <button type="button" className="rec-tool" onClick={blank} aria-label="ดาวน์โหลด PDF ไฟล์เปล่า" title="ดาวน์โหลดไฟล์เปล่า (PDF)"><IconBlank /><span>ไฟล์เปล่า</span></button>
         <button type="button" className="rec-tool" onClick={onData} aria-label="ดาวน์โหลด PDF ข้อมูล" title="ดาวน์โหลดข้อมูลสัปดาห์นี้ (PDF)"><IconDownload /><span>ดาวน์โหลด</span></button>
         <ShareBtns share={share} />
+        {onScan && (
+          <label className="rec-tool rec-tool--scan" title="สแกนใบที่เขียนไว้ (กรอกลงใบให้อัตโนมัติ)">
+            <IconScan /><span>สแกนใบ</span>
+            <input type="file" accept="image/*" multiple aria-label={kind === 'offering' ? 'สแกนใบบันทึกการถวาย' : 'สแกนใบเบิก-จ่ายเงินสด'} style={{ display: 'none' }} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) onScan(fs) }} />
+          </label>
+        )}
       </div>
     )
   }
