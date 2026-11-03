@@ -46,19 +46,10 @@ try {
   must(await page.getByRole('button', { name: /ตารางงาน/ }).count() === 0, 'calendar toggle removed')
   must(await page.locator('.fullbar, .home-tabs').count() === 0, 'step tab bar removed')
   must(await page.getByRole('tablist', { name: 'ไปส่วนรับหรือส่วนจ่าย' }).count() === 0, 'jump bar removed')
-  // ฟังก์ชันของรายรับครบ: ช่องบันทึก 1–4 (ปุ่มเล็ก) · สแกนใบ · รายการใต้ใบ (พับ)
-  const inTabs = page.getByRole('tablist', { name: 'ช่องบันทึกเงินรับ' }), outTabs = page.getByRole('tablist', { name: /ช่องบันทึกรายจ่าย/ })
-  must(await inTabs.getByRole('tab').count() === 4 && await outTabs.getByRole('tab').count() === 4, 'four entry methods in each section')
-  must(await inSec.getByLabel('สแกนใบบันทึกการถวาย').count() === 1 && await outSec.getByLabel('สแกนใบเบิก-จ่ายเงินสด').count() === 1, 'scan inputs present in both toolbars')
-  must(await inSec.locator('details.rec-fold').count() === 1 && await outSec.locator('details.rec-fold').count() === 1, 'entry lists are folded under each sheet')
-  const tabH = (await inTabs.getByRole('tab').first().boundingBox()).height
-  must(tabH < 50, 'entry-method buttons are small: ' + tabH)
-  await inTabs.getByRole('tab').first().click()
-  await inSec.getByRole('tabpanel', { name: 'บันทึกด้วยมือ' }).waitFor({ timeout: 5000 })
-  await outTabs.getByRole('tab').first().click()
-  await outSec.getByRole('tabpanel', { name: /บันทึกด้วยมือ/ }).waitFor({ timeout: 5000 })
-  await inTabs.getByRole('tab').nth(3).click()
-  await inSec.getByRole('tabpanel').first().waitFor({ timeout: 5000 })
+  // ส่วนที่ยังไม่ใช้ในหน้านี้ถูกเอาออก: ช่องบันทึก 1–4 · ปุ่มสแกน · รายการใต้ใบ
+  must(await page.getByRole('tablist', { name: 'ช่องบันทึกเงินรับ' }).count() === 0 && await page.getByRole('tablist', { name: /ช่องบันทึกรายจ่าย/ }).count() === 0, 'entry-method buttons removed')
+  must(await page.getByText(/สแกนใบ/).count() === 0 && await page.locator('input[aria-label^="สแกนใบ"]').count() === 0, 'scan button removed')
+  must(await page.getByText('รายการในใบนี้').count() === 0, 'entry list removed')
   for (const [sec, dl] of [[inSec, 'ดาวน์โหลด PDF ข้อมูล'], [outSec, 'ดาวน์โหลด PDF ข้อมูล']]) {
     must(await sec.getByRole('button', { name: new RegExp(dl) }).count() === 1, 'download button kept')
     must(await sec.getByRole('button', { name: /^แชร์/ }).count() === 1 && await sec.getByRole('button', { name: /^พิมพ์/ }).count() === 1, 'share + print buttons present in each section')
