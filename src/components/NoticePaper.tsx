@@ -65,7 +65,7 @@ function IncTable({ p }: { p: Extract<Piece, { t: 'inc' }> }) {
     <>
       <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{p.title}</div>
       {p.note && <div style={{ fontSize: 12.5, margin: '0 0 3px', fontStyle: 'italic' }}>{p.note}</div>}
-      <table className="sheetpaper sheetpaper--full" aria-label={p.title}>
+      <table className="sheetpaper sheetpaper--full tkind-in" aria-label={p.title}>
         <colgroup>{p.status ? <><col style={{ width: '5%' }} /><col style={{ width: '23%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} /><col style={{ width: '18%' }} /></> : <><col style={{ width: '6%' }} /><col style={{ width: '31%' }} /><col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} /></>}</colgroup>
         <thead><tr><th style={th}>ที่</th><th style={th}>รายการ</th><th style={th}>จำนวนซอง</th><th style={th}>จำนวนเงิน</th><th style={th}>จำนวนโอน</th><th style={th}>จำนวนเงิน</th><th style={th}>รวม</th>{p.status && <th style={th}>สถานะ</th>}</tr></thead>
         <tbody>
@@ -83,7 +83,7 @@ function OutTable({ p, noNames }: { p: Extract<Piece, { t: 'out' }>; noNames?: b
   return (
     <>
       <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{p.title}</div>
-      <table className="sheetpaper sheetpaper--full" aria-label={p.title}>
+      <table className="sheetpaper sheetpaper--full tkind-out" aria-label={p.title}>
         <colgroup>{noNames ? <><col style={{ width: '7%' }} /><col style={{ width: '16%' }} /><col style={{ width: '55%' }} /><col style={{ width: '22%' }} /></> : <><col style={{ width: '6%' }} /><col style={{ width: '14%' }} /><col style={{ width: '39%' }} /><col style={{ width: '20%' }} /><col style={{ width: '21%' }} /></>}</colgroup>
         <thead><tr><th style={th}>ที่</th><th style={th}>วันที่</th><th style={th}>รายการ</th>{!noNames && <th style={th}>ผู้วางบิล</th>}<th style={th}>จำนวนเงิน</th></tr></thead>
         <tbody>

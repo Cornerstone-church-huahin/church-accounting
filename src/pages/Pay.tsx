@@ -303,7 +303,7 @@ export default function Pay({ year, fund, view }: { year: number; /** ดูอ�
               <p className="note">นับเป็นรายจ่ายแล้ว (ช่อง “ค้างจ่าย”) แต่เงินยังไม่ออก — ต้องเตรียมเบิก {fmtBaht(sum(pending('bill')) + sum(pending('advance')))}: วางบิลค้างจ่าย {pending('bill').length} รายการ ({fmtBaht(sum(pending('bill')))}) · สำรองจ่ายรอคืนเงิน {pending('advance').length} รายการ ({fmtBaht(sum(pending('advance')))}) — เมื่อกด “จ่ายแล้ว/คืนเงินแล้ว” จะย้ายเข้าเงินสด/โอน</p>
             )}
           </div>
-          <ScaledPage ref={paperRef} className="a4page a4page--doc">
+          <ScaledPage ref={paperRef} className="a4page a4page--doc a4page--exp">
             <>
           <header className="paper__head">
             <p className="muted small">{settings.churchName}</p>
