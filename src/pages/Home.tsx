@@ -11,12 +11,13 @@ import Receive from './Receive'
 import Summary from './Summary'
 import Pay from './Pay'
 import Record from './Record'
+import Dashboard from './Dashboard'
 import Adjust from './Adjust'
 import BalanceStrip from '../components/BalanceStrip'
 import WithdrawPrep from '../components/WithdrawPrep'
 import DepositPrep from '../components/DepositPrep'
 
-export type HomeTab = 'in' | 'out' | 'adj' | 'sum' | 'wd' | 'dep' | 'rec' | null
+export type HomeTab = 'in' | 'out' | 'adj' | 'sum' | 'wd' | 'dep' | 'rec' | 'dash' | 'tab3' | null
 type Tab = HomeTab
 const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; /** ชื่อสั้นในแถบเมนูตอนเปิดเต็มจอ */ short: string; sub: string }[] = [
   { k: 'in', n: 1, icon: '💚', name: 'รับ', short: 'รับ', sub: 'ใบบันทึกการถวาย' },
@@ -27,7 +28,7 @@ const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; /**
   { k: 'dep', n: 6, icon: '🧺', name: 'เตรียมนำฝาก', short: 'ฝาก', sub: 'นำเข้าบัญชีกองทุน' },
 ]
 
-/** “บันทึก”: รวมรับ + จ่ายในหน้าเดียว (ปุ่มกว้างใต้ขั้นตอน 1–6 — ไม่แทนที่ขั้นตอนเดิม) */
+/** แท็บใต้ขั้นตอน 1–6: บันทึก (รับ+จ่ายหน้าเดียว) · แดชบอร์ด · แท็บ 3 (ว่างไว้ก่อน) — ไม่แทนที่ขั้นตอนเดิม */
 const REC = { k: 'rec' as const, icon: '💾', name: 'บันทึก', short: 'บันทึก', sub: 'รับ + จ่าย ในหน้าเดียว' }
 
 /** หน้าแรก 2 ส่วน: (1) ช่องเงินคริสตจักร 6 ช่อง (2) ปุ่มขั้นตอน 2×2 — กดขั้นตอนแล้วเปิดเต็มจอ (ซ่อนส่วนบน) เพื่อเห็นใบทันทีไม่ต้องเลื่อน · ‹ หน้าแรก กลับหน้าแรก */
@@ -76,13 +77,14 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
               </button>
             ))}
           </div>
-          <button type="button" className="stepbtn stepbtn--rec stepbtn--wide no-print" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว">
-            <span className="stepbtn__top"><span>{REC.icon} {REC.name}</span></span>
-            <small>{REC.sub}</small>
-          </button>
+          <div className="exttabs no-print" role="group" aria-label="แท็บเพิ่มเติม">
+            <button type="button" className="exttab exttab--rec" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว"><span aria-hidden="true">💾</span> บันทึก<small>รับ + จ่าย</small></button>
+            <button type="button" className="exttab exttab--dash" onClick={() => setTab('dash')} aria-label="แดชบอร์ด"><span aria-hidden="true">📈</span> แดชบอร์ด<small>ภาพรวมเงิน</small></button>
+            <button type="button" className="exttab exttab--3" onClick={() => setTab('tab3')} aria-label="แท็บ 3"><span aria-hidden="true">📌</span> แท็บ 3<small>ว่างไว้ก่อน</small></button>
+          </div>
         </>
       )}
-      {full && tab !== 'rec' && (
+      {full && tab !== 'rec' && tab !== 'dash' && tab !== 'tab3' && (
         <div className="fullbar no-print">
           <button type="button" className="fullbar__back" onClick={() => setTab(null)} aria-label="กลับหน้าแรก" title="กลับหน้าแรก">‹ 🏠</button>
           <div className="home-tabs home-tabs--mini" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
@@ -93,6 +95,8 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
       )}
       <div className={full ? 'fullmode' : undefined}>
       {tab === 'rec' && <Record key={year} year={year} onBack={() => setTab(null)} />}
+      {tab === 'dash' && <Dashboard key={year} year={year} onBack={() => setTab(null)} />}
+      {tab === 'tab3' && <section className="card" aria-label="แท็บ 3"><button type="button" className="mini no-print" onClick={() => setTab(null)} aria-label="กลับหน้างานเหรัญญิก">‹ กลับ</button><h2>📌 แท็บ 3</h2><p className="empty">ว่างไว้ก่อน — รอกำหนดหน้าที่</p></section>}
       {tab === 'in' && <Receive key={year} year={year} />}
       {tab === 'adj' && <Adjust key={year} year={year} />}
       {tab === 'sum' && <Summary key={year} year={year} />}

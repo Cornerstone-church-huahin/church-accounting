@@ -24,8 +24,9 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.reload()
   const rec = page.getByRole('button', { name: 'บันทึก รับและจ่ายในหน้าเดียว' })
   await rec.waitFor({ timeout: 10000 })
-  must(await page.locator('.stepbtn:not(.stepbtn--wide)').count() === 6, 'six original step tiles intact')
+  must(await page.locator('.stepbtn').count() === 6, 'six original step tiles intact')
   const yRec = (await rec.boundingBox()).y, yLast = (await page.locator('.stepbtn').nth(5).boundingBox()).y
+  must((await page.locator('.exttab').count()) === 3, 'three tabs under the steps')
   must(yRec > yLast, 'record button sits below the six steps')
   await rec.click()
   const inSec = page.getByRole('region', { name: 'บันทึกรายรับ' }), outSec = page.getByRole('region', { name: 'บันทึกรายจ่าย' })
@@ -63,6 +64,16 @@ try {
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
   await page.getByRole('button', { name: 'กลับหน้างานเหรัญญิก' }).click()
   await page.locator('.stepbtn').first().waitFor({ timeout: 8000 })
+  // แท็บ 2 แดชบอร์ด · แท็บ 3 ว่างไว้ก่อน
+  await page.getByRole('button', { name: 'แดชบอร์ด', exact: true }).click()
+  await page.getByRole('region', { name: 'รายรับ-รายจ่าย' }).waitFor({ timeout: 10000 })
+  const dash = await page.locator('.dash').innerText()
+  must(/สัปดาห์นี้/.test(dash) && /เดือนนี้/.test(dash) && /รวมเงินสด/.test(dash), 'dashboard shows balances and period totals: ' + dash.slice(0, 200))
+  if (process.env.SHOT2) await page.screenshot({ path: process.env.SHOT2 })
+  await page.getByRole('button', { name: 'กลับหน้างานเหรัญญิก' }).click()
+  await page.getByRole('button', { name: 'แท็บ 3', exact: true }).click()
+  await page.getByText('ว่างไว้ก่อน — รอกำหนดหน้าที่').waitFor({ timeout: 5000 })
+  await page.getByRole('button', { name: 'กลับหน้างานเหรัญญิก' }).click()
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('record-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
