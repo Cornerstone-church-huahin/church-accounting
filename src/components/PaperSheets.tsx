@@ -7,6 +7,7 @@ import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 import type { LRow } from '../lib/weekLedger'
 import type { FundLine, FundSheets } from '../lib/fundSheet'
 import ScaledPage from './ScaledPage'
+import { IconBlank, IconDownload, IconPrint, IconShare } from './ToolIcons'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 const chunk = <T,>(xs: T[], n: number): T[][] => { const out: T[][] = []; for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out.length ? out : [[]] }
@@ -56,13 +57,24 @@ function ShareBtns({ share }: { share: { els: () => HTMLDivElement[]; file: stri
   }
   return (
     <>
-      <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run()} aria-label={`แชร์${share.title}`}>{busy ? 'กำลังสร้าง…' : '📤 แชร์'}</button>
-      <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label={`พิมพ์${share.title}`}>🖨️ พิมพ์</button>
+      <button type="button" className="rec-tool" disabled={busy} onClick={() => void run()} aria-label={`แชร์${share.title}`} title="แชร์ไฟล์ PDF"><IconShare /><span>{busy ? 'กำลังสร้าง…' : 'แชร์'}</span></button>
+      <button type="button" className="rec-tool" onClick={() => window.print()} aria-label={`พิมพ์${share.title}`} title="พิมพ์"><IconPrint /><span>พิมพ์</span></button>
     </>
   )
 }
 
 function DownloadRow({ onData, kind, church, sunday, onScan, share }: { /** หน้า “บันทึก”: เพิ่มปุ่มแชร์ + พิมพ์ของใบนี้ */ share?: { els: () => HTMLDivElement[]; file: string; mode: 'full' | 'landscape'; title: string }; onData: () => void; kind: 'offering' | 'voucher'; church: string; sunday?: string; /** ใส่มา = มีปุ่มสแกนใบที่เขียนมือไว้ (เลือก/ถ่ายหลายรูปได้) แล้วกรอกลงใบให้อัตโนมัติ */ onScan?: (files: File[]) => void }) {
+  const blank = () => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet(kind, church, sunday))
+  if (share) {
+    // หน้า “บันทึก”: แถบเครื่องมือเล็กแบบไอคอนเส้นบาง (ไฟล์เปล่า · ข้อมูล · แชร์ · พิมพ์)
+    return (
+      <div className="no-print rec-tools" role="toolbar" aria-label={`เครื่องมือ${share.title}`}>
+        <button type="button" className="rec-tool" onClick={blank} aria-label="ดาวน์โหลด PDF ไฟล์เปล่า" title="ดาวน์โหลดไฟล์เปล่า (PDF)"><IconBlank /><span>ไฟล์เปล่า</span></button>
+        <button type="button" className="rec-tool" onClick={onData} aria-label="ดาวน์โหลด PDF ข้อมูล" title="ดาวน์โหลดข้อมูลสัปดาห์นี้ (PDF)"><IconDownload /><span>ดาวน์โหลด</span></button>
+        <ShareBtns share={share} />
+      </div>
+    )
+  }
   return (
     <div className="row no-print dlrow" style={{ margin: '0.4rem 0', flexWrap: 'wrap' }}>
       <button type="button" className="btn btn--ghost grow" onClick={() => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet(kind, church, sunday))}>⬇️ ดาวน์โหลด PDF ไฟล์เปล่า</button>
