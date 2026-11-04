@@ -328,7 +328,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
             <ShareBtns share={{ els: fundEls, file: 'fund-deposit-voucher.pdf', mode: 'full', title: 'ใบเงินกองทุน (เตรียมนำฝาก)' }} />
           </div>
         )}
-        <ScaledPage className="a4page a4page--exp" ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el; fundRef.current = el }}>
+        <ScaledPage className="a4page a4page--exp a4page--fund" ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el; fundRef.current = el }}>
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด · เงินกองทุน (เตรียมนำฝาก)" sub={`${heading} · ถอนพร้อมเงินหมุนเวียน เก็บไว้เตรียมนำฝากเข้าบัญชีกองทุน`} />
             <table className="sheetpaper sheetpaper--full tkind-out" aria-label="ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)">
