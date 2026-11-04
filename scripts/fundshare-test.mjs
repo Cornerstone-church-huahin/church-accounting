@@ -25,10 +25,13 @@ await page.addInitScript(([Y, d]) => {
 }, [Y, iso(sun)])
 try {
   await page.goto(`http://localhost:${PORT}/#/funds/tt4`); await page.reload()
-  await page.getByRole('tab', { name: /ใบกองทุน/ }).click()
-  const tin = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน ใบรับ' }), tout = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน ใบจ่าย' })
-  await tin.waitFor({ timeout: 10000 })
-  must(await tin.getByRole('button').count() === 4 && await tout.getByRole('button').count() === 4, 'four small icons under each of in/out sheets')
+  must(await page.getByRole('tab', { name: /ใบกองทุน/ }).count() === 0, 'tab row removed')
+  for (const n of ['เครื่องมือใบบันทึกการถวาย', 'เครื่องมือใบเบิก-จ่ายเงินสด', 'เครื่องมือใบกองทุน']) {
+    const t = page.getByRole('toolbar', { name: n })
+    await t.waitFor({ timeout: 10000 })
+    must(await t.getByRole('button').count() === 4, n + ' has four icons')
+  }
+  const tin = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน' })
   const sb = tin.getByRole('button', { name: /^แชร์ PDF/ })
   must(await sb.isVisible() && await tin.getByRole('button', { name: /^แชร์เป็นรูป/ }).isVisible(), 'share pdf + share image buttons visible')
   if (process.env.SHOT) { await sb.scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.SHOT }) }

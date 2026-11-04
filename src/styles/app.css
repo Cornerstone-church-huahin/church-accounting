@@ -1703,3 +1703,15 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .record__h--board { background: #1f5fc4; }
 .record__h--board { flex-wrap: wrap; row-gap: 0; } .record__h--board small { flex-basis: 100%; }
 .record__h--check { background: #c2570a; flex-wrap: wrap; row-gap: 0; } .record__h--check small { flex-basis: 100%; }
+
+/* หน้ากองทุน: แผ่นงาน 3 แผ่น (รับ เขียว · จ่าย แดง · สรุป ม่วง) เรียงต่อกัน + ส่วนหัวแคบ */
+.record__h--fund { background: #6b3fa0; flex-wrap: wrap; row-gap: 0; }
+.fundbal { padding: 0.45rem 0.7rem; margin: 0.3rem 0; }
+.fundbal__row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.fundbal__amt { font-size: 1.25rem; font-weight: 700; }
+.fundcats { padding: 0.45rem 0.7rem; margin: 0.3rem 0; }
+.fundcats .rtabs { margin: 0.3rem 0 0; }
+.fundcats__more { margin-top: 0.3rem; }
+.fundcats__more > summary { cursor: pointer; font-size: 0.85rem; color: var(--navy); font-weight: 600; }
+:root[data-theme='dark'] .fundcats__more > summary { color: var(--ink); }
+.page-head + .fundbal, .page-head { margin-bottom: 0.2rem; }
