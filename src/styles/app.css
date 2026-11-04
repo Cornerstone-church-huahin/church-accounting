@@ -1715,3 +1715,7 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .fundcats__more > summary { cursor: pointer; font-size: 0.85rem; color: var(--navy); font-weight: 600; }
 :root[data-theme='dark'] .fundcats__more > summary { color: var(--ink); }
 .page-head + .fundbal, .page-head { margin-bottom: 0.2rem; }
+
+/* แถบไอคอน 4 ปุ่ม: อยู่แถวเดียวเสมอ (ไอคอนบน ข้อความล่าง) ไม่ตกบรรทัดบนมือถือ */
+.rec-tools--four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem; }
+.rec-tools--four .rec-tool { flex-direction: column; justify-content: center; gap: 0.1rem; height: auto; min-height: 2.6rem; padding: 0.3rem 0.2rem; font-size: 0.7rem; line-height: 1.15; text-align: center; }

@@ -584,11 +584,17 @@ export function FundSheetPaper({ church, fundName, sheets }: { church: string; f
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const nIn = chunk([0, ...sheets.inn], FUND_ROWS).length
   const all = () => refs.current.filter((e): e is HTMLDivElement => !!e)
+  /** แต่ละใบ (ใบรับ / ใบจ่าย) มีแถบไอคอน 4 ปุ่มของตัวเองใต้ใบ — ไฟล์สร้างจากหน้าของใบนั้นที่แสดงอยู่ */
+  const tools = (kind: 'in' | 'out') => {
+    const label = kind === 'in' ? 'ใบรับ' : 'ใบจ่าย'
+    return <PdfTools els={() => all().slice(kind === 'in' ? 0 : nIn, kind === 'in' ? nIn : undefined)} file={`fund-${fundName}-${kind}.pdf`} title={`ใบกองทุน ${fundName} ${label}`} label={`ใบกองทุน ${label}`} />
+  }
   return (
     <div>
       <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />
+      {tools('in')}
       <FundLedgerPages church={church} fundName={fundName} kind="out" lines={sheets.out} sheets={sheets} refs={refs} start={nIn} />
-      <PdfTools els={all} file={`fund-${fundName}.pdf`} title={`ใบกองทุน ${fundName}`} label="ใบกองทุน" />
+      {tools('out')}
     </div>
   )
 }
