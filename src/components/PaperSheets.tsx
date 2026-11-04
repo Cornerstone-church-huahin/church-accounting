@@ -502,7 +502,7 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
         {zone('■ เงินหมุนเวียน', summary ? sumC : undefined, circ, rC, '#1a2b4c', '#f4f7fd', 'c')}
         {fund.length > 0 && zone('▲ เงินกองทุน (เตรียมนำฝากเข้าบัญชีกองทุน)', sumF, fund, rF, '#b8860b', '#fff8e6', 'f')}
       </tbody>
-      <tfoot><tr><td colSpan={COLS} style={{ textAlign: 'right', fontSize: many ? 12 : 14, background: '#eef1f7' }}>รวมต้องเบิก&nbsp;&nbsp;<span className="num">{total === undefined ? '..............' : m(total)}</span> บาท{summary && fund.length > 0 && <span style={{ fontWeight: 400, fontSize: 11.5 }}> (หมุนเวียน {m(sumC)} + กองทุน {m(sumF)})</span>}</td></tr></tfoot>
+      <tfoot><tr><td colSpan={COLS} style={{ textAlign: 'right', fontSize: many ? 12 : 14, background: '#eef1f7' }}>รวมต้องเบิก&nbsp;&nbsp;<span className="num">{total === undefined ? '..............' : m(total)}</span> บาท{summary && fund.length > 0 && <span style={{ fontWeight: 400, fontSize: 11.5 }}> (กองทุน {m(sumF)} + หมุนเวียน {m(sumC)})</span>}</td></tr></tfoot>
     </table>
   )
 }
