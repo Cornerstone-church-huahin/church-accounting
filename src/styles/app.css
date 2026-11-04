@@ -1719,3 +1719,14 @@ body.split-on .split__bottom > * { max-width: 100%; }
 /* แถบไอคอน 4 ปุ่ม: อยู่แถวเดียวเสมอ (ไอคอนบน ข้อความล่าง) ไม่ตกบรรทัดบนมือถือ */
 .rec-tools--four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem; }
 .rec-tools--four .rec-tool { flex-direction: column; justify-content: center; gap: 0.1rem; height: auto; min-height: 2.6rem; padding: 0.3rem 0.2rem; font-size: 0.7rem; line-height: 1.15; text-align: center; }
+
+/* ติ๊กเลือกแผ่นงาน + แผงปุ่มลอยมุมบนซ้าย (ไม่บังเนื้อหา: เล็ก โปร่งแสงเล็กน้อย) */
+.record__h .sheettick { margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; align-self: center; }
+.record__h .sheettick input { width: 1.25rem; height: 1.25rem; accent-color: #fff; }
+.pickdock { position: fixed; top: 4.1rem; left: 0.5rem; z-index: 60; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.22); padding: 0.35rem; max-width: 13.5rem; }
+.pickdock__head { display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--navy); }
+:root[data-theme='dark'] .pickdock__head { color: var(--ink); }
+.pickdock__x { border: 0; background: transparent; font-size: 1rem; cursor: pointer; color: inherit; padding: 0 0.2rem; }
+.pickdock__btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; }
+.pickdock__btns .rec-tool { height: 2.1rem; padding: 0 0.35rem; font-size: 0.72rem; justify-content: center; }
+@media print { .pickdock { display: none !important; } body.print-sel .fundsheets [data-sheet]:not([data-sel="1"]) { display: none !important; } }

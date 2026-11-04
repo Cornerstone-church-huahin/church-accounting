@@ -92,14 +92,14 @@ export async function sharePdf(els: HTMLElement[], filename: string, mode: 'land
 }
 
 /** หลายแผ่นผสมแนวตั้ง/แนวนอน (แต่ละ element = 1 หน้า A4 เต็ม) → PDF · ใช้กับ "แฟ้มประจำสัปดาห์" */
-export async function buildPagesPdf(pages: { el: HTMLElement; landscape?: boolean }[]) {
+export async function buildPagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], opts: { strip?: boolean } = {}) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
   let pdf: InstanceType<typeof jsPDF> | null = null
   for (const { el, landscape } of pages) {
     const w = landscape ? 1123 : 794
     const canvas = await html2canvas(el, {
       scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(el),
-      onclone: (_d, cloned) => { cloned.style.width = `${w}px`; cloned.style.maxWidth = `${w}px`; cloned.style.boxShadow = 'none'; cloned.style.position = 'relative'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+      onclone: (_d, cloned) => { if (opts.strip) stripNames(cloned); cloned.style.width = `${w}px`; cloned.style.maxWidth = `${w}px`; cloned.style.boxShadow = 'none'; cloned.style.position = 'relative'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
     })
     const orient = landscape ? 'landscape' : 'portrait'
     if (!pdf) pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: orient })
@@ -108,12 +108,12 @@ export async function buildPagesPdf(pages: { el: HTMLElement; landscape?: boolea
   }
   return pdf
 }
-export async function downloadPagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], filename: string): Promise<void> {
-  ;(await buildPagesPdf(pages))?.save(filename)
+export async function downloadPagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], filename: string, opts: { strip?: boolean } = {}): Promise<void> {
+  ;(await buildPagesPdf(pages, opts))?.save(filename)
 }
-export async function sharePagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], filename: string, title?: string): Promise<'shared' | 'cancelled' | 'unsupported'> {
+export async function sharePagesPdf(pages: { el: HTMLElement; landscape?: boolean }[], filename: string, title?: string, opts: { strip?: boolean } = {}): Promise<'shared' | 'cancelled' | 'unsupported'> {
   if (pages.length === 0 || !canSharePdf()) return 'unsupported'
-  const pdf = await buildPagesPdf(pages)
+  const pdf = await buildPagesPdf(pages, opts)
   if (!pdf) return 'unsupported'
   const file = new File([pdf.output('blob')], filename, { type: 'application/pdf' })
   if (!navigator.canShare({ files: [file] })) return 'unsupported'
@@ -121,11 +121,11 @@ export async function sharePagesPdf(pages: { el: HTMLElement; landscape?: boolea
 }
 
 /** หน้ากระดาษ A4 แนวตั้งหนึ่งหน้า → ไฟล์ PNG (สำหรับบันทึก/แชร์/ดาวน์โหลดเป็นรูปภาพ) */
-export async function buildPageImage(el: HTMLElement): Promise<Blob> {
+export async function buildPageImage(el: HTMLElement, width = 794, strip = false): Promise<Blob> {
   const { default: html2canvas } = await import('html2canvas')
   const canvas = await html2canvas(el, {
     scale: 2, backgroundColor: '#ffffff', ignoreElements: (e) => (e.classList?.contains('no-print') ?? false) && !e.contains(el),
-    onclone: (_d, cloned) => { cloned.style.width = '794px'; cloned.style.maxWidth = '794px'; cloned.style.boxShadow = 'none'; cloned.style.position = 'relative'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
+    onclone: (_d, cloned) => { if (strip) stripNames(cloned); cloned.style.width = `${width}px`; cloned.style.maxWidth = `${width}px`; cloned.style.boxShadow = 'none'; cloned.style.position = 'relative'; cloned.style.transform = 'none'; cloned.style.left = 'auto'; cloned.style.top = 'auto' },
   })
   return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('สร้างรูปภาพไม่สำเร็จ'))), 'image/png'))
 }
@@ -149,9 +149,9 @@ export async function shareBlob(blob: Blob, filename: string, title: string): Pr
 }
 
 /** แชร์หลายหน้าเป็นรูป PNG (เมนูแชร์ของเครื่อง · แชร์ไม่ได้ → ดาวน์โหลดรูปให้แทน) */
-export async function shareImages(els: HTMLElement[], base: string, title: string): Promise<'shared' | 'cancelled' | 'downloaded'> {
+export async function shareImages(els: HTMLElement[], base: string, title: string, strip = false): Promise<'shared' | 'cancelled' | 'downloaded'> {
   const files: File[] = []
-  for (let i = 0; i < els.length; i++) files.push(new File([await buildPageImage(els[i])], `${base}${els.length > 1 ? `-${i + 1}` : ''}.png`, { type: 'image/png' }))
+  for (let i = 0; i < els.length; i++) files.push(new File([await buildPageImage(els[i], els[i].classList.contains('a4page--sheet') ? 1123 : 794, strip)], `${base}${els.length > 1 ? `-${i + 1}` : ''}.png`, { type: 'image/png' }))
   if (!files.length) return 'cancelled'
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
     try { await navigator.share({ files, title }); return 'shared' } catch (e) { if ((e as Error).name === 'AbortError') return 'cancelled' }

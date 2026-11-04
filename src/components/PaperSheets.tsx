@@ -580,7 +580,7 @@ export function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, s
   )
 }
 
-export function FundSheetPaper({ church, fundName, sheets }: { church: string; fundName: string; sheets: FundSheets }) {
+export function FundSheetPaper({ church, fundName, sheets, head, sel }: { church: string; fundName: string; sheets: FundSheets; /** แถบหัวข้อเหนือแต่ละใบ (ใบรับ/ใบจ่าย) */ head?: (kind: 'in' | 'out') => ReactNode; /** ใบไหนถูกติ๊กเลือกไว้ (ใช้ตอนสั่งพิมพ์เฉพาะที่เลือก) */ sel?: (kind: 'in' | 'out') => boolean }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const nIn = chunk([0, ...sheets.inn], FUND_ROWS).length
   const all = () => refs.current.filter((e): e is HTMLDivElement => !!e)
@@ -591,10 +591,16 @@ export function FundSheetPaper({ church, fundName, sheets }: { church: string; f
   }
   return (
     <div>
-      <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />
-      {tools('in')}
-      <FundLedgerPages church={church} fundName={fundName} kind="out" lines={sheets.out} sheets={sheets} refs={refs} start={nIn} />
-      {tools('out')}
+      <div data-sheet="fin" data-sel={sel?.('in') ? '1' : undefined}>
+        {head?.('in')}
+        <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />
+        {tools('in')}
+      </div>
+      <div data-sheet="fout" data-sel={sel?.('out') ? '1' : undefined}>
+        {head?.('out')}
+        <FundLedgerPages church={church} fundName={fundName} kind="out" lines={sheets.out} sheets={sheets} refs={refs} start={nIn} />
+        {tools('out')}
+      </div>
     </div>
   )
 }

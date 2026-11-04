@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import WeekBar from '../components/WeekBar'
+import PickDock, { SheetTick } from '../components/PickDock'
 import { useYear } from '../lib/year'
 import DebtBanner from '../components/DebtBanner'
 import { isLoanMove, type FundScope } from '../lib/fundScope'
@@ -27,6 +28,8 @@ export default function FundDetailPage() {
   const { id } = useParams()
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
+  const [picked, setPicked] = useState<string[]>([]) // แผ่นงานที่ติ๊กไว้ (in · out · fin · fout)
+  const sheetsBox = useRef<HTMLDivElement>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => {
     const d = sheetSunday(todayISO())
@@ -63,6 +66,8 @@ export default function FundDetailPage() {
   const only = actIds ? (keeperOnly ? actIds.filter((i) => keeperOnly.includes(i)) : actIds) : keeperOnly
   const subs = activeSubs(t).filter((q) => !only || only.includes(q.id))
   const sum = subSummary(f, t)
+  const on = (k: string) => picked.includes(k)
+  const tick = (k: string, v: boolean) => setPicked((p) => (v ? (p.includes(k) ? p : [...p, k]) : p.filter((x) => x !== k)))
   // มีหมวด: เริ่มที่หมวดแรก (พร้อมบันทึกได้ทันที) · ไม่มีหมวด: ทำงานเหมือนเดิมทุกประการ
   const canManage = can(role, 'settings')
   // ตัวเลือก/ตารางหมวดในหน้านี้เห็นเฉพาะแอดมิน · คนอื่นเลือกหมวดในฟอร์มบันทึก (เห็นรายการทุกหมวด)
@@ -211,21 +216,22 @@ export default function FundDetailPage() {
         </div>
       )}
       {act && subs.length === 0 && <p className="empty no-print" role="status">กิจกรรมนี้ยังไม่มีหมวด{canManage ? ' — เพิ่มหมวด (เช่น พืชผัก โต๊ะจีน) ที่ช่องด้านบนก่อนจึงจะบันทึกรับ-จ่ายได้' : ' — แจ้งแอดมินให้เพิ่มหมวดก่อน'}</p>}
-      {!(act && subs.length === 0) && <div className="fullmode fundsheets">
+      {!(act && subs.length === 0) && <div className="fullmode fundsheets" ref={sheetsBox}>
         <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-        <section className="record__sec record__sec--in" aria-label="รายรับ">
-          <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small></h2>
+        <section className="record__sec record__sec--in" aria-label="รายรับ" data-sheet="in" data-sel={on('in') ? '1' : undefined}>
+          <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small><SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" /></h2>
           <Receive key={`${year}-${f.id}-in-${sub}`} year={year} fund={fund} weekCtl={{ sunday, set: setSunday }} hideWeekBar fourTools />
         </section>
-        <section className="record__sec record__sec--out" aria-label="รายจ่าย">
-          <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small></h2>
+        <section className="record__sec record__sec--out" aria-label="รายจ่าย" data-sheet="out" data-sel={on('out') ? '1' : undefined}>
+          <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small><SheetTick on={on('out')} onChange={(v) => tick('out', v)} label="รายจ่าย" /></h2>
           <Pay key={`${year}-${f.id}-out-${sub}`} year={year} fund={fund} weekCtl={{ sunday, set: setSunday }} hideWeekBar fourTools />
         </section>
         <section className="record__sec record__sec--fund" aria-label="สรุป ใบกองทุน">
-          <h2 className="record__h record__h--fund">สรุป <small>ใบกองทุน (รับ-จ่ายต่อเนื่อง)</small></h2>
           {(() => {
+          const fhead = (k: 'in' | 'out') => <h2 className="record__h record__h--fund">สรุป <small>ใบกองทุน · {k === 'in' ? 'ใบรับ' : 'ใบจ่าย'}</small><SheetTick on={on(`f${k}`)} onChange={(v) => tick(`f${k}`, v)} label={`สรุป ใบกองทุน ${k === 'in' ? 'ใบรับ' : 'ใบจ่าย'}`} /></h2>
+          const fsel = (k: 'in' | 'out') => on(`f${k}`)
           const church = settings.churchName.split(' ')[0]
-          if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} />
+          if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} head={fhead} sel={fsel} />
           // กองทุนที่มีหมวด: แถบเลือกหมวดขึ้นก่อน แล้วจึงแสดงใบรับ/ใบจ่ายของหมวดนั้น
           const valid = sheetPick !== null && ((!only && (sheetPick === 'all' || sheetPick === '')) || subs.some((q) => q.id === sheetPick))
           const cur = valid ? sheetPick : subs[0].id // เปิดหมวดแรกให้อัตโนมัติ ไม่ปล่อยให้ว่าง
@@ -237,11 +243,12 @@ export default function FundDetailPage() {
                 {!only && <button type="button" role="tab" aria-selected={cur === ''} className={`rtab${cur === '' ? ' on' : ''}`} onClick={() => setSheetPick('')}>ส่วนกลาง</button>}
                 {!only && <button type="button" role="tab" aria-selected={cur === 'all'} className={`rtab${cur === 'all' ? ' on' : ''}`} onClick={() => setSheetPick('all')}>รวมทุกหมวด</button>}
               </div>
-              <FundSheetPaper church={church} fundName={name ? `${f.name} · ${name}` : f.name} sheets={fundSheets(subAccount(f, cur))} />
+              <FundSheetPaper church={church} fundName={name ? `${f.name} · ${name}` : f.name} sheets={fundSheets(subAccount(f, cur))} head={fhead} sel={fsel} />
             </>
           )
         })()}
         </section>
+        <PickDock keys={picked} file={`${f.name}-แผ่นงานที่เลือก.pdf`} title={`${f.name} แผ่นงานที่เลือก`} onClear={() => setPicked([])} getEls={() => Array.from(sheetsBox.current?.querySelectorAll<HTMLDivElement>('[data-sheet][data-sel="1"] .a4page') ?? [])} />
       </div>}
       </>)}
     </>
