@@ -1749,3 +1749,21 @@ span.fundpend__tog--no { cursor: default; }
 .fundpend__ask td { background: #fff5f4; display: table-cell; }
 .fundpend__ask label { display: inline-flex; align-items: center; gap: 6px; margin: 0 8px 4px 0; font-weight: 700; }
 .fundpend__ask .btn { margin: 2px 6px 2px 0; }
+
+/* เงินกองทุน (หน้าหลัก): หัวการ์ดกะทัดรัด + ยอดแตก 4 ช่อง (รวม · ในบัญชี · ถอนแล้วรอนำฝาก · ยังไม่ถอน) */
+.cardhead--fund h2 { font-size: 1.05rem; }
+.cardhead--fund .fundpend__btn { padding: 2px 10px; font-size: 0.85rem; gap: 4px; }
+.cardhead--fund .fundpend__badge { padding: 0 6px; font-size: 0.78rem; }
+.fundsplit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 6px 0; }
+.fundsplit__i { border-radius: 10px; padding: 4px 8px; border: 1.5px solid; display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.fundsplit__i span { font-size: 0.7rem; font-weight: 700; line-height: 1.15; }
+.fundsplit__i b { font-size: 1rem; }
+.fundsplit__i:not(.fundsplit__i--all) { flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 0; }
+.fundsplit__i--all { grid-column: 1 / -1; background: #1a2b4c; border-color: #1a2b4c; color: #fff; }
+.fundsplit__i--all b { font-size: 1.45rem; }
+.fundsplit__i--acct { background: #eef1f7; border-color: #1a2b4c; color: #1a2b4c; }
+.fundsplit__i--out { background: #fff4d6; border-color: #c99a14; color: #6b4d00; }
+.fundsplit__i--no { background: #fde8e6; border-color: #c4332a; color: #8f1f17; }
+.fundbar__chip { display: inline-block; border-radius: 999px; padding: 0 6px; font-size: 0.68rem; margin-left: 4px; }
+.fundbar__chip--out { background: #fff4d6; color: #6b4d00; }
+.fundbar__chip--no { background: #fde8e6; color: #8f1f17; }

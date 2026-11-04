@@ -87,3 +87,21 @@ export function fundPending(funds: FundAccount[], deposits: FundDeposit[]): Pend
 export function withdrawnInWeek(deposits: FundDeposit[], sunday: string, nameOf: (fundId: string) => string): { name: string; amount: number }[] {
   return deposits.filter((d) => !d.deleted && isWithdrawRec(d) && d.amount > 0 && sheetSunday(d.on) === sunday).map((d) => ({ name: `${nameOf(d.fundId)} (ถอนเงินที่บันทึกในหน้ากองทุน)`, amount: d.amount }))
 }
+
+/**
+ * แตกยอดคงเหลือกองทุนเป็น 3 ที่: ในบัญชีกองทุน · ถอนแล้วรอนำฝาก (เงินสด) · ยังไม่ถอน — ผลรวม 3 ที่ = ยอดคงเหลือเสมอ (ไม่นับซ้ำ)
+ */
+export function fundSplit(funds: FundAccount[], sum: PendingSummary) {
+  const waitBy = new Map<string, number>(), unBy = new Map<string, number>()
+  for (const r of sum.waiting) waitBy.set(r.fundId, (waitBy.get(r.fundId) ?? 0) + r.pending)
+  for (const r of sum.unwithdrawn) unBy.set(r.fundId, (unBy.get(r.fundId) ?? 0) + r.recorded)
+  const per = new Map<string, { w: number; u: number; acct: number }>()
+  let W = 0, U = 0, T = 0
+  for (const f of funds) {
+    const w = Math.min(waitBy.get(f.id) ?? 0, Math.max(0, f.balance))
+    const u = Math.min(unBy.get(f.id) ?? 0, Math.max(0, f.balance - w))
+    per.set(f.id, { w, u, acct: f.balance - w - u })
+    W += w; U += u; T += f.balance
+  }
+  return { per, wait: W, unw: U, acct: T - W - U, total: T }
+}

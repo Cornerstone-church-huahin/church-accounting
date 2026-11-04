@@ -1,7 +1,7 @@
 import { FundPendingBody } from './FundPendingPanel'
 import { can } from '../lib/access'
 import { useFundDeposits } from '../lib/data'
-import { fundPending } from '../lib/fundPending'
+import { fundPending, fundSplit } from '../lib/fundPending'
 import { useRole } from '../lib/members'
 import { fmtBaht, weekRange } from '../lib/money'
 import { useFundAccounts } from '../pages/FundAccounts'
@@ -12,11 +12,7 @@ export default function DepositPrep() {
   const { rows } = useFundAccounts()
   const dep = useFundDeposits()
   const sum = fundPending(rows, dep.items)
-  const waitBy = new Map<string, number>()
-  for (const r of sum.waiting) waitBy.set(r.fundId, (waitBy.get(r.fundId) ?? 0) + r.pending)
-  const unBy = new Map<string, number>()
-  for (const r of sum.unwithdrawn) unBy.set(r.fundId, (unBy.get(r.fundId) ?? 0) + r.recorded)
-  const total = rows.reduce((s, f) => s + f.balance, 0)
+  const split = fundSplit(rows, sum)
   const oldest = sum.waiting[0]
   return (
     <div aria-label="เตรียมนำฝากเข้าบัญชีกองทุน">
@@ -29,11 +25,11 @@ export default function DepositPrep() {
         <thead><tr><th>กองทุน</th><th>ในบัญชีกองทุน</th><th>ถอนแล้ว (รอนำฝาก)</th><th>ยังไม่ถอน</th><th>รวม</th></tr></thead>
         <tbody>
           {rows.map((f) => {
-            const w = Math.min(waitBy.get(f.id) ?? 0, Math.max(0, f.balance)), u = Math.min(unBy.get(f.id) ?? 0, Math.max(0, f.balance - w))
-            return <tr key={f.id}><td>{f.name}</td><td className="num">{fmtBaht(f.balance - w - u)}</td><td className="num prep__wait">{w ? fmtBaht(w) : '—'}</td><td className="num fundpend__unw">{u ? fmtBaht(u) : '—'}</td><td className="num"><b>{fmtBaht(f.balance)}</b></td></tr>
+            const x = split.per.get(f.id)!
+            return <tr key={f.id}><td>{f.name}</td><td className="num">{fmtBaht(x.acct)}</td><td className="num prep__wait">{x.w ? fmtBaht(x.w) : '—'}</td><td className="num fundpend__unw">{x.u ? fmtBaht(x.u) : '—'}</td><td className="num"><b>{fmtBaht(f.balance)}</b></td></tr>
           })}
         </tbody>
-        <tfoot><tr><td>รวมทุกกองทุน</td><td className="num">{fmtBaht(total - sum.waitingTotal - sum.unwithdrawnTotal)}</td><td className="num prep__wait">{fmtBaht(sum.waitingTotal)}</td><td className="num fundpend__unw">{fmtBaht(sum.unwithdrawnTotal)}</td><td className="num">{fmtBaht(total)}</td></tr></tfoot>
+        <tfoot><tr><td>รวมทุกกองทุน</td><td className="num">{fmtBaht(split.acct)}</td><td className="num prep__wait">{fmtBaht(split.wait)}</td><td className="num fundpend__unw">{fmtBaht(split.unw)}</td><td className="num">{fmtBaht(split.total)}</td></tr></tfoot>
       </table>
       <FundPendingBody funds={rows} canWrite={can(role, 'statement')} />
     </div>
