@@ -244,6 +244,8 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
   // แถวในตารางลดลงตามความสูงของช่องต้องเบิก (ใบเดียวต้องพอดี A4 เห็นครบถึงยอดรวมต้องเบิก)
   const wl0 = withdrawLayout(summary)
   const refs = useRef<(HTMLDivElement | null)[]>([])
+  const fundRef = useRef<HTMLDivElement | null>(null)
+  const fundEls = () => (fundRef.current ? [fundRef.current] : [])
   // วัดจริงหลังจัดหน้า: ถ้าล้นแผ่น ลดแถวว่างทีละแถว (ต่ำสุด 12) แล้วถ้ายังล้นย้ายช่องต้องเบิกไปอีกหน้า — เห็นครบถึงยอดรวมต้องเบิกเสมอ
   const [trim, setTrim] = useState(0)
   const [split, setSplit] = useState(false)
@@ -318,7 +320,15 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
         </ScaledPage>
       )}
       {!scope && (blank || (fundRows?.length ?? 0) > 0) && (
-        <ScaledPage className="a4page a4page--exp" ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el }}>
+        <>
+        {withShare && !noDownload && (
+          <div className="no-print rec-tools" role="toolbar" aria-label="เครื่องมือใบเงินกองทุน (เตรียมนำฝาก)">
+            <button type="button" className="rec-tool" onClick={() => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet('voucher', church, sunday))} aria-label="ดาวน์โหลด PDF ไฟล์เปล่า ใบเงินกองทุน" title="ดาวน์โหลดไฟล์เปล่า (PDF)"><IconBlank /><span>ไฟล์เปล่า</span></button>
+            <button type="button" className="rec-tool" onClick={() => void downloadSheetPdf(fundEls(), 'fund-deposit-voucher.pdf', 'full')} aria-label="ดาวน์โหลด PDF ข้อมูล ใบเงินกองทุน" title="ดาวน์โหลดข้อมูลใบเงินกองทุน (PDF)"><IconDownload /><span>ดาวน์โหลด</span></button>
+            <ShareBtns share={{ els: fundEls, file: 'fund-deposit-voucher.pdf', mode: 'full', title: 'ใบเงินกองทุน (เตรียมนำฝาก)' }} />
+          </div>
+        )}
+        <ScaledPage className="a4page a4page--exp" ref={(el) => { refs.current[pages.length + (wl.own ? 0 : 1)] = el; fundRef.current = el }}>
           <>
             <PaperHead church={church} title="ใบเบิก - จ่ายเงินสด · เงินกองทุน (เตรียมนำฝาก)" sub={`${heading} · ถอนพร้อมเงินหมุนเวียน เก็บไว้เตรียมนำฝากเข้าบัญชีกองทุน`} />
             <table className="sheetpaper sheetpaper--full tkind-out" aria-label="ใบเบิก-จ่ายเงินสด เงินกองทุน (A4)">
@@ -338,6 +348,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
             </div>
           </>
         </ScaledPage>
+        </>
       )}
       {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'cash-voucher.pdf', mode: 'full', title: 'ใบเบิก-จ่ายเงินสด' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
     </div>
