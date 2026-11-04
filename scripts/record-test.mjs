@@ -53,6 +53,8 @@ try {
   await board.waitFor({ timeout: 10000 })
   await check.getByText('สรุปรายรับ - รายจ่ายประจำสัปดาห์').first().waitFor({ timeout: 10000 })
   await board.getByText('สรุปรายรับ - รายจ่ายประจำสัปดาห์').first().waitFor({ timeout: 10000 })
+  const bg = async (r) => await r.locator('.record__h').evaluate((e) => getComputedStyle(e).backgroundColor)
+  must((await bg(check)) === 'rgb(194, 87, 10)' && (await bg(board)) === 'rgb(31, 95, 196)', 'heading colours: check = orange, board = blue: ' + await bg(check) + ' / ' + await bg(board))
   must(await check.getByText('ค่าของทดสอบบอร์ด').count() >= 1, 'detail sheet lists the expense line (linked to the selected week)')
   must(await board.getByText('ค่าของทดสอบบอร์ด').count() === 0, 'board sheet hides the detailed expense line')
   must(await board.getByText('ค่าน้ำมันออกเยี่ยมสมาชิก อ.กฤต').count() >= 1, 'board sheet shows the category instead')
