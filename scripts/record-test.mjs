@@ -28,10 +28,13 @@ try {
   await page.goto(`http://localhost:${PORT}/#/meeting/3`); await page.reload()
   const rec = page.getByRole('button', { name: 'บันทึก รับและจ่ายในหน้าเดียว' })
   await rec.waitFor({ timeout: 10000 })
-  must(await page.locator('.stepbtn').count() === 6, 'six original step tiles intact')
-  const yRec = (await rec.boundingBox()).y, yLast = (await page.locator('.stepbtn').nth(5).boundingBox()).y
-  must((await page.locator('.exttab').count()) === 3, 'three tabs under the steps')
-  must(yRec > yLast, 'record button sits below the six steps')
+  must(await page.locator('.stepbtn:not(.exttab)').count() === 6, 'six original step tiles intact')
+  must((await page.locator('.exttab').count()) === 3, 'บันทึก · แดชบอร์ด · แท็บ 3 present')
+  // ลำดับ: บันทึกเป็นอันดับ 1 · รับ/จ่ายอยู่ท้ายสุด ต่อจากแท็บ 3 · ทุกช่องขนาดเท่ากัน
+  const names = await page.locator('.stepgrid .stepbtn').evaluateAll((els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()))
+  must(/บันทึก/.test(names[0]) && /^1 .*รับ/.test(names[7]) && /^2 .*จ่าย/.test(names[8]) && /แท็บ 3/.test(names[6]), 'tile order: บันทึก first, แท็บ 3 then รับ, จ่าย: ' + JSON.stringify(names))
+  const sizes = await page.locator('.stepgrid .stepbtn').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)] }))
+  must(new Set(sizes.map((x) => x.join('x'))).size === 1, 'all nine tiles have the same size: ' + JSON.stringify(sizes))
   await rec.click()
   const inSec = page.getByRole('region', { name: 'บันทึกรายรับ' }), outSec = page.getByRole('region', { name: 'บันทึกรายจ่าย' })
   await inSec.waitFor({ timeout: 10000 })
