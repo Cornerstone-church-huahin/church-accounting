@@ -25,6 +25,7 @@ const run = async (role) => {
   const card = await page.locator('.healthcard').boundingBox()
   must(card.height < 150, role + ': health card compact: ' + card.height)
   must(await page.getByRole('region', { name: 'ดูรายละเอียดบัญชี' }).count() === 0, role + ': old link block removed')
+  must(await page.getByRole('link', { name: /ภาพรวมรายรับ-รายจ่าย/ }).count() === 1, role + ': overview still reachable')
   const names = ['เครื่องมือใบบันทึกการถวาย', 'เครื่องมือใบเบิก-จ่ายเงินสด', 'เครื่องมือใบสำหรับติดบอร์ดประกาศ']
   if (role === 'admin') names.push('เครื่องมือข้อมูลก่อนติดบอร์ด')
   for (const n of names) { const tb = page.getByRole('toolbar', { name: n }); await tb.waitFor({ timeout: 10000 }); must(await tb.getByRole('button').count() === 4, role + ': 4 icons ' + n) }

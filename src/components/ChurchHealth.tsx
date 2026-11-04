@@ -34,7 +34,7 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
     <>
       <div className="page-head no-print">
         <h1>🩺 สถานะการเงิน</h1>
-        <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
+        <span className="page-head__tools"><Link to={`/meeting/${n}/all`} className="mini" aria-label="ภาพรวมรายรับ-รายจ่าย (ดูอย่างเดียว)">📊 ภาพรวม</Link><Link to={`/meeting/${n}`} className="mini">‹ {name}</Link></span>
       </div>
       <aside className="no-print devnote devnote--health" role="note" aria-label="หมายเหตุ: อยู่ระหว่างพัฒนา">
         🚧 <b>หมายเหตุ: อยู่ระหว่างพัฒนา</b> · ความสมบูรณ์ประมาณ <b>95%</b> · ตัวเลขและข้อความบางส่วนอาจคลาดเคลื่อน · คาดว่าใช้งานได้เต็มระบบตั้งแต่ <b>1 มกราคม 2570</b>
