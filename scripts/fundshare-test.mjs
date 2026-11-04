@@ -26,10 +26,11 @@ await page.addInitScript(([Y, d]) => {
 try {
   await page.goto(`http://localhost:${PORT}/#/funds/tt4`); await page.reload()
   await page.getByRole('tab', { name: /ใบกองทุน/ }).click()
-  await page.getByRole('button', { name: /ดาวน์โหลด PDF ใบกองทุน/ }).waitFor({ timeout: 10000 })
-  const sb = page.getByRole('button', { name: 'แชร์ใบกองทุน' })
+  const tin = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน ใบรับ' }), tout = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน ใบจ่าย' })
+  await tin.waitFor({ timeout: 10000 })
+  must(await tin.getByRole('button').count() === 4 && await tout.getByRole('button').count() === 4, 'four small icons under each of in/out sheets')
+  const sb = tin.getByRole('button', { name: /^แชร์/ })
   must(await sb.isVisible(), 'share button visible')
-  must(await page.getByRole('button', { name: /พิมพ์/ }).isVisible(), 'print button still there')
   if (process.env.SHOT) { await sb.scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.SHOT }) }
   await sb.click()
   await page.waitForFunction(() => window.__shared, null, { timeout: 40000 })

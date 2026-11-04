@@ -32,7 +32,7 @@ try {
   must(/ยอดตั้งต้น/.test(tin) && tin.indexOf('ยอดตั้งต้น') < tin.indexOf('120') && /170/.test(tin), 'opening row first, then lines with running balance 120 → 170: ' + tin)
   must(/รวมจ่ายทั้งสิ้น/.test(tout), 'expense sheet present: ' + tout)
   must(/เงินคงเหลือกองทุน/.test(await page.locator('body').innerText()), 'balance summary')
-  must(await page.getByRole('button', { name: /ดาวน์โหลด PDF ใบกองทุน/ }).isVisible(), 'download button')
+  must(await page.getByRole('button', { name: /ดาวน์โหลด PDF ข้อมูล ใบกองทุน/ }).first().isVisible(), 'download button')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('fundsheet-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 }

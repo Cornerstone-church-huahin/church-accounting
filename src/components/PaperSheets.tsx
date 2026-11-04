@@ -520,7 +520,7 @@ function WithdrawNote({ summary }: { summary?: WeekSummary }) {
 
 /** ใบกองทุน: A4 แนวตั้งเต็มใบ 2 ชุด — ใบรับ (แถบเขียว) แล้วตามด้วยใบจ่าย (แถบแดง) · แถวแรกสีเทา = ยอดตั้งต้น แล้วบวกลบตามรายการต่อเนื่อง ไม่แยกสัปดาห์ · เกินแผ่นขึ้นแผ่นถัดไปพร้อมยอดยกมา · สรุปคงเหลือท้ายใบ */
 export const FUND_ROWS = 35
-function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }: { church: string; fundName: string; kind: 'in' | 'out'; lines: FundLine[]; sheets: FundSheets; refs: MutableRefObject<(HTMLDivElement | null)[]>; start: number }) {
+export function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }: { church: string; fundName: string; kind: 'in' | 'out'; lines: FundLine[]; sheets: FundSheets; refs: MutableRefObject<(HTMLDivElement | null)[]>; start: number }) {
   const ROWS = FUND_ROWS
   const open: FundLine = { key: 'open', date: '', label: 'ยอดตั้งต้น (ยกมา)', amount: 0, balance: sheets.opening }
   const pages = chunk([open, ...lines], ROWS)
@@ -582,26 +582,25 @@ function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, start }:
 export function FundSheetPaper({ church, fundName, sheets }: { church: string; fundName: string; sheets: FundSheets }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const nIn = chunk([0, ...sheets.inn], FUND_ROWS).length
-  const [busy, setBusy] = useState(false)
-  const els = () => refs.current.filter((e): e is HTMLDivElement => !!e)
-  const file = `fund-${fundName}.pdf`
-  /** แชร์ PDF ใบกองทุน (เมนูแชร์ของเครื่อง · ถ้าเครื่องแชร์ไฟล์ไม่ได้ → ดาวน์โหลดให้แทน) */
-  const share = async () => {
-    setBusy(true)
-    try {
-      const r = await sharePdf(els(), file, 'full', `ใบกองทุน ${fundName}`)
-      if (r === 'unsupported') { await downloadSheetPdf(els(), file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
-    } finally { setBusy(false) }
+  const slice = (kind: 'in' | 'out') => () => refs.current.filter((e): e is HTMLDivElement => !!e).slice(kind === 'in' ? 0 : nIn, kind === 'in' ? nIn : undefined)
+  /** แถบไอคอนเล็กใต้ใบรับ / ใบจ่าย: ไฟล์เปล่า · ดาวน์โหลด · แชร์ · พิมพ์ */
+  const tools = (kind: 'in' | 'out') => {
+    const label = kind === 'in' ? 'ใบรับ' : 'ใบจ่าย'
+    const file = `fund-${fundName}-${kind === 'in' ? 'in' : 'out'}.pdf`
+    return (
+      <div className="no-print rec-tools" role="toolbar" aria-label={`เครื่องมือใบกองทุน ${label}`}>
+        <button type="button" className="rec-tool" onClick={() => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet('fund', church, undefined, fundName))} aria-label={`ดาวน์โหลด PDF ไฟล์เปล่า ใบกองทุน ${label}`} title="ดาวน์โหลดไฟล์เปล่า (PDF)"><IconBlank /><span>ไฟล์เปล่า</span></button>
+        <button type="button" className="rec-tool" onClick={() => void downloadSheetPdf(slice(kind)(), file, 'full')} aria-label={`ดาวน์โหลด PDF ข้อมูล ใบกองทุน ${label}`} title={`ดาวน์โหลด${label} (PDF)`}><IconDownload /><span>ดาวน์โหลด</span></button>
+        <ShareBtns share={{ els: slice(kind), file, mode: 'full', title: `ใบกองทุน ${fundName} ${label}` }} />
+      </div>
+    )
   }
   return (
     <div>
       <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />
+      {tools('in')}
       <FundLedgerPages church={church} fundName={fundName} kind="out" lines={sheets.out} sheets={sheets} refs={refs} start={nIn} />
-      <div className="row no-print dlrow" style={{ margin: '0.4rem 0' }}>
-        <button type="button" className="btn btn--gold grow" onClick={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), `fund-${fundName}.pdf`, 'full')}>⬇️ ดาวน์โหลด PDF ใบกองทุน</button>
-        <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void share()} aria-label="แชร์ใบกองทุน">{busy ? 'กำลังสร้าง…' : '📤 แชร์'}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
-      </div>
+      {tools('out')}
     </div>
   )
 }
