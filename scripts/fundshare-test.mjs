@@ -26,12 +26,12 @@ await page.addInitScript(([Y, d]) => {
 try {
   await page.goto(`http://localhost:${PORT}/#/funds/tt4`); await page.reload()
   must(await page.getByRole('tab', { name: /ใบกองทุน/ }).count() === 0, 'tab row removed')
-  for (const n of ['เครื่องมือใบบันทึกการถวาย', 'เครื่องมือใบเบิก-จ่ายเงินสด', 'เครื่องมือใบกองทุน']) {
+  for (const n of ['เครื่องมือใบบันทึกการถวาย', 'เครื่องมือใบเบิก-จ่ายเงินสด', 'เครื่องมือใบกองทุน ใบรับ', 'เครื่องมือใบกองทุน ใบจ่าย']) {
     const t = page.getByRole('toolbar', { name: n })
     await t.waitFor({ timeout: 10000 })
     must(await t.getByRole('button').count() === 4, n + ' has four icons')
   }
-  const tin = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน' })
+  const tin = page.getByRole('toolbar', { name: 'เครื่องมือใบกองทุน ใบรับ' })
   const sb = tin.getByRole('button', { name: /^แชร์ PDF/ })
   must(await sb.isVisible() && await tin.getByRole('button', { name: /^แชร์เป็นรูป/ }).isVisible(), 'share pdf + share image buttons visible')
   if (process.env.SHOT) { await sb.scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.SHOT }) }
