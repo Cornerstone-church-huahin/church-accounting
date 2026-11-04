@@ -177,7 +177,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
     return (
       <>
         {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
-        <div className="no-print"><IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload /></div>
+        <div className="no-print"><IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload={!fourTools} fourTools={fourTools} /></div>
       </>
     )
   }

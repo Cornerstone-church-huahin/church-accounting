@@ -5,6 +5,7 @@ import { LEVEL_UI, TARGET_WEEKS, TREND_UI } from '../lib/churchHealth'
 import { fmtBaht } from '../lib/money'
 import { useChurchHealth } from '../lib/useChurchHealth'
 import { useYear } from '../lib/year'
+import Record from '../pages/Record'
 
 /** ปุ่มเดียวในหน้างาน: แสดงสถานะการเงินสด ๆ (สี + ใช้ได้กี่สัปดาห์) แตะเข้าหน้าสถานะ */
 export function HealthButton({ n }: { n: number }) {
@@ -38,33 +39,25 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
       <aside className="no-print devnote devnote--health" role="note" aria-label="หมายเหตุ: อยู่ระหว่างพัฒนา">
         🚧 <b>หมายเหตุ: อยู่ระหว่างพัฒนา</b> · ความสมบูรณ์ประมาณ <b>95%</b> · ตัวเลขและข้อความบางส่วนอาจคลาดเคลื่อน · คาดว่าใช้งานได้เต็มระบบตั้งแต่ <b>1 มกราคม 2570</b>
       </aside>
-      <section className={`card healthcard healthcard--${h.level}`} aria-label="สถานะการเงินคริสตจักร">
+      <section className={`card healthcard healthcard--compact healthcard--${h.level}`} aria-label="สถานะการเงินคริสตจักร">
         <div className="healthcard__top"><span className="healthcard__icon" aria-hidden="true">{ui.icon}</span><div><b className="healthcard__title">{ui.title}</b><p className="healthcard__msg">{ui.message}</p></div></div>
         <div className="healthmeter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={`เงินสำรองหมุนเวียน ${pct}% ของเป้า ${TARGET_WEEKS} สัปดาห์`}>
           <i style={{ width: `${pct}%` }} />
         </div>
-        <p className="small" style={{ margin: '0.2rem 0 0' }}>เงินสำรองหมุนเวียน {wk === null ? 'ยังไม่มีรายจ่ายให้เทียบ' : `พอใช้ ${wk} สัปดาห์`} · เป้าหมาย {TARGET_WEEKS} สัปดาห์ ({pct}%)</p>
-        <p className="small" style={{ margin: '0.2rem 0 0' }}>{TREND_UI[h.trend]}</p>
+        <p className="small" style={{ margin: '0.2rem 0 0' }}>เงินสำรองหมุนเวียน {wk === null ? 'ยังไม่มีรายจ่ายให้เทียบ' : `พอใช้ ${wk} สัปดาห์`} · เป้าหมาย {TARGET_WEEKS} สัปดาห์ ({pct}%) · {TREND_UI[h.trend]}</p>
       </section>
       {nums && (
-        <section className="card healthnums" aria-label="ตัวเลขเงินคริสตจักร">
+        <section className="card healthnums healthnums--compact" aria-label="ตัวเลขเงินคริสตจักร">
           <div><small>🏠 เงินหมุนเวียน</small><b>{fmtBaht(own, { dec: false })}</b></div>
           <div><small>💰 เงินกองทุน</small><b>{fmtBaht(fund, { dec: false })}</b></div>
           <div><small>🧾 ใช้จ่ายเฉลี่ย/สัปดาห์</small><b>{fmtBaht(Math.round(h.weeklyOut), { dec: false })}</b></div>
         </section>
       )}
-      <section className="card" aria-label="เราช่วยกันได้อย่างไร">
-        <b>🤝 เราช่วยกันได้อย่างไร</b>
+      <details className="card healthtipsbox" aria-label="เราช่วยกันได้อย่างไร">
+        <summary><b>🤝 เราช่วยกันได้อย่างไร</b></summary>
         <ul className="healthtips">{ui.tips.map((t) => <li key={t}>{t}</li>)}</ul>
-      </section>
-      <section className="card no-print" aria-label="ดูรายละเอียดบัญชี">
-        <b>📚 ดูรายละเอียดบัญชี (ดูอย่างเดียว)</b>
-        <nav className="acctlinks" style={{ marginTop: '0.4rem' }} aria-label="บัญชีรับ บัญชีจ่าย และภาพรวม (ดูอย่างเดียว)">
-          <Link to={`/meeting/${n}/in`} className="acctlink acctlink--in"><span aria-hidden="true">💚</span> บัญชีรับ</Link>
-          <Link to={`/meeting/${n}/out`} className="acctlink acctlink--out"><span aria-hidden="true">🔴</span> บัญชีจ่าย</Link>
-          <Link to={`/meeting/${n}/all`} className="acctlink acctlink--all"><span aria-hidden="true">📊</span> ภาพรวม</Link>
-        </nav>
-      </section>
+      </details>
+      <Record year={year} readOnly />
     </>
   )
 }
