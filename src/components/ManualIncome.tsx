@@ -59,7 +59,7 @@ export default function ManualIncome({ types, entries, defaultDate, canWrite, on
           {(subs?.length || subOps) && <SubField id="mi-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} acts={acts} />}
           {withNote && <div className="field"><label htmlFor="mi-note">รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)</label><input id="mi-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
           <div className="entryrow__pair">
-            <div className="field"><label htmlFor="mi-env">จำนวนซอง</label><input id="mi-env" className="input" inputMode="numeric" value={env} onChange={(e) => setEnv(e.target.value)} placeholder="0" /></div>
+            <div className="field"><label htmlFor="mi-env">จำนวนหน่วย/ซอง</label><input id="mi-env" className="input" inputMode="numeric" value={env} onChange={(e) => setEnv(e.target.value)} placeholder="0" /></div>
             <div className="field"><label>เงินสด (บาท)</label><MoneyInput value={cash} onChange={setCash} /></div>
           </div>
           <div className="entryrow__pair">
