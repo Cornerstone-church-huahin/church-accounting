@@ -64,6 +64,16 @@ function ShareBtns({ share }: { share: { els: () => HTMLDivElement[]; file: stri
   )
 }
 
+/** ปุ่มสแกนใบที่เขียนมือไว้ (ใช้ท้ายแถบไอคอน) */
+function ScanBtn({ kind, onScan }: { kind: 'offering' | 'voucher'; onScan: (files: File[]) => void }) {
+  return (
+    <label className="rec-tool rec-tool--scan" title="สแกนใบที่เขียนไว้ (กรอกลงใบให้อัตโนมัติ)">
+      <IconScan /><span>สแกนใบ</span>
+      <input type="file" accept="image/*" multiple aria-label={kind === 'offering' ? 'สแกนใบบันทึกการถวาย' : 'สแกนใบเบิก-จ่ายเงินสด'} style={{ display: 'none' }} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) onScan(fs) }} />
+    </label>
+  )
+}
+
 function DownloadRow({ onData, kind, church, sunday, onScan, share }: { /** หน้า “บันทึก”: เพิ่มปุ่มแชร์ + พิมพ์ของใบนี้ */ share?: { els: () => HTMLDivElement[]; file: string; mode: 'full' | 'landscape'; title: string }; onData: () => void; kind: 'offering' | 'voucher'; church: string; sunday?: string; /** ใส่มา = มีปุ่มสแกนใบที่เขียนมือไว้ (เลือก/ถ่ายหลายรูปได้) แล้วกรอกลงใบให้อัตโนมัติ */ onScan?: (files: File[]) => void }) {
   const blank = () => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet(kind, church, sunday))
   if (share) {
@@ -185,7 +195,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
             {onRowClick && !blank && k === 0 && circ.length <= CR / 2 && <SheetHint />}
           </ScaledPage>
         ))}
-        {!noDownload && (fourTools ? <PdfTools els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="offering-sheet.pdf" mode="full" title={`ใบบันทึกการถวาย${sunday ? ` ${sunday}` : ''}`} label="ใบบันทึกการถวาย" /> : <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'full', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />)}
+        {!noDownload && (fourTools ? <PdfTools extra={onScan ? <ScanBtn kind="offering" onScan={onScan} /> : undefined} els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="offering-sheet.pdf" mode="full" title={`ใบบันทึกการถวาย${sunday ? ` ${sunday}` : ''}`} label="ใบบันทึกการถวาย" /> : <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'full', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />)}
       </div>
     )
   }
@@ -226,7 +236,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
           {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint />}
         </ScaledPage>
       ))}
-      {!noDownload && (fourTools ? <PdfTools els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="offering-sheet.pdf" mode="landscape" title={`ใบบันทึกการถวาย${sunday ? ` ${sunday}` : ''}`} label="ใบบันทึกการถวาย" /> : <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'landscape', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />)}
+      {!noDownload && (fourTools ? <PdfTools extra={onScan ? <ScanBtn kind="offering" onScan={onScan} /> : undefined} els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="offering-sheet.pdf" mode="landscape" title={`ใบบันทึกการถวาย${sunday ? ` ${sunday}` : ''}`} label="ใบบันทึกการถวาย" /> : <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'landscape', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />)}
     </div>
   )
 }
@@ -351,7 +361,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
         </ScaledPage>
         </>
       )}
-      {!noDownload && (fourTools ? <PdfTools els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="cash-voucher.pdf" mode="full" title={`ใบเบิก-จ่ายเงินสด${sunday ? ` ${sunday}` : ''}`} label="ใบเบิก-จ่ายเงินสด" /> : <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'cash-voucher.pdf', mode: 'full', title: 'ใบเบิก-จ่ายเงินสด' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />)}
+      {!noDownload && (fourTools ? <PdfTools extra={onScan ? <ScanBtn kind="voucher" onScan={onScan} /> : undefined} els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="cash-voucher.pdf" mode="full" title={`ใบเบิก-จ่ายเงินสด${sunday ? ` ${sunday}` : ''}`} label="ใบเบิก-จ่ายเงินสด" /> : <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'cash-voucher.pdf', mode: 'full', title: 'ใบเบิก-จ่ายเงินสด' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />)}
     </div>
   )
 }

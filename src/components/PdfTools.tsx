@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { downloadSheetPdf, sharePdf, shareImages } from '../lib/pdf'
 import { IconDownload, IconImage, IconPrint, IconShare } from './ToolIcons'
 
 /** แถบไอคอนเล็ก 4 ปุ่มใต้/เหนือเอกสาร: ดาวน์โหลด PDF · แชร์ PDF · แชร์เป็นรูป · พิมพ์ */
-export default function PdfTools({ els, file, title, label, mode = 'full' }: { mode?: 'full' | 'landscape'; els: () => HTMLDivElement[]; file: string; title: string; /** ชื่อเอกสารสำหรับอ่านออกเสียง/ทดสอบ */ label: string }) {
+export default function PdfTools({ els, file, title, label, mode = 'full', extra }: { /** ปุ่มเพิ่ม (เช่น สแกนใบ) ต่อท้ายแถว */ extra?: ReactNode; mode?: 'full' | 'landscape'; els: () => HTMLDivElement[]; file: string; title: string; /** ชื่อเอกสารสำหรับอ่านออกเสียง/ทดสอบ */ label: string }) {
   const [busy, setBusy] = useState<'' | 'dl' | 'pdf' | 'img'>('')
   const run = async (k: 'dl' | 'pdf' | 'img') => {
     const list = els()
@@ -18,11 +18,12 @@ export default function PdfTools({ els, file, title, label, mode = 'full' }: { m
     finally { setBusy('') }
   }
   return (
-    <div className="no-print rec-tools rec-tools--four" role="toolbar" aria-label={`เครื่องมือ${label}`}>
+    <div className={`no-print rec-tools rec-tools--four${extra ? ' rec-tools--five' : ''}`} role="toolbar" aria-label={`เครื่องมือ${label}`}>
       <button type="button" className="rec-tool" disabled={!!busy} onClick={() => void run('dl')} aria-label={`ดาวน์โหลด PDF ${label}`} title="ดาวน์โหลดไฟล์ PDF"><IconDownload /><span>{busy === 'dl' ? 'กำลังสร้าง…' : 'ดาวน์โหลด PDF'}</span></button>
       <button type="button" className="rec-tool" disabled={!!busy} onClick={() => void run('pdf')} aria-label={`แชร์ PDF ${label}`} title="แชร์ไฟล์ PDF"><IconShare /><span>{busy === 'pdf' ? 'กำลังสร้าง…' : 'แชร์ PDF'}</span></button>
       <button type="button" className="rec-tool" disabled={!!busy} onClick={() => void run('img')} aria-label={`แชร์เป็นรูป ${label}`} title="แชร์เป็นรูปภาพ"><IconImage /><span>{busy === 'img' ? 'กำลังสร้าง…' : 'แชร์เป็นรูป'}</span></button>
       <button type="button" className="rec-tool" onClick={() => window.print()} aria-label={`พิมพ์${label}`} title="พิมพ์"><IconPrint /><span>พิมพ์</span></button>
+      {extra}
     </div>
   )
 }
