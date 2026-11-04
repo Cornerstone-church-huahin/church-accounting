@@ -240,7 +240,7 @@ export default function Pay({ year, fund, view, weekCtl, hideWeekBar, compact, f
     return (
       <>
         {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
-        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} entries={can(role, 'detail') ? [...weekAll.map(sheetOf)] : [...maskExpenses(weekAll.map(sheetOf))]} sunday={sunday} summary={can(role, 'detail') ? weekSummary : { ...weekSummary, pending: maskPending(weekSummary.pending) }} noDownload noBalance={!canSeeBalances(role)} /></div>
+        <div className="no-print"><VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} entries={can(role, 'detail') ? [...weekAll.map(sheetOf)] : [...maskExpenses(weekAll.map(sheetOf))]} sunday={sunday} summary={can(role, 'detail') ? weekSummary : { ...weekSummary, pending: maskPending(weekSummary.pending) }} noDownload={!fourTools} fourTools={fourTools} noBalance={!canSeeBalances(role)} /></div>
       </>
     )
   }

@@ -6,6 +6,8 @@ import NoticePaper from '../components/NoticePaper'
 import PdfTools from '../components/PdfTools'
 import PickDock, { SheetTick } from '../components/PickDock'
 import { useSettings } from '../lib/data'
+import { can } from '../lib/access'
+import { useRole } from '../lib/members'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { expenseLines, weekNotice } from '../lib/notice'
@@ -48,7 +50,8 @@ function BoardNotice({ year, sunday, byCategory }: { year: number; sunday: strin
  * บันทึก — รับและจ่ายในหน้าเดียว: เลือกสัปดาห์ครั้งเดียว แล้วบันทึกใบรายรับ (ใบบันทึกการถวาย) และใบรายจ่าย (ใบเบิก-จ่ายเงินสด) ต่อกันในหน้านี้
  * แสดงเฉพาะแผ่นบันทึกรับ/จ่าย (แตะแถวในใบเพื่อเพิ่ม/แก้) + ปุ่มดาวน์โหลด/แชร์/พิมพ์ของแต่ละใบ — ตัดส่วนอื่นออกเพื่อให้หน้าสั้น
  */
-export default function Record({ year, onBack }: { year: number; onBack?: () => void }) {
+export default function Record({ year, onBack, readOnly }: { year: number; onBack?: () => void; /** ผู้ดูอย่างเดียว (หน้าสถานะการเงิน): ใบรับ/ใบจ่ายแบบปกปิดตามสิทธิ์ ไม่แก้ไข · ไม่มีใบ “ข้อมูลก่อนติดบอร์ด” ถ้าไม่มีสิทธิ์ดูรายละเอียด */ readOnly?: boolean }) {
+  const role = useRole()
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => {
     const s = sheetSunday(todayISO())
@@ -66,16 +69,16 @@ export default function Record({ year, onBack }: { year: number; onBack?: () => 
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <section className="record__sec record__sec--in" aria-label="บันทึกรายรับ" data-sheet="in" data-sel={sel('in')}>
         <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small><SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" /></h2>
-        <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools />
+        <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools view={readOnly} />
       </section>
       <section className="record__sec record__sec--out" aria-label="บันทึกรายจ่าย" data-sheet="out" data-sel={sel('out')}>
         <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small><SheetTick on={on('out')} onChange={(v) => tick('out', v)} label="รายจ่าย" /></h2>
-        <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools />
+        <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools view={readOnly} />
       </section>
-      <section className="record__sec record__sec--board" aria-label="ข้อมูลก่อนติดบอร์ด" data-sheet="chk" data-sel={sel('chk')}>
+      {(!readOnly || can(role, 'detail')) && <section className="record__sec record__sec--board" aria-label="ข้อมูลก่อนติดบอร์ด" data-sheet="chk" data-sel={sel('chk')}>
         <h2 className="record__h record__h--check">📋 ข้อมูลก่อนติดบอร์ด <small>รายละเอียดค่าใช้จ่าย ไว้ตรวจก่อนนำไปติดบอร์ด (ยังไม่ติดบอร์ดใบนี้)</small><SheetTick on={on('chk')} onChange={(v) => tick('chk', v)} label="ข้อมูลก่อนติดบอร์ด" /></h2>
         <BoardNotice year={year} sunday={sunday} />
-      </section>
+      </section>}
       <section className="record__sec record__sec--board" aria-label="สำหรับติดบอร์ดประกาศ" data-sheet="brd" data-sel={sel('brd')}>
         <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>รายจ่ายแสดงเป็นหมวด — พิมพ์ติดบอร์ดได้เลย</small><SheetTick on={on('brd')} onChange={(v) => tick('brd', v)} label="สำหรับติดบอร์ดประกาศ" /></h2>
         <BoardNotice year={year} sunday={sunday} byCategory />
