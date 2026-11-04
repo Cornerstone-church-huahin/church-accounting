@@ -1698,6 +1698,6 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .dash__bal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; text-align: center; }
 .dash__bal span { display: block; font-size: 0.74rem; color: var(--ink-soft); }
 .dash__bal b { font-size: 1.05rem; }
-.record__h--board { background: #1a2b4c; }
+.record__h--board { background: #1f5fc4; }
 .record__h--board { flex-wrap: wrap; row-gap: 0; } .record__h--board small { flex-basis: 100%; }
-.record__h--check { background: #8a6414; flex-wrap: wrap; row-gap: 0; } .record__h--check small { flex-basis: 100%; }
+.record__h--check { background: #c2570a; flex-wrap: wrap; row-gap: 0; } .record__h--check small { flex-basis: 100%; }
