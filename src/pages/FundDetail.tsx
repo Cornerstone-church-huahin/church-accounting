@@ -233,16 +233,18 @@ export default function FundDetailPage() {
           const church = settings.churchName.split(' ')[0]
           if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} head={fhead} sel={fsel} />
           // กองทุนที่มีหมวด: แถบเลือกหมวดขึ้นก่อน แล้วจึงแสดงใบรับ/ใบจ่ายของหมวดนั้น
+          // มีแถบเลือกหมวดด้านบนอยู่แล้ว (แอดมิน/ผู้ดูแลหมวด) → ใบกองทุนตามหมวดที่เลือกอยู่ ไม่ต้องมีแถบซ้ำ · ถ้าไม่มี (ผู้ดูอย่างเดียว) ใช้แถบของใบเอง
+          const shared = canManage || !!only
           const valid = sheetPick !== null && ((!only && (sheetPick === 'all' || sheetPick === '')) || subs.some((q) => q.id === sheetPick))
-          const cur = valid ? sheetPick : subs[0].id // เปิดหมวดแรกให้อัตโนมัติ ไม่ปล่อยให้ว่าง
+          const cur = shared ? sub : valid ? sheetPick : subs[0].id // เปิดหมวดแรกให้อัตโนมัติ ไม่ปล่อยให้ว่าง
           const name = cur === 'all' ? '' : cur === '' ? 'ส่วนกลาง' : subs.find((q) => q.id === cur)?.name ?? ''
           return (
             <>
-              <div className="rtabs no-print" role="tablist" aria-label="เลือกหมวดของใบกองทุน">
+              {!shared && <div className="rtabs rtabs--tight no-print" role="tablist" aria-label="เลือกหมวดของใบกองทุน">
                 {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={cur === q.id} className={`rtab${cur === q.id ? ' on' : ''}`} onClick={() => setSheetPick(q.id)}>{q.name}</button>)}
                 {!only && <button type="button" role="tab" aria-selected={cur === ''} className={`rtab${cur === '' ? ' on' : ''}`} onClick={() => setSheetPick('')}>ส่วนกลาง</button>}
                 {!only && <button type="button" role="tab" aria-selected={cur === 'all'} className={`rtab${cur === 'all' ? ' on' : ''}`} onClick={() => setSheetPick('all')}>รวมทุกหมวด</button>}
-              </div>
+              </div>}
               <FundSheetPaper church={church} fundName={name ? `${f.name} · ${name}` : f.name} sheets={fundSheets(subAccount(f, cur))} head={fhead} sel={fsel} />
             </>
           )

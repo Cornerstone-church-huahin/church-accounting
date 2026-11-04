@@ -1783,3 +1783,8 @@ span.fundpend__tog--no { cursor: default; }
 .fundcats { padding: 0.35rem 0.6rem; margin: 0.2rem 0; }
 .fundbal { padding: 0.35rem 0.6rem; margin: 0.2rem 0; }
 .fundbal__amt { font-size: 1.1rem; }
+
+/* แถวหมวด: ชิปเล็ก ไม่ยืดเต็มความกว้าง ไม่ตัดบรรทัด */
+.rtabs--tight .rtab { flex: 0 1 auto; white-space: nowrap; min-height: 0; padding: 0.15rem 0.65rem; font-size: 0.8rem; border-width: 1.5px; line-height: 1.5; }
+.rtabs--tight { flex-wrap: wrap; align-items: center; }
+.rtab--gear { padding: 0.1rem 0.4rem !important; font-size: 0.85rem !important; }
