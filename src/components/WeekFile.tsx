@@ -5,7 +5,7 @@ import ScaledPage from './ScaledPage'
 import { circulatingOnly } from '../lib/balances'
 import { getBinary, getSync, prefetchBinaries } from '../lib/sync'
 import { cachedImage } from '../lib/imageCache'
-import { useIncomeTypes, useSettings } from '../lib/data'
+import { useFundDeposits, useIncomeTypes, useSettings } from '../lib/data'
 import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import { ownLent, summarizeLoans } from '../lib/loans'
 import { canSharePdf, downloadPagesPdf, sharePagesPdf } from '../lib/pdf'
@@ -99,6 +99,7 @@ function Photo({ path, label, onDone }: { path: string; label: string; onDone: (
  */
 export default function WeekFile({ year, a, sunday, church }: { year: number; a: ReturnType<typeof useBalances>['input'] & { opening: unknown; loans: unknown }; sunday: string; church: string }) {
   const types = useIncomeTypes().list
+  const fundWd = useFundDeposits()
   const { settings } = useSettings()
   const box = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
@@ -110,7 +111,7 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const incomeRows = useMemo(() => a.income.filter((x) => !x.deleted && kindManual(x) && sheetSunday(x.date) === sunday), [a.income, sunday])
   const expRows = useMemo(() => a.expenses.filter((x) => !x.deleted && !x.fundId && sheetSunday(effDate(x)) === sunday), [a.expenses, sunday])
   const L = useMemo(() => computeLedger({ range: week, ...a } as Parameters<typeof computeLedger>[0]), [a, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
-  const wdk = useMemo(() => computeWeekWithdraw({ expenses: a.expenses, income: a.income, rounds: a.rounds, passbook: a.passbook, types: a.types, cats: a.cats, loans: a.loans } as Parameters<typeof computeWeekWithdraw>[0], year, sunday), [a, year, sunday]) // ชุดคำนวณเดียวกับหน้า เตรียมเบิก และใบเบิก-จ่าย
+  const wdk = useMemo(() => computeWeekWithdraw({ expenses: a.expenses, income: a.income, rounds: a.rounds, passbook: a.passbook, types: a.types, cats: a.cats, loans: a.loans, fundWd: fundWd.items } as Parameters<typeof computeWeekWithdraw>[0], year, sunday), [a, fundWd.items, year, sunday]) // ชุดคำนวณเดียวกับหน้า เตรียมเบิก และใบเบิก-จ่าย
   const fundRowsE: ExpenseEntry[] = wdk.fund.map((r, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: r.amount, desc: r.name, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
   const entries = [...expRows.map(sheetOf)]
   const nFundInc = incomeRows.filter((x) => types.find((t) => t.id === x.typeId)?.fund).length

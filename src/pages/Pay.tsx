@@ -15,7 +15,7 @@ import ManualExpense from '../components/ManualExpense'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can, canSeeBalances } from '../lib/access'
 import { maskExpenses, maskPending } from '../lib/maskPay'
-import { usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useLoans, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useFundDeposits, usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useLoans, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
 import { ensureGemini, getGemini, readBill } from '../lib/gemini'
 import { compressImage } from '../lib/image'
 import { readSlip } from '../lib/slipOcr'
@@ -126,8 +126,9 @@ export default function Pay({ year, fund, view, weekCtl, hideWeekBar, compact, f
   const asOf = sunday <= todayISO() ? sunday : todayISO()
   const { balances: bal } = useBalances(year, asOf)
   const loansAll = useLoans()
+  const fundWd = useFundDeposits()
   // เงินเข้ากองทุนในสัปดาห์ → มีรายจ่ายโอนออกเท่ากัน ชื่อกองทุนเดียวกัน ในตารางทันที (แสดงอย่างเดียว ไม่นับซ้ำเป็นรายจ่ายจริง)
-  const wd = useMemo(() => fid ? null : computeWeekWithdraw({ expenses: exp.items, income: income.items, rounds: rounds.items, passbook: passbook.items, types: types.list, cats: cats.list, loans: loansAll.items }, year, sunday), [fid, exp.items, income.items, rounds.items, passbook.items, types.list, cats.list, loansAll.items, year, sunday]) // ชุดคำนวณเดียวกับหน้า เตรียมเบิก
+  const wd = useMemo(() => fid ? null : computeWeekWithdraw({ expenses: exp.items, income: income.items, rounds: rounds.items, passbook: passbook.items, types: types.list, cats: cats.list, loans: loansAll.items, fundWd: fundWd.items }, year, sunday), [fid, fundWd.items, exp.items, income.items, rounds.items, passbook.items, types.list, cats.list, loansAll.items, year, sunday]) // ชุดคำนวณเดียวกับหน้า เตรียมเบิก
   const fundOut = wd ? wd.fund : []
   const fundRowsE: ExpenseEntry[] = fundOut.map((f, i) => ({ id: `fx:${i}`, channel: 'manual', date: sunday, amount: f.amount, desc: f.name, status: 'paid', updated: 1e15 + i }) as ExpenseEntry)
   const inWeek = (x: ExpenseEntry) => sheetSunday(effDate(x)) === sunday
