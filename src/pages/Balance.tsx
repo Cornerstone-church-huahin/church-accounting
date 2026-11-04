@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import FundPendingPanel from '../components/FundPendingPanel'
+import OwnSheets from '../components/OwnSheets'
 import LoansPanel from '../components/LoansPanel'
 import AdvancePay from '../components/AdvancePay'
 import DebtBanner from '../components/DebtBanner'
@@ -72,30 +73,30 @@ export default function BalancePage() {
       <p className="muted small" style={{ textAlign: 'center' }}>ยอด ณ {fmtDate(today)}{opening ? ` · นับต่อจากยอดตั้งต้น ${fmtDate(opening.date)}` : ' · ยังไม่ได้ตั้งยอดยกมา (ตั้งค่า › ยอดยกมา)'}</p>
 
       {kind === 'own' && (
-        <section className="card" aria-label="เงินหมุนเวียน">
-          <h2>🏠 เงินหมุนเวียนของคริสตจักร</h2>
-          <p className="muted small" style={{ margin: 0 }}>เงินที่ใช้บริหารงานประจำสัปดาห์/เดือน — ไม่รวมกองทุน ไม่รวมเงินยืม</p>
+        <>
+        <section className="card fundbal" aria-label="เงินหมุนเวียน">
+          <div className="fundbal__row" title="เงินที่ใช้บริหารงานประจำสัปดาห์/เดือน — ไม่รวมกองทุน ไม่รวมเงินยืม"><span className="small"><b>🏠 เงินหมุนเวียน</b> <span className="muted">(ไม่รวมกองทุน/เงินยืม)</span></span><b className="fundbal__amt">{fmtBaht(b.own.balance)} บาท</b></div>
+          <p className="muted small" style={{ margin: 0 }} aria-label="ที่มาของเงินหมุนเวียน">
+            ตั้งต้น {m(b.own.opening)} + รับปกติ {m(b.own.moneyIn)} − จ่ายปกติ {m(b.own.moneyOut)}
+            {b.own.pending > 0 && <> − ค้างจ่าย {m(b.own.pending)}</>}
+            {b.own.lent > 0 && <> − ให้กองทุนยืมไป {m(b.own.lent)}</>}
+            {b.own.borrowed > 0 && <> + ยืมจากกองทุน {m(b.own.borrowed)}</>}
+            {' '}= <b>{m(b.own.balance)}</b>
+          </p>
           <DebtBanner loans={loans.items.filter((l) => l.borrower === 'own')} types={types} />
           <DebtBanner lent loans={loans.items.filter((l) => l.lender.kind === 'own')} types={types} />
-          <p className="bigfig">{fmtBaht(b.own.balance)} บาท</p>
-          <table className="tbl tbl--paper" aria-label="ที่มาของเงินหมุนเวียน">
-            <tbody>
-              <tr><td>ยอดตั้งต้น</td><td className="num">{m(b.own.opening)}</td></tr>
-              <tr><td>+ รายรับปกติ (ไม่รวมกองทุน)</td><td className="num">{m(b.own.moneyIn)}</td></tr>
-              <tr><td>− รายจ่ายปกติ (จ่ายแล้ว)</td><td className="num">{m(b.own.moneyOut)}</td></tr>
-              {b.own.pending > 0 && <tr><td>− ค้างจ่าย (วางบิล/สำรองจ่ายที่บันทึกไว้ ยังไม่จ่าย)</td><td className="num">{m(b.own.pending)}</td></tr>}
-              {b.own.lent > 0 && <tr><td>− ให้กองทุนยืมไป (ยังไม่คืน · เงินก้อนนี้จะกลับมาเมื่อกองทุนคืน)</td><td className="num">{m(b.own.lent)}</td></tr>}
-              {b.own.borrowed > 0 && <tr><td>+ ยืมจากกองทุน (เงินสดที่มีจริง · ยังเป็นหนี้อยู่)</td><td className="num">{m(b.own.borrowed)}</td></tr>}
-            </tbody>
-            <tfoot><tr><td>เงินหมุนเวียนคงเหลือ</td><td className="num">{m(b.own.balance)}</td></tr></tfoot>
-          </table>
+        </section>
+        <OwnSheets year={year} />
+        <details className="card owncharts">
+          <summary>📈 กราฟรายเดือน · เงินคงเหลือสะสม ปี {year + 543}</summary>
           <div className="stat-title">รายรับ-รายจ่ายรายเดือน ปี {year + 543}</div>
           <Legend />
           <GroupedBars buckets={series} height={200} />
           <div className="stat-title">เงินหมุนเวียนคงเหลือสะสม</div>
           <CumLine buckets={series} height={150} />
           {series.length === 0 && <p className="muted small">ยังไม่มีรายการรับ-จ่ายปกติในปีนี้</p>}
-        </section>
+        </details>
+        </>
       )}
 
       {kind === 'fund' && (
