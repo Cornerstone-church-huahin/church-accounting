@@ -47,6 +47,15 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem(DISMISS) } catch { return null } })
   const pickSum = pick.reduce((a, i) => a + (skipped.items[i]?.amount ?? 0), 0)
   const full = tab !== null
+  const stepBtn = (k: Exclude<Tab, null>) => {
+    const x = STEPS.find((y) => y.k === k)!
+    return (
+      <button key={x.k} type="button" role="tab" aria-selected={false} className={`stepbtn stepbtn--${x.k}`} onClick={() => setTab(x.k)}>
+        <span className="stepbtn__top"><i className="hn">{x.n}</i><span>{x.icon} {x.name}</span></span>
+        <small>{x.sub}</small>
+      </button>
+    )
+  }
   const inMeeting = useLocation().pathname.startsWith('/meeting') // ในห้องทำงานเองไม่ต้องมีปุ่มกลับเข้าห้องทำงาน
   return (
     <div className={inMeeting ? 'home--work' : undefined}>
@@ -70,17 +79,12 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
           )}
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
-            {STEPS.map((x) => (
-              <button key={x.k} type="button" role="tab" aria-selected={false} className={`stepbtn stepbtn--${x.k}`} onClick={() => setTab(x.k)}>
-                <span className="stepbtn__top"><i className="hn">{x.n}</i><span>{x.icon} {x.name}</span></span>
-                <small>{x.sub}</small>
-              </button>
-            ))}
-          </div>
-          <div className="exttabs no-print" role="group" aria-label="แท็บเพิ่มเติม">
-            <button type="button" className="exttab exttab--rec" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว"><span aria-hidden="true">📝</span> บันทึก<small>รับ + จ่าย + ติดบอร์ด</small></button>
-            <button type="button" className="exttab exttab--dash" onClick={() => setTab('dash')} aria-label="แดชบอร์ด"><span aria-hidden="true">📈</span> แดชบอร์ด<small>ภาพรวมเงิน</small></button>
-            <button type="button" className="exttab exttab--3" onClick={() => setTab('tab3')} aria-label="แท็บ 3"><span aria-hidden="true">📌</span> แท็บ 3<small>ว่างไว้ก่อน</small></button>
+            {/* บันทึกเป็นอันดับ 1 · ขั้นตอน ปรับ/เตรียมเบิก/สรุป/ฝาก · แดชบอร์ด · แท็บ 3 · แล้วตามด้วย รับ และ จ่าย (ทุกช่องขนาดเท่ากัน) */}
+            <button type="button" className="stepbtn exttab exttab--rec" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว"><span className="stepbtn__top"><span>{REC.icon} {REC.name}</span></span><small>รับ + จ่าย + ติดบอร์ด</small></button>
+            {(['adj', 'wd', 'sum', 'dep'] as const).map((k) => stepBtn(k))}
+            <button type="button" className="stepbtn exttab exttab--dash" onClick={() => setTab('dash')} aria-label="แดชบอร์ด"><span className="stepbtn__top"><span>📈 แดชบอร์ด</span></span><small>ภาพรวมเงิน</small></button>
+            <button type="button" className="stepbtn exttab exttab--3" onClick={() => setTab('tab3')} aria-label="แท็บ 3"><span className="stepbtn__top"><span>📌 แท็บ 3</span></span><small>ว่างไว้ก่อน</small></button>
+            {(['in', 'out'] as const).map((k) => stepBtn(k))}
           </div>
         </>
       )}
