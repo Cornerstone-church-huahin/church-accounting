@@ -1730,3 +1730,22 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .pickdock__btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; }
 .pickdock__btns .rec-tool { height: 2.1rem; padding: 0 0.35rem; font-size: 0.72rem; justify-content: center; }
 @media print { .pickdock { display: none !important; } body.print-sel .fundsheets [data-sheet]:not([data-sel="1"]) { display: none !important; } }
+
+/* เตรียมนำฝาก: แยก “ถอนแล้ว (เงินสดรอนำฝาก)” กับ “ยังไม่ถอน” */
+.fundpend__sum { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; margin: 0 0 8px; }
+.fundpend__sum-i { border-radius: 10px; padding: 6px 8px; display: grid; gap: 0; text-align: center; border: 2px solid; }
+.fundpend__sum-i span { font-size: 0.72rem; font-weight: 700; line-height: 1.2; }
+.fundpend__sum-i b { font-size: 1.15rem; }
+.fundpend__sum-i--out { background: #fff4d6; border-color: #c99a14; color: #6b4d00; }
+.fundpend__sum-i--no { background: #fde8e6; border-color: #c4332a; color: #8f1f17; }
+.fundpend__sum-i--all { background: #eef1f7; border-color: #1a2b4c; color: #1a2b4c; }
+.fundpend__sub { display: block; font-size: 0.62rem; font-weight: 500; opacity: 0.8; line-height: 1.1; }
+.fundpend__th-no { color: #c4332a; }
+.fundpend__unw, .fundpend__unw b { color: #c4332a; }
+.fundpend__tr--no td { background: #fff5f4; }
+.fundpend__tog--no { background: #fde8e6; border-color: #c4332a; color: #8f1f17; cursor: pointer; }
+span.fundpend__tog--no { cursor: default; }
+.fundpend__undo { display: block; margin-top: 3px; border: 0; background: transparent; color: #6b4d00; text-decoration: underline; font-size: 0.7rem; cursor: pointer; padding: 0; }
+.fundpend__ask td { background: #fff5f4; display: table-cell; }
+.fundpend__ask label { display: inline-flex; align-items: center; gap: 6px; margin: 0 8px 4px 0; font-weight: 700; }
+.fundpend__ask .btn { margin: 2px 6px 2px 0; }
