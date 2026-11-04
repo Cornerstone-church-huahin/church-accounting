@@ -8,6 +8,7 @@ import { useSettings } from '../lib/data'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { expenseLines, weekNotice } from '../lib/notice'
+import { outLinesOf } from '../lib/report'
 import { isFundZone } from '../lib/funds'
 import { downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
@@ -16,7 +17,7 @@ import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
  * ใบสรุปรายรับ-รายจ่ายประจำสัปดาห์ สำหรับติดบอร์ดประกาศ — คำนวณสดจากรายการรับ/จ่ายของสัปดาห์ที่เลือก (ตัวเดียวกับหน้า “สรุป/ภาพรวม”)
  * บันทึกรายการในใบรับ/ใบจ่ายด้านบน ใบนี้เปลี่ยนตามทันที
  */
-function BoardNotice({ year, sunday }: { year: number; sunday: string }) {
+function BoardNotice({ year, sunday, byCategory }: { year: number; sunday: string; /** ฉบับติดบอร์ด: รายจ่ายแสดงเป็นหมวด ไม่แสดงรายการละเอียด */ byCategory?: boolean }) {
   const { settings } = useSettings()
   const { input: full } = useBalances(year)
   const input = useMemo(() => ({ ...full, income: full.income.filter((x) => !isFundZone(x)) }), [full])
@@ -25,11 +26,17 @@ function BoardNotice({ year, sunday }: { year: number; sunday: string }) {
   const n = useMemo(() => {
     const range = rangeOf('week', year, { sunday })
     const L = computeLedger({ range, ...input, withFunds: false })
-    return weekNotice(L, expenseLines(range, { vouchers: input.vouchers, expenses: input.expenses, entries: input.entries }))
-  }, [input, year, sunday])
+    const n0 = weekNotice(L, expenseLines(range, { vouchers: input.vouchers, expenses: input.expenses, entries: input.entries }))
+    if (!byCategory) return n0
+    // รวมรายจ่ายเป็นหมวด (ชุดรายการเดียวกับใบละเอียด → ยอดรวมตรงกัน) เรียงมากไปน้อย
+    const by = new Map<string, number>()
+    for (const x of outLinesOf(range, input)) by.set(x.catLabel, (by.get(x.catLabel) ?? 0) + x.amount)
+    const out = [...by].sort((a, b) => b[1] - a[1]).map(([label, amount], i) => ({ key: `cat:${i}`, date: '', desc: label, amount }))
+    return { ...n0, out }
+  }, [input, year, sunday, byCategory])
   const [busy, setBusy] = useState(false)
   const els = () => paper.current.filter(Boolean)
-  const file = `notice-${sunday}.pdf`
+  const file = `${byCategory ? 'board' : 'notice-detail'}-${sunday}.pdf`
   const share = async () => {
     setBusy(true)
     try {
@@ -38,11 +45,11 @@ function BoardNotice({ year, sunday }: { year: number; sunday: string }) {
   }
   return (
     <>
-      <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} />
-      <div className="no-print rec-tools" role="toolbar" aria-label="เครื่องมือใบสำหรับติดบอร์ดประกาศ">
-        <button type="button" className="rec-tool" onClick={() => void downloadSheetPdf(els(), file, 'full')} aria-label="ดาวน์โหลด PDF ใบสำหรับติดบอร์ด" title="ดาวน์โหลด PDF"><IconDownload /><span>ดาวน์โหลด</span></button>
-        <button type="button" className="rec-tool" disabled={busy} onClick={() => void share()} aria-label="แชร์ใบสำหรับติดบอร์ด" title="แชร์ไฟล์ PDF"><IconShare /><span>{busy ? 'กำลังสร้าง…' : 'แชร์'}</span></button>
-        <button type="button" className="rec-tool" onClick={() => window.print()} aria-label="พิมพ์ใบสำหรับติดบอร์ด" title="พิมพ์"><IconPrint /><span>พิมพ์</span></button>
+      <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} variant={byCategory ? 'category' : undefined} />
+      <div className="no-print rec-tools" role="toolbar" aria-label={byCategory ? 'เครื่องมือใบสำหรับติดบอร์ดประกาศ' : 'เครื่องมือข้อมูลก่อนติดบอร์ด'}>
+        <button type="button" className="rec-tool" onClick={() => void downloadSheetPdf(els(), file, 'full')} aria-label={byCategory ? 'ดาวน์โหลด PDF ใบสำหรับติดบอร์ด' : 'ดาวน์โหลด PDF ข้อมูลก่อนติดบอร์ด'} title="ดาวน์โหลด PDF"><IconDownload /><span>ดาวน์โหลด</span></button>
+        <button type="button" className="rec-tool" disabled={busy} onClick={() => void share()} aria-label={byCategory ? 'แชร์ใบสำหรับติดบอร์ด' : 'แชร์ข้อมูลก่อนติดบอร์ด'} title="แชร์ไฟล์ PDF"><IconShare /><span>{busy ? 'กำลังสร้าง…' : 'แชร์'}</span></button>
+        <button type="button" className="rec-tool" onClick={() => window.print()} aria-label={byCategory ? 'พิมพ์ใบสำหรับติดบอร์ด' : 'พิมพ์ข้อมูลก่อนติดบอร์ด'} title="พิมพ์"><IconPrint /><span>พิมพ์</span></button>
       </div>
     </>
   )
@@ -71,9 +78,13 @@ export default function Record({ year, onBack }: { year: number; onBack?: () => 
         <h2 className="record__h record__h--out">🔴 รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small></h2>
         <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact />
       </section>
-      <section className="record__sec record__sec--board" aria-label="สำหรับติดบอร์ดประกาศ">
-        <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>สรุปรายรับ-รายจ่ายประจำสัปดาห์</small></h2>
+      <section className="record__sec record__sec--board" aria-label="ข้อมูลก่อนติดบอร์ด">
+        <h2 className="record__h record__h--check">📋 ข้อมูลก่อนติดบอร์ด <small>รายละเอียดค่าใช้จ่าย ไว้ตรวจก่อนนำไปติดบอร์ด (ยังไม่ติดบอร์ดใบนี้)</small></h2>
         <BoardNotice year={year} sunday={sunday} />
+      </section>
+      <section className="record__sec record__sec--board" aria-label="สำหรับติดบอร์ดประกาศ">
+        <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>รายจ่ายแสดงเป็นหมวด — พิมพ์ติดบอร์ดได้เลย</small></h2>
+        <BoardNotice year={year} sunday={sunday} byCategory />
       </section>
     </div>
   )

@@ -1700,3 +1700,4 @@ body.split-on .split__bottom > * { max-width: 100%; }
 .dash__bal b { font-size: 1.05rem; }
 .record__h--board { background: #1a2b4c; }
 .record__h--board { flex-wrap: wrap; row-gap: 0; } .record__h--board small { flex-basis: 100%; }
+.record__h--check { background: #8a6414; flex-wrap: wrap; row-gap: 0; } .record__h--check small { flex-basis: 100%; }

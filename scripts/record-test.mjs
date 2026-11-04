@@ -21,7 +21,7 @@ await page.addInitScript(() => {
   const t = new Date(), ls = new Date(t); ls.setDate(t.getDate() - t.getDay())   // อาทิตย์ล่าสุด = ใบของสัปดาห์ก่อนหน้า
   const d = `${ls.getFullYear()}-${String(ls.getMonth() + 1).padStart(2, '0')}-${String(ls.getDate()).padStart(2, '0')}`
   localStorage.setItem(`acct.income.${ls.getFullYear()}.v1`, JSON.stringify([{ id: 'i1', date: d, typeId: 'tt1', amount: 500000, method: 'cash', source: 'manual', updated: 1 }]))
-  localStorage.setItem(`acct.expenses.${ls.getFullYear()}.v1`, JSON.stringify([{ id: 'e1', channel: 'manual', date: d, amount: 120000, desc: 'ค่าของทดสอบบอร์ด', status: 'paid', method: 'cash', updated: 2 }]))
+  localStorage.setItem(`acct.expenses.${ls.getFullYear()}.v1`, JSON.stringify([{ id: 'e1', channel: 'manual', date: d, amount: 120000, desc: 'ค่าของทดสอบบอร์ด', catId: 'xq-1', status: 'paid', method: 'cash', updated: 2 }]))
   localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
 })
 try {
@@ -46,16 +46,24 @@ try {
   must(h1 !== h0, 'week changed: ' + h0 + ' -> ' + h1)
   const sheetWeeks = await page.locator('.a4page').evaluateAll((els) => els.map((e) => (e.innerText.match(/ระหว่างวันที่[^\n]*/) || [''])[0]))
   must(new Set(sheetWeeks.filter(Boolean)).size === 1 && sheetWeeks.filter(Boolean).length >= 2, 'income and expense sheets both follow the shared week: ' + JSON.stringify(sheetWeeks))
-  // ส่วนที่ 3: ใบสรุปสำหรับติดบอร์ดประกาศ (คำนวณจากรายการของสัปดาห์ที่เลือก)
+  // ส่วนที่ 3: ข้อมูลก่อนติดบอร์ด (ละเอียด) · ส่วนที่ 4: สำหรับติดบอร์ดประกาศ (เป็นหมวด) — คำนวณจากรายการของสัปดาห์ที่เลือก
+  const check = page.getByRole('region', { name: 'ข้อมูลก่อนติดบอร์ด' })
   const board = page.getByRole('region', { name: 'สำหรับติดบอร์ดประกาศ' })
+  await check.waitFor({ timeout: 10000 })
   await board.waitFor({ timeout: 10000 })
-  must(await board.getByText('สำหรับติดบอร์ดประกาศ').count() >= 1, 'board section title')
+  await check.getByText('สรุปรายรับ - รายจ่ายประจำสัปดาห์').first().waitFor({ timeout: 10000 })
   await board.getByText('สรุปรายรับ - รายจ่ายประจำสัปดาห์').first().waitFor({ timeout: 10000 })
-  must(await board.getByText('ค่าของทดสอบบอร์ด').count() >= 1, 'board notice lists the expense of the selected week (linked)')
+  must(await check.getByText('ค่าของทดสอบบอร์ด').count() >= 1, 'detail sheet lists the expense line (linked to the selected week)')
+  must(await board.getByText('ค่าของทดสอบบอร์ด').count() === 0, 'board sheet hides the detailed expense line')
+  must(await board.getByText('ค่าน้ำมันออกเยี่ยมสมาชิก อ.กฤต').count() >= 1, 'board sheet shows the category instead')
+  must(await board.getByRole('columnheader', { name: 'หมวดรายจ่าย' }).count() === 1 && await board.getByRole('columnheader', { name: 'ผู้วางบิล' }).count() === 0 && await board.getByRole('columnheader', { name: 'วันที่' }).count() === 0, 'board expense table has category columns only')
+  const tot = async (r) => (await r.getByText(/รวมรายจ่ายเงินหมุนเวียน/).first().locator('xpath=..').innerText()).replace(/\s+/g, ' ')
+  must((await tot(check)) === (await tot(board)), 'totals match between detail and category sheets: ' + await tot(check) + ' vs ' + await tot(board))
   must(await board.getByRole('button', { name: /ดาวน์โหลด PDF ใบสำหรับติดบอร์ด/ }).count() === 1 && await board.getByRole('button', { name: /แชร์ใบสำหรับติดบอร์ด/ }).count() === 1, 'board tools present')
+  must(await check.getByRole('button', { name: /ดาวน์โหลด PDF ข้อมูลก่อนติดบอร์ด/ }).count() === 1, 'detail sheet tools present')
   await page.getByRole('button', { name: 'สัปดาห์ถัดไป' }).click()
   await page.waitForTimeout(600)
-  must(await board.getByText('ค่าของทดสอบบอร์ด').count() === 0, 'board follows the shared week (next week has no such expense)')
+  must(await check.getByText('ค่าของทดสอบบอร์ด').count() === 0 && await board.getByText('ค่าน้ำมันออกเยี่ยมสมาชิก อ.กฤต').count() === 0, 'both sheets follow the shared week')
   await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click()
   // หัวงาน/ตารางงาน/แท็บขั้นตอน/แถบสลับยังตัดออก (เฉพาะหน้านี้) แต่ฟังก์ชันรับ/จ่ายครบเหมือนหน้าเดิม
   must(await page.getByRole('heading', { name: 'งานเหรัญญิก' }).count() === 0, 'room header removed')

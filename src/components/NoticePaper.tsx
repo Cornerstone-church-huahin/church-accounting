@@ -79,18 +79,19 @@ function IncTable({ p }: { p: Extract<Piece, { t: 'inc' }> }) {
     </>
   )
 }
-function OutTable({ p, noNames }: { p: Extract<Piece, { t: 'out' }>; noNames?: boolean }) {
+/** catMode: แสดงรายจ่ายเป็นหมวด (หมวด · จำนวนเงิน) ไม่แสดงวันที่/รายการ/ผู้วางบิล — ใช้กับใบที่ติดบอร์ดให้สมาชิกเห็น */
+function OutTable({ p, noNames, catMode }: { p: Extract<Piece, { t: 'out' }>; noNames?: boolean; catMode?: boolean }) {
   return (
     <>
       <div style={{ fontWeight: 800, fontSize: 16, margin: '8px 0 2px' }}>{p.title}</div>
       <table className="sheetpaper sheetpaper--full tkind-out" aria-label={p.title}>
-        <colgroup>{noNames ? <><col style={{ width: '7%' }} /><col style={{ width: '16%' }} /><col style={{ width: '55%' }} /><col style={{ width: '22%' }} /></> : <><col style={{ width: '6%' }} /><col style={{ width: '14%' }} /><col style={{ width: '39%' }} /><col style={{ width: '20%' }} /><col style={{ width: '21%' }} /></>}</colgroup>
-        <thead><tr><th style={th}>ที่</th><th style={th}>วันที่</th><th style={th}>รายการ</th>{!noNames && <th style={th}>ผู้วางบิล</th>}<th style={th}>จำนวนเงิน</th></tr></thead>
+        <colgroup>{catMode ? <><col style={{ width: '8%' }} /><col style={{ width: '70%' }} /><col style={{ width: '22%' }} /></> : noNames ? <><col style={{ width: '7%' }} /><col style={{ width: '16%' }} /><col style={{ width: '55%' }} /><col style={{ width: '22%' }} /></> : <><col style={{ width: '6%' }} /><col style={{ width: '14%' }} /><col style={{ width: '39%' }} /><col style={{ width: '20%' }} /><col style={{ width: '21%' }} /></>}</colgroup>
+        <thead><tr><th style={th}>ที่</th>{catMode ? <th style={th}>หมวดรายจ่าย</th> : <><th style={th}>วันที่</th><th style={th}>รายการ</th></>}{!noNames && !catMode && <th style={th}>ผู้วางบิล</th>}<th style={th}>จำนวนเงิน</th></tr></thead>
         <tbody>
-          {p.rows.length === 0 && <tr><td /><td /><td>— ไม่มีรายการ —</td>{!noNames && <td />}<td /></tr>}
-          {p.rows.map((r, i) => <tr key={r.key} data-comp={isCompensation(r) ? '1' : undefined} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{r.date ? fmtDate(r.date) : ''}</td><td data-c="desc">{r.desc}</td>{!noNames && <td data-c="x" style={{ fontSize: 12 }}>{r.by ? <span className="pname">{r.by}</span> : ''}</td>}<td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr>)}
+          {p.rows.length === 0 && (catMode ? <tr><td /><td>— ไม่มีรายการ —</td><td /></tr> : <tr><td /><td /><td>— ไม่มีรายการ —</td>{!noNames && <td />}<td /></tr>)}
+          {p.rows.map((r, i) => catMode ? <tr key={r.key} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="desc">{r.desc}</td><td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr> : <tr key={r.key} data-comp={isCompensation(r) ? '1' : undefined} data-amt={r.amount}><td data-c="no" style={{ textAlign: 'center' }}>{p.start + i + 1}</td><td data-c="date" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{r.date ? fmtDate(r.date) : ''}</td><td data-c="desc">{r.desc}</td>{!noNames && <td data-c="x" style={{ fontSize: 12 }}>{r.by ? <span className="pname">{r.by}</span> : ''}</td>}<td data-c="amt" className="num"><b>{m(r.amount)}</b></td></tr>)}
         </tbody>
-        {p.total !== undefined && <tfoot><tr><td colSpan={noNames ? 3 : 4} style={{ textAlign: 'center' }}>{p.label ?? 'รวมรายจ่ายทั้งสิ้น'}</td><td className="num">{m(p.total)}</td></tr></tfoot>}
+        {p.total !== undefined && <tfoot><tr><td colSpan={catMode ? 2 : noNames ? 3 : 4} style={{ textAlign: 'center' }}>{p.label ?? 'รวมรายจ่ายทั้งสิ้น'}</td><td className="num">{m(p.total)}</td></tr></tfoot>}
       </table>
     </>
   )
@@ -100,11 +101,12 @@ function OutTable({ p, noNames }: { p: Extract<Piece, { t: 'out' }>; noNames?: b
 /** variant: 'evidence' = ฉบับเก็บเป็นหลักฐาน (ชื่อ/เงินเดือนรายคนครบ ทั้งตอนพิมพ์/PDF) · 'public' = ฉบับติดประกาศ/แชร์สมาชิก (ไม่มีชื่อบุคคล เงินเดือนรวมแถวเดียว) · ไม่ระบุ = ตามสิทธิ์ผู้ใช้ */
 /** รายงานเสนอที่ประชุม (ฉบับมีชื่อ): ใบสรุปเดียวกัน + เงินคริสตจักร ณ สิ้นสัปดาห์ + ต้องเบิก + เรื่องต้องติดตาม + ช่องลงนาม */
 export interface MeetingExtra { tiles: [string, string][]; withdraw: { totalC: number; totalF: number; total: number }; follow: string[] }
-export default function NoticePaper({ church, sunday, n: full, pagesRef, variant, meeting }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]>; variant?: 'evidence' | 'public'; meeting?: MeetingExtra }) {
+export default function NoticePaper({ church, sunday, n: full, pagesRef, variant, meeting }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]>; variant?: 'evidence' | 'public' | 'category'; meeting?: MeetingExtra }) {
   const detail = can(useRole(), 'detail')
+  const cat = variant === 'category' // ฉบับติดบอร์ด: รายจ่ายเป็นหมวด (แถวใน n.out เป็นหมวดอยู่แล้ว)
   const evidence = variant === 'evidence'
   const pub = variant === 'public'
-  const n = evidence || (!pub && detail) ? full : { ...full, out: maskNoticeOut(full.out) } // ผู้นำ/สมาชิกเห็นเงินเดือนเป็นแถวรวม · แอดมิน/ผู้บันทึก/ผู้ตรวจเห็นรายคน
+  const n = cat || evidence || (!pub && detail) ? full : { ...full, out: maskNoticeOut(full.out) } // ผู้นำ/สมาชิกเห็นเงินเดือนเป็นแถวรวม · แอดมิน/ผู้บันทึก/ผู้ตรวจเห็นรายคน
   const pcs = piecesOf(n)
   const sig = `${n.inc.length}:${n.out.length}:${n.fund.length}:${meeting ? meeting.follow.length : -1}`
   pagesRef.current = []
@@ -126,7 +128,7 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
             ) : (
               <div key={gi} className={`zone zone--${g.zone}`} style={g.zone === 'circ' ? { border: '3px solid #1a2b4c', background: '#f4f7fd' } : { border: '3px dashed #b8860b', background: '#fff8e6' }}>
                 <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? '■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)' : '▲ ส่วนที่ 2 · เงินกองทุน (เงินของแต่ละกองทุน คริสตจักรเก็บรักษาไว้ ไม่ใช่รายรับ-รายจ่ายของคริสตจักร)'}{g.cont ? ' · (ต่อ)' : ''}</div>
-                {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} /> : null)}
+                {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} catMode={cat} /> : null)}
               </div>
             ))}{meeting && <>
               <div aria-label="ต้องเบิกประจำสัปดาห์" style={{ border: '2px solid #5b3a8c', borderRadius: 6, background: '#f6f1fc', padding: '6px 12px', marginTop: 8, fontSize: 14, display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><b>ต้องเบิกสัปดาห์นี้ {m(meeting.withdraw.total)} บาท</b><span>หมุนเวียน {m(meeting.withdraw.totalC)} + กองทุน (เตรียมนำฝาก) {m(meeting.withdraw.totalF)}</span></div>
