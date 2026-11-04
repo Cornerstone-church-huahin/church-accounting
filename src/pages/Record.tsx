@@ -3,14 +3,14 @@ import Receive from './Receive'
 import Pay from './Pay'
 import WeekBar from '../components/WeekBar'
 import NoticePaper from '../components/NoticePaper'
-import { IconDownload, IconPrint, IconShare } from '../components/ToolIcons'
+import PdfTools from '../components/PdfTools'
+import PickDock, { SheetTick } from '../components/PickDock'
 import { useSettings } from '../lib/data'
 import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import { expenseLines, weekNotice } from '../lib/notice'
 import { outLinesOf } from '../lib/report'
 import { isFundZone } from '../lib/funds'
-import { downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
 
 /**
@@ -34,23 +34,12 @@ function BoardNotice({ year, sunday, byCategory }: { year: number; sunday: strin
     const out = [...by].sort((a, b) => b[1] - a[1]).map(([label, amount], i) => ({ key: `cat:${i}`, date: '', desc: label, amount }))
     return { ...n0, out }
   }, [input, year, sunday, byCategory])
-  const [busy, setBusy] = useState(false)
   const els = () => paper.current.filter(Boolean)
   const file = `${byCategory ? 'board' : 'notice-detail'}-${sunday}.pdf`
-  const share = async () => {
-    setBusy(true)
-    try {
-      if ((await sharePdf(els(), file, 'full', 'สรุปรายรับ-รายจ่ายประจำสัปดาห์')) === 'unsupported') { await downloadSheetPdf(els(), file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
-    } finally { setBusy(false) }
-  }
   return (
     <>
       <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} variant={byCategory ? 'category' : undefined} />
-      <div className="no-print rec-tools" role="toolbar" aria-label={byCategory ? 'เครื่องมือใบสำหรับติดบอร์ดประกาศ' : 'เครื่องมือข้อมูลก่อนติดบอร์ด'}>
-        <button type="button" className="rec-tool" onClick={() => void downloadSheetPdf(els(), file, 'full')} aria-label={byCategory ? 'ดาวน์โหลด PDF ใบสำหรับติดบอร์ด' : 'ดาวน์โหลด PDF ข้อมูลก่อนติดบอร์ด'} title="ดาวน์โหลด PDF"><IconDownload /><span>ดาวน์โหลด</span></button>
-        <button type="button" className="rec-tool" disabled={busy} onClick={() => void share()} aria-label={byCategory ? 'แชร์ใบสำหรับติดบอร์ด' : 'แชร์ข้อมูลก่อนติดบอร์ด'} title="แชร์ไฟล์ PDF"><IconShare /><span>{busy ? 'กำลังสร้าง…' : 'แชร์'}</span></button>
-        <button type="button" className="rec-tool" onClick={() => window.print()} aria-label={byCategory ? 'พิมพ์ใบสำหรับติดบอร์ด' : 'พิมพ์ข้อมูลก่อนติดบอร์ด'} title="พิมพ์"><IconPrint /><span>พิมพ์</span></button>
-      </div>
+      <PdfTools els={els} file={file} title="สรุปรายรับ-รายจ่ายประจำสัปดาห์" label={byCategory ? 'ใบสำหรับติดบอร์ดประกาศ' : 'ข้อมูลก่อนติดบอร์ด'} />
     </>
   )
 }
@@ -66,26 +55,32 @@ export default function Record({ year, onBack }: { year: number; onBack?: () => 
     return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0])
   })
   const week = { sunday, set: setSunday }
+  const [picked, setPicked] = useState<string[]>([]) // แผ่นที่ติ๊กเลือกไว้ส่งออก (in · out · chk · brd)
+  const box = useRef<HTMLDivElement>(null)
+  const on = (k: string) => picked.includes(k)
+  const tick = (k: string, v: boolean) => setPicked((p) => (v ? (p.includes(k) ? p : [...p, k]) : p.filter((x) => x !== k)))
+  const sel = (k: string) => (on(k) ? '1' : undefined)
   return (
-    <div className="record">
+    <div className="record" ref={box}>
       {onBack && <button type="button" className="mini no-print record__back" onClick={onBack} aria-label="กลับหน้างานเหรัญญิก">‹ กลับ</button>}
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
-      <section className="record__sec record__sec--in" aria-label="บันทึกรายรับ">
-        <h2 className="record__h record__h--in">💚 รายรับ <small>ใบบันทึกการถวาย</small></h2>
-        <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact />
+      <section className="record__sec record__sec--in" aria-label="บันทึกรายรับ" data-sheet="in" data-sel={sel('in')}>
+        <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small><SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" /></h2>
+        <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools />
       </section>
-      <section className="record__sec record__sec--out" aria-label="บันทึกรายจ่าย">
-        <h2 className="record__h record__h--out">🔴 รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small></h2>
-        <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact />
+      <section className="record__sec record__sec--out" aria-label="บันทึกรายจ่าย" data-sheet="out" data-sel={sel('out')}>
+        <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small><SheetTick on={on('out')} onChange={(v) => tick('out', v)} label="รายจ่าย" /></h2>
+        <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools />
       </section>
-      <section className="record__sec record__sec--board" aria-label="ข้อมูลก่อนติดบอร์ด">
-        <h2 className="record__h record__h--check">📋 ข้อมูลก่อนติดบอร์ด <small>รายละเอียดค่าใช้จ่าย ไว้ตรวจก่อนนำไปติดบอร์ด (ยังไม่ติดบอร์ดใบนี้)</small></h2>
+      <section className="record__sec record__sec--board" aria-label="ข้อมูลก่อนติดบอร์ด" data-sheet="chk" data-sel={sel('chk')}>
+        <h2 className="record__h record__h--check">📋 ข้อมูลก่อนติดบอร์ด <small>รายละเอียดค่าใช้จ่าย ไว้ตรวจก่อนนำไปติดบอร์ด (ยังไม่ติดบอร์ดใบนี้)</small><SheetTick on={on('chk')} onChange={(v) => tick('chk', v)} label="ข้อมูลก่อนติดบอร์ด" /></h2>
         <BoardNotice year={year} sunday={sunday} />
       </section>
-      <section className="record__sec record__sec--board" aria-label="สำหรับติดบอร์ดประกาศ">
-        <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>รายจ่ายแสดงเป็นหมวด — พิมพ์ติดบอร์ดได้เลย</small></h2>
+      <section className="record__sec record__sec--board" aria-label="สำหรับติดบอร์ดประกาศ" data-sheet="brd" data-sel={sel('brd')}>
+        <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>รายจ่ายแสดงเป็นหมวด — พิมพ์ติดบอร์ดได้เลย</small><SheetTick on={on('brd')} onChange={(v) => tick('brd', v)} label="สำหรับติดบอร์ดประกาศ" /></h2>
         <BoardNotice year={year} sunday={sunday} byCategory />
       </section>
+      <PickDock keys={picked} file={`บันทึก-${sunday}-แผ่นงานที่เลือก.pdf`} title="บันทึกประจำสัปดาห์ แผ่นงานที่เลือก" onClear={() => setPicked([])} getEls={() => Array.from(box.current?.querySelectorAll<HTMLDivElement>('[data-sheet][data-sel="1"] .a4page') ?? [])} />
     </div>
   )
 }
