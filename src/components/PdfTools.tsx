@@ -13,7 +13,7 @@ export default function PdfTools({ els, file, title, label, mode = 'full' }: { m
       if (k === 'dl') await downloadSheetPdf(list, file, mode)
       else if (k === 'pdf') {
         if ((await sharePdf(list, file, mode, title)) === 'unsupported') { await downloadSheetPdf(list, file, mode); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
-      } else if ((await shareImages(list, file.replace(/\.pdf$/i, ''), title)) === 'downloaded') alert('เครื่องนี้ยังแชร์รูปโดยตรงไม่ได้ — ดาวน์โหลดรูปให้แล้ว ส่งต่อจากรูปที่ดาวน์โหลดได้เลย')
+      } else if ((await shareImages(list, file.replace(/\.pdf$/i, ''), title, true)) === 'downloaded') alert('เครื่องนี้ยังแชร์รูปโดยตรงไม่ได้ — ดาวน์โหลดรูปให้แล้ว ส่งต่อจากรูปที่ดาวน์โหลดได้เลย')
     } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
     finally { setBusy('') }
   }
