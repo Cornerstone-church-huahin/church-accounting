@@ -75,7 +75,10 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
     <section className={`card actnote ${ended ? 'actnote--closed' : 'actnote--open'}`} aria-label={`กิจกรรม ${act.name}`} style={{ padding: '8px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <p style={{ margin: 0, flex: 1 }}><b style={{ fontSize: '1.15rem' }}>{act.name}</b> <span className="badge">{act.closed ? 'ปิดแล้ว' : ended ? 'สิ้นสุดแล้ว' : 'กำลังดำเนินการ'}</span></p>
-        {onEdit && !edit && <button type="button" className="mini no-print" aria-label="แก้ไขกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', note: act.note ?? '', rMeeting: act.resolution?.meeting ?? '', rDate: act.resolution?.date ?? '', rText: act.resolution?.text ?? '' }); setEdit(true) }}>✏️ แก้ไข</button>}
+        {onEdit && !edit && <button type="button" className="mini iconbtn no-print" aria-label="แก้ไขกิจกรรม" title="แก้ไขกิจกรรม" onClick={() => { setD({ name: act.name, date: act.date, endDate: act.endDate ?? act.date, purpose: act.purpose ?? '', note: act.note ?? '', rMeeting: act.resolution?.meeting ?? '', rDate: act.resolution?.date ?? '', rText: act.resolution?.text ?? '' }); setEdit(true) }}>✏️</button>}
+        {onTeam && !teamEdit && <button type="button" className="mini iconbtn no-print" aria-label="แก้อนุกรรมการจัดงาน" title="แก้อนุกรรมการจัดงาน" onClick={() => setTeamEdit(team.length ? team : [{ id: newId('tm'), name: '' }])}>👥</button>}
+        {onReport && <button type="button" className="mini iconbtn no-print" aria-label="รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)" title="รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)" onClick={onReport}>🧾</button>}
+        {onDelete && <button type="button" className="mini iconbtn no-print" aria-label="ลบกิจกรรมนี้" title="ลบกิจกรรมนี้" onClick={onDelete}>🗑️</button>}
       </div>
       <p className="small" style={{ margin: '2px 0 0' }}>📅 เริ่มกิจกรรม {fmtDate(act.date)}{end !== act.date ? ` · สิ้นสุด ${fmtDate(end)}` : ''} · รวม {actDays(act)} วัน</p>
       {edit && (
@@ -106,7 +109,7 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
       {(team.length > 0 || (onTeam && !teamEdit)) && !teamEdit && (
         <div style={{ marginTop: 6 }} aria-label="อนุกรรมการจัดงาน">
           <p className="small" style={{ margin: 0 }}><b>👥 อนุกรรมการจัดงาน</b>{team.length === 0 ? <span className="muted"> — ยังไม่ได้บันทึก</span> : null}</p>
-          {team.length > 0 && <ul style={{ margin: '2px 0 0', paddingLeft: 18, fontSize: 13 }}>{team.map((m) => <li key={m.id}><b>{m.name}</b>{m.duty ? ` — ${m.duty}` : ''}</li>)}</ul>}
+          {team.length > 0 && <ul className="actteam" style={{ margin: '2px 0 0', paddingLeft: 16, fontSize: 12.5 }}>{team.map((m) => <li key={m.id}><b>{m.name}</b>{m.duty ? ` — ${m.duty}` : ''}</li>)}</ul>}
         </div>
       )}
       {teamEdit && (
@@ -126,11 +129,6 @@ export function ActHeader({ act, onReport, onDelete, onEdit, onTeam }: { act: Fu
           </div>
         </div>
       )}
-      <div className="row no-print" style={{ marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
-        {onTeam && !teamEdit && <button type="button" className="btn btn--ghost" onClick={() => setTeamEdit(team.length ? team : [{ id: newId('tm'), name: '' }])}>✏️ แก้อนุกรรมการจัดงาน</button>}
-        {onReport && <button type="button" className="btn btn--ghost" onClick={onReport}>🧾 รายงานสรุปกิจกรรม (พิมพ์ / PDF / แชร์)</button>}
-        {onDelete && <button type="button" className="btn btn--ghost" onClick={onDelete}>🗑️ ลบกิจกรรมนี้</button>}
-      </div>
     </section>
   )
 }

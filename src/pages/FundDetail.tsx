@@ -28,6 +28,7 @@ export default function FundDetailPage() {
   const { id } = useParams()
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
+  const [catOpen, setCatOpen] = useState(false) // เปิด/ปิดส่วนจัดการหมวด (ปิดไว้ก่อนให้หน้าไม่ยาว)
   const [picked, setPicked] = useState<string[]>([]) // แผ่นงานที่ติ๊กไว้ (in · out · fin · fout)
   const sheetsBox = useRef<HTMLDivElement>(null)
   const sundays = useMemo(() => sundaysOf(year), [year])
@@ -161,12 +162,11 @@ export default function FundDetailPage() {
         onClose={() => patchAct(act.id, { closed: { date: new Date().toISOString().slice(0, 10) } })}
         onReopen={() => patchAct(act.id, { closed: undefined })} />}
       {(!act || actTab === 'acct') && (<>
-      {act && <div className="no-print" style={{ margin: '4px 0' }}><button type="button" className="btn btn--ghost" onClick={() => setReport('acct')}>🧾 รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)</button></div>}
       {act?.closed && <p className="role-bar no-print" role="status">🔒 กิจกรรมนี้ปิดแล้ว — ดูได้อย่างเดียว (แอดมินเปิดกิจกรรมอีกครั้งได้เพื่อบันทึกเพิ่ม)</p>}
-      <div className="page-head no-print"><h1>💰 {f.name}</h1>{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</div>
+      <div className="page-head page-head--tight no-print"><h1>💰 {f.name}</h1><span className="page-head__tools">{act && <button type="button" className="mini iconbtn" onClick={() => setReport('acct')} aria-label="รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)" title="รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)">🧾</button>}{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</span></div>
       {only ? (
         <section className="card no-print fundbal" role="status" aria-label={act ? `ยอดคงเหลือ กิจกรรม ${act.name}` : `ยอดคงเหลือ หมวดที่ดูแลของ ${f.name}`}>
-          <div className="fundbal__row"><span className="muted small">{act ? `เงินคงเหลือของกิจกรรมนี้ (${subs.map((q) => q.name).join(', ') || 'ยังไม่มีหมวด'})` : `เงินคงเหลือของหมวดที่ท่านดูแล (${subs.map((q) => q.name).join(', ')})`}</span><b className="fundbal__amt" style={{ color: acct.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(subs.reduce((n, q) => n + subAccount(f, q.id).balance, 0))} บาท</b></div>
+          <div className="fundbal__row"><span className="muted small">{act ? 'คงเหลือของกิจกรรมนี้' : `เงินคงเหลือของหมวดที่ท่านดูแล (${subs.map((q) => q.name).join(', ')})`}</span><b className="fundbal__amt" style={{ color: acct.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(subs.reduce((n, q) => n + subAccount(f, q.id).balance, 0))} บาท</b></div>
         </section>
       ) : (
       <section className="card no-print fundbal" role="status" aria-label={`ยอดคงเหลือ กองทุน ${f.name}`}>
@@ -176,17 +176,17 @@ export default function FundDetailPage() {
       )}
       {canManage && (
         <section className="card no-print fundcats" aria-label="หมวดของกองทุน">
-          <b>หมวดของกองทุนนี้</b>
+          {subs.length === 0 && <div className="rtabs rtabs--tight"><span className="muted small" style={{ alignSelf: 'center' }}>หมวดของกองทุนนี้: ยังไม่มีหมวด</span><button type="button" className="rtab rtab--gear" aria-expanded={catOpen} aria-label="จัดการหมวด · ยอดแต่ละหมวด" title="จัดการหมวด · ยอดแต่ละหมวด" onClick={() => setCatOpen(!catOpen)}>⚙️ เพิ่มหมวด</button></div>}
           {subs.length > 0 && (
-            <div className="rtabs" role="tablist" aria-label="หมวดที่กำลังดู/บันทึก">
+            <div className="rtabs rtabs--tight" role="tablist" aria-label="หมวดที่กำลังดู/บันทึก">
               {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={sub === q.id} className={`rtab${sub === q.id ? ' on' : ''}`} onClick={() => setPick(q.id)}>{q.name}</button>)}
               {!only && <button type="button" role="tab" aria-selected={sub === ''} className={`rtab${sub === '' ? ' on' : ''}`} onClick={() => setPick('')}>ส่วนกลาง</button>}
               {!only && <button type="button" role="tab" aria-selected={sub === 'all'} className={`rtab${sub === 'all' ? ' on' : ''}`} onClick={() => setPick('all')}>ทุกหมวด</button>}
+              <button type="button" className="rtab rtab--gear" aria-expanded={catOpen} aria-label="จัดการหมวด · ยอดแต่ละหมวด" title="จัดการหมวด · ยอดแต่ละหมวด" onClick={() => setCatOpen(!catOpen)}>⚙️</button>
             </div>
           )}
           {sub === 'all' && subs.length > 0 && <p className="muted small" style={{ margin: '4px 0 0' }}>กำลังดูทุกหมวด — จะบันทึกรายจ่ายไม่ได้จนกว่าจะเลือกหมวด (รายรับบันทึกเป็นส่วนกลาง แล้วย้ายเข้าหมวดทีหลังได้โดยแตะแถวแล้วเปลี่ยนหมวด)</p>}
-          <details className="fundcats__more">
-            <summary>จัดการหมวด · ยอดแต่ละหมวด</summary>
+          {catOpen && <div className="fundcats__more">
           <p className="muted small" style={{ margin: '2px 0 6px' }}>{subs.length ? 'เลือกหมวดก่อนบันทึกรับ/จ่าย — รายการใหม่จะอยู่ในหมวดที่เลือก และแต่ละหมวดมียอดคงเหลือแยกกัน' : 'ยังไม่มีหมวด — เพิ่มหมวด (เช่น พืชผัก โต๊ะจีน) เพื่อแยกบัญชีและรายงานภายในกองทุนนี้'}</p>
           {subs.length > 0 && (
             <table className="sheetpaper" style={{ marginTop: 8, fontSize: 13 }} aria-label="สรุปยอดแต่ละหมวด">
@@ -204,13 +204,13 @@ export default function FundDetailPage() {
               <button type="button" className="btn btn--gold" onClick={add}>＋ เพิ่มหมวด</button>
             </div>
           )}
-          </details>
+          </div>}
           {subErr && <p className="err" role="alert">{subErr}</p>}
         </section>
       )}
       {!keeper && !act && <DebtBanner loans={loans.filter((l) => l.borrower === f.id)} types={types.list} />}
       {!keeper && !act && <DebtBanner lent loans={loans.filter((l) => l.lender.kind === 'fund' && l.lender.fundId === f.id)} types={types.list} />}
-      {only && subs.length > 1 && (
+      {only && subs.length > 1 && !canManage && (
         <div className="rtabs no-print" role="tablist" aria-label="หมวดที่ดูแล">
           {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={sub === q.id} className={`rtab${sub === q.id ? ' on' : ''}`} onClick={() => setPick(q.id)}>{q.name}</button>)}
         </div>

@@ -63,6 +63,10 @@ try {
   await page.getByRole('checkbox', { name: 'เลือก รายรับ' }).uncheck()
   await page.getByRole('checkbox', { name: 'เลือก สรุป ใบกองทุน ใบรับ' }).uncheck()
   must(await dock.count() === 0, 'dock disappears when nothing ticked')
+  // ส่วนหัวกะทัดรัด: จัดการหมวดพับไว้หลังปุ่ม ⚙️ แล้วกดเปิดได้
+  must(await page.getByLabel('ชื่อหมวดใหม่').count() === 0, 'category manager collapsed by default')
+  await page.getByRole('button', { name: 'จัดการหมวด · ยอดแต่ละหมวด' }).click()
+  must(await page.getByLabel('ชื่อหมวดใหม่').isVisible(), 'gear opens the category manager')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('fundshare-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
