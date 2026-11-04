@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { fmtBaht, fmtDate } from '../lib/money'
+import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import WeekBar from '../components/WeekBar'
 import { useYear } from '../lib/year'
 import DebtBanner from '../components/DebtBanner'
 import { isLoanMove, type FundScope } from '../lib/fundScope'
@@ -26,7 +27,11 @@ export default function FundDetailPage() {
   const { id } = useParams()
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
-  const [tab, setTab] = useState<'in' | 'out' | 'sheet'>('in')
+  const sundays = useMemo(() => sundaysOf(year), [year])
+  const [sunday, setSunday] = useState(() => {
+    const d = sheetSunday(todayISO())
+    return sundays.includes(d) ? d : (sundays.filter((x) => x <= todayISO()).pop() ?? sundays[0])
+  })
   const { settings } = useSettings()
   const role = useRole()
   const [pick, setPick] = useState<string | null>(null)
@@ -97,7 +102,7 @@ export default function FundDetailPage() {
           </section>
         )}
         {canManage && <AddActivity onAdd={(name, date, end) => { if (!t) return 'ไม่พบกองทุน'; const r = addActivity(t, name, date, end); if ('error' in r) return r.error; saveActs(r.activities); return null }} />}
-        <ActivityCards acts={visibleActs} stat={(a) => actAccount(f, actSubIds(t, a.id).filter((i) => !keeperOnly || keeperOnly.includes(i)))} onOpen={(id) => { setActId(id); setPick(null); setSheetPick(null); setTab('in'); setActTab('acct') }} />
+        <ActivityCards acts={visibleActs} stat={(a) => actAccount(f, actSubIds(t, a.id).filter((i) => !keeperOnly || keeperOnly.includes(i)))} onOpen={(id) => { setActId(id); setPick(null); setSheetPick(null); setActTab('acct') }} />
       </>
     )
   }
@@ -155,21 +160,18 @@ export default function FundDetailPage() {
       {act?.closed && <p className="role-bar no-print" role="status">🔒 กิจกรรมนี้ปิดแล้ว — ดูได้อย่างเดียว (แอดมินเปิดกิจกรรมอีกครั้งได้เพื่อบันทึกเพิ่ม)</p>}
       <div className="page-head no-print"><h1>💰 {f.name}</h1>{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</div>
       {only ? (
-        <section className="card no-print" role="status" aria-label={act ? `ยอดคงเหลือ กิจกรรม ${act.name}` : `ยอดคงเหลือ หมวดที่ดูแลของ ${f.name}`}>
-          <p className="muted small" style={{ margin: 0 }}>{act ? `เงินคงเหลือของกิจกรรมนี้ (${subs.map((q) => q.name).join(', ') || 'ยังไม่มีหมวด'})` : `เงินคงเหลือของหมวดที่ท่านดูแล (${subs.map((q) => q.name).join(', ')})`}</p>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: acct.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(subs.reduce((n, q) => n + subAccount(f, q.id).balance, 0))} บาท</p>
+        <section className="card no-print fundbal" role="status" aria-label={act ? `ยอดคงเหลือ กิจกรรม ${act.name}` : `ยอดคงเหลือ หมวดที่ดูแลของ ${f.name}`}>
+          <div className="fundbal__row"><span className="muted small">{act ? `เงินคงเหลือของกิจกรรมนี้ (${subs.map((q) => q.name).join(', ') || 'ยังไม่มีหมวด'})` : `เงินคงเหลือของหมวดที่ท่านดูแล (${subs.map((q) => q.name).join(', ')})`}</span><b className="fundbal__amt" style={{ color: acct.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(subs.reduce((n, q) => n + subAccount(f, q.id).balance, 0))} บาท</b></div>
         </section>
       ) : (
-      <section className="card no-print" role="status" aria-label={`ยอดคงเหลือ กองทุน ${f.name}`}>
-        <p className="muted small" style={{ margin: 0 }}>เงินคงเหลือของกองทุนนี้</p>
-        <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
+      <section className="card no-print fundbal" role="status" aria-label={`ยอดคงเหลือ กองทุน ${f.name}`}>
+        <div className="fundbal__row"><span className="muted small">เงินคงเหลือของกองทุนนี้</span><b className="fundbal__amt" style={{ color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</b></div>
         <p className="muted small" style={{ margin: 0 }}>ตั้งต้น {fmtBaht(f.opening)}{opening ? ` (${fmtDate(opening.date)})` : ''} + เข้า {fmtBaht(f.moneyIn)} − ออก {fmtBaht(f.moneyOut)} = <b>{fmtBaht(f.balance)}</b></p>
       </section>
       )}
-      {canManage && tab !== 'sheet' && (
-        <section className="card no-print" aria-label="หมวดของกองทุน">
+      {canManage && (
+        <section className="card no-print fundcats" aria-label="หมวดของกองทุน">
           <b>หมวดของกองทุนนี้</b>
-          <p className="muted small" style={{ margin: '2px 0 6px' }}>{subs.length ? 'เลือกหมวดก่อนบันทึกรับ/จ่าย — รายการใหม่จะอยู่ในหมวดที่เลือก และแต่ละหมวดมียอดคงเหลือแยกกัน' : 'ยังไม่มีหมวด — เพิ่มหมวด (เช่น พืชผัก โต๊ะจีน) เพื่อแยกบัญชีและรายงานภายในกองทุนนี้'}</p>
           {subs.length > 0 && (
             <div className="rtabs" role="tablist" aria-label="หมวดที่กำลังดู/บันทึก">
               {subs.map((q) => <button key={q.id} type="button" role="tab" aria-selected={sub === q.id} className={`rtab${sub === q.id ? ' on' : ''}`} onClick={() => setPick(q.id)}>{q.name}</button>)}
@@ -178,6 +180,9 @@ export default function FundDetailPage() {
             </div>
           )}
           {sub === 'all' && subs.length > 0 && <p className="muted small" style={{ margin: '4px 0 0' }}>กำลังดูทุกหมวด — จะบันทึกรายจ่ายไม่ได้จนกว่าจะเลือกหมวด (รายรับบันทึกเป็นส่วนกลาง แล้วย้ายเข้าหมวดทีหลังได้โดยแตะแถวแล้วเปลี่ยนหมวด)</p>}
+          <details className="fundcats__more">
+            <summary>จัดการหมวด · ยอดแต่ละหมวด</summary>
+          <p className="muted small" style={{ margin: '2px 0 6px' }}>{subs.length ? 'เลือกหมวดก่อนบันทึกรับ/จ่าย — รายการใหม่จะอยู่ในหมวดที่เลือก และแต่ละหมวดมียอดคงเหลือแยกกัน' : 'ยังไม่มีหมวด — เพิ่มหมวด (เช่น พืชผัก โต๊ะจีน) เพื่อแยกบัญชีและรายงานภายในกองทุนนี้'}</p>
           {subs.length > 0 && (
             <table className="sheetpaper" style={{ marginTop: 8, fontSize: 13 }} aria-label="สรุปยอดแต่ละหมวด">
               <thead><tr><th>หมวด</th><th>รับ</th><th>จ่าย</th><th>คงเหลือ</th></tr></thead>
@@ -194,6 +199,7 @@ export default function FundDetailPage() {
               <button type="button" className="btn btn--gold" onClick={add}>＋ เพิ่มหมวด</button>
             </div>
           )}
+          </details>
           {subErr && <p className="err" role="alert">{subErr}</p>}
         </section>
       )}
@@ -205,13 +211,19 @@ export default function FundDetailPage() {
         </div>
       )}
       {act && subs.length === 0 && <p className="empty no-print" role="status">กิจกรรมนี้ยังไม่มีหมวด{canManage ? ' — เพิ่มหมวด (เช่น พืชผัก โต๊ะจีน) ที่ช่องด้านบนก่อนจึงจะบันทึกรับ-จ่ายได้' : ' — แจ้งแอดมินให้เพิ่มหมวดก่อน'}</p>}
-      {!(act && subs.length === 0) && <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="กองทุนนี้: รับ จ่าย ใบกองทุน" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
-        <button type="button" role="tab" aria-selected={tab === 'in'} className={`home-tab home-tab--in${tab === 'in' ? ' on' : ''}`} onClick={() => setTab('in')}><i className="hn">1</i><span>💚 รับ</span></button>
-        <button type="button" role="tab" aria-selected={tab === 'out'} className={`home-tab home-tab--out${tab === 'out' ? ' on' : ''}`} onClick={() => setTab('out')}><i className="hn">2</i><span>🔴 จ่าย</span></button>
-        <button type="button" role="tab" aria-selected={tab === 'sheet'} className={`home-tab home-tab--sum${tab === 'sheet' ? ' on' : ''}`} onClick={() => setTab('sheet')}><i className="hn">3</i><span>📄 ใบกองทุน</span></button>
-      </div>}
-      {!(act && subs.length === 0) && <div className="fullmode">
-        {tab === 'sheet' ? (() => {
+      {!(act && subs.length === 0) && <div className="fullmode fundsheets">
+        <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+        <section className="record__sec record__sec--in" aria-label="รายรับ">
+          <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small></h2>
+          <Receive key={`${year}-${f.id}-in-${sub}`} year={year} fund={fund} weekCtl={{ sunday, set: setSunday }} hideWeekBar fourTools />
+        </section>
+        <section className="record__sec record__sec--out" aria-label="รายจ่าย">
+          <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small></h2>
+          <Pay key={`${year}-${f.id}-out-${sub}`} year={year} fund={fund} weekCtl={{ sunday, set: setSunday }} hideWeekBar fourTools />
+        </section>
+        <section className="record__sec record__sec--fund" aria-label="สรุป ใบกองทุน">
+          <h2 className="record__h record__h--fund">สรุป <small>ใบกองทุน (รับ-จ่ายต่อเนื่อง)</small></h2>
+          {(() => {
           const church = settings.churchName.split(' ')[0]
           if (!subs.length) return <FundSheetPaper church={church} fundName={f.name} sheets={fundSheets(f)} />
           // กองทุนที่มีหมวด: แถบเลือกหมวดขึ้นก่อน แล้วจึงแสดงใบรับ/ใบจ่ายของหมวดนั้น
@@ -228,7 +240,8 @@ export default function FundDetailPage() {
               <FundSheetPaper church={church} fundName={name ? `${f.name} · ${name}` : f.name} sheets={fundSheets(subAccount(f, cur))} />
             </>
           )
-        })() : tab === 'in' ? <Receive key={`${year}-${f.id}-in-${sub}`} year={year} fund={fund} /> : <Pay key={`${year}-${f.id}-out-${sub}`} year={year} fund={fund} />}
+        })()}
+        </section>
       </div>}
       </>)}
     </>

@@ -122,7 +122,7 @@ function SheetHint() {
 }
 
 /** ใบบันทึกการถวาย เต็มแผ่น A4 แนวนอน (297 × 210 มม. ขนาดจริง) 20 แถวล็อกไว้ — รายการที่บันทึกเติมทีละแถว เกิน 20 แถวขึ้นแผ่นถัดไป */
-export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, onFileClick, scope, onScan, blank, noDownload, withShare }: { /** เพิ่มปุ่มแชร์/พิมพ์ในแถวดาวน์โหลด */ withShare?: boolean; /** แตะ 📎 ในช่องไฟล์แนบ = เปิดดูรูปที่แนบ */ onFileClick?: (x: IncomeEntry) => void; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
+export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, onFileClick, scope, onScan, blank, noDownload, withShare, fourTools }: { /** แถบไอคอนเล็ก 4 ปุ่ม (ดาวน์โหลด PDF · แชร์ PDF · แชร์เป็นรูป · พิมพ์) ใต้ใบ — สร้างจากข้อมูลจริงของใบที่แสดงอยู่ */ fourTools?: boolean; /** เพิ่มปุ่มแชร์/พิมพ์ในแถวดาวน์โหลด */ withShare?: boolean; /** แตะ 📎 ในช่องไฟล์แนบ = เปิดดูรูปที่แนบ */ onFileClick?: (x: IncomeEntry) => void; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string; entries: IncomeEntry[]; types: IncomeType[]; sunday?: string; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: IncomeEntry | null) => void }) {
   const ROWS = 20
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const all = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated)
@@ -185,7 +185,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
             {onRowClick && !blank && k === 0 && circ.length <= CR / 2 && <SheetHint />}
           </ScaledPage>
         ))}
-        {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'full', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />}
+        {!noDownload && (fourTools ? <PdfTools els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="offering-sheet.pdf" mode="full" title={`ใบบันทึกการถวาย${sunday ? ` ${sunday}` : ''}`} label="ใบบันทึกการถวาย" /> : <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'full', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'full')} />)}
       </div>
     )
   }
@@ -226,7 +226,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
           {onRowClick && !blank && pi === 0 && rows.length <= ROWS / 2 && <SheetHint />}
         </ScaledPage>
       ))}
-      {!noDownload && <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'landscape', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />}
+      {!noDownload && (fourTools ? <PdfTools els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="offering-sheet.pdf" mode="landscape" title={`ใบบันทึกการถวาย${sunday ? ` ${sunday}` : ''}`} label="ใบบันทึกการถวาย" /> : <DownloadRow kind="offering" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'offering-sheet.pdf', mode: 'landscape', title: 'ใบบันทึกการถวาย' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'offering-sheet.pdf', 'landscape')} />)}
     </div>
   )
 }
@@ -241,7 +241,7 @@ const withdrawLayout = (summary?: WeekSummary) => {
   const rows = rC + rF + 1 + (nF ? 1 : 0) // + แถบป้ายโซน
   return { n, cols, rows, rC, rF, own: rows <= 11 }
 }
-export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance, withShare }: { /** เพิ่มปุ่มแชร์/พิมพ์ในแถวดาวน์โหลด */ withShare?: boolean; /** เงินกองทุนที่เบิกพร้อมเงินหมุนเวียน เตรียมนำฝาก — ตารางแยกอีกแผ่น ไม่รวมในรายจ่ายหมุนเวียน */ fundRows?: ExpenseEntry[]; /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
+export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, onFileClick, summary, scope, onScan, blank, noDownload, noBalance, withShare, fourTools }: { /** แถบไอคอนเล็ก 4 ปุ่ม (ดาวน์โหลด PDF · แชร์ PDF · แชร์เป็นรูป · พิมพ์) ใต้ใบ — สร้างจากข้อมูลจริงของใบที่แสดงอยู่ */ fourTools?: boolean; /** เพิ่มปุ่มแชร์/พิมพ์ในแถวดาวน์โหลด */ withShare?: boolean; /** เงินกองทุนที่เบิกพร้อมเงินหมุนเวียน เตรียมนำฝาก — ตารางแยกอีกแผ่น ไม่รวมในรายจ่ายหมุนเวียน */ fundRows?: ExpenseEntry[]; /** ซ่อนกรอบยอดเงินหมุนเวียนคงเหลือ (ผู้ที่ไม่มีสิทธิ์ดูยอดเงิน) */ noBalance?: boolean; /** ดูอย่างเดียว: ไม่มีปุ่มดาวน์โหลด */ noDownload?: boolean; /** ใบเปล่าสำหรับดาวน์โหลด: หัวใบเว้นวันที่ไว้เขียนมือ */ blank?: boolean; church: string; onScan?: (files: File[]) => void; entries: ExpenseEntry[]; sunday?: string; /** สรุปประจำสัปดาห์ 3 กรอบใต้ตาราง (เงินหมุนเวียนเท่านั้น ไม่รวมกองทุน) — ไม่ใส่ = ใบเปล่า ช่องว่างไว้เขียนมือ */ summary?: WeekSummary; /** แตะแถวเพื่อแก้ไข (แถวว่าง = เพิ่มใหม่) */ onRowClick?: (x: ExpenseEntry | null) => void; /** แตะ 📎 ในช่องหมายเหตุ = เปิดดูรูปบิล/สลิปเต็มจอ */ onFileClick?: (x: ExpenseEntry) => void; /** หน้ากองทุน: ชื่อกองทุน — ขึ้นหัวใบ */ scope?: string }) {
   // แถวในตารางลดลงตามความสูงของช่องต้องเบิก (ใบเดียวต้องพอดี A4 เห็นครบถึงยอดรวมต้องเบิก)
   const wl0 = withdrawLayout(summary)
   const refs = useRef<(HTMLDivElement | null)[]>([])
@@ -351,7 +351,7 @@ export function VoucherPaper({ church, entries, fundRows, sunday, onRowClick, on
         </ScaledPage>
         </>
       )}
-      {!noDownload && <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'cash-voucher.pdf', mode: 'full', title: 'ใบเบิก-จ่ายเงินสด' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />}
+      {!noDownload && (fourTools ? <PdfTools els={() => refs.current.filter((e): e is HTMLDivElement => !!e)} file="cash-voucher.pdf" mode="full" title={`ใบเบิก-จ่ายเงินสด${sunday ? ` ${sunday}` : ''}`} label="ใบเบิก-จ่ายเงินสด" /> : <DownloadRow kind="voucher" church={church} sunday={sunday} onScan={onScan} share={withShare ? { els: () => refs.current.filter((e): e is HTMLDivElement => !!e), file: 'cash-voucher.pdf', mode: 'full', title: 'ใบเบิก-จ่ายเงินสด' } : undefined} onData={() => void downloadSheetPdf(refs.current.filter((e): e is HTMLDivElement => !!e), 'cash-voucher.pdf', 'full')} />)}
     </div>
   )
 }
@@ -537,7 +537,7 @@ export function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, s
         return (
           <ScaledPage key={`${kind}${pi}`} ref={(el) => { refs.current[start + pi] = el }}>
             <>
-              <div style={{ height: 8, background: color, margin: '-4px 0 6px', borderRadius: 4 }} aria-hidden="true" />
+              <div style={{ height: 8, background: '#6b3fa0', margin: '-4px 0 6px', borderRadius: 4, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} aria-hidden="true" />
               <PaperHead church={church} title={`ใบกองทุน · ${fundName}`} sub={`ต่อเนื่องทุกสัปดาห์ ไม่แยกรายสัปดาห์ · ${span}${pages.length > 1 ? ` · แผ่นที่ ${pi + 1}/${pages.length}` : ''}`} />
               <div style={{ textAlign: 'center', margin: '0 0 6px' }}><span style={{ display: 'inline-block', padding: '2px 18px', borderRadius: 999, background: color, color: '#fff', fontWeight: 800, fontSize: 15 }}>{kind === 'in' ? '● ' : '● '}{title} {kind === 'in' ? '(รายรับ)' : '(รายจ่าย)'}</span></div>
               <table className={`sheetpaper sheetpaper--full tkind-${kind}`} aria-label={`ใบกองทุน ${fundName} ${title} (A4)`}>
@@ -583,21 +583,12 @@ export function FundLedgerPages({ church, fundName, kind, lines, sheets, refs, s
 export function FundSheetPaper({ church, fundName, sheets }: { church: string; fundName: string; sheets: FundSheets }) {
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const nIn = chunk([0, ...sheets.inn], FUND_ROWS).length
-  const slice = (kind: 'in' | 'out') => () => refs.current.filter((e): e is HTMLDivElement => !!e).slice(kind === 'in' ? 0 : nIn, kind === 'in' ? nIn : undefined)
-  /** แถบไอคอนเล็กใต้ใบรับ / ใบจ่าย: ไฟล์เปล่า · ดาวน์โหลด · แชร์ · พิมพ์ */
-  const tools = (kind: 'in' | 'out') => {
-    const label = kind === 'in' ? 'ใบรับ' : 'ใบจ่าย'
-    const file = `fund-${fundName}-${kind === 'in' ? 'in' : 'out'}.pdf`
-    return (
-      <PdfTools els={slice(kind)} file={file} title={`ใบกองทุน ${fundName} ${label}`} label={`ใบกองทุน ${label}`} />
-    )
-  }
+  const all = () => refs.current.filter((e): e is HTMLDivElement => !!e)
   return (
     <div>
       <FundLedgerPages church={church} fundName={fundName} kind="in" lines={sheets.inn} sheets={sheets} refs={refs} start={0} />
-      {tools('in')}
       <FundLedgerPages church={church} fundName={fundName} kind="out" lines={sheets.out} sheets={sheets} refs={refs} start={nIn} />
-      {tools('out')}
+      <PdfTools els={all} file={`fund-${fundName}.pdf`} title={`ใบกองทุน ${fundName}`} label="ใบกองทุน" />
     </div>
   )
 }
