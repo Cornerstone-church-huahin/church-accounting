@@ -67,6 +67,13 @@ try {
   must(await page.getByLabel('ชื่อหมวดใหม่').count() === 0, 'category manager collapsed by default')
   await page.getByRole('button', { name: 'จัดการหมวด · ยอดแต่ละหมวด' }).click()
   must(await page.getByLabel('ชื่อหมวดใหม่').isVisible(), 'gear opens the category manager')
+  // หมวด: แถบเลือกหมวดด้านบนแถบเดียว — ใบกองทุนตามหมวดที่เลือก ไม่มีแถบซ้ำ
+  for (const n of ['พืชผัก', 'โต๊ะจีน']) { await page.getByLabel('ชื่อหมวดใหม่').fill(n); await page.getByRole('button', { name: '＋ เพิ่มหมวด' }).click() }
+  await page.waitForTimeout(500)
+  must(await page.getByRole('tablist', { name: 'เลือกหมวดของใบกองทุน' }).count() === 0, 'no duplicate category chooser above the summary sheet')
+  await page.getByRole('tab', { name: 'โต๊ะจีน' }).first().click()
+  await page.waitForTimeout(500)
+  must(/ใบกองทุน · .*โต๊ะจีน/.test(await page.locator('[data-sheet="fin"]').innerText()), 'summary ledger follows the chosen category')
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('fundshare-test OK')
 } catch (e) { console.error(e.message); process.exitCode = 1 } finally { await browser.close(); server.kill() }
