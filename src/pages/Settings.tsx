@@ -9,6 +9,7 @@ import { DEFAULT_INCOME_TYPES, useExpenses, useFundMoves, useLoans, usePassbook,
 import { useMembers, useRole } from '../lib/members'
 import { fmtBaht, newId, parseBaht, todayISO } from '../lib/money'
 import { autoActivities } from '../lib/fundActs'
+import QuotaMeter from '../components/QuotaMeter'
 import { DEFAULT_REPO, deleteFile, getSync, listDir, saveSync, testSync } from '../lib/sync'
 import InstallApp from '../components/InstallApp'
 import { WORK_LEVELS, workLevelHelp, WORK_LEVEL_LABEL, workLevelOf, type Member, type WorkLevel } from '../lib/access'
@@ -76,6 +77,7 @@ function Connect() {
       {cfg ? (
         <>
           <p>เชื่อมต่อแล้ว · <b>{cfg.name}</b> · <span className="muted small">{cfg.repo}</span></p>
+          <QuotaMeter />
           <button type="button" className="btn btn--ghost" onClick={() => { if (confirm('ตัดการเชื่อมต่อบนเครื่องนี้? (ข้อมูลออนไลน์ไม่หาย)')) saveSync(null) }}>ตัดการเชื่อมต่อเครื่องนี้</button>
         </>
       ) : (

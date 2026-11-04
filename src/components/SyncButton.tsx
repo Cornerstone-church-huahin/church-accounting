@@ -5,6 +5,7 @@ import { clearEtagCache, SYNC_EVENT } from '../lib/sync'
 import { useGlobalSync } from '../lib/syncStatus'
 import { parseInviteLink } from '../lib/invite'
 import { IconRefresh } from './Icons'
+import QuotaMeter from './QuotaMeter'
 
 const hm = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 
@@ -56,7 +57,8 @@ export default function SyncButton() {
               )}
               {bad && g.lastOk && <p className="pagehint" style={{ margin: 0 }}>ล่าสุดที่ซิงก์สำเร็จ {hm(g.lastOk)} น. ข้อมูลที่แก้ในเครื่องนี้เก็บไว้ จะส่งขึ้นเองเมื่อซิงก์ได้</p>}
               <button type="button" className="btn btn--gold bigbtn btn--block" disabled={g.syncing > 0} onClick={pull}>🔄 ดึงข้อมูลใหม่ตอนนี้</button>
-              <p className="pagehint" style={{ margin: 0 }}>แอปดึงข้อมูลเองทุก 1 นาทีขณะเปิดหน้าจอ · ข้อมูลที่ยังไม่ได้ส่งขึ้นจะไม่หายเมื่อกดปุ่มนี้</p>
+              <QuotaMeter />
+              <p className="pagehint" style={{ margin: 0 }}>แอปตรวจข้อมูลใหม่เองทุก 1 นาทีขณะเปิดหน้าจอ (ถ้าไม่มีใครแก้นาน ๆ จะตรวจห่างขึ้นเพื่อประหยัดโควตา) · ข้อมูลที่ยังไม่ได้ส่งขึ้นจะไม่หายเมื่อกดปุ่มนี้</p>
             </>
           )}
         </Sheet>
