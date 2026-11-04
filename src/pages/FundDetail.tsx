@@ -5,6 +5,7 @@ import { useYear } from '../lib/year'
 import DebtBanner from '../components/DebtBanner'
 import { isLoanMove, type FundScope } from '../lib/fundScope'
 import { useFundAccounts } from './FundAccounts'
+import PdfTools from '../components/PdfTools'
 import { FundSheetPaper } from '../components/PaperSheets'
 import { fundSheets } from '../lib/fundSheet'
 import { useSettings } from '../lib/data'
@@ -15,7 +16,6 @@ import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fu
 import { actAccount, actSubIds, addActivity, autoActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
 import { ActEvaluation, ActHeader, ActivityCards, ActProgress, AddActivity } from '../components/FundActivities'
 import ActReportPages, { type ActReportKind } from '../components/ActReport'
-import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import Pay from './Pay'
 import Receive from './Receive'
 
@@ -36,7 +36,6 @@ export default function FundDetailPage() {
   const [subErr, setSubErr] = useState('')
   const [actId, setActId] = useState<string | null>(null) // โหมดกิจกรรม: กิจกรรมที่เปิดอยู่ (null = หน้าการ์ดกิจกรรม)
   const [report, setReport] = useState<ActReportKind | null>(null)
-  const [busy, setBusy] = useState(false)
   const repRef = useRef<HTMLDivElement[]>([])
   const [actTab, setActTab] = useState<'acct' | 'prog' | 'eval'>('acct')
   const f = rows.find((r) => r.id === id)
@@ -111,23 +110,13 @@ export default function FundDetailPage() {
     const acctData = { cats: sum.rows.filter((q) => ids.includes(q.id)).map((q) => ({ name: q.name, moneyIn: q.acc.moneyIn, moneyOut: q.acc.moneyOut, balance: q.acc.balance })), items, total: { moneyIn: total.moneyIn, moneyOut: total.moneyOut, balance: total.balance } }
     const file = `กิจกรรม-${act.name}-${report}.pdf`
     const church = settings.churchName.split(' ')[0]
-    const run = async (share: boolean) => {
-      if (repRef.current.length === 0) return
-      setBusy(true)
-      try {
-        if (share) { if ((await sharePdf(repRef.current, file, 'full', `${act.name} ${church}`)) === 'unsupported') { await downloadSheetPdf(repRef.current, file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แทนแล้ว') } } else await downloadSheetPdf(repRef.current, file, 'full')
-      } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
-      setBusy(false)
-    }
     return (
       <>
         <div className="row no-print" style={{ margin: '8px 0', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn--ghost" onClick={() => setReport(null)}>‹ กลับ</button>
           <span className="grow" />
-          <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run(false)} aria-label="ดาวน์โหลดรายงานกิจกรรมเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
-          <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run(true)} aria-label="แชร์รายงานกิจกรรมเป็น PDF" title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ PDF</button>
-          <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์รายงานกิจกรรม">🖨️ พิมพ์</button>
         </div>
+        <PdfTools els={() => repRef.current.filter((e): e is HTMLDivElement => !!e)} file={file} title={`${act.name} ${church}`} label="รายงานกิจกรรม" />
         <ActReportPages kind={report} church={church} fundName={f.name} act={act} acct={acctData} pagesRef={repRef} />
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ) · พิมพ์/PDF ขนาด A4 มีเครดิตผู้พัฒนาท้ายทุกแผ่น</p>
       </>

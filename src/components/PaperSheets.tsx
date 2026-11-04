@@ -7,6 +7,7 @@ import type { ExpenseEntry, IncomeEntry, IncomeType } from '../lib/types'
 import type { LRow } from '../lib/weekLedger'
 import type { FundLine, FundSheets } from '../lib/fundSheet'
 import ScaledPage from './ScaledPage'
+import PdfTools from './PdfTools'
 import { IconBlank, IconDownload, IconPrint, IconScan, IconShare } from './ToolIcons'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
@@ -588,11 +589,7 @@ export function FundSheetPaper({ church, fundName, sheets }: { church: string; f
     const label = kind === 'in' ? 'ใบรับ' : 'ใบจ่าย'
     const file = `fund-${fundName}-${kind === 'in' ? 'in' : 'out'}.pdf`
     return (
-      <div className="no-print rec-tools" role="toolbar" aria-label={`เครื่องมือใบกองทุน ${label}`}>
-        <button type="button" className="rec-tool" onClick={() => void import('../lib/blankSheet').then((m) => m.downloadBlankSheet('fund', church, undefined, fundName))} aria-label={`ดาวน์โหลด PDF ไฟล์เปล่า ใบกองทุน ${label}`} title="ดาวน์โหลดไฟล์เปล่า (PDF)"><IconBlank /><span>ไฟล์เปล่า</span></button>
-        <button type="button" className="rec-tool" onClick={() => void downloadSheetPdf(slice(kind)(), file, 'full')} aria-label={`ดาวน์โหลด PDF ข้อมูล ใบกองทุน ${label}`} title={`ดาวน์โหลด${label} (PDF)`}><IconDownload /><span>ดาวน์โหลด</span></button>
-        <ShareBtns share={{ els: slice(kind), file, mode: 'full', title: `ใบกองทุน ${fundName} ${label}` }} />
-      </div>
+      <PdfTools els={slice(kind)} file={file} title={`ใบกองทุน ${fundName} ${label}`} label={`ใบกองทุน ${label}`} />
     )
   }
   return (
