@@ -126,7 +126,7 @@ try {
   }
   await page.getByRole('button', { name: /รายงานสรุปกิจกรรม/ }).click()
   await page.evaluate(() => { window.__shared = null; navigator.canShare = () => true; navigator.share = async (d) => { window.__shared = { n: d.files.length, type: d.files[0].type, size: d.files[0].size } } })
-  await page.getByRole('button', { name: 'แชร์รายงานกิจกรรมเป็น PDF' }).click()
+  await page.getByRole('button', { name: /^แชร์ PDF รายงานกิจกรรม/ }).first().click()
   await page.waitForFunction(() => window.__shared, null, { timeout: 60000 })
   const sh = await page.evaluate(() => window.__shared)
   must(sh.type === 'application/pdf' && sh.size > 1000, 'the combined report is shared as a PDF: ' + JSON.stringify(sh))

@@ -1,3 +1,4 @@
+import PdfTools from './PdfTools'
 import type { MutableRefObject, ReactNode } from 'react'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
@@ -111,7 +112,7 @@ function AcctBody({ data, rows, first, last }: { data: ActAcctData; rows: ActAcc
 }
 
 /** รายงานกิจกรรม A4 (พิมพ์/PDF/แชร์ได้): บัญชี · ความคืบหน้า · ประเมินผล · รวมทุกขั้นตอน — ScaledPage ใส่เครดิตผู้พัฒนาท้ายทุกแผ่น */
-export default function ActReportPages({ kind, church, fundName, act, acct, pagesRef }: { kind: ActReportKind; church: string; fundName: string; act: FundActivity; acct: ActAcctData; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
+export default function ActReportPages({ kind, church, fundName, act, acct, pagesRef, file, title }: { /** ชื่อไฟล์ + ชื่อสำหรับแชร์ของแถบเครื่องมือเหนือแต่ละแผ่น */ file?: string; title?: string; kind: ActReportKind; church: string; fundName: string; act: FundActivity; acct: ActAcctData; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
   pagesRef.current = []
   const ROWS = 24
   const pages: { sub: string; node: ReactNode }[] = []
@@ -124,13 +125,16 @@ export default function ActReportPages({ kind, church, fundName, act, acct, page
   return (
     <div>
       {pages.map((p, i) => (
-        <ScaledPage key={i} ref={(el) => { if (el) pagesRef.current[i] = el }}>
+        <div key={i}>
+        {file && <PdfTools els={() => (pagesRef.current[i] ? [pagesRef.current[i]] : [])} file={pages.length > 1 ? file.replace(/\.pdf$/i, `-แผ่น${i + 1}.pdf`) : file} title={`${title ?? file}${pages.length > 1 ? ` แผ่นที่ ${i + 1}` : ''}`} label={`รายงานกิจกรรม${pages.length > 1 ? ` แผ่นที่ ${i + 1}` : ''}`} />}
+        <ScaledPage ref={(el) => { if (el) pagesRef.current[i] = el }}>
           <>
             <PaperHead church={church} title={REPORT_TITLE[kind]} sub={`${fundName} · ${act.name} · ${p.sub}`} compact={i > 0} />
             {p.node}
             {i === pages.length - 1 && <Sign />}
           </>
         </ScaledPage>
+        </div>
       ))}
     </div>
   )

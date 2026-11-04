@@ -5,7 +5,6 @@ import { useYear } from '../lib/year'
 import DebtBanner from '../components/DebtBanner'
 import { isLoanMove, type FundScope } from '../lib/fundScope'
 import { useFundAccounts } from './FundAccounts'
-import PdfTools from '../components/PdfTools'
 import { FundSheetPaper } from '../components/PaperSheets'
 import { fundSheets } from '../lib/fundSheet'
 import { useSettings } from '../lib/data'
@@ -116,8 +115,7 @@ export default function FundDetailPage() {
           <button type="button" className="btn btn--ghost" onClick={() => setReport(null)}>‹ กลับ</button>
           <span className="grow" />
         </div>
-        <PdfTools els={() => repRef.current.filter((e): e is HTMLDivElement => !!e)} file={file} title={`${act.name} ${church}`} label="รายงานกิจกรรม" />
-        <ActReportPages kind={report} church={church} fundName={f.name} act={act} acct={acctData} pagesRef={repRef} />
+        <ActReportPages kind={report} church={church} fundName={f.name} act={act} acct={acctData} pagesRef={repRef} file={file} title={`${act.name} ${church}`} />
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ) · พิมพ์/PDF ขนาด A4 มีเครดิตผู้พัฒนาท้ายทุกแผ่น</p>
       </>
     )
