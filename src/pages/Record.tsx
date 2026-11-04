@@ -19,7 +19,7 @@ import { sheetSunday, sundaysOf, todayISO } from '../lib/money'
  * ใบสรุปรายรับ-รายจ่ายประจำสัปดาห์ สำหรับติดบอร์ดประกาศ — คำนวณสดจากรายการรับ/จ่ายของสัปดาห์ที่เลือก (ตัวเดียวกับหน้า “สรุป/ภาพรวม”)
  * บันทึกรายการในใบรับ/ใบจ่ายด้านบน ใบนี้เปลี่ยนตามทันที
  */
-function BoardNotice({ year, sunday, byCategory }: { year: number; sunday: string; /** ฉบับติดบอร์ด: รายจ่ายแสดงเป็นหมวด ไม่แสดงรายการละเอียด */ byCategory?: boolean }) {
+function BoardNotice({ year, sunday, byCategory, noTools }: { /** ดูอย่างเดียว: ไม่มีแถบดาวน์โหลด/แชร์/พิมพ์ */ noTools?: boolean; year: number; sunday: string; /** ฉบับติดบอร์ด: รายจ่ายแสดงเป็นหมวด ไม่แสดงรายการละเอียด */ byCategory?: boolean }) {
   const { settings } = useSettings()
   const { input: full } = useBalances(year)
   const input = useMemo(() => ({ ...full, income: full.income.filter((x) => !isFundZone(x)) }), [full])
@@ -41,7 +41,7 @@ function BoardNotice({ year, sunday, byCategory }: { year: number; sunday: strin
   return (
     <>
       <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} variant={byCategory ? 'category' : undefined} />
-      <PdfTools els={els} file={file} title="สรุปรายรับ-รายจ่ายประจำสัปดาห์" label={byCategory ? 'ใบสำหรับติดบอร์ดประกาศ' : 'ข้อมูลก่อนติดบอร์ด'} />
+      {!noTools && <PdfTools els={els} file={file} title="สรุปรายรับ-รายจ่ายประจำสัปดาห์" label={byCategory ? 'ใบสำหรับติดบอร์ดประกาศ' : 'ข้อมูลก่อนติดบอร์ด'} />}
     </>
   )
 }
@@ -68,22 +68,22 @@ export default function Record({ year, onBack, readOnly }: { year: number; onBac
       {onBack && <button type="button" className="mini no-print record__back" onClick={onBack} aria-label="กลับหน้างานเหรัญญิก">‹ กลับ</button>}
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <section className="record__sec record__sec--in" aria-label="บันทึกรายรับ" data-sheet="in" data-sel={sel('in')}>
-        <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small><SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" /></h2>
-        <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools view={readOnly} />
+        <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small>{!readOnly && <SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" />}</h2>
+        <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools={!readOnly} view={readOnly} />
       </section>
       <section className="record__sec record__sec--out" aria-label="บันทึกรายจ่าย" data-sheet="out" data-sel={sel('out')}>
-        <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small><SheetTick on={on('out')} onChange={(v) => tick('out', v)} label="รายจ่าย" /></h2>
-        <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools view={readOnly} />
+        <h2 className="record__h record__h--out">รายจ่าย <small>ใบเบิก-จ่ายเงินสด</small>{!readOnly && <SheetTick on={on('out')} onChange={(v) => tick('out', v)} label="รายจ่าย" />}</h2>
+        <Pay key={`out-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools={!readOnly} view={readOnly} />
       </section>
       {(!readOnly || can(role, 'detail')) && <section className="record__sec record__sec--board" aria-label="ข้อมูลก่อนติดบอร์ด" data-sheet="chk" data-sel={sel('chk')}>
-        <h2 className="record__h record__h--check">📋 ข้อมูลก่อนติดบอร์ด <small>รายละเอียดค่าใช้จ่าย ไว้ตรวจก่อนนำไปติดบอร์ด (ยังไม่ติดบอร์ดใบนี้)</small><SheetTick on={on('chk')} onChange={(v) => tick('chk', v)} label="ข้อมูลก่อนติดบอร์ด" /></h2>
-        <BoardNotice year={year} sunday={sunday} />
+        <h2 className="record__h record__h--check">📋 ข้อมูลก่อนติดบอร์ด <small>รายละเอียดค่าใช้จ่าย ไว้ตรวจก่อนนำไปติดบอร์ด (ยังไม่ติดบอร์ดใบนี้)</small>{!readOnly && <SheetTick on={on('chk')} onChange={(v) => tick('chk', v)} label="ข้อมูลก่อนติดบอร์ด" />}</h2>
+        <BoardNotice year={year} sunday={sunday} noTools={readOnly} />
       </section>}
       <section className="record__sec record__sec--board" aria-label="สำหรับติดบอร์ดประกาศ" data-sheet="brd" data-sel={sel('brd')}>
-        <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>รายจ่ายแสดงเป็นหมวด — พิมพ์ติดบอร์ดได้เลย</small><SheetTick on={on('brd')} onChange={(v) => tick('brd', v)} label="สำหรับติดบอร์ดประกาศ" /></h2>
-        <BoardNotice year={year} sunday={sunday} byCategory />
+        <h2 className="record__h record__h--board">📌 สำหรับติดบอร์ดประกาศ <small>รายจ่ายแสดงเป็นหมวด — พิมพ์ติดบอร์ดได้เลย</small>{!readOnly && <SheetTick on={on('brd')} onChange={(v) => tick('brd', v)} label="สำหรับติดบอร์ดประกาศ" />}</h2>
+        <BoardNotice year={year} sunday={sunday} byCategory noTools={readOnly} />
       </section>
-      <PickDock keys={picked} file={`บันทึก-${sunday}-แผ่นงานที่เลือก.pdf`} title="บันทึกประจำสัปดาห์ แผ่นงานที่เลือก" onClear={() => setPicked([])} getEls={() => Array.from(box.current?.querySelectorAll<HTMLDivElement>('[data-sheet][data-sel="1"] .a4page') ?? [])} />
+      {!readOnly && <PickDock keys={picked} file={`บันทึก-${sunday}-แผ่นงานที่เลือก.pdf`} title="บันทึกประจำสัปดาห์ แผ่นงานที่เลือก" onClear={() => setPicked([])} getEls={() => Array.from(box.current?.querySelectorAll<HTMLDivElement>('[data-sheet][data-sel="1"] .a4page') ?? [])} />}
     </div>
   )
 }
