@@ -1767,3 +1767,19 @@ span.fundpend__tog--no { cursor: default; }
 .fundbar__chip { display: inline-block; border-radius: 999px; padding: 0 6px; font-size: 0.68rem; margin-left: 4px; }
 .fundbar__chip--out { background: #fff4d6; color: #6b4d00; }
 .fundbar__chip--no { background: #fde8e6; color: #8f1f17; }
+
+/* การ์ดกิจกรรม: ปุ่มจัดการเป็นไอคอนเล็กชิดมุมบน · รายชื่ออนุกรรมการ 2 คอลัมน์ */
+.iconbtn { min-width: 2rem; padding: 0.1rem 0.4rem; font-size: 1rem; line-height: 1.4; }
+.actnote .actteam { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.actnote > div:first-child { flex-wrap: nowrap; gap: 4px !important; }
+
+/* หน้ากองทุน/กิจกรรม: ส่วนหัวกะทัดรัด — ชื่อ + ไอคอนรายงาน/กลับ แถวเดียว · หมวดแถวเดียวพร้อม ⚙ */
+.page-head--tight { margin-bottom: 0.1rem; }
+.page-head--tight h1 { font-size: 1.15rem; margin: 0; }
+.page-head__tools { display: inline-flex; align-items: center; gap: 6px; }
+.rtabs--tight { margin: 0; gap: 0.3rem; }
+.rtabs--tight .rtab { padding: 0.25rem 0.7rem; font-size: 0.85rem; min-height: 0; }
+.rtab--gear { padding: 0.2rem 0.5rem; }
+.fundcats { padding: 0.35rem 0.6rem; margin: 0.2rem 0; }
+.fundbal { padding: 0.35rem 0.6rem; margin: 0.2rem 0; }
+.fundbal__amt { font-size: 1.1rem; }
