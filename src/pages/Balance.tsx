@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import FundPendingPanel from '../components/FundPendingPanel'
-import OwnSheets from '../components/OwnSheets'
+import Record from './Record'
 import LoansPanel from '../components/LoansPanel'
 import AdvancePay from '../components/AdvancePay'
 import DebtBanner from '../components/DebtBanner'
@@ -86,7 +86,7 @@ export default function BalancePage() {
           <DebtBanner loans={loans.items.filter((l) => l.borrower === 'own')} types={types} />
           <DebtBanner lent loans={loans.items.filter((l) => l.lender.kind === 'own')} types={types} />
         </section>
-        <OwnSheets year={year} />
+        <Record year={year} />
         <details className="card owncharts">
           <summary>📈 กราฟรายเดือน · เงินคงเหลือสะสม ปี {year + 543}</summary>
           <div className="stat-title">รายรับ-รายจ่ายรายเดือน ปี {year + 543}</div>

@@ -27,11 +27,11 @@ try {
   const bb = await card.boundingBox()
   must(bb.height < 130, 'balance card is compact: ' + bb.height)
   must(await page.getByLabel('ที่มาของเงินหมุนเวียน').count() === 1, 'breakdown line present')
-  for (const n of ['รายรับเงินหมุนเวียน', 'รายจ่ายเงินหมุนเวียน']) await page.getByRole('region', { name: n }).waitFor()
-  const tin = page.getByRole('toolbar', { name: /เครื่องมือใบบันทึกการถวาย/ }), tout = page.getByRole('toolbar', { name: /เครื่องมือใบเบิก-จ่ายเงินสด/ })
-  await tin.waitFor({ timeout: 10000 }); await tout.waitFor({ timeout: 10000 })
-  must(await tin.getByRole('button').count() === 4 && await tout.getByRole('button').count() === 4, 'four icons under each sheet')
-  must(await tin.getByLabel('สแกนใบบันทึกการถวาย').count() === 1, 'scan function kept (income)')
+  for (const n of ['บันทึกรายรับ', 'บันทึกรายจ่าย', 'ข้อมูลก่อนติดบอร์ด', 'สำหรับติดบอร์ดประกาศ']) await page.getByRole('region', { name: n }).waitFor()
+  for (const n of ['เครื่องมือใบบันทึกการถวาย', 'เครื่องมือใบเบิก-จ่ายเงินสด', 'เครื่องมือข้อมูลก่อนติดบอร์ด', 'เครื่องมือใบสำหรับติดบอร์ดประกาศ']) {
+    const tb = page.getByRole('toolbar', { name: n }); await tb.waitFor({ timeout: 10000 })
+    must(await tb.getByRole('button').count() === 4, n + ' has four icons')
+  }
   // ติ๊กเลือก → แผงลอย → แชร์ PDF
   await page.getByRole('checkbox', { name: 'เลือก รายรับ' }).check()
   const dock = page.getByRole('toolbar', { name: 'ส่งออกแผ่นงานที่เลือก' })
