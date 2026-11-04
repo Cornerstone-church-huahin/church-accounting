@@ -15,6 +15,8 @@ export type SyncStatus =
 /** ทุกรายการที่ใช้ร่วมกันต้องมี id และเวลาแก้ไข (ใหม่กว่าชนะ · ลบ = ตั้ง deleted เพื่อให้เครื่องอื่นรู้) */
 export interface SharedItem { id: string; updated: number; deleted?: boolean; by?: string }
 
+import { recordResponse, type CallKind } from './syncMeter'
+
 const STORE = 'acct.sync.v1'
 export const SYNC_EVENT = 'acct-sync-config'
 export const DEFAULT_REPO = 'Cornerstone-church-huahin/church-accounting-data'
@@ -44,6 +46,8 @@ const toB64 = (bytes: Uint8Array) => {
 const b64decode = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), (c) => c.charCodeAt(0)))
 
 function api(cfg: SyncConfig, path: string, init: RequestInit = {}) {
+  const method = (init.method ?? 'GET').toUpperCase()
+  const kind: CallKind = method !== 'GET' ? 'push' : path.startsWith('contents/') ? 'pull' : path.startsWith('commits') ? 'check' : 'other'
   return fetch(`https://api.github.com/repos/${cfg.repo}${path ? `/${path}` : ''}`, {
     ...init,
     cache: 'no-store',
@@ -54,7 +58,50 @@ function api(cfg: SyncConfig, path: string, init: RequestInit = {}) {
       ...(init.body ? { 'content-type': 'application/json' } : {}),
       ...((init.headers as Record<string, string> | undefined) ?? {}),
     },
-  })
+  }).then((r) => { recordResponse(kind, r); return r })
+}
+
+/**
+ * ตัวตรวจ “มีอะไรเปลี่ยนใน repo ไหม” — ถามครั้งเดียวว่า commit ล่าสุดคืออะไร (แบบมีเงื่อนไข ETag: ไม่เปลี่ยน = 304 ไม่นับโควตา)
+ * ทุกไฟล์ที่ซิงก์เทียบ commit นี้กับที่ตัวเองเคยซิงก์ ถ้าเท่ากันไม่ต้องไปดึงไฟล์ของตัวเองอีก
+ * → การเรียก GitHub ของเครื่องหนึ่งเหลือประมาณ 1 ครั้งต่อนาที ไม่ว่าหน้านั้นใช้กี่ไฟล์ (เดิมถามทุกไฟล์ทุกนาที)
+ */
+const HEAD_KEY = 'acct.sync.head.v1'
+let headRepo = '', headSha: string | null = null, headEtag = '', headAt = 0, lastChange = Date.now(), lastActivity = Date.now()
+let headInflight: Promise<string | null> | null = null
+let forceUntil = 0
+try { const j = JSON.parse(localStorage.getItem(HEAD_KEY) ?? 'null') as { repo: string; sha: string } | null; if (j) { headRepo = j.repo; headSha = j.sha } } catch { /* ignore */ }
+
+/** ผู้ใช้กำลังใช้งาน (บันทึก/กลับมาที่แอป) → ถามถี่ตามปกติทันที */
+export const noteActivity = () => { lastActivity = Date.now() }
+/** ถามห่างขึ้นเมื่อไม่มีใครเปลี่ยนข้อมูลนาน ๆ: ปกติ ≤ 5 นาที · เงียบ 5–20 นาที ≈ 2 นาที · เงียบกว่านั้น ≈ 5 นาที */
+export function pollGapMs(): number {
+  const idle = Date.now() - Math.max(lastChange, lastActivity)
+  return idle < 300_000 ? 0 : idle < 1_200_000 ? 100_000 : 280_000
+}
+/** ห้ามข้ามการดึงไฟล์ช่วงหลังกด “ดึงข้อมูลใหม่ตอนนี้” */
+export const canSkipPull = () => Date.now() > forceUntil
+export const FRESH_MS = 8_000
+
+export function currentHead(cfg: SyncConfig, maxAgeMs = FRESH_MS): Promise<string | null> {
+  if (headRepo === cfg.repo && headSha && Date.now() - headAt < maxAgeMs) return Promise.resolve(headSha)
+  if (headInflight) return headInflight
+  const sameRepo = headRepo === cfg.repo
+  headInflight = (async () => {
+    try {
+      const r = await api(cfg, 'commits?per_page=1', headEtag && sameRepo && headSha ? { headers: { 'if-none-match': headEtag } } : {})
+      if (r.status === 304 && headSha && sameRepo) { headAt = Date.now(); return headSha }
+      if (!r.ok) return null
+      const j = (await r.json()) as { sha?: string }[]
+      const sha = j[0]?.sha ?? null
+      if (!sha) return null
+      if (sha !== headSha) lastChange = Date.now()
+      headRepo = cfg.repo; headSha = sha; headEtag = r.headers.get('etag') ?? ''; headAt = Date.now()
+      try { localStorage.setItem(HEAD_KEY, JSON.stringify({ repo: cfg.repo, sha })) } catch { /* ignore */ }
+      return sha
+    } catch { return null } finally { headInflight = null }
+  })()
+  return headInflight
 }
 
 function explain(status: number): string {
@@ -98,9 +145,21 @@ type Pulled<T extends SharedItem> = { items: T[]; sha?: string; exists: boolean;
 /** ETag ล่าสุดของแต่ละไฟล์: ถามซ้ำแบบมีเงื่อนไข (If-None-Match) ถ้าไม่มีอะไรเปลี่ยน GitHub ตอบ 304 ซึ่งไม่นับโควตาการเรียก (โควตา 5,000/ชั่วโมงใช้ร่วมกันทุกเครื่องที่ใช้รหัสเดียวกัน) */
 const etags = new Map<string, { etag: string; res: Pulled<SharedItem> }>()
 let etagsOff = false
-export const clearEtagCache = () => { etags.clear(); etagsOff = false }
+export const clearEtagCache = () => { etags.clear(); etagsOff = false; headAt = 0; headEtag = ''; forceUntil = Date.now() + 20_000 }
 
-export async function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<Pulled<T>> {
+/** หลายส่วนของหน้าขอไฟล์เดียวกันพร้อมกัน → เรียก GitHub ครั้งเดียว แบ่งผลให้ทุกส่วน */
+const pulling = new Map<string, Promise<Pulled<SharedItem>>>()
+export function pullFile<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<Pulled<T>> {
+  const key = `${cfg.repo}:${file}`
+  let p = pulling.get(key)
+  if (!p) {
+    p = pullFileNow<SharedItem>(cfg, file).finally(() => { pulling.delete(key) })
+    pulling.set(key, p)
+  }
+  return p.then((r) => ({ ...(r as Pulled<T>), items: [...(r.items as T[])] }))
+}
+
+async function pullFileNow<T extends SharedItem>(cfg: SyncConfig, file: string): Promise<Pulled<T>> {
   let r: Response
   const key = `${cfg.repo}:${file}`
   let cached = etagsOff ? undefined : etags.get(key)

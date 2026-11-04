@@ -18,6 +18,8 @@ export function noteSync(key: string, s: SyncStatus) {
   else return
   emit()
 }
+/** ไฟล์ตรวจแล้วเป็นปัจจุบัน (ไม่ต้องดึง) — นับเป็นซิงก์ล่าสุดสำเร็จ โดยไม่แตะตัวนับ “กำลังซิงก์” */
+export function noteFresh(key: string) { lastOk = Date.now(); errors.delete(key); emit() }
 export const resetSyncStatus = () => { syncing = 0; errors.clear(); lastOk = undefined; emit() }
 
 export function useGlobalSync(): GlobalSync & { connected: boolean } {

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { blocked, MEMBERS_KEY, myRole, STORE_EVENT, whoAmI, type Perm } from './access'
-import { noteSync } from './syncStatus'
-import { getSync, mergeItems, pullFile, pushFile, remoteWins, SYNC_EVENT, type SharedItem, type SyncStatus } from './sync'
+import { noteFresh, noteSync } from './syncStatus'
+import { quotaBlockedUntil } from './syncMeter'
+import { canSkipPull, currentHead, FRESH_MS, getSync, mergeItems, noteActivity, pollGapMs, pullFile, pushFile, remoteWins, SYNC_EVENT, type SharedItem, type SyncStatus } from './sync'
+
+const POLL = Symbol('poll')
 
 /**
  * ที่เก็บข้อมูลที่ใช้ร่วมกัน: บันทึกในเครื่องทันที แล้วซิงก์ขึ้น GitHub (repo ส่วนตัว) อัตโนมัติ
@@ -26,6 +29,10 @@ export function useSharedStore<T extends SharedItem>(opts: {
 }) {
   const { localKey, file, label } = opts
   const epochKey = `${localKey}.epoch`
+  const headKey = `${localKey}.head` // commit ล่าสุดของ repo ที่ไฟล์นี้เคยซิงก์ถึง
+  const dirtyKey = `${localKey}.dirty` // มีการแก้ในเครื่องที่ยังไม่ได้ส่งขึ้นออนไลน์ (ต้องส่งก่อนข้ามการดึง)
+  const getKey = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
+  const setKey = (k: string, v: string | null) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v) } catch { /* ignore */ } }
   const getEpoch = () => { try { return Number(localStorage.getItem(epochKey) ?? 0) } catch { return 0 } }
   const setEpoch = (n: number) => { try { localStorage.setItem(epochKey, String(n)) } catch { /* ignore */ } }
   const scope = opts.scope ?? 'shared'
@@ -68,13 +75,22 @@ export function useSharedStore<T extends SharedItem>(opts: {
     return () => window.removeEventListener(STORE_EVENT, on)
   }, [localKey, me]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const syncNow = useCallback(async () => {
+  const syncNow = useCallback(async (arg?: unknown) => {
     const report = (st: SyncStatus) => { setSync(st); noteSync(localKey, st) }
+    const polling = arg === POLL
     const cfg = getSync()
     if (busy.current) return
     if (!cfg) return report({ state: 'off' })
+    // โควตา GitHub เต็ม: ไม่ถามอัตโนมัติซ้ำเติมจนกว่าจะถึงเวลารีเซ็ต (การบันทึกยังลองส่งตามปกติ)
+    if (polling && quotaBlockedUntil()) return
     // ยังไม่รู้สิทธิ์ (รายชื่อผู้ใช้ร่วมยังไม่เคยซิงก์) หรือรออนุมัติ: ยังไม่ดึง/ส่งข้อมูลบัญชี
     if (scope !== 'members' && (localStorage.getItem(MEMBERS_KEY) === null || myRole() === 'pending' || myRole() === 'paused')) return report({ state: 'idle' })
+    // ตรวจครั้งเดียวว่า repo มี commit ใหม่ไหม: ไม่มี + ไม่มีของค้างส่ง = ไม่ต้องดึงไฟล์นี้ (ประหยัดโควตา)
+    const head = await currentHead(cfg, polling ? Math.max(FRESH_MS, pollGapMs()) : FRESH_MS)
+    if (head && canSkipPull() && getKey(dirtyKey) !== '1' && read() !== null && getKey(headKey) === head) {
+      setSync({ state: 'ok', at: Date.now() }); noteFresh(localKey)
+      return
+    }
     report({ state: 'syncing' })
     try {
       const remote = await pullFile<T>(cfg, file)
@@ -82,6 +98,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
         // ไฟล์ออนไลน์ถูกลบถาวร/ล้างข้อมูลหลังซิงก์ครั้งล่าสุดของเครื่องนี้: ใช้ของออนไลน์ ทิ้งของเก่าในเครื่อง (กันข้อมูลที่ลบแล้วผุดกลับ)
         setLocal(remote.items)
         setEpoch(remote.epoch ?? 0)
+        setKey(dirtyKey, null); if (head) setKey(headKey, head)
         return report({ state: 'ok', at: Date.now() })
       }
       const merged = mergeItems(latest.current, remote.items)
@@ -91,6 +108,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
         return !r || x.updated > r.updated
       })
       if (localNewer) await pushFile(cfg, file, label, merged, remote.sha, true, remote.epoch)
+      setKey(dirtyKey, null); if (head) setKey(headKey, head)
       report({ state: 'ok', at: Date.now() })
     } catch (e) {
       report({ state: 'error', message: e instanceof Error ? e.message : String(e) })
@@ -100,13 +118,14 @@ export function useSharedStore<T extends SharedItem>(opts: {
   syncNowRef.current = syncNow
   useEffect(() => {
     syncNow()
-    const onVis = () => document.visibilityState === 'visible' && syncNow()
+    const onVis = () => { if (document.visibilityState === 'visible') { noteActivity(); syncNow() } }
     document.addEventListener('visibilitychange', onVis)
-    window.addEventListener(SYNC_EVENT, syncNow)
-    const t = opts.poll === false ? undefined : window.setInterval(() => { if (document.visibilityState === 'visible') syncNow() }, opts.pollMs ?? 60_000) // เครื่องที่พับจอ/อยู่เบื้องหลังไม่ดึงทุกนาที ประหยัดโควตา GitHub ที่ทุกเครื่องใช้ร่วมกัน
+    const onCfg = () => { syncNow() }
+    window.addEventListener(SYNC_EVENT, onCfg)
+    const t = opts.poll === false ? undefined : window.setInterval(() => { if (document.visibilityState === 'visible') syncNow(POLL) }, opts.pollMs ?? 60_000) // เครื่องที่พับจอ/อยู่เบื้องหลังไม่ดึงทุกนาที ประหยัดโควตา GitHub ที่ทุกเครื่องใช้ร่วมกัน
     return () => {
       document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener(SYNC_EVENT, syncNow)
+      window.removeEventListener(SYNC_EVENT, onCfg)
       if (t !== undefined) window.clearInterval(t)
     }
   }, [syncNow])
@@ -121,6 +140,7 @@ export function useSharedStore<T extends SharedItem>(opts: {
       const ids = new Set(stamped.map((x) => x.id))
       setLocal([...latest.current.filter((x) => !ids.has(x.id)), ...stamped])
       if (getSync()) {
+        setKey(dirtyKey, '1'); noteActivity()
         setSync({ state: 'syncing' })
         window.clearTimeout(timer.current)
         timer.current = window.setTimeout(syncNow, 600)
@@ -145,9 +165,11 @@ export function useSharedStore<T extends SharedItem>(opts: {
       setLocal(next)
       const cfg = getSync()
       if (!cfg) return true
+      setKey(dirtyKey, '1'); noteActivity()
       try {
         const remote = await pullFile<T>(cfg, file)
         await pushFile(cfg, file, label, next, remote.sha, true, epoch, true)
+        setKey(dirtyKey, null)
         setSync({ state: 'ok', at: Date.now() })
         return true
       } catch (e) {
