@@ -29,6 +29,7 @@ try {
   const fs = page.getByRole('status', { name: /เงินกองทุนทั้งหมด แยก/ })
   await fs.waitFor({ timeout: 10000 })
   const ft = (await fs.innerText()).replace(/\s+/g, ' ')
+  must((await fs.boundingBox()).height < 70, 'split strip is one compact row: ' + (await fs.boundingBox()).height)
   must(/รวมทุกกองทุน 5,120/.test(ft) && /ในบัญชีกองทุน 0/.test(ft) && /ถอนแล้ว รอนำฝาก 120/.test(ft) && /ยังไม่ถอน 5,000/.test(ft), 'main fund card splits total into account / withdrawn / not withdrawn: ' + ft)
   must(await page.locator('.fundbar__chip--no').filter({ hasText: '5,000' }).count() === 1 && await page.locator('.fundbar__chip--out').filter({ hasText: '120' }).count() === 1, 'per-fund rows show their own withdrawn / not-withdrawn chips')
   await page.getByRole('button', { name: /เตรียมนำฝาก/ }).first().click()

@@ -1793,3 +1793,16 @@ span.fundpend__tog--no { cursor: default; }
 .rec-tools--five .rec-tool { font-size: 0.64rem; }
 
 .owncharts { margin-top: 0.5rem; } .owncharts > summary { cursor: pointer; font-weight: 700; color: var(--navy); } :root[data-theme='dark'] .owncharts > summary { color: var(--ink); }
+
+/* เงินกองทุน (หน้าหลัก): แนวตั้งแคบสุด — ยอด 4 ช่องแถวเดียว · กราฟพับ */
+.asof { margin: 0.15rem 0 !important; font-size: 0.78rem; }
+.fundsplit { grid-template-columns: 1.25fr 1fr 1fr 1fr !important; gap: 4px !important; margin: 4px 0 !important; }
+.fundsplit__i { padding: 3px 4px !important; border-width: 1px !important; border-radius: 8px !important; }
+.fundsplit__i--all { grid-column: auto !important; flex-direction: column !important; align-items: center !important; justify-content: center; text-align: center; }
+.fundsplit__i span { font-size: 0.6rem !important; }
+.fundsplit__i b, .fundsplit__i--all b { font-size: 0.86rem !important; }
+.fundsplit__i--all b { font-size: 0.95rem !important; }
+.cardhead--fund { margin-bottom: 0 !important; }
+.fundchart { margin: 2px 0 4px; }
+.fundchart > summary { cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--navy); }
+:root[data-theme='dark'] .fundchart > summary { color: var(--ink); }

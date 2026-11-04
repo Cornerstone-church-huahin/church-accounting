@@ -70,7 +70,7 @@ export default function BalancePage() {
       <div className="subtabs no-print" role="tablist" aria-label="เงินหมุนเวียน กองทุน รวม" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {KINDS.map((x) => <Link key={x.k} role="tab" aria-selected={kind === x.k} className={`subtab-link${kind === x.k ? ' on' : ''}`} to={`/balance/${x.k}`}>{x.icon} {x.title}</Link>)}
       </div>
-      <p className="muted small" style={{ textAlign: 'center' }}>ยอด ณ {fmtDate(today)}{opening ? ` · นับต่อจากยอดตั้งต้น ${fmtDate(opening.date)}` : ' · ยังไม่ได้ตั้งยอดยกมา (ตั้งค่า › ยอดยกมา)'}</p>
+      <p className="muted small asof" style={{ textAlign: 'center' }}>ยอด ณ {fmtDate(today)}{opening ? ` · นับต่อจากยอดตั้งต้น ${fmtDate(opening.date)}` : ' · ยังไม่ได้ตั้งยอดยกมา (ตั้งค่า › ยอดยกมา)'}</p>
 
       {kind === 'own' && (
         <>
@@ -108,7 +108,7 @@ export default function BalancePage() {
             <div className="fundsplit__i fundsplit__i--out"><span>ถอนแล้ว รอนำฝาก</span><b className="num">{fmtBaht(fsplit.wait)}</b></div>
             <div className="fundsplit__i fundsplit__i--no"><span>ยังไม่ถอน</span><b className="num">{fmtBaht(fsplit.unw)}</b></div>
           </div>
-          <HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))} tone="in" />
+          <details className="fundchart"><summary>📊 กราฟเปรียบเทียบแต่ละกองทุน</summary><HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))} tone="in" /></details>
           <ul className="fundbars" aria-label="ยอดแต่ละกองทุน">
             {b.funds.map((f) => (
               <li key={f.id}>
