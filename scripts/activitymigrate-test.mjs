@@ -51,6 +51,12 @@ try {
   must(/กองทุน-กิจกรรม/.test(t), 'old fund still listed')
   const bars = await p.locator('.fundbars').innerText()
   must(!/เงินกิจกรรม/.test(bars), 'activity not in fund bars: ' + bars)
+  // ทุกหน้าแสดงตรงกัน: กองทุน 500 (ไม่รวมกิจกรรม) · เงินกิจกรรม 22,690 · รวมเงินสด 23,190
+  await p.goto(`http://localhost:${PORT}/#/`); await p.waitForTimeout(1500)
+  const strip = await p.getByLabel('เงินคริสตจักร ณ วันนี้').first().innerText()
+  must(/เงินกิจกรรม\s*22,690\.00/.test(strip), 'home caption act: ' + strip)
+  must(/กองทุน\s*500(\.00)?\b/.test(strip) && !/กองทุน\s*23,/.test(strip), 'home fund tile excludes act: ' + strip)
+  must(/รวมเงินสด\s*23,190/.test(strip), 'home total: ' + strip)
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close()
   console.log('activitymigrate-test OK')

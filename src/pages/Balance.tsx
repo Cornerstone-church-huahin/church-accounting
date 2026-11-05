@@ -44,7 +44,7 @@ export default function BalancePage() {
   const { split: fsplit } = useFundPending(fundAcc.rows)
   const standIds = new Set(input.types.filter((t) => t.standalone).map((t) => t.id))
   const funds = b.funds.filter((f) => !standIds.has(f.id)) // เงินกิจกรรมแยกจากกองทุน
-  const fundSum = funds.reduce((s, f) => s + f.balance, 0)
+  const fundSum = b.fundTotal
   const fc = fundColorMap(funds.map((f) => f.id))
   const dot = (c: string) => <i aria-hidden="true" style={{ display: 'inline-block', width: 11, height: 11, borderRadius: 3, background: c, marginRight: 6, verticalAlign: 'baseline' }} />
   const debt = sums.external
@@ -105,8 +105,8 @@ export default function BalancePage() {
         <section className="card" aria-label="เงินกองทุน">
           <div className="cardhead cardhead--fund"><h2>💰 เงินกองทุน</h2><FundPendingPanel funds={fundAcc.rows} canWrite={can(role, 'statement')} /></div>
           <div className="fundsplit" role="status" aria-label="เงินกองทุนทั้งหมด แยกในบัญชี ถอนแล้ว และยังไม่ถอน">
-            <div className="fundsplit__i fundsplit__i--all"><span>{fsplit.act !== 0 ? "รวมกองทุน (ไม่รวมเงินกิจกรรม)" : "รวมทุกกองทุน"}</span><b className="num">{fmtBaht(b.fundTotal - fsplit.act)}</b></div>
-            <div className="fundsplit__i fundsplit__i--acct"><span>ในบัญชีกองทุน</span><b className="num">{fmtBaht(b.fundTotal - fsplit.wait - fsplit.unw - fsplit.act)}</b></div>
+            <div className="fundsplit__i fundsplit__i--all"><span>{fsplit.act !== 0 ? "รวมกองทุน (ไม่รวมเงินกิจกรรม)" : "รวมทุกกองทุน"}</span><b className="num">{fmtBaht(b.fundTotal)}</b></div>
+            <div className="fundsplit__i fundsplit__i--acct"><span>ในบัญชีกองทุน</span><b className="num">{fmtBaht(b.fundTotal - fsplit.wait - fsplit.unw)}</b></div>
             <div className="fundsplit__i fundsplit__i--out"><span>ถอนแล้ว รอนำฝาก</span><b className="num">{fmtBaht(fsplit.wait)}</b></div>
             <div className="fundsplit__i fundsplit__i--no"><span>ยังไม่ถอน</span><b className="num">{fmtBaht(fsplit.unw)}</b></div>
           </div>

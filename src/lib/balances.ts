@@ -2,6 +2,7 @@ import { addDays } from './money'
 import { fundAccounts, type FundAccount } from './fundAccounts'
 import { loanBalance, ownLent } from './loans'
 import { isFundType } from './funds'
+import { activityMoney } from './fundActs'
 import type { IncomeEntry, IncomeType, Loan, Opening, Round } from './types'
 import { computeLedger, type LRow } from './weekLedger'
 
@@ -11,7 +12,10 @@ export interface Balances {
   /** เงินหมุนเวียนของคริสตจักร (ไม่รวมกองทุน ไม่รวมเงินยืม): ตั้งต้น + รายรับปกติ − รายจ่ายปกติที่จ่ายแล้ว − ค้างจ่าย (วางบิล/สำรองจ่ายที่บันทึกไว้แล้ว นับเป็นรายจ่ายทันทีเหมือนใบสรุป) */
   own: { opening: number; moneyIn: number; moneyOut: number; pending: number; /** เงินที่เงินหมุนเวียนยืมมา (จากกองทุนหรือบุคคลภายนอก ที่ยังไม่คืน) นับเป็นเงินสดที่มีจริง */ borrowed: number; /** เงินหมุนเวียนที่ให้กองทุนยืมไป ยังไม่คืน (หักออกจากเงินหมุนเวียนแล้ว) */ lent: number; balance: number }
   funds: FundAccount[]
+  /** เงินกองทุนถาวร (ไม่รวมเงินกิจกรรม) */
   fundTotal: number
+  /** เงินกิจกรรม (แยกจากกองทุน) · own + fundTotal + act = total */
+  act: number
   total: number
 }
 
@@ -26,11 +30,12 @@ export function computeBalances(a: Omit<LedgerArgs, 'range' | 'withFunds'> & { o
   const moneyOut = L.outSum.cash + L.outSum.transfer
   const opening = a.opening?.own ?? 0
   const funds = fundAccounts({ types: a.types.filter((t) => t.active), opening: a.opening, income: a.income, rounds: a.rounds, expenses: a.expenses ?? [], passbook: a.passbook, loans: a.loans })
-  const fundTotal = funds.reduce((s, f) => s + f.balance, 0)
+  const act = activityMoney(funds, a.types.filter((t) => t.active)).total
+  const fundTotal = funds.reduce((s, f) => s + f.balance, 0) - act
   const borrowed = (a.loans ?? []).filter((l) => !l.deleted && l.borrower === 'own').reduce((s, l) => s + loanBalance(l), 0)
   const lent = ownLent(a.loans ?? [], a.today)
   const own = { opening, moneyIn, moneyOut, pending: L.outSum.pending, borrowed, lent, balance: opening + moneyIn - moneyOut - L.outSum.pending + borrowed - lent }
-  return { own, funds, fundTotal, total: own.balance + fundTotal }
+  return { own, funds, fundTotal, act, total: own.balance + fundTotal + act }
 }
 
 export type { LRow }
