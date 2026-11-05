@@ -41,7 +41,9 @@ export function useFundAccounts() {
 
 export default function FundAccountsPage() {
   const ctx = useFundAccounts()
-  const { rows, total, types, opening, loans } = ctx
+  const { types, opening, loans } = ctx
+  const rows = ctx.rows.filter((r) => !types.list.find((t) => t.id === r.id)?.standalone) // เงินกิจกรรมแยกไปอยู่เมนูของตัวเอง
+  const total = rows.reduce((s, r) => s + r.balance, 0)
   const fc = fundColorMap(rows.map((r) => r.id))
   return (
     <>

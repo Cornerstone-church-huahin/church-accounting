@@ -19,8 +19,7 @@ export default function BalanceStrip({ compact }: { compact?: boolean }) {
   const types = useIncomeTypes()
   // เงินกิจกรรม (รับ-จ่ายผ่านระหว่างจัดงาน) แยกออกจากกองทุนถาวร · รวมเงินสดยังเป็นยอดทั้งหมด ตรงกับเงินจริง
   const act = activityMoney(fa.rows, types.list).total
-  const actFund = types.list.filter((x) => x.actMode && x.active)
-  const actTo = actFund.length === 1 ? `/activity/${actFund[0].id}` : '/balance/fund'
+  const actTo = '/activity'
   if (!can(role, 'detail')) return null
   return (
     <section className={compact ? 'moneystrip no-print' : undefined} aria-label="เงินคริสตจักร ณ วันนี้">

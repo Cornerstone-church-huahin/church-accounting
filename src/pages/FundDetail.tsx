@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import WeekBar from '../components/WeekBar'
 import PickDock, { SheetTick } from '../components/PickDock'
@@ -24,9 +24,11 @@ import Receive from './Receive'
  * หน้ากองทุนเดียว: มีแค่ 2 ฟังก์ชัน รับ · จ่าย — ใช้หน้าตา/ใบ A4/แนบบิลชุดเดียวกับ รับ-จ่ายหน้าแรกทุกประการ
  * แต่ข้อมูลเป็นของกองทุนนี้ล้วน (ไม่ปนบัญชีหมุนเวียน) · ยอดคงเหลือกองทุนไปรวมที่ช่อง “กองทุน” หน้าแรก · ลบกองทุน = หน้านี้หาย · สร้างกองทุนใหม่ = หน้านี้ขึ้นเอง
  */
-export default function FundDetailPage() {
-  const { id } = useParams()
-  const asAct = useLocation().pathname.startsWith('/activity/') // เมนู “เงินกิจกรรม”: แยกจากกองทุน ไม่ผูกยอดกับกองทุน
+export { useFundAccounts }
+export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
+  const params = useParams()
+  const id = forceId ?? params.id
+  const asAct = !!forceId // เมนู “เงินกิจกรรม”: แยกจากกองทุน ไม่ผูกยอดกับกองทุน
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
   const todayY = new Date().getFullYear()
@@ -54,7 +56,7 @@ export default function FundDetailPage() {
   // "กองทุนกิจกรรม": เปิดโหมดกิจกรรมให้เองครั้งแรกที่แอดมินเข้า (หมวดที่ชื่อเป็นกิจกรรมกลายเป็นการ์ดกิจกรรม) — ไม่มีหน้าถามเพิ่ม
   useEffect(() => {
     const ft = types.list.find((x) => x.id === id)
-    if (!f || !ft || ft.actMode || !can(role, 'settings') || !/กิจกรรม/.test(ft.name)) return
+    if (!f || !ft || ft.actMode || ft.noActAuto || ft.standalone || !can(role, 'settings') || !/กิจกรรม/.test(ft.name)) return
     const first = (sid: string) => f.moves.filter((m) => m.subId === sid).map((m) => m.date).sort()[0]
     types.put([{ ...ft, ...autoActivities(ft, first, new Date().toISOString().slice(0, 10)) }])
   }, [id, f, types.list, role]) // eslint-disable-line react-hooks/exhaustive-deps
