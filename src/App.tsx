@@ -44,6 +44,7 @@ export default function App() {
           <Route path="vouchers/:id" element={<VoucherDetail />} />
           <Route path="budget" element={<Budget />} />
           <Route path="funds" element={<DetailGate><FundAccountsPage /></DetailGate>} />
+          <Route path="activity/:id" element={<DetailGate><FundDetailPage /></DetailGate>} />
           <Route path="funds/:id" element={<DetailGate><FundDetailPage /></DetailGate>} />
           <Route path="balance/:kind" element={<DetailGate><BalancePage /></DetailGate>} />
           <Route path="land" element={<DetailGate><Land /></DetailGate>} />
