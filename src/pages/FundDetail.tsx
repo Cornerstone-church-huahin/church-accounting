@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import WeekBar from '../components/WeekBar'
 import PickDock, { SheetTick } from '../components/PickDock'
@@ -14,7 +14,7 @@ import { can, myFunds } from '../lib/access'
 import { useRole } from '../lib/members'
 import type { CatalogOps } from '../components/CatalogManager'
 import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fundSubs'
-import { actAccount, actSubIds, addActivity, autoActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
+import { actAccount, actSubIds, activityMoney, addActivity, autoActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
 import { ActEvaluation, ActHeader, ActivityCards, ActProgress, AddActivity } from '../components/FundActivities'
 import ActReportPages, { type ActReportKind } from '../components/ActReport'
 import Pay from './Pay'
@@ -26,6 +26,7 @@ import Receive from './Receive'
  */
 export default function FundDetailPage() {
   const { id } = useParams()
+  const asAct = useLocation().pathname.startsWith('/activity/') // เมนู “เงินกิจกรรม”: แยกจากกองทุน ไม่ผูกยอดกับกองทุน
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
   const todayY = new Date().getFullYear()
@@ -64,6 +65,8 @@ export default function FundDetailPage() {
   const keeperOnly = keeper ? myFunds()?.find((a) => a.id === f.id)?.subs?.length ? myFunds()!.find((a) => a.id === f.id)!.subs! : null : null
   // โหมดกิจกรรม: กองทุนแบ่งเป็นกิจกรรม (การ์ดกิจกรรมก่อน) แต่ละกิจกรรมมีหมวดของตัวเอง
   const actMode = !!t?.actMode
+  const dn = asAct ? 'เงินกิจกรรม' : `กองทุน ${f.name}`
+  const shown = asAct && t ? activityMoney([f], [t]).total : f.balance
   const acts = sortedActs(t)
   const act = actMode && actId ? acts.find((a) => a.id === actId) ?? null : null
   const actIds = act ? actSubIds(t, act.id) : null
@@ -110,7 +113,7 @@ export default function FundDetailPage() {
     const today = todayISO()
     let ok = true
     if (left < 0) ok = window.confirm(`กิจกรรม “${act.name}” ติดลบ ${fmtBaht(-left)} บาท — ปิดกิจกรรมโดยไม่โอนส่วนเหลือ ตกลงไหม?`)
-    else if (left > 0) {
+    else if (left > 0 && !asAct) { // เมนูเงินกิจกรรม: ปิดแล้วเงินยังอยู่ในเงินกิจกรรม ไม่โอนเข้ากองทุน
       const ans = window.prompt(`ปิดกิจกรรม “${act.name}”\nยอดเหลือ ${fmtBaht(left)} บาท — โอนเข้ากองทุนกิจกรรม (ส่วนกลาง) กี่บาท? (ใส่ 0 = ไม่โอน)`, String(left / 100))
       if (ans === null) return
       const baht = Number(ans.replace(/,/g, ''))
@@ -131,11 +134,11 @@ export default function FundDetailPage() {
   if (actMode && !act) {
     return (
       <>
-        <div className="page-head no-print"><h1>💰 {f.name}</h1>{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</div>
+        <div className="page-head no-print"><h1>{asAct ? '🎪 เงินกิจกรรม' : `💰 ${f.name}`}</h1>{!keeper && !asAct && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</div>
         {!keeper && (
-          <section className="card no-print" role="status" aria-label={`ยอดคงเหลือ กองทุน ${f.name}`}>
-            <p className="muted small" style={{ margin: 0 }}>เงินคงเหลือของกองทุนนี้ (รวมทุกกิจกรรม)</p>
-            <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: f.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(f.balance)} บาท{f.balance < 0 ? ' (ติดลบ)' : ''}</p>
+          <section className="card no-print" role="status" aria-label={`ยอดคงเหลือ ${dn}`}>
+            <p className="muted small" style={{ margin: 0 }}>{asAct ? 'เงินคงเหลือของเงินกิจกรรม (รวมทุกกิจกรรม)' : 'เงินคงเหลือของกองทุนนี้ (รวมทุกกิจกรรม)'}</p>
+            <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '2px 0', color: shown < 0 ? '#b3261e' : undefined }}>{fmtBaht(shown)} บาท{shown < 0 ? ' (ติดลบ)' : ''}</p>
           </section>
         )}
         {canManage && <AddActivity onAdd={(name, date, end) => { if (!t) return 'ไม่พบกองทุน'; const r = addActivity(t, name, date, end); if ('error' in r) return r.error; saveActs(r.activities); return null }} />}
@@ -157,7 +160,7 @@ export default function FundDetailPage() {
           <button type="button" className="btn btn--ghost" onClick={() => setReport(null)}>‹ กลับ</button>
           <span className="grow" />
         </div>
-        <ActReportPages kind={report} church={church} fundName={f.name} act={act} acct={acctData} pagesRef={repRef} file={file} title={`${act.name} ${church}`} />
+        <ActReportPages kind={report} church={church} fundName={asAct ? 'เงินกิจกรรม' : f.name} act={act} acct={acctData} pagesRef={repRef} file={file} title={`${act.name} ${church}`} />
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ) · พิมพ์/PDF ขนาด A4 มีเครดิตผู้พัฒนาท้ายทุกแผ่น</p>
       </>
     )
@@ -194,9 +197,9 @@ export default function FundDetailPage() {
         onReopen={() => patchAct(act.id, { closed: undefined })} />}
       {(!act || actTab === 'acct') && (<>
       {act?.closed && <p className="role-bar no-print" role="status">🔒 กิจกรรมนี้ปิดแล้ว — ดูได้อย่างเดียว (แอดมินเปิดกิจกรรมอีกครั้งได้เพื่อบันทึกเพิ่ม)</p>}
-      <div className="page-head page-head--tight no-print"><h1>💰 {f.name}</h1><span className="page-head__tools">{act && <button type="button" className="mini iconbtn" onClick={() => setReport('acct')} aria-label="รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)" title="รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)">🧾</button>}{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</span></div>
+      <div className="page-head page-head--tight no-print"><h1>{asAct ? '🎪 เงินกิจกรรม' : `💰 ${f.name}`}</h1><span className="page-head__tools">{act && <button type="button" className="mini iconbtn" onClick={() => setReport('acct')} aria-label="รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)" title="รายงานบัญชีกิจกรรม (พิมพ์ / PDF / แชร์)">🧾</button>}{!keeper && <Link to="/funds" className="mini">‹ ทุกกองทุน</Link>}</span></div>
       {only ? (
-        <section className="card no-print fundbal" role="status" aria-label={act ? `ยอดคงเหลือ กิจกรรม ${act.name}` : `ยอดคงเหลือ หมวดที่ดูแลของ ${f.name}`}>
+        <section className="card no-print fundbal" role="status" aria-label={act ? `ยอดคงเหลือ กิจกรรม ${act.name}` : `ยอดคงเหลือ หมวดที่ดูแลของ ${dn}`}>
           <div className="fundbal__row"><span className="muted small">{act ? 'คงเหลือของกิจกรรมนี้' : `เงินคงเหลือของหมวดที่ท่านดูแล (${subs.map((q) => q.name).join(', ')})`}</span><b className="fundbal__amt" style={{ color: acct.balance < 0 ? '#b3261e' : undefined }}>{fmtBaht(subs.reduce((n, q) => n + subAccount(f, q.id).balance, 0))} บาท</b></div>
         </section>
       ) : (
