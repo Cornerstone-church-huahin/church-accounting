@@ -25,10 +25,11 @@ const HEAD_NATURAL_PX = 660 // ความกว้างธรรมชาต�
  * ล็อกการจัดวาง: ค่าตายตัวของหัวจดหมายบนซอง วัดเป็นมิลลิเมตร “ตามการอ่านซอง” (ถือซองให้ด้านยาวอยู่แนวนอน ด้านหน้าหันเข้าหาตัว)
  * left = ห่างจากขอบซ้ายสุด · top = ห่างจากขอบบนสุด · headW = ความยาวของหัวจดหมาย — ปรับทีละล็อกตามผลพิมพ์จริงของเครื่อง Brother DCP-T520W
  */
-export interface Lock { id: string; name: string; headW: number; left: number; top: number; note: string }
+export interface Lock { id: string; name: string; headW: number; left: number; top: number; /** ขนาดตัวอักษรชื่อผู้รับ (pt) */ font: number; note: string }
 export const LOCKS: Lock[] = [
-  { id: 'L1', name: 'ล็อก 1', headW: 90, left: 2, top: 22, note: 'ประเมินจากรูปซองรอบล่าสุด: หัวจดหมายล้นขอบบนและอยู่ห่างขอบซ้ายเกิน → ขยับชิดซ้ายและเลื่อนลงจากขอบบน' },
-  { id: 'L0', name: 'ล็อก 0 (ค่าเดิม ไว้เทียบ)', headW: 90, left: 10, top: 10, note: 'ค่าตั้งต้นรอบก่อน (ผลพิมพ์: ล้นขอบบน ห่างขอบซ้ายมาก)' },
+  { id: 'L2', name: 'ล็อก 2', headW: 70, left: 2, top: 20, font: 7, note: 'ขนาดตามที่คุณปรับล่าสุดแล้วพอดี (แปลงเป็นขนาดจริงบนกระดาษ: หัวจดหมายยาว ≈ 70 มม. ชื่อ-ตำแหน่ง ≈ 7 pt) + ตำแหน่งชิดซ้ายและเลื่อนลงจากขอบบน' },
+  { id: 'L1', name: 'ล็อก 1', headW: 90, left: 2, top: 22, font: 10, note: 'รอบก่อน: ขนาดใหญ่กว่า ตำแหน่งชิดซ้าย เลื่อนลงจากขอบบน' },
+  { id: 'L0', name: 'ล็อก 0 (ค่าเดิม ไว้เทียบ)', headW: 90, left: 10, top: 10, font: 10, note: 'ค่าตั้งต้นเดิม (ผลพิมพ์: ล้นขอบบน ห่างขอบซ้ายมาก)' },
 ]
 let measureCtx: CanvasRenderingContext2D | null = null
 /** ย่อข้อความผู้รับอัตโนมัติถ้าบรรทัดที่ยาวที่สุดยาวเกินความยาวที่พิมพ์ได้ (px) · วัดด้วย canvas ฟอนต์เดียวกับหน้าเว็บ */
@@ -58,16 +59,16 @@ function rulerTicks(len: number, axis: 'x' | 'y') {
 export default function EnvelopePrint({ recipient, head, onClose }: { recipient?: string; head: EnvHead; onClose: () => void }) {
   const [size, setSize] = useState('mine')
   const [cw, setCw] = useState(220), [ch, setCh] = useState(110)
-  const [lockId, setLockIdRaw] = useState(() => { try { const v = localStorage.getItem('acct.env.lock'); return LOCKS.some((l) => l.id === v) ? v! : 'L1' } catch { return 'L1' } })
-  const setLockId = (v: string) => { setLockIdRaw(v); try { localStorage.setItem('acct.env.lock', v) } catch { /* ignore */ } }
+  const [lockId, setLockIdRaw] = useState(() => { try { const v = localStorage.getItem('acct.env.lock2'); return LOCKS.some((l) => l.id === v) ? v! : 'L2' } catch { return 'L2' } })
+  const setLockId = (v: string) => { setLockIdRaw(v); try { localStorage.setItem('acct.env.lock2', v) } catch { /* ignore */ } }
   const lock = LOCKS.find((l) => l.id === lockId) ?? LOCKS[0]
   const headW = lock.headW
+  const toSize = (lock.font * 96) / 72 // ตัวอักษรชื่อผู้รับ (px บนหน้าจอ = pt × 96/72) — ย่ออัตโนมัติเฉพาะเมื่อบรรทัดยาวเกินความยาวซอง
   const margin = 10 // ระยะขอบซ้าย/ขวาของพื้นที่ชื่อผู้รับ (มม.)
   const [withTo, setWithTo] = useState(true)
   const [to1, setTo1] = useState(recipient ?? '')   // ชื่อผู้รับ (บรรทัดที่ 1)
   const [to2, setTo2] = useState('')                // ตำแหน่ง/ที่อยู่ (บรรทัดที่ 2)
-  const toSize = 13.33 // ตัวอักษรชื่อผู้รับ 10 pt ตายตัว (px บนหน้าจอ = pt × 96/72) — ย่ออัตโนมัติเฉพาะเมื่อบรรทัดยาวเกินความยาวซอง
-  const [msg, setMsg] = useState('')
+    const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const feed: EnvFeed = 'cw' // ทิศทางตายตัว: หน้าแนวตั้ง หมุนเนื้อหาตามเข็ม (หัวจดหมายมุมขวาบน) — ตรงกับซองที่ป้อนด้านสั้นขวางถาด Brother DCP-T520W
   const [test, setTest] = useState(false)           // โหมดทดสอบ: พิมพ์กรอบ+ป้ายมุมลงกระดาษธรรมดาก่อน
@@ -126,7 +127,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
               <span style={{ position: 'absolute', left: 1, top: '50%', fontSize: 9, fontWeight: 700, color: '#c4332a', background: '#fff' }}>{mm}</span>
             </div>
           ))}
-          <div style={{ position: 'absolute', left: 24 * MM, bottom: 24 * MM, color: '#c4332a', fontSize: 14, fontWeight: 700, lineHeight: 1.35 }}>ทดสอบ {lock.name} — กรอบเส้นประ = ห่างขอบ 4 · 8 · 12 · 16 · 20 มม.<br />หัวจดหมายยาว {lock.headW} · ซ้าย {lock.left} · บน {lock.top} มม. · ซอง {W}×{H} มม.<br />◤ = มุมซ้ายบนของด้านหน้าซอง</div>
+          <div style={{ position: 'absolute', left: 24 * MM, bottom: 24 * MM, color: '#c4332a', fontSize: 14, fontWeight: 700, lineHeight: 1.35 }}>ทดสอบ {lock.name} — กรอบเส้นประ = ห่างขอบ 4 · 8 · 12 · 16 · 20 มม.<br />หัวจดหมายยาว {lock.headW} · ซ้าย {lock.left} · บน {lock.top} มม. · ตัวอักษร {lock.font} pt · ซอง {W}×{H} มม.<br />◤ = มุมซ้ายบนของด้านหน้าซอง</div>
           {rulerTicks(W, 'x')}{rulerTicks(H, 'y')}
         </div>
       )}
@@ -157,7 +158,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
         {LOCKS.map((l) => (
           <label key={l.id} className="small" style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
             <input type="radio" name="env-lock" checked={lockId === l.id} onChange={() => setLockId(l.id)} style={{ marginTop: 3 }} />
-            <span><b>{l.name}</b> — หัวจดหมายยาว {l.headW} มม. · ห่างขอบซ้าย {l.left} มม. · ห่างขอบบน {l.top} มม. · ตัวอักษรชื่อผู้รับ 10 pt<br /><span className="muted">{l.note}</span></span>
+            <span><b>{l.name}</b> — หัวจดหมายยาว {l.headW} มม. · ห่างขอบซ้าย {l.left} มม. · ห่างขอบบน {l.top} มม. · ตัวอักษรชื่อ-ตำแหน่ง {l.font} pt<br /><span className="muted">{l.note}</span></span>
           </label>
         ))}
         <p className="small muted" style={{ margin: 0 }}>ระยะวัดตามการอ่านซอง (ถือซองให้ด้านยาวอยู่แนวนอน ด้านหน้าหันเข้าหาตัว) · พิมพ์ “โหมดทดสอบ” แล้วถ่ายรูปส่งมา จะปรับเป็นล็อกถัดไปให้</p>
