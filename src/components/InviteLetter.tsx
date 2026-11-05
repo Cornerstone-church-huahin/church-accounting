@@ -542,22 +542,17 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
 }
 
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
-export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId; cat?: string }) {
+/** สร้างหนังสือฉบับใหม่ (เลขที่รันอัตโนมัติ) — ใช้ร่วมกันระหว่างรายการหนังสือและหน้าลำดับงานประชุม */
+export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
   const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
   const store = useLetters(kind)
   const cfgStore = useLetterSettings(kind)
-  const navigate = useNavigate()
   const lib = useDocLibrary(), cats = useDocCategories()
-  const NAME = kind === 'doc' ? cat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? K.name
-  const [q, setQ] = useState('')
-  const [msg, setMsg] = useState('')
   const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
   const letters = store.items.filter((x) => (kind !== 'doc' || x.category === cat) && !(x.id === 'draft' && empty(x)))
-    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
-  const t = q.trim().toLowerCase()
-  const shown = t ? letters.filter((x) => `${x.toName ?? ''} ${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
-  const add = () => {
+  /** สำเร็จ = id หนังสือใหม่ · ไม่สำเร็จ = ข้อความผิดพลาด */
+  return (): { id: string } | { error: string } => {
     const id = newId('letter')
     const pre = invitePrefix(cats.list, cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix, isCat)
     const cn = cats.list.find((c) => !c.deleted && isCat(c.name))?.name
@@ -571,9 +566,27 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
       cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
     }
     const pool = [...cur.map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
-    if (!store.put([{ ...blankOf(kind, todayISO()), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return setMsg('ไม่มีสิทธิ์สร้างหนังสือ')
-    navigate(`/meeting/1/4/${K.slug}-${id}`)
+    if (!store.put([{ ...blankOf(kind, todayISO()), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return { error: 'ไม่มีสิทธิ์สร้างหนังสือ' }
+    return { id }
   }
+}
+
+export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId; cat?: string }) {
+  const K = LETTER_KINDS[kind]
+  const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
+  const store = useLetters(kind)
+  const navigate = useNavigate()
+  const cats = useDocCategories()
+  const NAME = kind === 'doc' ? cat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? K.name
+  const [q, setQ] = useState('')
+  const [msg, setMsg] = useState('')
+  const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
+  const letters = store.items.filter((x) => (kind !== 'doc' || x.category === cat) && !(x.id === 'draft' && empty(x)))
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updated - a.updated)
+  const t = q.trim().toLowerCase()
+  const shown = t ? letters.filter((x) => `${x.toName ?? ''} ${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
+  const addLetter = useAddLetter(kind, cat)
+  const add = () => { const r = addLetter(); if ('error' in r) return setMsg(r.error); navigate(`/meeting/1/4/${K.slug}-${r.id}`) }
   const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind, NAME)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>

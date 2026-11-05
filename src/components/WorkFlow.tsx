@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
-import { useDocCategories, useDocLibrary, useFlowTicks, useMeetings } from '../lib/data'
+import { useDocCategories, useDocLibrary, useFlowTicks, useLetters, useMeetings } from '../lib/data'
+import { useAddLetter } from './InviteLetter'
 import { blankMeeting, nextNo, stepStatuses } from '../lib/meetings'
 import { MC_CUR_KEY } from '../lib/meetingCenter'
 import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
 import { LETTER_KINDS } from '../lib/letterKinds'
 import { be, newId, todayISO, yearOf } from '../lib/money'
-import type { FlowStep, FlowTicks } from '../lib/types'
+import type { FlowStep, FlowTicks, Meeting } from '../lib/types'
 
 /** ขั้นสุดท้ายของทุกลำดับงาน (ใส่ให้เสมอ แก้/ลบไม่ได้): เก็บเอกสาร — ติ๊กแล้วไปคลังเอกสาร */
 const FILE_STEP: FlowStep = { id: 'file', t: 'เก็บเอกสาร', hint: 'นำเข้าไฟล์เข้าคลังเอกสาร หรือดาวน์โหลดเก็บเป็นเอกสารจริงไว้ด้วย · ติ๊กแล้วระบบพาไปคลังเอกสาร' }
@@ -175,6 +176,8 @@ export function FlowPage({ id }: { id: string }) {
  */
 function MeetingRows() {
   const ms = useMeetings()
+  const letters = useLetters('notice')
+  const addLetter = useAddLetter('notice')
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
@@ -189,6 +192,15 @@ function MeetingRows() {
     if (!ms.put([m])) { setMsg('ไม่มีสิทธิ์สร้างการประชุม'); return }
     setMsg(''); setQ('')
   }
+  /** ✉️ ใช้หน้า “หนังสือแจ้งการประชุม” เดิม (กรอก → ลงนาม → ส่งเข้าคลัง): มีฉบับของการประชุมนี้แล้วเปิดฉบับนั้น · ยังไม่มีสร้างใหม่ให้และผูกกับการประชุม */
+  const openNotice = (m: Meeting) => {
+    const cur = m.noticeLetterId ? letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
+    if (cur) { navigate(`/meeting/1/4/notice-${cur.id}`); return }
+    const r = addLetter()
+    if ('error' in r) { setMsg(r.error); return }
+    ms.put([{ ...m, noticeLetterId: r.id, updated: Date.now() }])
+    navigate(`/meeting/1/4/notice-${r.id}`)
+  }
   const go = (id: string, n: number) => { try { localStorage.setItem(MC_CUR_KEY, id) } catch { /* ignore */ } navigate(`/meeting/1/4/${n}`) }
   return (
     <section aria-label="การประชุม">
@@ -202,11 +214,13 @@ function MeetingRows() {
       <ol className="mtrows" aria-label="รายการการประชุม">
         {shown.map((m, i) => {
           const st = stepStatuses(m, ms.list)
-          const minutesOk = st[3].state === 'done' || st[6].state !== 'todo'
+          const letter = m.noticeLetterId ? letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
+          const noticeDone = !!(letter?.signed || letter?.docId) || st[3].state === 'done'
+          const minutesOk = noticeDone || st[6].state !== 'todo'
           const reportOk = st[6].state === 'done' || st[7].state !== 'todo'
           const reportStep = st[9].state === 'done' ? 10 : 7
-          const icons: { n: number; icon: string; label: string; ok: boolean; done: boolean; why: string }[] = [
-            { n: 3, icon: '✉️', label: 'หนังสือแจ้งประชุม', ok: true, done: st[3].state === 'done', why: '' },
+          const icons: { n: number; icon: string; label: string; ok: boolean; done: boolean; why: string; open?: () => void }[] = [
+            { n: 3, icon: '✉️', label: 'หนังสือแจ้งประชุม', ok: true, done: noticeDone, why: '', open: () => openNotice(m) },
             { n: 6, icon: '📝', label: 'บันทึกการประชุม', ok: minutesOk, done: st[6].state === 'done', why: 'แจ้งประชุมให้เสร็จก่อน' },
             { n: reportStep, icon: '📊', label: 'รายงานการประชุม', ok: reportOk, done: !!m.archived, why: 'บันทึกการประชุมให้เสร็จก่อน' },
           ]
@@ -215,7 +229,7 @@ function MeetingRows() {
               <span className="mtrow__n">{i + 1}</span>
               <span className="mtrow__t"><b>{m.name || 'ยังไม่ตั้งชื่อ'}</b><small>ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${m.date}` : ''}</small></span>
               {icons.map((x) => (
-                <button key={x.label} type="button" className={`mtrow__ic${x.done ? ' done' : ''}`} disabled={!x.ok} aria-label={`${x.label}${x.done ? ' (เสร็จแล้ว)' : ''}${x.ok ? '' : ` — ${x.why}`}`} title={x.ok ? x.label : x.why} onClick={() => go(m.id, x.n)}>
+                <button key={x.label} type="button" className={`mtrow__ic${x.done ? ' done' : ''}`} disabled={!x.ok} aria-label={`${x.label}${x.done ? ' (เสร็จแล้ว)' : ''}${x.ok ? '' : ` — ${x.why}`}`} title={x.ok ? x.label : x.why} onClick={() => (x.open ? x.open() : go(m.id, x.n))}>
                   <span aria-hidden="true">{x.icon}</span>{x.done && <i aria-hidden="true">✓</i>}
                 </button>
               ))}
