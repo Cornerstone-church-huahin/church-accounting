@@ -5,6 +5,7 @@ import { buildEnvelopePdf, saveBlob, shareBlob, type EnvFeed } from '../lib/pdf'
 
 const MM = 96 / 25.4 // px ต่อ มม. (หน้าจอ 96 dpi)
 const SIZES = [
+  { id: 'mine', label: 'ซองของคุณ (วัดจากไม้บรรทัด ≈ 110 × 228 มม.)', w: 228, h: 110 },
   { id: 'dl', label: 'ซอง DL (110 × 220 มม.) — ซองยาวมาตรฐาน', w: 220, h: 110 },
   { id: 'n9', label: 'ซองเบอร์ 9 (98 × 225 มม.)', w: 225, h: 98 },
   { id: 'c5', label: 'ซอง C5 (162 × 229 มม.) — ใส่ A4 พับ 2', w: 229, h: 162 },
@@ -46,18 +47,17 @@ function rulerTicks(len: number, axis: 'x' | 'y') {
 }
 
 export default function EnvelopePrint({ recipient, head, onClose }: { recipient?: string; head: EnvHead; onClose: () => void }) {
-  const [size, setSize] = useState('dl')
+  const [size, setSize] = useState('mine')
   const [cw, setCw] = useState(220), [ch, setCh] = useState(110)
-  const [headW, setHeadW] = useState(100)        // ความกว้างหัวจดหมายบนซอง (มม.)
+  const [headW, setHeadW] = useState(90)        // ความกว้างหัวจดหมายบนซอง (มม.)
   const [margin, setMargin] = useState(10)        // ระยะจากขอบซองซ้าย/บน (มม.) — เครื่องพิมพ์พิมพ์ชิดขอบเกิน ~3–5 มม. ไม่ได้
   const [withTo, setWithTo] = useState(true)
   const [to1, setTo1] = useState(recipient ?? '')   // ชื่อผู้รับ (บรรทัดที่ 1)
   const [to2, setTo2] = useState('')                // ตำแหน่ง/ที่อยู่ (บรรทัดที่ 2)
-  const [toSize, setToSize] = useState(24)          // ขนาดตัวอักษรชื่อผู้รับ (px บนหน้าจอ ≈ pt×1.33 → 18 pt) — ย่ออัตโนมัติถ้าชื่อยาวเกินความยาวซอง
+  const toSize = 13.33 // ตัวอักษรชื่อผู้รับ 10 pt ตายตัว (px บนหน้าจอ = pt × 96/72) — ย่ออัตโนมัติเฉพาะเมื่อบรรทัดยาวเกินความยาวซอง
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [feed, setFeedRaw] = useState<EnvFeed>(() => { try { const v = localStorage.getItem('acct.env.feed'); return v === 'land' || v === 'ccw' ? v : 'cw' } catch { return 'cw' } }) // ทิศทางหน้าที่ส่งให้เครื่องพิมพ์ (ซองป้อนด้านสั้นขวางถาด → แนวตั้งหมุนตามเข็มเป็นค่าตั้งต้น)
-  const setFeed = (v: EnvFeed) => { setFeedRaw(v); try { localStorage.setItem('acct.env.feed', v) } catch { /* ignore */ } }
+  const feed: EnvFeed = 'cw' // ทิศทางตายตัว: หน้าแนวตั้ง หมุนเนื้อหาตามเข็ม (หัวจดหมายมุมขวาบน) — ตรงกับซองที่ป้อนด้านสั้นขวางถาด Brother DCP-T520W
   const [test, setTest] = useState(false)           // โหมดทดสอบ: พิมพ์กรอบ+ป้ายมุมลงกระดาษธรรมดาก่อน
   // ปรับชดเชยตามเครื่องพิมพ์จริง (ซองคนละขนาดกับกระดาษที่เลือกในหน้าต่างพิมพ์ → ถูกย่อ/ขยาย หรือเลื่อน): % ทั้งหน้า · เลื่อนขวา/ลง ตามกระดาษที่วางจริง (มม.)
   const [cal, setCalRaw] = useState<{ pct: number; x: number; y: number }>(() => { try { const j = JSON.parse(localStorage.getItem('acct.env.cal') ?? 'null'); return j && typeof j.pct === 'number' ? j : { pct: 100, x: 0, y: 0 } } catch { return { pct: 100, x: 0, y: 0 } } })
@@ -66,11 +66,10 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
   const preset = SIZES.find((s) => s.id === size)!
   const W = size === 'custom' ? cw : preset.w, H = size === 'custom' ? ch : preset.h
   // เลื่อนตามกระดาษที่วางจริง (ขวา/ลง) → แกนของหน้านอนที่เราวาด
-  const tx = feed === 'land' ? cal.x : feed === 'cw' ? cal.y : -cal.y
-  const ty = feed === 'land' ? cal.y : feed === 'cw' ? -cal.x : cal.x
+  const tx = cal.y   // หมุนตามเข็ม: ลงล่าง (กระดาษ) = ขวา (หน้านอน)
+  const ty = -cal.x  // ขวา (กระดาษ) = ขึ้น (หน้านอน)
   const fitTo = fitScale([to1, to2 ? to2 : ''], toSize, (W - 2 * margin) * MM)
-  const rot = feed === 'land' ? 0 : feed === 'cw' ? 90 : -90
-  const pw = rot ? H : W, ph = rot ? W : H   // ขนาดหน้าที่ส่งให้เครื่องพิมพ์ (มม.) หลังหมุน
+  const pw = H, ph = W   // ขนาดหน้าที่ส่งให้เครื่องพิมพ์ (มม.) หลังหมุน: กว้าง = ด้านสั้นของซอง สูง = ด้านยาว
   const [fit, setFit] = useState(1)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -81,15 +80,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
     const ro = new ResizeObserver(on); ro.observe(el)
     return () => ro.disconnect()
   }, [pw])
-  // ตั้งขนาดหน้ากระดาษของการพิมพ์ตรงจากเบราว์เซอร์ให้เท่าซอง
-  useEffect(() => {
-    const st = document.createElement('style')
-    st.setAttribute('data-envelope', '1')
-    st.textContent = `@media print { @page { size: ${W}mm ${H}mm; margin: 0 } body.print-env > *:not(.sheet) { display: none !important } body.print-env .sheet { position: static !important; background: none !important; overflow: visible !important } body.print-env .sheet > .card { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-height: none !important; overflow: visible !important } body.print-env .envprint__ui { display: none !important } body.print-env .envprint__box { display: none !important } body.print-env .envprint__export { position: static !important; left: auto !important } }`
-    document.head.appendChild(st)
-    return () => { st.remove(); document.body.classList.remove('print-env') }
-  }, [W, H])
-  const file = () => `หน้าซอง-${W}x${H}${feed === 'land' ? '' : feed === 'cw' ? '-แนวตั้งหมุนขวา' : '-แนวตั้งหมุนซ้าย'}${test ? '-ทดสอบ' : ''}.pdf`
+  const file = () => `หน้าซอง-${H}x${W}${test ? '-ทดสอบ' : ''}.pdf`
   const make = async () => { if (!sheet.current) throw new Error('ยังไม่พบหน้าซอง'); return buildEnvelopePdf(sheet.current, W, H, feed) }
   const run = async (act: 'dl' | 'share') => {
     setBusy(true); setMsg('')
@@ -99,12 +90,6 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
       else if ((await shareBlob(b, file(), 'หน้าซองจดหมาย')) === 'unsupported') { saveBlob(b, file()); setMsg('เครื่องนี้แชร์ตรงไม่ได้ — ดาวน์โหลดไฟล์ให้แทนแล้ว') }
     } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
     setBusy(false)
-  }
-  const print = () => {
-    document.body.classList.add('print-env')
-    const done = () => { document.body.classList.remove('print-env'); window.removeEventListener('afterprint', done) }
-    window.addEventListener('afterprint', done)
-    window.print()
   }
   const sheetBody = (
     <>
@@ -155,18 +140,10 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
           <>
             <div className="field" style={{ margin: 0 }}><label htmlFor="env-to1">บรรทัดที่ 1 — ชื่อผู้รับ</label><input id="env-to1" className="input" value={to1} onChange={(e) => setTo1(e.target.value)} placeholder="เช่น เรียน ท่านนพพร วุฒิกุล" /></div>
             <div className="field" style={{ margin: 0 }}><label htmlFor="env-to2">บรรทัดที่ 2 — ตำแหน่ง/ที่อยู่</label><input id="env-to2" className="input" value={to2} onChange={(e) => setTo2(e.target.value)} placeholder="เช่น นายกเทศมนตรีนครหัวหิน" /></div>
-            <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>ขนาดตัวอักษร <input type="range" min={16} max={64} value={toSize} onChange={(e) => setToSize(Number(e.target.value))} aria-label="ขนาดตัวอักษรชื่อผู้รับ" style={{ flex: 1 }} /> {Math.round(toSize * 0.75)} pt</label>
           </>
         )}
       </div>
-      <fieldset className="envprint__ui" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 8px', margin: 0, display: 'grid', gap: 4 }}>
-        <legend className="small"><b>ทิศทางไฟล์ที่ส่งให้เครื่องพิมพ์</b></legend>
-        {([['land', `หน้าแนวนอน ${W}×${H} มม. (ปกติ — เครื่อง/แอปหมุนให้เอง)`], ['cw', `หน้าแนวตั้ง ${H}×${W} มม. หมุนเนื้อหาตามเข็ม (หัวจดหมายไปมุมขวาบน)`], ['ccw', `หน้าแนวตั้ง ${H}×${W} มม. หมุนเนื้อหาทวนเข็ม (หัวจดหมายไปมุมซ้ายล่าง)`]] as const).map(([v, label]) => (
-          <label key={v} className="small" style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}><input type="radio" name="env-feed" checked={feed === v} onChange={() => setFeed(v)} style={{ marginTop: 3 }} /> {label}</label>
-        ))}
-        <p className="small muted" style={{ margin: 0 }}>ซองที่ป้อนด้านสั้นขวางถาด (เหมือนในถาด Brother) มักต้องใช้แบบ “หน้าแนวตั้ง” ถ้าพิมพ์แล้วหัวจดหมายไปผิดมุม ให้ลองอีกแบบ — ใช้โหมดทดสอบลงกระดาษธรรมดาก่อน</p>
-        <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={test} onChange={(e) => setTest(e.target.checked)} /> 🧪 โหมดทดสอบ (พิมพ์กรอบซอง + ป้ายมุมซ้ายบน ลงกระดาษธรรมดา)</label>
-      </fieldset>
+      <label className="small envprint__ui" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={test} onChange={(e) => setTest(e.target.checked)} /> 🧪 โหมดทดสอบ (พิมพ์กรอบซอง + ไม้บรรทัด ลงกระดาษธรรมดา)</label>
       <fieldset className="envprint__ui" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 8px', margin: 0, display: 'grid', gap: 4 }}>
         <legend className="small"><b>ปรับให้พอดีกับเครื่องพิมพ์</b></legend>
         <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>ขนาดทั้งหน้า <input type="range" min={60} max={120} step={1} value={cal.pct} onChange={(e) => setCal({ ...cal, pct: Number(e.target.value) })} aria-label="ย่อขยายทั้งหน้า เปอร์เซ็นต์" style={{ flex: 1 }} /> {cal.pct}%</label>
@@ -177,7 +154,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
       </fieldset>
       {/* ตัวอย่าง = หน้าที่จะส่งให้เครื่องพิมพ์จริง (หมุนตามทิศทางที่เลือก) · ชุดส่งออก/พิมพ์เป็นสำเนาซ่อนไว้ด้านนอกจอ ไม่ถูกหมุน */}
       <div ref={box} className="envprint__box" style={{ position: 'relative', width: '100%', height: ph * MM * fit, overflow: 'hidden', border: '1px dashed var(--line)', borderRadius: 6, background: '#eef1f7' }} aria-label="ตัวอย่างหน้าที่ส่งให้เครื่องพิมพ์">
-        <div style={{ position: 'absolute', left: 0, top: 0, width: W * MM, height: H * MM, background: '#fff', overflow: 'hidden', transformOrigin: '0 0', transform: rot === 0 ? `scale(${fit})` : rot === 90 ? `translateX(${H * MM * fit}px) rotate(90deg) scale(${fit})` : `translateY(${W * MM * fit}px) rotate(-90deg) scale(${fit})` }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, width: W * MM, height: H * MM, background: '#fff', overflow: 'hidden', transformOrigin: '0 0', transform: `translateX(${H * MM * fit}px) rotate(90deg) scale(${fit})` }}>
           {sheetBody}
         </div>
       </div>
@@ -190,10 +167,9 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
       <div className="envprint__ui row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run('dl')}>⬇️ ดาวน์โหลด PDF</button>
         <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run('share')}>📤 แชร์ PDF</button>
-        {feed === 'land' && <button type="button" className="btn btn--ghost" disabled={busy} onClick={print}>🖨 พิมพ์</button>}
       </div>
       {msg && <p role="status" className="small envprint__ui" style={{ margin: 0 }}>{msg}</p>}
-      <p className="small muted envprint__ui" style={{ margin: 0 }}>ไฟล์ที่ได้ขนาดหน้า {feed === 'land' ? `${W}×${H}` : `${H}×${W}`} มม. พอดีกับซอง · ตั้งกระดาษในเครื่องพิมพ์เป็นซองขนาดเดียวกัน ไม่ย่อ/ขยาย (Actual size / 100%){feed !== 'land' ? ' · แนวตั้งพิมพ์จากไฟล์ PDF (ดาวน์โหลด/แชร์)' : ''}</p>
+      <p className="small muted envprint__ui" style={{ margin: 0 }}>ไฟล์ที่ได้เป็นหน้าแนวตั้ง {H}×{W} มม. พอดีกับซอง · พิมพ์จากไฟล์ PDF (ดาวน์โหลด/แชร์) · ตั้งกระดาษในเครื่องพิมพ์เป็นขนาดซองเดียวกัน ขนาดจริง 100% ไม่ใช่ “พอดีหน้า”</p>
     </Sheet>
   )
 }
