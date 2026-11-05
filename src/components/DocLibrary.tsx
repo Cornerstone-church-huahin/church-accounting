@@ -35,6 +35,7 @@ export default function DocLibrary() {
   const catStore = useDocCategories()
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
+  const [catOpen, setCatOpen] = useState(false)
   const loc = useLocation(), navigate = useNavigate()
   /** ส่งมาจากหนังสือเชิญ: เปิดรายการที่เพิ่งส่งเข้าคลังให้เห็นทันที */
   const [openFromState] = useState(() => (loc.state as { openDoc?: string } | null)?.openDoc)
@@ -57,10 +58,9 @@ export default function DocLibrary() {
         <div className="field"><label htmlFor="dl-q">🔎 ค้นหาเอกสาร</label><input id="dl-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นจากชื่อ เลขที่ หมวด หมายเหตุ ชื่อไฟล์" /></div>
         <div className="row" style={{ gap: 8, alignItems: 'end' }}>
           <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="dl-cat">📁 เลือกหมวดเอกสาร</label>
-            <select id="dl-cat" className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
-              <option value="">ทุกหมวด ({visible.length})</option>
-              {cats.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.n})</option>)}
-            </select></div>
+            <button id="dl-cat" type="button" className="input catbtn" aria-haspopup="dialog" onClick={() => setCatOpen(true)}>
+              <span>{cat === '' ? `ทุกหมวด (${visible.length})` : `${cat} (${cats.find((c) => c.name === cat)?.n ?? 0})`}</span><i aria-hidden="true">▾</i>
+            </button></div>
           {editor && <button type="button" className="btn btn--ghost" onClick={() => setManage(true)} aria-label="จัดการหมวดเอกสาร">⚙️ หมวด</button>}
         </div>
         <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
@@ -68,6 +68,17 @@ export default function DocLibrary() {
           <span className="small muted">{shown.length} เอกสาร · ใหม่สุดอยู่บน</span>
         </div>
       </section>
+      {catOpen && (
+        <Sheet title="เลือกหมวดเอกสาร" onClose={() => setCatOpen(false)}>
+          <div role="radiogroup" aria-label="หมวดเอกสาร" className="catlist">
+            {[{ name: '', n: visible.length, label: 'ทุกหมวด' }, ...cats.map((c) => ({ name: c.name, n: c.n, label: c.name }))].map((c) => (
+              <button key={c.name || 'all'} type="button" role="radio" aria-checked={cat === c.name} className={`catlist__row${cat === c.name ? ' on' : ''}`} onClick={() => { setCat(c.name); setCatOpen(false) }}>
+                <span>{c.label} ({c.n})</span><i aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
       {shown.length === 0 ? <p className="empty">{visible.length === 0 ? 'ยังไม่มีเอกสาร' : 'ไม่พบเอกสาร'}{editor && visible.length === 0 ? ' — กด “เพิ่มเอกสาร” แล้วเลือกไฟล์สำเร็จรูป' : ''}</p> : (
         <ul className="doclist" aria-label="รายการเอกสาร">
           {shown.map((d) => (
