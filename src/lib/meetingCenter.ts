@@ -122,3 +122,6 @@ export const MEETING_STEPS: MeetingStep[] = [
 ]
 
 export const stepOf = (n: number) => MEETING_STEPS.find((s) => s.n === n)
+
+/** การประชุมที่กำลังทำ (จำไว้ในเครื่อง) — หน้าศูนย์จัดการประชุมและหน้าลำดับงานใช้ร่วมกัน */
+export const MC_CUR_KEY = 'acct.mc.cur'
