@@ -482,6 +482,8 @@ export interface Meeting extends SharedItem {
   people: MtPerson[]; agenda: MtAgenda[]
   agendaOk?: { by: string; at: number }
   notice?: { channels: string[]; body?: string; sentAt?: number; ref?: string }
+  /** หนังสือแจ้งการประชุมของการประชุมนี้ (ฉบับในหน้า หนังสือแจ้งการประชุม) */
+  noticeLetterId?: string
   prep?: Record<string, boolean>
   /** จำนวนผู้มีสิทธิ์ขั้นต่ำเพื่อครบองค์ประชุม (ไม่ระบุ = มากกว่าครึ่งหนึ่งของกรรมการ+ผู้มีสิทธิ์ลงคะแนน) */
   quorumMin?: number

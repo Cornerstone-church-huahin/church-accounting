@@ -30,7 +30,12 @@ try {
   must(await p.getByText('ไม่พบเอกสาร').isVisible(), 'search filters')
   await p.getByLabel('ค้นหาเอกสารการประชุม').fill('พฤศจิกายน')
   await row.getByRole('button', { name: /^หนังสือแจ้งประชุม/ }).click()
-  await p.waitForURL(/#\/meeting\/1\/4\/3$/)
+  await p.waitForURL(/#\/meeting\/1\/4\/notice-letter/)
+  const url1 = p.url()
+  must(await p.locator('output#il-no').count() === 1, 'opens the existing notice-letter page (numbered letter)')
+  await p.goBack(); await row.getByRole('button', { name: /^หนังสือแจ้งประชุม/ }).click()
+  await p.waitForURL(/#\/meeting\/1\/4\/notice-letter/)
+  must(p.url() === url1, 'second click reopens the same letter linked to the meeting')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close(); console.log('meetingflow-test OK')
 } catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }
