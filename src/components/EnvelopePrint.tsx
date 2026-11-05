@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Sheet from './Sheet'
-import { useLetterhead, useSettings } from '../lib/data'
-import { useStoredUrl } from '../lib/useStoredUrl'
+import logoUrl from '../assets/logo.png'
 import { buildEnvelopePdf, saveBlob, shareBlob } from '../lib/pdf'
 
 const MM = 96 / 25.4 // px ต่อ มม. (หน้าจอ 96 dpi)
@@ -16,10 +15,11 @@ const SIZES = [
  * พิมพ์หน้าซอง: หัวจดหมายของคริสตจักร (โลโก้ ชื่อ ที่อยู่) อยู่มุมซ้ายบนของซอง · ผู้รับเลือกพิมพ์ด้วยได้
  * ได้ PDF ขนาดเท่าซองพอดี (ดาวน์โหลด/แชร์) หรือสั่งพิมพ์จากเครื่องนี้โดยตรง — ตั้งหัวจดหมายที่เมนูตั้งค่าหัวจดหมายของงานเลขา
  */
-export default function EnvelopePrint({ recipient, onClose }: { recipient?: string; onClose: () => void }) {
-  const lh = useLetterhead().value
-  const { settings } = useSettings()
-  const head = useStoredUrl(lh?.header?.path)
+/** หัวจดหมายตามหนังสือ: โลโก้ + ชื่อไทย + ชื่ออังกฤษ + ที่อยู่ (ค่าจากปุ่ม “แก้หัวจดหมาย” ของหนังสือ) */
+export interface EnvHead { thName: string; enName?: string; addr?: string }
+const HEAD_NATURAL_PX = 660 // ความกว้างธรรมชาติของหัวจดหมายบน A4 (ย่อ/ขยายให้เท่าความกว้างที่เลือกบนซอง)
+
+export default function EnvelopePrint({ recipient, head, onClose }: { recipient?: string; head: EnvHead; onClose: () => void }) {
   const [size, setSize] = useState('dl')
   const [cw, setCw] = useState(220), [ch, setCh] = useState(110)
   const [headW, setHeadW] = useState(130)        // ความกว้างหัวจดหมายบนซอง (มม.)
@@ -86,13 +86,20 @@ export default function EnvelopePrint({ recipient, onClose }: { recipient?: stri
       </div>
       <div ref={box} className="envprint__box" style={{ width: '100%', height: H * MM * fit, overflow: 'hidden', border: '1px dashed var(--line)', borderRadius: 6, background: '#eef1f7' }}>
         <div ref={sheet} className="envprint__sheet" aria-label="ตัวอย่างหน้าซอง" style={{ width: W * MM, height: H * MM, background: '#fff', position: 'relative', transform: `scale(${fit})`, transformOrigin: 'top left', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', left: margin * MM, top: margin * MM, width: headW * MM }}>
-            {head ? <img src={head} alt="หัวจดหมาย" style={{ width: '100%', display: 'block' }} /> : <b style={{ fontSize: 16 }}>{settings.churchName}</b>}
+          <div style={{ position: 'absolute', left: margin * MM, top: margin * MM, width: HEAD_NATURAL_PX, transform: `scale(${(headW * MM) / HEAD_NATURAL_PX})`, transformOrigin: 'top left' }}>
+            <div className="il__head" style={{ justifyContent: 'flex-start', padding: 0, gap: 12 }}>
+              <img src={logoUrl} alt="" className="il__logo" />
+              <div className="il__heads" style={{ textAlign: 'left' }}>
+                <div className="il__th">{head.thName}</div>
+                {head.enName && <div className="il__en">{head.enName}</div>}
+                {head.addr && <div className="il__addr">{head.addr}</div>}
+              </div>
+            </div>
           </div>
           {withTo && to.trim() && <div style={{ position: 'absolute', left: Math.max(margin + 8, W * 0.38) * MM, top: H * 0.46 * MM, right: margin * MM, whiteSpace: 'pre-wrap', fontSize: 15, lineHeight: 1.5, color: '#111' }}>{to}</div>}
         </div>
       </div>
-      {!head && <p className="small muted" role="note" style={{ margin: 0 }}>ยังไม่ได้ตั้งรูปหัวจดหมาย จึงใช้ชื่อคริสตจักรเป็นข้อความแทน — ตั้งรูปหัวได้ที่เมนูตั้งค่าหัวจดหมายของงานเลขา</p>}
+      <p className="small muted" style={{ margin: 0 }}>หัวจดหมายตามหนังสือ (โลโก้ ชื่อ ที่อยู่) — แก้ข้อความได้ที่ปุ่ม “แก้หัวจดหมาย” ของหนังสือ</p>
       <div className="envprint__ui row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run('dl')}>⬇️ ดาวน์โหลด PDF</button>
         <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run('share')}>📤 แชร์ PDF</button>

@@ -52,7 +52,7 @@ async function device(meId, name) {
 const body = (page) => page.getByLabel(/ข้อความในหนังสือ/)
 try {
   const admin = await device('ad1', 'แอดมิน')
-  await admin.goto(`http://localhost:${PORT}/#/meeting/1/4/notice`)
+  await admin.goto(`http://localhost:${PORT}/#/meeting/1/4/invite`)
   await admin.getByRole('button', { name: /เพิ่มหนังสือฉบับใหม่/ }).click()
   await body(admin).waitFor({ timeout: 15000 })
   await admin.getByRole('button', { name: 'พิมพ์หน้าซองจดหมาย' }).click()
@@ -62,8 +62,10 @@ try {
   const pb = await prev.boundingBox()
   must(Math.abs(pb.width / pb.height - 2) < 0.05, 'DL envelope preview is 2:1: ' + JSON.stringify(pb))
   // หัวจดหมายอยู่มุมซ้ายบน
-  const hb = await prev.locator('b, img').first().boundingBox()
+  const hb = await prev.locator('img').first().boundingBox()
   must(hb.x - pb.x < pb.width * 0.15 && hb.y - pb.y < pb.height * 0.25, 'letterhead sits at top-left: ' + JSON.stringify({ hb, pb }))
+  must((await prev.innerText()).includes('คริสตจักรศิลาเอก ภาค 7') && (await prev.innerText()).includes('Cornerstone Church 7th District') && (await prev.innerText()).includes('77110'), 'envelope carries the letter header text (names + address)')
+  await admin.screenshot({ path: '/tmp/claude-0/-home-user/40071fdd-6ce1-5923-b9bf-7ff374fad5f4/scratchpad/env.png' })
   // เปลี่ยนขนาดซองเอง
   await sheet.getByLabel('ขนาดซอง').selectOption('custom')
   await sheet.getByLabel('ความสูงซอง มม.').fill('98'); await sheet.getByLabel('ความยาวซอง มม.').fill('225')
@@ -71,7 +73,8 @@ try {
   must(Math.abs(pb2.width / pb2.height - 225 / 98) < 0.05, 'custom size follows: ' + JSON.stringify(pb2))
   // ผู้รับ (เลือกพิมพ์ได้)
   await sheet.getByLabel(/พิมพ์ชื่อ\/ที่อยู่ผู้รับ/).check()
-  must((await sheet.getByRole('textbox', { name: 'ผู้รับ', exact: true }).inputValue()).startsWith('เรียน'), 'recipient prefilled from letter')
+  await sheet.getByRole('textbox', { name: 'ผู้รับ', exact: true }).fill('เรียน ท่านนพพร วุฒิกุล')
+  must((await prev.innerText()).includes('ท่านนพพร'), 'recipient text appears on the envelope')
   // ดาวน์โหลด PDF ขนาดเท่าซอง
   const [dl] = await Promise.all([admin.waitForEvent('download'), sheet.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
   const path = await dl.path(); const buf = fs.readFileSync(path).toString('latin1')

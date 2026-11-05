@@ -491,7 +491,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
       )}
-      {env && <EnvelopePrint recipient={l.to} onClose={() => setEnv(false)} />}
+      {env && <EnvelopePrint recipient={l.to} head={{ thName: cfg.thName, enName: cfg.enName, addr: cfg.addr }} onClose={() => setEnv(false)} />}
       {done && (
         <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>
           <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
