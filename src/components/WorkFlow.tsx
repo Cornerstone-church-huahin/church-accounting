@@ -201,6 +201,15 @@ function MeetingRows() {
     ms.put([{ ...m, noticeLetterId: r.id, updated: Date.now() }])
     navigate(`/meeting/1/4/notice-${r.id}`)
   }
+  const rename = (m: Meeting) => {
+    const name = window.prompt('แก้ชื่อการประชุม', m.name)
+    if (name === null || name.trim() === m.name) return
+    setMsg(ms.put([{ ...m, name: name.trim(), updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์แก้ไข')
+  }
+  const del = (m: Meeting) => {
+    if (!window.confirm(`ลบ “${m.name || `ครั้งที่ ${m.no}/${m.year}`}” ?\n(หนังสือแจ้งประชุมที่สร้างไว้ยังอยู่ในคลังหนังสือ)`)) return
+    setMsg(ms.remove(m.id) ? '' : 'ไม่มีสิทธิ์ลบ')
+  }
   const go = (id: string, n: number) => { try { localStorage.setItem(MC_CUR_KEY, id) } catch { /* ignore */ } navigate(`/meeting/1/4/${n}`) }
   return (
     <section aria-label="การประชุม">
@@ -227,7 +236,11 @@ function MeetingRows() {
           return (
             <li key={m.id} className="mtrow">
               <span className="mtrow__n">{i + 1}</span>
-              <span className="mtrow__t"><b>{m.name || 'ยังไม่ตั้งชื่อ'}</b><small>ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${m.date}` : ''}</small></span>
+              <span className="mtrow__t"><b>{m.name || 'ยังไม่ตั้งชื่อ'}</b><small>ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${m.date}` : ''}</small>
+                <span className="mtrow__tools no-print">
+                  <button type="button" className="mini" aria-label={`แก้ไขชื่อ ${m.name || 'การประชุม'}`} onClick={() => rename(m)}>✏️ แก้ชื่อ</button>
+                  <button type="button" className="mini" aria-label={`ลบ ${m.name || 'การประชุม'} ครั้งที่ ${m.no}/${m.year}`} onClick={() => del(m)}>🗑️ ลบ</button>
+                </span></span>
               {icons.map((x) => (
                 <button key={x.label} type="button" className={`mtrow__ic${x.done ? ' done' : ''}`} disabled={!x.ok} aria-label={`${x.label}${x.done ? ' (เสร็จแล้ว)' : ''}${x.ok ? '' : ` — ${x.why}`}`} title={x.ok ? x.label : x.why} onClick={() => (x.open ? x.open() : go(m.id, x.n))}>
                   <span aria-hidden="true">{x.icon}</span>{x.done && <i aria-hidden="true">✓</i>}

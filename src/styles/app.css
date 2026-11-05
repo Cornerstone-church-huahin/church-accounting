@@ -1865,3 +1865,6 @@ span.fundpend__tog--no { cursor: default; }
 .mtrow__ic i { position: absolute; right: -4px; top: -6px; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: #1b7a52; color: #fff; font-size: 0.7rem; font-style: normal; display: grid; place-items: center; }
 .mtrow__ic:disabled { opacity: 0.4; cursor: not-allowed; }
 :root[data-theme='dark'] .mtrow__ic { background: #3a3320; }
+
+.mtrow__tools { display: flex; gap: 6px; margin-top: 3px; }
+.mtrow__tools .mini { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
