@@ -25,11 +25,12 @@ const HEAD_NATURAL_PX = 660 // ความกว้างธรรมชาต�
  * ล็อกการจัดวาง: ค่าตายตัวของหัวจดหมายบนซอง วัดเป็นมิลลิเมตร “ตามการอ่านซอง” (ถือซองให้ด้านยาวอยู่แนวนอน ด้านหน้าหันเข้าหาตัว)
  * left = ห่างจากขอบซ้ายสุด · top = ห่างจากขอบบนสุด · headW = ความยาวของหัวจดหมาย — ปรับทีละล็อกตามผลพิมพ์จริงของเครื่อง Brother DCP-T520W
  */
-export interface Lock { id: string; name: string; headW: number; left: number; top: number; /** ขนาดตัวอักษรชื่อผู้รับ (pt) */ font: number; note: string }
+export interface Lock { id: string; name: string; headW: number; left: number; top: number; /** ขนาดตัวอักษรชื่อผู้รับ (pt) */ font: number; /** เลื่อนพื้นที่ชื่อผู้รับ (มม.) ตามการอ่านซอง: + = ไปทางขวา / ลงล่าง */ toX: number; toY: number; note: string }
 export const LOCKS: Lock[] = [
-  { id: 'L2', name: 'ล็อก 2', headW: 70, left: 2, top: 20, font: 7, note: 'ขนาดตามที่คุณปรับล่าสุดแล้วพอดี (แปลงเป็นขนาดจริงบนกระดาษ: หัวจดหมายยาว ≈ 70 มม. ชื่อ-ตำแหน่ง ≈ 7 pt) + ตำแหน่งชิดซ้ายและเลื่อนลงจากขอบบน' },
-  { id: 'L1', name: 'ล็อก 1', headW: 90, left: 2, top: 22, font: 10, note: 'รอบก่อน: ขนาดใหญ่กว่า ตำแหน่งชิดซ้าย เลื่อนลงจากขอบบน' },
-  { id: 'L0', name: 'ล็อก 0 (ค่าเดิม ไว้เทียบ)', headW: 90, left: 10, top: 10, font: 10, note: 'ค่าตั้งต้นเดิม (ผลพิมพ์: ล้นขอบบน ห่างขอบซ้ายมาก)' },
+  { id: 'L1', name: 'ล็อก 1 (ไว้เทียบ)', headW: 90, left: 2, top: 22, font: 10, toX: 0, toY: 0, note: 'ผลพิมพ์จริง: โลโก้ห่างขอบซ้าย ≈ 8 มม. ห่างขอบบน ≈ 13 มม. · ชื่อผู้รับเยื้องขวาจากกลางซอง ≈ 3 มม.' },
+  { id: 'L2', name: 'ล็อก 2', headW: 90, left: 0, top: 16, font: 10, toX: 0, toY: 3.3, note: 'แก้จากผลพิมพ์ล็อก 1: โลโก้ชิดซ้ายขึ้น (≈ 6 มม.) และสูงขึ้นชิดขอบบน (≈ 7 มม.) · ชื่อผู้รับเลื่อนเข้ากลางซอง · ขนาดเดิม' },
+  { id: 'L3', name: 'ล็อก 3 (ขนาดเล็ก)', headW: 70, left: 0, top: 16, font: 7, toX: 0, toY: 3.3, note: 'ตำแหน่งเดียวกับล็อก 2 แต่ขนาดเล็กลงตามที่คุณปรับล่าสุดว่าพอดี (หัว 70 มม. ชื่อ-ตำแหน่ง 7 pt)' },
+  { id: 'L0', name: 'ล็อก 0 (ค่าเดิม ไว้เทียบ)', headW: 90, left: 10, top: 10, font: 10, toX: 0, toY: 0, note: 'ค่าตั้งต้นเดิม (ผลพิมพ์: ล้นขอบบน ห่างขอบซ้ายมาก)' },
 ]
 let measureCtx: CanvasRenderingContext2D | null = null
 /** ย่อข้อความผู้รับอัตโนมัติถ้าบรรทัดที่ยาวที่สุดยาวเกินความยาวที่พิมพ์ได้ (px) · วัดด้วย canvas ฟอนต์เดียวกับหน้าเว็บ */
@@ -87,6 +88,19 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
     const ro = new ResizeObserver(on); ro.observe(el)
     return () => ro.disconnect()
   }, [pw])
+  // พิมพ์ทันทีจากหน้าจอ: ส่งหน้าแนวตั้ง (สั้น×ยาว) ที่หมุนแล้ว ไปยังกรอบพิมพ์ซ่อน ตั้งขนาดหน้าพิมพ์เท่าซอง — ไม่ต้องบันทึก/ดาวน์โหลดก่อน
+  const printEl = useRef<HTMLDivElement>(null)
+  const print = () => {
+    const el = printEl.current
+    if (!el) return
+    const f = document.createElement('iframe')
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+    const css = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map((n) => n.outerHTML).join('')
+    f.srcdoc = `<!doctype html><html><head><meta charset="utf-8">${css}<style>@page{size:${H}mm ${W}mm;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important}.envprint__printpage{display:block!important}</style></head><body>${el.outerHTML}</body></html>`
+    f.onload = () => { window.setTimeout(() => { f.contentWindow?.focus(); f.contentWindow?.print() }, 500) }
+    document.body.appendChild(f)
+    window.setTimeout(() => f.remove(), 180_000)
+  }
   const file = () => `หน้าซอง-${H}x${W}${test ? '-ทดสอบ' : ''}.pdf`
   const make = async () => { if (!sheet.current) throw new Error('ยังไม่พบหน้าซอง'); return buildEnvelopePdf(sheet.current, W, H, feed) }
   const run = async (act: 'dl' | 'share') => {
@@ -112,7 +126,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
         </div>
       </div>
       {withTo && (to1.trim() || to2.trim()) && (
-        <div aria-label="ชื่อผู้รับ" style={{ position: 'absolute', left: margin * MM, right: margin * MM, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#111', lineHeight: 1.45 }}>
+        <div aria-label="ชื่อผู้รับ" style={{ position: 'absolute', left: margin * MM + lock.toX * MM, right: margin * MM - lock.toX * MM, top: lock.toY * MM, bottom: -lock.toY * MM, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#111', lineHeight: 1.45 }}>
           {to1.trim() && <div style={{ fontSize: toSize * fitTo, fontWeight: 700, whiteSpace: 'nowrap' }}>{to1}</div>}
           {to2.trim() && <div style={{ fontSize: toSize * 0.88 * fitTo, whiteSpace: 'nowrap' }}>{to2}</div>}
         </div>
@@ -158,7 +172,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
         {LOCKS.map((l) => (
           <label key={l.id} className="small" style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
             <input type="radio" name="env-lock" checked={lockId === l.id} onChange={() => setLockId(l.id)} style={{ marginTop: 3 }} />
-            <span><b>{l.name}</b> — หัวจดหมายยาว {l.headW} มม. · ห่างขอบซ้าย {l.left} มม. · ห่างขอบบน {l.top} มม. · ตัวอักษรชื่อ-ตำแหน่ง {l.font} pt<br /><span className="muted">{l.note}</span></span>
+            <span><b>{l.name}</b> — หัวจดหมายยาว {l.headW} มม. · ห่างขอบซ้าย {l.left} มม. · ห่างขอบบน {l.top} มม. · ตัวอักษรชื่อ-ตำแหน่ง {l.font} pt{l.toY || l.toX ? ` · ชื่อผู้รับเลื่อน ${l.toX ? `ขวา ${l.toX}` : ''}${l.toY ? ` ลง ${l.toY}` : ''} มม.` : ''}<br /><span className="muted">{l.note}</span></span>
           </label>
         ))}
         <p className="small muted" style={{ margin: 0 }}>ระยะวัดตามการอ่านซอง (ถือซองให้ด้านยาวอยู่แนวนอน ด้านหน้าหันเข้าหาตัว) · พิมพ์ “โหมดทดสอบ” แล้วถ่ายรูปส่งมา จะปรับเป็นล็อกถัดไปให้</p>
@@ -174,9 +188,15 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
           {sheetBody}
         </div>
       </div>
+      <div ref={printEl} className="envprint__printpage" aria-hidden="true" style={{ display: 'none', width: H * MM, height: W * MM, position: 'relative', overflow: 'hidden', background: '#fff' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, width: W * MM, height: H * MM, transformOrigin: '0 0', transform: `translateX(${H * MM}px) rotate(90deg)`, background: '#fff', overflow: 'hidden' }}>
+          {sheetBody}
+        </div>
+      </div>
       <p className="small muted" style={{ margin: 0 }}>หัวจดหมายตามหนังสือ (โลโก้ ชื่อ ที่อยู่) — แก้ข้อความได้ที่ปุ่ม “แก้หัวจดหมาย” ของหนังสือ</p>
       <div className="envprint__ui row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run('dl')}>⬇️ ดาวน์โหลด PDF</button>
+        <button type="button" className="btn btn--gold" disabled={busy} onClick={print}>🖨 พิมพ์ทันที</button>
+        <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run('dl')}>⬇️ ดาวน์โหลด PDF</button>
         <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run('share')}>📤 แชร์ PDF</button>
       </div>
       {msg && <p role="status" className="small envprint__ui" style={{ margin: 0 }}>{msg}</p>}
