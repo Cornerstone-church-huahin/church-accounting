@@ -12,6 +12,7 @@ import Notes from './pages/Notes'
 import Meeting, { HomeHub } from './pages/Meeting'
 import FundAccountsPage from './pages/FundAccounts'
 import FundDetailPage from './pages/FundDetail'
+import ActivityMenu from './pages/ActivityMenu'
 import BalancePage from './pages/Balance'
 import Reports from './pages/Reports'
 import More from './pages/More'
@@ -44,7 +45,7 @@ export default function App() {
           <Route path="vouchers/:id" element={<VoucherDetail />} />
           <Route path="budget" element={<Budget />} />
           <Route path="funds" element={<DetailGate><FundAccountsPage /></DetailGate>} />
-          <Route path="activity/:id" element={<DetailGate><FundDetailPage /></DetailGate>} />
+          <Route path="activity" element={<DetailGate><ActivityMenu /></DetailGate>} />
           <Route path="funds/:id" element={<DetailGate><FundDetailPage /></DetailGate>} />
           <Route path="balance/:kind" element={<DetailGate><BalancePage /></DetailGate>} />
           <Route path="land" element={<DetailGate><Land /></DetailGate>} />

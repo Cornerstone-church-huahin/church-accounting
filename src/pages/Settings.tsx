@@ -97,7 +97,7 @@ function Connect() {
 
 function Members() {
   const m = useMembers()
-  const fundTypes = useIncomeTypes().list.filter((t) => t.active && isFundType(t))
+  const fundTypes = useIncomeTypes().list.filter((t) => t.active && !t.standalone && isFundType(t))
   const cfg = getSync()
   const [inviteWork, setInviteWork] = useState(0)
   const [inviteLevel, setInviteLevel] = useState<WorkLevel>('helper')
@@ -549,7 +549,7 @@ function OpeningCard() {
   const o = useOpening()
   const accts = useAccounts()
   const types = useIncomeTypes()
-  const funds = types.list.filter((t) => t.active && isFundType(t))
+  const funds = types.list.filter((t) => t.active && !t.standalone && isFundType(t))
   const cur = o.opening
   const [date, setDate] = useState(cur?.date ?? '')
   const [fnd, setFnd] = useState<Record<string, number | null>>(() => ({ ...(cur?.funds ?? {}) }))

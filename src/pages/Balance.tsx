@@ -42,7 +42,10 @@ export default function BalancePage() {
   const sums = summarizeLoans(loans.items)
   const fundAcc = useFundAccounts()
   const { split: fsplit } = useFundPending(fundAcc.rows)
-  const fc = fundColorMap(b.funds.map((f) => f.id))
+  const standIds = new Set(input.types.filter((t) => t.standalone).map((t) => t.id))
+  const funds = b.funds.filter((f) => !standIds.has(f.id)) // เงินกิจกรรมแยกจากกองทุน
+  const fundSum = funds.reduce((s, f) => s + f.balance, 0)
+  const fc = fundColorMap(funds.map((f) => f.id))
   const dot = (c: string) => <i aria-hidden="true" style={{ display: 'inline-block', width: 11, height: 11, borderRadius: 3, background: c, marginRight: 6, verticalAlign: 'baseline' }} />
   const debt = sums.external
   const lenderNm = (l: { lender: { kind: string; fundId?: string } }) => (l.lender.kind === 'own' ? 'เงินหมุนเวียน' : fundNm(l.lender.fundId))
@@ -108,9 +111,9 @@ export default function BalancePage() {
             <div className="fundsplit__i fundsplit__i--no"><span>ยังไม่ถอน</span><b className="num">{fmtBaht(fsplit.unw)}</b></div>
           </div>
           {fsplit.act !== 0 && <p className="fundact" role="status" aria-label="เงินกิจกรรม">🎪 เงินกิจกรรม (รับ-จ่ายผ่านระหว่างจัดงาน แยกไว้ ไม่นับเป็นกองทุน): <b className="num">{fmtBaht(fsplit.act)}</b> บาท · รวมเงินสดยังนับครบ</p>}
-          <details className="fundchart"><summary>📊 กราฟเปรียบเทียบแต่ละกองทุน</summary><HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))} tone="in" /></details>
+          <details className="fundchart"><summary>📊 กราฟเปรียบเทียบแต่ละกองทุน</summary><HBars rows={funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))} tone="in" /></details>
           <ul className="fundbars" aria-label="ยอดแต่ละกองทุน">
-            {b.funds.map((f) => (
+            {funds.map((f) => (
               <li key={f.id}>
                 <Link to={`/funds/${f.id}`} style={{ borderLeft: `8px solid ${fc[f.id]}` }} className={`fundbar${f.balance < 0 ? ' fundbar--neg' : ''}`} aria-label={`${f.name} คงเหลือ ${m(f.balance)} บาท`}>
                   <span className="fundbar__top"><b>{dot(fc[f.id])}{f.name}</b><b className="num">{f.balance < 0 ? `−${m(-f.balance)}` : m(f.balance)}</b></span>
@@ -119,7 +122,7 @@ export default function BalancePage() {
                 </Link>
               </li>
             ))}
-            <li className="fundbar fundbar--total"><span className="fundbar__top"><b>รวมกองทุน</b><b className="num">{b.fundTotal < 0 ? `−${m(-b.fundTotal)}` : m(b.fundTotal)}</b></span><span className="fundbar__sub">ตั้งต้น {m(b.funds.reduce((s, f) => s + f.opening, 0))} · รับเข้า {m(b.funds.reduce((s, f) => s + f.moneyIn, 0))} · จ่ายออก {m(b.funds.reduce((s, f) => s + f.moneyOut, 0))}</span></li>
+            <li className="fundbar fundbar--total"><span className="fundbar__top"><b>รวมกองทุน</b><b className="num">{fundSum < 0 ? `−${m(-fundSum)}` : m(fundSum)}</b></span><span className="fundbar__sub">ตั้งต้น {m(funds.reduce((s, f) => s + f.opening, 0))} · รับเข้า {m(funds.reduce((s, f) => s + f.moneyIn, 0))} · จ่ายออก {m(funds.reduce((s, f) => s + f.moneyOut, 0))}</span></li>
           </ul>
           <p className="small muted">แตะที่แถบกองทุนเพื่อดูรายรับ รายจ่าย บันทึกรายจ่าย และยอดคงเหลือสุดท้าย · <Link to="/funds">ดูทุกกองทุนในหน้าเดียว ›</Link></p>
         </section>
@@ -158,7 +161,7 @@ export default function BalancePage() {
           )}
           {inn.some((l) => loanBalance(l) > 0) && <><div className="stat-title">ค้างคืนแยกตามผู้ให้ยืม (บาท)</div><HBars rows={inn.filter((l) => loanBalance(l) > 0).map((l) => ({ label: `${lenderNm(l)} → ${l.borrower ? fundNm(l.borrower) : 'ไม่ระบุ'}`, value: loanBalance(l) }))} tone="out" /></>}
           <AdvancePay loans={loans} expenses={expenses} types={types} year={year} ownBalance={b.own.balance} canWrite={can(role, 'statement') && can(role, 'voucherPay')} />
-          <LoansPanel store={loans} funds={types.filter((t) => t.active && isFundType(t))} types={types} canWrite={can(role, 'statement')} only="fund" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
+          <LoansPanel store={loans} funds={types.filter((t) => t.active && !t.standalone && isFundType(t))} types={types} canWrite={can(role, 'statement')} only="fund" title="เพิ่ม / บันทึกการคืน / แก้ไข" />
         </section>
       )}
       {kind === 'spare' && <Navigate to="/meeting" replace />}

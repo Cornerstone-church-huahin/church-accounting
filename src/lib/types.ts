@@ -19,6 +19,10 @@ export interface IncomeType extends SharedItem { name: string; order: number; ac
   /** โหมดกิจกรรม: กองทุนแบ่งเป็นกิจกรรม แต่ละกิจกรรมมีหมวดของตัวเอง */
   actMode?: boolean
   activities?: FundActivity[]
+  /** “เงินกิจกรรม”: เงินกิจกรรมแยกถาวรจากกองทุน (ไม่แสดงในรายการกองทุน ไม่ผูกยอดกับกองทุน) */
+  standalone?: boolean
+  /** ห้ามเปิดโหมดกิจกรรมให้เองอีก (กองทุนที่ย้ายกิจกรรมออกไปเงินกิจกรรมแล้ว) */
+  noActAuto?: boolean
   /** เป็นกองทุนวัตถุประสงค์ (ไม่ตั้ง = เดาจากชื่อ เช่น "กองทุน…" "สร้างอาคาร") */
   fund?: boolean }
 export interface BankAccount extends SharedItem { name: string; bank: string; last4: string
