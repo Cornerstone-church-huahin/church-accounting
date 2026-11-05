@@ -159,3 +159,12 @@ export async function shareImages(els: HTMLElement[], base: string, title: strin
   for (const f of files) saveBlob(f, f.name)
   return 'downloaded'
 }
+
+/** ซองจดหมาย: องค์ประกอบหนึ่งชิ้น (กว้าง×สูง มม. ตามจริง) → PDF หน้าเดียวขนาดเท่าซองพอดี (แนวนอน) */
+export async function buildEnvelopePdf(el: HTMLElement, wMm: number, hMm: number): Promise<Blob> {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+  const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', onclone: (_d, c) => { c.style.transform = 'none'; c.style.position = 'relative'; c.style.left = 'auto'; c.style.top = 'auto'; c.style.boxShadow = 'none' } })
+  const pdf = new jsPDF({ unit: 'mm', format: [Math.min(wMm, hMm), Math.max(wMm, hMm)], orientation: wMm >= hMm ? 'landscape' : 'portrait' })
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, wMm, hMm)
+  return pdf.output('blob')
+}
