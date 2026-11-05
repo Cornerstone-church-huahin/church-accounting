@@ -27,7 +27,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
   const [withTo, setWithTo] = useState(true)
   const [to1, setTo1] = useState(recipient ?? '')   // ชื่อผู้รับ (บรรทัดที่ 1)
   const [to2, setTo2] = useState('')                // ตำแหน่ง/ที่อยู่ (บรรทัดที่ 2)
-  const [toSize, setToSize] = useState(18)          // ขนาดตัวอักษรชื่อผู้รับ (px บนหน้าจอ ≈ pt×1.33)
+  const [toSize, setToSize] = useState(32)          // ขนาดตัวอักษรชื่อผู้รับ (px บนหน้าจอ ≈ pt×1.33 → 24 pt)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const sheet = useRef<HTMLDivElement>(null)
@@ -88,7 +88,7 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
           <>
             <div className="field" style={{ margin: 0 }}><label htmlFor="env-to1">บรรทัดที่ 1 — ชื่อผู้รับ</label><input id="env-to1" className="input" value={to1} onChange={(e) => setTo1(e.target.value)} placeholder="เช่น เรียน ท่านนพพร วุฒิกุล" /></div>
             <div className="field" style={{ margin: 0 }}><label htmlFor="env-to2">บรรทัดที่ 2 — ตำแหน่ง/ที่อยู่</label><input id="env-to2" className="input" value={to2} onChange={(e) => setTo2(e.target.value)} placeholder="เช่น นายกเทศมนตรีนครหัวหิน" /></div>
-            <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>ขนาดตัวอักษร <input type="range" min={12} max={30} value={toSize} onChange={(e) => setToSize(Number(e.target.value))} aria-label="ขนาดตัวอักษรชื่อผู้รับ" style={{ flex: 1 }} /> {Math.round(toSize * 0.75)} pt</label>
+            <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>ขนาดตัวอักษร <input type="range" min={16} max={64} value={toSize} onChange={(e) => setToSize(Number(e.target.value))} aria-label="ขนาดตัวอักษรชื่อผู้รับ" style={{ flex: 1 }} /> {Math.round(toSize * 0.75)} pt</label>
           </>
         )}
       </div>
