@@ -24,8 +24,10 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
   const [cw, setCw] = useState(220), [ch, setCh] = useState(110)
   const [headW, setHeadW] = useState(130)        // ความกว้างหัวจดหมายบนซอง (มม.)
   const [margin, setMargin] = useState(8)        // ระยะจากขอบซองซ้าย/บน (มม.) — เครื่องพิมพ์พิมพ์ชิดขอบเกิน ~3–5 มม. ไม่ได้
-  const [withTo, setWithTo] = useState(false)
-  const [to, setTo] = useState(recipient ? `เรียน ${recipient}` : '')
+  const [withTo, setWithTo] = useState(true)
+  const [to1, setTo1] = useState(recipient ?? '')   // ชื่อผู้รับ (บรรทัดที่ 1)
+  const [to2, setTo2] = useState('')                // ตำแหน่ง/ที่อยู่ (บรรทัดที่ 2)
+  const [toSize, setToSize] = useState(18)          // ขนาดตัวอักษรชื่อผู้รับ (px บนหน้าจอ ≈ pt×1.33)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const sheet = useRef<HTMLDivElement>(null)
@@ -81,8 +83,14 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
           <label className="small" style={{ flex: 1 }}>ความกว้างหัวจดหมาย (มม.)<input className="input" type="number" min={60} max={W - 2 * margin} value={headW} onChange={(e) => setHeadW(Math.max(60, Number(e.target.value) || 130))} aria-label="ความกว้างหัวจดหมายบนซอง" /></label>
           <label className="small" style={{ flex: 1 }}>ห่างขอบซ้าย/บน (มม.)<input className="input" type="number" min={4} max={30} value={margin} onChange={(e) => setMargin(Math.max(4, Number(e.target.value) || 8))} aria-label="ระยะห่างขอบซอง" /></label>
         </div>
-        <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={withTo} onChange={(e) => setWithTo(e.target.checked)} /> พิมพ์ชื่อ/ที่อยู่ผู้รับบนซองด้วย</label>
-        {withTo && <textarea className="input" rows={3} value={to} onChange={(e) => setTo(e.target.value)} aria-label="ผู้รับ" placeholder="เรียน … (ชื่อ ที่อยู่)" />}
+        <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={withTo} onChange={(e) => setWithTo(e.target.checked)} /> พิมพ์ชื่อผู้รับตรงกลางซอง</label>
+        {withTo && (
+          <>
+            <div className="field" style={{ margin: 0 }}><label htmlFor="env-to1">บรรทัดที่ 1 — ชื่อผู้รับ</label><input id="env-to1" className="input" value={to1} onChange={(e) => setTo1(e.target.value)} placeholder="เช่น เรียน ท่านนพพร วุฒิกุล" /></div>
+            <div className="field" style={{ margin: 0 }}><label htmlFor="env-to2">บรรทัดที่ 2 — ตำแหน่ง/ที่อยู่</label><input id="env-to2" className="input" value={to2} onChange={(e) => setTo2(e.target.value)} placeholder="เช่น นายกเทศมนตรีนครหัวหิน" /></div>
+            <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>ขนาดตัวอักษร <input type="range" min={12} max={30} value={toSize} onChange={(e) => setToSize(Number(e.target.value))} aria-label="ขนาดตัวอักษรชื่อผู้รับ" style={{ flex: 1 }} /> {Math.round(toSize * 0.75)} pt</label>
+          </>
+        )}
       </div>
       <div ref={box} className="envprint__box" style={{ width: '100%', height: H * MM * fit, overflow: 'hidden', border: '1px dashed var(--line)', borderRadius: 6, background: '#eef1f7' }}>
         <div ref={sheet} className="envprint__sheet" aria-label="ตัวอย่างหน้าซอง" style={{ width: W * MM, height: H * MM, background: '#fff', position: 'relative', transform: `scale(${fit})`, transformOrigin: 'top left', overflow: 'hidden' }}>
@@ -96,7 +104,12 @@ export default function EnvelopePrint({ recipient, head, onClose }: { recipient?
               </div>
             </div>
           </div>
-          {withTo && to.trim() && <div style={{ position: 'absolute', left: Math.max(margin + 8, W * 0.38) * MM, top: H * 0.46 * MM, right: margin * MM, whiteSpace: 'pre-wrap', fontSize: 15, lineHeight: 1.5, color: '#111' }}>{to}</div>}
+          {withTo && (to1.trim() || to2.trim()) && (
+            <div aria-label="ชื่อผู้รับ" style={{ position: 'absolute', left: margin * MM, right: margin * MM, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#111', lineHeight: 1.45 }}>
+              {to1.trim() && <div style={{ fontSize: toSize, fontWeight: 700 }}>{to1}</div>}
+              {to2.trim() && <div style={{ fontSize: toSize * 0.88 }}>{to2}</div>}
+            </div>
+          )}
         </div>
       </div>
       <p className="small muted" style={{ margin: 0 }}>หัวจดหมายตามหนังสือ (โลโก้ ชื่อ ที่อยู่) — แก้ข้อความได้ที่ปุ่ม “แก้หัวจดหมาย” ของหนังสือ</p>

@@ -71,10 +71,16 @@ try {
   await sheet.getByLabel('ความสูงซอง มม.').fill('98'); await sheet.getByLabel('ความยาวซอง มม.').fill('225')
   const pb2 = await prev.boundingBox()
   must(Math.abs(pb2.width / pb2.height - 225 / 98) < 0.05, 'custom size follows: ' + JSON.stringify(pb2))
-  // ผู้รับ (เลือกพิมพ์ได้)
-  await sheet.getByLabel(/พิมพ์ชื่อ\/ที่อยู่ผู้รับ/).check()
-  await sheet.getByRole('textbox', { name: 'ผู้รับ', exact: true }).fill('เรียน ท่านนพพร วุฒิกุล')
-  must((await prev.innerText()).includes('ท่านนพพร'), 'recipient text appears on the envelope')
+  // ชื่อผู้รับ 2 บรรทัด กลางซอง
+  await sheet.getByLabel('บรรทัดที่ 1 — ชื่อผู้รับ').fill('เรียน ท่านนพพร วุฒิกุล')
+  await sheet.getByLabel('บรรทัดที่ 2 — ตำแหน่ง/ที่อยู่').fill('นายกเทศมนตรีนครหัวหิน')
+  const pb3 = await prev.boundingBox()
+  const l1 = await prev.getByText('เรียน ท่านนพพร วุฒิกุล').boundingBox(), l2 = await prev.getByText('นายกเทศมนตรีนครหัวหิน').boundingBox()
+  must(l2.y > l1.y, 'two lines, second below the first')
+  must(Math.abs((l1.x + l1.width / 2) - (pb3.x + pb3.width / 2)) < pb3.width * 0.04, 'recipient centred horizontally')
+  const midY = (l1.y + l2.y + l2.height) / 2
+  must(Math.abs(midY - (pb3.y + pb3.height / 2)) < pb3.height * 0.1, 'recipient centred vertically: ' + JSON.stringify({ midY, mid: pb3.y + pb3.height / 2 }))
+  await admin.screenshot({ path: '/tmp/claude-0/-home-user/40071fdd-6ce1-5923-b9bf-7ff374fad5f4/scratchpad/env2.png' })
   // ดาวน์โหลด PDF ขนาดเท่าซอง
   const [dl] = await Promise.all([admin.waitForEvent('download'), sheet.getByRole('button', { name: /ดาวน์โหลด PDF/ }).click()])
   const path = await dl.path(); const buf = fs.readFileSync(path).toString('latin1')
