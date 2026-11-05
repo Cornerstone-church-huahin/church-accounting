@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react'
 import Sheet from './Sheet'
 import { useFundDeposits } from '../lib/data'
 import type { FundAccount } from '../lib/fundAccounts'
-import { fundPending, isWithdrawRec, wdBase, wdId, type PendingRow } from '../lib/fundPending'
+import { useFundPending } from '../lib/useFundPending'
+import { isWithdrawRec, wdBase, wdId, type PendingRow } from '../lib/fundPending'
 import { fmtBaht, fmtDate, todayISO, weekRange } from '../lib/money'
 
 /**
@@ -12,10 +13,10 @@ import { fmtBaht, fmtDate, todayISO, weekRange } from '../lib/money'
 /** ตาราง "เตรียมนำฝาก" + ปุ่ม ฝากแล้ว / ถอนแล้ว — ใช้ทั้งในแผ่นที่มุมการ์ดเงินกองทุนและหน้า "เตรียมนำฝาก" */
 export function FundPendingBody({ funds, canWrite }: { funds: FundAccount[]; canWrite: boolean }) {
   const store = useFundDeposits()
+  const { sum } = useFundPending(funds)
   const [msg, setMsg] = useState('')
   const [ask, setAsk] = useState<string | null>(null)   // แถว “ยังไม่ถอน” ที่กำลังถามวันที่ถอน
   const [askDate, setAskDate] = useState(todayISO())
-  const sum = fundPending(funds, store.items)
   const depositRec = (r: { key: string; week: string; fundId: string; recorded: number }) => ({ id: r.key, updated: 0, week: r.week, fundId: r.fundId, amount: r.recorded, on: todayISO() })
   const mark = (r: { key: string; week: string; fundId: string; recorded: number }) => store.put([depositRec(r)])
   const undo = (key: string) => store.remove(key)
@@ -89,9 +90,8 @@ export function FundPendingBody({ funds, canWrite }: { funds: FundAccount[]; can
 }
 
 export default function FundPendingPanel({ funds, canWrite }: { funds: FundAccount[]; canWrite: boolean }) {
-  const store = useFundDeposits()
+  const { sum } = useFundPending(funds)
   const [open, setOpen] = useState(false)
-  const sum = fundPending(funds, store.items)
   return (
     <>
       <button type="button" className="fundpend__btn" onClick={() => setOpen(true)} aria-label={`เตรียมนำฝาก ${sum.waiting.length} รายการ`}>

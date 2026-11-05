@@ -64,7 +64,6 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
           {!inMeeting && <div className="page-head no-print"><h1>บัญชีคริสตจักรศิลาเอก</h1></div>}
           {!inMeeting && <Link to="/meeting" className="worknav no-print"><span aria-hidden="true">🧑‍🤝‍🧑</span><span className="grow"><b>ห้องทำงาน</b><br /><small>ตารางงาน · บันทึกโน้ต · งานเลขา · ทะเบียน · เหรัญญิก</small></span><span aria-hidden="true">›</span></Link>}
           {can(role, 'detail') && <>
-          <p className="home-label no-print">เงินคริสตจักร ณ วันนี้ <span>(แตะดูรายละเอียด)</span></p>
           <BalanceStrip />
           </>}
           {skipped.count > 0 && dismissed !== String(skipped.total) && (

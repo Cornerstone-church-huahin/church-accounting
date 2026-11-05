@@ -95,3 +95,29 @@ export function autoActivities(t: IncomeType, dateOf: (subId: string) => string 
   const r = applyWizard(t, rows, {})
   return 'error' in r ? { actMode: true, activities: t.activities ?? [] } : r
 }
+
+/**
+ * เงินกิจกรรม = เงินที่รับ-จ่ายผ่านระหว่างจัดงาน (หมวดที่สังกัดกิจกรรมของกองทุนโหมดกิจกรรม) — ไม่ใช่เงินกองทุนที่เก็บสะสม
+ * กองทุนถาวรของกองทุนนั้น = ส่วนกลาง (รายการที่ไม่ได้อยู่ในกิจกรรมใด) · กิจกรรมที่ปิดแล้วแต่ยังไม่ได้โอนส่วนเหลือ ยังนับเป็นเงินกิจกรรมจนกว่าจะโอน
+ */
+export function activitySubIds(types: IncomeType[]): Map<string, Set<string>> {
+  const m = new Map<string, Set<string>>()
+  for (const t of types) {
+    if (!t.actMode) continue
+    const ids = new Set((t.subs ?? []).filter((s) => s.actId).map((s) => s.id))
+    if (ids.size) m.set(t.id, ids)
+  }
+  return m
+}
+export function activityMoney(funds: FundAccount[], types: IncomeType[]): { total: number; per: Map<string, number> } {
+  const subs = activitySubIds(types)
+  const per = new Map<string, number>()
+  let total = 0
+  for (const f of funds) {
+    const ids = subs.get(f.id)
+    if (!ids) continue
+    const v = f.moves.filter((m) => m.subId && ids.has(m.subId)).reduce((s, m) => s + m.amount, 0)
+    if (v !== 0) { per.set(f.id, v); total += v }
+  }
+  return { total, per }
+}
