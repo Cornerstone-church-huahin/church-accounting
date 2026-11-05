@@ -1832,3 +1832,12 @@ span.fundpend__tog--no { cursor: default; }
 .quota--low { border-color: #b3261e; } .quota--warn { border-color: #d49a00; }
 .quota__nums, .quota__calls, .quota__tip { margin: 0; font-size: 0.8rem; line-height: 1.35; }
 .quota__tip { color: #b3261e; font-weight: 600; }
+
+/* เงินคริสตจักร ณ วันนี้: บรรทัดเดียว ชื่อซ้าย · รวมเงินสด (ตัวหนังสือเฉย ๆ ไม่มีไอคอน) ขวา · ช่อง 3 = เงินกิจกรรม */
+.moneystrip__cap { display: flex !important; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: nowrap; }
+.moneystrip__cap .cashtotal { color: #c62828; text-decoration: none; font-size: 0.85rem; white-space: nowrap; }
+.moneystrip__cap .cashtotal b { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+:root[data-theme='dark'] .moneystrip__cap .cashtotal { color: #ff8a80; }
+.btile--act { background: #1b7a52; }
+
+.fundact { margin: 2px 0 6px; font-size: 0.8rem; padding: 4px 8px; border-radius: 8px; background: #e3f4ec; color: #14573a; }

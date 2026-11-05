@@ -6,8 +6,8 @@ import LoansPanel from '../components/LoansPanel'
 import AdvancePay from '../components/AdvancePay'
 import DebtBanner from '../components/DebtBanner'
 import { can } from '../lib/access'
-import { useExpenses, useFundDeposits, useLoans } from '../lib/data'
-import { fundPending, fundSplit } from '../lib/fundPending'
+import { useExpenses, useLoans } from '../lib/data'
+import { useFundPending } from '../lib/useFundPending'
 import { isFundType } from '../lib/funds'
 import { loanBalance, repaidOf, summarizeLoans } from '../lib/loans'
 import { useRole } from '../lib/members'
@@ -41,8 +41,7 @@ export default function BalancePage() {
   const inn = loans.items.filter((l) => l.lender.kind !== 'person')
   const sums = summarizeLoans(loans.items)
   const fundAcc = useFundAccounts()
-  const fdep = useFundDeposits()
-  const fsplit = useMemo(() => fundSplit(fundAcc.rows, fundPending(fundAcc.rows, fdep.items)), [fundAcc.rows, fdep.items])
+  const { split: fsplit } = useFundPending(fundAcc.rows)
   const fc = fundColorMap(b.funds.map((f) => f.id))
   const dot = (c: string) => <i aria-hidden="true" style={{ display: 'inline-block', width: 11, height: 11, borderRadius: 3, background: c, marginRight: 6, verticalAlign: 'baseline' }} />
   const debt = sums.external
@@ -103,11 +102,12 @@ export default function BalancePage() {
         <section className="card" aria-label="เงินกองทุน">
           <div className="cardhead cardhead--fund"><h2>💰 เงินกองทุน</h2><FundPendingPanel funds={fundAcc.rows} canWrite={can(role, 'statement')} /></div>
           <div className="fundsplit" role="status" aria-label="เงินกองทุนทั้งหมด แยกในบัญชี ถอนแล้ว และยังไม่ถอน">
-            <div className="fundsplit__i fundsplit__i--all"><span>รวมทุกกองทุน</span><b className="num">{fmtBaht(b.fundTotal)}</b></div>
-            <div className="fundsplit__i fundsplit__i--acct"><span>ในบัญชีกองทุน</span><b className="num">{fmtBaht(b.fundTotal - fsplit.wait - fsplit.unw)}</b></div>
+            <div className="fundsplit__i fundsplit__i--all"><span>{fsplit.act !== 0 ? "รวมกองทุน (ไม่รวมเงินกิจกรรม)" : "รวมทุกกองทุน"}</span><b className="num">{fmtBaht(b.fundTotal - fsplit.act)}</b></div>
+            <div className="fundsplit__i fundsplit__i--acct"><span>ในบัญชีกองทุน</span><b className="num">{fmtBaht(b.fundTotal - fsplit.wait - fsplit.unw - fsplit.act)}</b></div>
             <div className="fundsplit__i fundsplit__i--out"><span>ถอนแล้ว รอนำฝาก</span><b className="num">{fmtBaht(fsplit.wait)}</b></div>
             <div className="fundsplit__i fundsplit__i--no"><span>ยังไม่ถอน</span><b className="num">{fmtBaht(fsplit.unw)}</b></div>
           </div>
+          {fsplit.act !== 0 && <p className="fundact" role="status" aria-label="เงินกิจกรรม">🎪 เงินกิจกรรม (รับ-จ่ายผ่านระหว่างจัดงาน แยกไว้ ไม่นับเป็นกองทุน): <b className="num">{fmtBaht(fsplit.act)}</b> บาท · รวมเงินสดยังนับครบ</p>}
           <details className="fundchart"><summary>📊 กราฟเปรียบเทียบแต่ละกองทุน</summary><HBars rows={b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))} tone="in" /></details>
           <ul className="fundbars" aria-label="ยอดแต่ละกองทุน">
             {b.funds.map((f) => (

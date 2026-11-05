@@ -46,7 +46,8 @@ export const isWithdrawRec = (d: { id: string }) => d.id.startsWith('wd:')
 /**
  * "เตรียมนำฝาก": เรียงเก่า→ใหม่ต่อเนื่อง · กด "ฝากแล้ว" บันทึกว่านำเงินเข้าบัญชีกองทุนแล้ว · ยอดสัปดาห์เดิมที่เพิ่มขึ้นทีหลังจะกลับมารอใหม่เฉพาะส่วนเพิ่ม
  */
-export function fundPending(funds: FundAccount[], deposits: FundDeposit[]): PendingSummary {
+/** skip: รายการที่ไม่ต้องนำฝาก เช่น เงินกิจกรรม (หมวดสังกัดกิจกรรม) — เงินผ่านที่ยังอยู่ในบัญชีหลัก ไม่ใช่เงินที่ต้องนำเข้าบัญชีกองทุน */
+export function fundPending(funds: FundAccount[], deposits: FundDeposit[], skip?: (fundId: string, subId?: string) => boolean): PendingSummary {
   const live = deposits.filter((d) => !d.deleted)
   const dep = new Map(live.filter((d) => !isWithdrawRec(d)).map((d) => [d.id, d]))
   const wd = new Map<string, FundDeposit[]>()
@@ -56,6 +57,7 @@ export function fundPending(funds: FundAccount[], deposits: FundDeposit[]): Pend
     const auto = new Map<string, number>(), direct = new Map<string, number>()
     for (const m of f.moves) {
       if (m.amount <= 0) continue
+      if (skip?.(f.id, m.subId)) continue
       const w = sheetSunday(m.date)
       if (isAuto(m)) auto.set(w, (auto.get(w) ?? 0) + m.amount)
       else if (isDirect(m)) direct.set(w, (direct.get(w) ?? 0) + m.amount)
@@ -91,17 +93,18 @@ export function withdrawnInWeek(deposits: FundDeposit[], sunday: string, nameOf:
 /**
  * แตกยอดคงเหลือกองทุนเป็น 3 ที่: ในบัญชีกองทุน · ถอนแล้วรอนำฝาก (เงินสด) · ยังไม่ถอน — ผลรวม 3 ที่ = ยอดคงเหลือเสมอ (ไม่นับซ้ำ)
  */
-export function fundSplit(funds: FundAccount[], sum: PendingSummary) {
+export function fundSplit(funds: FundAccount[], sum: PendingSummary, actPer: Map<string, number> = new Map()) {
   const waitBy = new Map<string, number>(), unBy = new Map<string, number>()
   for (const r of sum.waiting) waitBy.set(r.fundId, (waitBy.get(r.fundId) ?? 0) + r.pending)
   for (const r of sum.unwithdrawn) unBy.set(r.fundId, (unBy.get(r.fundId) ?? 0) + r.recorded)
-  const per = new Map<string, { w: number; u: number; acct: number }>()
-  let W = 0, U = 0, T = 0
+  const per = new Map<string, { w: number; u: number; act: number; acct: number }>()
+  let W = 0, U = 0, A = 0, T = 0
   for (const f of funds) {
-    const w = Math.min(waitBy.get(f.id) ?? 0, Math.max(0, f.balance))
-    const u = Math.min(unBy.get(f.id) ?? 0, Math.max(0, f.balance - w))
-    per.set(f.id, { w, u, acct: f.balance - w - u })
-    W += w; U += u; T += f.balance
+    const act = Math.min(actPer.get(f.id) ?? 0, Math.max(0, f.balance))
+    const w = Math.min(waitBy.get(f.id) ?? 0, Math.max(0, f.balance - act))
+    const u = Math.min(unBy.get(f.id) ?? 0, Math.max(0, f.balance - act - w))
+    per.set(f.id, { w, u, act, acct: f.balance - act - w - u })
+    W += w; U += u; A += act; T += f.balance
   }
-  return { per, wait: W, unw: U, acct: T - W - U, total: T }
+  return { per, wait: W, unw: U, act: A, acct: T - W - U - A, total: T }
 }

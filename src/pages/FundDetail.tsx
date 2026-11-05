@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { fmtBaht, fmtDate, sheetSunday, sundaysOf, todayISO } from '../lib/money'
+import { fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO } from '../lib/money'
 import WeekBar from '../components/WeekBar'
 import PickDock, { SheetTick } from '../components/PickDock'
 import { useYear } from '../lib/year'
@@ -9,7 +9,7 @@ import { isLoanMove, type FundScope } from '../lib/fundScope'
 import { useFundAccounts } from './FundAccounts'
 import { FundSheetPaper } from '../components/PaperSheets'
 import { fundSheets } from '../lib/fundSheet'
-import { useSettings } from '../lib/data'
+import { useExpenses, useIncome, useSettings } from '../lib/data'
 import { can, myFunds } from '../lib/access'
 import { useRole } from '../lib/members'
 import type { CatalogOps } from '../components/CatalogManager'
@@ -28,6 +28,9 @@ export default function FundDetailPage() {
   const { id } = useParams()
   const { year } = useYear()
   const { rows, opening, loans, types } = useFundAccounts()
+  const todayY = new Date().getFullYear()
+  const expT = useExpenses(todayY) // ใช้ตอนปิดกิจกรรม: บันทึกการโอนส่วนเหลือ
+  const incT = useIncome(todayY)
   const [catOpen, setCatOpen] = useState(false) // เปิด/ปิดส่วนจัดการหมวด (ปิดไว้ก่อนให้หน้าไม่ยาว)
   const [picked, setPicked] = useState<string[]>([]) // แผ่นงานที่ติ๊กไว้ (in · out · fin · fout)
   const sheetsBox = useRef<HTMLDivElement>(null)
@@ -96,6 +99,34 @@ export default function FundDetailPage() {
   const del = (id: string, nm: string) => { if (!t) return; const has = f.moves.some((m) => m.subId === id); if (confirm(has ? `หมวด “${nm}” มีรายการแล้ว จะเก็บถาวร (ซ่อนจากตัวเลือก แต่รายงานยังเห็น) — ต้องการหรือไม่?` : `ลบหมวด “${nm}” ?`)) { saveSubs(removeSub(t, id, has)); if (pick === id) setPick(null) } }
   const saveActs = (next: NonNullable<typeof t>['activities']) => { if (t) types.put([{ ...t, activities: next }]) }
   const patchAct = (id: string, patch: Partial<NonNullable<typeof act>>) => saveActs((t?.activities ?? []).map((a) => (a.id === id ? { ...a, ...patch } : a)))
+  /**
+   * ปิดกิจกรรม + โอนส่วนเหลือเข้ากองทุนกิจกรรม (ส่วนกลาง): ตัดยอดเหลือออกจากหมวดของกิจกรรม แล้วบันทึกเป็นเงินเข้ากองทุน (ยังไม่ถอน → ไปรอในหน้าเตรียมนำฝาก)
+   * ยอดรวมกองทุนไม่เปลี่ยน — แค่ย้ายจาก “เงินกิจกรรม” ไปเป็น “กองทุนกิจกรรม” · ติดลบ = ไม่โอน (แจ้งเตือน)
+   */
+  const closeAct = () => {
+    if (!t || !act) return
+    const ids = actSubIds(t, act.id)
+    const left = actAccount(f, ids).balance
+    const today = todayISO()
+    let ok = true
+    if (left < 0) ok = window.confirm(`กิจกรรม “${act.name}” ติดลบ ${fmtBaht(-left)} บาท — ปิดกิจกรรมโดยไม่โอนส่วนเหลือ ตกลงไหม?`)
+    else if (left > 0) {
+      const ans = window.prompt(`ปิดกิจกรรม “${act.name}”\nยอดเหลือ ${fmtBaht(left)} บาท — โอนเข้ากองทุนกิจกรรม (ส่วนกลาง) กี่บาท? (ใส่ 0 = ไม่โอน)`, String(left / 100))
+      if (ans === null) return
+      const baht = Number(ans.replace(/,/g, ''))
+      const sat = Math.round(baht * 100)
+      if (!Number.isFinite(baht) || baht < 0 || sat > left) { alert('ใส่จำนวนที่ไม่เกินยอดเหลือของกิจกรรม'); return }
+      if (sat > 0) {
+        // ตัดออกจากหมวดที่มียอดมากสุดก่อน
+        const subsBal = ids.map((id) => ({ id, bal: f.moves.filter((m) => m.subId === id).reduce((n, m) => n + m.amount, 0) })).filter((x) => x.bal > 0).sort((a, b) => b.bal - a.bal)
+        let rest = sat
+        const outs = subsBal.flatMap((x) => { const part = Math.min(rest, x.bal); rest -= part; return part > 0 ? [{ id: newId('ex'), channel: 'manual' as const, date: today, amount: part, desc: `โอนส่วนเหลือเข้ากองทุนกิจกรรม (${act.name})`, fundId: f.id, subId: x.id, status: 'paid' as const, method: 'transfer' as const, updated: 0 }] : [] })
+        ok = expT.put(outs) && incT.put([{ id: newId('in'), date: today, typeId: f.id, amount: sat, method: 'transfer', note: `โอนส่วนเหลือจากกิจกรรม ${act.name}`, source: 'manual', fz: true, updated: 0 } as never])
+        if (!ok) { alert('บันทึกการโอนไม่สำเร็จ (ไม่มีสิทธิ์?) — ยังไม่ได้ปิดกิจกรรม'); return }
+      }
+    }
+    if (ok) patchAct(act.id, { closed: { date: today } })
+  }
   const visibleActs = acts.filter((a) => !keeperOnly || actSubIds(t, a.id).some((i) => keeperOnly.includes(i)))
   if (actMode && !act) {
     return (
@@ -159,7 +190,7 @@ export default function FundDetailPage() {
         onReport={() => setReport('prog')} onGoals={(goals) => patchAct(act.id, { goals })} />}
       {act && actTab === 'eval' && <ActEvaluation act={act} canManage={canManage} onReport={() => setReport('eval')}
         onSaveEval={(ev) => patchAct(act.id, { eval: ev })}
-        onClose={() => patchAct(act.id, { closed: { date: new Date().toISOString().slice(0, 10) } })}
+        onClose={closeAct}
         onReopen={() => patchAct(act.id, { closed: undefined })} />}
       {(!act || actTab === 'acct') && (<>
       {act?.closed && <p className="role-bar no-print" role="status">🔒 กิจกรรมนี้ปิดแล้ว — ดูได้อย่างเดียว (แอดมินเปิดกิจกรรมอีกครั้งได้เพื่อบันทึกเพิ่ม)</p>}
