@@ -1841,3 +1841,12 @@ span.fundpend__tog--no { cursor: default; }
 .btile--act { background: #1b7a52; }
 
 .fundact { margin: 2px 0 6px; font-size: 0.8rem; padding: 4px 8px; border-radius: 8px; background: #e3f4ec; color: #14573a; }
+
+/* เลือกหมวดเอกสาร: รายการของแอปเอง อักษรเล็กพอดีหนึ่งแถว (ของมือถือปรับขนาดไม่ได้) */
+.catbtn { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; text-align: left; font-size: 0.9rem; cursor: pointer; }
+.catbtn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catlist { display: flex; flex-direction: column; }
+.catlist__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 0.7rem 0.2rem; border: 0; border-bottom: 1px solid var(--line, #ddd); background: none; text-align: left; font-size: 0.82rem; white-space: nowrap; cursor: pointer; }
+.catlist__row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.catlist__row i { flex: none; width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 2px solid #1f5fbf; }
+.catlist__row.on i { background: radial-gradient(#1f5fbf 45%, transparent 50%); }
