@@ -4,6 +4,7 @@ import SplitLayout from './SplitLayout'
 import { Link, useNavigate } from 'react-router-dom'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
+import EnvelopePrint from './EnvelopePrint'
 import logoUrl from '../assets/logo.png'
 import { useDocCategories, useDocLibrary, useLetters, useLetterSettings } from '../lib/data'
 import { LETTER_KINDS, type LetterKindId } from '../lib/letterKinds'
@@ -202,6 +203,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const [env, setEnv] = useState(false)
   const first = useRef(true)
   const set = (patch: Partial<Draft>) => setL((p) => ({ ...p, ...patch }))
   // บันทึกอัตโนมัติ (หน่วงเล็กน้อย) — ร่วมกันทุกเครื่อง
@@ -478,6 +480,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
           ))}
+          <button type="button" className="btn btn--ghost" disabled={busy} aria-label="พิมพ์หน้าซองจดหมาย" onClick={() => setEnv(true)}>✉️ หน้าซอง</button>
         </div>
         {menu && (
           <div className="row" role="group" aria-label={`เลือกชนิดไฟล์ที่จะ${menu === 'share' ? 'แชร์' : 'ดาวน์โหลด'}`} style={{ gap: 8, justifyContent: 'center' }}>
@@ -488,6 +491,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
       )}
+      {env && <EnvelopePrint recipient={l.to} onClose={() => setEnv(false)} />}
       {done && (
         <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>
           <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
