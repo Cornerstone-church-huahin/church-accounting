@@ -6,7 +6,7 @@ import { useBalances } from './useBalances'
 import { computeLedger } from './weekLedger'
 
 /** สถานะการเงินปัจจุบัน: เงินหมุนเวียน + รายจ่าย/สุทธิย้อนหลัง (ใช้ข้อมูลชุดเดียวกับแถบเงินคริสตจักร) */
-export function useChurchHealth(year: number): { health: Health; own: number; fund: number } {
+export function useChurchHealth(year: number): { health: Health; own: number; fund: number; act: number } {
   const { balances: b, input, opening } = useBalances(year)
   return useMemo(() => {
     const today = todayISO(), floor = ownFrom(opening)
@@ -15,6 +15,6 @@ export function useChurchHealth(year: number): { health: Health; own: number; fu
       return { inn: L.inSum.cash + L.inSum.transfer, out: L.outSum.cash + L.outSum.transfer + L.outSum.pending }
     }
     const w8 = flow(addDays(today, -55), today), w4 = flow(addDays(today, -27), today), p4 = flow(addDays(today, -55), addDays(today, -28))
-    return { health: healthOf(b.own.balance, w8.out, w4.inn - w4.out, p4.inn - p4.out), own: b.own.balance, fund: b.fundTotal }
+    return { health: healthOf(b.own.balance, w8.out, w4.inn - w4.out, p4.inn - p4.out), own: b.own.balance, fund: b.fundTotal, act: b.act }
   }, [b, input, opening])
 }

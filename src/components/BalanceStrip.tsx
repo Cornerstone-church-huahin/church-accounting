@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { useIncomeTypes, useLoans } from '../lib/data'
-import { activityMoney } from '../lib/fundActs'
-import { useFundAccounts } from '../pages/FundAccounts'
+import { useLoans } from '../lib/data'
 import { summarizeLoans } from '../lib/loans'
 import { useRole } from '../lib/members'
 import { fmtBaht } from '../lib/money'
@@ -15,10 +13,8 @@ export default function BalanceStrip({ compact }: { compact?: boolean }) {
   const role = useRole()
   const { balances: b } = useBalances(year)
   const ls = summarizeLoans(useLoans().items)
-  const fa = useFundAccounts()
-  const types = useIncomeTypes()
   // เงินกิจกรรม (รับ-จ่ายผ่านระหว่างจัดงาน) แยกออกจากกองทุนถาวร · รวมเงินสดยังเป็นยอดทั้งหมด ตรงกับเงินจริง
-  const act = activityMoney(fa.rows, types.list).total
+  const act = b.act
   const actTo = '/activity'
   if (!can(role, 'detail')) return null
   return (
@@ -29,7 +25,7 @@ export default function BalanceStrip({ compact }: { compact?: boolean }) {
     </p>
     <nav className={`balance-tiles no-print${compact ? ' balance-tiles--strip' : ''}`} aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
       <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>
-      <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal - act, { dec: false })}</b></Link>
+      <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal, { dec: false })}</b></Link>
       <Link to="/balance/total" className="btile btile--total"><small>🧮 รวมเงินสด</small><b>{fmtBaht(b.total, { dec: false })}</b></Link>
       <Link to="/balance/indebt" className="btile btile--indebt"><small>🔁 หนี้ภายใน</small><b>{fmtBaht(ls.fromFunds, { dec: false })}</b></Link>
       <Link to="/balance/debt" className="btile btile--debt"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>

@@ -127,7 +127,7 @@ export default function WeekFile({ year, a, sunday, church }: { year: number; a:
   const net = (r: { from: string; to: string }) => { const l = computeLedger({ range: r, ...a } as Parameters<typeof computeLedger>[0]); return l.inSum.cash + l.inSum.transfer - l.outSum.cash - l.outSum.transfer - l.outSum.pending }
   const summary = { inn: L.inSum, funds: fundOut, pending, out: L.outSum, balance: circulatingOnly(balances, a.loans as never), asOf, net: { week: net(week), month: net(rangeOf('month', year, { month: Number(sunday.slice(5, 7)) })), year: net(rangeOf('year', year)) }, lent: ownLent(a.loans as never, asOf) }
   const ls = summarizeLoans(a.loans as never, asOf)
-  const tiles: [string, string][] = [['🏠 หมุนเวียน', fmtBaht(balances.own.balance, { dec: false })], ['💰 กองทุน', fmtBaht(balances.fundTotal, { dec: false })], ['🧮 รวมเงินสด', fmtBaht(balances.total, { dec: false })], ['🔁 หนี้ภายใน', fmtBaht(ls.fromFunds, { dec: false })], ['🧾 หนี้ภายนอก', fmtBaht(ls.external, { dec: false })], ['🏞️ ภาระที่ดิน', '6,000,000']]
+  const tiles: [string, string][] = [['🏠 หมุนเวียน', fmtBaht(balances.own.balance, { dec: false })], ['💰 กองทุน', fmtBaht(balances.fundTotal, { dec: false })], [balances.act !== 0 ? `🧮 รวมเงินสด (รวมเงินกิจกรรม ${fmtBaht(balances.act, { dec: false })})` : '🧮 รวมเงินสด', fmtBaht(balances.total, { dec: false })], ['🔁 หนี้ภายใน', fmtBaht(ls.fromFunds, { dec: false })], ['🧾 หนี้ภายนอก', fmtBaht(ls.external, { dec: false })], ['🏞️ ภาระที่ดิน', '6,000,000']]
   const [retry, setRetry] = useState(0)
   const paths = photos.map((p) => p.x.file?.path ?? '').join('|')
   useEffect(() => { prefetchBinaries(getSync(), paths.split('|')) }, [paths])
