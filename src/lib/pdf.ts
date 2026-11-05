@@ -160,11 +160,28 @@ export async function shareImages(els: HTMLElement[], base: string, title: strin
   return 'downloaded'
 }
 
-/** ซองจดหมาย: องค์ประกอบหนึ่งชิ้น (กว้าง×สูง มม. ตามจริง) → PDF หน้าเดียวขนาดเท่าซองพอดี (แนวนอน) */
-export async function buildEnvelopePdf(el: HTMLElement, wMm: number, hMm: number): Promise<Blob> {
+/**
+ * ซองจดหมาย: องค์ประกอบหนึ่งชิ้น (กว้าง×สูง มม. ตามจริง แนวนอน) → PDF หน้าเดียวขนาดเท่าซอง
+ * feed: land = หน้านอน (เครื่อง/แอปหมุนให้เอง) · cw / ccw = ส่งหน้าแนวตั้ง (สั้น×ยาว) โดยหมุนเนื้อหา 90° ตามเข็ม / ทวนเข็ม
+ * — ใช้เมื่อซองถูกป้อนด้านสั้นขวางถาด (ด้านยาวไปตามทางป้อน) แล้วเครื่องพิมพ์ไม่หมุนหน้านอนให้ถูกทาง
+ */
+export type EnvFeed = 'land' | 'cw' | 'ccw'
+export async function buildEnvelopePdf(el: HTMLElement, wMm: number, hMm: number, feed: EnvFeed = 'land'): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
-  const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', onclone: (_d, c) => { c.style.transform = 'none'; c.style.position = 'relative'; c.style.left = 'auto'; c.style.top = 'auto'; c.style.boxShadow = 'none' } })
-  const pdf = new jsPDF({ unit: 'mm', format: [Math.min(wMm, hMm), Math.max(wMm, hMm)], orientation: wMm >= hMm ? 'landscape' : 'portrait' })
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, wMm, hMm)
+  let canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', onclone: (_d, c) => { c.style.transform = 'none'; c.style.position = 'relative'; c.style.left = 'auto'; c.style.top = 'auto'; c.style.boxShadow = 'none' } })
+  if (feed === 'land') {
+    const pdf = new jsPDF({ unit: 'mm', format: [Math.min(wMm, hMm), Math.max(wMm, hMm)], orientation: wMm >= hMm ? 'landscape' : 'portrait' })
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, wMm, hMm)
+    return pdf.output('blob')
+  }
+  const r = document.createElement('canvas')
+  r.width = canvas.height; r.height = canvas.width
+  const g = r.getContext('2d')
+  if (!g) throw new Error('สร้างภาพไม่สำเร็จ')
+  if (feed === 'cw') { g.translate(r.width, 0); g.rotate(Math.PI / 2) } else { g.translate(0, r.height); g.rotate(-Math.PI / 2) }
+  g.drawImage(canvas, 0, 0)
+  canvas = r
+  const pdf = new jsPDF({ unit: 'mm', format: [Math.min(wMm, hMm), Math.max(wMm, hMm)], orientation: 'portrait' })
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, hMm, wMm)
   return pdf.output('blob')
 }
