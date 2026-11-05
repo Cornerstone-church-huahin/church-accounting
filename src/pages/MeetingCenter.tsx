@@ -14,14 +14,14 @@ import Step10 from '../components/meeting/Step10'
 import { can } from '../lib/access'
 import { useLetterhead, useMeetings } from '../lib/data'
 import { blankMeeting, letterDate, nextNo, stepStatuses } from '../lib/meetings'
-import { CENTER_SUB, CENTER_TITLE, MEETING_STEPS, stepOf } from '../lib/meetingCenter'
+import { CENTER_SUB, CENTER_TITLE, MC_CUR_KEY, MEETING_STEPS, stepOf } from '../lib/meetingCenter'
 import { useRole } from '../lib/members'
 import { todayISO, yearOf } from '../lib/money'
 import type { Meeting } from '../lib/types'
 
 const BASE = '/meeting/1/4'
 const HUB = `${BASE}/meeting`
-const CUR_KEY = 'acct.mc.cur'
+const CUR_KEY = MC_CUR_KEY
 
 /** การประชุมที่กำลังจัดการ (จำไว้ในเครื่อง) + บันทึกแก้ไขทับข้อมูลล่าสุดเสมอ */
 function useCurrentMeeting() {

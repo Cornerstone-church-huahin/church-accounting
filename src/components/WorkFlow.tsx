@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
-import { useDocCategories, useDocLibrary, useFlowTicks } from '../lib/data'
+import { useDocCategories, useDocLibrary, useFlowTicks, useMeetings } from '../lib/data'
+import { blankMeeting, nextNo, stepStatuses } from '../lib/meetings'
+import { MC_CUR_KEY } from '../lib/meetingCenter'
 import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
 import { LETTER_KINDS } from '../lib/letterKinds'
-import { be, newId, todayISO } from '../lib/money'
+import { be, newId, todayISO, yearOf } from '../lib/money'
 import type { FlowStep, FlowTicks } from '../lib/types'
 
 /** ขั้นสุดท้ายของทุกลำดับงาน (ใส่ให้เสมอ แก้/ลบไม่ได้): เก็บเอกสาร — ติ๊กแล้วไปคลังเอกสาร */
@@ -130,6 +132,7 @@ export function FlowPage({ id }: { id: string }) {
   const x = f.flows.find((y) => y.id === id)
   if (!x) return <><div className="page-head no-print"><h1>สร้างเอกสาร</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
   const steps = [...x.steps, FILE_STEP]
+  if (/ประชุม/.test(x.title ?? '')) return <><div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><MeetingRows /></>
   const done = steps.filter((s) => x.ticks.includes(s.id)).length
   const set = (next: string[]) => f.put([{ ...x, ticks: next, updated: Date.now() }])
   /** เลขที่หนังสือจากคลังเอกสาร: หมวดที่ชื่อมี “เชิญ” (ถ้าไม่มีใช้ทั้งคลัง) → เลขล่าสุดและเลขถัดไป */
@@ -163,5 +166,63 @@ export function FlowPage({ id }: { id: string }) {
         {done > 0 && <div className="row" style={{ marginTop: '0.4rem' }}><button type="button" className="mini" onClick={() => { if (window.confirm('เริ่มเช็คลิสต์ใหม่ (ล้างเครื่องหมายทั้งหมด) ?')) set([]) }}>↺ เริ่มใหม่</button></div>}
       </section>
     </>
+  )
+}
+
+/**
+ * ลำดับงานประชุม: ค้นหา + ＋ สร้างการประชุม · แต่ละแถว = 1 การประชุม มี 3 ไอคอนตามลำดับ
+ * ✉️ หนังสือแจ้งประชุม → 📝 บันทึกการประชุม (ใช้วาระจากหนังสือแจ้งต่อเนื่อง — เป็นการประชุมเดียวกัน) → 📊 รายงานการประชุม (ขั้นสุดท้าย เก็บเข้าแฟ้มเอกสาร)
+ */
+function MeetingRows() {
+  const ms = useMeetings()
+  const navigate = useNavigate()
+  const [q, setQ] = useState('')
+  const [msg, setMsg] = useState('')
+  const list = [...ms.list].sort((a, b) => b.year - a.year || b.no - a.no)
+  const key = q.trim()
+  const shown = key ? list.filter((m) => `${m.name} ${m.no}/${m.year} ${m.date}`.includes(key)) : list
+  const add = () => {
+    const name = window.prompt('ชื่อการประชุม', key || 'ประชุมคณะธรรมกิจ')
+    if (name === null) return
+    const y = yearOf(todayISO())
+    const m = { ...blankMeeting(y, nextNo(ms.list, y)), name: name.trim() }
+    if (!ms.put([m])) { setMsg('ไม่มีสิทธิ์สร้างการประชุม'); return }
+    setMsg(''); setQ('')
+  }
+  const go = (id: string, n: number) => { try { localStorage.setItem(MC_CUR_KEY, id) } catch { /* ignore */ } navigate(`/meeting/1/4/${n}`) }
+  return (
+    <section aria-label="การประชุม">
+      <div className="row mtrow__search no-print">
+        <input className="input" type="search" aria-label="ค้นหาเอกสารการประชุม" placeholder="🔎 ค้นหาเอกสาร" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+        <button type="button" className="btn btn--gold mtrow__add" aria-label="สร้างเอกสารการประชุมใหม่" title="สร้างเอกสารการประชุมใหม่" onClick={add}>＋</button>
+      </div>
+      {msg && <p className="error" role="alert">{msg}</p>}
+      {list.length === 0 && <p className="empty">ยังไม่มีเอกสาร — กด ＋ เพื่อสร้างการประชุมใหม่</p>}
+      {list.length > 0 && shown.length === 0 && <p className="empty">ไม่พบเอกสาร</p>}
+      <ol className="mtrows" aria-label="รายการการประชุม">
+        {shown.map((m, i) => {
+          const st = stepStatuses(m, ms.list)
+          const minutesOk = st[3].state === 'done' || st[6].state !== 'todo'
+          const reportOk = st[6].state === 'done' || st[7].state !== 'todo'
+          const reportStep = st[9].state === 'done' ? 10 : 7
+          const icons: { n: number; icon: string; label: string; ok: boolean; done: boolean; why: string }[] = [
+            { n: 3, icon: '✉️', label: 'หนังสือแจ้งประชุม', ok: true, done: st[3].state === 'done', why: '' },
+            { n: 6, icon: '📝', label: 'บันทึกการประชุม', ok: minutesOk, done: st[6].state === 'done', why: 'แจ้งประชุมให้เสร็จก่อน' },
+            { n: reportStep, icon: '📊', label: 'รายงานการประชุม', ok: reportOk, done: !!m.archived, why: 'บันทึกการประชุมให้เสร็จก่อน' },
+          ]
+          return (
+            <li key={m.id} className="mtrow">
+              <span className="mtrow__n">{i + 1}</span>
+              <span className="mtrow__t"><b>{m.name || 'ยังไม่ตั้งชื่อ'}</b><small>ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${m.date}` : ''}</small></span>
+              {icons.map((x) => (
+                <button key={x.label} type="button" className={`mtrow__ic${x.done ? ' done' : ''}`} disabled={!x.ok} aria-label={`${x.label}${x.done ? ' (เสร็จแล้ว)' : ''}${x.ok ? '' : ` — ${x.why}`}`} title={x.ok ? x.label : x.why} onClick={() => go(m.id, x.n)}>
+                  <span aria-hidden="true">{x.icon}</span>{x.done && <i aria-hidden="true">✓</i>}
+                </button>
+              ))}
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }
