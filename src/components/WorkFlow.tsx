@@ -172,7 +172,7 @@ export function FlowPage({ id }: { id: string }) {
 
 /**
  * ลำดับงานประชุม: ค้นหา + ＋ สร้างการประชุม · แต่ละแถว = 1 การประชุม มี 3 ไอคอนตามลำดับ
- * ✉️ หนังสือแจ้งประชุม → 📝 บันทึกการประชุม (ใช้วาระจากหนังสือแจ้งต่อเนื่อง — เป็นการประชุมเดียวกัน) → 📊 รายงานการประชุม (ขั้นสุดท้าย เก็บเข้าแฟ้มเอกสาร)
+ * ✉️ หนังสือแจ้งประชุม → 📝 บันทึกการประชุม (ใช้วาระจากหนังสือแจ้งต่อเนื่อง — เป็นการประชุมเดียวกัน) → 📄 รายงานการประชุม (ขั้นสุดท้าย เก็บเข้าแฟ้มเอกสาร)
  */
 function MeetingRows() {
   const ms = useMeetings()
@@ -231,7 +231,7 @@ function MeetingRows() {
           const icons: { n: number; icon: string; label: string; ok: boolean; done: boolean; why: string; open?: () => void }[] = [
             { n: 3, icon: '✉️', label: 'หนังสือแจ้งประชุม', ok: true, done: noticeDone, why: '', open: () => openNotice(m) },
             { n: 6, icon: '📝', label: 'บันทึกการประชุม', ok: minutesOk, done: st[6].state === 'done', why: 'แจ้งประชุมให้เสร็จก่อน' },
-            { n: reportStep, icon: '📊', label: 'รายงานการประชุม', ok: reportOk, done: !!m.archived, why: 'บันทึกการประชุมให้เสร็จก่อน' },
+            { n: reportStep, icon: '📄', label: 'รายงานการประชุม', ok: reportOk, done: !!m.archived, why: 'บันทึกการประชุมให้เสร็จก่อน' },
           ]
           return (
             <li key={m.id} className="mtrow">
