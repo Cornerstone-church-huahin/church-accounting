@@ -93,7 +93,7 @@ try {
   await p.locator('#mt-close-time').fill('15:00'); await p.locator('#mt-close-time').blur()
   await p.getByRole('button', { name: /บันทึกส่วนที่ 3/ }).click()
   await p.getByRole('button', { name: /^ต่อไป ›/ }).click()
-  await p.getByText('ส่วนที่ 4 · สรุปก่อนส่งไปรายงาน').waitFor({ timeout: 5000 })
+  await p.getByText('ส่วนที่ 4 · รายงานการประชุมฉบับรวม').waitFor({ timeout: 5000 })
   await p.getByRole('button', { name: /บันทึกเสร็จ — ส่งไปรายงานการประชุม/ }).click()
   await p.waitForURL(/#\/meeting\/1\/4\/7/)
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))

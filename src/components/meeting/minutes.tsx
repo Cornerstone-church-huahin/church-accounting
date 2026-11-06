@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { orderedAgenda, timeTh } from './docs'
-import { attendance, letterDate } from '../../lib/meetings'
+import { attendance, letterDate, plainName, yearBE } from '../../lib/meetings'
 export { attendance, quorumNeeded } from '../../lib/meetings'
 import type { Meeting, MtPerson } from '../../lib/types'
 
@@ -21,7 +21,7 @@ export function minutesBlocks(m: Meeting, opts: { draft?: boolean; final?: boole
   out.push({ key: 'title', lines: 3, node: (
     <>
       <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18 }}>รายงานการประชุม{opts.draft ? ' (ร่าง)' : ''}</div>
-      <div style={{ textAlign: 'center' }}>{m.name} ครั้งที่ {m.no}/{m.year}{m.type === 'พิเศษ' ? ' (การประชุมพิเศษ)' : ''}</div>
+      <div style={{ textAlign: 'center' }}>{plainName(m.name)} ครั้งที่ {m.no}/{yearBE(m.year)}{m.type === 'พิเศษ' ? ' (การประชุมพิเศษ)' : ''}</div>
       <div style={{ textAlign: 'center', marginBottom: 8 }}>วันที่ {letterDate(m.date) || '………'} เวลา {timeTh(m.time) || '………'} ณ {m.place || '………'}</div>
     </>) })
   const groups = [
@@ -40,7 +40,7 @@ export function minutesBlocks(m: Meeting, opts: { draft?: boolean; final?: boole
       ))}
       {groups.length === 0 && <div>ผู้มาประชุม: ………………………</div>}
     </div>) })
-  out.push({ key: 'open', lines: 2, node: <p className="letter__p">{m.opened ? `ประธานที่ประชุมคือ ${m.opened.chair || m.chair} เปิดประชุมเมื่อเวลา ${timeTh(m.opened.time)} หลังตรวจองค์ประชุมครบ${m.opened.agendaConfirmed ? ' ที่ประชุมเห็นชอบระเบียบวาระ' : ''}` : `ประธาน ${m.chair || '………'} เปิดประชุมเมื่อเวลา ……… น.`}</p> })
+  out.push({ key: 'open', lines: 2, node: <p className="letter__p">{`ประธานที่ประชุมคือ ${m.opened?.chair || m.chair || '………'} เปิดประชุมเมื่อเวลา ${timeTh(m.opened?.time || m.time) || '……… น.'}${m.opened ? ` หลังตรวจองค์ประชุมครบ${m.opened.agendaConfirmed ? ' ที่ประชุมเห็นชอบระเบียบวาระ' : ''}` : ''}`}</p> })
   for (const { label, item } of orderedAgenda(m)) {
     const mi = item.minute ?? {}
     const vote = mi.yes != null || mi.no != null || mi.abstain != null ? `ผลลงคะแนน: เห็นชอบ ${mi.yes ?? 0} · ไม่เห็นชอบ ${mi.no ?? 0} · งดออกเสียง ${mi.abstain ?? 0}` : ''
@@ -87,7 +87,7 @@ export function paginate(blocks: MBlock[], perPage = 31): MBlock[][] {
 /** ข้อความล้วนของรายงาน (เก็บเป็นสำเนาประวัติฉบับแก้ไข) */
 export function minutesPlain(m: Meeting): string {
   const a = attendance(m)
-  const L: string[] = [`รายงานการประชุม${m.name} ครั้งที่ ${m.no}/${m.year}`, `วันที่ ${letterDate(m.date)} เวลา ${timeTh(m.time)} ณ ${m.place}`]
+  const L: string[] = [`รายงานการประชุม${plainName(m.name)} ครั้งที่ ${m.no}/${yearBE(m.year)}`, `วันที่ ${letterDate(m.date)} เวลา ${timeTh(m.time)} ณ ${m.place}`]
   if (a.present.length) L.push(`ผู้มาประชุม: ${names(a.present)}`)
   if (a.leave.length) L.push(`ผู้ลา: ${names(a.leave)}`)
   if (a.absent.length) L.push(`ผู้ไม่มา: ${names(a.absent)}`)

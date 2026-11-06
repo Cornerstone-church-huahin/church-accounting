@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignedTasks, chairReviewed, CHAIR_ROLE, attendance, blankAgenda, blankMeeting, blankPerson, carryOver, hasVoteItems, letterDate, minuteComplete, moveAgenda, nextNo, prepKeys, previousMeeting, quorumNeeded, refNo, stepStatuses } from './meetings'
+import { assignedTasks, chairReviewed, CHAIR_ROLE, attendance, blankAgenda, blankMeeting, blankPerson, carryOver, hasVoteItems, letterDate, minuteComplete, moveAgenda, nextNo, prepKeys, previousMeeting, quorumNeeded, refNo, stepStatuses, plainName, whenFromNotice, whenPatch, yearBE } from './meetings'
 import { defaultNoticeBody, orderedAgenda, timeTh } from '../components/meeting/docs'
 import { checkMinutes, minutesPlain } from '../components/meeting/minutes'
 import type { Meeting } from './types'
@@ -7,7 +7,7 @@ import type { Meeting } from './types'
 const full = (): Meeting => ({ ...blankMeeting(2026, 3), name: 'การประชุมคณะธรรมกิจ', date: '2026-11-15', time: '18:30', place: 'ห้องประชุม', chair: 'ก', secretary: 'ข', people: [{ ...blankPerson(), name: 'ค' }] })
 describe('ศูนย์จัดการประชุม', () => {
   it('วันที่แบบหนังสือ · เลขที่หนังสือ · เวลา', () => {
-    expect(letterDate('2026-10-17')).toBe('17 ตุลาคม 2026')
+    expect(letterDate('2026-10-17')).toBe('17 ตุลาคม 2569')
     expect(letterDate('x')).toBe('')
     expect(refNo({ no: 3, year: 2026 })).toBe('ศอ 3/2026')
     expect(timeTh('09:05')).toBe('09.05 น.')
@@ -37,7 +37,7 @@ describe('ศูนย์จัดการประชุม', () => {
     expect(orderedAgenda(m).map((x) => [x.n, x.item.title])).toEqual([[1, 'ทราบ'], [2, 'เสนอ']])
     const b = defaultNoticeBody(m)
     expect(b).toContain('ครั้งที่ 3/2026')
-    expect(b).toContain('15 พฤศจิกายน 2026')
+    expect(b).toContain('15 พฤศจิกายน 2569')
     expect(b).toContain('18.30 น.')
   })
   it('เรื่องค้างจากครั้งก่อน: เลื่อนพิจารณา/มีเงื่อนไข/งานที่ยังไม่เสร็จ', () => {
@@ -158,5 +158,23 @@ describe('เก็บกวาดหัวข้อย่อยซ้ำจา�
     const rows = [{ label: '5', t: 'รายงานพันธกิจ', r: false }, { label: '5.1', t: 'ทดสอบ', r: true }]
     const old = [{ ...blankAgenda(), id: 'p', title: 'รายงานพันธกิจ' }, { ...blankAgenda(), id: 'c1', title: 'หัวข้อย่อย 5.1', parentId: 'p' }, { ...blankAgenda(), id: 'c2', title: 'ทดสอบ', parentId: 'p', minute: { summary: 'x' } }]
     expect(mergeNoticeAgenda(old, rows, blankAgenda).filter((x) => x.parentId).length).toBe(2)
+  })
+})
+
+describe('วัน-เวลา-สถานที่จากหนังสือแจ้ง และการแสดงใน พ.ศ.', () => {
+  const notice = { toName: '6/12/2026 แจ้งการประชุมประจำเดือนธรรมกิจ', body: 'ด้วยคณะ… ประชุมสามัญประจำเดือนธันวาคม\nเวลา 13.00 น. ณ ห้องประชุมธรรมกิจ จึงขอแจ้งวาระ' }
+  it('อ่านวัน เวลา สถานที่ จากหนังสือ', () => {
+    expect(whenFromNotice(notice)).toEqual({ date: '2026-12-06', time: '13:00', place: 'ห้องประชุมธรรมกิจ' })
+  })
+  it('patch: ใช้ค่าจากหนังสือทับค่าเดา · ที่แก้เองไม่แตะ', () => {
+    const m = { date: '2026-11-06', time: '22:52', place: '', whenSrc: undefined, opened: undefined }
+    expect(whenPatch(m, notice, '2026-11-06', '22:52')).toEqual({ date: '2026-12-06', time: '13:00', place: 'ห้องประชุมธรรมกิจ', whenSrc: 'auto' })
+    expect(whenPatch({ ...m, whenSrc: 'manual' }, notice, '2026-11-06', '22:52')).toBeNull()
+    expect(whenPatch({ date: '2026-12-06', time: '13:00', place: 'ห้องประชุมธรรมกิจ', whenSrc: 'auto', opened: undefined }, notice, '2026-11-06', '22:52')).toBeNull()
+  })
+  it('ปี พ.ศ. และตัดเลขหน้าชื่อ', () => {
+    expect(letterDate('2026-12-06')).toBe('6 ธันวาคม 2569')
+    expect(yearBE(2026)).toBe(2569); expect(yearBE(2569)).toBe(2569)
+    expect(plainName('01ประชุมคณะธรรมกิจ')).toBe('ประชุมคณะธรรมกิจ'); expect(plainName('01. ประชุม')).toBe('ประชุม'); expect(plainName('ประชุม 3')).toBe('ประชุม 3')
   })
 })

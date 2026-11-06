@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import { PaperHead } from '../PaperSheets'
 import ScaledPage from '../ScaledPage'
-import { letterDate } from '../../lib/meetings'
+import { letterDate, plainName, yearBE } from '../../lib/meetings'
 import type { Meeting, MtPerson } from '../../lib/types'
 
 const DOTS = '………………………………………'
@@ -19,7 +19,7 @@ const RosterPaper = forwardRef<HTMLDivElement, { church: string; m: Meeting }>(f
   const members = m.people.filter((p) => p.kind === 'กรรมการ' && p.name.trim())
   const guests = m.people.filter((p) => p.kind === 'ผู้เข้าร่วมอื่น' && p.name.trim())
   const present = members.filter((p) => p.att === 'มา').length
-  const sub = [`${m.name || 'การประชุมคณะธรรมกิจ'} ครั้งที่ ${m.no}/${m.year}`, m.date ? `วันที่ ${letterDate(m.date)}${m.time ? ` เวลา ${m.time} น.` : ''}` : '', m.place ? `ณ ${m.place}` : ''].filter(Boolean).join(' · ')
+  const sub = [`${plainName(m.name) || 'การประชุมคณะธรรมกิจ'} ครั้งที่ ${m.no}/${yearBE(m.year)}`, m.date ? `วันที่ ${letterDate(m.date)}${m.time ? ` เวลา ${m.time} น.` : ''}` : '', m.place ? `ณ ${m.place}` : ''].filter(Boolean).join(' · ')
   return (
     <ScaledPage ref={ref}>
       <>
