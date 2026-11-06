@@ -471,7 +471,7 @@ export type MtResult = 'เห็นชอบ' | 'ไม่เห็นชอบ
 export interface MtMinute { summary?: string; proposal?: string; result?: MtResult; condition?: string; yes?: number; no?: number; abstain?: number; assignee?: string; due?: string; /** ผู้รับผิดชอบทำเสร็จแล้ว */ done?: boolean }
 export type MtGroup = 'แจ้งเพื่อทราบ' | 'รับรองรายงาน' | 'ติดตามงาน' | 'เรื่องเสนอพิจารณา'
 export type MtPurpose = 'ทราบ' | 'หารือ' | 'ขอมติ'
-export interface MtAgenda { id: string; title: string; /** หัวข้อย่อยของวาระ (เช่น 5.1) = id ของวาระแม่ */ parentId?: string; group: MtGroup; purpose: MtPurpose; docs?: string; /** ยกมาจากการประชุมครั้งก่อน */ carried?: boolean; minute?: MtMinute }
+export interface MtAgenda { id: string; title: string; /** ติ๊กว่าวาระนี้บันทึกเสร็จแล้ว (แถบเปลี่ยนเป็นสีเขียว พับเนื้อหา แล้วไปวาระต่อไป) */ done?: boolean; /** หัวข้อย่อยของวาระ (เช่น 5.1) = id ของวาระแม่ */ parentId?: string; group: MtGroup; purpose: MtPurpose; docs?: string; /** ยกมาจากการประชุมครั้งก่อน */ carried?: boolean; minute?: MtMinute }
 export interface MtDraft { at: number; by: string; note: string; /** สำเนารายงาน ณ ตอนบันทึกฉบับ */ text: string }
 export type MtApproval = 'รับรองโดยไม่แก้ไข' | 'รับรองโดยมีการแก้ไข' | 'ยังไม่รับรอง'
 /** ข้อมูลการประชุม 1 ครั้ง — ใช้ร่วมทุกขั้นตั้งแต่สร้างจนเก็บเอกสาร */
