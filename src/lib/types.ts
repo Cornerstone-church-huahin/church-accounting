@@ -484,6 +484,8 @@ export interface Meeting extends SharedItem {
   notice?: { channels: string[]; body?: string; sentAt?: number; ref?: string }
   /** หนังสือแจ้งการประชุมของการประชุมนี้ (ฉบับในหน้า หนังสือแจ้งการประชุม) */
   noticeLetterId?: string
+  /** การ์ดลำดับงานที่การประชุมนี้สังกัด (เช่น สามัญ / วิสามัญ แยกกัน) · ไม่มี = ของเดิมก่อนแยกการ์ด (อยู่การ์ดประชุมใบแรก) */
+  flowId?: string
   prep?: Record<string, boolean>
   /** จำนวนผู้มีสิทธิ์ขั้นต่ำเพื่อครบองค์ประชุม (ไม่ระบุ = มากกว่าครึ่งหนึ่งของกรรมการ+ผู้มีสิทธิ์ลงคะแนน) */
   quorumMin?: number
