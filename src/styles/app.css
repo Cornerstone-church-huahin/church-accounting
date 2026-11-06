@@ -1941,3 +1941,8 @@ span.fundpend__tog--no { cursor: default; }
 .subitem { border-radius: 0.6rem; padding: 0.45rem 0.6rem 0.55rem; }
 .subitem__h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 1rem; }
 .agtick--s { font-size: 0.8rem; padding: 0.2rem 0.45rem; background: #fff; }
+
+/* แถบเครื่องมือเอกสารแบบเตี้ย: ไอคอนเล็กข้างข้อความ แถวเดียว */
+.rec-tools--compact { gap: 0.2rem; margin: 0.2rem 0 0; }
+.rec-tools--compact .rec-tool { flex-direction: row; min-height: 0; height: 1.6rem; padding: 0 0.15rem; gap: 0.2rem; font-size: 0.64rem; white-space: nowrap; border-radius: 6px; }
+.rec-tools--compact .rec-tool svg { width: 0.85rem; height: 0.85rem; flex: none; }
