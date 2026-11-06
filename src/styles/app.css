@@ -1891,13 +1891,14 @@ span.fundpend__tog--no { cursor: default; }
 .suprow .mini { flex: none; min-width: 1.9rem; padding: 0.15rem 0.3rem; }
 /* ใบลงชื่อ: แถวกะทัดรัด เลข · ชื่อ+ตำแหน่ง · ร่วม/ลา/ขาด */
 .attlist { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; }
-.attrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0.35rem 0; border-bottom: 1px solid var(--line, #ddd); }
+.attrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 5px; padding: 0.35rem 0; border-bottom: 1px solid var(--line, #ddd); }
 .attrow__n { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #1b2a4e; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 0.75rem; }
-.attrow__t { flex: 1 1 8rem; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
-.attrow__t b { font-size: 0.9rem; }
+.attrow__t { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.attrow__t b { font-size: 0.84rem; line-height: 1.15; }
 .attrow__t small { color: #666; font-size: 0.72rem; }
-.attrow__a { flex: none; display: flex; gap: 3px; align-items: center; }
-.attrow__a .wchip { min-width: 2.3rem; padding: 0 0.35rem; font-size: 0.8rem; height: 2rem; }
+.attrow__a { flex: none; display: flex; flex-wrap: nowrap; gap: 3px; align-items: center; }
+.attrow__a .wchip { min-width: 2.1rem; padding: 0 0.25rem; font-size: 0.74rem; height: 1.8rem; }
+.attrow__a .mini { min-width: 1.8rem; height: 1.8rem; padding: 0 0.2rem; }
 .attrow__a .mini.on { background: #fff3c4; }
 .attrow__note { flex: 1 1 100%; }
 .attrow__note .field { margin: 0; }
