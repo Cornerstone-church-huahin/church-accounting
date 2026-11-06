@@ -16,7 +16,7 @@ try {
     localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
     localStorage.setItem('acct.mc.cur', 'mt1')
-    localStorage.setItem('acct.meetings.v1', JSON.stringify([{ id: 'mt1', name: 'ประชุมคณะธรรมกิจ', no: 1, year: 2026, type: 'ปกติ', date: '2026-11-01', time: '13:00', place: '', chair: '', secretary: '', people: [], agenda: [{ id: 'a1', title: 'กล่าวต้อนรับ', group: 'แจ้งเพื่อทราบ', purpose: 'ทราบ' }], updated: 1 }]))
+    localStorage.setItem('acct.meetings.v1', JSON.stringify([{ id: 'mt1', name: 'ประชุมคณะธรรมกิจ', no: 1, year: 2026, type: 'ปกติ', date: '2026-11-01', time: '13:00', place: '', chair: '', secretary: '', people: [], agenda: [{ id: 'a1', title: 'กล่าวต้อนรับ', group: 'แจ้งเพื่อทราบ', purpose: 'ทราบ' }, { id: 'a1c', title: 'ทดสอบ', group: 'แจ้งเพื่อทราบ', purpose: 'ทราบ', parentId: 'a1' }], updated: 1 }]))
   })
   await p.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
   await p.goto(`http://localhost:${PORT}/#/meeting/1/4/6`); await p.reload()
@@ -72,11 +72,12 @@ try {
   p.once('dialog', (d) => d.accept('กล่าวต้อนรับ (แก้แล้ว)'))
   await p.getByRole('button', { name: /^แก้ชื่อวาระ/ }).first().click()
   await p.getByText('กล่าวต้อนรับ (แก้แล้ว)').first().waitFor({ timeout: 5000 })
-  must(await p.getByText(/^1\.1 สาระสำคัญ/).count() >= 1, 'field labels numbered by agenda (1.1 …) not 6.x')
+  must(await p.getByRole('group', { name: /หัวข้อย่อยของวาระที่ 1/ }).getByText(/1\.1/).count() >= 1 && await p.getByText(/^6\.\d/).count() === 0, 'sub-item 1.1 lives inside agenda 1; no old 6.x labels')
+  must(await p.locator('section[aria-label^="วาระที่ 1.1"]').count() === 0, 'no separate big card for the sub-item')
   // ติ๊กวาระเสร็จ → แถบเขียว พับเนื้อหา
   await p.getByRole('checkbox', { name: /วาระที่ 1 เสร็จแล้ว/ }).check()
   await p.waitForTimeout(300)
-  must(await p.getByText(/^1\.1 สาระสำคัญ/).count() === 0, 'ticked agenda collapses its body')
+  must(await p.getByRole('group', { name: /หัวข้อย่อยของวาระที่ 1/ }).count() === 0, 'ticked agenda collapses its body')
   await p.getByRole('button', { name: '＋ เพิ่มวาระ' }).click()
   await p.getByText('วาระใหม่').first().waitFor({ timeout: 5000 })
   p.once('dialog', (d) => d.accept())
@@ -91,7 +92,7 @@ try {
   await p.getByRole('button', { name: /บันทึกเสร็จ — ส่งไปรายงานการประชุม/ }).click()
   await p.waitForURL(/#\/meeting\/1\/4\/7/)
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
-  must(ms[0].minutesDone && ms[0].agenda.length === 1 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
+  must(ms[0].minutesDone && ms[0].agenda.length === 2 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
   const pe = ms[0].people
   must(pe.filter((x) => x.kind === 'กรรมการ').length === 13 && pe.filter((x) => x.att === 'ลา').length === 1 && pe.filter((x) => x.att === 'ไม่มา').length === 1, 'attendance saved onto the meeting')
   // ผู้ใช้เคยมีรายชื่อทดลอง 3 คน: เปิดครั้งแรก ระบบใส่ 12 คนตามรายงานเดิมให้ครั้งเดียว
@@ -108,6 +109,17 @@ try {
   const l3 = p3.getByRole('list', { name: 'รายชื่อคณะธรรมกิจ' })
   await l3.waitFor({ timeout: 10000 }); await p3.waitForTimeout(800)
   must(await l3.getByRole('listitem').count() === 12 && /รินรดา/.test(await l3.getByRole('listitem').nth(11).innerText()), 'real-life 3 test names replaced by the 12 names once: ' + await l3.getByRole('listitem').count())
+  // ดึงวาระ + หัวข้อย่อยจากหนังสือแจ้งเข้าส่วนที่ 2 อัตโนมัติ (ไม่ต้องกดดึง)
+  const p4 = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
+  await p4.addInitScript(() => {
+    localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
+    localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])); localStorage.setItem('acct.mc.cur', 'mt1')
+    localStorage.setItem('acct.noticeletter.v1', JSON.stringify([{ id: 'l1', no: 'ศอ/ปด.001', toName: 'x', date: '2026-11-06', subject: 's', to: 't', body: 'b', agenda: [{ t: 'วาระหลัก' }, { t: 'ทดสอบ', k: 'r' }], updated: 1 }]))
+    localStorage.setItem('acct.meetings.v1', JSON.stringify([{ id: 'mt1', name: 'x', no: 1, year: 2026, type: 'ปกติ', date: '', time: '', place: '', chair: '', secretary: '', noticeLetterId: 'l1', rosterDone: { at: 1 }, people: [], agenda: [], updated: 1 }]))
+  })
+  await p4.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+  await p4.goto(`http://localhost:${PORT}/#/meeting/1/4/6`); await p4.reload()
+  await p4.getByRole('group', { name: /หัวข้อย่อยของวาระที่ 1/ }).getByText('ทดสอบ').waitFor({ timeout: 10000 })
   // ยังไม่เคยตั้งค่า: ป๊อปอัพตั้งค่าเด้งขึ้นก่อน
   const p2 = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
   await p2.addInitScript(() => {

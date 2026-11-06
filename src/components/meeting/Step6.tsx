@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLetters } from '../../lib/data'
 import { agendaOf } from '../InviteLetter'
@@ -20,7 +20,6 @@ const PARTS = ['ใบลงชื่อผู้ร่วมประชุม'
 export default function Step6({ m, save, list }: StepProps) {
   const navigate = useNavigate()
   const notices = useLetters('notice')
-  const [pulled, setPulled] = useState('')
   const [openId, setOpenId] = useState('')   // วาระที่เสร็จแล้วแต่ผู้ใช้แตะเปิดดู
   const done = [!!m.rosterDone, !!m.agendaDone, !!m.closeDone, !!m.minutesDone]
   const current = done.findIndex((d) => !d) < 0 ? 3 : done.findIndex((d) => !d)   // ส่วนแรกที่ยังไม่เสร็จ
@@ -31,22 +30,22 @@ export default function Step6({ m, save, list }: StepProps) {
   const patch = (id: string, p: Partial<MtMinute>) => save({ agenda: m.agenda.map((a: MtAgenda) => (a.id === id ? { ...a, minute: { ...a.minute, ...p } } : a)) })
   const num = (v: string) => (v.trim() === '' ? undefined : Math.max(0, Math.floor(Number(v)) || 0))
   const items = orderedAgenda(m)
+  const kids = (id: string) => items.filter((x) => x.item.parentId === id)
   const doneCount = items.filter((x) => minuteComplete(x.item)).length
   /** กดปุ่มเหลือง = บันทึกส่วนนั้น (ยังอยู่หน้าเดิม) แล้วมีปุ่มเล็ก ย้อนกลับ/ต่อไป เท่านั้น */
   const notice = m.noticeLetterId ? notices.items.find((x) => x.id === m.noticeLetterId) : undefined
-  /** ดึงวาระ + หัวข้อย่อย (5.1, 5.2 …) จากหนังสือแจ้งการประชุมของการประชุมนี้ — เติมเฉพาะที่ยังไม่มี ไม่ทับที่บันทึก/แก้แล้ว */
-  const pull = () => {
-    if (!notice) return
+  // ดึงวาระ + หัวข้อย่อย (5.1, 5.2 …) จากหนังสือแจ้งประชุมให้อัตโนมัติ: เมื่อหนังสือเปลี่ยน (รายการวาระไม่ตรงกับที่ดึงไว้ครั้งล่าสุด) จึงเติมเฉพาะที่ยังไม่มี · ที่ลบ/แก้ในบันทึกประชุมแล้วไม่ถูกดึงกลับ
+  const noticeSig = notice ? JSON.stringify(agendaOf(notice).map((r) => [r.label, r.t, r.r])) : ''
+  useEffect(() => {
+    if (!notice || view !== 1 || m.noticeAgendaSig === noticeSig) return
     const merged = mergeNoticeAgenda(m.agenda, agendaOf(notice), blankAgenda)
-    const added = merged.length - m.agenda.length
-    if (added > 0) save({ agenda: merged })
-    setPulled(added > 0 ? `ดึงเพิ่ม ${added} หัวข้อ` : 'วาระตรงกับหนังสือแจ้งแล้ว')
-  }
+    save({ agenda: merged, noticeAgendaSig: noticeSig })
+  }, [noticeSig, view]) // eslint-disable-line react-hooks/exhaustive-deps
   /** ติ๊กวาระเสร็จ → แถบเป็นสีเขียว พับเนื้อหา แล้วเลื่อนไปวาระถัดไป */
   const finishAgenda = (id: string, on: boolean) => {
     save({ agenda: m.agenda.map((x: MtAgenda) => (x.id === id ? { ...x, done: on || undefined } : x)) })
     setOpenId('')
-    if (on) { const k = items.findIndex((x) => x.item.id === id); const nx = items[k + 1]; if (nx) setTimeout(() => document.getElementById(`ag-${nx.item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150) }
+    if (on) { const tops = items.filter((x) => !x.item.parentId); const k = tops.findIndex((x) => x.item.id === id); const nx = k >= 0 ? tops[k + 1] : undefined; if (nx) setTimeout(() => document.getElementById(`ag-${nx.item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150) }
   }
   const next = (i: number, patchDone: Partial<typeof m>) => { save(patchDone); setSel(i) }
   const step = (i: number, key: 'rosterDone' | 'agendaDone' | 'closeDone') => done[i] && (
@@ -73,7 +72,7 @@ export default function Step6({ m, save, list }: StepProps) {
       {view === 1 && (<>
       <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>ส่วนที่ 2 · บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน</p>
       {items.length === 0 && <p className="empty">ยังไม่มีวาระ — จัดวาระที่ขั้นที่ 2</p>}
-      {items.map(({ label, item }, idx) => {
+      {items.filter((x) => !x.item.parentId).map(({ label, item }, idx) => {
         const mi = item.minute ?? {}
         const votes = (mi.yes ?? 0) + (mi.no ?? 0) + (mi.abstain ?? 0)
         const dn = !!item.done
@@ -96,14 +95,14 @@ export default function Step6({ m, save, list }: StepProps) {
             </div>
             {(!dn || openId === item.id) && <div className="agbody">
             <p className="muted small" style={{ margin: '0.1rem 0 0.4rem' }}>{item.group} · เพื่อ{item.purpose}</p>
-            <TextField id={`ms-${item.id}`} label={`${label}.1 สาระสำคัญ`} multiline rows={3} value={mi.summary} onCommit={(v) => patch(item.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
-            <TextField id={`mp-${item.id}`} label={`${label}.2 ข้อเสนอให้พิจารณา`} multiline rows={2} value={mi.proposal} onCommit={(v) => patch(item.id, { proposal: v.trim() || undefined })} />
-            <div className="field"><label htmlFor={`mr-${item.id}`}>{label}.3 มติที่ประชุม</label>
+            <TextField id={`ms-${item.id}`} label="สาระสำคัญ" multiline rows={3} value={mi.summary} onCommit={(v) => patch(item.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
+            <TextField id={`mp-${item.id}`} label="ข้อเสนอให้พิจารณา" multiline rows={2} value={mi.proposal} onCommit={(v) => patch(item.id, { proposal: v.trim() || undefined })} />
+            <div className="field"><label htmlFor={`mr-${item.id}`}>มติที่ประชุม</label>
               <select id={`mr-${item.id}`} className="input" value={mi.result ?? ''} onChange={(e) => patch(item.id, { result: (e.target.value || undefined) as MtResult | undefined })}>
                 <option value="">— ยังไม่มีมติ —</option>{RESULTS.map((r) => <option key={r}>{r}</option>)}
               </select></div>
             {mi.result === 'มีเงื่อนไข' && <TextField id={`mc-${item.id}`} label="เงื่อนไข" value={mi.condition} onCommit={(v) => patch(item.id, { condition: v.trim() || undefined })} />}
-            <p className="small" style={{ margin: '0.3rem 0 0.1rem' }}><b>{label}.4 ผลลงคะแนน</b></p>
+            <p className="small" style={{ margin: '0.3rem 0 0.1rem' }}><b>ผลลงคะแนน</b></p>
             <div className="row votes" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
               <TextField id={`my-${item.id}`} label="เห็นชอบ" type="number" narrow value={mi.yes} onCommit={(v) => patch(item.id, { yes: num(v) })} />
               <TextField id={`mn-${item.id}`} label="ไม่เห็นชอบ" type="number" narrow value={mi.no} onCommit={(v) => patch(item.id, { no: num(v) })} />
@@ -111,17 +110,43 @@ export default function Step6({ m, save, list }: StepProps) {
             </div>
             {votes > present && present > 0 && <p className="error small" role="alert" style={{ margin: 0 }}>⚠️ จำนวนคะแนนรวม {votes} มากกว่าผู้มีสิทธิ์ที่มาประชุม {present} คน — ตรวจตัวเลขอีกครั้ง</p>}
             <div className="row" style={{ alignItems: 'flex-start' }}>
-              <TextField id={`mo-${item.id}`} label={`${label}.5 ผู้รับผิดชอบ`} value={mi.assignee} onCommit={(v) => patch(item.id, { assignee: v.trim() || undefined })} />
+              <TextField id={`mo-${item.id}`} label="ผู้รับผิดชอบ" value={mi.assignee} onCommit={(v) => patch(item.id, { assignee: v.trim() || undefined })} />
               <TextField id={`md-${item.id}`} label="กำหนดเสร็จ" type="date" value={mi.due} onCommit={(v) => patch(item.id, { due: v || undefined })} />
             </div>
+            {kids(item.id).length > 0 && (
+              <div className="subitems" role="group" aria-label={`หัวข้อย่อยของวาระที่ ${label}`}>
+                {kids(item.id).map(({ label: sl, item: sub }) => {
+                  const sm = sub.minute ?? {}
+                  const sdn = !!sub.done
+                  return (
+                    <div key={sub.id} className="subitem" style={{ borderLeft: `6px solid ${sdn ? '#14573a' : tone.bar}`, background: sdn ? '#e4f4ec' : tone.bg }}>
+                      <div className="subitem__h">
+                        <span style={{ color: sdn ? '#14573a' : tone.bar }}><b>{sl}</b> {sub.title}</span>
+                        <label className="agtick agtick--s"><input type="checkbox" checked={sdn} aria-label={`หัวข้อย่อย ${sl} เสร็จแล้ว`} onChange={(e) => finishAgenda(sub.id, e.target.checked)} /> <span>{sdn ? 'เสร็จแล้ว' : 'เสร็จ'}</span></label>
+                      </div>
+                      {!sdn && (<>
+                        <TextField id={`ms-${sub.id}`} label="สาระสำคัญ" multiline rows={2} value={sm.summary} onCommit={(v) => patch(sub.id, { summary: v.trim() || undefined })} />
+                        <div className="row" style={{ alignItems: 'flex-start' }}>
+                          <div className="field"><label htmlFor={`mr-${sub.id}`}>มติที่ประชุม</label>
+                            <select id={`mr-${sub.id}`} className="input" value={sm.result ?? ''} onChange={(e) => patch(sub.id, { result: (e.target.value || undefined) as MtResult | undefined })}><option value="">— ยังไม่มีมติ —</option>{RESULTS.map((r) => <option key={r}>{r}</option>)}</select></div>
+                          <TextField id={`mo-${sub.id}`} label="ผู้รับผิดชอบ" value={sm.assignee} onCommit={(v) => patch(sub.id, { assignee: v.trim() || undefined })} />
+                        </div>
+                        <div className="row no-print" style={{ gap: 6 }}>
+                          <button type="button" className="mini" onClick={() => { const t = window.prompt('ชื่อหัวข้อย่อย', sub.title); if (t && t.trim()) save({ agenda: m.agenda.map((x: MtAgenda) => (x.id === sub.id ? { ...x, title: t.trim() } : x)) }) }}>✏️ แก้ชื่อ</button>
+                          <button type="button" className="mini" aria-label={`ลบหัวข้อย่อย ${sub.title}`} onClick={() => { if (window.confirm(`ลบหัวข้อย่อย “${sub.title}” ?`)) save({ agenda: m.agenda.filter((x: MtAgenda) => x.id !== sub.id) }) }}>🗑️</button>
+                        </div>
+                      </>)}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             </div>}
           </section>
         )
       })}
       <div className="row" style={{ margin: '0 0 0.5rem' }}>
         <button type="button" className="mini" onClick={() => save({ agenda: [...m.agenda, { ...blankAgenda(), title: 'วาระใหม่', purpose: 'ทราบ' }] })}>＋ เพิ่มวาระ</button>
-        <button type="button" className="mini" disabled={!notice} onClick={pull}>🔄 ดึงวาระจากหนังสือแจ้งประชุม</button>
-        {pulled && <span role="status" className="small">{pulled}</span>}
       </div>
       <section className="card" aria-label="เสร็จส่วนที่ 2">
         <button type="button" className="btn btn--gold" onClick={() => next(1, { agendaDone: { at: Date.now() } })}>✅ บันทึกส่วนที่ 2 (วาระ)</button>
