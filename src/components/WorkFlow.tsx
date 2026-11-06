@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { useDocCategories, useDocLibrary, useFlowTicks, useLetters, useMeetings } from '../lib/data'
-import { useAddLetter, VAR_CAT } from './InviteLetter'
+import { useAddLetter, useCompactNotices, VAR_CAT } from './InviteLetter'
 import { blankMeeting, nextNo, stepStatuses } from '../lib/meetings'
 import { MC_CUR_KEY } from '../lib/meetingCenter'
 import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
@@ -179,6 +179,7 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   const ms = useMeetings()
   const letters = useLetters('notice')
   const addLetter = useAddLetter('notice')
+  useCompactNotices()
   const lib = useDocLibrary()
   const navigate = useNavigate()
   const [q, setQ] = useState('')

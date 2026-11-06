@@ -19,6 +19,7 @@ import { blankAgenda, blankMeeting, isAutoSubItem, letterDate, nextNo as nextMee
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
+import { compactNumbers } from '../lib/letterNo'
 import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
@@ -253,7 +254,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const prefix = invitePrefix(cats.list, isVar ? VAR_PREFIX : cfg.numPrefix, isCat)
   const others = store.items.filter((x) => x.id !== id && (kind === 'doc' ? x.category === savedCat : kind === 'notice' ? (x.category ?? '') === savedCat : true))
   const catName = cats.list.find((c) => !c.deleted && isCat(c.name))?.name ?? (kind === 'doc' || isVar ? savedCat : undefined)
-  const inLib = lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => ({ no: d.no }))
+  // หนังสือแจ้งประชุม: เลขนับจากหนังสือที่ยังอยู่เท่านั้น (ไฟล์ในคลังที่ผูกกับหนังสือเลขเดียวกันอยู่แล้ว · ไฟล์เก่าที่ไม่มีหนังสือไม่นับ)
+  const inLib = kind === 'notice' ? [] : lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => ({ no: d.no }))
   const nextNo = nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib], prefix)
   // ตัวย่อของหมวด “หนังสือเชิญ” ในคลังเอกสารเปลี่ยน/ตั้งใหม่ → เลขที่ของฉบับนี้ตามไปด้วย (เลขลำดับเดิม) และเลขที่ในคลังเอกสารก็ตามด้วย
   useEffect(() => {
@@ -442,17 +444,17 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         <div className="field"><label htmlFor="il-no"><No n="3" ok={okOf['3']} />เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
           <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
             {editNo
-              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={() => setEditNo(false)} autoFocus />
+              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value, noPin: true })} onBlur={() => setEditNo(false)} autoFocus />
               : <output id="il-no" className="il-numbadge" aria-label={`เลขที่หนังสือ ${l.no}`}>{l.no || '…'}</output>}
             <button type="button" className="mini" aria-label="แก้เลขที่หนังสือเอง" title="แก้เลขเอง" onClick={() => setEditNo(!editNo)}>{editNo ? '✓' : '✏️'}</button>
           </div>
           <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib, { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
-          {(others.length > 0 || inLib.length > 0) && (
+          {(others.length > 0 || inLib.length > 0 || (kind === 'notice' && lib.list.some((d) => d.category === catName && d.id !== l.docId))) && (
             <details className="small" style={{ margin: '0.2rem 0 0' }}>
-              <summary>เลขที่ที่ถูกใช้แล้ว ({others.length + inLib.length}) — ดูว่าอะไรกินเลขอยู่</summary>
+              <summary>เลขที่ที่ถูกใช้แล้ว ({others.length + inLib.length}) — ดูว่าอะไรกินเลขอยู่ / ลบได้ที่นี่</summary>
               <ul style={{ margin: '0.2rem 0 0', paddingLeft: '1.1rem' }}>
-                {others.map((x) => <li key={x.id}>{x.no || '(ไม่มีเลข)'} · หนังสือในรายการ: {x.toName || x.subject || '—'}</li>)}
-                {lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => <li key={d.id}>{d.no} · ไฟล์ในคลังเอกสาร: {d.title} <Link to="/meeting/1/5" state={{ openDoc: d.id }}>เปิดเพื่อลบ</Link></li>)}
+                {others.map((x) => <li key={x.id}>{x.no || '(ไม่มีเลข)'} · หนังสือในรายการ: {x.toName || x.subject || '—'} <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบหนังสือ ${x.no || ''} ?`)) store.put([{ ...x, deleted: true, updated: Date.now() }]) }}>🗑️ ลบ</button></li>)}
+                {lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => <li key={d.id}>{d.no} · ไฟล์ในคลังเอกสาร{kind === 'notice' ? ' (ไม่นับเลข)' : ''}: {d.title} <Link to="/meeting/1/5" state={{ openDoc: d.id }}>เปิด</Link></li>)}
               </ul>
               <span className="muted">ลบหนังสือที่ไม่ต้องการที่หน้ารายการหนังสือ หรือลบไฟล์ในคลังเอกสาร เลขจะกลับมารันตามลำดับ</span>
             </details>
@@ -621,6 +623,22 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
 }
 
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
+/** ปิดช่องว่างเลขที่หนังสือแจ้งประชุม: ลบชิ้นกลาง ชิ้นหลังเลื่อนขึ้นมาเอง (ไฟล์ในคลังที่ผูกไว้ตามไปด้วย) */
+export function useCompactNotices(on = true) {
+  const store = useLetters('notice')
+  const lib = useDocLibrary()
+  const ch = on ? compactNumbers(store.items) : []
+  const key = ch.map((c) => `${c.id}>${c.no}`).join('|')
+  useEffect(() => {
+    if (!key) return
+    const now = Date.now()
+    const moved = store.items.flatMap((x) => { const c = ch.find((y) => y.id === x.id); return c ? [{ ...x, no: c.no, updated: now }] : [] })
+    if (moved.length) store.put(moved)
+    const docs = moved.flatMap((x) => { const d = x.docId ? lib.list.find((y) => y.id === x.docId) : undefined; return d ? [{ ...d, no: x.no, updated: now }] : [] })
+    if (docs.length) lib.put(docs)
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 /** สร้างหนังสือฉบับใหม่ (เลขที่รันอัตโนมัติ) — ใช้ร่วมกันระหว่างรายการหนังสือและหน้าลำดับงานประชุม */
 export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
@@ -646,7 +664,7 @@ export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
       if (moved.length) { store.put(moved); for (const m of moved) { const d = m.docId ? lib.list.find((y) => y.id === m.docId) : undefined; if (d) lib.put([{ ...d, no: m.no, updated: Date.now() }]) } }
       cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
     }
-    const pool = [...cur.filter(sameGroup).map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
+    const pool = [...cur.filter(sameGroup).map((x) => ({ no: x.no })), ...(kind === 'notice' ? [] : lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no })))]
     if (!store.put([{ ...blankOf(kind, todayISO(), !!variantCat), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return { error: 'ไม่มีสิทธิ์สร้างหนังสือ' }
     return { id }
   }
@@ -654,6 +672,7 @@ export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
 
 export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId; cat?: string }) {
   const K = LETTER_KINDS[kind]
+  useCompactNotices(kind === 'notice')
   const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
   const store = useLetters(kind)
   const navigate = useNavigate()
