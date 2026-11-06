@@ -113,3 +113,16 @@ describe('ศูนย์จัดการประชุม ขั้น 7–1
     expect(minutesPlain(m)).toContain('ผู้รับผิดชอบ: นาย ก')
   })
 })
+
+import { mergeNoticeAgenda } from '../components/meeting/docs'
+describe('วาระย่อย 5.1 5.2 จากหนังสือแจ้ง', () => {
+  const rows = [{ label: '1', t: 'กล่าวต้อนรับ', r: false }, { label: '2', t: 'รายงานพันธกิจ', r: false }, { label: '2.1', t: 'เทส', r: true }, { label: '2.2', t: '', r: true }]
+  it('วาระย่อยเป็นรายการของตัวเองต่อท้ายวาระแม่ พร้อมเลข 2.1 2.2', () => {
+    const ag = mergeNoticeAgenda([], rows, blankAgenda)
+    expect(orderedAgenda({ agenda: ag }).map((x) => [x.label, x.item.title])).toEqual([['1', 'กล่าวต้อนรับ'], ['2', 'รายงานพันธกิจ'], ['2.1', 'เทส'], ['2.2', 'หัวข้อย่อย 2.2']])
+  })
+  it('ดึงซ้ำไม่เพิ่มซ้ำและไม่ทับที่แก้แล้ว', () => {
+    const ag = mergeNoticeAgenda([], rows, blankAgenda)
+    expect(mergeNoticeAgenda(ag, rows, blankAgenda)).toHaveLength(4)
+  })
+})

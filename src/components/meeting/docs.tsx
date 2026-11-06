@@ -5,9 +5,30 @@ import { AGENDA_GROUPS, letterDate, refNo } from '../../lib/meetings'
 export const timeTh = (t?: string) => (t ? `${t.replace(':', '.')} น.` : '')
 
 /** วาระเรียงตามกลุ่ม (แจ้งเพื่อทราบ → รับรองรายงาน → ติดตามงาน → เรื่องเสนอพิจารณา) ภายในกลุ่มคงลำดับที่จัด · พร้อมเลขข้อ */
-export function orderedAgenda(m: Pick<Meeting, 'agenda'>): { n: number; item: MtAgenda }[] {
+export function orderedAgenda(m: Pick<Meeting, 'agenda'>): { n: number; label: string; item: MtAgenda }[] {
   const rank = (a: MtAgenda) => AGENDA_GROUPS.indexOf(a.group)
-  return m.agenda.map((item, i) => ({ item, i })).filter((x) => x.item.title.trim()).sort((a, b) => rank(a.item) - rank(b.item) || a.i - b.i).map((x, k) => ({ n: k + 1, item: x.item }))
+  const live = m.agenda.map((item, i) => ({ item, i })).filter((x) => x.item.title.trim())
+  const top = live.filter((x) => !x.item.parentId || !live.some((y) => y.item.id === x.item.parentId)).sort((a, b) => rank(a.item) - rank(b.item) || a.i - b.i)
+  // หัวข้อย่อย (5.1, 5.2 …) ต่อท้ายวาระแม่ทันที · n = เลขวาระแม่ · label = เลขที่แสดง
+  return top.flatMap((x, k) => [{ n: k + 1, label: String(k + 1), item: x.item }, ...live.filter((y) => y.item.parentId === x.item.id).map((y, j) => ({ n: k + 1, label: `${k + 1}.${j + 1}`, item: y.item }))])
+}
+/** รวมวาระจากหนังสือแจ้งการประชุมเข้าบันทึกการประชุม: เติมวาระ/หัวข้อย่อยที่ยังไม่มี (ไม่ทับ ไม่ลบที่แก้เองแล้ว) · rows = วาระของหนังสือ (r = หัวข้อย่อย) */
+export function mergeNoticeAgenda(base: MtAgenda[], rows: { label: string; t: string; r: boolean }[], blank: () => MtAgenda): MtAgenda[] {
+  const out = [...base]
+  let parent = ''
+  for (const r of rows) {
+    const t = /^[…\.\s]*$/.test(r.t) ? '' : r.t.trim()   // ช่องที่ยังไม่พิมพ์ในหนังสือแสดงเป็นจุดไข่ปลา = ว่าง
+    if (!r.r) {
+      if (!t) continue
+      let a = out.find((x) => !x.parentId && x.title === t)
+      if (!a) { a = { ...blank(), title: t, purpose: 'ทราบ' }; out.push(a) }
+      parent = a.id
+    } else if (parent) {
+      const title = t || `หัวข้อย่อย ${r.label}`
+      if (!out.some((x) => x.parentId === parent && x.title === title)) { const par = out.find((x) => x.id === parent)!; out.push({ ...blank(), title, group: par.group, purpose: 'ทราบ', parentId: parent }) }
+    }
+  }
+  return out
 }
 
 export const defaultNoticeBody = (m: Meeting) =>
@@ -51,7 +72,7 @@ export function AgendaBody({ m }: { m: Meeting }) {
             const rows = items.filter((x) => x.item.group === g)
             return rows.length === 0 ? null : [
               <tr key={g}><td colSpan={4} style={{ background: '#f4f6fa', fontWeight: 700 }}>{g}</td></tr>,
-              ...rows.map(({ n, item }) => <tr key={item.id}><td style={{ textAlign: 'center' }}>{n}</td><td>{item.title}{item.carried ? ' (ค้างจากครั้งก่อน)' : ''}</td><td style={{ textAlign: 'center' }}>{item.purpose}</td><td>{item.docs || '—'}</td></tr>),
+              ...rows.map(({ label, item }) => <tr key={item.id}><td style={{ textAlign: 'center' }}>{label}</td><td>{item.title}{item.carried ? ' (ค้างจากครั้งก่อน)' : ''}</td><td style={{ textAlign: 'center' }}>{item.purpose}</td><td>{item.docs || '—'}</td></tr>),
             ]
           })}
           {items.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', height: 60 }}>— ยังไม่มีวาระ —</td></tr>}
@@ -108,7 +129,7 @@ export function MinuteFormBody({ m }: { m: Meeting }) {
       <table aria-label="แบบบันทึกการประชุม">
         <thead><tr><th style={{ width: 80 }}>วาระ</th><th>สาระสำคัญ / ข้อเสนอ</th><th style={{ width: 120 }}>มติ / ผลลงคะแนน</th><th style={{ width: 120 }}>ผู้รับผิดชอบ / กำหนดเสร็จ</th></tr></thead>
         <tbody>
-          {items.map(({ n, item }) => <tr key={item.id} style={{ height: 84 }}><td><b>{n}.</b> {item.title}<br /><small>({item.purpose})</small></td><td /><td /><td /></tr>)}
+          {items.map(({ label, item }) => <tr key={item.id} style={{ height: 84 }}><td><b>{label}.</b> {item.title}<br /><small>({item.purpose})</small></td><td /><td /><td /></tr>)}
           {items.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', height: 60 }}>— ยังไม่มีวาระ —</td></tr>}
         </tbody>
       </table>
@@ -125,9 +146,9 @@ export function BallotBody({ m }: { m: Meeting }) {
     <>
       <Title sub={where(m)}>บัตรลงคะแนน — {head(m)}</Title>
       {votes.length === 0 && <p style={{ textAlign: 'center' }}>ไม่มีวาระที่ต้องลงคะแนน</p>}
-      {votes.map(({ n, item }) => (
+      {votes.map(({ label, item }) => (
         <div key={item.id} style={{ border: '1.5px dashed #333', padding: '8px 12px', margin: '8px 0' }}>
-          <b>วาระที่ {n}: {item.title}</b>
+          <b>วาระที่ {label}: {item.title}</b>
           <div style={{ display: 'flex', gap: 28, marginTop: 6 }}><span>☐ เห็นชอบ</span><span>☐ ไม่เห็นชอบ</span><span>☐ งดออกเสียง</span></div>
         </div>
       ))}
@@ -136,7 +157,7 @@ export function BallotBody({ m }: { m: Meeting }) {
           <p style={{ fontSize: 13.5, margin: '8px 0' }}>พิมพ์ {voters} ใบ (ตามจำนวนผู้มีสิทธิ์) · ลงคะแนนโดยไม่ระบุชื่อเพื่อรักษาความลับ</p>
           <table aria-label="แบบสรุปผลคะแนน">
             <thead><tr><th>วาระ</th><th style={{ width: 80 }}>เห็นชอบ</th><th style={{ width: 90 }}>ไม่เห็นชอบ</th><th style={{ width: 90 }}>งดออกเสียง</th><th style={{ width: 80 }}>รวม</th></tr></thead>
-            <tbody>{votes.map(({ n, item }) => <tr key={item.id} style={{ height: 30 }}><td>{n}. {item.title}</td><td /><td /><td /><td /></tr>)}</tbody>
+            <tbody>{votes.map(({ label, item }) => <tr key={item.id} style={{ height: 30 }}><td>{label}. {item.title}</td><td /><td /><td /><td /></tr>)}</tbody>
           </table>
         </>
       )}

@@ -59,9 +59,9 @@ export default function Step5({ m, save }: StepProps) {
         <h2 id="s5-c">5.6 ยืนยันวาระ</h2>
         <p className="muted small" style={{ margin: '0 0 0.4rem' }}>ปรับลำดับหรือเพิ่มวาระตามที่ที่ประชุมเห็นชอบ (ไม่ต้องให้ประธานเห็นชอบซ้ำ)</p>
         <ol className="list" aria-label="วาระที่จะประชุม">
-          {items.map(({ n, item }) => (
+          {items.map(({ label, item }) => (
             <li key={item.id} className="row row--between" style={{ flexWrap: 'nowrap' }}>
-              <span className="grow"><b>{n}.</b> {item.title}<br /><span className="muted small">{item.group} · {item.purpose}</span></span>
+              <span className="grow"><b>{label}.</b> {item.title}<br /><span className="muted small">{item.group} · {item.purpose}</span></span>
               <button type="button" className="mini" onClick={() => setAgenda(moveAgenda(m.agenda, item.id, -1))} aria-label={`เลื่อนวาระ ${item.title} ขึ้น`}>↑</button>
               <button type="button" className="mini" onClick={() => setAgenda(moveAgenda(m.agenda, item.id, 1))} aria-label={`เลื่อนวาระ ${item.title} ลง`}>↓</button>
             </li>
