@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { useDocCategories, useDocLibrary, useFlowTicks, useLetters, useMeetings } from '../lib/data'
-import { useAddLetter } from './InviteLetter'
+import { useAddLetter, VAR_CAT } from './InviteLetter'
 import { blankMeeting, nextNo, stepStatuses } from '../lib/meetings'
 import { MC_CUR_KEY } from '../lib/meetingCenter'
 import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
@@ -35,7 +35,7 @@ export function WorkflowMenu() {
   /** การ์ดทุกใบมาจากหมวดในคลังเอกสาร: ชื่อและตัวย่อตามคลังเสมอ · ไม่มีหมวดในคลัง = ไม่มีการ์ด (ลบ/เปลี่ยนชื่อหมวดในคลัง การ์ดตามทันที) */
   const catNames = [...new Set([...cats.list.filter((c) => !c.deleted).map((c) => c.name), ...lib.list.filter((d) => !d.deleted && d.category).map((d) => d.category)])]
   const used = new Set<string>()
-  const catCards = catNames.map((n, i) => {
+  const catCards = catNames.filter((n) => n !== VAR_CAT).map((n, i) => {
     const c = cats.list.find((x) => !x.deleted && x.name === n)
     const kd = (['invite', 'notice'] as const).find((k) => !used.has(k) && LETTER_KINDS[k].isCat(n))
     if (kd) used.add(kd)
@@ -133,7 +133,8 @@ export function FlowPage({ id }: { id: string }) {
   const x = f.flows.find((y) => y.id === id)
   if (!x) return <><div className="page-head no-print"><h1>สร้างเอกสาร</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
   const steps = [...x.steps, FILE_STEP]
-  if (/ประชุม/.test(x.title ?? '')) return <><div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><MeetingRows flowId={x.id} legacy={f.flows.filter((y) => /ประชุม/.test(y.title ?? '')).sort((a, b) => (a.created ?? 0) - (b.created ?? 0))[0]?.id === x.id} /></>
+  const hub = [...f.flows.filter((y) => /ประชุม/.test(y.title ?? ''))].sort((a, b) => (a.created ?? 0) - (b.created ?? 0))[0] ?? x
+  if (/ประชุม/.test(x.title ?? '')) return <><div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div>{hub.id === x.id ? <MeetingRows flowId={x.id} titles={Object.fromEntries(f.flows.map((y) => [y.id, y.title ?? '']))} /> : <section className="card"><p style={{ margin: 0 }}>การ์ดนี้รวมไว้ในการ์ด <b>{hub.title}</b> แล้ว (มีแท็บ สามัญ / วิสามัญ อยู่ข้างใน)</p><Link className="btn btn--gold" to={`/meeting/1/4/f-${hub.id}`}>ไปที่ {hub.title} ›</Link><p className="small muted" style={{ margin: 0 }}>การ์ดนี้ลบได้ที่หน้าสร้างเอกสาร (ปุ่ม 🗑️)</p></section>}</>
   const done = steps.filter((s) => x.ticks.includes(s.id)).length
   const set = (next: string[]) => f.put([{ ...x, ticks: next, updated: Date.now() }])
   /** เลขที่หนังสือจากคลังเอกสาร: หมวดที่ชื่อมี “เชิญ” (ถ้าไม่มีใช้ทั้งคลัง) → เลขล่าสุดและเลขถัดไป */
@@ -174,22 +175,25 @@ export function FlowPage({ id }: { id: string }) {
  * ลำดับงานประชุม: ค้นหา + ＋ สร้างการประชุม · แต่ละแถว = 1 การประชุม มี 3 ไอคอนตามลำดับ
  * ✉️ หนังสือแจ้งประชุม → 📝 บันทึกการประชุม (ใช้วาระจากหนังสือแจ้งต่อเนื่อง — เป็นการประชุมเดียวกัน) → 📄 รายงานการประชุม (ขั้นสุดท้าย เก็บเข้าแฟ้มเอกสาร)
  */
-function MeetingRows({ flowId, legacy }: { flowId: string; legacy: boolean }) {
+function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string, string> }) {
   const ms = useMeetings()
   const letters = useLetters('notice')
   const addLetter = useAddLetter('notice')
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
-  // แต่ละการ์ดมีการประชุมของตัวเอง (สามัญ/วิสามัญไม่ปนกัน) · ของเดิมที่ยังไม่ระบุการ์ด อยู่การ์ดประชุมใบแรก
-  const list = ms.list.filter((m) => (m.flowId ? m.flowId === flowId : legacy)).sort((a, b) => b.year - a.year || b.no - a.no)
+  const [tab, setTab] = useState<'สามัญ' | 'วิสามัญ'>('สามัญ')
+  /** สามัญ / วิสามัญ: ระบบเดียวกัน แยกรายการ เลขที่ และที่เก็บไฟล์ · การประชุมที่สร้างในการ์ดวิสามัญเดิมนับเป็นวิสามัญ */
+  const kindOf = (m: Meeting): 'สามัญ' | 'วิสามัญ' => (m.type === 'พิเศษ' || /วิสามัญ/.test(titles[m.flowId ?? ''] ?? '') ? 'วิสามัญ' : 'สามัญ')
+  const count = (k: 'สามัญ' | 'วิสามัญ') => ms.list.filter((m) => kindOf(m) === k).length
+  const list = ms.list.filter((m) => kindOf(m) === tab).sort((a, b) => b.year - a.year || b.no - a.no)
   const key = q.trim()
   const shown = key ? list.filter((m) => `${m.name} ${m.no}/${m.year} ${m.date}`.includes(key)) : list
   const add = () => {
-    const name = window.prompt('ชื่อการประชุม', key || 'ประชุมคณะธรรมกิจ')
+    const name = window.prompt(`ชื่อการประชุม${tab}`, key || (tab === 'วิสามัญ' ? 'ประชุมวิสามัญ' : 'ประชุมคณะธรรมกิจ'))
     if (name === null) return
     const y = yearOf(todayISO())
-    const m = { ...blankMeeting(y, nextNo(ms.list, y)), name: name.trim(), flowId }
+    const m = { ...blankMeeting(y, nextNo(ms.list, y)), name: name.trim(), flowId, type: tab === 'วิสามัญ' ? 'พิเศษ' as const : 'ปกติ' as const }
     if (!ms.put([m])) { setMsg('ไม่มีสิทธิ์สร้างการประชุม'); return }
     setMsg(''); setQ('')
   }
@@ -197,7 +201,7 @@ function MeetingRows({ flowId, legacy }: { flowId: string; legacy: boolean }) {
   const openNotice = (m: Meeting) => {
     const cur = m.noticeLetterId ? letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
     if (cur) { navigate(`/meeting/1/4/notice-${cur.id}`); return }
-    const r = addLetter()
+    const r = addLetter(kindOf(m) === 'วิสามัญ' ? VAR_CAT : undefined)
     if ('error' in r) { setMsg(r.error); return }
     ms.put([{ ...m, noticeLetterId: r.id, updated: Date.now() }])
     navigate(`/meeting/1/4/notice-${r.id}`)
@@ -214,12 +218,15 @@ function MeetingRows({ flowId, legacy }: { flowId: string; legacy: boolean }) {
   const go = (id: string, n: number) => { try { localStorage.setItem(MC_CUR_KEY, id) } catch { /* ignore */ } navigate(`/meeting/1/4/${n}`) }
   return (
     <section aria-label="การประชุม">
+      <div className="mttabs no-print" role="tablist" aria-label="ประเภทการประชุม">
+        {(['สามัญ', 'วิสามัญ'] as const).map((k) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={`mttab${tab === k ? ' on' : ''}`} onClick={() => setTab(k)}>{k} ({count(k)})</button>)}
+      </div>
       <div className="row mtrow__search no-print">
         <input className="input" type="search" aria-label="ค้นหาเอกสารการประชุม" placeholder="🔎 ค้นหาเอกสาร" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
         <button type="button" className="btn btn--gold mtrow__add" aria-label="สร้างเอกสารการประชุมใหม่" title="สร้างเอกสารการประชุมใหม่" onClick={add}>＋</button>
       </div>
       {msg && <p className="error" role="alert">{msg}</p>}
-      {list.length === 0 && <p className="empty">ยังไม่มีเอกสาร — กด ＋ เพื่อสร้างการประชุมใหม่</p>}
+      {list.length === 0 && <p className="empty">ยังไม่มีเอกสาร{tab} — กด ＋ เพื่อสร้างการประชุมใหม่</p>}
       {list.length > 0 && shown.length === 0 && <p className="empty">ไม่พบเอกสาร</p>}
       <ol className="mtrows" aria-label="รายการการประชุม">
         {shown.map((m, i) => {

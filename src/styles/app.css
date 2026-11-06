@@ -1868,3 +1868,7 @@ span.fundpend__tog--no { cursor: default; }
 
 .mtrow__tools { display: flex; gap: 6px; margin-top: 3px; }
 .mtrow__tools .mini { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
+
+.mttabs { display: flex; gap: 8px; margin: 0.4rem 0; }
+.mttab { flex: 1; padding: 0.5rem 0.4rem; border-radius: 0.8rem; border: 2px solid var(--line, #ddd); background: var(--surface, #fff); font-weight: 700; cursor: pointer; }
+.mttab.on { background: #1b2a4e; color: #fff; border-color: #1b2a4e; }
