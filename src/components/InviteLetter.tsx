@@ -30,7 +30,10 @@ const reflowNotice = (l: Draft, newDate: string): Partial<Draft> => {
   const was = blankOf('notice', l.date || todayISO()), now = blankOf('notice', newDate || todayISO())
   return { date: newDate, ...(l.toName === was.toName ? { toName: now.toName } : {}), ...(l.subject === was.subject ? { subject: now.subject } : {}), ...(l.body === was.body ? { body: now.body } : {}) }
 }
-const blankOf = (kind: LetterKindId, base = todayISO()): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(LETTER_KINDS.notice.blank.body, base), subject: fillNotice(LETTER_KINDS.notice.blank.subject, base) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: noticeAgenda(base) } : {}), attach: '', showAttach: false })
+/** หนังสือแจ้งประชุมวิสามัญ: หมวดในคลังเอกสาร + ตัวย่อเลขที่ของตัวเอง (แยกจากสามัญ) */
+export const VAR_CAT = 'หนังสือแจ้งประชุมวิสามัญ'
+export const VAR_PREFIX = 'ศอ/วส'
+const blankOf = (kind: LetterKindId, base = todayISO(), variant = false): Draft => ({ toName: kind === 'notice' ? noticeMeetingText(base).toName : '', no: '', date: '', ...LETTER_KINDS[kind].blank, ...(kind === 'notice' ? { body: fillNotice(variant ? LETTER_KINDS.notice.blank.body.replace('สามัญประจำเดือน{เดือน}', 'วิสามัญ') : LETTER_KINDS.notice.blank.body, base), subject: fillNotice(variant ? 'แจ้งประชุมวิสามัญคณะธรรมกิจ' : LETTER_KINDS.notice.blank.subject, base), ...(variant ? { category: VAR_CAT } : {}) } : {}), ...(LETTER_KINDS[kind].agenda ? { agenda: noticeAgenda(base) } : {}), attach: '', showAttach: false })
 /** เนื้อความตั้งต้นรุ่นก่อน (มีบรรทัดวัน-เวลาซ้ำกับหัวหนังสือ) — ฉบับที่ยังไม่ได้แก้ปรับเป็นแบบใหม่ให้เอง */
 const OLD_NOTICE_BODY = 'ด้วยคณะธรรมกิจคริสตจักรศิลาเอกกำหนดประชุมประจำเดือน{เดือน}\n{วันเวลา}\nณ ห้องประชุมธรรมกิจ จึงขอแจ้งวาระการประชุม ดังนี้'
 /** วาระตั้งต้นรุ่นแรก (ก่อนใช้วาระมาตรฐานตามต้นแบบ) */
@@ -177,13 +180,14 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
   const store = useLetters(kind, true)
   const savedCat = store.items.find((x) => x.id === id)?.category ?? ''
-  const isCat = (n: string) => (kind === 'doc' ? n === savedCat : K.isCat(n))
+  const isVar = kind === 'notice' && !!savedCat   // หนังสือแจ้งประชุมวิสามัญ (ฉบับที่ระบุหมวดของตัวเอง)
+  const isCat = (n: string) => (kind === 'doc' || isVar ? n === savedCat : K.isCat(n))
   const backTo = kind === 'doc' ? `cat-${encodeURIComponent(savedCat)}` : K.slug
   const role = useRole()
   const cfgStore = useLetterSettings(kind)
   const lib = useDocLibrary(), cats = useDocCategories()
   /** ชื่อหนังสือ = ชื่อหมวดในคลังเอกสารเสมอ (ไม่มีหมวด = ชื่อตั้งต้นของชนิด) */
-  const NAME = kind === 'doc' ? savedCat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? K.name
+  const NAME = kind === 'doc' ? savedCat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? (isVar ? savedCat : K.name)
   const saved = store.items.find((x) => x.id === id)
   const cfg: Cfg = { ...DEF, ...(cfgStore.items.find((x) => x.id === 'settings') ?? {}) }
   const [l, setL] = useState<Draft>(() => toDraft(kind, saved))
@@ -246,9 +250,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   useEffect(() => () => flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
-  const prefix = invitePrefix(cats.list, cfg.numPrefix, isCat)
-  const others = store.items.filter((x) => x.id !== id && (kind !== 'doc' || x.category === savedCat))
-  const catName = cats.list.find((c) => !c.deleted && isCat(c.name))?.name ?? (kind === 'doc' ? savedCat : undefined)
+  const prefix = invitePrefix(cats.list, isVar ? VAR_PREFIX : cfg.numPrefix, isCat)
+  const others = store.items.filter((x) => x.id !== id && (kind === 'doc' ? x.category === savedCat : kind === 'notice' ? (x.category ?? '') === savedCat : true))
+  const catName = cats.list.find((c) => !c.deleted && isCat(c.name))?.name ?? (kind === 'doc' || isVar ? savedCat : undefined)
   const inLib = lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => ({ no: d.no }))
   const nextNo = nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib], prefix)
   // ตัวย่อของหมวด “หนังสือเชิญ” ในคลังเอกสารเปลี่ยน/ตั้งใหม่ → เลขที่ของฉบับนี้ตามไปด้วย (เลขลำดับเดิม) และเลขที่ในคลังเอกสารก็ตามด้วย
@@ -390,7 +394,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       await putBinary(cfgSync, path, data, 'คลังเอกสาร')
       void cacheImage(path, data, 'application/pdf')
       let catName = cat?.name ?? ''
-      if (!catName) { catName = kind === 'doc' ? savedCat || K.defaultCat : K.defaultCat; cats.put([{ id: newId('cat'), updated: Date.now(), name: catName }]) }
+      if (!catName) { catName = kind === 'doc' || isVar ? savedCat || K.defaultCat : K.defaultCat; cats.put([{ id: newId('cat'), updated: Date.now(), name: catName }]) }
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
       const d: DocItem = { id: docId, updated: Date.now(), title: letterTitle(l, kind, NAME), category: catName, no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
@@ -615,23 +619,25 @@ export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
   const cfgStore = useLetterSettings(kind)
   const lib = useDocLibrary(), cats = useDocCategories()
   const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
-  const letters = store.items.filter((x) => (kind !== 'doc' || x.category === cat) && !(x.id === 'draft' && empty(x)))
-  /** สำเร็จ = id หนังสือใหม่ · ไม่สำเร็จ = ข้อความผิดพลาด */
-  return (): { id: string } | { error: string } => {
+  /** variantCat = หมวดของหนังสือแจ้งประชุมวิสามัญ (เลขที่/ที่เก็บไฟล์แยกจากสามัญ) · ไม่ใส่ = ฉบับปกติของชนิดนั้น */
+  return (variantCat?: string): { id: string } | { error: string } => {
     const id = newId('letter')
-    const pre = invitePrefix(cats.list, cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix, isCat)
-    const cn = cats.list.find((c) => !c.deleted && isCat(c.name))?.name
+    const sameGroup = (x: Letter) => (kind === 'doc' ? x.category === cat : kind === 'notice' ? (x.category ?? '') === (variantCat ?? '') : true)
+    const letters = store.items.filter((x) => sameGroup(x) && !(x.id === 'draft' && empty(x)))
+    const isCatV = (n: string) => (variantCat ? n === variantCat : isCat(n))
+    const pre = invitePrefix(cats.list, variantCat ? VAR_PREFIX : cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix, isCatV)
+    const cn = cats.list.find((c) => !c.deleted && isCatV(c.name))?.name ?? variantCat
     // ฉบับเดิมที่ยังใช้ตัวย่อตั้งต้น (ก่อนตั้งตัวย่อหมวด) → เปลี่ยนตามตัวย่อหมวดก่อน แล้วค่อยรันเลขใหม่ต่อท้าย
     let cur = letters
     const legacy = cleanPrefix(cfgStore.items.find((x) => x.id === 'settings')?.numPrefix ?? DEF.numPrefix ?? 'ศอช')
-    if (kind !== 'doc' && legacy && legacy !== pre) {
+    if (kind !== 'doc' && !variantCat && legacy && legacy !== pre) {
       const taken = store.items.map((x) => x.no)
       const moved = store.items.flatMap((x) => { const r = followPrefix(x.no, legacy, pre, taken); if (r) taken.push(r); return r ? [{ ...x, no: r, updated: Date.now() }] : [] })
       if (moved.length) { store.put(moved); for (const m of moved) { const d = m.docId ? lib.list.find((y) => y.id === m.docId) : undefined; if (d) lib.put([{ ...d, no: m.no, updated: Date.now() }]) } }
       cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
     }
-    const pool = [...cur.map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
-    if (!store.put([{ ...blankOf(kind, todayISO()), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return { error: 'ไม่มีสิทธิ์สร้างหนังสือ' }
+    const pool = [...cur.filter(sameGroup).map((x) => ({ no: x.no })), ...lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no }))]
+    if (!store.put([{ ...blankOf(kind, todayISO(), !!variantCat), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return { error: 'ไม่มีสิทธิ์สร้างหนังสือ' }
     return { id }
   }
 }

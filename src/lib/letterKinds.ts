@@ -49,7 +49,7 @@ export const LETTER_KINDS: Record<LetterKindId, LetterKind> = {
     id: 'notice', name: 'หนังสือแจ้งการประชุมคณะธรรมกิจ', icon: '📣', slug: 'notice',
     storeKey: 'noticeletter', file: 'notice-letter.json', label: 'หนังสือแจ้งการประชุมประจำเดือน',
     settingsKey: 'noticesettings', settingsFile: 'notice-settings.json', settingsLabel: 'ค่าตั้งต้นหนังสือแจ้งการประชุม',
-    catMatch: 'แจ้งการประชุม', defaultCat: 'หนังสือแจ้งการประชุม', isCat: (n) => /แจ้ง(การ)?ประชุม/.test(n),
+    catMatch: 'แจ้งการประชุม', defaultCat: 'หนังสือแจ้งการประชุม', isCat: (n) => /แจ้ง(การ)?ประชุม/.test(n) && !/วิสามัญ/.test(n),
     intro: 'แจ้งกำหนดการประชุมคณะธรรมกิจคริสตจักร', blurb: 'หน้าเดียว (ทำงานเหมือนหนังสือเชิญ): เลขที่ วันที่ เรื่อง เรียน เนื้อหา · ลงนาม · ส่งเข้าคลังเอกสาร',
     fileName: 'หนังสือแจ้งการประชุม',
     blank: {
