@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { useDocCategories, useDocLibrary, useFlowTicks, useLetters, useMeetings } from '../lib/data'
@@ -179,6 +179,7 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   const ms = useMeetings()
   const letters = useLetters('notice')
   const addLetter = useAddLetter('notice')
+  const lib = useDocLibrary()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
@@ -211,10 +212,24 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
     if (name === null || name.trim() === m.name) return
     setMsg(ms.put([{ ...m, name: name.trim(), updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์แก้ไข')
   }
+  /** ลบหนังสือแจ้งประชุมของการประชุมนี้ (และไฟล์ในคลังเอกสาร) → เลขที่หนังสือกลับมารันต่อจากฉบับที่ยังเหลือ */
+  const dropLetter = (id?: string) => {
+    const l = id ? letters.items.find((x) => x.id === id && !x.deleted) : undefined
+    if (!l) return
+    const d = l.docId ? lib.list.find((y) => y.id === l.docId) : undefined
+    if (d) lib.put([{ ...d, deleted: true, updated: Date.now() }])
+    letters.put([{ ...l, deleted: true, updated: Date.now() }])
+  }
   const del = (m: Meeting) => {
-    if (!window.confirm(`ลบ “${m.name || `ครั้งที่ ${m.no}/${m.year}`}” ?\n(หนังสือแจ้งประชุมที่สร้างไว้ยังอยู่ในคลังหนังสือ)`)) return
+    const has = !!(m.noticeLetterId && letters.items.some((x) => x.id === m.noticeLetterId && !x.deleted))
+    if (!window.confirm(`ลบ “${m.name || `ครั้งที่ ${m.no}/${m.year}`}” ?${has ? '\n(หนังสือแจ้งประชุมของการประชุมนี้และไฟล์ในคลังเอกสารจะถูกลบด้วย เลขที่หนังสือจะกลับมารันต่อจากฉบับที่เหลือ)' : ''}`)) return
+    dropLetter(m.noticeLetterId)
     setMsg(ms.remove(m.id) ? '' : 'ไม่มีสิทธิ์ลบ')
   }
+  // หนังสือของการประชุมที่ถูกลบไปก่อนหน้า (ค้างอยู่ กินเลขที่) → เก็บกวาดให้ เลขที่จะได้ไม่เดินหน้าเกินจริง
+  useEffect(() => {
+    for (const x of ms.all.filter((y) => y.deleted && y.noticeLetterId)) dropLetter(x.noticeLetterId)
+  }, [ms.all.length, letters.items.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const go = (id: string, n: number) => { try { localStorage.setItem(MC_CUR_KEY, id) } catch { /* ignore */ } navigate(`/meeting/1/4/${n}`) }
   return (
     <section aria-label="การประชุม">

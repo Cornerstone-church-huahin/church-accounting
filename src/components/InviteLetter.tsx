@@ -647,7 +647,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
   const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
   const store = useLetters(kind)
   const navigate = useNavigate()
-  const cats = useDocCategories()
+  const cats = useDocCategories(), lib = useDocLibrary()
   const NAME = kind === 'doc' ? cat || K.name : cats.list.find((c) => isCat(c.name))?.name ?? K.name
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
@@ -658,7 +658,13 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
   const shown = t ? letters.filter((x) => `${x.toName ?? ''} ${x.subject} ${x.to} ${x.no} ${x.date} ${x.body}`.toLowerCase().includes(t)) : letters
   const addLetter = useAddLetter(kind, cat)
   const add = () => { const r = addLetter(); if ('error' in r) return setMsg(r.error); navigate(`/meeting/1/4/${K.slug}-${r.id}`) }
-  const del = (x: Letter) => { if (window.confirm(`ลบ “${letterTitle(x, kind, NAME)}” ?`)) setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
+  /** ลบหนังสือ = ลบไฟล์ของฉบับนั้นในคลังเอกสารด้วย เลขที่จึงกลับมารันต่อจากฉบับที่ยังเหลือ (ไม่เดินหน้าไปเรื่อย ๆ) */
+  const del = (x: Letter) => {
+    const d = x.docId ? lib.list.find((y) => y.id === x.docId) : undefined
+    if (!window.confirm(`ลบ “${letterTitle(x, kind, NAME)}” ?${d ? '\n(ไฟล์ของฉบับนี้ในคลังเอกสารจะถูกลบด้วย)' : ''}`)) return
+    if (d) lib.put([{ ...d, deleted: true, updated: Date.now() }])
+    setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ')
+  }
   return (
     <>
       <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div>
