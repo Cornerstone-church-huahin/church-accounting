@@ -8,6 +8,7 @@ import { mergeNoticeAgenda, orderedAgenda } from './docs'
 import { attendance } from './minutes'
 import Roster from './Roster'
 import { blankAgenda, minuteComplete, moveAgenda } from '../../lib/meetings'
+import { fmtDateLong } from '../../lib/money'
 import type { MtAgenda, MtMinute, MtResult } from '../../lib/types'
 
 /** แถบสีของวาระ (วนซ้ำ): bar = สีเข้ม · bg = พื้นอ่อน */
@@ -35,6 +36,11 @@ export default function Step6({ m, save, list }: StepProps) {
   /** กดปุ่มเหลือง = บันทึกส่วนนั้น (ยังอยู่หน้าเดิม) แล้วมีปุ่มเล็ก ย้อนกลับ/ต่อไป เท่านั้น */
   const notice = m.noticeLetterId ? notices.items.find((x) => x.id === m.noticeLetterId) : undefined
   // ดึงวาระ + หัวข้อย่อย (5.1, 5.2 …) จากหนังสือแจ้งประชุมให้อัตโนมัติ: เมื่อหนังสือเปลี่ยน (รายการวาระไม่ตรงกับที่ดึงไว้ครั้งล่าสุด) จึงเติมเฉพาะที่ยังไม่มี · ที่ลบ/แก้ในบันทึกประชุมแล้วไม่ถูกดึงกลับ
+  const setNext = (d?: string, t?: string) => {
+    const nextDate = d || undefined, nextTime = t || undefined
+    const txt = [nextDate ? fmtDateLong(nextDate) : '', nextTime ? `เวลา ${nextTime.replace(':', '.')} น.` : ''].filter(Boolean).join(' ')
+    save({ closed: { ...m.closed!, nextDate, nextTime, next: txt || undefined } })
+  }
   const noticeSig = notice ? 'v2:' + JSON.stringify(agendaOf(notice).map((r) => [r.label, r.t, r.r])) : ''
   useEffect(() => {
     if (!notice || view !== 1 || m.noticeAgendaSig === noticeSig) return
@@ -171,8 +177,12 @@ export default function Step6({ m, save, list }: StepProps) {
         <h2 id="s6-z">6.6 เลิกประชุมและนัดครั้งถัดไป</h2>
         <div className="row" style={{ alignItems: 'flex-start' }}>
           <TextField id="mt-close-time" label="เวลาเลิกประชุม" type="time" value={m.closed?.time} onCommit={(v) => save({ closed: v ? { ...m.closed, time: v } : undefined })} />
-          <TextField id="mt-next" label="นัดประชุมครั้งต่อไป (ถ้ามี)" value={m.closed?.next} onCommit={(v) => m.closed?.time && save({ closed: { ...m.closed, next: v.trim() || undefined } })} placeholder="เช่น อาทิตย์ที่ 13 ธันวาคม 2026 เวลา 18.30 น." />
         </div>
+        <div className="row" style={{ alignItems: 'flex-start' }}>
+          <TextField id="mt-next-date" label="นัดประชุมครั้งต่อไป · วันที่ (ถ้ามี)" type="date" value={m.closed?.nextDate} onCommit={(v) => m.closed?.time && setNext(v, m.closed?.nextTime)} />
+          <TextField id="mt-next-time" label="เวลา" type="time" value={m.closed?.nextTime} onCommit={(v) => m.closed?.time && setNext(m.closed?.nextDate, v)} />
+        </div>
+        {m.closed?.next && <p className="muted small" style={{ margin: 0 }}>จะแสดงในบันทึก: {m.closed.next}</p>}
         {!m.closed?.time && <p className="muted small" style={{ margin: 0 }}>กรอกเวลาเลิกประชุมก่อน จึงบันทึกการนัดครั้งถัดไปได้</p>}
       </section>
       <section className="card" aria-label="เสร็จส่วนที่ 3">
