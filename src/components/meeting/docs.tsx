@@ -30,6 +30,8 @@ export function mergeNoticeAgenda(base: MtAgenda[], rows: { label: string; t: st
         // หัวข้อเดิมของลำดับนี้: ถ้ายังไม่ถูกแก้ชื่อเอง (ชื่อยังเป็นตามที่ดึงไว้/ชื่อตั้งต้น) ให้ตามชื่อใหม่ในหนังสือ
         const untouched = hit.title === (hit.srcTitle ?? `หัวข้อย่อย ${r.label}`)
         out = out.map((x) => (x.id === hit.id ? { ...x, src: r.label, srcTitle: untouched ? title : x.srcTitle, title: untouched ? title : x.title } : x))
+        // รอบก่อน ๆ เคยเพิ่มหัวข้อซ้ำชื่อเดียวกัน (ยังว่าง ไม่เคยบันทึก) → เก็บกวาด เหลือข้อเดียวตามหนังสือ
+        out = out.filter((x) => !(x.id !== hit.id && x.parentId === parent && !x.src && x.title === title && !x.minute && !x.done))
       } else { const par = out.find((x) => x.id === parent)!; out.push({ ...blank(), title, group: par.group, purpose: 'ทราบ', parentId: parent, src: r.label, srcTitle: title }) }
     }
   }
