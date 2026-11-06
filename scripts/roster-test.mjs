@@ -74,6 +74,11 @@ try {
   await p.getByText('กล่าวต้อนรับ (แก้แล้ว)').first().waitFor({ timeout: 5000 })
   must(await p.getByRole('group', { name: /หัวข้อย่อยของวาระที่ 1/ }).getByText(/1\.1/).count() >= 1 && await p.getByText(/^6\.\d/).count() === 0, 'sub-item 1.1 lives inside agenda 1; no old 6.x labels')
   must(await p.locator('section[aria-label^="วาระที่ 1.1"]').count() === 0, 'no separate big card for the sub-item')
+  // เพิ่มหัวข้อย่อย 1.2 · หัวข้อย่อยมีช่องกรอกครบ
+  await p.getByRole('button', { name: /＋ เพิ่มหัวข้อย่อย 1\.2/ }).click()
+  const grp = p.getByRole('group', { name: /หัวข้อย่อยของวาระที่ 1/ })
+  await grp.getByText(/1\.2/).waitFor({ timeout: 5000 })
+  must(await grp.getByText('ผลลงคะแนน').count() === 2 && await grp.getByLabel('ข้อเสนอให้พิจารณา').count() === 2, 'each sub-item has the full set of fields')
   // ติ๊กวาระเสร็จ → แถบเขียว พับเนื้อหา
   await p.getByRole('checkbox', { name: /วาระที่ 1 เสร็จแล้ว/ }).check()
   await p.waitForTimeout(300)
@@ -92,7 +97,7 @@ try {
   await p.getByRole('button', { name: /บันทึกเสร็จ — ส่งไปรายงานการประชุม/ }).click()
   await p.waitForURL(/#\/meeting\/1\/4\/7/)
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
-  must(ms[0].minutesDone && ms[0].agenda.length === 2 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
+  must(ms[0].minutesDone && ms[0].agenda.length === 3 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
   const pe = ms[0].people
   must(pe.filter((x) => x.kind === 'กรรมการ').length === 13 && pe.filter((x) => x.att === 'ลา').length === 1 && pe.filter((x) => x.att === 'ไม่มา').length === 1, 'attendance saved onto the meeting')
   // ผู้ใช้เคยมีรายชื่อทดลอง 3 คน: เปิดครั้งแรก ระบบใส่ 12 คนตามรายงานเดิมให้ครั้งเดียว
