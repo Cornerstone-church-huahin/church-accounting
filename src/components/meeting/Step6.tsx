@@ -13,7 +13,7 @@ import { mergeNoticeAgenda, orderedAgenda } from './docs'
 import { attendance } from './minutes'
 import Roster from './Roster'
 import { blankAgenda, minuteComplete, moveAgenda } from '../../lib/meetings'
-import { fmtDateLong } from '../../lib/money'
+import { fmtDateLong, todayISO } from '../../lib/money'
 import type { MtAgenda, MtMinute, MtResult } from '../../lib/types'
 
 /** แถบสีของวาระ (วนซ้ำ): bar = สีเข้ม · bg = พื้นอ่อน */
@@ -51,6 +51,11 @@ export default function Step6({ m, save, list }: StepProps) {
   const rosterEl = useRef<HTMLDivElement>(null)
   const pageEls = useRef<HTMLDivElement[]>([])
   const sheetEls = () => [rosterEl.current, ...pageEls.current].filter(Boolean) as HTMLDivElement[]
+  useEffect(() => {
+    if (view !== 3 || (m.date && m.time)) return
+    const d = new Date(), pad = (n: number) => String(n).padStart(2, '0')
+    save({ date: m.date || todayISO(), time: m.time || m.opened?.time || `${pad(d.getHours())}:${pad(d.getMinutes())}` })
+  }, [view])
   const noticeSig = notice ? 'v2:' + JSON.stringify(agendaOf(notice).map((r) => [r.label, r.t, r.r])) : ''
   useEffect(() => {
     if (!notice || view !== 1 || m.noticeAgendaSig === noticeSig) return
@@ -205,12 +210,18 @@ export default function Step6({ m, save, list }: StepProps) {
       <section className="card" aria-label="สรุปบันทึกการประชุม">
         <h2 style={{ marginTop: 0 }}>ส่วนที่ 4 · รายงานการประชุมฉบับรวม</h2>
         <p className="muted small" style={{ margin: '0 0 0.4rem' }}>แผ่นแรกคือใบลงชื่อผู้ร่วมประชุม ตามด้วยรายงานการประชุมทุกวาระ จนถึงเลิกประชุมและช่องลงนาม · ครบในไฟล์เดียว พร้อมพิมพ์ · ผู้ร่วมประชุม {a.present.length + a.guests.length} คน · บันทึกแล้ว {doneCount}/{items.length} วาระ</p>
-        <PdfTools els={sheetEls} file={`รายงานการประชุม-ครั้งที่${m.no}-${m.year}.pdf`} title={`รายงานการประชุม ครั้งที่ ${m.no}/${m.year}`} label="รายงานการประชุมฉบับรวม" />
+        <div className="row" style={{ alignItems: 'flex-start', marginBottom: '0.3rem' }}>
+          <TextField id="mt-date" label="วันที่ประชุม" type="date" value={m.date} onCommit={(v) => save({ date: v })} />
+          <TextField id="mt-time" label="เวลา" type="time" value={m.time} onCommit={(v) => save({ time: v })} />
+        </div>
+        <TextField id="mt-place" label="สถานที่" value={m.place} onCommit={(v) => save({ place: v.trim() })} placeholder="เช่น ห้องประชุมธรรมกิจ" />
+        <p className="muted small" style={{ margin: '0.1rem 0 0.4rem' }}>วันและเวลาใส่ให้อัตโนมัติจากวันที่บันทึกการประชุม — เลือกเปลี่ยนได้</p>
         <RosterPaper ref={rosterEl} church={church} m={m} />
         {(() => { pageEls.current = []; return null })()}
         {paginate(minutesBlocks(m, { draft: true })).map((bs, i) => (
           <LetterPage key={i} ref={(el) => { if (el) pageEls.current[i] = el }}>{bs.map((b) => <div key={b.key}>{b.node}</div>)}</LetterPage>
         ))}
+        <PdfTools compact els={sheetEls} file={`รายงานการประชุม-ครั้งที่${m.no}-${m.year}.pdf`} title={`รายงานการประชุม ครั้งที่ ${m.no}/${m.year}`} label="รายงานการประชุมฉบับรวม" />
       </section>
       <section className="card" aria-label="บันทึกการประชุมเสร็จ">
         {m.minutesDone

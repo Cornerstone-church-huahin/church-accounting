@@ -6,7 +6,7 @@ import type { Meeting, MtPerson } from '../../lib/types'
 
 export interface MBlock { key: string; lines: number; node: ReactNode }
 const est = (s: string | undefined, per = 64) => (s ? Math.max(1, Math.ceil(s.length / per)) : 0)
-const names = (ps: MtPerson[]) => ps.map((p) => (p.role ? `${p.name} (${p.role})` : p.name)).join(', ')
+export const names = (ps: MtPerson[]) => ps.map((p) => (p.role ? `${p.name} (${p.role})` : p.name)).join(', ')
 
 export const resultLine = (a: ReturnType<typeof orderedAgenda>[number]['item']) => {
   const mi = a.minute
@@ -24,13 +24,22 @@ export function minutesBlocks(m: Meeting, opts: { draft?: boolean; final?: boole
       <div style={{ textAlign: 'center' }}>{m.name} ครั้งที่ {m.no}/{m.year}{m.type === 'พิเศษ' ? ' (การประชุมพิเศษ)' : ''}</div>
       <div style={{ textAlign: 'center', marginBottom: 8 }}>วันที่ {letterDate(m.date) || '………'} เวลา {timeTh(m.time) || '………'} ณ {m.place || '………'}</div>
     </>) })
-  const lines = [
-    a.present.length ? `ผู้มาประชุม (${a.present.length} คน): ${names(a.present)}` : '',
-    a.leave.length ? `ผู้ลาประชุม (${a.leave.length} คน): ${names(a.leave)}` : '',
-    a.absent.length ? `ผู้ไม่มาประชุม (${a.absent.length} คน): ${names(a.absent)}` : '',
-    a.guests.length ? `ผู้เข้าร่วมเพิ่มเติม (${a.guests.length} คน): ${names(a.guests)}` : '',
-  ].filter(Boolean)
-  out.push({ key: 'att', lines: lines.reduce((s, l) => s + est(l), 0) + 1, node: <div style={{ margin: '4px 0' }}>{lines.map((l, i) => <div key={i} style={{ marginBottom: 2 }}>{l}</div>)}{lines.length === 0 && <div>ผู้มาประชุม: ………………………</div>}</div> })
+  const groups = [
+    { k: 'ผู้มาประชุม', ps: a.present }, { k: 'ผู้ลาประชุม', ps: a.leave }, { k: 'ผู้ไม่มาประชุม', ps: a.absent }, { k: 'ผู้เข้าร่วมเพิ่มเติม', ps: a.guests },
+  ].filter((g) => g.ps.length)
+  const nm = (p: MtPerson) => (p.role ? `${p.name} (${p.role})` : p.name)
+  out.push({ key: 'att', lines: groups.reduce((n, g) => n + 1 + Math.ceil(g.ps.length / 2) * 1.3, 0) + 1, node: (
+    <div style={{ margin: '4px 0 8px', fontSize: 13.5 }}>
+      {groups.map((g) => (
+        <div key={g.k} style={{ marginBottom: 6 }}>
+          <div style={{ fontWeight: 700, borderBottom: '1px solid #1a2b4c', marginBottom: 3 }}>{g.k} ({g.ps.length} คน)</div>
+          <ol style={{ margin: 0, padding: 0, listStyle: 'none', columnCount: 2, columnGap: 18 }}>
+            {g.ps.map((p, i) => <li key={p.id} style={{ breakInside: 'avoid', padding: '1px 0' }}>{i + 1}. {nm(p)}</li>)}
+          </ol>
+        </div>
+      ))}
+      {groups.length === 0 && <div>ผู้มาประชุม: ………………………</div>}
+    </div>) })
   out.push({ key: 'open', lines: 2, node: <p className="letter__p">{m.opened ? `ประธานที่ประชุมคือ ${m.opened.chair || m.chair} เปิดประชุมเมื่อเวลา ${timeTh(m.opened.time)} หลังตรวจองค์ประชุมครบ${m.opened.agendaConfirmed ? ' ที่ประชุมเห็นชอบระเบียบวาระ' : ''}` : `ประธาน ${m.chair || '………'} เปิดประชุมเมื่อเวลา ……… น.`}</p> })
   for (const { label, item } of orderedAgenda(m)) {
     const mi = item.minute ?? {}
