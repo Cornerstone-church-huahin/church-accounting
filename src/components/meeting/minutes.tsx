@@ -6,7 +6,7 @@ import type { Meeting, MtPerson } from '../../lib/types'
 
 export interface MBlock { key: string; lines: number; node: ReactNode }
 const est = (s: string | undefined, per = 64) => (s ? Math.max(1, Math.ceil(s.length / per)) : 0)
-const names = (ps: MtPerson[]) => ps.map((p) => p.name).join(', ')
+const names = (ps: MtPerson[]) => ps.map((p) => (p.role ? `${p.name} (${p.role})` : p.name)).join(', ')
 
 export const resultLine = (a: ReturnType<typeof orderedAgenda>[number]['item']) => {
   const mi = a.minute

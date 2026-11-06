@@ -466,7 +466,7 @@ export interface Announcement extends SharedItem { text: string; works: number[]
 export type MtKind = 'กรรมการ' | 'ผู้มีสิทธิ์ลงคะแนน' | 'ผู้เข้าร่วมอื่น'
 export type MtRsvp = 'ตอบรับ' | 'ลา' | 'ยังไม่ตอบ'
 export type MtAttend = 'มา' | 'ลา' | 'ไม่มา'
-export interface MtPerson { id: string; name: string; kind: MtKind; /** ตอบรับ/ลา หลังแจ้งประชุม */ rsvp?: MtRsvp; /** มาจริงในวันประชุม */ att?: MtAttend }
+export interface MtPerson { id: string; name: string; kind: MtKind; /** ตำแหน่ง (กรรมการ) หรือหมายเหตุ/บทบาท (ผู้สังเกตการณ์) */ role?: string; /** ตอบรับ/ลา หลังแจ้งประชุม */ rsvp?: MtRsvp; /** มาจริงในวันประชุม */ att?: MtAttend }
 export type MtResult = 'เห็นชอบ' | 'ไม่เห็นชอบ' | 'เลื่อนพิจารณา' | 'มีเงื่อนไข'
 export interface MtMinute { summary?: string; proposal?: string; result?: MtResult; condition?: string; yes?: number; no?: number; abstain?: number; assignee?: string; due?: string; /** ผู้รับผิดชอบทำเสร็จแล้ว */ done?: boolean }
 export type MtGroup = 'แจ้งเพื่อทราบ' | 'รับรองรายงาน' | 'ติดตามงาน' | 'เรื่องเสนอพิจารณา'
@@ -475,6 +475,8 @@ export interface MtAgenda { id: string; title: string; group: MtGroup; purpose: 
 export interface MtDraft { at: number; by: string; note: string; /** สำเนารายงาน ณ ตอนบันทึกฉบับ */ text: string }
 export type MtApproval = 'รับรองโดยไม่แก้ไข' | 'รับรองโดยมีการแก้ไข' | 'ยังไม่รับรอง'
 /** ข้อมูลการประชุม 1 ครั้ง — ใช้ร่วมทุกขั้นตั้งแต่สร้างจนเก็บเอกสาร */
+/** รายชื่อคณะธรรมกิจประจำ (ตำแหน่ง + ชื่อ) — ใช้เป็นรายชื่อตั้งต้นของทุกการประชุม แก้ไขเพิ่มลดได้ */
+export interface CommitteeMember extends SharedItem { name: string; role: string; order: number }
 export interface Meeting extends SharedItem {
   name: string; no: number; year: number; type: 'ปกติ' | 'พิเศษ'
   date: string; time: string; place: string; chair: string; secretary: string
@@ -484,6 +486,8 @@ export interface Meeting extends SharedItem {
   notice?: { channels: string[]; body?: string; sentAt?: number; ref?: string }
   /** หนังสือแจ้งการประชุมของการประชุมนี้ (ฉบับในหน้า หนังสือแจ้งการประชุม) */
   noticeLetterId?: string
+  /** บันทึกการประชุม ส่วนที่ 1 (รายชื่อผู้เข้าประชุม) เสร็จแล้ว → ไปส่วนที่ 2 (วาระ) */
+  rosterDone?: { at: number }
   /** การ์ดลำดับงานที่การประชุมนี้สังกัด (เช่น สามัญ / วิสามัญ แยกกัน) · ไม่มี = ของเดิมก่อนแยกการ์ด (อยู่การ์ดประชุมใบแรก) */
   flowId?: string
   prep?: Record<string, boolean>
