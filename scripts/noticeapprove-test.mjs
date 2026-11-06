@@ -50,7 +50,7 @@ try {
   await p.getByRole('dialog', { name: 'ส่งเพื่อเตรียมบันทึกการประชุมแล้ว' }).waitFor({ timeout: 10000 })
   await p.getByRole('button', { name: 'ไปที่บันทึกการประชุมเลย' }).click()
   await p.waitForURL(/#\/meeting\/1\/4\/6/)
-  await p.getByText('ส่วนที่ 1 · ใบลงชื่อผู้ร่วมประชุม').first().waitFor({ timeout: 8000 })
+  await p.getByText('ส่วนที่ 1 จาก 4').first().waitFor({ timeout: 8000 })
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
   const m = ms.find((x) => x.noticeLetterId === 'l1')
   must(m && m.agenda.length === 2 && /เทสระบบ/.test(m.agenda[1].docs ?? '') && m.notice?.sentAt, 'agenda + notice seeded into the meeting: ' + JSON.stringify(m)?.slice(0, 200))

@@ -144,7 +144,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
   return (
     <>
       <div className="page-head no-print">
-        <h1>{s.n}. {s.title}</h1>
+        <h1>{n === 6 ? s.title : `${s.n}. ${s.title}`}</h1>
         <Link to={HUB} className="mini">‹ กลับศูนย์จัดการประชุม</Link>
       </div>
       <p className="mc__blurb"><span aria-hidden="true">{s.icon}</span> {s.blurb}</p>

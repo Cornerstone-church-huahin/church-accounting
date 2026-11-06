@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Sheet from '../Sheet'
 import { TextField } from './fields'
-import { useCommittee } from '../../lib/data'
-import { blankPerson } from '../../lib/meetings'
+import { DEFAULT_COMMITTEE, useCommittee } from '../../lib/data'
+import { blankPerson, letterDate } from '../../lib/meetings'
 import { newId } from '../../lib/money'
 import type { CommitteeMember, MtAttend, MtPerson } from '../../lib/types'
 import type { StepProps } from './Step1'
@@ -34,25 +34,22 @@ function RosterSetup({ initial, addBlank, onClose, onSave }: { initial: Row[]; a
   return (
     <Sheet title="ตั้งค่ารายชื่อคณะกรรมการหลัก" onClose={onClose}>
       <p className="muted small" style={{ margin: 0 }}>รายชื่อนี้ใช้เป็นตัวตั้งต้นของทุกการประชุม (สามัญและวิสามัญ) · แก้ไข เพิ่ม ลบ เรียงลำดับได้ตลอด</p>
-      <ol className="rosterlist" aria-label="รายชื่อคณะกรรมการหลัก">
+      <ol className="suplist" aria-label="รายชื่อคณะกรรมการหลัก">
         {rows.map((r, i) => (
-          <li key={r.id} className="rosterrow">
-            <span className="rosterrow__n">{i + 1}</span>
-            <div className="rosterrow__f">
-              <div className="field"><label htmlFor={`su-r-${r.id}`}>ตำแหน่ง</label><input id={`su-r-${r.id}`} className="input" value={r.role} onChange={(e) => set(r.id, 'role', e.target.value)} /></div>
-              <div className="field"><label htmlFor={`su-n-${r.id}`}>ชื่อ</label><input id={`su-n-${r.id}`} className="input" value={r.name} onChange={(e) => set(r.id, 'name', e.target.value)} /></div>
-            </div>
-            <div className="rosterrow__a">
-              <button type="button" className="mini" aria-label={`เลื่อน ${r.name || `คนที่ ${i + 1}`} ขึ้น`} onClick={() => move(i, -1)}>↑</button>
-              <button type="button" className="mini" aria-label={`เลื่อน ${r.name || `คนที่ ${i + 1}`} ลง`} onClick={() => move(i, 1)}>↓</button>
-              <button type="button" className="mini" aria-label={`ลบ ${r.name || `คนที่ ${i + 1}`}`} onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}>🗑️</button>
-            </div>
+          <li key={r.id} className="suprow">
+            <span className="suprow__n">{i + 1}</span>
+            <input id={`su-r-${r.id}`} className="input" aria-label={`ตำแหน่ง คนที่ ${i + 1}`} placeholder="ตำแหน่ง" value={r.role} onChange={(e) => set(r.id, 'role', e.target.value)} />
+            <input id={`su-n-${r.id}`} className="input" aria-label={`ชื่อ คนที่ ${i + 1}`} placeholder="ชื่อ" value={r.name} onChange={(e) => set(r.id, 'name', e.target.value)} />
+            <button type="button" className="mini" aria-label={`เลื่อน ${r.name || `คนที่ ${i + 1}`} ขึ้น`} onClick={() => move(i, -1)}>↑</button>
+            <button type="button" className="mini" aria-label={`เลื่อน ${r.name || `คนที่ ${i + 1}`} ลง`} onClick={() => move(i, 1)}>↓</button>
+            <button type="button" className="mini" aria-label={`ลบ ${r.name || `คนที่ ${i + 1}`}`} onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}>🗑️</button>
           </li>
         ))}
       </ol>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         <button type="button" className="mini" onClick={() => setRows((rs) => [...rs, { id: newId('cm'), role: '', name: '' }])}>＋ เพิ่มกรรมการ</button>
         <button type="button" className="mini" aria-expanded={bulk} onClick={() => setBulk(!bulk)}>เพิ่มหลายคนพร้อมกัน</button>
+        <button type="button" className="mini" onClick={() => { if (rows.some((r) => r.name.trim()) && !window.confirm('ใส่รายชื่อคณะธรรมกิจ 12 คนตามรายงานเดิม ทับรายชื่อที่แก้อยู่ ?')) return; setRows(DEFAULT_COMMITTEE.map((c) => ({ id: c.id, role: c.role, name: c.name }))) }}>📋 ใส่รายชื่อ 12 คนตามรายงานเดิม</button>
       </div>
       {bulk && (
         <div className="field">
@@ -77,6 +74,7 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
   const members = m.people.filter((p) => p.kind === 'กรรมการ')
   const guests = m.people.filter((p) => p.kind === 'ผู้เข้าร่วมอื่น')
   const [msg, setMsg] = useState('')
+  const [noteOpen, setNoteOpen] = useState('')
   const [setup, setSetup] = useState<false | 'edit' | 'add'>(() => (committee.list.length === 0 && members.length === 0 ? 'edit' : false))   // ยังไม่เคยตั้งค่า: เปิดป๊อปอัพตั้งค่าก่อน
   const seeded = useRef(false)
   // การประชุมใหม่ที่ยังไม่มีกรรมการ: ดึงรายชื่อหลักมาให้ทันที
@@ -101,15 +99,12 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
     setSetup(false); setMsg(`บันทึกรายชื่อคณะกรรมการหลัก ${rows.length} คน — ใช้กับทุกการประชุมต่อไป`)
     return true
   }
-  /** ย้าย/ลบในรายการตรง ๆ: ปรับรายชื่อหลัก (ใช้กับทุกการประชุม) และรายชื่อของการประชุมนี้พร้อมกัน — เลขลำดับเรียงใหม่อัตโนมัติ */
-  const rowsNow: Row[] = members.filter((p) => p.name.trim()).map((p) => ({ id: p.id, role: p.role ?? '', name: p.name.trim() }))
-  const moveRow = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= rowsNow.length) return; const c = [...rowsNow]; [c[i], c[j]] = [c[j], c[i]]; saveSetup(c) }
-  const delRow = (i: number) => { if (window.confirm(`ลบ “${rowsNow[i].name}” ออกจากรายชื่อคณะกรรมการหลัก ?\n(ใช้กับทุกการประชุมต่อไป)`)) saveSetup(rowsNow.filter((_, k) => k !== i)) }
   return (
     <>
+      <p className="mc__part" role="status"><b>ส่วนที่ 1 จาก 4</b> · ใบลงชื่อผู้ร่วมประชุม</p>
       <section className="card" aria-labelledby="r1-a">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: 8 }}>
-          <h2 id="r1-a" style={{ margin: 0 }}>ส่วนที่ 1 · ใบลงชื่อผู้ร่วมประชุม — คณะธรรมกิจ ({members.filter((p) => p.name.trim()).length} คน)</h2>
+          <h2 id="r1-a" style={{ margin: 0 }}>รายชื่อคณะธรรมกิจ ({members.filter((p) => p.name.trim()).length} คน)</h2>
           <span className="row" style={{ flex: 'none', gap: 6, flexWrap: 'nowrap' }}>
             <button type="button" className="mini iconbtn" aria-label="เพิ่มกรรมการ" title="เพิ่มกรรมการ" onClick={() => setSetup('add')}>＋</button>
             <button type="button" className="mini iconbtn" aria-label="ตั้งค่ารายชื่อคณะกรรมการหลัก" title="ตั้งค่า / ลบกรรมการ" onClick={() => setSetup('edit')}>⚙️</button>
@@ -117,21 +112,16 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
         </div>
         <p className="small" role="status" style={{ margin: '0.4rem 0 0.5rem' }}>ร่วม {count('มา')} · ลา {count('ลา')} · ขาด {count('ไม่มา')} · ยังไม่ติ๊ก {unmarked}</p>
         {members.length === 0 && <p className="empty">ยังไม่มีรายชื่อคณะกรรมการ — กด ⚙️ มุมขวาบนเพื่อตั้งค่า</p>}
-        <ol className="rosterlist" aria-label="รายชื่อคณะธรรมกิจ">
+        <ol className="attlist" aria-label="รายชื่อคณะธรรมกิจ">
           {members.map((p, i) => (
-            <li key={p.id} className="rosterrow">
-              <span className="rosterrow__n">{i + 1}</span>
-              <div className="rosterrow__f">
-                <b style={{ flex: '1 1 100%' }}>{p.name}{p.role ? <span className="muted small"> · {p.role}</span> : null}</b>
-                <TextField id={`rt-${p.id}`} label="หมายเหตุ" value={p.note} onCommit={(v) => setP(p.id, { note: v.trim() || undefined })} />
-              </div>
-              <div className="rosterrow__a" role="group" aria-label={`การมาของ ${p.name || `คนที่ ${i + 1}`}`}>
+            <li key={p.id} className="attrow">
+              <span className="attrow__n">{i + 1}</span>
+              <span className="attrow__t"><b>{p.name}</b>{p.role ? <small>{p.role}</small> : null}</span>
+              <span className="attrow__a" role="group" aria-label={`การมาของ ${p.name || `คนที่ ${i + 1}`}`}>
                 {ATT.map((x) => <button key={x.v} type="button" className="wchip" aria-pressed={p.att === x.v} onClick={() => setP(p.id, { att: p.att === x.v ? undefined : x.v })}>{x.label}</button>)}
-                <button type="button" className="mini" aria-label={`เลื่อน ${p.name} ขึ้น`} disabled={i === 0} onClick={() => moveRow(i, -1)}>↑</button>
-                <button type="button" className="mini" aria-label={`เลื่อน ${p.name} ลง`} disabled={i === members.length - 1} onClick={() => moveRow(i, 1)}>↓</button>
-                <button type="button" className="mini" aria-label={`แก้ไข ${p.name}`} onClick={() => setSetup('edit')}>✏️</button>
-                <button type="button" className="mini" aria-label={`ลบ ${p.name}`} onClick={() => delRow(i)}>🗑️</button>
-              </div>
+                <button type="button" className={`mini${p.note ? ' on' : ''}`} aria-label={`หมายเหตุของ ${p.name}`} aria-expanded={noteOpen === p.id} onClick={() => setNoteOpen(noteOpen === p.id ? '' : p.id)}>📝</button>
+              </span>
+              {(noteOpen === p.id || p.note) && <div className="attrow__note"><TextField id={`rt-${p.id}`} label="หมายเหตุ" value={p.note} onCommit={(v) => setP(p.id, { note: v.trim() || undefined })} /></div>}
             </li>
           ))}
         </ol>
@@ -157,6 +147,26 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
           ))}
         </ol>
         <button type="button" className="mini" onClick={() => save({ people: [...m.people, { ...blankPerson('ผู้เข้าร่วมอื่น'), att: 'มา' }] })}>＋ เพิ่มผู้เข้าร่วม / ผู้สังเกตการณ์</button>
+      </section>
+
+      <section className="card" aria-label="ตัวอย่างใบลงชื่อ">
+        <h2 style={{ marginTop: 0 }}>📄 ตัวอย่างเอกสาร (ก่อนนำไปรวมในรายงาน)</h2>
+        <div className="rosterpaper">
+          <p className="rosterpaper__t">ใบลงชื่อผู้ร่วมประชุม</p>
+          <p className="rosterpaper__s">{m.name || 'การประชุมคณะธรรมกิจ'} ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${letterDate(m.date)}` : ''}{m.place ? ` · ${m.place}` : ''}</p>
+          <p className="rosterpaper__h">ผู้เข้าร่วมประชุม :</p>
+          {members.filter((p) => p.att === 'มา').length === 0 && <p className="rosterpaper__e">— ยังไม่มีผู้ติ๊กว่าร่วม —</p>}
+          <ol>{members.filter((p) => p.att === 'มา').map((p) => <li key={p.id}>{p.name}{p.role ? <span> ({p.role})</span> : null}</li>)}</ol>
+          {members.some((p) => p.att === 'ลา' || p.att === 'ไม่มา') && (<>
+            <p className="rosterpaper__h">ผู้ไม่มาประชุม :</p>
+            <ol>{members.filter((p) => p.att === 'ลา' || p.att === 'ไม่มา').map((p) => <li key={p.id}>{p.name} <span>({p.att === 'ลา' ? 'ลาประชุม' : 'ขาดประชุม'}{p.note ? ` · ${p.note}` : ''})</span></li>)}</ol>
+          </>)}
+          {guests.some((p) => p.name.trim()) && (<>
+            <p className="rosterpaper__h">ผู้ร่วมประชุม / ผู้สังเกตการณ์ :</p>
+            <ol>{guests.filter((p) => p.name.trim()).map((p) => <li key={p.id}>{p.name}{p.role ? <span> ({p.role})</span> : null}</li>)}</ol>
+          </>)}
+          <p className="rosterpaper__e">รวมผู้ร่วมประชุมทั้งหมด {members.filter((p) => p.att === 'มา').length + guests.filter((p) => p.name.trim()).length} คน</p>
+        </div>
       </section>
 
       <section className="card" aria-labelledby="r1-c">
