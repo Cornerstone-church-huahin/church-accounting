@@ -36,7 +36,17 @@ try {
   await go.click()
   await p.getByText('ส่วนที่ 2 · วาระการประชุม').waitFor({ timeout: 5000 })
   must(await p.getByText('กล่าวต้อนรับ').count() >= 1, 'part 2 shows agenda minutes')
+  // ส่วนที่ 2: แก้ชื่อวาระ · เพิ่มวาระ · ลบ · บันทึกเสร็จ → ส่งไปรายงาน
+  await p.locator('input[id^="mt-a1"]').fill('กล่าวต้อนรับ (แก้แล้ว)'); await p.locator('input[id^="mt-a1"]').blur()
+  await p.getByRole('button', { name: '＋ เพิ่มวาระ' }).click()
+  await p.getByText('วาระใหม่').first().waitFor({ timeout: 5000 })
+  p.once('dialog', (d) => d.accept())
+  await p.getByRole('button', { name: /^ลบวาระ วาระใหม่/ }).click()
+  await p.waitForTimeout(300)
+  await p.getByRole('button', { name: /บันทึกเสร็จ — ส่งไปรายงานการประชุม/ }).click()
+  await p.waitForURL(/#\/meeting\/1\/4\/7/)
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
+  must(ms[0].minutesDone && ms[0].agenda.length === 1 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
   const pe = ms[0].people
   must(pe.filter((x) => x.kind === 'กรรมการ').length === 12 && pe.filter((x) => x.att === 'ลา').length === 1 && pe.filter((x) => x.att === 'ไม่มา').length === 1, 'attendance saved onto the meeting')
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
