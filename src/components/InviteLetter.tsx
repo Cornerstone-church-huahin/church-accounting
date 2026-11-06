@@ -19,8 +19,8 @@ import { blankAgenda, blankMeeting, isAutoSubItem, letterDate, nextNo as nextMee
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
-import { compactNumbers } from '../lib/letterNo'
-import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
+import { padNo, rankChanges } from '../lib/letterNo'
+import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings, Meeting } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
@@ -204,7 +204,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   /** หลังส่ง: หนังสือที่เลขาลงนามเอง (แจ้งการประชุม) ไปต่อที่ บันทึกการประชุม · ชนิดอื่นไปคลังเอกสาร */
   const myMeeting = meetings.items.find((x) => x.noticeLetterId === id && !x.deleted)
   /** ส่งไปเตรียมบันทึกการประชุมแล้ว (มีไฟล์ในคลัง + มีการประชุมที่ผูกกับหนังสือ) → ปุ่มเปลี่ยนเป็นสีเขียว “สร้างบันทึกการประชุม” */
-  const sentToMinutes = !!l.docId && !!myMeeting
+  const sentToMinutes = !!l.signed && !!myMeeting?.notice?.sentAt
   const goAfter = () => {
     if (done?.meetingId) { try { localStorage.setItem(MC_CUR_KEY, done.meetingId) } catch { /* ignore */ } navigate('/meeting/1/4/6'); return }
     if (done) navigate('/meeting/1/5', { state: { openDoc: done.id } })
@@ -252,11 +252,15 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
   // เลขที่หนังสือรันอัตโนมัติ (ศอช.001, 002, …): เลขถัดไป = เลขสูงสุดของฉบับที่ยังอยู่ + 1 (ลบฉบับท้ายสุดแล้วเลขนั้นกลับมาใช้ใหม่)
   const prefix = invitePrefix(cats.list, isVar ? VAR_PREFIX : cfg.numPrefix, isCat)
+  const meetingsAll = useMeetings()
+  const linkedIds = new Set(meetingsAll.items.map((x) => x.noticeLetterId).filter(Boolean))
   const others = store.items.filter((x) => x.id !== id && (kind === 'doc' ? x.category === savedCat : kind === 'notice' ? (x.category ?? '') === savedCat : true))
   const catName = cats.list.find((c) => !c.deleted && isCat(c.name))?.name ?? (kind === 'doc' || isVar ? savedCat : undefined)
   // หนังสือแจ้งประชุม: เลขนับจากหนังสือที่ยังอยู่เท่านั้น (ไฟล์ในคลังที่ผูกกับหนังสือเลขเดียวกันอยู่แล้ว · ไฟล์เก่าที่ไม่มีหนังสือไม่นับ)
   const inLib = kind === 'notice' ? [] : lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => ({ no: d.no }))
-  const nextNo = nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib], prefix)
+  // หนังสือแจ้งประชุม: เลขนับตามชิ้นงาน (หนังสือที่ผูกกับแถวการประชุมที่ยังอยู่) — หนังสือค้างที่ไม่ผูกกับแถวใดไม่นับ
+  const numOthers = kind === 'notice' ? others.filter((x) => linkedIds.has(x.id)) : others
+  const nextNo = nextDocNo([...numOthers.map((x) => ({ no: x.no })), ...inLib], prefix)
   // ตัวย่อของหมวด “หนังสือเชิญ” ในคลังเอกสารเปลี่ยน/ตั้งใหม่ → เลขที่ของฉบับนี้ตามไปด้วย (เลขลำดับเดิม) และเลขที่ในคลังเอกสารก็ตามด้วย
   useEffect(() => {
     const m = /^([^\d]+?)[.\s-]*\d+$/.exec(l.no.trim()); const old = m?.[1]?.trim()
@@ -269,7 +273,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     const d = l.docId ? lib.list.find((x) => x.id === l.docId) : undefined
     if (d) lib.put([{ ...d, no: r, updated: Date.now() }])
   }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
-  const dupNo = !!l.no.trim() && others.some((x) => x.no.trim() === l.no.trim())
+  const dupNo = !!l.no.trim() && numOthers.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // ฉบับที่ยังเป็นวาระตั้งต้นรุ่นเก่า (4 ข้อ ยังไม่ได้แก้) → ปรับเป็นวาระมาตรฐานตามต้นแบบ 10 วาระให้เอง (ฉบับที่แก้วาระเองแล้วไม่แตะ)
   useEffect(() => {
@@ -385,6 +389,11 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const sendToLibrary = async () => {
     if (!ready()) return
     if (!l.signed) return setMsg(`รอ${who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้`)
+    if (K.secretarySigns) {   // หนังสือแจ้งประชุม: ตอนนี้ยังไม่เก็บเข้าคลังเอกสาร — ส่งข้อมูลไปเตรียมบันทึกการประชุมอย่างเดียว
+      const meetingId = seedMinutes()
+      if (!meetingId) return setMsg('ส่งข้อมูลไปบันทึกการประชุมไม่สำเร็จ (ไม่มีสิทธิ์) — กดส่งอีกครั้ง')
+      setDone({ id: '', title: letterTitle(l, kind, NAME), no: l.no, again: false, meetingId }); return
+    }
     if (!l.toName?.trim()) return setMsg('ใส่ชื่อในช่อง “1. ส่งถึง” ก่อน เพื่อตั้งชื่อหนังสือในคลังเอกสารให้ถูกต้อง')
     const cfgSync = getSync()
     if (!cfgSync) return setMsg('ต้องเชื่อมต่อออนไลน์ก่อน จึงส่งเข้าคลังเอกสารได้ (ไฟล์เก็บใน repo ข้อมูล)')
@@ -422,7 +431,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const okOf: Record<string, boolean> = {
     '1': filled(l.toName), '2': filled(cfg.thName) && (!!K.secretarySigns || filled(cfg.addr)), '3': filled(l.no), '4': filled(l.date), '5': filled(l.subject), '6': filled(l.to),
     '6.1': !!l.showAttach && filled(l.attach), '7': filled(l.body), '8': filled(cfg.proceed) && filled(cfg.signName) && filled(cfg.signRole), '9': filled(cfg.contact),
-    '10': !!l.notified, '11': !!l.signed, '12': !!l.docId && lib.list.some((d) => d.id === l.docId),
+    '10': !!l.notified, '11': !!l.signed, '12': K.secretarySigns ? !!myMeeting?.notice?.sentAt : !!l.docId && lib.list.some((d) => d.id === l.docId),
   }
   /** ข้อ 1–9 ที่ยังไม่ได้ใส่ (วงกลมยังซีด): ต้องครบก่อนจึงแจ้งประธานตรวจสอบได้ */
   const missing = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].filter((k) => !okOf[k])
@@ -448,12 +457,12 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
               : <output id="il-no" className="il-numbadge" aria-label={`เลขที่หนังสือ ${l.no}`}>{l.no || '…'}</output>}
             <button type="button" className="mini" aria-label="แก้เลขที่หนังสือเอง" title="แก้เลขเอง" onClick={() => setEditNo(!editNo)}>{editNo ? '✓' : '✏️'}</button>
           </div>
-          <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib, { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
+          <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...numOthers.map((x) => ({ no: x.no })), ...inLib, { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
           {(others.length > 0 || inLib.length > 0 || (kind === 'notice' && lib.list.some((d) => d.category === catName && d.id !== l.docId))) && (
             <details className="small" style={{ margin: '0.2rem 0 0' }}>
               <summary>เลขที่ที่ถูกใช้แล้ว ({others.length + inLib.length}) — ดูว่าอะไรกินเลขอยู่ / ลบได้ที่นี่</summary>
               <ul style={{ margin: '0.2rem 0 0', paddingLeft: '1.1rem' }}>
-                {others.map((x) => <li key={x.id}>{x.no || '(ไม่มีเลข)'} · หนังสือในรายการ: {x.toName || x.subject || '—'} <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบหนังสือ ${x.no || ''} ?`)) store.put([{ ...x, deleted: true, updated: Date.now() }]) }}>🗑️ ลบ</button></li>)}
+                {others.map((x) => <li key={x.id}>{x.no || '(ไม่มีเลข)'} · หนังสือในรายการ: {x.toName || x.subject || '—'}{kind === 'notice' && !linkedIds.has(x.id) ? ' (ไม่ผูกกับชิ้นงานใด · ไม่นับเลข)' : ''} <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบหนังสือ ${x.no || ''} ?`)) store.put([{ ...x, deleted: true, updated: Date.now() }]) }}>🗑️ ลบ</button></li>)}
                 {lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => <li key={d.id}>{d.no} · ไฟล์ในคลังเอกสาร{kind === 'notice' ? ' (ไม่นับเลข)' : ''}: {d.title} <Link to="/meeting/1/5" state={{ openDoc: d.id }}>เปิด</Link></li>)}
               </ul>
               <span className="muted">ลบหนังสือที่ไม่ต้องการที่หน้ารายการหนังสือ หรือลบไฟล์ในคลังเอกสาร เลขจะกลับมารันตามลำดับ</span>
@@ -510,7 +519,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
             {l.approved
               ? <div className="il-bar il-bar--ok" role="status">✅ ตรวจสอบแล้ว<span className="small muted"> · {new Date(l.approved.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.approved.by ? ` · ${l.approved.by}` : ''}</span></div>
               : l.notified && <div className="il-bar il-bar--wait" role="status">⏳ รอตรวจสอบ</div>}
-            {!l.approved && canApprove && missing.length === 0 && <button type="button" className="btn btn--gold il-bar" onClick={approve}>✅ ตรวจสอบแล้ว · อนุมัติ</button>}
+            {!l.approved && canApprove && missing.length === 0 && <button type="button" className="btn btn--gold il-bar" onClick={approve}>👆 คลิกเพื่ออนุมัติการตรวจสอบ</button>}
             {l.approved && canApprove && !l.signed && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกการอนุมัติ ?')) set({ approved: undefined }) }}>↩︎ ยกเลิกการอนุมัติ</button>}
           </>
         )}
@@ -527,20 +536,20 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         : canSign
           ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n={shift('11')} ok={okOf['11']} />ลงลายเซ็น</button>
           : <div className="il-bar il-bar--wait" role="status">⏳ <No n={shift('11')} ok={false} />รอ{who}เซ็น</div>}
-        <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
+        {!K.secretarySigns && <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
           <select id="il-acc" className="input" value={l.access ?? 'ภายใน'} onChange={(e) => set({ access: e.target.value as DocAccess })}>
             <option value="ทั่วไป">ทั่วไป — ทุกคนที่เข้าระบบ</option>
             <option value="ภายใน">ภายใน — แอดมินและผู้ดูแลงานเลขา</option>
             <option value="ลับ">ลับ — แอดมินคนเดียว</option>
-          </select></div>
-        {!l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
-        <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
+          </select></div>}
+        {!K.secretarySigns && !l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
+        {!K.secretarySigns && <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>}
         {K.secretarySigns && sentToMinutes
           ? <button type="button" className="btn il-bar il-bar--ok" style={{ background: '#1b7a52', color: '#fff' }} onClick={() => { try { localStorage.setItem(MC_CUR_KEY, myMeeting!.id) } catch { /* ignore */ } navigate('/meeting/1/4/6') }}>🗄️ <No n={shift('12')} ok />สร้างบันทึกการประชุม</button>
           : <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />{K.secretarySigns ? 'ส่งเพื่อเตรียมบันทึกการประชุม' : 'ส่งเข้าคลังเอกสาร'}</button>}
         {K.secretarySigns && l.signed && (
           <div role="group" aria-label="บันทึกเรียบร้อย ดาวน์โหลด แชร์ พิมพ์" className="il-done">
-            <p style={{ margin: '0 0 4px' }}><b>✅ ลงลายเซ็นและบันทึกเรียบร้อยแล้ว</b><br /><span className="small muted">ปุ่มสีเหลืองด้านบนจะเก็บไฟล์เข้าคลังเอกสาร และส่งข้อมูลไปเป็นฐานของบันทึกการประชุม</span></p>
+            <p style={{ margin: '0 0 4px' }}><b>✅ ลงลายเซ็นและบันทึกเรียบร้อยแล้ว</b><br /><span className="small muted">ปุ่มสีเหลืองด้านบนจะส่งข้อมูลไปเป็นฐานของบันทึกการประชุม (ยังไม่เก็บเข้าคลังเอกสาร)</span></p>
             <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
               <button type="button" className="btn btn--ghost" disabled={busy} aria-label="ดาวน์โหลดเป็นไฟล์ PDF" onClick={() => output('download', 'pdf')} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>⬇️<br /><small>ดาวน์โหลด PDF</small></button>
               <button type="button" className="btn btn--ghost" disabled={busy} aria-label="แชร์เป็นรูปภาพ" onClick={() => output('share', 'png')} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>📤<br /><small>แชร์รูปภาพ</small></button>
@@ -576,7 +585,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       {done && (
         <Sheet title={done.meetingId ? 'ส่งเพื่อเตรียมบันทึกการประชุมแล้ว' : 'ส่งเข้าคลังเอกสารแล้ว'} onClose={goAfter}>
           <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
-          <p className="small muted" style={{ margin: 0 }}>{done.meetingId ? 'เก็บไฟล์เข้าคลังเอกสารแล้ว และส่งข้อมูลไปเป็นฐานของบันทึกการประชุมแล้ว (แก้ในบันทึกการประชุมไม่กระทบหนังสือ) กำลังพาไปให้…' : 'บันทึกเข้าคลังเอกสารเรียบร้อย กำลังพาไปหน้าคลังเอกสารให้ดู…'}</p>
+          <p className="small muted" style={{ margin: 0 }}>{done.meetingId ? 'ส่งข้อมูลหนังสือไปเป็นฐานของบันทึกการประชุมแล้ว (แก้ในบันทึกการประชุมไม่กระทบหนังสือ) กำลังพาไปให้…' : 'บันทึกเข้าคลังเอกสารเรียบร้อย กำลังพาไปหน้าคลังเอกสารให้ดู…'}</p>
           <button type="button" className="btn btn--gold" onClick={goAfter}>{done.meetingId ? 'ไปที่บันทึกการประชุมเลย' : 'ไปที่คลังเอกสารเลย'}</button>
         </Sheet>
       )}
@@ -624,10 +633,17 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
 
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
 /** ปิดช่องว่างเลขที่หนังสือแจ้งประชุม: ลบชิ้นกลาง ชิ้นหลังเลื่อนขึ้นมาเอง (ไฟล์ในคลังที่ผูกไว้ตามไปด้วย) */
+export function meetingRows(meetings: Meeting[], letters: { id: string; no: string; category?: string; noPin?: boolean }[]) {
+  return [...meetings].filter((m) => !m.deleted).sort((a, b) => a.year - b.year || a.no - b.no || a.id.localeCompare(b.id)).map((m) => {
+    const letter = m.noticeLetterId ? letters.find((x) => x.id === m.noticeLetterId) : undefined
+    return { m, letter, group: letter?.category === VAR_CAT || m.type === 'พิเศษ' ? 'v' : 's' }
+  })
+}
 export function useCompactNotices(on = true) {
   const store = useLetters('notice')
   const lib = useDocLibrary()
-  const ch = on ? compactNumbers(store.items) : []
+  const meetings = useMeetings()
+  const ch = on ? rankChanges(meetingRows(meetings.items, store.items).map((r) => ({ group: r.group, letter: r.letter }))) : []
   const key = ch.map((c) => `${c.id}>${c.no}`).join('|')
   useEffect(() => {
     if (!key) return
@@ -648,7 +664,7 @@ export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
   const lib = useDocLibrary(), cats = useDocCategories()
   const empty = (x: Letter) => !(x.toName ?? '').trim() && !x.subject.trim() && !x.body.trim() && !x.to.trim() && !x.no.trim()
   /** variantCat = หมวดของหนังสือแจ้งประชุมวิสามัญ (เลขที่/ที่เก็บไฟล์แยกจากสามัญ) · ไม่ใส่ = ฉบับปกติของชนิดนั้น */
-  return (variantCat?: string): { id: string } | { error: string } => {
+  return (variantCat?: string, rank?: number): { id: string } | { error: string } => {
     const id = newId('letter')
     const sameGroup = (x: Letter) => (kind === 'doc' ? x.category === cat : kind === 'notice' ? (x.category ?? '') === (variantCat ?? '') : true)
     const letters = store.items.filter((x) => sameGroup(x) && !(x.id === 'draft' && empty(x)))
@@ -665,7 +681,7 @@ export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
       cur = store.items.map((x) => moved.find((m) => m.id === x.id) ?? x)
     }
     const pool = [...cur.filter(sameGroup).map((x) => ({ no: x.no })), ...(kind === 'notice' ? [] : lib.list.filter((d) => d.category === cn).map((d) => ({ no: d.no })))]
-    if (!store.put([{ ...blankOf(kind, todayISO(), !!variantCat), ...(kind === 'doc' ? { category: cat } : {}), id, no: nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return { error: 'ไม่มีสิทธิ์สร้างหนังสือ' }
+    if (!store.put([{ ...blankOf(kind, todayISO(), !!variantCat), ...(kind === 'doc' ? { category: cat } : {}), id, no: rank ? padNo(pre, rank) : nextDocNo(pool, pre), date: todayISO(), updated: Date.now() }])) return { error: 'ไม่มีสิทธิ์สร้างหนังสือ' }
     return { id }
   }
 }

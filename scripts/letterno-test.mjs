@@ -45,6 +45,16 @@ try {
   const t = await p.locator('body').innerText()
   must(/ฉบับถัดไปจะได้ ศอ\/ปด\.003/.test(t), 'next number follows the last: ' + t.slice(0, 400))
   must(!/ซ้ำกับหนังสือฉบับอื่น/.test(t), 'no duplicate warning')
+  // สร้างชิ้นใหม่ → ได้เลขตามลำดับแถว (3) ไม่ใช่เลขที่ค้างอยู่
+  await p.goBack()
+  await p.getByRole('button', { name: 'สร้างเอกสารการประชุมใหม่' }).waitFor({ timeout: 8000 })
+  p.once('dialog', (d) => d.accept('ชิ้นใหม่'))
+  await p.getByRole('button', { name: 'สร้างเอกสารการประชุมใหม่' }).click()
+  const fresh = p.getByRole('list', { name: 'รายการการประชุม' }).getByRole('listitem').filter({ hasText: 'ชิ้นใหม่' })
+  await fresh.waitFor({ timeout: 5000 })
+  await fresh.getByRole('button', { name: /^หนังสือแจ้งประชุม/ }).click()
+  await p.locator('output#il-no').waitFor({ timeout: 8000 })
+  must(/ศอ\/ปด\.003/.test(await p.locator('output#il-no').innerText()), 'new third piece gets 003: ' + await p.locator('output#il-no').innerText())
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close(); console.log('letterno-test OK')
 } catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }

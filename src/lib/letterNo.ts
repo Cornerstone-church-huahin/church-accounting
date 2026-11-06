@@ -1,27 +1,24 @@
 /**
- * เลขที่หนังสือแจ้งประชุม: เลขตามลำดับของชิ้นงานที่ยังอยู่ — ลบชิ้นกลาง ชิ้นหลังเลื่อนขึ้นมาเอง (ปิดช่องว่าง)
- * ฉบับที่ผู้ใช้แก้เลขเอง (noPin) ถือเลขนั้นไว้ ไม่ถูกเลื่อน · แยกกลุ่มตาม หมวด + ตัวย่อ (สามัญ ศอ/ปด · วิสามัญ ศอ/วส)
+ * เลขที่หนังสือแจ้งประชุม = ลำดับของชิ้นงาน (แถวการประชุม) ในกลุ่มนั้น: ชิ้นที่ 1 → 001, ชิ้นที่ 2 → 002 …
+ * ลบชิ้นกลาง ชิ้นหลังเลื่อนขึ้นเอง · ฉบับที่ผู้ใช้แก้เลขเอง (noPin) คงเลขที่แก้ · สามัญ/วิสามัญนับแยกกลุ่ม
  */
 export interface NoLetter { id: string; no: string; category?: string; noPin?: boolean; deleted?: boolean }
+/** แถวชิ้นงานเรียงตามลำดับ (เก่า → ใหม่) · group = สามัญ/วิสามัญ · letter = หนังสือที่ผูกกับชิ้นนั้น (ถ้ามี) */
+export interface NoRow { group: string; letter?: NoLetter }
 const PARSE = /^(.*?)[.\s-]*(\d+)$/
-export function compactNumbers(letters: NoLetter[]): { id: string; no: string }[] {
-  const groups = new Map<string, { pre: string; n: number; l: NoLetter }[]>()
-  for (const l of letters) {
-    if (l.deleted) continue
+export const padNo = (pre: string, n: number) => `${pre}.${String(n).padStart(3, '0')}`
+export function rankChanges(rows: NoRow[]): { id: string; no: string }[] {
+  const rank = new Map<string, number>()
+  const out: { id: string; no: string }[] = []
+  for (const r of rows) {
+    const k = (rank.get(r.group) ?? 0) + 1
+    rank.set(r.group, k)
+    const l = r.letter
+    if (!l || l.deleted || l.noPin) continue
     const m = PARSE.exec(l.no.trim())
     if (!m || !m[1]) continue
-    const key = `${l.category ?? ''}|${m[1]}`
-    groups.set(key, [...(groups.get(key) ?? []), { pre: m[1], n: Number(m[2]), l }])
-  }
-  const out: { id: string; no: string }[] = []
-  for (const rows of groups.values()) {
-    const pinned = new Set(rows.filter((r) => r.l.noPin).map((r) => r.n))
-    const autos = rows.filter((r) => !r.l.noPin).sort((a, b) => a.n - b.n || a.l.id.localeCompare(b.l.id))
-    let k = 0
-    for (const r of autos) {
-      do k++; while (pinned.has(k))
-      if (r.n !== k) out.push({ id: r.l.id, no: `${r.pre}.${String(k).padStart(3, '0')}` })
-    }
+    const want = padNo(m[1], k)
+    if (want !== l.no.trim()) out.push({ id: l.id, no: want })
   }
   return out
 }
