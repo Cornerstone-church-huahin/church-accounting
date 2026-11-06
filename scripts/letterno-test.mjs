@@ -1,0 +1,44 @@
+// เลขที่หนังสือแจ้งประชุม: ลบการ์ดการประชุม → ลบหนังสือ/ไฟล์ที่ผูกไว้ด้วย เลขกลับมารันตามลำดับ · เก็บกวาดหนังสือค้างของการ์ดที่ลบไปก่อนหน้า
+import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+const PORT = 4398
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' })
+const must = (c, m) => { if (!c) throw new Error('FAIL: ' + m) }
+try {
+  await new Promise((r) => setTimeout(r, 2500))
+  const b = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {})
+  const p = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
+  const errors = []; p.on('pageerror', (e) => errors.push(String(e)))
+  await p.addInitScript(() => {
+    if (localStorage.getItem('seeded')) return; localStorage.setItem('seeded', '1')
+    localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' }))
+    localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
+    localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
+    const L = (id, no, extra = {}) => ({ id, no, toName: 'x' + id, date: '2026-11-06', subject: 's', to: 't', body: 'b', updated: 1, ...extra })
+    localStorage.setItem('acct.noticeletter.v1', JSON.stringify([L('l1', 'ศอ/ปด.001'), L('l7', 'ศอ/ปด.007', { docId: 'd7' }), L('l6', 'ศอ/ปด.006')]))
+    localStorage.setItem('acct.doclib.v1', JSON.stringify([{ id: 'd7', title: 'x', category: 'หนังสือแจ้งการประชุม', no: 'ศอ/ปด.007', date: '2026-11-06', updated: 1 }]))
+    const M = (id, extra) => ({ id, name: id, no: 1, year: 2026, type: 'ปกติ', date: '', time: '', place: '', chair: '', secretary: '', people: [], agenda: [], updated: 1, ...extra })
+    localStorage.setItem('acct.meetings.v1', JSON.stringify([M('live', { noticeLetterId: 'l1', name: 'ประชุมที่ยังอยู่' }), M('dead7', { noticeLetterId: 'l7', deleted: true }), M('dead6', { noticeLetterId: 'l6', deleted: true })]))
+  })
+  await p.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+  await p.goto(`http://localhost:${PORT}/#/meeting/1/4`)
+  await p.getByRole('button', { name: '➕ เพิ่มลำดับงาน' }).click()
+  await p.getByLabel('ชื่อลำดับงาน').fill('ประชุมธรรมกิจ'); await p.getByLabel(/ขั้นตอนตามลำดับ/).fill('ตั้งคณะทำงาน')
+  await p.getByRole('button', { name: 'บันทึก', exact: true }).click()
+  await p.getByRole('link', { name: /^เปิด ประชุมธรรมกิจ/ }).click()
+  await p.getByText('ประชุมที่ยังอยู่').first().waitFor({ timeout: 8000 })
+  await p.waitForTimeout(800)
+  const ls = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.noticeletter.v1')))
+  must(ls.find((x) => x.id === 'l7').deleted && ls.find((x) => x.id === 'l6').deleted && !ls.find((x) => x.id === 'l1').deleted, 'orphan letters of deleted meetings are cleaned up')
+  const dl = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.doclib.v1')))
+  must(dl.find((x) => x.id === 'd7').deleted, 'their library file is removed too')
+  // เปิดหนังสือที่เหลือ: เลขถัดไปต้องเป็น 002 และไม่ซ้ำ
+  await p.getByRole('button', { name: /^หนังสือแจ้งประชุม/ }).click()
+  await p.locator('output#il-no').waitFor({ timeout: 8000 })
+  const t = await p.locator('body').innerText()
+  must(/ศอ\/ปด\.002/.test(t), 'next number is 002: ' + t.slice(0, 400))
+  must(!/ซ้ำกับหนังสือฉบับอื่น/.test(t), 'no duplicate warning')
+  must(errors.length === 0, 'page errors: ' + errors.join('|'))
+  await b.close(); console.log('letterno-test OK')
+} catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }
