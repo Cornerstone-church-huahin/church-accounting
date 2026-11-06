@@ -146,3 +146,17 @@ describe('ชื่อหัวข้อย่อยตามหนังสื�
     expect(mergeNoticeAgenda(old, rows1, blankAgenda).map((x) => x.title)).toEqual(['วาระหลัก', 'ทดสอบ'])
   })
 })
+
+describe('เก็บกวาดหัวข้อย่อยซ้ำจากการดึงรอบเก่า', () => {
+  it('หัวข้อ placeholder + หัวข้อชื่อจริงที่ซ้ำ (ว่างทั้งคู่) เหลือข้อเดียวตามหนังสือ', () => {
+    const rows = [{ label: '5', t: 'รายงานพันธกิจ', r: false }, { label: '5.1', t: 'ทดสอบ', r: true }]
+    const old = [{ ...blankAgenda(), id: 'p', title: 'รายงานพันธกิจ' }, { ...blankAgenda(), id: 'c1', title: 'หัวข้อย่อย 5.1', parentId: 'p' }, { ...blankAgenda(), id: 'c2', title: 'ทดสอบ', parentId: 'p' }]
+    const r = mergeNoticeAgenda(old, rows, blankAgenda)
+    expect(r.map((x) => x.title)).toEqual(['รายงานพันธกิจ', 'ทดสอบ'])
+  })
+  it('หัวข้อซ้ำที่เคยบันทึกข้อมูลแล้วไม่ถูกลบ', () => {
+    const rows = [{ label: '5', t: 'รายงานพันธกิจ', r: false }, { label: '5.1', t: 'ทดสอบ', r: true }]
+    const old = [{ ...blankAgenda(), id: 'p', title: 'รายงานพันธกิจ' }, { ...blankAgenda(), id: 'c1', title: 'หัวข้อย่อย 5.1', parentId: 'p' }, { ...blankAgenda(), id: 'c2', title: 'ทดสอบ', parentId: 'p', minute: { summary: 'x' } }]
+    expect(mergeNoticeAgenda(old, rows, blankAgenda).filter((x) => x.parentId).length).toBe(2)
+  })
+})

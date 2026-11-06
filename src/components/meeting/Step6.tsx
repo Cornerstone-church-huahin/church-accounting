@@ -35,7 +35,7 @@ export default function Step6({ m, save, list }: StepProps) {
   /** กดปุ่มเหลือง = บันทึกส่วนนั้น (ยังอยู่หน้าเดิม) แล้วมีปุ่มเล็ก ย้อนกลับ/ต่อไป เท่านั้น */
   const notice = m.noticeLetterId ? notices.items.find((x) => x.id === m.noticeLetterId) : undefined
   // ดึงวาระ + หัวข้อย่อย (5.1, 5.2 …) จากหนังสือแจ้งประชุมให้อัตโนมัติ: เมื่อหนังสือเปลี่ยน (รายการวาระไม่ตรงกับที่ดึงไว้ครั้งล่าสุด) จึงเติมเฉพาะที่ยังไม่มี · ที่ลบ/แก้ในบันทึกประชุมแล้วไม่ถูกดึงกลับ
-  const noticeSig = notice ? JSON.stringify(agendaOf(notice).map((r) => [r.label, r.t, r.r])) : ''
+  const noticeSig = notice ? 'v2:' + JSON.stringify(agendaOf(notice).map((r) => [r.label, r.t, r.r])) : ''
   useEffect(() => {
     if (!notice || view !== 1 || m.noticeAgendaSig === noticeSig) return
     const merged = mergeNoticeAgenda(m.agenda, agendaOf(notice), blankAgenda)
