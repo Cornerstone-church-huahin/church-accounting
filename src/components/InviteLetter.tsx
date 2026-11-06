@@ -6,7 +6,8 @@ import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import EnvelopePrint from './EnvelopePrint'
 import logoUrl from '../assets/logo.png'
-import { useDocCategories, useDocLibrary, useLetters, useLetterSettings } from '../lib/data'
+import { useDocCategories, useDocLibrary, useLetters, useLetterSettings, useMeetings } from '../lib/data'
+import { MC_CUR_KEY } from '../lib/meetingCenter'
 import { LETTER_KINDS, type LetterKindId } from '../lib/letterKinds'
 import { can, canWork } from '../lib/access'
 import { cleanPrefix, followPrefix, invitePrefix, nextDocNo } from '../lib/docLibrary'
@@ -14,7 +15,7 @@ import { lineExternalUrl } from '../lib/inapp'
 import { cleanSignature } from '../lib/signature'
 import { useRole } from '../lib/members'
 import { cacheImage } from '../lib/imageCache'
-import { isAutoSubItem, letterDate, nextFirstSunday, noticeAgenda, noticeHeading, noticeMeetingText } from '../lib/meetings'
+import { blankAgenda, blankMeeting, isAutoSubItem, letterDate, nextNo as nextMeetingNo, nextFirstSunday, noticeAgenda, noticeHeading, noticeMeetingText } from '../lib/meetings'
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
@@ -192,11 +193,17 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const [sendLink, setSendLink] = useState<{ url: string; text: string } | null>(null) // หน้าต่างส่งลิงก์ให้ประธาน (เมื่อเครื่องไม่มีเมนูแชร์)
   const [menu, setMenu] = useState<'share' | 'download' | null>(null)
   /** ส่งเข้าคลังสำเร็จ: แสดงป๊อปอัพ แล้วพาไปหน้าคลังเอกสาร (เปิดรายการที่เพิ่งส่งให้เห็น) */
-  const [done, setDone] = useState<{ id: string; title: string; no: string; again: boolean } | null>(null)
+  const [done, setDone] = useState<{ id: string; title: string; no: string; again: boolean; meetingId?: string } | null>(null)
   const navigate = useNavigate()
+  const meetings = useMeetings()
+  /** หลังส่ง: หนังสือที่เลขาลงนามเอง (แจ้งการประชุม) ไปต่อที่ บันทึกการประชุม · ชนิดอื่นไปคลังเอกสาร */
+  const goAfter = () => {
+    if (done?.meetingId) { try { localStorage.setItem(MC_CUR_KEY, done.meetingId) } catch { /* ignore */ } navigate('/meeting/1/4/6'); return }
+    if (done) navigate('/meeting/1/5', { state: { openDoc: done.id } })
+  }
   useEffect(() => {
     if (!done) return
-    const t = setTimeout(() => navigate('/meeting/1/5', { state: { openDoc: done.id } }), 2200)
+    const t = setTimeout(() => goAfter(), 2200)
     return () => clearTimeout(t)
   }, [done]) // eslint-disable-line react-hooks/exhaustive-deps
   const [edit, setEdit] = useState<Sec | null>(null)
@@ -332,6 +339,31 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     } catch (e) { if ((e as Error).name !== 'AbortError') setMsg(e instanceof Error ? e.message : 'ทำไฟล์ไม่สำเร็จ') }
     setBusy(false)
   }
+  /**
+   * ส่งข้อมูลไปเตรียมบันทึกการประชุม (ไอคอนที่ 2): ใช้ข้อมูลของหนังสือเป็นฐานตั้งต้น — วาระ เลขที่ เนื้อหาแจ้ง ชื่อเลขา
+   * ทางเดียว: แก้ในบันทึกการประชุมไม่กระทบหนังสือ · ส่งซ้ำ = เติมวาระที่ยังไม่มี ไม่ทับสิ่งที่เติมไว้แล้ว
+   */
+  const seedMinutes = (): string | undefined => {
+    const cur = meetings.items.find((x) => x.noticeLetterId === id && !x.deleted)
+    const y = new Date().getFullYear()
+    const base = cur ?? { ...blankMeeting(y, nextMeetingNo(meetings.items, y)), name: (l.subject || l.toName || '').trim(), noticeLetterId: id }
+    const agenda = [...base.agenda]
+    let parent = -1
+    for (const r of agendaOf(l)) {
+      const t = r.t.trim()
+      if (!t) continue
+      if (!r.r) {
+        const at = agenda.findIndex((a) => a.title === t)
+        if (at >= 0) parent = at
+        else { agenda.push({ ...blankAgenda(), title: t, purpose: 'ทราบ' }); parent = agenda.length - 1 }
+      } else if (parent >= 0) {
+        const line = `${r.label} ${t}`, a = agenda[parent]
+        if (!(a.docs ?? '').includes(line)) agenda[parent] = { ...a, docs: [a.docs, line].filter(Boolean).join('\n') }
+      }
+    }
+    const next = { ...base, noticeLetterId: id, agenda, secretary: base.secretary || cfg.signName || '', notice: { channels: base.notice?.channels ?? [], body: l.body, ref: l.no.trim(), sentAt: base.notice?.sentAt ?? Date.now() }, updated: Date.now() }
+    return meetings.put([next]) ? next.id : undefined
+  }
   /** 12. ส่งเข้าคลังเอกสาร (อัตโนมัติทั้งหมด): สร้าง PDF → อัปโหลด → สร้างรายการในคลัง · ส่งซ้ำ = ทับฉบับเดิมในคลัง */
   const sendToLibrary = async () => {
     if (!ready()) return
@@ -351,7 +383,10 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       const docId = l.docId && lib.list.some((d) => d.id === l.docId) ? l.docId : newId('doc')
       const d: DocItem = { id: docId, updated: Date.now(), title: letterTitle(l, kind, NAME), category: catName, no: l.no.trim(), date: l.date, access: l.access ?? 'ภายใน', note: l.to.trim() ? `เรียน ${l.to.trim()}` : undefined, file: { path, name, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
-      set({ docId }); setDone({ id: docId, title: d.title, no: d.no, again: l.docId === docId })
+      set({ docId })
+      const meetingId = K.secretarySigns ? seedMinutes() : undefined
+      if (K.secretarySigns && !meetingId) throw new Error('เก็บไฟล์เข้าคลังแล้ว แต่ส่งข้อมูลไปบันทึกการประชุมไม่สำเร็จ (ไม่มีสิทธิ์) — กดส่งอีกครั้ง')
+      setDone({ id: docId, title: d.title, no: d.no, again: l.docId === docId, meetingId })
     } catch (e) { setMsg(e instanceof Error ? e.message : 'ส่งเข้าคลังเอกสารไม่สำเร็จ') }
     setBusy(false)
   }
@@ -473,10 +508,10 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           </select></div>
         {!l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
-        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
+        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />{K.secretarySigns ? 'ส่งเพื่อเตรียมบันทึกการประชุม' : 'ส่งเข้าคลังเอกสาร'}</button>
         {K.secretarySigns && l.signed && (
           <div role="group" aria-label="บันทึกเรียบร้อย ดาวน์โหลด แชร์ พิมพ์" className="il-done">
-            <p style={{ margin: '0 0 4px' }}><b>✅ ลงลายเซ็นและบันทึกเรียบร้อยแล้ว</b><br /><span className="small muted">เก็บเข้าคลังเอกสารเรียงเลขที่ตามลำดับได้ที่ปุ่มด้านบน</span></p>
+            <p style={{ margin: '0 0 4px' }}><b>✅ ลงลายเซ็นและบันทึกเรียบร้อยแล้ว</b><br /><span className="small muted">ปุ่มสีเหลืองด้านบนจะเก็บไฟล์เข้าคลังเอกสาร และส่งข้อมูลไปเป็นฐานของบันทึกการประชุม</span></p>
             <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
               <button type="button" className="btn btn--ghost" disabled={busy} aria-label="ดาวน์โหลดเป็นไฟล์ PDF" onClick={() => output('download', 'pdf')} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>⬇️<br /><small>ดาวน์โหลด PDF</small></button>
               <button type="button" className="btn btn--ghost" disabled={busy} aria-label="แชร์เป็นรูปภาพ" onClick={() => output('share', 'png')} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>📤<br /><small>แชร์รูปภาพ</small></button>
@@ -510,10 +545,10 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       )}
       {env && <EnvelopePrint recipient={l.to} head={{ thName: cfg.thName, enName: cfg.enName, addr: cfg.addr }} onClose={() => setEnv(false)} />}
       {done && (
-        <Sheet title="ส่งเข้าคลังเอกสารแล้ว" onClose={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>
+        <Sheet title={done.meetingId ? 'ส่งเพื่อเตรียมบันทึกการประชุมแล้ว' : 'ส่งเข้าคลังเอกสารแล้ว'} onClose={goAfter}>
           <p style={{ margin: 0, fontSize: '1.1rem' }}>✅ <b>{done.title}</b><br /><span className="small">เลขที่ {done.no || '-'}{done.again ? ' · ทับฉบับเดิมของหนังสือนี้ในคลัง' : ''}</span></p>
-          <p className="small muted" style={{ margin: 0 }}>บันทึกเข้าคลังเอกสารเรียบร้อย กำลังพาไปหน้าคลังเอกสารให้ดู…</p>
-          <button type="button" className="btn btn--gold" onClick={() => navigate('/meeting/1/5', { state: { openDoc: done.id } })}>ไปที่คลังเอกสารเลย</button>
+          <p className="small muted" style={{ margin: 0 }}>{done.meetingId ? 'เก็บไฟล์เข้าคลังเอกสารแล้ว และส่งข้อมูลไปเป็นฐานของบันทึกการประชุมแล้ว (แก้ในบันทึกการประชุมไม่กระทบหนังสือ) กำลังพาไปให้…' : 'บันทึกเข้าคลังเอกสารเรียบร้อย กำลังพาไปหน้าคลังเอกสารให้ดู…'}</p>
+          <button type="button" className="btn btn--gold" onClick={goAfter}>{done.meetingId ? 'ไปที่บันทึกการประชุมเลย' : 'ไปที่คลังเอกสารเลย'}</button>
         </Sheet>
       )}
       {signSetup && (
