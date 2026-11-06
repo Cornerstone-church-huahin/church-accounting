@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StepProps } from './Step1'
 import LetterPage from '../LetterPage'
@@ -9,11 +9,11 @@ import { TextField } from './fields'
 import { checkMinutes, minutesBlocks, minutesPlain, paginate } from './minutes'
 import { signsWith } from './Step7'
 import { buildPagesPdf } from '../../lib/pdf'
-import { CHAIR_ROLE, SECRETARY_ROLE, chairReviewed, letterDate } from '../../lib/meetings'
-import { useDocCategories, useDocLibrary, useSettings } from '../../lib/data'
+import { CHAIR_ROLE, SECRETARY_ROLE, chairReviewed, letterDate, plainName, whenPatch, yearBE } from '../../lib/meetings'
+import { useDocCategories, useDocLibrary, useLetters, useSettings } from '../../lib/data'
 import { getSync, putBinary } from '../../lib/sync'
 import { cacheImage } from '../../lib/imageCache'
-import { newId } from '../../lib/money'
+import { newId, todayISO } from '../../lib/money'
 import type { DocItem, MtApproval } from '../../lib/types'
 
 const PARTS = ['ตรวจร่างและส่งประธาน', 'ประธานตรวจและเซ็น', 'รับรองในที่ประชุม', 'ฉบับสมบูรณ์ · เก็บเข้าแฟ้ม']
@@ -39,6 +39,15 @@ export default function ReportFlow({ m, save }: StepProps) {
   const rosterEl = useRef<HTMLDivElement>(null)
   const pageEls = useRef<HTMLDivElement[]>([])
 
+  const notices = useLetters('notice')
+  const notice = m.noticeLetterId ? notices.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
+  // วัน-เวลา-สถานที่: ดึงจากหนังสือแจ้งประชุม (ที่ผู้ใช้แก้เองไม่แตะ)
+  useEffect(() => {
+    const d = new Date(), pad = (n: number) => String(n).padStart(2, '0')
+    const patch = whenPatch(m, notice, todayISO(), `${pad(d.getHours())}:${pad(d.getMinutes())}`)
+    if (patch) save(patch)
+  }, [notice?.toName, notice?.body, m.date, m.time, m.place, m.whenSrc]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const drafts = m.drafts ?? []
   const last = drafts[drafts.length - 1]
   const changed = !!last && last.text !== minutesPlain(m)
@@ -63,7 +72,7 @@ export default function ReportFlow({ m, save }: StepProps) {
   const pages = paginate(minutesBlocks(m, { final: finalMode, draft: !finalMode }))
   pageEls.current = []
   const sheetEls = () => [...(view === 3 ? [rosterEl.current] : []), ...pageEls.current].filter(Boolean) as HTMLDivElement[]
-  const fileName = `รายงานการประชุม-${m.name || 'ประชุม'}-ครั้งที่${m.no}-${m.year}${finalMode ? '' : '-ร่าง'}.pdf`
+  const fileName = `รายงานการประชุม-${plainName(m.name) || 'ประชุม'}-ครั้งที่${m.no}-${yearBE(m.year)}${finalMode ? '' : '-ร่าง'}.pdf`
 
   const file = async () => {
     const els = sheetEls()
@@ -80,7 +89,7 @@ export default function ReportFlow({ m, save }: StepProps) {
       void cacheImage(path, data, 'application/pdf')
       if (!cats.items.some((c) => !c.deleted && c.name === LIB_CAT)) cats.put([{ id: newId('cat'), updated: Date.now(), name: LIB_CAT }])
       const docId = m.reportDocId && lib.list.some((d) => d.id === m.reportDocId) ? m.reportDocId : newId('doc')
-      const d: DocItem = { id: docId, updated: Date.now(), title: `รายงานการประชุม${m.name ? ` ${m.name}` : ''} ครั้งที่ ${m.no}/${m.year}`, category: LIB_CAT, no: `${m.no}/${m.year}`, date: ap?.date || m.date || '', access: m.access ?? 'ภายใน', note: `ฉบับสมบูรณ์ · ${ap?.result ?? ''}`, file: { path, name: fileName, type: 'application/pdf', size: data.byteLength } }
+      const d: DocItem = { id: docId, updated: Date.now(), title: `รายงานการประชุม${plainName(m.name) ? ` ${plainName(m.name)}` : ''} ครั้งที่ ${m.no}/${yearBE(m.year)}`, category: LIB_CAT, no: `${m.no}/${yearBE(m.year)}`, date: ap?.date || m.date || '', access: m.access ?? 'ภายใน', note: `ฉบับสมบูรณ์ · ${ap?.result ?? ''}`, file: { path, name: fileName, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
       save({ archived: { at: Date.now() }, reportDocId: docId })
       setMsg('')
@@ -107,7 +116,7 @@ export default function ReportFlow({ m, save }: StepProps) {
       {pages.map((bs, i) => (
         <LetterPage key={i} ref={(el) => { if (el) pageEls.current[i] = el }}>{bs.map((b) => <div key={b.key}>{b.node}</div>)}</LetterPage>
       ))}
-      <PdfTools compact els={sheetEls} file={fileName} title={`รายงานการประชุม ครั้งที่ ${m.no}/${m.year}`} label={finalMode ? 'รายงานฉบับสมบูรณ์' : 'ร่างรายงานการประชุม'} />
+      <PdfTools compact els={sheetEls} file={fileName} title={`รายงานการประชุม ครั้งที่ ${m.no}/${yearBE(m.year)}`} label={finalMode ? 'รายงานฉบับสมบูรณ์' : 'ร่างรายงานการประชุม'} />
     </>
   )
 
@@ -119,7 +128,7 @@ export default function ReportFlow({ m, save }: StepProps) {
             className={`mcbar__dot${done[i] ? ' mcbar__dot--done' : i === current ? ' mcbar__dot--partial' : ''}${view === i ? ' mcbar__dot--cur' : ''}`} style={{ cursor: i > current ? 'not-allowed' : 'pointer', opacity: i > current ? 0.5 : 1 }}>{done[i] ? '✓' : i + 1}</button>
         ))}
       </div>
-      <div className="mcbar__cap">ครั้งที่ {m.no}/{m.year}{m.name ? ` · ${m.name}` : ''} · ส่วนที่ {view + 1}: {PARTS[view]}</div>
+      <div className="mcbar__cap">ครั้งที่ {m.no}/{yearBE(m.year)}{plainName(m.name) ? ` · ${plainName(m.name)}` : ''} · ส่วนที่ {view + 1}: {PARTS[view]}</div>
     </nav>
   )
 

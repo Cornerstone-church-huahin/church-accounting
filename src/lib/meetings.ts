@@ -6,7 +6,29 @@ const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มี�
 export function letterDate(iso?: string): string {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ''
   const [y, m, d] = iso.split('-').map(Number)
-  return `${d} ${MONTHS[m - 1]} ${y}`
+  return `${d} ${MONTHS[m - 1]} ${y > 2400 ? y : y + 543}`
+}
+/** ปี พ.ศ. สำหรับแสดงในเอกสาร (ปีที่เก็บเป็น ค.ศ. → +543) */
+export const yearBE = (y: number) => (y > 2400 ? y : y + 543)
+/** ชื่อการประชุมสำหรับพิมพ์ในเอกสาร: ตัดเลขลำดับหน้าชื่อ (เช่น “01ประชุม…” → “ประชุม…”) */
+export const plainName = (s: string) => (s || '').replace(/^\s*\d+\s*[.)\-]?\s*/, '').trim()
+/** วัน เวลา สถานที่ประชุม ที่อยู่ในหนังสือแจ้งประชุม: วันที่อยู่หน้า “ส่งถึง” (d/m/y) · เวลา/สถานที่อยู่ในเนื้อหา */
+export function whenFromNotice(l: { toName?: string; body?: string }): { date?: string; time?: string; place?: string } {
+  const out: { date?: string; time?: string; place?: string } = {}
+  const d = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(l.toName ?? '')
+  if (d) out.date = `${d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`
+  const t = /เวลา\s*(\d{1,2})[.:](\d{2})/.exec(l.body ?? '')
+  if (t) out.time = `${t[1].padStart(2, '0')}:${t[2]}`
+  const p = /ณ\s+(.+?)(?:\s+จึง|\n|$)/.exec(l.body ?? '')
+  if (p) out.place = p[1].trim()
+  return out
+}
+/** วัน-เวลา-สถานที่ที่ควรเป็น: ดึงจากหนังสือแจ้งก่อน · ไม่มีก็ใช้วัน/เวลาที่บันทึก · ที่ผู้ใช้แก้เอง (whenSrc=manual) ไม่แตะ */
+export function whenPatch(m: Pick<Meeting, 'date' | 'time' | 'place' | 'whenSrc' | 'opened'>, notice: { toName?: string; body?: string } | undefined, todayIso: string, nowHM: string): { date: string; time: string; place: string; whenSrc: 'auto' } | null {
+  if (m.whenSrc === 'manual') return null
+  const n = notice ? whenFromNotice(notice) : {}
+  const next = { date: n.date || m.date || todayIso, time: n.time || m.time || m.opened?.time || nowHM, place: n.place || m.place || '', whenSrc: 'auto' as const }
+  return next.date === m.date && next.time === m.time && next.place === m.place && m.whenSrc === 'auto' ? null : next
 }
 /** วันอาทิตย์ต้นเดือนที่กำลังจะถึง (อาทิตย์แรกของเดือน ตั้งแต่วันนี้เป็นต้นไป · ผ่านแล้วของเดือนนี้ → เดือนหน้า) */
 export function nextFirstSunday(todayIso: string): { iso: string; d: number; m: number; y: number } {

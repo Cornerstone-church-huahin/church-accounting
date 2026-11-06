@@ -480,6 +480,7 @@ export interface CommitteeMember extends SharedItem { name: string; role: string
 export interface Meeting extends SharedItem {
   name: string; no: number; year: number; type: 'ปกติ' | 'พิเศษ'
   date: string; time: string; place: string; chair: string; secretary: string
+  /** วัน-เวลา-สถานที่มาจากหนังสือแจ้ง (auto) หรือผู้ใช้แก้เอง (manual) */ whenSrc?: 'auto' | 'manual'
   /** วันปิดรับเรื่องเสนอ */ deadline?: string
   people: MtPerson[]; agenda: MtAgenda[]
   agendaOk?: { by: string; at: number }
