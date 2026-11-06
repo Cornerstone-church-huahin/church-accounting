@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLetters } from '../../lib/data'
 import { agendaOf } from '../InviteLetter'
 import type { StepProps } from './Step1'
 import { TextField } from './fields'
+import PdfTools from '../PdfTools'
+import LetterPage from '../LetterPage'
+import RosterPaper from './RosterPaper'
+import { minutesBlocks, paginate } from './minutes'
+import { useSettings } from '../../lib/data'
 import { mergeNoticeAgenda, orderedAgenda } from './docs'
 import { attendance } from './minutes'
 import Roster from './Roster'
@@ -41,6 +46,11 @@ export default function Step6({ m, save, list }: StepProps) {
     const txt = [nextDate ? fmtDateLong(nextDate) : '', nextTime ? `เวลา ${nextTime.replace(':', '.')} น.` : ''].filter(Boolean).join(' ')
     save({ closed: { ...m.closed!, nextDate, nextTime, next: txt || undefined } })
   }
+  const { settings } = useSettings()
+  const church = settings.churchName.split(' ')[0]
+  const rosterEl = useRef<HTMLDivElement>(null)
+  const pageEls = useRef<HTMLDivElement[]>([])
+  const sheetEls = () => [rosterEl.current, ...pageEls.current].filter(Boolean) as HTMLDivElement[]
   const noticeSig = notice ? 'v2:' + JSON.stringify(agendaOf(notice).map((r) => [r.label, r.t, r.r])) : ''
   useEffect(() => {
     if (!notice || view !== 1 || m.noticeAgendaSig === noticeSig) return
@@ -193,12 +203,14 @@ export default function Step6({ m, save, list }: StepProps) {
       </>)}
       {view === 3 && (<>
       <section className="card" aria-label="สรุปบันทึกการประชุม">
-        <h2 style={{ marginTop: 0 }}>ส่วนที่ 4 · สรุปก่อนส่งไปรายงาน</h2>
-        <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
-          <li>ผู้ร่วมประชุมทั้งหมด {a.present.length + a.guests.length} คน (กรรมการร่วม {a.present.length} · ลา {a.leave.length} · ขาด {a.absent.length} · ผู้เข้าร่วม/สังเกตการณ์ {a.guests.length})</li>
-          <li>วาระที่บันทึกแล้ว {doneCount}/{items.length}</li>
-          <li>เลิกประชุมเวลา {m.closed?.time || '—'} น.{m.closed?.next ? ` · นัดครั้งต่อไป ${m.closed.next}` : ''}</li>
-        </ul>
+        <h2 style={{ marginTop: 0 }}>ส่วนที่ 4 · รายงานการประชุมฉบับรวม</h2>
+        <p className="muted small" style={{ margin: '0 0 0.4rem' }}>แผ่นแรกคือใบลงชื่อผู้ร่วมประชุม ตามด้วยรายงานการประชุมทุกวาระ จนถึงเลิกประชุมและช่องลงนาม · ครบในไฟล์เดียว พร้อมพิมพ์ · ผู้ร่วมประชุม {a.present.length + a.guests.length} คน · บันทึกแล้ว {doneCount}/{items.length} วาระ</p>
+        <PdfTools els={sheetEls} file={`รายงานการประชุม-ครั้งที่${m.no}-${m.year}.pdf`} title={`รายงานการประชุม ครั้งที่ ${m.no}/${m.year}`} label="รายงานการประชุมฉบับรวม" />
+        <RosterPaper ref={rosterEl} church={church} m={m} />
+        {(() => { pageEls.current = []; return null })()}
+        {paginate(minutesBlocks(m, { draft: true })).map((bs, i) => (
+          <LetterPage key={i} ref={(el) => { if (el) pageEls.current[i] = el }}>{bs.map((b) => <div key={b.key}>{b.node}</div>)}</LetterPage>
+        ))}
       </section>
       <section className="card" aria-label="บันทึกการประชุมเสร็จ">
         {m.minutesDone
