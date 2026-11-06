@@ -14,7 +14,7 @@ export function orderedAgenda(m: Pick<Meeting, 'agenda'>): { n: number; label: s
 }
 /** รวมวาระจากหนังสือแจ้งการประชุมเข้าบันทึกการประชุม: เติมวาระ/หัวข้อย่อยที่ยังไม่มี (ไม่ทับ ไม่ลบที่แก้เองแล้ว) · rows = วาระของหนังสือ (r = หัวข้อย่อย) */
 export function mergeNoticeAgenda(base: MtAgenda[], rows: { label: string; t: string; r: boolean }[], blank: () => MtAgenda): MtAgenda[] {
-  const out = [...base]
+  let out = [...base]
   let parent = ''
   for (const r of rows) {
     const t = /^[…\.\s]*$/.test(r.t) ? '' : r.t.trim()   // ช่องที่ยังไม่พิมพ์ในหนังสือแสดงเป็นจุดไข่ปลา = ว่าง
@@ -25,7 +25,12 @@ export function mergeNoticeAgenda(base: MtAgenda[], rows: { label: string; t: st
       parent = a.id
     } else if (parent) {
       const title = t || `หัวข้อย่อย ${r.label}`
-      if (!out.some((x) => x.parentId === parent && x.title === title)) { const par = out.find((x) => x.id === parent)!; out.push({ ...blank(), title, group: par.group, purpose: 'ทราบ', parentId: parent }) }
+      const hit = out.find((x) => x.parentId === parent && (x.src === r.label || (!x.src && (x.title === title || x.title === `หัวข้อย่อย ${r.label}`))))
+      if (hit) {
+        // หัวข้อเดิมของลำดับนี้: ถ้ายังไม่ถูกแก้ชื่อเอง (ชื่อยังเป็นตามที่ดึงไว้/ชื่อตั้งต้น) ให้ตามชื่อใหม่ในหนังสือ
+        const untouched = hit.title === (hit.srcTitle ?? `หัวข้อย่อย ${r.label}`)
+        out = out.map((x) => (x.id === hit.id ? { ...x, src: r.label, srcTitle: untouched ? title : x.srcTitle, title: untouched ? title : x.title } : x))
+      } else { const par = out.find((x) => x.id === parent)!; out.push({ ...blank(), title, group: par.group, purpose: 'ทราบ', parentId: parent, src: r.label, srcTitle: title }) }
     }
   }
   return out

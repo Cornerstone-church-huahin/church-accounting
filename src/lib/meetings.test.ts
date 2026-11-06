@@ -126,3 +126,23 @@ describe('วาระย่อย 5.1 5.2 จากหนังสือแจ�
     expect(mergeNoticeAgenda(ag, rows, blankAgenda)).toHaveLength(4)
   })
 })
+
+describe('ชื่อหัวข้อย่อยตามหนังสือแจ้งเมื่อแก้ภายหลัง', () => {
+  const rows0 = [{ label: '1', t: 'วาระหลัก', r: false }, { label: '1.1', t: '', r: true }]
+  const rows1 = [{ label: '1', t: 'วาระหลัก', r: false }, { label: '1.1', t: 'ทดสอบ', r: true }]
+  it('หัวข้อย่อยที่เคยว่างแล้วพิมพ์ชื่อในหนังสือ → ชื่ออัปเดต ไม่เพิ่มซ้ำ', () => {
+    const a = mergeNoticeAgenda([], rows0, blankAgenda)
+    expect(a.map((x) => x.title)).toEqual(['วาระหลัก', 'หัวข้อย่อย 1.1'])
+    const b = mergeNoticeAgenda(a, rows1, blankAgenda)
+    expect(b.map((x) => x.title)).toEqual(['วาระหลัก', 'ทดสอบ'])
+  })
+  it('หัวข้อที่ผู้ใช้แก้ชื่อเองแล้วไม่ถูกทับ', () => {
+    const a = mergeNoticeAgenda([], rows1, blankAgenda)
+    const edited = a.map((x) => (x.parentId ? { ...x, title: 'ชื่อที่ฉันแก้' } : x))
+    expect(mergeNoticeAgenda(edited, [{ label: '1', t: 'วาระหลัก', r: false }, { label: '1.1', t: 'หนังสือเปลี่ยน', r: true }], blankAgenda).map((x) => x.title)).toEqual(['วาระหลัก', 'ชื่อที่ฉันแก้'])
+  })
+  it('ข้อมูลเก่าที่ยังไม่มี src (ชื่อ placeholder) ก็อัปเดตตามหนังสือ', () => {
+    const old = [{ ...blankAgenda(), id: 'p', title: 'วาระหลัก' }, { ...blankAgenda(), id: 'c', title: 'หัวข้อย่อย 1.1', parentId: 'p' }]
+    expect(mergeNoticeAgenda(old, rows1, blankAgenda).map((x) => x.title)).toEqual(['วาระหลัก', 'ทดสอบ'])
+  })
+})
