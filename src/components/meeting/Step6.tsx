@@ -25,7 +25,14 @@ export default function Step6({ m, save, list }: StepProps) {
   const num = (v: string) => (v.trim() === '' ? undefined : Math.max(0, Math.floor(Number(v)) || 0))
   const items = orderedAgenda(m)
   const doneCount = items.filter((x) => minuteComplete(x.item)).length
-  const next = (i: number, patchDone: Partial<typeof m>) => { save(patchDone); setSel(Math.min(3, i + 1)) }
+  /** กดปุ่มเหลือง = บันทึกส่วนนั้น (ยังอยู่หน้าเดิม) แล้วมีปุ่มเล็ก ย้อนกลับ/ต่อไป เท่านั้น */
+  const next = (i: number, patchDone: Partial<typeof m>) => { save(patchDone); setSel(i) }
+  const step = (i: number, key: 'rosterDone' | 'agendaDone' | 'closeDone') => done[i] && (
+    <div className="row no-print" style={{ justifyContent: 'space-between', margin: '0.4rem 0 0' }}>
+      <button type="button" className="mini" onClick={() => { save({ [key]: undefined }); setSel(i) }}>‹ ย้อนกลับ (แก้ไข)</button>
+      <button type="button" className="mini" onClick={() => setSel(i + 1)}>ต่อไป ›</button>
+    </div>
+  )
   const a = attendance(m)
   const bar = (
     <nav className="mcbar no-print" aria-label="ลำดับการบันทึกการประชุม">
@@ -40,7 +47,7 @@ export default function Step6({ m, save, list }: StepProps) {
   )
   return (
     <>
-      {view === 0 && <Roster m={m} save={save} list={list} onDone={() => next(0, { rosterDone: { at: Date.now() } })} />}
+      {view === 0 && <Roster m={m} save={save} list={list} onDone={() => next(0, { rosterDone: { at: Date.now() } })} nav={step(0, 'rosterDone')} />}
       {view === 1 && (<>
       <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>ส่วนที่ 2 · บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน</p>
       {items.length === 0 && <p className="empty">ยังไม่มีวาระ — จัดวาระที่ขั้นที่ 2</p>}
@@ -81,7 +88,8 @@ export default function Step6({ m, save, list }: StepProps) {
         <button type="button" className="mini" onClick={() => save({ agenda: [...m.agenda, { ...blankAgenda(), title: 'วาระใหม่', purpose: 'ทราบ' }] })}>＋ เพิ่มวาระ</button>
       </div>
       <section className="card" aria-label="เสร็จส่วนที่ 2">
-        <button type="button" className="btn btn--gold" disabled={items.length === 0} onClick={() => next(1, { agendaDone: { at: Date.now() } })}>✅ เสร็จส่วนที่ 2 — ไปส่วนที่ 3 (เลิกประชุม)</button>
+        <button type="button" className="btn btn--gold" onClick={() => next(1, { agendaDone: { at: Date.now() } })}>✅ บันทึกส่วนที่ 2 (วาระ)</button>
+        {step(1, 'agendaDone')}
       </section>
       </>)}
       {view === 2 && (<>
@@ -94,8 +102,9 @@ export default function Step6({ m, save, list }: StepProps) {
         {!m.closed?.time && <p className="muted small" style={{ margin: 0 }}>กรอกเวลาเลิกประชุมก่อน จึงบันทึกการนัดครั้งถัดไปได้</p>}
       </section>
       <section className="card" aria-label="เสร็จส่วนที่ 3">
-        <button type="button" className="btn btn--gold" disabled={!m.closed?.time} onClick={() => next(2, { closeDone: { at: Date.now() } })}>✅ เสร็จส่วนที่ 3 — ไปส่วนที่ 4 (สรุป)</button>
-        {!m.closed?.time && <p className="muted small" style={{ margin: '0.3rem 0 0' }}>ใส่เวลาเลิกประชุมก่อน</p>}
+        <button type="button" className="btn btn--gold" onClick={() => next(2, { closeDone: { at: Date.now() } })}>✅ บันทึกส่วนที่ 3 (เลิกประชุม)</button>
+        {!m.closed?.time && <p className="muted small" style={{ margin: '0.3rem 0 0' }}>ยังไม่ได้ใส่เวลาเลิกประชุม</p>}
+        {step(2, 'closeDone')}
       </section>
       </>)}
       {view === 3 && (<>
