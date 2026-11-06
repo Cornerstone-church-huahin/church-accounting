@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { useDocCategories, useDocLibrary, useFlowTicks, useLetters, useMeetings } from '../lib/data'
-import { useAddLetter, useCompactNotices, VAR_CAT } from './InviteLetter'
+import { useAddLetter, VAR_CAT } from './InviteLetter'
 import { blankMeeting, nextNo, stepStatuses } from '../lib/meetings'
 import { MC_CUR_KEY } from '../lib/meetingCenter'
+import { noDigits } from '../lib/letterNo'
 import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
 import { LETTER_KINDS } from '../lib/letterKinds'
 import { be, newId, todayISO, yearOf } from '../lib/money'
@@ -179,7 +180,6 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   const ms = useMeetings()
   const letters = useLetters('notice')
   const addLetter = useAddLetter('notice')
-  useCompactNotices()
   const lib = useDocLibrary()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
@@ -188,7 +188,10 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   /** สามัญ / วิสามัญ: ระบบเดียวกัน แยกรายการ เลขที่ และที่เก็บไฟล์ · การประชุมที่สร้างในการ์ดวิสามัญเดิมนับเป็นวิสามัญ */
   const kindOf = (m: Meeting): 'สามัญ' | 'วิสามัญ' => (m.type === 'พิเศษ' || /วิสามัญ/.test(titles[m.flowId ?? ''] ?? '') ? 'วิสามัญ' : 'สามัญ')
   const count = (k: 'สามัญ' | 'วิสามัญ') => ms.list.filter((m) => kindOf(m) === k).length
-  const list = ms.list.filter((m) => kindOf(m) === tab).sort((a, b) => a.year - b.year || a.no - b.no || a.id.localeCompare(b.id)) // ชิ้นที่ 1 อยู่บนสุด = เลข 001
+  /** เลขลำดับของหนังสือที่ผูกกับชิ้นงาน (ยังไม่มีหนังสือ = 0) */
+  const numOf = (m: Meeting) => noDigits(letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted)?.no)
+  // เรียงตามเลขที่: เลขน้อยสุดอยู่ล่าง ไล่ขึ้นไป ล่าสุดอยู่บนสุด (ชิ้นที่ยังไม่มีหนังสืออยู่บนสุด)
+  const list = ms.list.filter((m) => kindOf(m) === tab).sort((a, b) => (numOf(b) || 1e9) - (numOf(a) || 1e9) || b.year - a.year || b.no - a.no || b.id.localeCompare(a.id))
   const key = q.trim()
   const shown = key ? list.filter((m) => `${m.name} ${m.no}/${m.year} ${m.date}`.includes(key)) : list
   const add = () => {
@@ -203,9 +206,9 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   const openNotice = (m: Meeting) => {
     const cur = m.noticeLetterId ? letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
     if (cur) { navigate(`/meeting/1/4/notice-${cur.id}`); return }
-    // เลขที่ = ลำดับของแถวนี้ในกลุ่มสามัญ/วิสามัญ (ชิ้นที่ 1 → 001)
-    const rank = list.findIndex((x) => x.id === m.id) + 1
-    const r = addLetter(kindOf(m) === 'วิสามัญ' ? VAR_CAT : undefined, rank || undefined)
+    // เลขที่ = เลขสูงสุดของชิ้นงานในกลุ่มนี้ + 1 (ยังไม่มี = 001) · แก้เองได้ที่แถบสีดำ
+    const rank = Math.max(0, ...list.filter((x) => x.id !== m.id).map(numOf)) + 1
+    const r = addLetter(kindOf(m) === 'วิสามัญ' ? VAR_CAT : undefined, rank)
     if ('error' in r) { setMsg(r.error); return }
     ms.put([{ ...m, noticeLetterId: r.id, updated: Date.now() }])
     navigate(`/meeting/1/4/notice-${r.id}`)
@@ -247,7 +250,7 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
       {list.length === 0 && <p className="empty">ยังไม่มีเอกสาร{tab} — กด ＋ เพื่อสร้างการประชุมใหม่</p>}
       {list.length > 0 && shown.length === 0 && <p className="empty">ไม่พบเอกสาร</p>}
       <ol className="mtrows" aria-label="รายการการประชุม">
-        {shown.map((m, i) => {
+        {shown.map((m) => {
           const st = stepStatuses(m, ms.list)
           const letter = m.noticeLetterId ? letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
           const noticeDone = !!(letter?.signed || letter?.docId) || st[3].state === 'done'
@@ -261,7 +264,7 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
           ]
           return (
             <li key={m.id} className="mtrow">
-              <span className="mtrow__n">{i + 1}</span>
+              <span className="mtrow__n">{numOf(m) || '·'}</span>
               <span className="mtrow__t"><b>{m.name || 'ยังไม่ตั้งชื่อ'}</b><small>ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${m.date}` : ''}</small>
                 <span className="mtrow__tools no-print">
                   <button type="button" className="mini" aria-label={`แก้ไขชื่อ ${m.name || 'การประชุม'}`} onClick={() => rename(m)}>✏️ แก้ชื่อ</button>
