@@ -197,6 +197,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const navigate = useNavigate()
   const meetings = useMeetings()
   /** หลังส่ง: หนังสือที่เลขาลงนามเอง (แจ้งการประชุม) ไปต่อที่ บันทึกการประชุม · ชนิดอื่นไปคลังเอกสาร */
+  const myMeeting = meetings.items.find((x) => x.noticeLetterId === id && !x.deleted)
+  /** ส่งไปเตรียมบันทึกการประชุมแล้ว (มีไฟล์ในคลัง + มีการประชุมที่ผูกกับหนังสือ) → ปุ่มเปลี่ยนเป็นสีเขียว “สร้างบันทึกการประชุม” */
+  const sentToMinutes = !!l.docId && !!myMeeting
   const goAfter = () => {
     if (done?.meetingId) { try { localStorage.setItem(MC_CUR_KEY, done.meetingId) } catch { /* ignore */ } navigate('/meeting/1/4/6'); return }
     if (done) navigate('/meeting/1/5', { state: { openDoc: done.id } })
@@ -213,6 +216,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const [env, setEnv] = useState(false)
   const first = useRef(true)
   const set = (patch: Partial<Draft>) => setL((p) => ({ ...p, ...patch }))
+  /** ระบบปรับให้เอง (เช่น เลขที่ตามตัวย่อหมวด · เนื้อความตั้งต้น) ไม่ใช่คนแก้ — ลายเซ็น/การอนุมัติต้องไม่ถูกถอนเพราะเรื่องนี้ */
+  const autoAt = useRef(0)
+  const autoSet = (patch: Partial<Draft>) => { autoAt.current = Date.now(); set(patch) }
   // บันทึกอัตโนมัติ (หน่วงเล็กน้อย) — ร่วมกันทุกเครื่อง
   const dirty = useRef(false), latest = useRef(l), putRef = useRef(store.put)
   latest.current = l; putRef.current = store.put
@@ -253,7 +259,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (!legacy && old !== cleanPrefix(cfg.numPrefix ?? 'ศอช') && !others.some((x) => x.no.trim().startsWith(old)) && !inLib.some((x) => x.no.trim().startsWith(old))) return
     const r = followPrefix(l.no, old, prefix, [...others.map((x) => x.no), ...inLib.map((x) => x.no)])
     if (!r) return
-    set({ no: r })
+    autoSet({ no: r })
     const d = l.docId ? lib.list.find((x) => x.id === l.docId) : undefined
     if (d) lib.put([{ ...d, no: r, updated: Date.now() }])
   }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -263,13 +269,13 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   useEffect(() => {
     if (kind !== 'notice') return
     const t = agendaItems(l).map((x) => x.t.trim())
-    if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) set({ agenda: noticeAgenda(l.date || todayISO()) })
+    if (t.length === OLD_NOTICE_AGENDA.length && t.every((x, i) => x === OLD_NOTICE_AGENDA[i])) autoSet({ agenda: noticeAgenda(l.date || todayISO()) })
     // เนื้อความตั้งต้น (รุ่นเก่า หรือรุ่นที่แบ่งบรรทัดต่างกัน) ที่ยังไม่ได้แก้ → ใช้แบบ 2 บรรทัดมาตรฐาน (ด้วยคณะ… / เวลา 13.00 น. ณ ห้องประชุม…)
     const base = l.date || todayISO(), std = fillNotice(LETTER_KINDS.notice.blank.body, base), flat = (x: string) => x.replace(/\s+/g, ' ').trim()
-    if (l.body !== std && (l.body === fillNotice(OLD_NOTICE_BODY, base) || flat(l.body) === flat(std))) set({ body: std })
+    if (l.body !== std && (l.body === fillNotice(OLD_NOTICE_BODY, base) || flat(l.body) === flat(std))) autoSet({ body: std })
     // รุ่นก่อนเติมข้อย่อยตัวอย่าง (6.x/7.x/8.x) ให้ — ถ้ายังมีแต่ข้อย่อยพวกนั้น ตัดออก เหลือวาระ 1–10
     const it = agendaItems(l), subs = it.filter((x) => x.k === 'r')
-    if (subs.length > 0 && subs.every(isAutoSubItem)) set({ agenda: it.filter((x) => x.k !== 'r') })
+    if (subs.length > 0 && subs.every(isAutoSubItem)) autoSet({ agenda: it.filter((x) => x.k !== 'r') })
   }, [l.agenda]) // eslint-disable-line react-hooks/exhaustive-deps
   const cat = cats.list.find((c) => !c.deleted && isCat(c.name))
 
@@ -281,6 +287,11 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const review = new URLSearchParams(useLocation().search).get('review') === '1'
   const canApprove = can(role, 'settings') && review // ประธาน = แอดมิน
   useEffect(() => {
+    const snap = snapOf(l, cfg)
+    if (Date.now() - autoAt.current < 3000 && ((l.approved && l.approved.snap !== snap) || (l.signed && l.signed.snap !== snap))) {
+      // ระบบปรับเลขที่/ข้อความตั้งต้นเอง: ย้ายลายเซ็นและการอนุมัติไปอ้างฉบับปัจจุบัน แทนการถอน
+      set({ ...(l.approved ? { approved: { ...l.approved, snap } } : {}), ...(l.signed ? { signed: { ...l.signed, snap } } : {}) }); return
+    }
     if (l.approved && l.approved.snap !== snapOf(l, cfg)) { set({ approved: undefined, signed: undefined }); setMsg('ถอนการอนุมัติ เพราะมีการแก้ไขหนังสือหลังอนุมัติ — ให้ประธานตรวจอีกครั้ง'); return }
     if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
   }, [l, cfg.proceed, cfg.bless, cfg.signName, cfg.signRole]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -508,7 +519,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           </select></div>
         {!l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
-        <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />{K.secretarySigns ? 'ส่งเพื่อเตรียมบันทึกการประชุม' : 'ส่งเข้าคลังเอกสาร'}</button>
+        {K.secretarySigns && sentToMinutes
+          ? <button type="button" className="btn il-bar il-bar--ok" style={{ background: '#1b7a52', color: '#fff' }} onClick={() => { try { localStorage.setItem(MC_CUR_KEY, myMeeting!.id) } catch { /* ignore */ } navigate('/meeting/1/4/6') }}>🗄️ <No n={shift('12')} ok />สร้างบันทึกการประชุม</button>
+          : <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />{K.secretarySigns ? 'ส่งเพื่อเตรียมบันทึกการประชุม' : 'ส่งเข้าคลังเอกสาร'}</button>}
         {K.secretarySigns && l.signed && (
           <div role="group" aria-label="บันทึกเรียบร้อย ดาวน์โหลด แชร์ พิมพ์" className="il-done">
             <p style={{ margin: '0 0 4px' }}><b>✅ ลงลายเซ็นและบันทึกเรียบร้อยแล้ว</b><br /><span className="small muted">ปุ่มสีเหลืองด้านบนจะเก็บไฟล์เข้าคลังเอกสาร และส่งข้อมูลไปเป็นฐานของบันทึกการประชุม</span></p>
