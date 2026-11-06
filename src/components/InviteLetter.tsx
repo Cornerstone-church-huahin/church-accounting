@@ -19,7 +19,7 @@ import { blankAgenda, blankMeeting, isAutoSubItem, letterDate, nextNo as nextMee
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
-import { padNo } from '../lib/letterNo'
+import { noDigits, padNo } from '../lib/letterNo'
 import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
@@ -273,6 +273,28 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     const d = l.docId ? lib.list.find((x) => x.id === l.docId) : undefined
     if (d) lib.put([{ ...d, no: r, updated: Date.now() }])
   }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
+  /**
+   * แก้เลขที่ในแถบสีดำเสร็จ (หนังสือแจ้งประชุม): ชิ้นนี้เป็นเลขนั้นจริง และ “ครั้งที่” ของการประชุมตามเลขนั้น
+   * ถ้าชนกับชิ้นที่มีอยู่ ชิ้นนั้นขยับไปเลขถัดไป (ต่อเป็นลูกโซ่) — ชิ้นที่ไม่ชนไม่ถูกแตะ
+   */
+  const commitNo = () => {
+    setEditNo(false)
+    if (kind !== 'notice') return
+    const me = meetingsAll.items.find((x) => x.noticeLetterId === id)
+    const N = noDigits(l.no)
+    if (!me || !N) return
+    const group = store.items.filter((x) => x.id !== id && (x.category ?? '') === savedCat && linkedIds.has(x.id))
+    const moved = new Map<string, number>()
+    for (let n = N; ;) {
+      const hit = group.find((x) => !moved.has(x.id) && noDigits(x.no) === n)
+      if (!hit) break
+      moved.set(hit.id, ++n)
+    }
+    const meetFor = (letterId: string, no: number) => { const mt = meetingsAll.items.find((x) => x.noticeLetterId === letterId); return mt && mt.no !== no ? [{ ...mt, no }] : [] }
+    const mts = [...meetFor(id, N), ...[...moved].flatMap(([lid, no]) => meetFor(lid, no))]
+    if (mts.length) meetingsAll.put(mts)
+    if (moved.size) store.put(group.flatMap((x) => { const n = moved.get(x.id); return n ? [{ ...x, no: padNo(/^(.*?)[.\s-]*\d+$/.exec(x.no.trim())?.[1] || prefix, n), updated: Date.now() }] : [] }))
+  }
   const dupNo = !!l.no.trim() && numOthers.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // ฉบับที่ยังเป็นวาระตั้งต้นรุ่นเก่า (4 ข้อ ยังไม่ได้แก้) → ปรับเป็นวาระมาตรฐานตามต้นแบบ 10 วาระให้เอง (ฉบับที่แก้วาระเองแล้วไม่แตะ)
@@ -453,7 +475,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         <div className="field"><label htmlFor="il-no"><No n="3" ok={okOf['3']} />เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
           <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
             {editNo
-              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={() => setEditNo(false)} autoFocus />
+              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={commitNo} autoFocus />
               : <output id="il-no" className="il-numbadge" aria-label={`เลขที่หนังสือ ${l.no}`}>{l.no || '…'}</output>}
             <button type="button" className="mini" aria-label="แก้เลขที่หนังสือเอง" title="แก้เลขเอง" onClick={() => setEditNo(!editNo)}>{editNo ? '✓' : '✏️'}</button>
           </div>
