@@ -133,7 +133,7 @@ export function FlowPage({ id }: { id: string }) {
   const x = f.flows.find((y) => y.id === id)
   if (!x) return <><div className="page-head no-print"><h1>สร้างเอกสาร</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><p className="empty">ไม่พบลำดับงานนี้</p></>
   const steps = [...x.steps, FILE_STEP]
-  if (/ประชุม/.test(x.title ?? '')) return <><div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><MeetingRows /></>
+  if (/ประชุม/.test(x.title ?? '')) return <><div className="page-head no-print"><h1>{x.icon} {x.title}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div><MeetingRows flowId={x.id} legacy={f.flows.filter((y) => /ประชุม/.test(y.title ?? '')).sort((a, b) => (a.created ?? 0) - (b.created ?? 0))[0]?.id === x.id} /></>
   const done = steps.filter((s) => x.ticks.includes(s.id)).length
   const set = (next: string[]) => f.put([{ ...x, ticks: next, updated: Date.now() }])
   /** เลขที่หนังสือจากคลังเอกสาร: หมวดที่ชื่อมี “เชิญ” (ถ้าไม่มีใช้ทั้งคลัง) → เลขล่าสุดและเลขถัดไป */
@@ -174,21 +174,22 @@ export function FlowPage({ id }: { id: string }) {
  * ลำดับงานประชุม: ค้นหา + ＋ สร้างการประชุม · แต่ละแถว = 1 การประชุม มี 3 ไอคอนตามลำดับ
  * ✉️ หนังสือแจ้งประชุม → 📝 บันทึกการประชุม (ใช้วาระจากหนังสือแจ้งต่อเนื่อง — เป็นการประชุมเดียวกัน) → 📄 รายงานการประชุม (ขั้นสุดท้าย เก็บเข้าแฟ้มเอกสาร)
  */
-function MeetingRows() {
+function MeetingRows({ flowId, legacy }: { flowId: string; legacy: boolean }) {
   const ms = useMeetings()
   const letters = useLetters('notice')
   const addLetter = useAddLetter('notice')
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
-  const list = [...ms.list].sort((a, b) => b.year - a.year || b.no - a.no)
+  // แต่ละการ์ดมีการประชุมของตัวเอง (สามัญ/วิสามัญไม่ปนกัน) · ของเดิมที่ยังไม่ระบุการ์ด อยู่การ์ดประชุมใบแรก
+  const list = ms.list.filter((m) => (m.flowId ? m.flowId === flowId : legacy)).sort((a, b) => b.year - a.year || b.no - a.no)
   const key = q.trim()
   const shown = key ? list.filter((m) => `${m.name} ${m.no}/${m.year} ${m.date}`.includes(key)) : list
   const add = () => {
     const name = window.prompt('ชื่อการประชุม', key || 'ประชุมคณะธรรมกิจ')
     if (name === null) return
     const y = yearOf(todayISO())
-    const m = { ...blankMeeting(y, nextNo(ms.list, y)), name: name.trim() }
+    const m = { ...blankMeeting(y, nextNo(ms.list, y)), name: name.trim(), flowId }
     if (!ms.put([m])) { setMsg('ไม่มีสิทธิ์สร้างการประชุม'); return }
     setMsg(''); setQ('')
   }
