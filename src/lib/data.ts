@@ -222,7 +222,8 @@ const COMMITTEE_SEED: [string, string][] = [
 export const DEFAULT_COMMITTEE: CommitteeMember[] = COMMITTEE_SEED.map(([name, role], i) => ({ id: `cm-d${String(i + 1).padStart(2, '0')}`, name, role, order: i, updated: 0 }))
 export function useCommittee() {
   const s = useSharedStore<CommitteeMember>({ localKey: k('committee'), file: 'committee.json', label: 'รายชื่อคณะธรรมกิจ', writeCheck: writeWork1 })
-  return { ...s, list: mergeItems(DEFAULT_COMMITTEE, s.all).filter((x) => !x.deleted).sort((a, b) => a.order - b.order) }
+  return { ...s, // ยังไม่เคยตั้งค่าเลย (ไม่มีรายการในไฟล์) = ใช้ค่าเริ่มต้น 12 คน · เคยตั้งค่าแล้ว = ใช้ที่ตั้งไว้ล้วน ๆ
+    list: (s.all.length === 0 ? DEFAULT_COMMITTEE : s.items).filter((x) => !x.deleted).sort((a, b) => a.order - b.order) }
 }
 export function useFlowTicks() {
   return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', writeCheck: writeWork1 })

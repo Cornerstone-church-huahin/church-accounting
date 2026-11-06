@@ -1880,3 +1880,32 @@ span.fundpend__tog--no { cursor: default; }
 .rosterrow__f { display: flex; gap: 6px; flex-wrap: wrap; }
 .rosterrow__f .field { margin: 0; flex: 1 1 8rem; }
 .rosterrow__a { grid-column: 2; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* ตั้งค่ารายชื่อกรรมการ: แถวเดียวต่อคน (แคบในแนวตั้ง) */
+.suplist { list-style: none; margin: 0.3rem 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.suprow { display: flex; align-items: center; gap: 4px; }
+.suprow__n { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #1b2a4e; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 0.75rem; }
+.suprow .input { min-width: 0; min-height: 2.3rem; padding: 0.2rem 0.4rem; font-size: 0.85rem; }
+.suprow .input:nth-of-type(1) { flex: 0 0 5.2rem; }
+.suprow .input:nth-of-type(2) { flex: 1 1 auto; }
+.suprow .mini { flex: none; min-width: 1.9rem; padding: 0.15rem 0.3rem; }
+/* ใบลงชื่อ: แถวกะทัดรัด เลข · ชื่อ+ตำแหน่ง · ร่วม/ลา/ขาด */
+.attlist { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; }
+.attrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0.35rem 0; border-bottom: 1px solid var(--line, #ddd); }
+.attrow__n { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #1b2a4e; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 0.75rem; }
+.attrow__t { flex: 1 1 8rem; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.attrow__t b { font-size: 0.9rem; }
+.attrow__t small { color: #666; font-size: 0.72rem; }
+.attrow__a { flex: none; display: flex; gap: 3px; align-items: center; }
+.attrow__a .wchip { min-width: 2.3rem; padding: 0 0.35rem; font-size: 0.8rem; height: 2rem; }
+.attrow__a .mini.on { background: #fff3c4; }
+.attrow__note { flex: 1 1 100%; }
+.attrow__note .field { margin: 0; }
+.mc__part { margin: 0 0 0.4rem; font-size: 1rem; }
+/* ตัวอย่างใบลงชื่อ */
+.rosterpaper { background: #fff; color: #111; border: 1px solid #bbb; padding: 0.8rem 0.9rem; font-size: 0.82rem; line-height: 1.5; }
+.rosterpaper__t { text-align: center; font-weight: 800; margin: 0; font-size: 0.95rem; }
+.rosterpaper__s { text-align: center; margin: 0 0 0.5rem; font-size: 0.76rem; }
+.rosterpaper__h { font-weight: 700; text-decoration: underline; margin: 0.5rem 0 0.1rem; }
+.rosterpaper__e { margin: 0.4rem 0 0; color: #444; }
+.rosterpaper ol { margin: 0; padding-left: 1.3rem; }
