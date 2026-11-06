@@ -18,7 +18,7 @@ import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -211,6 +211,11 @@ export function useLetterhead() {
 }
 
 /** เช็คลิสต์ของลำดับงานที่ไม่ผูกกับการประชุม (หนังสือเชิญ ฯลฯ) · ทุกคนที่แก้ข้อมูลรายละเอียดได้ติ๊กได้ */
+/** คณะธรรมกิจประจำ (รายชื่อตั้งต้นของการประชุม) */
+export function useCommittee() {
+  const s = useSharedStore<CommitteeMember>({ localKey: k('committee'), file: 'committee.json', label: 'รายชื่อคณะธรรมกิจ', writeCheck: writeWork1 })
+  return { ...s, list: [...s.items].sort((a, b) => a.order - b.order) }
+}
 export function useFlowTicks() {
   return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', writeCheck: writeWork1 })
 }

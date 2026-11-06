@@ -2,13 +2,16 @@ import type { StepProps } from './Step1'
 import { TextField } from './fields'
 import { orderedAgenda } from './docs'
 import { attendance } from './minutes'
+import Roster from './Roster'
 import { minuteComplete } from '../../lib/meetings'
 import type { MtAgenda, MtMinute, MtResult } from '../../lib/types'
 
 const RESULTS: MtResult[] = ['เห็นชอบ', 'ไม่เห็นชอบ', 'เลื่อนพิจารณา', 'มีเงื่อนไข']
 
 /** ขั้น 6: บันทึกประชุม — สาระ ข้อเสนอ มติ ผลลงคะแนน ผู้รับผิดชอบ/กำหนดเสร็จ ของทุกวาระ + เวลาเลิกและนัดครั้งต่อไป */
-export default function Step6({ m, save }: StepProps) {
+export default function Step6({ m, save, list }: StepProps) {
+  // ส่วนที่ 1 รายชื่อผู้เข้าประชุม ก่อน → เสร็จแล้วจึงไปส่วนที่ 2 (วาระ)
+  if (!m.rosterDone) return <Roster m={m} save={save} list={list} />
   const present = attendance(m).present.length
   const patch = (id: string, p: Partial<MtMinute>) => save({ agenda: m.agenda.map((a: MtAgenda) => (a.id === id ? { ...a, minute: { ...a.minute, ...p } } : a)) })
   const num = (v: string) => (v.trim() === '' ? undefined : Math.max(0, Math.floor(Number(v)) || 0))
@@ -16,6 +19,7 @@ export default function Step6({ m, save }: StepProps) {
   const doneCount = items.filter((x) => minuteComplete(x.item)).length
   return (
     <>
+      <p className="small" style={{ margin: '0 0 0.4rem' }}>ส่วนที่ 2 · วาระการประชุม <button type="button" className="mini" onClick={() => save({ rosterDone: undefined })}>‹ กลับไปส่วนที่ 1 รายชื่อ</button></p>
       <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน{m.opened ? ` · เปิดประชุมเวลา ${m.opened.time} น.` : ' · ยังไม่ได้เปิดประชุมในขั้นที่ 5'}</p>
       {items.length === 0 && <p className="empty">ยังไม่มีวาระ — จัดวาระที่ขั้นที่ 2</p>}
       {items.map(({ n, item }) => {
