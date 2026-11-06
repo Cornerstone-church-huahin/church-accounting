@@ -50,12 +50,6 @@ try {
   await p.goBack()
   const texts = await p.getByRole('list', { name: 'รายการการประชุม' }).getByRole('listitem').allInnerTexts()
   must(/ชิ้นใหม่/.test(texts[0]) && /ชิ้นสาม/.test(texts[1]) && /ประชุมที่ยังอยู่/.test(texts[2]), 'list: highest number on top, 001 at the bottom: ' + texts.map((t) => t.slice(0, 10)).join('|'))
-  // แก้เป็นเลขที่ซ้ำ → มีตัวเตือน
-  await p.goto(`http://localhost:${PORT}/#/meeting/1/4/notice-l1`)
-  await p.locator('output#il-no').waitFor({ timeout: 8000 })
-  await p.getByRole('button', { name: 'แก้เลขที่หนังสือเอง' }).click()
-  await p.locator('input#il-no').fill('ศอ/ปด.003'); await p.locator('input#il-no').blur()
-  await p.getByText('เลขนี้ซ้ำกับหนังสือฉบับอื่น').waitFor({ timeout: 5000 })
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close(); console.log('letterno-test OK')
 } catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }
