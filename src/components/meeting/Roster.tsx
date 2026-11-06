@@ -168,8 +168,8 @@ export default function Roster({ m, save, onDone, nav }: StepProps & { onDone: (
 
       <section className="card" aria-label="ใบลงชื่อผู้ร่วมประชุม (เอกสาร)">
         <h2 className="no-print" style={{ marginTop: 0 }}>📄 ใบลงชื่อผู้ร่วมประชุม (พร้อมพิมพ์)</h2>
-        <PdfTools els={() => (paperRef.current ? [paperRef.current] : [])} file={`ใบลงชื่อผู้ร่วมประชุม-ครั้งที่${m.no}-${m.year}.pdf`} title={`ใบลงชื่อผู้ร่วมประชุม ครั้งที่ ${m.no}/${m.year}`} label="ใบลงชื่อผู้ร่วมประชุม" />
         <RosterPaper ref={paperRef} church={church} m={m} />
+        <PdfTools compact els={() => (paperRef.current ? [paperRef.current] : [])} file={`ใบลงชื่อผู้ร่วมประชุม-ครั้งที่${m.no}-${m.year}.pdf`} title={`ใบลงชื่อผู้ร่วมประชุม ครั้งที่ ${m.no}/${m.year}`} label="ใบลงชื่อผู้ร่วมประชุม" />
         <p className="muted small no-print" style={{ margin: '0.3rem 0 0' }}>เอกสารชุดเดียวกับรายงานการประชุม — พิมพ์ให้กรรมการเซ็นในที่ประชุมได้ทันที หรือแชร์เป็น PDF/รูป</p>
       </section>
 
