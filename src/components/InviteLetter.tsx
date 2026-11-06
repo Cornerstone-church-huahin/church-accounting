@@ -19,8 +19,8 @@ import { blankAgenda, blankMeeting, isAutoSubItem, letterDate, nextNo as nextMee
 import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
-import { padNo, rankChanges, reorderNos } from '../lib/letterNo'
-import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings, Meeting } from '../lib/types'
+import { padNo } from '../lib/letterNo'
+import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
 type Cfg = Omit<InviteSettings, 'id' | 'updated'>
@@ -273,26 +273,6 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     const d = l.docId ? lib.list.find((x) => x.id === l.docId) : undefined
     if (d) lib.put([{ ...d, no: r, updated: Date.now() }])
   }, [prefix]) // eslint-disable-line react-hooks/exhaustive-deps
-  /** แก้เลขที่ในแถบสีดำเสร็จ (หนังสือแจ้งประชุม): ชิ้นงานนี้แทรกไปอยู่ลำดับนั้นจริง ชิ้นอื่นเลื่อนตาม และ “ครั้งที่” ของการประชุมตามไปด้วย */
-  const commitNo = () => {
-    setEditNo(false)
-    if (kind !== 'notice') return
-    const me = meetingsAll.items.find((x) => x.noticeLetterId === id)
-    const dg = /(\d+)\s*$/.exec(l.no.trim())
-    if (!me || !dg) return
-    const rows = meetingRows(meetingsAll.items, store.items)
-    const mine = rows.find((r) => r.m.id === me.id)
-    if (!mine) return
-    const group = rows.filter((r) => r.group === mine.group && r.m.year === me.year).map((r) => r.m)
-    const nos = reorderNos(group.map((x) => x.id), me.id, Number(dg[1]))
-    const changed = group.filter((x) => nos.get(x.id) !== x.no).map((x) => ({ ...x, no: nos.get(x.id)! }))
-    if (changed.length) meetingsAll.put(changed)
-    const mineNo = padNo(/^(.*?)[.\s-]*\d+$/.exec(l.no.trim())?.[1] || prefix, nos.get(me.id)!)
-    if (mineNo !== l.no.trim()) set({ no: mineNo })
-    const newMeetings = meetingsAll.items.map((x) => changed.find((c) => c.id === x.id) ?? x)
-    const ch = rankChanges(meetingRows(newMeetings, store.items.map((x) => (x.id === id ? { ...x, no: mineNo } : x))).map((r) => ({ group: r.group, letter: r.letter }))).filter((c) => c.id !== id)
-    if (ch.length) store.put(store.items.flatMap((x) => { const c = ch.find((y) => y.id === x.id); return c ? [{ ...x, no: c.no, updated: Date.now() }] : [] }))
-  }
   const dupNo = !!l.no.trim() && numOthers.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // ฉบับที่ยังเป็นวาระตั้งต้นรุ่นเก่า (4 ข้อ ยังไม่ได้แก้) → ปรับเป็นวาระมาตรฐานตามต้นแบบ 10 วาระให้เอง (ฉบับที่แก้วาระเองแล้วไม่แตะ)
@@ -473,21 +453,11 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         <div className="field"><label htmlFor="il-no"><No n="3" ok={okOf['3']} />เลขที่หนังสือ <span className="muted small">(รันอัตโนมัติ)</span></label>
           <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
             {editNo
-              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={commitNo} autoFocus />
+              ? <input id="il-no" className="input" style={{ flex: 1 }} value={l.no} onChange={(e) => set({ no: e.target.value })} onBlur={() => setEditNo(false)} autoFocus />
               : <output id="il-no" className="il-numbadge" aria-label={`เลขที่หนังสือ ${l.no}`}>{l.no || '…'}</output>}
             <button type="button" className="mini" aria-label="แก้เลขที่หนังสือเอง" title="แก้เลขเอง" onClick={() => setEditNo(!editNo)}>{editNo ? '✓' : '✏️'}</button>
           </div>
-          <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...numOthers.map((x) => ({ no: x.no })), ...inLib, { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
-          {(others.length > 0 || inLib.length > 0 || (kind === 'notice' && lib.list.some((d) => d.category === catName && d.id !== l.docId))) && (
-            <details className="small" style={{ margin: '0.2rem 0 0' }}>
-              <summary>เลขที่ที่ถูกใช้แล้ว ({others.length + inLib.length}) — ดูว่าอะไรกินเลขอยู่ / ลบได้ที่นี่</summary>
-              <ul style={{ margin: '0.2rem 0 0', paddingLeft: '1.1rem' }}>
-                {others.map((x) => <li key={x.id}>{x.no || '(ไม่มีเลข)'} · หนังสือในรายการ: {x.toName || x.subject || '—'}{kind === 'notice' && !linkedIds.has(x.id) ? ' (ไม่ผูกกับชิ้นงานใด · ไม่นับเลข)' : ''} <button type="button" className="mini" onClick={() => { if (window.confirm(`ลบหนังสือ ${x.no || ''} ?`)) store.put([{ ...x, deleted: true, updated: Date.now() }]) }}>🗑️ ลบ</button></li>)}
-                {lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => <li key={d.id}>{d.no} · ไฟล์ในคลังเอกสาร{kind === 'notice' ? ' (ไม่นับเลข)' : ''}: {d.title} <Link to="/meeting/1/5" state={{ openDoc: d.id }}>เปิด</Link></li>)}
-              </ul>
-              <span className="muted">ลบหนังสือที่ไม่ต้องการที่หน้ารายการหนังสือ หรือลบไฟล์ในคลังเอกสาร เลขจะกลับมารันตามลำดับ</span>
-            </details>
-          )}
+
           {dupNo && <span className="error" role="alert">เลขนี้ซ้ำกับหนังสือฉบับอื่น</span>}
         </div>
 
@@ -652,29 +622,6 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
 }
 
 /** งานเลขา › ลำดับงาน › หนังสือเชิญร่วมงาน: โซน 1 ค้นหา/เพิ่มฉบับใหม่ · โซน 2 การ์ดหนังสือแต่ละฉบับ (วันที่ใหม่สุดอยู่บน) กดการ์ดเพื่อเข้าหน้ากรอก */
-/** ปิดช่องว่างเลขที่หนังสือแจ้งประชุม: ลบชิ้นกลาง ชิ้นหลังเลื่อนขึ้นมาเอง (ไฟล์ในคลังที่ผูกไว้ตามไปด้วย) */
-export function meetingRows(meetings: Meeting[], letters: { id: string; no: string; category?: string; noPin?: boolean }[]) {
-  return [...meetings].filter((m) => !m.deleted).sort((a, b) => a.year - b.year || a.no - b.no || a.id.localeCompare(b.id)).map((m) => {
-    const letter = m.noticeLetterId ? letters.find((x) => x.id === m.noticeLetterId) : undefined
-    return { m, letter, group: letter?.category === VAR_CAT || m.type === 'พิเศษ' ? 'v' : 's' }
-  })
-}
-export function useCompactNotices(on = true) {
-  const store = useLetters('notice')
-  const lib = useDocLibrary()
-  const meetings = useMeetings()
-  const ch = on ? rankChanges(meetingRows(meetings.items, store.items).map((r) => ({ group: r.group, letter: r.letter }))) : []
-  const key = ch.map((c) => `${c.id}>${c.no}`).join('|')
-  useEffect(() => {
-    if (!key) return
-    const now = Date.now()
-    const moved = store.items.flatMap((x) => { const c = ch.find((y) => y.id === x.id); return c ? [{ ...x, no: c.no, updated: now }] : [] })
-    if (moved.length) store.put(moved)
-    const docs = moved.flatMap((x) => { const d = x.docId ? lib.list.find((y) => y.id === x.docId) : undefined; return d ? [{ ...d, no: x.no, updated: now }] : [] })
-    if (docs.length) lib.put(docs)
-  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
-}
-
 /** สร้างหนังสือฉบับใหม่ (เลขที่รันอัตโนมัติ) — ใช้ร่วมกันระหว่างรายการหนังสือและหน้าลำดับงานประชุม */
 export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
   const K = LETTER_KINDS[kind], DEF = defaultCfg(kind)
@@ -708,7 +655,6 @@ export function useAddLetter(kind: LetterKindId = 'invite', cat?: string) {
 
 export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId; cat?: string }) {
   const K = LETTER_KINDS[kind]
-  useCompactNotices(kind === 'notice')
   const isCat = (n: string) => (kind === 'doc' ? n === cat : K.isCat(n))
   const store = useLetters(kind)
   const navigate = useNavigate()
