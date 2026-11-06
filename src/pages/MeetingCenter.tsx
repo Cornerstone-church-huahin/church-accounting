@@ -59,7 +59,7 @@ export default function MeetingCenter({ step }: { step?: number }) {
   return (
     <div className={`mcenter${c.cur ? ' mcenter--bar' : ''}`}>
       {step === undefined ? <Hub c={c} canSetup={can(role, 'settings')} /> : <Step n={step} c={c} />}
-      {c.cur && status && step !== undefined && <StatusBar m={c.cur} status={status} step={step} />}
+      {c.cur && status && step !== undefined && step !== 6 && <StatusBar m={c.cur} status={status} step={step} />}
     </div>
   )
 }
