@@ -55,6 +55,40 @@ export default function Step6({ m, save, list }: StepProps) {
     </div>
   )
   const a = attendance(m)
+  /** ช่องบันทึกของวาระ/หัวข้อย่อยหนึ่งรายการ */
+  const fieldsOf = (it: MtAgenda) => {
+    const mi = it.minute ?? {}
+    const votes = (mi.yes ?? 0) + (mi.no ?? 0) + (mi.abstain ?? 0)
+    return (
+      <>
+            <TextField id={`ms-${it.id}`} label="สาระสำคัญ" multiline rows={3} value={mi.summary} onCommit={(v) => patch(it.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
+            <TextField id={`mp-${it.id}`} label="ข้อเสนอให้พิจารณา" multiline rows={2} value={mi.proposal} onCommit={(v) => patch(it.id, { proposal: v.trim() || undefined })} />
+            <div className="field"><label htmlFor={`mr-${it.id}`}>มติที่ประชุม</label>
+              <select id={`mr-${it.id}`} className="input" value={mi.result ?? ''} onChange={(e) => patch(it.id, { result: (e.target.value || undefined) as MtResult | undefined })}>
+                <option value="">— ยังไม่มีมติ —</option>{RESULTS.map((r) => <option key={r}>{r}</option>)}
+              </select></div>
+            {mi.result === 'มีเงื่อนไข' && <TextField id={`mc-${it.id}`} label="เงื่อนไข" value={mi.condition} onCommit={(v) => patch(it.id, { condition: v.trim() || undefined })} />}
+            <p className="small" style={{ margin: '0.3rem 0 0.1rem' }}><b>ผลลงคะแนน</b></p>
+            <div className="row votes" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+              <TextField id={`my-${it.id}`} label="เห็นชอบ" type="number" narrow value={mi.yes} onCommit={(v) => patch(it.id, { yes: num(v) })} />
+              <TextField id={`mn-${it.id}`} label="ไม่เห็นชอบ" type="number" narrow value={mi.no} onCommit={(v) => patch(it.id, { no: num(v) })} />
+              <TextField id={`ma-${it.id}`} label="งดออกเสียง" type="number" narrow value={mi.abstain} onCommit={(v) => patch(it.id, { abstain: num(v) })} />
+            </div>
+            {votes > present && present > 0 && <p className="error small" role="alert" style={{ margin: 0 }}>⚠️ จำนวนคะแนนรวม {votes} มากกว่าผู้มีสิทธิ์ที่มาประชุม {present} คน — ตรวจตัวเลขอีกครั้ง</p>}
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              <TextField id={`mo-${it.id}`} label="ผู้รับผิดชอบ" value={mi.assignee} onCommit={(v) => patch(it.id, { assignee: v.trim() || undefined })} />
+              <TextField id={`md-${it.id}`} label="กำหนดเสร็จ" type="date" value={mi.due} onCommit={(v) => patch(it.id, { due: v || undefined })} />
+            </div>
+
+      </>
+    )
+  }
+  const hasData = (it: MtAgenda) => { const x = it.minute; return !!x && !!(x.summary || x.proposal || x.result || x.yes != null || x.no != null || x.abstain != null || x.assignee || x.due) }
+  /** เพิ่มหัวข้อย่อย (1.1, 1.2 …) ใต้วาระ */
+  const addSub = (parent: MtAgenda, label: string) => {
+    const n = items.filter((x) => x.item.parentId === parent.id).length + 1
+    save({ agenda: [...m.agenda, { ...blankAgenda(), title: `หัวข้อย่อย ${label}.${n}`, group: parent.group, purpose: 'ทราบ', parentId: parent.id }] })
+  }
   const bar = (
     <nav className="mcbar no-print" aria-label="ลำดับการบันทึกการประชุม">
       <div className="mcbar__dots" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
@@ -73,8 +107,6 @@ export default function Step6({ m, save, list }: StepProps) {
       <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>ส่วนที่ 2 · บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน</p>
       {items.length === 0 && <p className="empty">ยังไม่มีวาระ — จัดวาระที่ขั้นที่ 2</p>}
       {items.filter((x) => !x.item.parentId).map(({ label, item }, idx) => {
-        const mi = item.minute ?? {}
-        const votes = (mi.yes ?? 0) + (mi.no ?? 0) + (mi.abstain ?? 0)
         const dn = !!item.done
         const tone = TONES[idx % TONES.length]   // แถบสีของแต่ละวาระ (วนสี) เพื่อแยกวาระให้เห็นชัด
         return (
@@ -95,28 +127,10 @@ export default function Step6({ m, save, list }: StepProps) {
             </div>
             {(!dn || openId === item.id) && <div className="agbody">
             <p className="muted small" style={{ margin: '0.1rem 0 0.4rem' }}>{item.group} · เพื่อ{item.purpose}</p>
-            <TextField id={`ms-${item.id}`} label="สาระสำคัญ" multiline rows={3} value={mi.summary} onCommit={(v) => patch(item.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
-            <TextField id={`mp-${item.id}`} label="ข้อเสนอให้พิจารณา" multiline rows={2} value={mi.proposal} onCommit={(v) => patch(item.id, { proposal: v.trim() || undefined })} />
-            <div className="field"><label htmlFor={`mr-${item.id}`}>มติที่ประชุม</label>
-              <select id={`mr-${item.id}`} className="input" value={mi.result ?? ''} onChange={(e) => patch(item.id, { result: (e.target.value || undefined) as MtResult | undefined })}>
-                <option value="">— ยังไม่มีมติ —</option>{RESULTS.map((r) => <option key={r}>{r}</option>)}
-              </select></div>
-            {mi.result === 'มีเงื่อนไข' && <TextField id={`mc-${item.id}`} label="เงื่อนไข" value={mi.condition} onCommit={(v) => patch(item.id, { condition: v.trim() || undefined })} />}
-            <p className="small" style={{ margin: '0.3rem 0 0.1rem' }}><b>ผลลงคะแนน</b></p>
-            <div className="row votes" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-              <TextField id={`my-${item.id}`} label="เห็นชอบ" type="number" narrow value={mi.yes} onCommit={(v) => patch(item.id, { yes: num(v) })} />
-              <TextField id={`mn-${item.id}`} label="ไม่เห็นชอบ" type="number" narrow value={mi.no} onCommit={(v) => patch(item.id, { no: num(v) })} />
-              <TextField id={`ma-${item.id}`} label="งดออกเสียง" type="number" narrow value={mi.abstain} onCommit={(v) => patch(item.id, { abstain: num(v) })} />
-            </div>
-            {votes > present && present > 0 && <p className="error small" role="alert" style={{ margin: 0 }}>⚠️ จำนวนคะแนนรวม {votes} มากกว่าผู้มีสิทธิ์ที่มาประชุม {present} คน — ตรวจตัวเลขอีกครั้ง</p>}
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <TextField id={`mo-${item.id}`} label="ผู้รับผิดชอบ" value={mi.assignee} onCommit={(v) => patch(item.id, { assignee: v.trim() || undefined })} />
-              <TextField id={`md-${item.id}`} label="กำหนดเสร็จ" type="date" value={mi.due} onCommit={(v) => patch(item.id, { due: v || undefined })} />
-            </div>
+            {hasData(item) && <div className="agown" aria-label={`บันทึกของวาระที่ ${label}`}>{fieldsOf(item)}</div>}
             {kids(item.id).length > 0 && (
               <div className="subitems" role="group" aria-label={`หัวข้อย่อยของวาระที่ ${label}`}>
                 {kids(item.id).map(({ label: sl, item: sub }) => {
-                  const sm = sub.minute ?? {}
                   const sdn = !!sub.done
                   return (
                     <div key={sub.id} className="subitem" style={{ borderLeft: `6px solid ${sdn ? '#14573a' : tone.bar}`, background: sdn ? '#e4f4ec' : tone.bg }}>
@@ -125,12 +139,7 @@ export default function Step6({ m, save, list }: StepProps) {
                         <label className="agtick agtick--s"><input type="checkbox" checked={sdn} aria-label={`หัวข้อย่อย ${sl} เสร็จแล้ว`} onChange={(e) => finishAgenda(sub.id, e.target.checked)} /> <span>{sdn ? 'เสร็จแล้ว' : 'เสร็จ'}</span></label>
                       </div>
                       {!sdn && (<>
-                        <TextField id={`ms-${sub.id}`} label="สาระสำคัญ" multiline rows={2} value={sm.summary} onCommit={(v) => patch(sub.id, { summary: v.trim() || undefined })} />
-                        <div className="row" style={{ alignItems: 'flex-start' }}>
-                          <div className="field"><label htmlFor={`mr-${sub.id}`}>มติที่ประชุม</label>
-                            <select id={`mr-${sub.id}`} className="input" value={sm.result ?? ''} onChange={(e) => patch(sub.id, { result: (e.target.value || undefined) as MtResult | undefined })}><option value="">— ยังไม่มีมติ —</option>{RESULTS.map((r) => <option key={r}>{r}</option>)}</select></div>
-                          <TextField id={`mo-${sub.id}`} label="ผู้รับผิดชอบ" value={sm.assignee} onCommit={(v) => patch(sub.id, { assignee: v.trim() || undefined })} />
-                        </div>
+                        {fieldsOf(sub)}
                         <div className="row no-print" style={{ gap: 6 }}>
                           <button type="button" className="mini" onClick={() => { const t = window.prompt('ชื่อหัวข้อย่อย', sub.title); if (t && t.trim()) save({ agenda: m.agenda.map((x: MtAgenda) => (x.id === sub.id ? { ...x, title: t.trim() } : x)) }) }}>✏️ แก้ชื่อ</button>
                           <button type="button" className="mini" aria-label={`ลบหัวข้อย่อย ${sub.title}`} onClick={() => { if (window.confirm(`ลบหัวข้อย่อย “${sub.title}” ?`)) save({ agenda: m.agenda.filter((x: MtAgenda) => x.id !== sub.id) }) }}>🗑️</button>
@@ -141,6 +150,10 @@ export default function Step6({ m, save, list }: StepProps) {
                 })}
               </div>
             )}
+            <div className="row no-print" style={{ gap: 6, alignItems: 'center', marginTop: '0.5rem' }}>
+              <button type="button" className="mini" onClick={() => addSub(item, label)}>＋ เพิ่มหัวข้อย่อย {label}.{kids(item.id).length + 1}</button>
+              {kids(item.id).length === 0 && !hasData(item) && <span className="muted small">ยังไม่มีหัวข้อ — กดเพื่อเพิ่ม แล้วบันทึกสาระ มติ ในหัวข้อนั้น</span>}
+            </div>
             </div>}
           </section>
         )
