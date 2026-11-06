@@ -80,7 +80,7 @@ function RosterSetup({ initial, addBlank, onClose, onSave }: { initial: Row[]; a
  * - คณะกรรมการหลัก: ตั้งค่าที่ปุ่ม ⚙️ มุมขวาบน (ป๊อปอัพ) → แสดงตามลำดับพร้อมตำแหน่ง ติ๊ก ร่วม/ลา/ขาด + หมายเหตุ
  * - ผู้เข้าร่วม/ผู้สังเกตการณ์ ลำดับที่ 1 2 3 … · ข้อมูลนี้เป็นฐานของรายงานการประชุม
  */
-export default function Roster({ m, save, onDone }: StepProps & { onDone: () => void }) {
+export default function Roster({ m, save, onDone, nav }: StepProps & { onDone: () => void; nav?: React.ReactNode }) {
   const committee = useCommittee()
   const { settings } = useSettings()
   const church = settings.churchName.split(' ')[0]
@@ -175,8 +175,9 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
 
       <section className="card" aria-labelledby="r1-c">
         <p role="status" style={{ margin: '0 0 0.4rem' }}><b>ผู้ร่วมประชุมทั้งหมด {members.filter((p) => p.att === 'มา').length + guests.filter((p) => p.name.trim()).length} คน</b> <span className="muted small">(กรรมการร่วม {members.filter((p) => p.att === 'มา').length} + ผู้เข้าร่วม/สังเกตการณ์ {guests.filter((p) => p.name.trim()).length})</span></p>
-        <button type="button" className="btn btn--gold" disabled={members.filter((p) => p.name.trim()).length === 0 || unmarked > 0} onClick={onDone}>✅ บันทึกใบลงชื่อ — ไปส่วนที่ 2 (วาระ)</button>
-        <p className="muted small" style={{ margin: '0.3rem 0 0' }}>{unmarked > 0 ? `ติ๊ก ร่วม / ลา / ขาด ให้ครบทุกคนก่อน (เหลือ ${unmarked} คน)` : 'ครบแล้ว กดเพื่อไปบันทึกวาระการประชุม'}</p>
+        <button type="button" className="btn btn--gold" onClick={onDone}>{m.rosterDone ? '✅ บันทึกใบลงชื่อแล้ว (กดบันทึกซ้ำได้)' : '✅ บันทึกใบลงชื่อ'}</button>
+        {unmarked > 0 && <p className="muted small" style={{ margin: '0.3rem 0 0' }}>ยังไม่ได้ติ๊ก ร่วม / ลา / ขาด อีก {unmarked} คน</p>}
+        {nav}
       </section>
       {setup && <RosterSetup addBlank={setup === 'add'} initial={(committee.list.length ? committee.list : members).filter((x) => x.name.trim()).map((x) => ({ id: x.id, role: x.role ?? '', name: x.name }))} onClose={() => setSetup(false)} onSave={saveSetup} />}
     </>

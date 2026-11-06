@@ -153,6 +153,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
         <section className="card"><p className="empty">ยังไม่มีการประชุม — สร้างการประชุมก่อนเพื่อเริ่มทำงานในขั้นนี้</p><button type="button" className="btn btn--gold" onClick={c.create}>＋ สร้างการประชุมใหม่</button></section>
       )}
       {working && props && (n === 1 ? <Step1 {...props} /> : n === 2 ? <Step2 {...props} /> : n === 3 ? <Step3 {...props} /> : n === 4 ? <Step4 {...props} /> : n === 5 ? <Step5 {...props} /> : n === 6 ? <Step6 {...props} /> : n === 7 ? <Step7 {...props} /> : n === 8 ? <Step8 {...props} /> : n === 9 ? <Step9 {...props} /> : <Step10 {...props} />)}
+      {n !== 6 && (<>
       <details className="mc__guide" open={!working}>
         <summary>{working ? 'คำอธิบายขั้นตอนนี้' : 'หัวข้อและคำอธิบายของขั้นตอนนี้'}</summary>
         <ol className="mc__items" aria-label={`หัวข้อของ ${s.title}`}>
@@ -170,6 +171,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
         {next ? <Link to={`${BASE}/${next.n}`} className="mc__step mc__step--next"><small>ขั้นตอนถัดไป ›</small><b>{next.n}. {next.title}</b></Link> : <span />}
       </nav>
       <p style={{ textAlign: 'center', margin: '0.6rem 0' }}><Link to={HUB} className="btn">กลับศูนย์จัดการประชุม</Link></p>
+      </>)}
     </>
   )
 }
