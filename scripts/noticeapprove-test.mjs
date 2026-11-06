@@ -10,7 +10,13 @@ try {
   const b = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {})
   const p = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
   const errors = []; p.on('pageerror', (e) => errors.push(String(e)))
-  await p.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
+  await p.route('**/api.github.com/**', (r) => {
+    const q = r.request()
+    if (q.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors })
+    if (q.method() === 'PUT') return r.fulfill({ status: 201, headers: cors, contentType: 'application/json', body: JSON.stringify({ content: { sha: 'x' } }) })
+    return r.fulfill({ status: 404, headers: cors, body: '{}' })
+  })
   await p.addInitScript(() => {
     if (localStorage.getItem('seeded')) return; localStorage.setItem('seeded', '1')
     localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' }))
@@ -18,7 +24,7 @@ try {
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
     const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
     localStorage.setItem('acct.noticesettings.v1', JSON.stringify([{ id: 'settings', signImg: png, addr: '77110 หัวหิน', updated: 1 }]))
-    localStorage.setItem('acct.noticeletter.v1', JSON.stringify([{ id: 'l1', toName: 'คณะธรรมกิจ', no: 'ศอ/จป.001', date: '2026-11-06', subject: 'แจ้งประชุม', to: 'คณะธรรมกิจ', body: 'ด้วยคณะธรรมกิจกำหนดประชุม', notified: { at: 5, by: 'เลขา' }, updated: 1 }]))
+    localStorage.setItem('acct.noticeletter.v1', JSON.stringify([{ id: 'l1', toName: 'คณะธรรมกิจ', no: 'ศอ/จป.001', date: '2026-11-06', subject: 'แจ้งประชุม', to: 'คณะธรรมกิจ', body: 'ด้วยคณะธรรมกิจกำหนดประชุม', agenda: [{ t: 'กล่าวต้อนรับ' }, { t: 'เรื่องแจ้ง' }, { t: 'เทสระบบ', k: 'r' }], notified: { at: 5, by: 'เลขา' }, updated: 1 }]))
   })
   await p.goto('http://localhost:' + PORT + '/#/meeting/1/4/notice-l1'); await p.reload()
   await p.getByText('รอตรวจสอบ').first().waitFor({ timeout: 10000 })
@@ -35,6 +41,15 @@ try {
   await p.getByRole('group', { name: /บันทึกเรียบร้อย/ }).waitFor({ timeout: 8000 })
   const g = p.getByRole('group', { name: /บันทึกเรียบร้อย/ })
   must(await g.getByRole('button', { name: 'ดาวน์โหลดเป็นไฟล์ PDF' }).count() === 1 && await g.getByRole('button', { name: 'แชร์เป็นรูปภาพ' }).count() === 1 && await g.getByRole('button', { name: 'พิมพ์หนังสือ' }).count() === 1, 'three output icons')
+  // ส่งเพื่อเตรียมบันทึกการประชุม: ข้อมูลของหนังสือเป็นฐานของไอคอนที่ 2
+  await p.getByRole('button', { name: /ส่งเพื่อเตรียมบันทึกการประชุม/ }).click()
+  await p.getByRole('dialog', { name: 'ส่งเพื่อเตรียมบันทึกการประชุมแล้ว' }).waitFor({ timeout: 10000 })
+  await p.getByRole('button', { name: 'ไปที่บันทึกการประชุมเลย' }).click()
+  await p.waitForURL(/#\/meeting\/1\/4\/6/)
+  await p.getByText('กล่าวต้อนรับ').first().waitFor({ timeout: 8000 })
+  const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
+  const m = ms.find((x) => x.noticeLetterId === 'l1')
+  must(m && m.agenda.length === 2 && /เทสระบบ/.test(m.agenda[1].docs ?? '') && m.notice?.sentAt, 'agenda + notice seeded into the meeting: ' + JSON.stringify(m)?.slice(0, 200))
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close(); console.log('noticeapprove-test OK')
 } catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }
