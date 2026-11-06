@@ -1,15 +1,17 @@
+import { useNavigate } from 'react-router-dom'
 import type { StepProps } from './Step1'
 import { TextField } from './fields'
 import { orderedAgenda } from './docs'
 import { attendance } from './minutes'
 import Roster from './Roster'
-import { minuteComplete } from '../../lib/meetings'
+import { blankAgenda, minuteComplete, moveAgenda } from '../../lib/meetings'
 import type { MtAgenda, MtMinute, MtResult } from '../../lib/types'
 
 const RESULTS: MtResult[] = ['เห็นชอบ', 'ไม่เห็นชอบ', 'เลื่อนพิจารณา', 'มีเงื่อนไข']
 
 /** ขั้น 6: บันทึกประชุม — สาระ ข้อเสนอ มติ ผลลงคะแนน ผู้รับผิดชอบ/กำหนดเสร็จ ของทุกวาระ + เวลาเลิกและนัดครั้งต่อไป */
 export default function Step6({ m, save, list }: StepProps) {
+  const navigate = useNavigate()
   // ส่วนที่ 1 รายชื่อผู้เข้าประชุม ก่อน → เสร็จแล้วจึงไปส่วนที่ 2 (วาระ)
   if (!m.rosterDone) return <Roster m={m} save={save} list={list} />
   const present = attendance(m).present.length
@@ -27,6 +29,12 @@ export default function Step6({ m, save, list }: StepProps) {
         const votes = (mi.yes ?? 0) + (mi.no ?? 0) + (mi.abstain ?? 0)
         return (
           <section key={item.id} className="card" aria-label={`วาระที่ ${n} ${item.title}`}>
+            <div className="row" style={{ gap: 6, alignItems: 'flex-end', flexWrap: 'nowrap' }}>
+              <TextField id={`mt-${item.id}`} label={`วาระที่ ${n} · ชื่อวาระ`} value={item.title} onCommit={(v) => save({ agenda: m.agenda.map((a: MtAgenda) => (a.id === item.id ? { ...a, title: v.trim() || a.title } : a)) })} />
+              <button type="button" className="mini" aria-label={`เลื่อนวาระ ${item.title} ขึ้น`} onClick={() => save({ agenda: moveAgenda(m.agenda, item.id, -1) })}>↑</button>
+              <button type="button" className="mini" aria-label={`เลื่อนวาระ ${item.title} ลง`} onClick={() => save({ agenda: moveAgenda(m.agenda, item.id, 1) })}>↓</button>
+              <button type="button" className="mini" aria-label={`ลบวาระ ${item.title}`} onClick={() => { if (window.confirm(`ลบวาระ “${item.title}” ?`)) save({ agenda: m.agenda.filter((a: MtAgenda) => a.id !== item.id) }) }}>🗑️</button>
+            </div>
             <h2 style={{ margin: 0 }}>วาระที่ {n} {item.title} {minuteComplete(item) && <span aria-label="บันทึกแล้ว" style={{ color: '#1b7f4b' }}>✓</span>}</h2>
             <p className="muted small" style={{ margin: '0.1rem 0 0.4rem' }}>{item.group} · เพื่อ{item.purpose}</p>
             <TextField id={`ms-${item.id}`} label="6.1 สาระสำคัญ" multiline rows={3} value={mi.summary} onCommit={(v) => patch(item.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
@@ -49,6 +57,9 @@ export default function Step6({ m, save, list }: StepProps) {
           </section>
         )
       })}
+      <div className="row" style={{ margin: '0 0 0.5rem' }}>
+        <button type="button" className="mini" onClick={() => save({ agenda: [...m.agenda, { ...blankAgenda(), title: 'วาระใหม่', purpose: 'ทราบ' }] })}>＋ เพิ่มวาระ</button>
+      </div>
       <section className="card" aria-labelledby="s6-z">
         <h2 id="s6-z">6.6 เลิกประชุมและนัดครั้งถัดไป</h2>
         <div className="row" style={{ alignItems: 'flex-start' }}>
@@ -56,6 +67,12 @@ export default function Step6({ m, save, list }: StepProps) {
           <TextField id="mt-next" label="นัดประชุมครั้งต่อไป (ถ้ามี)" value={m.closed?.next} onCommit={(v) => m.closed?.time && save({ closed: { ...m.closed, next: v.trim() || undefined } })} placeholder="เช่น อาทิตย์ที่ 13 ธันวาคม 2026 เวลา 18.30 น." />
         </div>
         {!m.closed?.time && <p className="muted small" style={{ margin: 0 }}>กรอกเวลาเลิกประชุมก่อน จึงบันทึกการนัดครั้งถัดไปได้</p>}
+      </section>
+      <section className="card" aria-label="บันทึกการประชุมเสร็จ">
+        {m.minutesDone
+          ? <p role="status" style={{ margin: 0 }}>✅ <b>บันทึกการประชุมเสร็จแล้ว</b> — ส่งไปรายงานการประชุมแล้ว <button type="button" className="mini" onClick={() => save({ minutesDone: undefined })}>แก้ไขต่อ</button></p>
+          : <button type="button" className="btn btn--gold" disabled={items.length === 0} onClick={() => { save({ minutesDone: { at: Date.now() } }); navigate('/meeting/1/4/7') }}>✅ บันทึกเสร็จ — ส่งไปรายงานการประชุม</button>}
+        <p className="muted small" style={{ margin: '0.3rem 0 0' }}>กดแล้วไอคอนบันทึกการประชุมเป็นสีเขียว และข้อมูลทั้งหมดไปเป็นฐานของรายงานการประชุม (ไอคอนที่ 3) · แก้ไขต่อได้ภายหลัง</p>
       </section>
     </>
   )

@@ -488,6 +488,8 @@ export interface Meeting extends SharedItem {
   noticeLetterId?: string
   /** บันทึกการประชุม ส่วนที่ 1 (รายชื่อผู้เข้าประชุม) เสร็จแล้ว → ไปส่วนที่ 2 (วาระ) */
   rosterDone?: { at: number }
+  /** บันทึกการประชุม (ส่วนที่ 2) เสร็จแล้ว → ส่งต่อไปรายงานการประชุม (ไอคอนที่ 3) */
+  minutesDone?: { at: number }
   /** การ์ดลำดับงานที่การประชุมนี้สังกัด (เช่น สามัญ / วิสามัญ แยกกัน) · ไม่มี = ของเดิมก่อนแยกการ์ด (อยู่การ์ดประชุมใบแรก) */
   flowId?: string
   prep?: Record<string, boolean>
