@@ -19,3 +19,16 @@ describe('rankChanges', () => {
     expect(rankChanges([{ group: 's', letter: L('a', 'ศอ/ปด.001') }, { group: 'v', letter: L('v', 'ศอ/วส.004') }])).toEqual([{ id: 'v', no: 'ศอ/วส.001' }])
   })
 })
+
+import { reorderNos } from './letterNo'
+describe('reorderNos', () => {
+  it('ชิ้นสุดท้ายแก้เป็นเลข 2 → แทรกลำดับ 2 ชิ้นอื่นเลื่อนลง', () => {
+    expect([...reorderNos(['a', 'b', 'c', 'd'], 'd', 2)]).toEqual([['a', 1], ['d', 2], ['b', 3], ['c', 4]])
+  })
+  it('เลขเกินจำนวน → อยู่ท้ายสุด', () => {
+    expect([...reorderNos(['a', 'b'], 'a', 9)]).toEqual([['b', 1], ['a', 2]])
+  })
+  it('เลข 0 หรือติดลบ → อยู่แรกสุด', () => {
+    expect([...reorderNos(['a', 'b'], 'b', 0)]).toEqual([['b', 1], ['a', 2]])
+  })
+})

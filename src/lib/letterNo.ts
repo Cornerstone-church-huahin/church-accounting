@@ -22,3 +22,14 @@ export function rankChanges(rows: NoRow[]): { id: string; no: string }[] {
   }
   return out
 }
+
+/**
+ * ผู้ใช้แก้เลขที่ของชิ้นงานหนึ่ง (movedId) เป็น target → ชิ้นนั้นแทรกไปอยู่ลำดับ target จริง ชิ้นอื่นเลื่อนตาม
+ * ids = ชิ้นงานในกลุ่มเรียงตามลำดับเดิม · คืนเลข “ครั้งที่” ใหม่ (1..n) ของทุกชิ้น
+ */
+export function reorderNos(ids: string[], movedId: string, target: number): Map<string, number> {
+  const rest = ids.filter((x) => x !== movedId)
+  const at = Math.max(0, Math.min(rest.length, Math.floor(target) - 1))
+  rest.splice(at, 0, movedId)
+  return new Map(rest.map((id, i) => [id, i + 1]))
+}
