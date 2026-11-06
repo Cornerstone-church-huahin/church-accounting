@@ -41,6 +41,10 @@ try {
   await p.getByRole('group', { name: /บันทึกเรียบร้อย/ }).waitFor({ timeout: 8000 })
   const g = p.getByRole('group', { name: /บันทึกเรียบร้อย/ })
   must(await g.getByRole('button', { name: 'ดาวน์โหลดเป็นไฟล์ PDF' }).count() === 1 && await g.getByRole('button', { name: 'แชร์เป็นรูปภาพ' }).count() === 1 && await g.getByRole('button', { name: 'พิมพ์หนังสือ' }).count() === 1, 'three output icons')
+  // รีเฟรช/กลับเข้าหน้านี้ใหม่: ยังต้องเห็นว่าอนุมัติ+ลงนามแล้ว (ไม่กลับไปรอตรวจสอบ)
+  await p.goto('http://localhost:' + PORT + '/#/meeting/1/4'); await p.goto('http://localhost:' + PORT + '/#/meeting/1/4/notice-l1'); await p.reload()
+  await p.getByRole('group', { name: /บันทึกเรียบร้อย/ }).waitFor({ timeout: 8000 })
+  must(await p.getByText('รอตรวจสอบ').count() === 0 && await p.getByText('ตรวจสอบแล้ว').count() >= 1, 'still approved after reload')
   // ส่งเพื่อเตรียมบันทึกการประชุม: ข้อมูลของหนังสือเป็นฐานของไอคอนที่ 2
   await p.getByRole('button', { name: /ส่งเพื่อเตรียมบันทึกการประชุม/ }).click()
   await p.getByRole('dialog', { name: 'ส่งเพื่อเตรียมบันทึกการประชุมแล้ว' }).waitFor({ timeout: 10000 })
@@ -50,6 +54,12 @@ try {
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
   const m = ms.find((x) => x.noticeLetterId === 'l1')
   must(m && m.agenda.length === 2 && /เทสระบบ/.test(m.agenda[1].docs ?? '') && m.notice?.sentAt, 'agenda + notice seeded into the meeting: ' + JSON.stringify(m)?.slice(0, 200))
+  // กลับมาหน้าหนังสือหลังส่งแล้ว: ปุ่มเขียว "สร้างบันทึกการประชุม" · ยังอนุมัติ/ลงนามอยู่ครบ
+  await p.goto('http://localhost:' + PORT + '/#/meeting/1/4/notice-l1'); await p.reload()
+  await p.getByRole('button', { name: /สร้างบันทึกการประชุม/ }).waitFor({ timeout: 8000 })
+  must(await p.getByText('ลงนามแล้ว').count() >= 1 || await p.getByText('เซ็นแล้ว').count() >= 1, 'still signed')
+  await p.getByRole('button', { name: /สร้างบันทึกการประชุม/ }).click()
+  await p.waitForURL(/#\/meeting\/1\/4\/6/)
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close(); console.log('noticeapprove-test OK')
 } catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }
