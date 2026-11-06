@@ -212,9 +212,17 @@ export function useLetterhead() {
 
 /** เช็คลิสต์ของลำดับงานที่ไม่ผูกกับการประชุม (หนังสือเชิญ ฯลฯ) · ทุกคนที่แก้ข้อมูลรายละเอียดได้ติ๊กได้ */
 /** คณะธรรมกิจประจำ (รายชื่อตั้งต้นของการประชุม) */
+const COMMITTEE_SEED: [string, string][] = [
+  ['อ.กฤตุ รุ่งโรจน์ร่มเย็น', 'ศิษยาภิบาลคริสตจักร'], ['อ.พิชิต เผ่าดี', 'ศิษยาภิบาลฝ่ายอภิบาลและพัฒนาคริสตจักร'],
+  ['ผป.สมเจต เสมาทอง', 'คณะธรรมกิจ'], ['ผป.รัชนี เสมาทอง', 'คณะธรรมกิจ'], ['อ.สุพาพล ร่มโพธิ์ชี', 'คณะธรรมกิจ'], ['อ.ดารา ผลจันทร์', 'คณะธรรมกิจ'],
+  ['อ.ทิวรา ร่มโพธิ์ชี', 'คณะธรรมกิจ'], ['อ.อรสา ก่ำรัมย์', 'คณะธรรมกิจ'], ['มน.นัฏฐนิช เสมาทอง', 'คณะธรรมกิจ'], ['มน.เสาวคนธ์ ฮาร์รีสซัน', 'คณะธรรมกิจ'],
+  ['มน.หนึ่งฤทัย ทองมี', 'คณะธรรมกิจ'], ['มน.รินรดา ชาติพงษ์สกุล', 'คณะธรรมกิจ'],
+]
+/** รายชื่อตั้งต้นของคณะธรรมกิจ (ค่าเริ่มต้น · แก้/ลบ/เพิ่มได้ที่ ⚙️ ในใบลงชื่อ — ที่แก้แล้วทับค่าตั้งต้น) */
+export const DEFAULT_COMMITTEE: CommitteeMember[] = COMMITTEE_SEED.map(([name, role], i) => ({ id: `cm-d${String(i + 1).padStart(2, '0')}`, name, role, order: i, updated: 0 }))
 export function useCommittee() {
   const s = useSharedStore<CommitteeMember>({ localKey: k('committee'), file: 'committee.json', label: 'รายชื่อคณะธรรมกิจ', writeCheck: writeWork1 })
-  return { ...s, list: [...s.items].sort((a, b) => a.order - b.order) }
+  return { ...s, list: mergeItems(DEFAULT_COMMITTEE, s.all).filter((x) => !x.deleted).sort((a, b) => a.order - b.order) }
 }
 export function useFlowTicks() {
   return useSharedStore<FlowTicks>({ localKey: k('flowticks'), file: 'flow-ticks.json', label: 'ลำดับงาน', writeCheck: writeWork1 })

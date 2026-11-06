@@ -14,8 +14,8 @@ type Row = { id: string; role: string; name: string }
 /**
  * ตั้งค่ารายชื่อคณะกรรมการหลัก (ป๊อปอัพ): เพิ่ม/แก้/ลบ ตำแหน่ง + ชื่อ · บันทึกแล้วใช้เป็นรายชื่อตั้งต้นของ “ทุกการประชุม” (สามัญและวิสามัญ)
  */
-function RosterSetup({ initial, onClose, onSave }: { initial: Row[]; onClose: () => void; onSave: (rows: Row[]) => boolean }) {
-  const [rows, setRows] = useState<Row[]>(initial.length ? initial : [{ id: newId('cm'), role: '', name: '' }])
+function RosterSetup({ initial, addBlank, onClose, onSave }: { initial: Row[]; addBlank?: boolean; onClose: () => void; onSave: (rows: Row[]) => boolean }) {
+  const [rows, setRows] = useState<Row[]>(initial.length && !addBlank ? initial : [...initial, { id: newId('cm'), role: '', name: '' }])
   const [bulk, setBulk] = useState(false)
   const [text, setText] = useState('')
   const [msg, setMsg] = useState('')
@@ -77,7 +77,7 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
   const members = m.people.filter((p) => p.kind === 'กรรมการ')
   const guests = m.people.filter((p) => p.kind === 'ผู้เข้าร่วมอื่น')
   const [msg, setMsg] = useState('')
-  const [setup, setSetup] = useState(() => committee.list.length === 0 && members.length === 0)   // ยังไม่เคยตั้งค่า: เปิดป๊อปอัพตั้งค่าก่อน
+  const [setup, setSetup] = useState<false | 'edit' | 'add'>(() => (committee.list.length === 0 && members.length === 0 ? 'edit' : false))   // ยังไม่เคยตั้งค่า: เปิดป๊อปอัพตั้งค่าก่อน
   const seeded = useRef(false)
   // การประชุมใหม่ที่ยังไม่มีกรรมการ: ดึงรายชื่อหลักมาให้ทันที
   useEffect(() => {
@@ -106,7 +106,10 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
       <section className="card" aria-labelledby="r1-a">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: 8 }}>
           <h2 id="r1-a" style={{ margin: 0 }}>ส่วนที่ 1 · ใบลงชื่อผู้ร่วมประชุม — คณะธรรมกิจ ({members.filter((p) => p.name.trim()).length} คน)</h2>
-          <button type="button" className="mini iconbtn" style={{ flex: 'none' }} aria-label="ตั้งค่ารายชื่อคณะกรรมการหลัก" title="ตั้งค่ารายชื่อคณะกรรมการหลัก" onClick={() => setSetup(true)}>⚙️</button>
+          <span className="row" style={{ flex: 'none', gap: 6, flexWrap: 'nowrap' }}>
+            <button type="button" className="mini iconbtn" aria-label="เพิ่มกรรมการ" title="เพิ่มกรรมการ" onClick={() => setSetup('add')}>＋</button>
+            <button type="button" className="mini iconbtn" aria-label="ตั้งค่ารายชื่อคณะกรรมการหลัก" title="ตั้งค่า / ลบกรรมการ" onClick={() => setSetup('edit')}>⚙️</button>
+          </span>
         </div>
         <p className="small" role="status" style={{ margin: '0.4rem 0 0.5rem' }}>ร่วม {count('มา')} · ลา {count('ลา')} · ขาด {count('ไม่มา')} · ยังไม่ติ๊ก {unmarked}</p>
         {members.length === 0 && <p className="empty">ยังไม่มีรายชื่อคณะกรรมการ — กด ⚙️ มุมขวาบนเพื่อตั้งค่า</p>}
@@ -153,7 +156,7 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
         <button type="button" className="btn btn--gold" disabled={members.filter((p) => p.name.trim()).length === 0 || unmarked > 0} onClick={onDone}>✅ บันทึกใบลงชื่อ — ไปส่วนที่ 2 (วาระ)</button>
         <p className="muted small" style={{ margin: '0.3rem 0 0' }}>{unmarked > 0 ? `ติ๊ก ร่วม / ลา / ขาด ให้ครบทุกคนก่อน (เหลือ ${unmarked} คน)` : 'ครบแล้ว กดเพื่อไปบันทึกวาระการประชุม'}</p>
       </section>
-      {setup && <RosterSetup initial={(committee.list.length ? committee.list : members).filter((x) => x.name.trim()).map((x) => ({ id: x.id, role: x.role ?? '', name: x.name }))} onClose={() => setSetup(false)} onSave={saveSetup} />}
+      {setup && <RosterSetup addBlank={setup === 'add'} initial={(committee.list.length ? committee.list : members).filter((x) => x.name.trim()).map((x) => ({ id: x.id, role: x.role ?? '', name: x.name }))} onClose={() => setSetup(false)} onSave={saveSetup} />}
     </>
   )
 }
