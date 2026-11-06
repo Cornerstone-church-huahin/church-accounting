@@ -270,11 +270,19 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   // หนังสือที่เลขาลงนามเอง (แจ้งการประชุม): ผู้ดูแลงานเลขา/ผู้ช่วยกดลงลายเซ็นได้ทันที · ชนิดอื่นเฉพาะแอดมิน (ประธาน)
   const canSign = can(role, 'settings') || (!!K.secretarySigns && canWork(1, 'edit'))
   const who = K.secretarySigns ? 'เลขา' : 'ประธาน'
+  const canApprove = can(role, 'settings') // ประธาน = แอดมิน
   useEffect(() => {
+    if (l.approved && l.approved.snap !== snapOf(l, cfg)) { set({ approved: undefined, signed: undefined }); setMsg('ถอนการอนุมัติ เพราะมีการแก้ไขหนังสือหลังอนุมัติ — ให้ประธานตรวจอีกครั้ง'); return }
     if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
   }, [l, cfg.proceed, cfg.bless, cfg.signName, cfg.signRole]) // eslint-disable-line react-hooks/exhaustive-deps
+  const approve = () => {
+    if (!ready()) return
+    set({ approved: { at: Date.now(), by: getSync()?.name || 'ประธาน', snap: snapOf(l, cfg) } })
+    setMsg('ประธานอนุมัติแล้ว — เลขาลงลายเซ็นได้')
+  }
   const sign = async () => {
     if (!ready()) return
+    if (K.secretarySigns && !l.approved) return setMsg('รอประธานอนุมัติก่อน จึงลงลายเซ็นได้')
     // ก่อนลงนาม: ดึงฉบับล่าสุดก่อน ถ้ามีคนแก้ไปเมื่อครู่ ให้แสดงฉบับนั้นแล้วตรวจอีกครั้ง (ลายเซ็นต้องผูกกับเนื้อหาที่เห็นจริง)
     if (getSync()) {
       setMsg('กำลังตรวจว่าเป็นฉบับล่าสุด…'); adopted.current = false
@@ -454,6 +462,15 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         <button type="button" className="btn btn--ghost il-bar" disabled={missing.length > 0 && !l.notified} onClick={notify}>📨 <No n={shift('10')} ok={okOf['10']} />แจ้งประธานตรวจสอบ</button>
         {missing.length > 0 && !l.notified && <p className="small" role="note" style={{ margin: 0 }}>⏳ ทำข้อ {missing.map(shift).join(', ')} ให้เสร็จ (วงกลมเขียวครบ) ก่อน จึงแจ้งประธานตรวจสอบได้</p>}
         {l.notified && <p className="small muted" style={{ margin: 0 }}>แจ้งประธานแล้วเมื่อ {new Date(l.notified.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.notified.by ? ` · โดย ${l.notified.by}` : ''} <button type="button" className="mini" onClick={() => { if (window.confirm('ล้างสถานะ “แจ้งประธานแล้ว” ของหนังสือฉบับนี้ ? (เพื่อให้เริ่มขั้นตอนใหม่ เลขากดแจ้งเองอีกครั้ง)')) set({ notified: undefined }) }}>↩︎ ล้างสถานะแจ้ง</button></p>}
+        {K.secretarySigns && (
+          <>
+            {l.approved
+              ? <div className="il-bar il-bar--ok" role="status">✅ ประธานอนุมัติแล้ว<span className="small muted"> · {new Date(l.approved.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.approved.by ? ` · ${l.approved.by}` : ''}</span></div>
+              : l.notified && <div className="il-bar il-bar--wait" role="status">⏳ รอประธานตรวจสอบ</div>}
+            {!l.approved && canApprove && missing.length === 0 && <button type="button" className="btn btn--gold il-bar" onClick={approve}>✅ อนุมัติ (ประธานตรวจแล้ว)</button>}
+            {l.approved && canApprove && !l.signed && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกการอนุมัติ ?')) set({ approved: undefined }) }}>↩︎ ยกเลิกการอนุมัติ</button>}
+          </>
+        )}
         {/* ขั้น 11: แอดมิน (ประธาน) เห็นปุ่มลงลายเซ็น · เลขาเห็นแถบ "รอประธานเซ็น" แล้วเปลี่ยนเป็นเขียว "ประธานเซ็นแล้ว" เมื่อประธานลงนาม (ซิงก์ข้ามเครื่อง) */}
         {l.signed ? (
           <>
@@ -463,7 +480,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
               {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
             </div>
           </>
-        ) : canSign
+        ) : K.secretarySigns && !l.approved ? <div className="il-bar il-bar--wait" role="status">⏳ <No n={shift('11')} ok={false} />รอประธานอนุมัติก่อน จึงลงลายเซ็นได้</div>
+        : canSign
           ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n={shift('11')} ok={okOf['11']} />ลงลายเซ็น</button>
           : <div className="il-bar il-bar--wait" role="status">⏳ <No n={shift('11')} ok={false} />รอ{who}เซ็น</div>}
         <div className="field" style={{ margin: 0 }}><label htmlFor="il-acc">ใครเห็นในคลังเอกสาร</label>
@@ -475,9 +493,19 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {!l.signed && <span className="small" role="note">⏳ รอ{who}เซ็นก่อน จึงส่งเข้าคลังเอกสารได้</span>}
         <span className="small muted">สร้าง PDF แล้วเก็บเข้าคลังเอกสารให้เองทั้งหมด (เลขที่ วันที่ ชื่อเรื่อง) ไม่ต้องกรอกอะไรเพิ่ม</span>
         <button type="button" className="btn btn--gold" disabled={busy || !l.signed} onClick={sendToLibrary}>🗄️ <No n={shift('12')} ok={okOf['12']} />ส่งเข้าคลังเอกสาร</button>
+        {K.secretarySigns && l.signed && (
+          <div role="group" aria-label="บันทึกเรียบร้อย ดาวน์โหลด แชร์ พิมพ์" className="il-done">
+            <p style={{ margin: '0 0 4px' }}><b>✅ ลงลายเซ็นและบันทึกเรียบร้อยแล้ว</b><br /><span className="small muted">เก็บเข้าคลังเอกสารเรียงเลขที่ตามลำดับได้ที่ปุ่มด้านบน</span></p>
+            <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
+              <button type="button" className="btn btn--ghost" disabled={busy} aria-label="ดาวน์โหลดเป็นไฟล์ PDF" onClick={() => output('download', 'pdf')} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>⬇️<br /><small>ดาวน์โหลด PDF</small></button>
+              <button type="button" className="btn btn--ghost" disabled={busy} aria-label="แชร์เป็นรูปภาพ" onClick={() => output('share', 'png')} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>📤<br /><small>แชร์รูปภาพ</small></button>
+              <button type="button" className="btn btn--ghost" disabled={busy} aria-label="พิมพ์หนังสือ" onClick={() => window.print()} style={{ flex: 1, padding: '0.4rem 0.3rem' }}>🖨️<br /><small>พิมพ์</small></button>
+            </div>
+          </div>
+        )}
         <span className="small muted" style={{ marginTop: 4 }}>📤 สำหรับแชร์หรือดาวน์โหลดไฟล์เท่านั้น — ไม่ใช่ขั้นตอนที่ต้องทำ ใช้เมื่อต้องส่งต่อหรือเก็บไว้ในเครื่อง</span>
         <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
-          {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).map(([act, ico, label]) => (
+          {([['share', '📤', 'แชร์'], ['download', '⬇️', 'ดาวน์โหลด']] as const).filter(() => !(K.secretarySigns && l.signed)).map(([act, ico, label]) => (
             <button key={act} type="button" className={menu === act ? 'btn btn--gold' : 'btn btn--ghost'} disabled={busy} aria-expanded={menu === act} aria-label={`${label} เป็น PDF หรือรูปภาพ`} onClick={() => setMenu(menu === act ? null : act)} style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.3rem' }}>{ico}<br /><small>{label}</small></button>
           ))}
           <button type="button" className="btn btn--ghost" disabled={busy} aria-label="พิมพ์หน้าซองจดหมาย" onClick={() => setEnv(true)}>✉️ หน้าซอง</button>
