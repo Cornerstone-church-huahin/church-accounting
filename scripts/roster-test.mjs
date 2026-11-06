@@ -24,7 +24,17 @@ try {
   const list = p.getByRole('list', { name: 'รายชื่อคณะธรรมกิจ' })
   await list.waitFor({ timeout: 10000 })
   must(await list.getByRole('listitem').count() === 12, '12 committee members seeded from the standing roster')
-  must(/ประธาน/.test(await list.getByRole('listitem').first().innerText() + await list.getByRole('listitem').first().locator('input').nth(1).inputValue()), 'position shown')
+  must(/ประธาน/.test(await list.getByRole('listitem').first().innerText()), 'position shown')
+  // ⚙️ ตั้งค่ารายชื่อหลัก (ป๊อปอัพ): เพิ่มกรรมการ → บันทึก → ใช้ได้ทั้งการประชุมนี้และครั้งต่อไป
+  await p.getByRole('button', { name: 'ตั้งค่ารายชื่อคณะกรรมการหลัก' }).click()
+  const dlg = p.getByRole('dialog', { name: 'ตั้งค่ารายชื่อคณะกรรมการหลัก' })
+  await dlg.getByRole('button', { name: '＋ เพิ่มกรรมการ' }).click()
+  await dlg.locator('input[id^="su-r-"]').last().fill('กรรมการใหม่'); await dlg.locator('input[id^="su-n-"]').last().fill('คนที่สิบสาม')
+  await dlg.getByRole('button', { name: 'บันทึกรายชื่อ' }).click()
+  await list.getByRole('listitem').nth(12).waitFor({ timeout: 5000 })
+  must(await list.getByRole('listitem').count() === 13, 'new member appears in the attendance list')
+  const cm = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.committee.v1')))
+  must(cm.filter((x) => !x.deleted).length === 13, 'standing roster saved for all meetings')
   const go = p.getByRole('button', { name: /บันทึกใบลงชื่อ — ไปส่วนที่ 2/ })
   const dots = p.getByRole('navigation', { name: 'ลำดับการบันทึกการประชุม' }).getByRole('button')
   must(await dots.count() === 4 && await dots.nth(1).isDisabled() && await dots.nth(0).innerText() === '1', 'bottom bar shows parts 1-4, later parts locked')
@@ -61,7 +71,17 @@ try {
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
   must(ms[0].minutesDone && ms[0].agenda.length === 1 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
   const pe = ms[0].people
-  must(pe.filter((x) => x.kind === 'กรรมการ').length === 12 && pe.filter((x) => x.att === 'ลา').length === 1 && pe.filter((x) => x.att === 'ไม่มา').length === 1, 'attendance saved onto the meeting')
+  must(pe.filter((x) => x.kind === 'กรรมการ').length === 13 && pe.filter((x) => x.att === 'ลา').length === 1 && pe.filter((x) => x.att === 'ไม่มา').length === 1, 'attendance saved onto the meeting')
+  // ยังไม่เคยตั้งค่า: ป๊อปอัพตั้งค่าเด้งขึ้นก่อน
+  const p2 = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
+  await p2.addInitScript(() => {
+    localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
+    localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])); localStorage.setItem('acct.mc.cur', 'mt1')
+    localStorage.setItem('acct.meetings.v1', JSON.stringify([{ id: 'mt1', name: 'x', no: 1, year: 2026, type: 'ปกติ', date: '', time: '', place: '', chair: '', secretary: '', people: [], agenda: [], updated: 1 }]))
+  })
+  await p2.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+  await p2.goto(`http://localhost:${PORT}/#/meeting/1/4/6`)
+  await p2.getByRole('dialog', { name: 'ตั้งค่ารายชื่อคณะกรรมการหลัก' }).waitFor({ timeout: 10000 })
   must(errors.length === 0, 'page errors: ' + errors.join('|'))
   await b.close(); console.log('roster-test OK')
 } catch (e) { console.error(String(e.message || e).slice(0, 700)); process.exitCode = 1 } finally { server.kill() }
