@@ -446,7 +446,17 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
               : <output id="il-no" className="il-numbadge" aria-label={`เลขที่หนังสือ ${l.no}`}>{l.no || '…'}</output>}
             <button type="button" className="mini" aria-label="แก้เลขที่หนังสือเอง" title="แก้เลขเอง" onClick={() => setEditNo(!editNo)}>{editNo ? '✓' : '✏️'}</button>
           </div>
-          <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...others.map((x) => ({ no: x.no })), { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
+          <span className="small muted">ฉบับถัดไปจะได้ {nextDocNo([...others.map((x) => ({ no: x.no })), ...inLib, { no: l.no }], prefix)} · ลบฉบับท้ายสุด เลขนั้นจะกลับมาใช้ใหม่</span>
+          {(others.length > 0 || inLib.length > 0) && (
+            <details className="small" style={{ margin: '0.2rem 0 0' }}>
+              <summary>เลขที่ที่ถูกใช้แล้ว ({others.length + inLib.length}) — ดูว่าอะไรกินเลขอยู่</summary>
+              <ul style={{ margin: '0.2rem 0 0', paddingLeft: '1.1rem' }}>
+                {others.map((x) => <li key={x.id}>{x.no || '(ไม่มีเลข)'} · หนังสือในรายการ: {x.toName || x.subject || '—'}</li>)}
+                {lib.list.filter((d) => d.category === catName && d.id !== l.docId).map((d) => <li key={d.id}>{d.no} · ไฟล์ในคลังเอกสาร: {d.title} <Link to="/meeting/1/5" state={{ openDoc: d.id }}>เปิดเพื่อลบ</Link></li>)}
+              </ul>
+              <span className="muted">ลบหนังสือที่ไม่ต้องการที่หน้ารายการหนังสือ หรือลบไฟล์ในคลังเอกสาร เลขจะกลับมารันตามลำดับ</span>
+            </details>
+          )}
           {dupNo && <span className="error" role="alert">เลขนี้ซ้ำกับหนังสือฉบับอื่น</span>}
         </div>
 
