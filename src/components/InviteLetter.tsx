@@ -484,7 +484,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         </div>
         <div className="field"><label htmlFor="il-body"><No n="7" ok={okOf['7']} />ข้อความในหนังสือ (เนื้อหาทั้งหมด · ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</label><textarea id="il-body" className="input" rows={9} value={l.body} onChange={(e) => set({ body: e.target.value })} placeholder="ชื่องาน วัน เวลา สถานที่ เหตุผลที่เชิญ และสิ่งที่ขอ" /></div>
 
-        {K.agenda && <AgendaEditor items={agendaItems(l)} onAdd={() => setSplit(true)} onChange={(a) => set({ agenda: a })} template={kind === 'notice' ? noticeAgenda(l.date || todayISO()) : undefined} />}
+        {K.agenda && <AgendaEditor items={agendaItems(l)} onChange={(a) => set({ agenda: a })} template={kind === 'notice' ? noticeAgenda(l.date || todayISO()) : undefined} />}
 
         {K.verse && (
           <div className="field"><label htmlFor="il-verse"><No n="8" ok={filled(l.verse)} />ข้อพระคัมภีร์ <span className="muted small">(ไม่บังคับ · ขึ้นชิดล่างของหน้า เหนือคำลงท้าย · ขึ้นบรรทัดใหม่ได้)</span></label>
@@ -500,7 +500,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   )
   return (
     <>
-      {kind === 'notice' && <VoiceDock scope="[data-voice-scope]" onStart={() => { if (K.agenda) setSplit(true) }} />}
+      {kind === 'notice' && <VoiceDock scope="[data-voice-scope]" />}
       <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to={`/meeting/1/4/${backTo}`} className="mini" onClick={flush}>‹ รายการหนังสือ</Link></div>
       {saved?.by && <p className="small muted no-print" style={{ margin: '0 0 0.4rem' }} role="status">บันทึกล่าสุดโดย {saved.by} · {new Date(saved.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} น. · เห็นการแก้ไขของคนอื่นอัตโนมัติ</p>}
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
