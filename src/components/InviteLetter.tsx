@@ -189,7 +189,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const [editNo, setEditNo] = useState(false)
   const [split, setSplit] = useState(false) // โหมดจัดวาระแบบแบ่งจอ: บน = ฟอร์ม · ล่าง = ตัวอย่างเอกสาร
   const [signSetup, setSignSetup] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [sendLink, setSendLink] = useState<{ url: string; text: string } | null>(null) // หน้าต่างส่งลิงก์ให้ประธาน (เมื่อเครื่องไม่มีเมนูแชร์)
   const [menu, setMenu] = useState<'share' | 'download' | null>(null)
   /** ส่งเข้าคลังสำเร็จ: แสดงป๊อปอัพ แล้วพาไปหน้าคลังเอกสาร (เปิดรายการที่เพิ่งส่งให้เห็น) */
   const [done, setDone] = useState<{ id: string; title: string; no: string; again: boolean } | null>(null)
@@ -296,39 +296,21 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   }
 
   const ready = () => { if (l.showAttach && !attachOf(l)) { setMsg('เลือกแสดงสิ่งที่ส่งมาด้วยแล้ว ต้องพิมพ์ข้อความก่อน (หรือกด “ไม่แสดง”)'); return false } return true }
-  const copy = async () => {
-    if (!ready()) return
-    const text = letterText(l, cfg)
-    let ok = false
-    try { await Promise.race([navigator.clipboard.writeText(text), new Promise((_, no) => setTimeout(no, 1500))]); ok = true } catch { /* ลองวิธีสำรอง */ }
-    if (!ok) { // วิธีสำรอง (เบราว์เซอร์ที่ไม่ให้สิทธิ์คลิปบอร์ด)
-      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
-      document.body.appendChild(ta); ta.select()
-      try { ok = document.execCommand('copy') } catch { ok = false }
-      ta.remove()
-    }
-    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2500) }
-    setMsg(ok ? 'คัดลอกข้อความทั้งหมดแล้ว — นำไปวางในโปรแกรมอื่นได้' : 'คัดลอกไม่สำเร็จ — ลองกดค้างที่ข้อความแล้วเลือกคัดลอกเอง')
-  }
   /** 10. แจ้งประธานตรวจสอบ: แชร์ข้อความ + ลิงก์ผ่านเมนูแชร์ของเครื่อง (LINE ฯลฯ) · ประธานกดลิงก์แล้วเข้าหน้านี้ทันที */
   const notify = async () => {
     if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.map(shift).join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
     if (!ready()) return
     const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/4/${K.slug}-${id}`)
     const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l, kind, NAME)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
-    let how: 'shared' | 'copied' | '' = ''
     if (typeof navigator.share === 'function') {
-      try { await navigator.share({ title: `ขอให้ตรวจสอบ${K.fileName}`, text }); how = 'shared' } catch (e) { if ((e as Error).name === 'AbortError') return }
+      try { await navigator.share({ title: `ขอให้ตรวจสอบ${K.fileName}`, text }) } catch (e) { if ((e as Error).name === 'AbortError') return }
+      set({ notified: { at: Date.now(), by: getSync()?.name || '' } })
+      setMsg('แจ้งประธานแล้ว — กดส่งอีกครั้งได้ทุกเมื่อ ถ้าประธานยังไม่เห็น')
+      return
     }
-    if (!how) {
-      let ok = false
-      try { await Promise.race([navigator.clipboard.writeText(text), new Promise((_, no) => setTimeout(no, 1500))]); ok = true } catch { /* ลองวิธีสำรอง */ }
-      if (!ok) { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy') } catch { ok = false } ta.remove() }
-      if (!ok) return setMsg('คัดลอกข้อความไม่สำเร็จ — ลองใหม่อีกครั้ง')
-      how = 'copied'
-    }
+    // เครื่องที่ไม่มีเมนูแชร์: เปิดหน้าต่างส่งลิงก์ (LINE / คัดลอก) ทุกครั้งที่กด
     set({ notified: { at: Date.now(), by: getSync()?.name || '' } })
-    setMsg(how === 'shared' ? 'แจ้งประธานแล้ว' : 'คัดลอกข้อความแจ้งประธานแล้ว — นำไปวางส่งใน LINE หรือช่องทางอื่นได้เลย')
+    setSendLink({ url, text })
   }
   const baseName = `${kind === 'doc' ? NAME : K.fileName} ${l.no.trim() ? l.no.trim().replace(/[\\/:*?"<>|]/g, '-') : todayISO()}`
   const makeFile = async (fmt: 'pdf' | 'png') => {
@@ -451,9 +433,6 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
       <p className="muted small no-print" style={{ margin: '0 0 0.5rem' }}>{K.intro} · กรอกเรียงลงมา แล้วดูตัวอย่างบนกระดาษด้านล่าง · บันทึกอัตโนมัติ</p>
       <SplitLayout active={split} top={formCard} onDone={() => setSplit(false)} scrollKey={JSON.stringify(l.agenda ?? [])} bottom={<>
 
-      <div className="row no-print il-hide-in-split" style={{ margin: '0.5rem 0 0' }}>
-        <button type="button" className="mini" onClick={copy} aria-label="คัดลอกข้อความทั้งหมด">{copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกข้อความ'}</button>
-      </div>
       <div className="no-print il-hide-in-split" style={{ margin: '0.4rem 0 0.2rem' }}><b>📄 ตัวอย่างเอกสาร</b><br /><span className="small muted">กระดาษด้านล่างคือหนังสือที่จะได้ — ตรวจให้ถูกต้องก่อนขั้นตอนถัดไป</span></div>
       {paperBlock}
       </>} />
@@ -465,8 +444,8 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {K.secretarySigns && (
           <>
             {l.approved
-              ? <div className="il-bar il-bar--ok" role="status">✅ ประธานอนุมัติแล้ว<span className="small muted"> · {new Date(l.approved.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.approved.by ? ` · ${l.approved.by}` : ''}</span></div>
-              : l.notified && <div className="il-bar il-bar--wait" role="status">⏳ รอประธานตรวจสอบ</div>}
+              ? <div className="il-bar il-bar--ok" role="status">✅ อนุมัติแล้ว<span className="small muted"> · {new Date(l.approved.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.approved.by ? ` · ${l.approved.by}` : ''}</span></div>
+              : l.notified && <div className="il-bar il-bar--wait" role="status">⏳ รอตรวจสอบ</div>}
             {!l.approved && canApprove && missing.length === 0 && <button type="button" className="btn btn--gold il-bar" onClick={approve}>✅ อนุมัติ (ประธานตรวจแล้ว)</button>}
             {l.approved && canApprove && !l.signed && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกการอนุมัติ ?')) set({ approved: undefined }) }}>↩︎ ยกเลิกการอนุมัติ</button>}
           </>
@@ -480,7 +459,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
               {canSign && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกลายเซ็นของหนังสือฉบับนี้ ?')) set({ signed: undefined }) }}>↩︎ ยกเลิกลายเซ็น</button>}
             </div>
           </>
-        ) : K.secretarySigns && !l.approved ? <div className="il-bar il-bar--wait" role="status">⏳ <No n={shift('11')} ok={false} />รอประธานอนุมัติก่อน จึงลงลายเซ็นได้</div>
+        ) : K.secretarySigns && !l.approved ? <span className="small muted">✍️ ลงลายเซ็นได้หลังประธานอนุมัติ</span>
         : canSign
           ? <button type="button" className="btn btn--gold il-bar" onClick={sign}>✍️ <No n={shift('11')} ok={okOf['11']} />ลงลายเซ็น</button>
           : <div className="il-bar il-bar--wait" role="status">⏳ <No n={shift('11')} ok={false} />รอ{who}เซ็น</div>}
@@ -518,6 +497,14 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         )}
         {msg && <p role="status" className="small" style={{ margin: 0 }}>{msg}</p>}
       </section>
+      )}
+      {sendLink && (
+        <Sheet title="ส่งลิงก์ให้ประธานตรวจสอบ" onClose={() => setSendLink(null)}>
+          <p className="small" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{sendLink.text}</p>
+          <a className="btn btn--gold" href={`https://line.me/R/msg/text/?${encodeURIComponent(sendLink.text)}`} target="_blank" rel="noreferrer">💬 ส่งทาง LINE</a>
+          <button type="button" className="btn btn--ghost" onClick={async () => { let ok = false; try { await navigator.clipboard.writeText(sendLink.text); ok = true } catch { /* ignore */ } setMsg(ok ? 'คัดลอกข้อความและลิงก์แล้ว — นำไปวางส่งได้เลย' : 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วเลือกคัดลอก'); setSendLink(null) }}>📋 คัดลอกข้อความและลิงก์</button>
+          <p className="small muted" style={{ margin: 0 }}>ถ้าประธานยังไม่ได้ดู กดปุ่ม “แจ้งประธานตรวจสอบ” ส่งซ้ำได้กี่ครั้งก็ได้</p>
+        </Sheet>
       )}
       {env && <EnvelopePrint recipient={l.to} head={{ thName: cfg.thName, enName: cfg.enName, addr: cfg.addr }} onClose={() => setEnv(false)} />}
       {done && (
