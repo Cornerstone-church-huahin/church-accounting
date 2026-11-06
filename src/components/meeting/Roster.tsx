@@ -10,6 +10,7 @@ import type { StepProps } from './Step1'
 /** ป้ายการมาที่แสดง (เก็บเป็น มา/ลา/ไม่มา ตามเดิม เพื่อให้ขั้น 5 และรายงานใช้ร่วมกัน) */
 const ATT: { v: MtAttend; label: string }[] = [{ v: 'มา', label: 'ร่วม' }, { v: 'ลา', label: 'ลา' }, { v: 'ไม่มา', label: 'ขาด' }]
 type Row = { id: string; role: string; name: string }
+const SEED_MARK = 'cm-seed-v1'
 
 /**
  * ตั้งค่ารายชื่อคณะกรรมการหลัก (ป๊อปอัพ): เพิ่ม/แก้/ลบ ตำแหน่ง + ชื่อ · บันทึกแล้วใช้เป็นรายชื่อตั้งต้นของ “ทุกการประชุม” (สามัญและวิสามัญ)
@@ -99,6 +100,11 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
     setSetup(false); setMsg(`บันทึกรายชื่อคณะกรรมการหลัก ${rows.length} คน — ใช้กับทุกการประชุมต่อไป`)
     return true
   }
+  // ครั้งเดียว: ใส่รายชื่อคณะธรรมกิจ 12 คนตามรายงานเดิมให้เป็นรายชื่อหลัก (ทับรายชื่อทดลองเดิม) แล้วทำเครื่องหมายไว้ ไม่ทำซ้ำ — แก้ภายหลังที่ ⚙️ ได้อิสระ
+  useEffect(() => {
+    if (committee.all.some((x) => x.id === SEED_MARK)) return
+    if (saveSetup(DEFAULT_COMMITTEE.map((c) => ({ id: c.id, role: c.role, name: c.name })))) committee.put([{ id: SEED_MARK, name: 'seed', role: '', order: -1, deleted: true, updated: Date.now() }])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <p className="mc__part" role="status"><b>ส่วนที่ 1 จาก 4</b> · ใบลงชื่อผู้ร่วมประชุม</p>

@@ -77,12 +77,26 @@ try {
   must(ms[0].minutesDone && ms[0].agenda.length === 1 && /แก้แล้ว/.test(ms[0].agenda[0].title), 'agenda edited and minutes marked done: ' + JSON.stringify(ms[0].agenda))
   const pe = ms[0].people
   must(pe.filter((x) => x.kind === 'กรรมการ').length === 13 && pe.filter((x) => x.att === 'ลา').length === 1 && pe.filter((x) => x.att === 'ไม่มา').length === 1, 'attendance saved onto the meeting')
+  // ผู้ใช้เคยมีรายชื่อทดลอง 3 คน: เปิดครั้งแรก ระบบใส่ 12 คนตามรายงานเดิมให้ครั้งเดียว
+  const p3 = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
+  await p3.addInitScript(() => {
+    if (localStorage.getItem('seeded')) return; localStorage.setItem('seeded', '1')
+    localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
+    localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])); localStorage.setItem('acct.mc.cur', 'mt1')
+    localStorage.setItem('acct.committee.v1', JSON.stringify([1, 2, 3].map((i) => ({ id: 'old' + i, name: 'คนทดลอง' + i, role: 'ประธานธรรมกิจ', order: i, updated: 1 }))))
+    localStorage.setItem('acct.meetings.v1', JSON.stringify([{ id: 'mt1', name: 'x', no: 1, year: 2026, type: 'ปกติ', date: '', time: '', place: '', chair: '', secretary: '', people: [{ id: 'p1', name: 'คนทดลอง1', kind: 'กรรมการ', role: 'ประธานธรรมกิจ', att: 'มา' }], agenda: [], updated: 1 }]))
+  })
+  await p3.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
+  await p3.goto(`http://localhost:${PORT}/#/meeting/1/4/6`); await p3.reload()
+  const l3 = p3.getByRole('list', { name: 'รายชื่อคณะธรรมกิจ' })
+  await l3.waitFor({ timeout: 10000 }); await p3.waitForTimeout(800)
+  must(await l3.getByRole('listitem').count() === 12 && /รินรดา/.test(await l3.getByRole('listitem').nth(11).innerText()), 'real-life 3 test names replaced by the 12 names once: ' + await l3.getByRole('listitem').count())
   // ยังไม่เคยตั้งค่า: ป๊อปอัพตั้งค่าเด้งขึ้นก่อน
   const p2 = await (await b.newContext({ viewport: { width: 390, height: 900 }, locale: 'th-TH' })).newPage()
   await p2.addInitScript(() => {
     localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' }))
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])); localStorage.setItem('acct.mc.cur', 'mt1')
-    localStorage.setItem('acct.committee.v1', JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ id: 'cm-d' + String(i + 1).padStart(2, '0'), name: 'x', role: '', order: i, deleted: true, updated: 5 }))))
+    localStorage.setItem('acct.committee.v1', JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ id: 'cm-d' + String(i + 1).padStart(2, '0'), name: 'x', role: '', order: i, deleted: true, updated: 5 })).concat([{ id: 'cm-seed-v1', name: 'seed', role: '', order: -1, deleted: true, updated: 5 }])))
     localStorage.setItem('acct.meetings.v1', JSON.stringify([{ id: 'mt1', name: 'x', no: 1, year: 2026, type: 'ปกติ', date: '', time: '', place: '', chair: '', secretary: '', people: [], agenda: [], updated: 1 }]))
   })
   await p2.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
