@@ -69,7 +69,14 @@ try {
   must((await dots.nth(0).innerText()) === '✓' && await dots.nth(1).isEnabled(), 'part 1 turns green and part 2 unlocks')
   must(await p.getByText('กล่าวต้อนรับ').count() >= 1, 'part 2 shows agenda minutes')
   // ส่วนที่ 2: แก้ชื่อวาระ · เพิ่มวาระ · ลบ · บันทึกเสร็จ → ส่งไปรายงาน
-  await p.locator('input[id^="mt-a1"]').fill('กล่าวต้อนรับ (แก้แล้ว)'); await p.locator('input[id^="mt-a1"]').blur()
+  p.once('dialog', (d) => d.accept('กล่าวต้อนรับ (แก้แล้ว)'))
+  await p.getByRole('button', { name: /^แก้ชื่อวาระ/ }).first().click()
+  await p.getByText('กล่าวต้อนรับ (แก้แล้ว)').first().waitFor({ timeout: 5000 })
+  must(await p.getByText(/^1\.1 สาระสำคัญ/).count() >= 1, 'field labels numbered by agenda (1.1 …) not 6.x')
+  // ติ๊กวาระเสร็จ → แถบเขียว พับเนื้อหา
+  await p.getByRole('checkbox', { name: /วาระที่ 1 เสร็จแล้ว/ }).check()
+  await p.waitForTimeout(300)
+  must(await p.getByText(/^1\.1 สาระสำคัญ/).count() === 0, 'ticked agenda collapses its body')
   await p.getByRole('button', { name: '＋ เพิ่มวาระ' }).click()
   await p.getByText('วาระใหม่').first().waitFor({ timeout: 5000 })
   p.once('dialog', (d) => d.accept())

@@ -10,6 +10,8 @@ import Roster from './Roster'
 import { blankAgenda, minuteComplete, moveAgenda } from '../../lib/meetings'
 import type { MtAgenda, MtMinute, MtResult } from '../../lib/types'
 
+/** แถบสีของวาระ (วนซ้ำ): bar = สีเข้ม · bg = พื้นอ่อน */
+const TONES = [{ bar: '#1f5fbf', bg: '#e8f0fd' }, { bar: '#b36b00', bg: '#fff1d6' }, { bar: '#7b3fa0', bg: '#f1e8f8' }, { bar: '#0b7285', bg: '#e0f4f6' }, { bar: '#5f3dc4', bg: '#ece8fb' }, { bar: '#a0522d', bg: '#f8ebe3' }]   // ไม่ใช้สีเขียว (เขียว = วาระที่เสร็จแล้ว)
 const RESULTS: MtResult[] = ['เห็นชอบ', 'ไม่เห็นชอบ', 'เลื่อนพิจารณา', 'มีเงื่อนไข']
 /** บันทึกการประชุม 4 ส่วน (ทำตามลำดับ ไม่ข้ามได้): ใบลงชื่อผู้ร่วมประชุม → วาระ/สาระ/มติ → เลิกประชุม → สรุปและส่งไปรายงาน */
 const PARTS = ['ใบลงชื่อผู้ร่วมประชุม', 'วาระ สาระ และมติ', 'เลิกประชุมและนัดครั้งต่อไป', 'สรุปและส่งไปรายงาน']
@@ -19,6 +21,7 @@ export default function Step6({ m, save, list }: StepProps) {
   const navigate = useNavigate()
   const notices = useLetters('notice')
   const [pulled, setPulled] = useState('')
+  const [openId, setOpenId] = useState('')   // วาระที่เสร็จแล้วแต่ผู้ใช้แตะเปิดดู
   const done = [!!m.rosterDone, !!m.agendaDone, !!m.closeDone, !!m.minutesDone]
   const current = done.findIndex((d) => !d) < 0 ? 3 : done.findIndex((d) => !d)   // ส่วนแรกที่ยังไม่เสร็จ
   const [sel, setSel] = useState<number | null>(null)
@@ -38,6 +41,12 @@ export default function Step6({ m, save, list }: StepProps) {
     const added = merged.length - m.agenda.length
     if (added > 0) save({ agenda: merged })
     setPulled(added > 0 ? `ดึงเพิ่ม ${added} หัวข้อ` : 'วาระตรงกับหนังสือแจ้งแล้ว')
+  }
+  /** ติ๊กวาระเสร็จ → แถบเป็นสีเขียว พับเนื้อหา แล้วเลื่อนไปวาระถัดไป */
+  const finishAgenda = (id: string, on: boolean) => {
+    save({ agenda: m.agenda.map((x: MtAgenda) => (x.id === id ? { ...x, done: on || undefined } : x)) })
+    setOpenId('')
+    if (on) { const k = items.findIndex((x) => x.item.id === id); const nx = items[k + 1]; if (nx) setTimeout(() => document.getElementById(`ag-${nx.item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150) }
   }
   const next = (i: number, patchDone: Partial<typeof m>) => { save(patchDone); setSel(i) }
   const step = (i: number, key: 'rosterDone' | 'agendaDone' | 'closeDone') => done[i] && (
@@ -64,36 +73,48 @@ export default function Step6({ m, save, list }: StepProps) {
       {view === 1 && (<>
       <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>ส่วนที่ 2 · บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน</p>
       {items.length === 0 && <p className="empty">ยังไม่มีวาระ — จัดวาระที่ขั้นที่ 2</p>}
-      {items.map(({ label, item }) => {
+      {items.map(({ label, item }, idx) => {
         const mi = item.minute ?? {}
         const votes = (mi.yes ?? 0) + (mi.no ?? 0) + (mi.abstain ?? 0)
+        const dn = !!item.done
+        const tone = TONES[idx % TONES.length]   // แถบสีของแต่ละวาระ (วนสี) เพื่อแยกวาระให้เห็นชัด
         return (
-          <section key={item.id} className="card" aria-label={`วาระที่ ${label} ${item.title}`}>
-            <div className="row" style={{ gap: 6, alignItems: 'flex-end', flexWrap: 'nowrap' }}>
-              <TextField id={`mt-${item.id}`} label={`วาระที่ ${label} · ชื่อวาระ`} value={item.title} onCommit={(v) => save({ agenda: m.agenda.map((a: MtAgenda) => (a.id === item.id ? { ...a, title: v.trim() || a.title } : a)) })} />
-              <button type="button" className="mini" aria-label={`เลื่อนวาระ ${item.title} ขึ้น`} onClick={() => save({ agenda: moveAgenda(m.agenda, item.id, -1) })}>↑</button>
-              <button type="button" className="mini" aria-label={`เลื่อนวาระ ${item.title} ลง`} onClick={() => save({ agenda: moveAgenda(m.agenda, item.id, 1) })}>↓</button>
-              <button type="button" className="mini" aria-label={`ลบวาระ ${item.title}`} onClick={() => { if (window.confirm(`ลบวาระ “${item.title}” ?`)) save({ agenda: m.agenda.filter((a: MtAgenda) => a.id !== item.id && a.parentId !== item.id) }) }}>🗑️</button>
+          <section key={item.id} id={`ag-${item.id}`} className="card agcard" aria-label={`วาระที่ ${label} ${item.title}`} style={{ borderLeft: `8px solid ${dn ? '#14573a' : tone.bar}`, padding: 0, overflow: 'hidden', background: dn ? '#f1faf5' : undefined }}>
+            <div className="agband" style={{ background: dn ? '#1b7a52' : tone.bg, borderBottom: `3px solid ${dn ? '#14573a' : tone.bar}` }}>
+              <div className="agband__top">
+                <button type="button" className="agband__h" style={{ color: dn ? '#fff' : tone.bar }} aria-expanded={!dn || openId === item.id} onClick={() => setOpenId(openId === item.id ? '' : item.id)}><b>วาระที่ {label}</b> {item.title}</button>
+                <label className="agtick" style={{ background: dn ? '#fff' : 'rgba(255,255,255,0.8)', color: dn ? '#14573a' : '#111' }}>
+                  <input type="checkbox" checked={dn} aria-label={`วาระที่ ${label} เสร็จแล้ว`} onChange={(e) => finishAgenda(item.id, e.target.checked)} /> <span>{dn ? 'เสร็จแล้ว' : 'เสร็จ'}</span>
+                </label>
+              </div>
+              <div className="agband__tools no-print">
+                <button type="button" className="mini" aria-label={`เลื่อนวาระ ${item.title} ขึ้น`} onClick={() => save({ agenda: moveAgenda(m.agenda, item.id, -1) })}>↑</button>
+                <button type="button" className="mini" aria-label={`เลื่อนวาระ ${item.title} ลง`} onClick={() => save({ agenda: moveAgenda(m.agenda, item.id, 1) })}>↓</button>
+                <button type="button" className="mini" aria-label={`แก้ชื่อวาระ ${item.title}`} onClick={() => { const t = window.prompt('ชื่อวาระ', item.title); if (t && t.trim()) save({ agenda: m.agenda.map((x: MtAgenda) => (x.id === item.id ? { ...x, title: t.trim() } : x)) }) }}>✏️ แก้ชื่อ</button>
+                <button type="button" className="mini" aria-label={`ลบวาระ ${item.title}`} onClick={() => { if (window.confirm(`ลบวาระ “${item.title}” ?`)) save({ agenda: m.agenda.filter((x: MtAgenda) => x.id !== item.id && x.parentId !== item.id) }) }}>🗑️</button>
+              </div>
             </div>
-            <h2 style={{ margin: 0 }}>วาระที่ {label} {item.title} {minuteComplete(item) && <span aria-label="บันทึกแล้ว" style={{ color: '#1b7f4b' }}>✓</span>}</h2>
+            {(!dn || openId === item.id) && <div className="agbody">
             <p className="muted small" style={{ margin: '0.1rem 0 0.4rem' }}>{item.group} · เพื่อ{item.purpose}</p>
-            <TextField id={`ms-${item.id}`} label="6.1 สาระสำคัญ" multiline rows={3} value={mi.summary} onCommit={(v) => patch(item.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
-            <TextField id={`mp-${item.id}`} label="6.2 ข้อเสนอให้พิจารณา" multiline rows={2} value={mi.proposal} onCommit={(v) => patch(item.id, { proposal: v.trim() || undefined })} />
-            <div className="field"><label htmlFor={`mr-${item.id}`}>6.3 มติที่ประชุม</label>
+            <TextField id={`ms-${item.id}`} label={`${label}.1 สาระสำคัญ`} multiline rows={3} value={mi.summary} onCommit={(v) => patch(item.id, { summary: v.trim() || undefined })} placeholder="สรุปประเด็นที่เกี่ยวข้องกับการพิจารณา" />
+            <TextField id={`mp-${item.id}`} label={`${label}.2 ข้อเสนอให้พิจารณา`} multiline rows={2} value={mi.proposal} onCommit={(v) => patch(item.id, { proposal: v.trim() || undefined })} />
+            <div className="field"><label htmlFor={`mr-${item.id}`}>{label}.3 มติที่ประชุม</label>
               <select id={`mr-${item.id}`} className="input" value={mi.result ?? ''} onChange={(e) => patch(item.id, { result: (e.target.value || undefined) as MtResult | undefined })}>
                 <option value="">— ยังไม่มีมติ —</option>{RESULTS.map((r) => <option key={r}>{r}</option>)}
               </select></div>
             {mi.result === 'มีเงื่อนไข' && <TextField id={`mc-${item.id}`} label="เงื่อนไข" value={mi.condition} onCommit={(v) => patch(item.id, { condition: v.trim() || undefined })} />}
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <TextField id={`my-${item.id}`} label="6.4 เห็นชอบ" type="number" narrow value={mi.yes} onCommit={(v) => patch(item.id, { yes: num(v) })} />
+            <p className="small" style={{ margin: '0.3rem 0 0.1rem' }}><b>{label}.4 ผลลงคะแนน</b></p>
+            <div className="row votes" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+              <TextField id={`my-${item.id}`} label="เห็นชอบ" type="number" narrow value={mi.yes} onCommit={(v) => patch(item.id, { yes: num(v) })} />
               <TextField id={`mn-${item.id}`} label="ไม่เห็นชอบ" type="number" narrow value={mi.no} onCommit={(v) => patch(item.id, { no: num(v) })} />
               <TextField id={`ma-${item.id}`} label="งดออกเสียง" type="number" narrow value={mi.abstain} onCommit={(v) => patch(item.id, { abstain: num(v) })} />
             </div>
             {votes > present && present > 0 && <p className="error small" role="alert" style={{ margin: 0 }}>⚠️ จำนวนคะแนนรวม {votes} มากกว่าผู้มีสิทธิ์ที่มาประชุม {present} คน — ตรวจตัวเลขอีกครั้ง</p>}
             <div className="row" style={{ alignItems: 'flex-start' }}>
-              <TextField id={`mo-${item.id}`} label="6.5 ผู้รับผิดชอบ" value={mi.assignee} onCommit={(v) => patch(item.id, { assignee: v.trim() || undefined })} />
+              <TextField id={`mo-${item.id}`} label={`${label}.5 ผู้รับผิดชอบ`} value={mi.assignee} onCommit={(v) => patch(item.id, { assignee: v.trim() || undefined })} />
               <TextField id={`md-${item.id}`} label="กำหนดเสร็จ" type="date" value={mi.due} onCommit={(v) => patch(item.id, { due: v || undefined })} />
             </div>
+            </div>}
           </section>
         )
       })}

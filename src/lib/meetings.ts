@@ -66,7 +66,7 @@ export function prepKeys(m: Meeting, list: Meeting[]): string[] {
 }
 
 /** วาระนี้บันทึกครบแล้วหรือยัง: วาระที่ขอมติต้องมีมติ · วาระอื่นต้องมีสาระสำคัญหรือมติ */
-export const minuteComplete = (a: MtAgenda) => (a.purpose === 'ขอมติ' ? !!a.minute?.result : !!(a.minute?.summary?.trim() || a.minute?.result))
+export const minuteComplete = (a: MtAgenda) => !!a.done || (a.purpose === 'ขอมติ' ? !!a.minute?.result : !!(a.minute?.summary?.trim() || a.minute?.result))
 
 export const CHANNELS_DIST = ['LINE กลุ่มกรรมการ', 'อีเมล', 'ฉบับกระดาษ']
 export const CHAIR_ROLE = 'ผู้ตรวจรายงานการประชุม'
