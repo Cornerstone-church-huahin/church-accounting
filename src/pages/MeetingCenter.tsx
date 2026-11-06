@@ -7,7 +7,7 @@ import Step3 from '../components/meeting/Step3'
 import Step4 from '../components/meeting/Step4'
 import Step5 from '../components/meeting/Step5'
 import Step6 from '../components/meeting/Step6'
-import Step7 from '../components/meeting/Step7'
+import ReportFlow from '../components/meeting/ReportFlow'
 import Step8 from '../components/meeting/Step8'
 import Step9 from '../components/meeting/Step9'
 import Step10 from '../components/meeting/Step10'
@@ -59,7 +59,7 @@ export default function MeetingCenter({ step }: { step?: number }) {
   return (
     <div className={`mcenter${c.cur ? ' mcenter--bar' : ''}`}>
       {step === undefined ? <Hub c={c} canSetup={can(role, 'settings')} /> : <Step n={step} c={c} />}
-      {c.cur && status && step !== undefined && step !== 6 && <StatusBar m={c.cur} status={status} step={step} />}
+      {c.cur && status && step !== undefined && step !== 6 && step !== 7 && <StatusBar m={c.cur} status={status} step={step} />}
     </div>
   )
 }
@@ -144,16 +144,16 @@ function Step({ n, c }: { n: number; c: Cur }) {
   return (
     <>
       <div className="page-head no-print">
-        <h1>{n === 6 ? s.title : `${s.n}. ${s.title}`}</h1>
+        <h1>{n === 6 ? s.title : n === 7 ? 'รายงานการประชุม' : `${s.n}. ${s.title}`}</h1>
         <Link to={HUB} className="mini">‹ กลับศูนย์จัดการประชุม</Link>
       </div>
-      <p className="mc__blurb no-print"><span aria-hidden="true">{s.icon}</span> {s.blurb}</p>
+      {n !== 7 && <p className="mc__blurb no-print"><span aria-hidden="true">{s.icon}</span> {s.blurb}</p>}
       {c.denied && <p className="error" role="alert">ไม่มีสิทธิ์บันทึกข้อมูลการประชุม</p>}
       {working && !props && (
         <section className="card"><p className="empty">ยังไม่มีการประชุม — สร้างการประชุมก่อนเพื่อเริ่มทำงานในขั้นนี้</p><button type="button" className="btn btn--gold" onClick={c.create}>＋ สร้างการประชุมใหม่</button></section>
       )}
-      {working && props && (n === 1 ? <Step1 {...props} /> : n === 2 ? <Step2 {...props} /> : n === 3 ? <Step3 {...props} /> : n === 4 ? <Step4 {...props} /> : n === 5 ? <Step5 {...props} /> : n === 6 ? <Step6 {...props} /> : n === 7 ? <Step7 {...props} /> : n === 8 ? <Step8 {...props} /> : n === 9 ? <Step9 {...props} /> : <Step10 {...props} />)}
-      {n !== 6 && (<>
+      {working && props && (n === 1 ? <Step1 {...props} /> : n === 2 ? <Step2 {...props} /> : n === 3 ? <Step3 {...props} /> : n === 4 ? <Step4 {...props} /> : n === 5 ? <Step5 {...props} /> : n === 6 ? <Step6 {...props} /> : n === 7 ? <ReportFlow {...props} /> : n === 8 ? <Step8 {...props} /> : n === 9 ? <Step9 {...props} /> : <Step10 {...props} />)}
+      {n !== 6 && n !== 7 && (<>
       <details className="mc__guide" open={!working}>
         <summary>{working ? 'คำอธิบายขั้นตอนนี้' : 'หัวข้อและคำอธิบายของขั้นตอนนี้'}</summary>
         <ol className="mc__items" aria-label={`หัวข้อของ ${s.title}`}>

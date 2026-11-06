@@ -256,7 +256,7 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
           const noticeDone = !!(letter?.signed || letter?.docId) || st[3].state === 'done'
           const minutesOk = noticeDone || st[6].state !== 'todo'
           const reportOk = !!m.minutesDone || st[6].state === 'done' || st[7].state !== 'todo'
-          const reportStep = st[9].state === 'done' ? 10 : 7
+          const reportStep = 7
           const icons: { n: number; icon: string; label: string; ok: boolean; done: boolean; why: string; open?: () => void }[] = [
             { n: 3, icon: '✉️', label: 'หนังสือแจ้งประชุม', ok: true, done: noticeDone, why: '', open: () => openNotice(m) },
             { n: 6, icon: '📝', label: 'บันทึกการประชุม', ok: minutesOk, done: !!m.minutesDone || st[6].state === 'done', why: 'แจ้งประชุมให้เสร็จก่อน' },
