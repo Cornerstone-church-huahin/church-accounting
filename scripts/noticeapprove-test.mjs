@@ -27,8 +27,10 @@ try {
   // กดแจ้งประธานซ้ำ: มีหน้าต่างส่งลิงก์ขึ้นทุกครั้ง (เครื่องทดสอบไม่มีเมนูแชร์)
   for (let i = 0; i < 2; i++) { await p.getByRole('button', { name: /แจ้งประธานตรวจสอบ/ }).click(); await p.getByRole('dialog', { name: 'ส่งลิงก์ให้ประธานตรวจสอบ' }).waitFor({ timeout: 5000 }); await p.getByRole('button', { name: 'ปิด', exact: true }).click() }
   must(await p.getByText('รอตรวจสอบ').count() === 1 || true, 'status')
-  await p.getByRole('button', { name: /อนุมัติ \(ประธานตรวจแล้ว\)/ }).click()
-  await p.getByText('อนุมัติแล้ว').first().waitFor({ timeout: 5000 })
+  must(await p.getByRole('button', { name: /ตรวจสอบแล้ว · อนุมัติ/ }).count() === 0, 'sender page has no approve button')
+  await p.goto('http://localhost:' + PORT + '/#/meeting/1/4/notice-l1?review=1'); await p.reload()
+  await p.getByRole('button', { name: /ตรวจสอบแล้ว · อนุมัติ/ }).click()
+  await p.getByText('ตรวจสอบแล้ว').first().waitFor({ timeout: 5000 })
   await p.getByRole('button', { name: /ลงลายเซ็น/ }).click()
   await p.getByRole('group', { name: /บันทึกเรียบร้อย/ }).waitFor({ timeout: 8000 })
   const g = p.getByRole('group', { name: /บันทึกเรียบร้อย/ })

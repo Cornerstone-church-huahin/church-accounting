@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import VoiceDock from './VoiceDock'
 import SplitLayout from './SplitLayout'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import EnvelopePrint from './EnvelopePrint'
@@ -270,7 +270,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   // หนังสือที่เลขาลงนามเอง (แจ้งการประชุม): ผู้ดูแลงานเลขา/ผู้ช่วยกดลงลายเซ็นได้ทันที · ชนิดอื่นเฉพาะแอดมิน (ประธาน)
   const canSign = can(role, 'settings') || (!!K.secretarySigns && canWork(1, 'edit'))
   const who = K.secretarySigns ? 'เลขา' : 'ประธาน'
-  const canApprove = can(role, 'settings') // ประธาน = แอดมิน
+  // ปุ่มอนุมัติโผล่เฉพาะเมื่อประธานเปิดจากลิงก์ที่ส่งไป (มี ?review=1) — หน้าของเลขาที่ส่งลิงก์ ไม่มีปุ่มนี้
+  const review = new URLSearchParams(useLocation().search).get('review') === '1'
+  const canApprove = can(role, 'settings') && review // ประธาน = แอดมิน
   useEffect(() => {
     if (l.approved && l.approved.snap !== snapOf(l, cfg)) { set({ approved: undefined, signed: undefined }); setMsg('ถอนการอนุมัติ เพราะมีการแก้ไขหนังสือหลังอนุมัติ — ให้ประธานตรวจอีกครั้ง'); return }
     if (l.signed && l.signed.snap !== snapOf(l, cfg)) { set({ signed: undefined }); setMsg('ลายเซ็นถูกถอน เพราะมีการแก้ไขหนังสือหลังลงนาม — ตรวจแล้วกด ✍️ ลงลายเซ็นใหม่') }
@@ -300,7 +302,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const notify = async () => {
     if (missing.length) return setMsg(`ยังไม่ได้ใส่ข้อ ${missing.map(shift).join(', ')} — ทำให้วงกลมเขียวครบก่อน จึงแจ้งประธานได้`)
     if (!ready()) return
-    const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/4/${K.slug}-${id}`)
+    const url = lineExternalUrl(`${window.location.origin}${window.location.pathname}#/meeting/1/4/${K.slug}-${id}?review=1`)
     const text = `เรียน ท่านประธาน\nขอให้ตรวจสอบ${letterTitle(l, kind, NAME)}${l.no.trim() ? ` (เลขที่ ${l.no.trim()})` : ''} ที่จัดทำเรียบร้อยแล้ว รอการตรวจสอบและลงนาม\nเปิดดูหนังสือได้ที่ลิงก์นี้:\n${url}`
     if (typeof navigator.share === 'function') {
       try { await navigator.share({ title: `ขอให้ตรวจสอบ${K.fileName}`, text }) } catch (e) { if ((e as Error).name === 'AbortError') return }
@@ -366,7 +368,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const shift = (k: string) => (K.verse && Number(k) >= 8 ? String(Number(k) + 1) : k)
   const filled = (v?: string) => !!v?.trim()
   const okOf: Record<string, boolean> = {
-    '1': filled(l.toName), '2': filled(cfg.thName) && filled(cfg.addr), '3': filled(l.no), '4': filled(l.date), '5': filled(l.subject), '6': filled(l.to),
+    '1': filled(l.toName), '2': filled(cfg.thName) && (!!K.secretarySigns || filled(cfg.addr)), '3': filled(l.no), '4': filled(l.date), '5': filled(l.subject), '6': filled(l.to),
     '6.1': !!l.showAttach && filled(l.attach), '7': filled(l.body), '8': filled(cfg.proceed) && filled(cfg.signName) && filled(cfg.signRole), '9': filled(cfg.contact),
     '10': !!l.notified, '11': !!l.signed, '12': !!l.docId && lib.list.some((d) => d.id === l.docId),
   }
@@ -444,9 +446,9 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
         {K.secretarySigns && (
           <>
             {l.approved
-              ? <div className="il-bar il-bar--ok" role="status">✅ อนุมัติแล้ว<span className="small muted"> · {new Date(l.approved.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.approved.by ? ` · ${l.approved.by}` : ''}</span></div>
+              ? <div className="il-bar il-bar--ok" role="status">✅ ตรวจสอบแล้ว<span className="small muted"> · {new Date(l.approved.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}{l.approved.by ? ` · ${l.approved.by}` : ''}</span></div>
               : l.notified && <div className="il-bar il-bar--wait" role="status">⏳ รอตรวจสอบ</div>}
-            {!l.approved && canApprove && missing.length === 0 && <button type="button" className="btn btn--gold il-bar" onClick={approve}>✅ อนุมัติ (ประธานตรวจแล้ว)</button>}
+            {!l.approved && canApprove && missing.length === 0 && <button type="button" className="btn btn--gold il-bar" onClick={approve}>✅ ตรวจสอบแล้ว · อนุมัติ</button>}
             {l.approved && canApprove && !l.signed && <button type="button" className="mini" onClick={() => { if (window.confirm('ยกเลิกการอนุมัติ ?')) set({ approved: undefined }) }}>↩︎ ยกเลิกการอนุมัติ</button>}
           </>
         )}
@@ -539,7 +541,7 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
     <Sheet title={`แก้ข้อความ: ${def.name}`} onClose={onClose}>
       {sec === 'head' && <>
         <p className="small muted" style={{ margin: 0 }}>โลโก้คริสตจักรใส่ให้ที่หัวจดหมายแล้ว</p>
-        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}{f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
+        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{!secretary && <>{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}</>}{!secretary && f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
       </>}
       {sec === 'sign' && <>
         <SignUpload secretary={secretary} value={c.signImg} onChange={(v) => setC({ ...c, signImg: v })} />
