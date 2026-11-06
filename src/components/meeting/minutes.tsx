@@ -32,7 +32,7 @@ export function minutesBlocks(m: Meeting, opts: { draft?: boolean; final?: boole
   ].filter(Boolean)
   out.push({ key: 'att', lines: lines.reduce((s, l) => s + est(l), 0) + 1, node: <div style={{ margin: '4px 0' }}>{lines.map((l, i) => <div key={i} style={{ marginBottom: 2 }}>{l}</div>)}{lines.length === 0 && <div>ผู้มาประชุม: ………………………</div>}</div> })
   out.push({ key: 'open', lines: 2, node: <p className="letter__p">{m.opened ? `ประธานที่ประชุมคือ ${m.opened.chair || m.chair} เปิดประชุมเมื่อเวลา ${timeTh(m.opened.time)} หลังตรวจองค์ประชุมครบ${m.opened.agendaConfirmed ? ' ที่ประชุมเห็นชอบระเบียบวาระ' : ''}` : `ประธาน ${m.chair || '………'} เปิดประชุมเมื่อเวลา ……… น.`}</p> })
-  for (const { n, item } of orderedAgenda(m)) {
+  for (const { label, item } of orderedAgenda(m)) {
     const mi = item.minute ?? {}
     const vote = mi.yes != null || mi.no != null || mi.abstain != null ? `ผลลงคะแนน: เห็นชอบ ${mi.yes ?? 0} · ไม่เห็นชอบ ${mi.no ?? 0} · งดออกเสียง ${mi.abstain ?? 0}` : ''
     const parts = [
@@ -42,7 +42,7 @@ export function minutesBlocks(m: Meeting, opts: { draft?: boolean; final?: boole
     ].filter(Boolean) as { k: string; v: string; b?: boolean }[]
     out.push({ key: item.id, lines: 1 + parts.reduce((s, p) => s + est(`${p.k} ${p.v}`), 0) + 1, node: (
       <div style={{ margin: '6px 0' }}>
-        <div style={{ fontWeight: 700 }}>วาระที่ {n} {item.title}{item.carried ? ' (เรื่องค้างจากครั้งก่อน)' : ''}</div>
+        <div style={{ fontWeight: 700 }}>วาระที่ {label} {item.title}{item.carried ? ' (เรื่องค้างจากครั้งก่อน)' : ''}</div>
         {parts.map((p, i) => <div key={i} style={{ paddingLeft: 18, fontWeight: p.b ? 700 : 400 }}>{p.k ? `${p.k}: ` : ''}{p.v}</div>)}
         {parts.length === 0 && <div style={{ paddingLeft: 18, color: '#777' }}>(ยังไม่มีบันทึก)</div>}
       </div>) })
@@ -83,9 +83,9 @@ export function minutesPlain(m: Meeting): string {
   if (a.leave.length) L.push(`ผู้ลา: ${names(a.leave)}`)
   if (a.absent.length) L.push(`ผู้ไม่มา: ${names(a.absent)}`)
   if (m.opened) L.push(`เปิดประชุม ${timeTh(m.opened.time)} โดย ${m.opened.chair}`)
-  for (const { n, item } of orderedAgenda(m)) {
+  for (const { label, item } of orderedAgenda(m)) {
     const mi = item.minute ?? {}
-    L.push(`วาระที่ ${n} ${item.title}`)
+    L.push(`วาระที่ ${label} ${item.title}`)
     if (mi.summary) L.push(`  สาระ: ${mi.summary}`)
     if (mi.proposal) L.push(`  ข้อเสนอ: ${mi.proposal}`)
     if (mi.result) L.push(`  มติ: ${resultLine(item)}`)

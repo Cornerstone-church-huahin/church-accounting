@@ -20,6 +20,7 @@ import { fmtDate, newId, todayISO } from '../lib/money'
 import { buildPageImage, buildPagePdf, saveBlob, shareBlob } from '../lib/pdf'
 import { getSync, putBinary } from '../lib/sync'
 import { noDigits, padNo } from '../lib/letterNo'
+import { mergeNoticeAgenda } from './meeting/docs'
 import type { AgendaItem, DocAccess, DocItem, InviteLetter as Letter, InviteSettings } from '../lib/types'
 
 type Draft = Omit<Letter, 'id' | 'updated'>
@@ -43,7 +44,7 @@ const agendaItems = (l: { agenda?: (string | AgendaItem)[] }): AgendaItem[] => (
 /** ป้ายลำดับอัตโนมัติ: วาระที่ 1, 2, 3 … · “ลำดับ” เป็นเลขย่อยตามวาระที่อยู่เหนือมัน (6.1, 6.2 … · ย้ายไปอยู่ใต้วาระ 7 ก็เป็น 7.1) */
 const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; return items.map((x) => (x.u ? (x.k === 'r' ? 'ลำดับ' : 'วาระ') : x.k === 'r' ? (v ? `${v}.${++r}` : `ลำดับ ${++r}`) : (r = 0, `วาระที่ ${++v}`))) }
 /** บรรทัดที่ขึ้นบนหนังสือ: เรียงตามที่ลากไว้ทุกข้อ (ข้อที่ยังไม่พิมพ์ชื่อขึ้นเป็น ……… ให้เห็นโครงที่จัดไว้) */
-const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
+export const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
 const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), l.verse ?? '', c.proceed, ...(l.verse?.trim() ? ['', l.verse.trim()] : []), c.bless, c.signName, c.signRole])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
@@ -390,20 +391,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     const cur = meetings.items.find((x) => x.noticeLetterId === id && !x.deleted)
     const y = new Date().getFullYear()
     const base = cur ?? { ...blankMeeting(y, nextMeetingNo(meetings.items, y)), name: (l.subject || l.toName || '').trim(), noticeLetterId: id }
-    const agenda = [...base.agenda]
-    let parent = -1
-    for (const r of agendaOf(l)) {
-      const t = r.t.trim()
-      if (!t) continue
-      if (!r.r) {
-        const at = agenda.findIndex((a) => a.title === t)
-        if (at >= 0) parent = at
-        else { agenda.push({ ...blankAgenda(), title: t, purpose: 'ทราบ' }); parent = agenda.length - 1 }
-      } else if (parent >= 0) {
-        const line = `${r.label} ${t}`, a = agenda[parent]
-        if (!(a.docs ?? '').includes(line)) agenda[parent] = { ...a, docs: [a.docs, line].filter(Boolean).join('\n') }
-      }
-    }
+    const agenda = mergeNoticeAgenda(base.agenda, agendaOf(l), blankAgenda)
     const next = { ...base, noticeLetterId: id, agenda, secretary: base.secretary || cfg.signName || '', notice: { channels: base.notice?.channels ?? [], body: l.body, ref: l.no.trim(), sentAt: base.notice?.sentAt ?? Date.now() }, updated: Date.now() }
     return meetings.put([next]) ? next.id : undefined
   }

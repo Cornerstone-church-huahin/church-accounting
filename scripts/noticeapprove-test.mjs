@@ -24,7 +24,7 @@ try {
     localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }]))
     const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
     localStorage.setItem('acct.noticesettings.v1', JSON.stringify([{ id: 'settings', signImg: png, addr: '77110 หัวหิน', updated: 1 }]))
-    localStorage.setItem('acct.noticeletter.v1', JSON.stringify([{ id: 'l1', toName: 'คณะธรรมกิจ', no: 'ศอ/จป.001', date: '2026-11-06', subject: 'แจ้งประชุม', to: 'คณะธรรมกิจ', body: 'ด้วยคณะธรรมกิจกำหนดประชุม', agenda: [{ t: 'กล่าวต้อนรับ' }, { t: 'เรื่องแจ้ง' }, { t: 'เทสระบบ', k: 'r' }], notified: { at: 5, by: 'เลขา' }, updated: 1 }]))
+    localStorage.setItem('acct.noticeletter.v1', JSON.stringify([{ id: 'l1', toName: 'คณะธรรมกิจ', no: 'ศอ/จป.001', date: '2026-11-06', subject: 'แจ้งประชุม', to: 'คณะธรรมกิจ', body: 'ด้วยคณะธรรมกิจกำหนดประชุม', agenda: [{ t: 'กล่าวต้อนรับ' }, { t: 'เรื่องแจ้ง' }, { t: 'เทสระบบ', k: 'r' }, { t: '', k: 'r' }], notified: { at: 5, by: 'เลขา' }, updated: 1 }]))
   })
   await p.goto('http://localhost:' + PORT + '/#/meeting/1/4/notice-l1'); await p.reload()
   await p.getByText('รอตรวจสอบ').first().waitFor({ timeout: 10000 })
@@ -53,7 +53,7 @@ try {
   await p.getByText('ส่วนที่ 1 จาก 4').first().waitFor({ timeout: 8000 })
   const ms = JSON.parse(await p.evaluate(() => localStorage.getItem('acct.meetings.v1')))
   const m = ms.find((x) => x.noticeLetterId === 'l1')
-  must(m && m.agenda.length === 2 && /เทสระบบ/.test(m.agenda[1].docs ?? '') && m.notice?.sentAt, 'agenda + notice seeded into the meeting: ' + JSON.stringify(m)?.slice(0, 200))
+  must(m && m.agenda.length === 4 && m.agenda[2].parentId === m.agenda[1].id && m.agenda[2].title === 'เทสระบบ' && /หัวข้อย่อย 2\.2/.test(m.agenda[3].title) && m.notice?.sentAt, 'agenda: ' + JSON.stringify(m?.agenda?.map((a) => [a.title, !!a.parentId])))
   // กลับมาหน้าหนังสือหลังส่งแล้ว: ปุ่มเขียว "สร้างบันทึกการประชุม" · ยังอนุมัติ/ลงนามอยู่ครบ
   await p.goto('http://localhost:' + PORT + '/#/meeting/1/4/notice-l1'); await p.reload()
   await p.getByRole('button', { name: /สร้างบันทึกการประชุม/ }).waitFor({ timeout: 8000 })
