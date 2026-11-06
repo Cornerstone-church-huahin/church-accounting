@@ -101,6 +101,10 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
     setSetup(false); setMsg(`บันทึกรายชื่อคณะกรรมการหลัก ${rows.length} คน — ใช้กับทุกการประชุมต่อไป`)
     return true
   }
+  /** ย้าย/ลบในรายการตรง ๆ: ปรับรายชื่อหลัก (ใช้กับทุกการประชุม) และรายชื่อของการประชุมนี้พร้อมกัน — เลขลำดับเรียงใหม่อัตโนมัติ */
+  const rowsNow: Row[] = members.filter((p) => p.name.trim()).map((p) => ({ id: p.id, role: p.role ?? '', name: p.name.trim() }))
+  const moveRow = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= rowsNow.length) return; const c = [...rowsNow]; [c[i], c[j]] = [c[j], c[i]]; saveSetup(c) }
+  const delRow = (i: number) => { if (window.confirm(`ลบ “${rowsNow[i].name}” ออกจากรายชื่อคณะกรรมการหลัก ?\n(ใช้กับทุกการประชุมต่อไป)`)) saveSetup(rowsNow.filter((_, k) => k !== i)) }
   return (
     <>
       <section className="card" aria-labelledby="r1-a">
@@ -123,6 +127,10 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
               </div>
               <div className="rosterrow__a" role="group" aria-label={`การมาของ ${p.name || `คนที่ ${i + 1}`}`}>
                 {ATT.map((x) => <button key={x.v} type="button" className="wchip" aria-pressed={p.att === x.v} onClick={() => setP(p.id, { att: p.att === x.v ? undefined : x.v })}>{x.label}</button>)}
+                <button type="button" className="mini" aria-label={`เลื่อน ${p.name} ขึ้น`} disabled={i === 0} onClick={() => moveRow(i, -1)}>↑</button>
+                <button type="button" className="mini" aria-label={`เลื่อน ${p.name} ลง`} disabled={i === members.length - 1} onClick={() => moveRow(i, 1)}>↓</button>
+                <button type="button" className="mini" aria-label={`แก้ไข ${p.name}`} onClick={() => setSetup('edit')}>✏️</button>
+                <button type="button" className="mini" aria-label={`ลบ ${p.name}`} onClick={() => delRow(i)}>🗑️</button>
               </div>
             </li>
           ))}
