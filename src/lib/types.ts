@@ -466,7 +466,7 @@ export interface Announcement extends SharedItem { text: string; works: number[]
 export type MtKind = 'กรรมการ' | 'ผู้มีสิทธิ์ลงคะแนน' | 'ผู้เข้าร่วมอื่น'
 export type MtRsvp = 'ตอบรับ' | 'ลา' | 'ยังไม่ตอบ'
 export type MtAttend = 'มา' | 'ลา' | 'ไม่มา'
-export interface MtPerson { id: string; name: string; kind: MtKind; /** ตำแหน่ง (กรรมการ) หรือหมายเหตุ/บทบาท (ผู้สังเกตการณ์) */ role?: string; /** ตอบรับ/ลา หลังแจ้งประชุม */ rsvp?: MtRsvp; /** มาจริงในวันประชุม */ att?: MtAttend }
+export interface MtPerson { id: string; name: string; kind: MtKind; /** ตำแหน่ง (กรรมการ) หรือหมายเหตุ/บทบาท (ผู้สังเกตการณ์) */ role?: string; /** หมายเหตุของกรรมการ (เช่น ลาป่วย มาสาย) */ note?: string; /** ตอบรับ/ลา หลังแจ้งประชุม */ rsvp?: MtRsvp; /** มาจริงในวันประชุม */ att?: MtAttend }
 export type MtResult = 'เห็นชอบ' | 'ไม่เห็นชอบ' | 'เลื่อนพิจารณา' | 'มีเงื่อนไข'
 export interface MtMinute { summary?: string; proposal?: string; result?: MtResult; condition?: string; yes?: number; no?: number; abstain?: number; assignee?: string; due?: string; /** ผู้รับผิดชอบทำเสร็จแล้ว */ done?: boolean }
 export type MtGroup = 'แจ้งเพื่อทราบ' | 'รับรองรายงาน' | 'ติดตามงาน' | 'เรื่องเสนอพิจารณา'
@@ -490,6 +490,9 @@ export interface Meeting extends SharedItem {
   rosterDone?: { at: number }
   /** บันทึกการประชุม (ส่วนที่ 2) เสร็จแล้ว → ส่งต่อไปรายงานการประชุม (ไอคอนที่ 3) */
   minutesDone?: { at: number }
+  /** ส่วนที่ 2 (วาระ) และส่วนที่ 3 (เลิกประชุม) ของบันทึกการประชุมเสร็จแล้ว */
+  agendaDone?: { at: number }
+  closeDone?: { at: number }
   /** การ์ดลำดับงานที่การประชุมนี้สังกัด (เช่น สามัญ / วิสามัญ แยกกัน) · ไม่มี = ของเดิมก่อนแยกการ์ด (อยู่การ์ดประชุมใบแรก) */
   flowId?: string
   prep?: Record<string, boolean>

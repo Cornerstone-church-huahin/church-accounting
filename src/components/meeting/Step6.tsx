@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StepProps } from './Step1'
 import { TextField } from './fields'
@@ -8,21 +9,40 @@ import { blankAgenda, minuteComplete, moveAgenda } from '../../lib/meetings'
 import type { MtAgenda, MtMinute, MtResult } from '../../lib/types'
 
 const RESULTS: MtResult[] = ['เห็นชอบ', 'ไม่เห็นชอบ', 'เลื่อนพิจารณา', 'มีเงื่อนไข']
+/** บันทึกการประชุม 4 ส่วน (ทำตามลำดับ ไม่ข้ามได้): ใบลงชื่อผู้ร่วมประชุม → วาระ/สาระ/มติ → เลิกประชุม → สรุปและส่งไปรายงาน */
+const PARTS = ['ใบลงชื่อผู้ร่วมประชุม', 'วาระ สาระ และมติ', 'เลิกประชุมและนัดครั้งต่อไป', 'สรุปและส่งไปรายงาน']
 
-/** ขั้น 6: บันทึกประชุม — สาระ ข้อเสนอ มติ ผลลงคะแนน ผู้รับผิดชอบ/กำหนดเสร็จ ของทุกวาระ + เวลาเลิกและนัดครั้งต่อไป */
+/** ขั้น 6: บันทึกประชุม — แถบล่างเป็นลำดับ 1–4 ของหน้านี้เอง เริ่มที่ 1 เสมอ ทำเสร็จส่วนไหนจึงเขียวและไปส่วนต่อไป */
 export default function Step6({ m, save, list }: StepProps) {
   const navigate = useNavigate()
-  // ส่วนที่ 1 รายชื่อผู้เข้าประชุม ก่อน → เสร็จแล้วจึงไปส่วนที่ 2 (วาระ)
-  if (!m.rosterDone) return <Roster m={m} save={save} list={list} />
+  const done = [!!m.rosterDone, !!m.agendaDone, !!m.closeDone, !!m.minutesDone]
+  const current = done.findIndex((d) => !d) < 0 ? 3 : done.findIndex((d) => !d)   // ส่วนแรกที่ยังไม่เสร็จ
+  const [sel, setSel] = useState<number | null>(null)
+  const view = sel !== null && (sel <= current) ? sel : current
+  const go = (i: number) => setSel(i)
   const present = attendance(m).present.length
   const patch = (id: string, p: Partial<MtMinute>) => save({ agenda: m.agenda.map((a: MtAgenda) => (a.id === id ? { ...a, minute: { ...a.minute, ...p } } : a)) })
   const num = (v: string) => (v.trim() === '' ? undefined : Math.max(0, Math.floor(Number(v)) || 0))
   const items = orderedAgenda(m)
   const doneCount = items.filter((x) => minuteComplete(x.item)).length
+  const next = (i: number, patchDone: Partial<typeof m>) => { save(patchDone); setSel(Math.min(3, i + 1)) }
+  const a = attendance(m)
+  const bar = (
+    <nav className="mcbar no-print" aria-label="ลำดับการบันทึกการประชุม">
+      <div className="mcbar__dots" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        {PARTS.map((t, i) => (
+          <button key={t} type="button" disabled={i > current} onClick={() => go(i)} aria-label={`ส่วนที่ ${i + 1} ${t}${done[i] ? ' (เสร็จแล้ว)' : ''}`} aria-current={view === i ? 'step' : undefined}
+            className={`mcbar__dot${done[i] ? ' mcbar__dot--done' : i === current ? ' mcbar__dot--partial' : ''}${view === i ? ' mcbar__dot--cur' : ''}`} style={{ cursor: i > current ? 'not-allowed' : 'pointer', opacity: i > current ? 0.5 : 1 }}>{done[i] ? '✓' : i + 1}</button>
+        ))}
+      </div>
+      <div className="mcbar__cap">ครั้งที่ {m.no}/{m.year}{m.name ? ` · ${m.name}` : ''} · ส่วนที่ {view + 1}: {PARTS[view]}</div>
+    </nav>
+  )
   return (
     <>
-      <p className="small" style={{ margin: '0 0 0.4rem' }}>ส่วนที่ 2 · วาระการประชุม <button type="button" className="mini" onClick={() => save({ rosterDone: undefined })}>‹ กลับไปส่วนที่ 1 รายชื่อ</button></p>
-      <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน{m.opened ? ` · เปิดประชุมเวลา ${m.opened.time} น.` : ' · ยังไม่ได้เปิดประชุมในขั้นที่ 5'}</p>
+      {view === 0 && <Roster m={m} save={save} list={list} onDone={() => next(0, { rosterDone: { at: Date.now() } })} />}
+      {view === 1 && (<>
+      <p className="small" role="status" style={{ margin: '0 0 0.5rem' }}>ส่วนที่ 2 · บันทึกแล้ว {doneCount}/{items.length} วาระ · ผู้มีสิทธิ์ที่มาประชุม {present} คน</p>
       {items.length === 0 && <p className="empty">ยังไม่มีวาระ — จัดวาระที่ขั้นที่ 2</p>}
       {items.map(({ n, item }) => {
         const mi = item.minute ?? {}
@@ -60,6 +80,11 @@ export default function Step6({ m, save, list }: StepProps) {
       <div className="row" style={{ margin: '0 0 0.5rem' }}>
         <button type="button" className="mini" onClick={() => save({ agenda: [...m.agenda, { ...blankAgenda(), title: 'วาระใหม่', purpose: 'ทราบ' }] })}>＋ เพิ่มวาระ</button>
       </div>
+      <section className="card" aria-label="เสร็จส่วนที่ 2">
+        <button type="button" className="btn btn--gold" disabled={items.length === 0} onClick={() => next(1, { agendaDone: { at: Date.now() } })}>✅ เสร็จส่วนที่ 2 — ไปส่วนที่ 3 (เลิกประชุม)</button>
+      </section>
+      </>)}
+      {view === 2 && (<>
       <section className="card" aria-labelledby="s6-z">
         <h2 id="s6-z">6.6 เลิกประชุมและนัดครั้งถัดไป</h2>
         <div className="row" style={{ alignItems: 'flex-start' }}>
@@ -68,12 +93,28 @@ export default function Step6({ m, save, list }: StepProps) {
         </div>
         {!m.closed?.time && <p className="muted small" style={{ margin: 0 }}>กรอกเวลาเลิกประชุมก่อน จึงบันทึกการนัดครั้งถัดไปได้</p>}
       </section>
+      <section className="card" aria-label="เสร็จส่วนที่ 3">
+        <button type="button" className="btn btn--gold" disabled={!m.closed?.time} onClick={() => next(2, { closeDone: { at: Date.now() } })}>✅ เสร็จส่วนที่ 3 — ไปส่วนที่ 4 (สรุป)</button>
+        {!m.closed?.time && <p className="muted small" style={{ margin: '0.3rem 0 0' }}>ใส่เวลาเลิกประชุมก่อน</p>}
+      </section>
+      </>)}
+      {view === 3 && (<>
+      <section className="card" aria-label="สรุปบันทึกการประชุม">
+        <h2 style={{ marginTop: 0 }}>ส่วนที่ 4 · สรุปก่อนส่งไปรายงาน</h2>
+        <ul className="small" style={{ margin: 0, paddingLeft: '1.1rem' }}>
+          <li>ผู้ร่วมประชุมทั้งหมด {a.present.length + a.guests.length} คน (กรรมการร่วม {a.present.length} · ลา {a.leave.length} · ขาด {a.absent.length} · ผู้เข้าร่วม/สังเกตการณ์ {a.guests.length})</li>
+          <li>วาระที่บันทึกแล้ว {doneCount}/{items.length}</li>
+          <li>เลิกประชุมเวลา {m.closed?.time || '—'} น.{m.closed?.next ? ` · นัดครั้งต่อไป ${m.closed.next}` : ''}</li>
+        </ul>
+      </section>
       <section className="card" aria-label="บันทึกการประชุมเสร็จ">
         {m.minutesDone
           ? <p role="status" style={{ margin: 0 }}>✅ <b>บันทึกการประชุมเสร็จแล้ว</b> — ส่งไปรายงานการประชุมแล้ว <button type="button" className="mini" onClick={() => save({ minutesDone: undefined })}>แก้ไขต่อ</button></p>
           : <button type="button" className="btn btn--gold" disabled={items.length === 0} onClick={() => { save({ minutesDone: { at: Date.now() } }); navigate('/meeting/1/4/7') }}>✅ บันทึกเสร็จ — ส่งไปรายงานการประชุม</button>}
         <p className="muted small" style={{ margin: '0.3rem 0 0' }}>กดแล้วไอคอนบันทึกการประชุมเป็นสีเขียว และข้อมูลทั้งหมดไปเป็นฐานของรายงานการประชุม (ไอคอนที่ 3) · แก้ไขต่อได้ภายหลัง</p>
       </section>
+      </>)}
+      {bar}
     </>
   )
 }
