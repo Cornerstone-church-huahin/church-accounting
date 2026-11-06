@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import Sheet from '../Sheet'
 import { TextField } from './fields'
+import PdfTools from '../PdfTools'
+import RosterPaper from './RosterPaper'
+import { useSettings } from '../../lib/data'
 import { DEFAULT_COMMITTEE, useCommittee } from '../../lib/data'
-import { blankPerson, letterDate } from '../../lib/meetings'
+import { blankPerson } from '../../lib/meetings'
 import { newId } from '../../lib/money'
 import type { CommitteeMember, MtAttend, MtPerson } from '../../lib/types'
 import type { StepProps } from './Step1'
@@ -11,6 +14,13 @@ import type { StepProps } from './Step1'
 const ATT: { v: MtAttend; label: string }[] = [{ v: 'มา', label: 'ร่วม' }, { v: 'ลา', label: 'ลา' }, { v: 'ไม่มา', label: 'ขาด' }]
 type Row = { id: string; role: string; name: string }
 const SEED_MARK = 'cm-seed-v1'
+
+/** ช่องกรอกบรรทัดเดียวแบบกะทัดรัด (บันทึกเมื่อออกจากช่อง) */
+function MiniInput({ label, placeholder, value, onCommit }: { label: string; placeholder: string; value: string; onCommit: (v: string) => void }) {
+  const [v, setV] = useState(value)
+  useEffect(() => setV(value), [value])
+  return <input className="input" aria-label={label} placeholder={placeholder} value={v} onChange={(e) => setV(e.target.value)} onBlur={() => { if (v !== value) onCommit(v) }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+}
 
 /**
  * ตั้งค่ารายชื่อคณะกรรมการหลัก (ป๊อปอัพ): เพิ่ม/แก้/ลบ ตำแหน่ง + ชื่อ · บันทึกแล้วใช้เป็นรายชื่อตั้งต้นของ “ทุกการประชุม” (สามัญและวิสามัญ)
@@ -72,6 +82,9 @@ function RosterSetup({ initial, addBlank, onClose, onSave }: { initial: Row[]; a
  */
 export default function Roster({ m, save, onDone }: StepProps & { onDone: () => void }) {
   const committee = useCommittee()
+  const { settings } = useSettings()
+  const church = settings.churchName.split(' ')[0]
+  const paperRef = useRef<HTMLDivElement>(null)
   const members = m.people.filter((p) => p.kind === 'กรรมการ')
   const guests = m.people.filter((p) => p.kind === 'ผู้เข้าร่วมอื่น')
   const [msg, setMsg] = useState('')
@@ -107,8 +120,8 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
-      <p className="mc__part" role="status"><b>ส่วนที่ 1 จาก 4</b> · ใบลงชื่อผู้ร่วมประชุม</p>
-      <section className="card" aria-labelledby="r1-a">
+      <p className="mc__part no-print" role="status"><b>ส่วนที่ 1 จาก 4</b> · ใบลงชื่อผู้ร่วมประชุม</p>
+      <section className="card no-print" aria-labelledby="r1-a">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: 8 }}>
           <h2 id="r1-a" style={{ margin: 0 }}>รายชื่อคณะธรรมกิจ ({members.filter((p) => p.name.trim()).length} คน)</h2>
           <span className="row" style={{ flex: 'none', gap: 6, flexWrap: 'nowrap' }}>
@@ -137,17 +150,15 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
         {msg && <p role="status" className="small" style={{ margin: '0.4rem 0 0' }}>{msg}</p>}
       </section>
 
-      <section className="card" aria-labelledby="r1-b">
+      <section className="card no-print" aria-labelledby="r1-b">
         <h2 id="r1-b">ผู้เข้าร่วมประชุม / ผู้สังเกตการณ์ ({guests.filter((p) => p.name.trim()).length} คน)</h2>
         <p className="muted small" style={{ margin: '0 0 0.4rem' }}>ลำดับที่ 1, 2, 3 … ใส่ชื่อและหมายเหตุ (เช่น ผู้ช่วยเลขา, แขกรับเชิญ) · ข้อมูลนี้ไปอยู่ในรายงานการประชุม</p>
-        <ol className="rosterlist" aria-label="ผู้เข้าร่วมประชุมและผู้สังเกตการณ์">
+        <ol className="obslist" aria-label="ผู้เข้าร่วมประชุมและผู้สังเกตการณ์">
           {guests.map((p, i) => (
-            <li key={p.id} className="rosterrow">
-              <span className="rosterrow__n">{i + 1}</span>
-              <div className="rosterrow__f">
-                <TextField id={`gn1-${p.id}`} label="ชื่อ" value={p.name} onCommit={(v) => { const t = v.trim(); if (t && guests.some((g) => g.id !== p.id && g.name.trim() === t)) { setMsg(`ชื่อ “${t}” มีในรายชื่อผู้เข้าร่วมแล้ว — ไม่ใส่ซ้ำ`); return } setP(p.id, { name: t, att: p.att ?? 'มา' }) }} />
-                <TextField id={`gr-${p.id}`} label="หมายเหตุ / บทบาท" value={p.role} onCommit={(v) => setP(p.id, { role: v.trim() || undefined })} />
-              </div>
+            <li key={p.id} className="obsrow">
+              <span className="suprow__n">{i + 1}</span>
+              <MiniInput label={`ชื่อ ผู้เข้าร่วมคนที่ ${i + 1}`} placeholder="ชื่อ" value={p.name} onCommit={(v) => { const t = v.trim(); if (t && guests.some((g) => g.id !== p.id && g.name.trim() === t)) { setMsg(`ชื่อ “${t}” มีในรายชื่อผู้เข้าร่วมแล้ว — ไม่ใส่ซ้ำ`); return } setP(p.id, { name: t, att: p.att ?? 'มา' }) }} />
+              <MiniInput label={`หมายเหตุ / บทบาท คนที่ ${i + 1}`} placeholder="หมายเหตุ / บทบาท" value={p.role ?? ''} onCommit={(v) => setP(p.id, { role: v.trim() || undefined })} />
               <button type="button" className="mini" aria-label={`ลบผู้เข้าร่วมคนที่ ${i + 1}`} onClick={() => del(p.id)}>🗑️</button>
             </li>
           ))}
@@ -155,24 +166,11 @@ export default function Roster({ m, save, onDone }: StepProps & { onDone: () => 
         <button type="button" className="mini" onClick={() => save({ people: [...m.people, { ...blankPerson('ผู้เข้าร่วมอื่น'), att: 'มา' }] })}>＋ เพิ่มผู้เข้าร่วม / ผู้สังเกตการณ์</button>
       </section>
 
-      <section className="card" aria-label="ตัวอย่างใบลงชื่อ">
-        <h2 style={{ marginTop: 0 }}>📄 ตัวอย่างเอกสาร (ก่อนนำไปรวมในรายงาน)</h2>
-        <div className="rosterpaper">
-          <p className="rosterpaper__t">ใบลงชื่อผู้ร่วมประชุม</p>
-          <p className="rosterpaper__s">{m.name || 'การประชุมคณะธรรมกิจ'} ครั้งที่ {m.no}/{m.year}{m.date ? ` · ${letterDate(m.date)}` : ''}{m.place ? ` · ${m.place}` : ''}</p>
-          <p className="rosterpaper__h">ผู้เข้าร่วมประชุม :</p>
-          {members.filter((p) => p.att === 'มา').length === 0 && <p className="rosterpaper__e">— ยังไม่มีผู้ติ๊กว่าร่วม —</p>}
-          <ol>{members.filter((p) => p.att === 'มา').map((p) => <li key={p.id}>{p.name}{p.role ? <span> ({p.role})</span> : null}</li>)}</ol>
-          {members.some((p) => p.att === 'ลา' || p.att === 'ไม่มา') && (<>
-            <p className="rosterpaper__h">ผู้ไม่มาประชุม :</p>
-            <ol>{members.filter((p) => p.att === 'ลา' || p.att === 'ไม่มา').map((p) => <li key={p.id}>{p.name} <span>({p.att === 'ลา' ? 'ลาประชุม' : 'ขาดประชุม'}{p.note ? ` · ${p.note}` : ''})</span></li>)}</ol>
-          </>)}
-          {guests.some((p) => p.name.trim()) && (<>
-            <p className="rosterpaper__h">ผู้ร่วมประชุม / ผู้สังเกตการณ์ :</p>
-            <ol>{guests.filter((p) => p.name.trim()).map((p) => <li key={p.id}>{p.name}{p.role ? <span> ({p.role})</span> : null}</li>)}</ol>
-          </>)}
-          <p className="rosterpaper__e">รวมผู้ร่วมประชุมทั้งหมด {members.filter((p) => p.att === 'มา').length + guests.filter((p) => p.name.trim()).length} คน</p>
-        </div>
+      <section className="card" aria-label="ใบลงชื่อผู้ร่วมประชุม (เอกสาร)">
+        <h2 className="no-print" style={{ marginTop: 0 }}>📄 ใบลงชื่อผู้ร่วมประชุม (พร้อมพิมพ์)</h2>
+        <PdfTools els={() => (paperRef.current ? [paperRef.current] : [])} file={`ใบลงชื่อผู้ร่วมประชุม-ครั้งที่${m.no}-${m.year}.pdf`} title={`ใบลงชื่อผู้ร่วมประชุม ครั้งที่ ${m.no}/${m.year}`} label="ใบลงชื่อผู้ร่วมประชุม" />
+        <RosterPaper ref={paperRef} church={church} m={m} />
+        <p className="muted small no-print" style={{ margin: '0.3rem 0 0' }}>เอกสารชุดเดียวกับรายงานการประชุม — พิมพ์ให้กรรมการเซ็นในที่ประชุมได้ทันที หรือแชร์เป็น PDF/รูป</p>
       </section>
 
       <section className="card" aria-labelledby="r1-c">

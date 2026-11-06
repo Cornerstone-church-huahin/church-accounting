@@ -147,7 +147,7 @@ function Step({ n, c }: { n: number; c: Cur }) {
         <h1>{n === 6 ? s.title : `${s.n}. ${s.title}`}</h1>
         <Link to={HUB} className="mini">‹ กลับศูนย์จัดการประชุม</Link>
       </div>
-      <p className="mc__blurb"><span aria-hidden="true">{s.icon}</span> {s.blurb}</p>
+      <p className="mc__blurb no-print"><span aria-hidden="true">{s.icon}</span> {s.blurb}</p>
       {c.denied && <p className="error" role="alert">ไม่มีสิทธิ์บันทึกข้อมูลการประชุม</p>}
       {working && !props && (
         <section className="card"><p className="empty">ยังไม่มีการประชุม — สร้างการประชุมก่อนเพื่อเริ่มทำงานในขั้นนี้</p><button type="button" className="btn btn--gold" onClick={c.create}>＋ สร้างการประชุมใหม่</button></section>
