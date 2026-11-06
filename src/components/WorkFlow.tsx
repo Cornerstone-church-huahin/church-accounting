@@ -188,7 +188,7 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   /** สามัญ / วิสามัญ: ระบบเดียวกัน แยกรายการ เลขที่ และที่เก็บไฟล์ · การประชุมที่สร้างในการ์ดวิสามัญเดิมนับเป็นวิสามัญ */
   const kindOf = (m: Meeting): 'สามัญ' | 'วิสามัญ' => (m.type === 'พิเศษ' || /วิสามัญ/.test(titles[m.flowId ?? ''] ?? '') ? 'วิสามัญ' : 'สามัญ')
   const count = (k: 'สามัญ' | 'วิสามัญ') => ms.list.filter((m) => kindOf(m) === k).length
-  const list = ms.list.filter((m) => kindOf(m) === tab).sort((a, b) => b.year - a.year || b.no - a.no)
+  const list = ms.list.filter((m) => kindOf(m) === tab).sort((a, b) => a.year - b.year || a.no - b.no || a.id.localeCompare(b.id)) // ชิ้นที่ 1 อยู่บนสุด = เลข 001
   const key = q.trim()
   const shown = key ? list.filter((m) => `${m.name} ${m.no}/${m.year} ${m.date}`.includes(key)) : list
   const add = () => {
@@ -203,7 +203,9 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   const openNotice = (m: Meeting) => {
     const cur = m.noticeLetterId ? letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted) : undefined
     if (cur) { navigate(`/meeting/1/4/notice-${cur.id}`); return }
-    const r = addLetter(kindOf(m) === 'วิสามัญ' ? VAR_CAT : undefined)
+    // เลขที่ = ลำดับของแถวนี้ในกลุ่มสามัญ/วิสามัญ (ชิ้นที่ 1 → 001)
+    const rank = list.findIndex((x) => x.id === m.id) + 1
+    const r = addLetter(kindOf(m) === 'วิสามัญ' ? VAR_CAT : undefined, rank || undefined)
     if ('error' in r) { setMsg(r.error); return }
     ms.put([{ ...m, noticeLetterId: r.id, updated: Date.now() }])
     navigate(`/meeting/1/4/notice-${r.id}`)

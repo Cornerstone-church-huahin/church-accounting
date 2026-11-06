@@ -10,7 +10,7 @@ try {
   const b = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {})
   const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, locale: 'th-TH' })).newPage()
   const errors = []; p.on('pageerror', (e) => errors.push(String(e)))
-  await p.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' })); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])) })
+  await p.addInitScript(() => { localStorage.setItem('acct.sync.v1', JSON.stringify({ repo: 'x/y', token: 'fake', name: 'แอดมิน' })); localStorage.setItem('acct.me.v1', JSON.stringify({ id: 'ad1' })); localStorage.setItem('acct.noticeletter.v1', JSON.stringify([{ id: 'orph', no: 'ศอ/ปด.001', toName: 'ค้าง', date: '2026-11-06', subject: 's', to: 't', body: 'b', updated: 1 }])); localStorage.setItem('acct.members.v1', JSON.stringify([{ id: 'ad1', name: 'แอดมิน', role: 'admin', joined: 1, updated: 1 }])) })
   await p.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
   await p.goto(`http://localhost:${PORT}/#/meeting/1/4`)
   await p.getByRole('button', { name: '➕ เพิ่มลำดับงาน' }).click()
