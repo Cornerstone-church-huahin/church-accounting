@@ -47,7 +47,7 @@ export default function Settings() {
       <Fold id="h-inst" title="📲 ติดตั้งเป็นแอป"><InstallApp /></Fold>
       {!staffOnly && <Connect />}
       {cfg && !staffOnly && <Members />}
-      {can(role, 'income') && <Reader />}
+      {can(role, 'income') && !staffOnly && <Reader />}
       {can(role, 'settings') && <Accounts />}
       <Display />
     </>
