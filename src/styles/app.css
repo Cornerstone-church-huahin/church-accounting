@@ -1946,3 +1946,8 @@ span.fundpend__tog--no { cursor: default; }
 .rec-tools--compact { gap: 0.2rem; margin: 0.2rem 0 0; }
 .rec-tools--compact .rec-tool { flex-direction: row; min-height: 0; height: 1.6rem; padding: 0 0.15rem; gap: 0.2rem; font-size: 0.64rem; white-space: nowrap; border-radius: 6px; }
 .rec-tools--compact .rec-tool svg { width: 0.85rem; height: 0.85rem; flex: none; }
+
+/* สถานะการเงิน: แถบเงินกิจกรรมยาวเต็มความกว้าง เหนือไอคอนสามช่อง (หมุนเวียน · กองทุน · รวม) */
+.healthact { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin: 0.4rem 0; padding: 0.55rem 0.8rem; border-radius: 1rem; border: 2px solid #c62828; background: #fdecea; color: #b3261e; font-weight: 700; }
+.healthact b { font-size: 1.15rem; white-space: nowrap; }
+.healthact small { font-weight: 500; }
