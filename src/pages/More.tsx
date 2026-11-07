@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { can } from '../lib/access'
+import { can, isWorkStaffOnly } from '../lib/access'
 import { useRole } from '../lib/members'
 
 export default function More() {
   const role = useRole()
+  const staffOnly = isWorkStaffOnly() // ผู้ดูแล/ผู้ช่วยงาน/ที่ปรึกษา: เห็นเฉพาะ “ตั้งค่า”
   const items = [
     { to: '/funds', icon: '💰', title: 'กองทุน', sub: 'ยอดแต่ละกองทุน เงินถวายที่เข้า เงินที่จ่ายออก', show: true },
     { to: '/budget', icon: '📊', title: 'งบประมาณรายปี', sub: 'แยกหมวด ปรับเพิ่มลด ประวัติ งบฉุกเฉิน', show: true },
@@ -16,7 +17,7 @@ export default function More() {
     <>
       <div className="page-head"><h1>เพิ่มเติม</h1></div>
       <ul className="list card">
-        {items.filter((i) => i.show).map((i) => (
+        {items.filter((i) => (staffOnly ? i.to === '/settings' : i.show)).map((i) => (
           <li key={i.to}><Link to={i.to} className="item"><span style={{ fontSize: '1.6rem' }} aria-hidden>{i.icon}</span><span className="grow"><b>{i.title}</b><br /><span className="muted small">{i.sub}</span></span><span aria-hidden>›</span></Link></li>
         ))}
       </ul>
