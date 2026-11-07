@@ -162,7 +162,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
                   <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                     <td style={{ fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td>
                     <td>{k * per + i + 1}.</td>
-                    <td>{x ? name(x.typeId) : ''}</td>
+                    <td>{x ? (scope ? name(x.typeId) : x.note || name(x.typeId)) : ''}</td>
                     <td className="num">{x && x.method === 'cash' ? x.count ?? 1 : ''}</td>
                     <td className="num">{x && x.method === 'cash' ? m(x.amount) : ''}</td>
                     <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
@@ -215,7 +215,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
                     <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                       <td>{x ? fmtDate(x.date) : ''}</td>
                       <td>{gi * ROWS + i + 1}.</td>
-                      <td>{x ? name(x.typeId) + (scope && x.note ? ` · ${x.note}` : '') : ''}</td>
+                      <td>{x ? (scope ? name(x.typeId) + (x.note ? ` · ${x.note}` : '') : x.note || name(x.typeId)) : ''}</td>
                       <td className="num">{x && x.method === 'cash' ? x.count ?? 1 : ''}</td>
                       <td className="num">{x && x.method === 'cash' ? m(x.amount) : ''}</td>
                       <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
