@@ -37,6 +37,7 @@ export default function Dashboard({ year, onBack }: { year: number; onBack?: () 
         <div><span>💰 กองทุน</span><b>{m(b.total - b.own.balance)}</b></div>
         <div><span>รวมเงินสด</span><b>{m(b.total)}</b></div>
       </section>
+      <p className="healthact" role="status" aria-label={`เงินกิจกรรม ${m(b.act)} บาท`}><span><span aria-hidden="true">🎈</span> เงินกิจกรรม <small>(แยกต่างหาก ไม่รวมในยอดรวม)</small></span><b>{m(b.act)} บาท</b></p>
       <section className="card" aria-label="รายรับ-รายจ่าย">
         <table className="tbl" style={{ width: '100%' }}>
           <thead><tr><th style={{ textAlign: 'left' }}>ช่วง</th><th className="num" style={{ color: '#1b8a4b' }}>รับ</th><th className="num" style={{ color: '#b3261e' }}>จ่าย</th><th className="num">สุทธิ</th></tr></thead>
