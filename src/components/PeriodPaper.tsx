@@ -68,6 +68,12 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
                 </>
               ) : <div style={{ fontSize: 13, margin: '6px 0 0' }}>ในรายจ่ายข้างต้น <b>สวัสดิการผู้รับใช้ (ยอดรวม) {m(d.compTotal)} บาท</b>{incTotal > 0 ? ` (${Math.round((d.compTotal / incTotal) * 1000) / 10}% ของรายรับ)` : ''}</div>)}
             </div>
+            <div style={{ border: '2px solid #1a2b4c', borderRadius: 6, background: '#f4f7fd', padding: '8px 12px', marginTop: 8, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
+              <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(incTotal)}</span>
+              <span>หัก รวมรายจ่ายเงินหมุนเวียน</span><span className="num">{m(outTotal)}</span>
+              <b style={{ fontSize: 17 }}>{net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{net < 0 ? '−' : ''}{m(Math.abs(net))} บาท</b>
+            </div>
+            {meeting && <div aria-label="เรื่องต้องติดตาม" style={{ border: '1.5px solid #555', borderRadius: 6, padding: '4px 10px', marginTop: 8, fontSize: 12.5 }}><b>เรื่องต้องติดตาม</b>{d.r.follow.length === 0 ? <div>ไม่พบรายการค้างตามสถานะที่ระบบบันทึกไว้</div> : d.r.follow.map((f) => <div key={f.key}>• {f.text}</div>)}</div>}
             <div className="zone zone--fund" style={{ border: '3px dashed #b8860b', background: '#fff8e6' }}>
               {zoneHead('▲ ส่วนที่ 2 · เงินกองทุน (เงินของแต่ละกองทุน คริสตจักรเก็บรักษาไว้ ไม่ใช่รายรับ-รายจ่ายของคริสตจักร)', '#b8860b')}
               <table className="sheetpaper sheetpaper--full" aria-label="เงินกองทุนในช่วง" style={{ marginTop: 6 }}>
@@ -79,12 +85,6 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
                 </tbody>
               </table>
             </div>
-            <div style={{ border: '2px solid #1a2b4c', borderRadius: 6, background: '#f4f7fd', padding: '8px 12px', marginTop: 8, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
-              <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(incTotal)}</span>
-              <span>หัก รวมรายจ่ายเงินหมุนเวียน</span><span className="num">{m(outTotal)}</span>
-              <b style={{ fontSize: 17 }}>{net >= 0 ? 'รับมากกว่าจ่าย' : 'จ่ายมากกว่ารับ'}</b><b className="num" style={{ fontSize: 17 }}>{net < 0 ? '−' : ''}{m(Math.abs(net))} บาท</b>
-            </div>
-            {meeting && <div aria-label="เรื่องต้องติดตาม" style={{ border: '1.5px solid #555', borderRadius: 6, padding: '4px 10px', marginTop: 8, fontSize: 12.5 }}><b>เรื่องต้องติดตาม</b>{d.r.follow.length === 0 ? <div>ไม่พบรายการค้างตามสถานะที่ระบบบันทึกไว้</div> : d.r.follow.map((f) => <div key={f.key}>• {f.text}</div>)}</div>}
           </FitBox>
           {meeting && <div style={{ display: 'flex', gap: 14, fontSize: 12, marginTop: 6 }}>{['เหรัญญิก (ผู้จัดทำ)', 'ผู้ตรวจสอบ', 'ประธาน'].map((r) => <div key={r} style={{ flex: 1, border: '1px solid #1a2b4c', padding: 5 }}><b>{r}</b><br />ลงชื่อ.......................................<br />วันที่........../........../..........</div>)}</div>}
         </div>
