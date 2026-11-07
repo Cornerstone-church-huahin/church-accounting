@@ -2,11 +2,11 @@ import { useMemo, useRef, useState } from 'react'
 import Receive from './Receive'
 import Pay from './Pay'
 import WeekBar from '../components/WeekBar'
-import { groupBoard, splitByChannel } from '../lib/boardGroup'
+import { BOARD_OTHER, STANDARD_BOARD, boardLabel, groupBoard, splitByChannel } from '../lib/boardGroup'
 import NoticePaper from '../components/NoticePaper'
 import PdfTools from '../components/PdfTools'
 import PickDock, { SheetTick } from '../components/PickDock'
-import { useSettings } from '../lib/data'
+import { useIncomeTypes, useSettings } from '../lib/data'
 import { can } from '../lib/access'
 import { useRole } from '../lib/members'
 import { useBalances } from '../lib/useBalances'
@@ -26,6 +26,9 @@ function BoardNotice({ year, sunday, byCategory, noTools }: { /** ดูอย�
   const input = useMemo(() => ({ ...full, income: full.income.filter((x) => !isFundZone(x)) }), [full])
   const church = settings.churchName.split(' ')[0]
   const paper = useRef<HTMLDivElement[]>([])
+  const role = useRole()
+  const itypes = useIncomeTypes()
+  const [pick, setPick] = useState<Record<string, string>>({})
   const n = useMemo(() => {
     const range = rangeOf('week', year, { sunday })
     const L = computeLedger({ range, ...input, withFunds: false })
@@ -40,10 +43,30 @@ function BoardNotice({ year, sunday, byCategory, noTools }: { /** ดูอย�
     return { ...n0, inc, out }
   }, [input, year, sunday, byCategory])
   const els = () => paper.current.filter(Boolean)
+  // รายการที่เพิ่มเอง (ชื่อคน ฯลฯ) ที่ยังรวมเป็น “ถวายอื่น ๆ” — แอดมินเลือกหมวดให้ได้ที่นี่ (ตั้ง boardCat)
+  const customs = useMemo(() => {
+    if (!byCategory || noTools || !can(role, 'settings')) return []
+    const range = rangeOf('week', year, { sunday })
+    const L = computeLedger({ range, ...input, withFunds: false })
+    return L.incRows.filter((r) => !r.key.startsWith('__') && boardLabel(r.key, r.label, input.types) === BOARD_OTHER)
+  }, [byCategory, noTools, role, input, year, sunday])
   const file = `${byCategory ? 'board' : 'notice-detail'}-${sunday}.pdf`
   return (
     <>
       <NoticePaper pagesRef={paper} church={church} sunday={sunday} n={n} variant={byCategory ? 'category' : undefined} />
+      {customs.length > 0 && (
+        <section className="card no-print" aria-label="จัดหมวดรายรับที่เพิ่มเอง">
+          <b className="small">🏷️ รายการที่เพิ่มเองในสัปดาห์นี้ (บนบอร์ดรวมเป็น “{BOARD_OTHER}”)</b>
+          <p className="muted small" style={{ margin: '0.1rem 0 0.3rem' }}>เลือกหมวดที่ถูกต้อง เช่น สิบลด แล้วกด “ตั้งหมวด” — ใบติดบอร์ดจะรวมเป็นหมวดนั้นและแยกแถวตู้ถวาย/โอนให้เอง (ไม่แสดงชื่อบุคคล)</p>
+          {customs.map((r) => (
+            <div key={r.key} className="row" style={{ alignItems: 'center', margin: '0.2rem 0' }}>
+              <span className="grow">{r.label}</span>
+              <select className="input" aria-label={`หมวดบอร์ดของ ${r.label}`} value={pick[r.key] ?? STANDARD_BOARD[0]} onChange={(e) => setPick({ ...pick, [r.key]: e.target.value })}>{STANDARD_BOARD.map((nm) => <option key={nm}>{nm}</option>)}</select>
+              <button type="button" className="btn btn--gold" aria-label={`ตั้งหมวดบอร์ดของ ${r.label}`} onClick={() => { const t = itypes.byId(r.key); if (t) itypes.put([{ ...t, boardCat: pick[r.key] ?? STANDARD_BOARD[0] }]) }}>ตั้งหมวด</button>
+            </div>
+          ))}
+        </section>
+      )}
       {!noTools && <PdfTools els={els} file={file} title="สรุปรายรับ-รายจ่ายประจำสัปดาห์" label={byCategory ? 'ใบสำหรับติดบอร์ดประกาศ' : 'ข้อมูลก่อนติดบอร์ด'} />}
     </>
   )
