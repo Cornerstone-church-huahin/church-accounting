@@ -5,6 +5,8 @@ export interface CatalogOps {
   add: (name: string, scope?: string) => { id: string } | { error: string }
   rename: (id: string, current: string) => void
   remove: (id: string, name: string) => void
+  /** (ไม่บังคับ) กำหนดหมวดที่แสดงบนใบติดบอร์ด */
+  group?: (id: string, name: string) => void
 }
 
 /** เพิ่ม / แก้ชื่อ / ลบรายการ ใต้ฟอร์มบันทึก (ตัวเลือกแบบเลื่อนลงของมือถือใส่ปุ่มไม่ได้) — ใช้ข้อมูลชุดเดียวกับหน้าตั้งค่า */
@@ -24,7 +26,7 @@ export default function CatalogManager({ noun, items, ops, onAdded, scope }: { n
         <button type="button" className="btn btn--gold" onClick={add}>＋ เพิ่ม</button>
       </div>
       {msg && <p className="small" role="status" style={{ margin: '2px 0' }}>{msg}</p>}
-      <ul className="list">{items.map((t) => <li key={t.id}><span className="grow">{t.name}</span><button type="button" className="mini" aria-label={`แก้ชื่อ ${t.name}`} onClick={() => ops.rename(t.id, t.name)}>✎ แก้ชื่อ</button><button type="button" className="mini" aria-label={`ลบ${noun} ${t.name}`} onClick={() => ops.remove(t.id, t.name)}>🗑️ ลบ</button></li>)}</ul>
+      <ul className="list">{items.map((t) => <li key={t.id}><span className="grow">{t.name}</span><button type="button" className="mini" aria-label={`แก้ชื่อ ${t.name}`} onClick={() => ops.rename(t.id, t.name)}>✎ แก้ชื่อ</button>{ops.group && <button type="button" className="mini" aria-label={`จัดหมวดบอร์ด ${t.name}`} onClick={() => ops.group!(t.id, t.name)}>🏷️ หมวดบอร์ด</button>}<button type="button" className="mini" aria-label={`ลบ${noun} ${t.name}`} onClick={() => ops.remove(t.id, t.name)}>🗑️ ลบ</button></li>)}</ul>
     </details>
   )
 }

@@ -96,6 +96,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   /** เพิ่ม/แก้ชื่อ/ลบประเภทรับ จากฟอร์มและป๊อปอัพ — ข้อมูลชุดเดียวกับ ตั้งค่า › รายการรับ */
   const incomeOps = !fid && can(role, 'settings') ? {
     add: (name: string) => { const t = makeIncomeType(types.list, name); if (typeof t === 'string') return { error: t }; return types.put([t]) ? { id: t.id } : { error: 'สิทธิ์ของท่านเพิ่มไม่ได้' } },
+    group: (id: string, cur: string) => { const t = types.byId(id); if (!t) return; const v = prompt(`ใบติดบอร์ดไม่แจ้งชื่อบุคคล — “${cur}” จะแสดงในหมวดอะไร?\n(พิมพ์ชื่อหมวด เช่น สิบลด · ประจำสัปดาห์ · ขอบพระคุณ · เว้นว่าง = ถวายอื่น ๆ)`, t.boardCat ?? ''); if (v === null) return; types.put([{ ...t, boardCat: v.trim() || undefined }]) },
     rename: (id: string, cur: string) => { const n = prompt('แก้ชื่อรายการ', cur)?.trim(); const t = types.byId(id); if (n && t && n !== cur) types.put([{ ...t, name: n }]) },
     remove: (id: string, nm: string) => { if (confirm(`ลบรายการ “${nm}” ออกจากรายการรับ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) types.remove(id) },
   } : undefined

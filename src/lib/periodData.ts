@@ -18,6 +18,8 @@ export interface PeriodData {
   /** ข้อมูลที่บันทึกแล้วกี่สัปดาห์/เดือน จากทั้งหมดกี่ช่วง */
   complete: { have: number; total: number; unit: 'สัปดาห์' | 'เดือน' }
   incRows: { label: string; amount: number; pct: number }[]
+  /** ฉบับติดบอร์ด: รายรับรวมเป็นหมวด ไม่แจ้งชื่อบุคคล */
+  incBoard: { label: string; amount: number; pct: number }[]
   catRows: { label: string; amount: number; pct: number }[]
   /** ค่าตอบแทน/สวัสดิการ (เงินเดือน ฯลฯ) รวมรายบุคคล — ฉบับที่ประชุมเท่านั้นที่แสดงรายคน */
   comp: { name: string; amount: number }[]
@@ -29,6 +31,7 @@ export interface PeriodData {
   tiles: { own: number; fund: number; total: number; inDebt: number; outDebt: number }
 }
 
+import { groupBoard } from './boardGroup'
 const pct = (x: number, of: number) => (of > 0 ? Math.round((x / of) * 1000) / 10 : 0)
 const MS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
@@ -64,6 +67,7 @@ export function buildPeriod(kind: 'month' | 'year', year: number, month: number,
     label: kind === 'month' ? `${monthName(month)} ${be(year)}` : `ปี ${be(year)}`,
     rangeText: `${range.from} – ${range.to}`,
     incRows: r.incBars.map((x) => ({ label: x.label, amount: x.amount, pct: pct(x.amount, r.inTotal) })),
+    incBoard: groupBoard(r.incBars, a.types, (p, q) => ({ ...p, amount: p.amount + q.amount })).map((x) => ({ label: x.label, amount: x.amount, pct: pct(x.amount, r.inTotal) })),
     catRows: [...r.catBars, ...(r.advance > 0 ? [{ key: 'adv', label: 'เงินสำรองจ่ายรอคืน', amount: r.advance }] : [])].map((x) => ({ label: x.label, amount: x.amount, pct: pct(x.amount, r.inTotal) })),
     comp: [...comp.entries()].map(([name, amount]) => ({ name, amount })).sort((p, q) => q.amount - p.amount),
     compTotal: [...comp.values()].reduce((s, v) => s + v, 0),
