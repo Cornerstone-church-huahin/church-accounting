@@ -1971,3 +1971,7 @@ span.fundpend__tog--no { cursor: default; }
 .healthact--strip { text-decoration: none; margin: 0.25rem 0 0.35rem; }
 a.healthact { color: #b3261e; }
 .healthnums__i { color: inherit; text-decoration: none; display: block; }
+/* สถานะการเงิน: การ์ด/แถบชิดกันที่สุดในแนวตั้ง */
+.healthstack { display: flex; flex-direction: column; gap: 0.12rem; }
+.healthstack > * { margin: 0 !important; }
+.healthstack .healthact { margin: 0 !important; }
