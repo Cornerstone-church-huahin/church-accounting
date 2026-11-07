@@ -41,8 +41,8 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
                 <colgroup><col style={{ width: '7%' }} /><col style={{ width: '53%' }} /><col style={{ width: '22%' }} /><col style={{ width: '18%' }} /></colgroup>
                 <thead><tr><th style={th}>ที่</th><th style={th}>รายการ</th><th style={th}>จำนวนเงิน</th><th style={th}>ร้อยละ</th></tr></thead>
                 <tbody>
-                  {d.incRows.length === 0 && <tr><td /><td colSpan={3}>— ไม่มีรายการ —</td></tr>}
-                  {d.incRows.map((r, i) => <tr key={i}><td style={{ textAlign: 'center' }}>{i + 1}</td><td>{r.label}</td><td className="num"><b>{m(r.amount)}</b></td><td className="num">{r.pct}%</td></tr>)}
+                  {(named ? d.incRows : d.incBoard).length === 0 && <tr><td /><td colSpan={3}>— ไม่มีรายการ —</td></tr>}
+                  {(named ? d.incRows : d.incBoard).map((r, i) => <tr key={i}><td style={{ textAlign: 'center' }}>{i + 1}</td><td>{r.label}</td><td className="num"><b>{m(r.amount)}</b></td><td className="num">{r.pct}%</td></tr>)}
                 </tbody>
                 <tfoot><tr><td colSpan={2}>รวมรายรับ</td><td className="num">{m(incTotal)}</td><td /></tr></tfoot>
               </table>

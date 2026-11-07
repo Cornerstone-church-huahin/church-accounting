@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import Receive from './Receive'
 import Pay from './Pay'
 import WeekBar from '../components/WeekBar'
+import { groupBoard } from '../lib/boardGroup'
 import NoticePaper from '../components/NoticePaper'
 import PdfTools from '../components/PdfTools'
 import PickDock, { SheetTick } from '../components/PickDock'
@@ -30,11 +31,13 @@ function BoardNotice({ year, sunday, byCategory, noTools }: { /** ดูอย�
     const L = computeLedger({ range, ...input, withFunds: false })
     const n0 = weekNotice(L, expenseLines(range, { vouchers: input.vouchers, expenses: input.expenses, entries: input.entries }))
     if (!byCategory) return n0
+    // ใบติดบอร์ด: รายรับไม่แจ้งชื่อบุคคล — รวมเป็นหมวด
+    const inc = groupBoard(n0.inc, input.types, (a, b) => ({ ...a, cashN: a.cashN + b.cashN, cash: a.cash + b.cash, trN: a.trN + b.trN, tr: a.tr + b.tr, amt: a.amt + b.amt }))
     // รวมรายจ่ายเป็นหมวด (ชุดรายการเดียวกับใบละเอียด → ยอดรวมตรงกัน) เรียงมากไปน้อย
     const by = new Map<string, number>()
     for (const x of outLinesOf(range, input)) by.set(x.catLabel, (by.get(x.catLabel) ?? 0) + x.amount)
     const out = [...by].sort((a, b) => b[1] - a[1]).map(([label, amount], i) => ({ key: `cat:${i}`, date: '', desc: label, amount }))
-    return { ...n0, out }
+    return { ...n0, inc, out }
   }, [input, year, sunday, byCategory])
   const els = () => paper.current.filter(Boolean)
   const file = `${byCategory ? 'board' : 'notice-detail'}-${sunday}.pdf`

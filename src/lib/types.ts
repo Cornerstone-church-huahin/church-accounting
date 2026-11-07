@@ -14,6 +14,7 @@ export interface ActEval { score: number; pros?: string; cons?: string; summary?
 export interface ActResolution { meeting?: string; date?: string; text?: string }
 export interface FundActivity { id: string; name: string; /** วันเริ่มกิจกรรม */ date: string; /** วันสิ้นสุด (ไม่ใส่ = วันเดียวกับวันเริ่ม) */ endDate?: string; /** อนุกรรมการจัดงาน (ชื่อ + หน้าที่) — ทุกคนที่เปิดกิจกรรมเห็น แอดมินแก้ได้ */ team?: ActMember[]; /** มติคณะกรรมการที่ตั้งอนุกรรมการ (ประชุมครั้งที่/วันที่/มติ) */ resolution?: ActResolution; purpose?: string; /** (เลิกใช้) โน้ตอนุกรรมการแบบข้อความ — ใช้รายชื่อ team แทน */ committee?: string; note?: string; /** เป้าหมาย/ขั้นตอนของงาน: ทำแล้ว/ยังไม่ทำ */ goals?: ActGoal[]; eval?: ActEval; closed?: { date: string } }
 export interface IncomeType extends SharedItem { name: string; order: number; active: boolean
+  /** หมวดที่แสดงบนใบติดบอร์ด (ไม่แจ้งชื่อบุคคล) — ว่าง = ประเภทมาตรฐานใช้ชื่อตัวเอง · ประเภทที่เพิ่มเองรวมเป็น “ถวายอื่น ๆ” */ boardCat?: string
   /** หมวดย่อยของกองทุนนี้ (ไม่มี = กองทุนไม่แบ่งหมวด) */
   subs?: FundSub[]
   /** โหมดกิจกรรม: กองทุนแบ่งเป็นกิจกรรม แต่ละกิจกรรมมีหมวดของตัวเอง */
