@@ -46,16 +46,16 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
         </div>
         <p className="small" style={{ margin: '0.2rem 0 0' }}>เงินสำรองหมุนเวียน {wk === null ? 'ยังไม่มีรายจ่ายให้เทียบ' : `พอใช้ ${wk} สัปดาห์`} · เป้าหมาย {TARGET_WEEKS} สัปดาห์ ({pct}%) · {TREND_UI[h.trend]}</p>
       </section>
-      {nums && (
+      {nums && (<>
+        <section className="healthact" role="status" aria-label={`เงินกิจกรรม ${fmtBaht(act)} บาท`}>
+          <span><span aria-hidden="true">🎈</span> เงินกิจกรรม <small>(แยกจากกองทุน)</small></span><b>{fmtBaht(act)} บาท</b>
+        </section>
         <section className="card healthnums healthnums--compact" aria-label="ตัวเลขเงินคริสตจักร">
           <div><small>🏠 เงินหมุนเวียน</small><b>{fmtBaht(own, { dec: false })}</b></div>
           <div><small>💰 เงินกองทุน</small><b>{fmtBaht(fund, { dec: false })}</b></div>
-          <div><small>🧾 ใช้จ่ายเฉลี่ย/สัปดาห์</small><b>{fmtBaht(Math.round(h.weeklyOut), { dec: false })}</b></div>
+          <div><small>🧮 รวม</small><b>{fmtBaht(own + fund, { dec: false })}</b></div>
         </section>
-      )}
-      {nums && act !== 0 && (
-        <p className="small" style={{ margin: '0.2rem 0', textAlign: 'right', color: '#c62828', fontWeight: 700 }} role="status" aria-label={`เงินกิจกรรม ${fmtBaht(act)} บาท`}>เงินกิจกรรม {fmtBaht(act)} บาท (แยกจากกองทุน)</p>
-      )}
+      </>)}
       <details className="card healthtipsbox" aria-label="เราช่วยกันได้อย่างไร">
         <summary><b>🤝 เราช่วยกันได้อย่างไร</b></summary>
         <ul className="healthtips">{ui.tips.map((t) => <li key={t}>{t}</li>)}</ul>

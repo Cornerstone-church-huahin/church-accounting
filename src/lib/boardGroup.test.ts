@@ -4,7 +4,8 @@ import type { IncomeType } from './types'
 
 const T = (id: string, name: string, boardCat?: string) => ({ id, name, order: 0, active: true, updated: 1, ...(boardCat ? { boardCat } : {}) }) as IncomeType
 const r = (key: string, label: string, amount: number) => ({ key, label, amount })
-const merge = (a: { amount: number }, b: { amount: number }) => ({ ...a, amount: a.amount + b.amount })
+type R = { key: string; label: string; amount: number }
+const merge = (a: R, b: R): R => ({ ...a, amount: a.amount + b.amount })
 
 describe('ใบติดบอร์ด: รายรับเป็นหมวด ไม่แจ้งชื่อบุคคล', () => {
   const types = [T('tt1', 'สิบลด'), T('tt2', 'ประจำสัปดาห์'), T('t9', 'อ.อรสา'), T('t10', 'ดาวลอย'), T('t11', 'เงินสด')]
