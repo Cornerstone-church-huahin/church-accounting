@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { canSeeBalances } from '../lib/access'
+import { useLoans } from '../lib/data'
+import { summarizeLoans } from '../lib/loans'
 import { useRole } from '../lib/members'
 import { LEVEL_UI, TARGET_WEEKS, TREND_UI } from '../lib/churchHealth'
 import { fmtBaht } from '../lib/money'
@@ -26,6 +28,7 @@ export function HealthButton({ n }: { n: number }) {
 export default function ChurchHealth({ n, name }: { n: number; name: string }) {
   const { year } = useYear()
   const { health: h, own, fund, act } = useChurchHealth(year)
+  const ls = summarizeLoans(useLoans().items)
   const ui = LEVEL_UI[h.level]
   const nums = canSeeBalances(useRole())
   const pct = Math.round(h.progress * 100)
@@ -54,6 +57,11 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
           <div><small>🏠 เงินหมุนเวียน</small><b>{fmtBaht(own, { dec: false })}</b></div>
           <div><small>💰 เงินกองทุน</small><b>{fmtBaht(fund, { dec: false })}</b></div>
           <div><small>🧮 รวม</small><b>{fmtBaht(own + fund, { dec: false })}</b></div>
+        </section>
+        <section className="card healthnums healthnums--compact" aria-label="หนี้สินและภาระ">
+          <Link to="/balance/indebt" className="healthnums__i"><small>🔁 หนี้ภายใน</small><b>{fmtBaht(ls.fromFunds, { dec: false })}</b></Link>
+          <Link to="/balance/debt" className="healthnums__i"><small>🧾 หนี้ภายนอก</small><b>{fmtBaht(ls.external, { dec: false })}</b></Link>
+          <Link to="/land" className="healthnums__i"><small>🏞️ ภาระที่ดิน</small><b>6,000,000</b></Link>
         </section>
       </>)}
       <details className="card healthtipsbox" aria-label="เราช่วยกันได้อย่างไร">
