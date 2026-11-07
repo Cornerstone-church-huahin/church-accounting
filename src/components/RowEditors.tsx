@@ -54,7 +54,7 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   const [date, setDate] = useState(entry?.date ?? defaultDate)
   const [typeId, setTypeId] = useState(entry?.typeId ?? opts[0]?.id ?? '')
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? ''
-  const [label, setLabel] = useState(noteMode ? entry?.note ?? '' : nameOf(entry?.typeId ?? opts[0]?.id ?? ''))
+  const [label, setLabel] = useState(noteMode ? entry?.note ?? '' : entry?.note || nameOf(entry?.typeId ?? opts[0]?.id ?? ''))
   const [method, setMethod] = useState<'cash' | 'transfer'>(entry?.method ?? 'cash')
   const [count, setCount] = useState(entry?.count ? String(entry.count) : '')
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? null)
@@ -71,9 +71,12 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
     if (!amount || amount <= 0) errs.push('ใส่จำนวนเงินมากกว่า 0')
     if (errs.length) return setErr(errs.join('\n'))
     // พิมพ์ชื่อที่ไม่มีในตัวเลือก (ไม่ได้ใช้บ่อย) → ใช้ประเภทที่ชื่อตรงกัน ไม่มีก็สร้างใหม่ในรายการปกติ (ขึ้นใน ตั้งค่า › รายการรับ ด้วย)
+    // เลือกรายการ (หมวด) ไว้แล้ว = หมวดตามที่เลือกเสมอ · ข้อความที่พิมพ์ต่างจากชื่อหมวดเก็บเป็นชื่อ/หมายเหตุของแถว ไม่สร้างรายการใหม่
+    // (ใบติดบอร์ดจึงรวมเป็นหมวดเดียวกัน แยกแถวตามช่องทาง ตู้ถวาย/โอน) · ยังไม่ได้เลือกรายการเลย = ใช้/สร้างตามชื่อที่พิมพ์
     let useType = typeId
     const typed = label.trim()
-    if (!noteMode && typed && typed !== nameOf(typeId)) {
+    const donor = !noteMode && typeId && typed && typed !== nameOf(typeId) ? typed : undefined
+    if (!noteMode && !typeId && typed) {
       const hit = types.find((t) => t.name === typed)
       if (hit) useType = hit.id
       else {
@@ -92,7 +95,7 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
       try { for (const f of picks) photos.push(await onUpload(f)) } catch (x) { setBusy(false); return setErr(x instanceof Error ? x.message : 'แนบรูปไม่สำเร็จ') }
       setBusy(false)
     }
-    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(photos.length ? { photos } : {}), ...(subs?.length ? { subId } : {}), ...(n ? { count: n } : {}), ...(noteMode ? (typed ? { note: typed } : {}) : (entry?.note ? { note: entry.note } : {})) } as IncomeEntry
+    const e = { ...rest, id: entry?.id ?? newId('in'), updated: 0, date, typeId: useType, amount, method, source: entry?.source ?? 'manual', ...(photos.length ? { photos } : {}), ...(subs?.length ? { subId } : {}), ...(n ? { count: n } : {}), ...(noteMode ? (typed ? { note: typed } : {}) : (donor ? { note: donor } : {})) } as IncomeEntry
     const r = onSave(e)
     if (r) return setErr(r)
     for (const p of entry?.photos ?? []) if (!kept.some((k) => k.path === p.path)) onDropPhoto?.(p.path)
@@ -101,12 +104,12 @@ export function IncomeRowEditor({ entry, types, defaultDate, onSave, onDelete, o
   return (
     <Sheet title={entry ? 'แก้ไขรายการในใบบันทึกการถวาย' : 'เพิ่มรายการในใบบันทึกการถวาย'} onClose={onClose}>
       <div className="field"><label htmlFor="ire-date">วันที่</label><input id="ire-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      <div className="field"><label htmlFor="ire-type">รายการ</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { setTypeId(e.target.value); setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+      <div className="field"><label htmlFor="ire-type">รายการ</label><select id="ire-type" className="input" value={typeId} onChange={(e) => { const prev = nameOf(typeId); setTypeId(e.target.value); if (!label.trim() || label.trim() === prev) setLabel(nameOf(e.target.value)) }}>{opts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         {onManage && <CatalogManager noun="รายการรับ" items={opts} ops={{ ...onManage, add: (n) => { const r = onManage.add(n); if (!('error' in r)) setLabel(n.trim()); return r } }} onAdded={setTypeId} />}</div>
       {(subs?.length || subOps) && <SubField id="ire-sub" subs={subs ?? []} value={subId} onChange={setSubId} ops={subOps} noCentral={subsOnly} acts={acts} />}
       <div className="field"><label htmlFor="ire-label">{noteMode ? 'รายละเอียด (พิมพ์อะไรก็ได้ เช่น ยกยอดมา)' : 'ชื่อรายการ (แก้ข้อความได้ — พิมพ์ชื่อใหม่ถ้าไม่มีในตัวเลือก)'}</label><input id="ire-label" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={noteMode ? 'เช่น ยกยอดมา' : 'เช่น ถวายค่าไฟ'} />
         {!noteMode && typeId && label.trim() && label.trim() !== nameOf(typeId) && (
-          <p className="small" role="note" style={{ margin: '0.25rem 0 0', color: '#b3261e' }}>⚠️ ชื่อที่พิมพ์ต่างจากรายการที่เลือก (“{nameOf(typeId)}”) — เมื่อบันทึกจะกลายเป็น<b>รายการใหม่</b>ชื่อ “{label.trim()}” แยกจาก “{nameOf(typeId)}” (ใบติดบอร์ดจะนับแยกกัน) <button type="button" className="mini" onClick={() => setLabel(nameOf(typeId))}>ใช้ชื่อ “{nameOf(typeId)}” (ไม่สร้างรายการใหม่)</button></p>
+          <p className="small muted" role="note" style={{ margin: '0.25rem 0 0' }}>ข้อความนี้เก็บเป็นชื่อของแถวนี้ — ยังนับเป็นหมวด “{nameOf(typeId)}” (ไม่สร้างรายการใหม่ · ใบติดบอร์ดไม่แสดงชื่อ)</p>
         )}</div>
       <div className="seg" role="group" aria-label="ช่องทาง"><button type="button" className={method === 'cash' ? 'on' : ''} onClick={() => setMethod('cash')}>เงินสด (ตู้ถวาย)</button><button type="button" className={method === 'transfer' ? 'on' : ''} onClick={() => setMethod('transfer')}>โอน</button></div>
       <div className="field"><label htmlFor="ire-count">{method === 'cash' ? 'จำนวนหน่วย/ซอง' : 'จำนวนโอน (ครั้ง)'}</label><input id="ire-count" className="input" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" /></div>
