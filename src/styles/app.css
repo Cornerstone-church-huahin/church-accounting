@@ -1967,3 +1967,6 @@ span.fundpend__tog--no { cursor: default; }
 .healthnums--compact small { font-size: 0.58rem; line-height: 1.15; } .healthnums--compact b { font-size: 0.8rem; line-height: 1.15; }
 .healthtipsbox { padding: 0.2rem 0.55rem; margin: 0.2rem 0; }
 .healthtipsbox > summary { font-size: 0.72rem; line-height: 1.2; }
+/* แถบเงินกิจกรรมบนแถบเงินคริสตจักร (หน้าแรก/ภาพรวม) — แยกจากไอคอน 3 ช่อง ไม่นับรวม */
+.healthact--strip { text-decoration: none; margin: 0.25rem 0 0.35rem; }
+a.healthact { color: #b3261e; }

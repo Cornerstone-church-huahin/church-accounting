@@ -50,7 +50,8 @@ export default function OverviewView({ year }: { year: number }) {
         : <section className="card no-print" aria-label="เขียนข้อความสรุปสถานการณ์"><label htmlFor="ov-note"><b>ข้อความสรุปสถานการณ์การเงิน (ผู้นำงานทุกคนเห็น)</b></label><textarea id="ov-note" className="input" rows={4} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="เช่น เดือนนี้เงินหมุนเวียนลดเพราะ… แผนคือ… คาดว่าจะดีขึ้นเมื่อ…" />
             <div className="row"><button type="button" className="btn btn--gold" onClick={() => { save({ leaderNote: editNote.trim() ? { text: editNote.trim(), at: Date.now() } : undefined }); setEditNote(null) }}>บันทึก</button><button type="button" className="btn btn--ghost" onClick={() => setEditNote(null)}>ยกเลิก</button></div></section>)}
       {showTiles && <section aria-label="โซน 1 เงินคริสตจักร ณ วันนี้">
-        <p className="home-label moneystrip__cap"><span>💰 เงินคริสตจักร ณ วันนี้</span><span className="cashtotal" aria-label={`เงินกิจกรรม ${fmtBaht(b.act)} บาท`}>เงินกิจกรรม <b>{fmtBaht(b.act)}</b></span></p>
+        <p className="home-label moneystrip__cap"><span>💰 เงินคริสตจักร ณ วันนี้</span></p>
+        <div className="healthact healthact--strip" role="status" aria-label={`เงินกิจกรรม ${fmtBaht(b.act)} บาท`}><span><span aria-hidden="true">🎈</span> เงินกิจกรรม <small>(แยกต่างหาก ไม่รวมในยอดรวม)</small></span><b>{fmtBaht(b.act)} บาท</b></div>
         <div className="balance-tiles" role="group" aria-label="เงินคริสตจักร: ดูอย่างเดียว">
           {tiles.map(([k, l, v, a]) => <div key={k} className={`btile btile--${k}`} aria-label={`${a} ${v}`}><small>{l}</small><b>{v}</b></div>)}
         </div>

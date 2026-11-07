@@ -14,8 +14,9 @@ export interface Balances {
   funds: FundAccount[]
   /** เงินกองทุนถาวร (ไม่รวมเงินกิจกรรม) */
   fundTotal: number
-  /** เงินกิจกรรม (แยกจากกองทุน) · own + fundTotal + act = total */
+  /** เงินกิจกรรม (แยกต่างหาก ไม่รวมใน total) */
   act: number
+  /** รวมเงินสด = เงินหมุนเวียน + เงินกองทุน (ไม่รวมเงินกิจกรรม — แสดงแยกเสมอ) */
   total: number
 }
 
@@ -35,7 +36,7 @@ export function computeBalances(a: Omit<LedgerArgs, 'range' | 'withFunds'> & { o
   const borrowed = (a.loans ?? []).filter((l) => !l.deleted && l.borrower === 'own').reduce((s, l) => s + loanBalance(l), 0)
   const lent = ownLent(a.loans ?? [], a.today)
   const own = { opening, moneyIn, moneyOut, pending: L.outSum.pending, borrowed, lent, balance: opening + moneyIn - moneyOut - L.outSum.pending + borrowed - lent }
-  return { own, funds, fundTotal, act, total: own.balance + fundTotal + act }
+  return { own, funds, fundTotal, act, total: own.balance + fundTotal }
 }
 
 export type { LRow }

@@ -59,7 +59,7 @@ export default function Summary({ year }: { year: number }) {
   const meeting = useMemo(() => {
     const ls = summarizeLoans(loans, asOf)
     const f = (x: number) => fmtBaht(x, { dec: false })
-    return { tiles: [['🏠 หมุนเวียน', f(bw.own.balance)], ['💰 กองทุน', f(bw.fundTotal)], [bw.act !== 0 ? `🧮 รวมเงินสด (รวมเงินกิจกรรม ${f(bw.act)})` : '🧮 รวมเงินสด', f(bw.total)], ['🔁 หนี้ภายใน', f(ls.fromFunds)], ['🧾 หนี้ภายนอก', f(ls.external)], ['🏞️ ภาระที่ดิน', '6,000,000']] as [string, string][], withdraw: { totalC: wd.totalC, totalF: wd.totalF, total: wd.total }, follow: periodReport(rangeOf('week', year, { sunday }), a).follow.map((x) => x.text) }
+    return { tiles: [['🏠 หมุนเวียน', f(bw.own.balance)], ['💰 กองทุน', f(bw.fundTotal)], ['🧮 รวมเงินสด (ไม่รวมเงินกิจกรรม)', f(bw.total)], ['🔁 หนี้ภายใน', f(ls.fromFunds)], ['🧾 หนี้ภายนอก', f(ls.external)], ['🏞️ ภาระที่ดิน', '6,000,000'], ...(bw.act !== 0 ? [['🎈 เงินกิจกรรม (แยกต่างหาก)', f(bw.act)]] : [])] as [string, string][], withdraw: { totalC: wd.totalC, totalF: wd.totalF, total: wd.total }, follow: periodReport(rangeOf('week', year, { sunday }), a).follow.map((x) => x.text) }
   }, [bw, wd, loans, asOf, a, year, sunday])
   const pd = useMemo(() => (notice === 'month' || notice === 'year' ? buildPeriod(notice, year, month, a, loans) : null), [notice, year, month, a, loans])
   const n = useMemo(() => {
