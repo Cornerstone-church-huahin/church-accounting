@@ -1951,3 +1951,19 @@ span.fundpend__tog--no { cursor: default; }
 .healthact { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin: 0.4rem 0; padding: 0.55rem 0.8rem; border-radius: 1rem; border: 2px solid #c62828; background: #fdecea; color: #b3261e; font-weight: 700; }
 .healthact b { font-size: 1.15rem; white-space: nowrap; }
 .healthact small { font-weight: 500; }
+
+/* สถานะการเงิน: กะทัดรัดแนวตั้ง (ลดความสูงลงราวครึ่งหนึ่ง) — แถบ/ตัวอักษร/ช่องว่างเล็กลง */
+.healthcard--compact { padding: 0.25rem 0.55rem; margin: 0.2rem 0; border-left-width: 4px; }
+.healthcard--compact .healthcard__top { gap: 0.3rem; }
+.healthcard--compact .healthcard__icon { font-size: 0.95rem; }
+.healthcard--compact .healthcard__title { font-size: 0.82rem; }
+.healthcard--compact .healthcard__msg { font-size: 0.66rem; line-height: 1.2; -webkit-line-clamp: 1; }
+.healthcard--compact .healthmeter { height: 0.32rem; margin-top: 0.15rem; }
+.healthcard--compact p.small { font-size: 0.62rem; line-height: 1.2; margin: 0.08rem 0 0 !important; }
+.healthact { margin: 0.2rem 0; padding: 0.2rem 0.55rem; border-width: 1.5px; border-radius: 0.6rem; font-size: 0.74rem; line-height: 1.2; }
+.healthact b { font-size: 0.9rem; }
+.healthact small { font-size: 0.62rem; }
+.healthnums--compact { padding: 0.18rem 0.4rem; margin: 0.2rem 0; gap: 0.15rem; }
+.healthnums--compact small { font-size: 0.58rem; line-height: 1.15; } .healthnums--compact b { font-size: 0.8rem; line-height: 1.15; }
+.healthtipsbox { padding: 0.2rem 0.55rem; margin: 0.2rem 0; }
+.healthtipsbox > summary { font-size: 0.72rem; line-height: 1.2; }
