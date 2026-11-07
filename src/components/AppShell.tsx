@@ -2,7 +2,7 @@ import { AppCredit } from './Credit'
 import { MEETING_TABS } from '../lib/workTabs'
 import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { can, isSolo, myFunds, myWorks, rolesOf, READONLY_EVENT, whoAmI } from '../lib/access'
+import { can, isSolo, isWorkStaffOnly, myFunds, myWorks, rolesOf, READONLY_EVENT, whoAmI } from '../lib/access'
 import { useMembers, useMembership, useRole } from '../lib/members'
 import { useIncomeTypes, useSettings, useVouchers } from '../lib/data'
 import { tasksFor } from '../lib/ledger'
@@ -62,7 +62,9 @@ export default function AppShell() {
   const fundNames = useIncomeTypes().list
   // ผู้ที่มีไอคอนลงชื่อที่หัวแอปอยู่แล้ว (แอดมิน/ผู้บันทึกบัญชี) ไม่ต้องมีเมนูสมาชิกซ้ำที่แถบล่าง
   const FUNDTABS = (fk ?? []).map((f) => ({ to: `/funds/${f.id}`, label: fundNames.find((t) => t.id === f.id)?.name.replace(/^กองทุน-?/, '') || 'กองทุน', Icon: IconWallet, end: false }))
-  const TABS = fk ? FUNDTABS : role === 'worship' ? WORSHIP : full ? (can(role, 'registry') ? FULL.filter((t) => t.to !== '/members') : FULL) : VIEW
+  const BASE_TABS = fk ? FUNDTABS : role === 'worship' ? WORSHIP : full ? (can(role, 'registry') ? FULL.filter((t) => t.to !== '/members') : FULL) : VIEW
+  // ผู้ดูแล/ผู้ช่วยงาน/ที่ปรึกษา: เมนูล่างเหลือ หน้าแรก + เพิ่มเติม (ไม่มี งบประมาณ/รายงาน)
+  const TABS = !fk && role !== 'worship' && isWorkStaffOnly() ? BASE_TABS.filter((t) => t.to === '/' || t.to === '/more') : BASE_TABS
 
   useEffect(() => { document.documentElement.dataset.role = role }, [role])
   useEffect(() => {
