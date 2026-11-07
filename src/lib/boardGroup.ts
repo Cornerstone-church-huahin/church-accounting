@@ -4,6 +4,8 @@ import type { IncomeType } from './types'
 /** ใบติดบอร์ด: รายรับไม่แจ้งชื่อบุคคล — รายการที่ผู้ใช้เพิ่มเอง (ชื่อคน/ชื่อเฉพาะ) รวมเป็น “ถวายอื่น ๆ” หรือหมวดที่กำหนดไว้ (boardCat) */
 export const BOARD_OTHER = 'ถวายอื่น ๆ'
 const STANDARD = new Set(DEFAULT_INCOME_TYPES.filter((t) => !t.fund).map((t) => t.id))
+/** ชื่อหมวดมาตรฐานที่เลือกได้บนบอร์ด */
+export const STANDARD_BOARD = DEFAULT_INCOME_TYPES.filter((t) => !t.fund).map((t) => t.name)
 const STANDARD_NAMES = new Set(DEFAULT_INCOME_TYPES.filter((t) => !t.fund).map((t) => t.name))
 
 /** ชื่อหมวดของแถวรายรับหนึ่งแถวบนใบติดบอร์ด (key = id ประเภท) */
