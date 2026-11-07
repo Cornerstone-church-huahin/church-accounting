@@ -196,7 +196,6 @@ function AccountView({ n, name, kind }: { n: number; name: string; kind: 'in' | 
   if (kind === 'all') {
     return (
       <>
-        <AccountTabs n={n} active="all" />
         <div className="page-head no-print">
           <h1>📊 ภาพรวมรายรับ-รายจ่าย</h1>
           <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
