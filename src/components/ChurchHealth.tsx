@@ -42,6 +42,7 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
       <aside className="no-print devnote devnote--health" role="note" aria-label="หมายเหตุ: อยู่ระหว่างพัฒนา">
         🚧 <b>หมายเหตุ: อยู่ระหว่างพัฒนา</b> · ความสมบูรณ์ประมาณ <b>95%</b> · ตัวเลขและข้อความบางส่วนอาจคลาดเคลื่อน · คาดว่าใช้งานได้เต็มระบบตั้งแต่ <b>1 มกราคม 2570</b>
       </aside>
+      <div className="healthstack">
       <section className={`card healthcard healthcard--compact healthcard--${h.level}`} aria-label="สถานะการเงินคริสตจักร">
         <div className="healthcard__top"><span className="healthcard__icon" aria-hidden="true">{ui.icon}</span><div><b className="healthcard__title">{ui.title}</b><p className="healthcard__msg">{ui.message}</p></div></div>
         <div className="healthmeter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={`เงินสำรองหมุนเวียน ${pct}% ของเป้า ${TARGET_WEEKS} สัปดาห์`}>
@@ -68,6 +69,7 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
         <summary><b>🤝 เราช่วยกันได้อย่างไร</b></summary>
         <ul className="healthtips">{ui.tips.map((t) => <li key={t}>{t}</li>)}</ul>
       </details>
+      </div>
       <Record year={year} readOnly />
     </>
   )
