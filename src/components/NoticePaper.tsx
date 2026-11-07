@@ -23,7 +23,7 @@ function piecesOf(n: Notice): Piece[] {
     { t: 'out', title: 'รายจ่ายเงินหมุนเวียน', rows: n.out, start: 0, total: n.totalOut },
   ]
   if (n.fund.length > 0) {
-    out.push({ t: 'inc', title: 'เงินกองทุนที่รับสัปดาห์นี้', note: FUND_NOTE, status: 'เก็บไว้ เตรียมนำฝาก', rows: n.fund, start: 0, total: { label: 'รวมเงินถวายกองทุน · เตรียมนำฝากเข้าบัญชีกองทุน', ...tot(n.fund) } })
+    out.push({ t: 'inc', title: 'เงินกองทุนที่รับสัปดาห์นี้', note: FUND_NOTE, status: 'เก็บไว้ เตรียมนำฝาก', rows: n.fund, start: 0 })
   }
   out.push({ t: 'sum' })
   return out
