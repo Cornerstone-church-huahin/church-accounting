@@ -1970,3 +1970,4 @@ span.fundpend__tog--no { cursor: default; }
 /* แถบเงินกิจกรรมบนแถบเงินคริสตจักร (หน้าแรก/ภาพรวม) — แยกจากไอคอน 3 ช่อง ไม่นับรวม */
 .healthact--strip { text-decoration: none; margin: 0.25rem 0 0.35rem; }
 a.healthact { color: #b3261e; }
+.healthnums__i { color: inherit; text-decoration: none; display: block; }
