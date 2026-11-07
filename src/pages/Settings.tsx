@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import MoneyInput from '../components/MoneyInput'
 import { MEETING_TABS } from '../lib/workTabs'
-import { can, normalizeRoles, ROLE_HELP, ROLE_LABEL, rolesLabel, rolesOf, type Role } from '../lib/access'
+import { can, isWorkStaffOnly, normalizeRoles, ROLE_HELP, ROLE_LABEL, rolesLabel, rolesOf, type Role } from '../lib/access'
 import { isFundType } from '../lib/funds'
 import { makeExpenseGroup, makeIncomeType } from '../lib/catalog'
 import { DEFAULT_EXPENSE_CATS } from '../lib/expenseCats'
@@ -35,6 +35,7 @@ function Fold({ id, title, open, children }: { id: string; title: ReactNode; ope
 export default function Settings() {
   const role = useRole()
   const cfg = getSync()
+  const staffOnly = isWorkStaffOnly()
   return (
     <>
       <div className="page-head"><h1>ตั้งค่า</h1></div>
@@ -44,8 +45,8 @@ export default function Settings() {
       {can(role, 'settings') && <ExpenseCatsCard />}
       {can(role, 'settings') && <DataClean />}
       <Fold id="h-inst" title="📲 ติดตั้งเป็นแอป"><InstallApp /></Fold>
-      <Connect />
-      {cfg && <Members />}
+      {!staffOnly && <Connect />}
+      {cfg && !staffOnly && <Members />}
       {can(role, 'income') && <Reader />}
       {can(role, 'settings') && <Accounts />}
       <Display />

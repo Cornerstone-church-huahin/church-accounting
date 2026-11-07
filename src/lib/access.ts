@@ -259,3 +259,13 @@ export function myFunds(): FundAssign[] | null {
   const mine = me && readAllMembers().find((m) => m.id === me.id)
   return (mine && !mine.deleted && mine.funds) || []
 }
+
+/** เครื่องนี้เป็น ผู้ดูแล/ผู้ช่วยงาน/ที่ปรึกษา ของห้องงานเท่านั้น (ไม่ใช่แอดมิน/ผู้ช่วยแอดมิน) → ไม่เห็นเมนูตั้งค่าระบบ “เชื่อมต่อออนไลน์” และ “ผู้ใช้ร่วมและสิทธิ์” */
+export function isWorkStaffOnly(): boolean {
+  const me = getMe()
+  const m = me && readAllMembers().find((x) => x.id === me.id)
+  if (!m || m.deleted) return false
+  if (rolesOf(m).includes('admin')) return false
+  const lv = (m.works ?? []).map((n) => workLevelOf(m, n))
+  return lv.length > 0 && lv.every((l) => l === 'lead' || l === 'helper' || l === 'advisor')
+}
