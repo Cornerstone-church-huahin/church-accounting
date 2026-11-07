@@ -68,7 +68,7 @@ try {
   await lock('expense view')
   await page.screenshot({ path: 'shots/acctview-out.png' })
   // ภาพรวม: โซน 1 ช่องเงิน · โซน 2 ใบสรุปประจำสัปดาห์ · โซน 3 แถบสัปดาห์ย้อนหลัง — ดูอย่างเดียว
-  await page.getByRole('navigation', { name: 'สลับรายรับ รายจ่าย สรุป' }).getByRole('link', { name: /สรุป/ }).click()
+  await page.goto(page.url().replace(/\/(in|out)$/, '/all')); must(await page.getByRole('navigation', { name: 'สลับรายรับ รายจ่าย สรุป' }).count() === 0, 'overview page has no income/expense icon bar')
   await page.getByRole('heading', { name: /ภาพรวมรายรับ-รายจ่าย/, level: 1 }).waitFor({ timeout: 8000 })
   const z1 = page.getByRole('region', { name: /โซน 1/ }), z2 = page.getByRole('region', { name: /โซน 2/ }), z3 = page.getByRole('region', { name: /โซน 3/ })
   const t1 = (await z1.innerText()).replace(/\s+/g, ' ')
