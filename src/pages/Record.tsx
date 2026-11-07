@@ -40,7 +40,7 @@ function BoardNotice({ year, sunday, byCategory, noTools }: { /** ดูอย�
     const by = new Map<string, number>()
     for (const x of outLinesOf(range, input)) by.set(x.catLabel, (by.get(x.catLabel) ?? 0) + x.amount)
     const out = [...by].sort((a, b) => b[1] - a[1]).map(([label, amount], i) => ({ key: `cat:${i}`, date: '', desc: label, amount }))
-    return { ...n0, inc, out }
+    return { ...n0, inc, fund: splitByChannel(n0.fund), out }
   }, [input, year, sunday, byCategory])
   const els = () => paper.current.filter(Boolean)
   // รายการที่เพิ่มเอง (ชื่อคน ฯลฯ) ที่ยังรวมเป็น “ถวายอื่น ๆ” — แอดมินเลือกหมวดให้ได้ที่นี่ (ตั้ง boardCat)

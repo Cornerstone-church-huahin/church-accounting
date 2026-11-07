@@ -32,14 +32,13 @@ export function groupBoard<T extends { key: string; label: string }>(rows: T[], 
   return [...all.filter((x) => x.label !== BOARD_OTHER), ...all.filter((x) => x.label === BOARD_OTHER)]
 }
 
-/** แถวรายรับที่มีทั้งเงินสด/ตู้ถวาย และเงินโอน → แยกเป็น 2 แถวตามช่องทางจริง: “สิบลด” (ตู้/เงินสด) และ “สิบลด (โอน)” */
+/** ทุกแถวรายรับบนบอร์ดระบุช่องทางให้ชัด: “สิบลด (ตู้ถวาย)” กับ “สิบลด (โอน)” — แถวที่มีทั้งสองช่องทางแยกเป็น 2 แถวตามความจริง */
 export function splitByChannel<T extends { key: string; label: string; cashN: number; cash: number; trN: number; tr: number; amt: number }>(rows: T[]): T[] {
   const out: T[] = []
   for (const r of rows) {
-    if (r.cash > 0 && r.tr > 0) {
-      out.push({ ...r, key: `${r.key}:cash`, trN: 0, tr: 0, amt: r.cash })
-      out.push({ ...r, key: `${r.key}:tr`, label: `${r.label} (โอน)`, cashN: 0, cash: 0, amt: r.tr })
-    } else out.push(r)
+    if (r.cash > 0) out.push({ ...r, key: `${r.key}:cash`, label: `${r.label} (ตู้ถวาย)`, trN: 0, tr: 0, amt: r.cash })
+    if (r.tr > 0) out.push({ ...r, key: `${r.key}:tr`, label: `${r.label} (โอน)`, cashN: 0, cash: 0, amt: r.tr })
+    if (!(r.cash > 0) && !(r.tr > 0)) out.push(r)
   }
   return out
 }
