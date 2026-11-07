@@ -70,7 +70,7 @@ export default function ChurchHealth({ n, name }: { n: number; name: string }) {
         <ul className="healthtips">{ui.tips.map((t) => <li key={t}>{t}</li>)}</ul>
       </details>
       </div>
-      <Record year={year} readOnly />
+      <Record year={year} readOnly boardOnly={n !== 3} />
     </>
   )
 }
