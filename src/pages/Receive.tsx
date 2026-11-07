@@ -148,7 +148,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
     <li key={x.id} style={{ display: 'block', padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span className="grow"><b>{typeName(x.typeId)}</b>{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
+        <span className="grow"><b>{typeName(x.typeId)}</b>{x.note ? <span className="small muted"> · {x.note}</span> : null}{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
       </div>
       {actions(() => setForm({ entry: x, preset }), () => delEntry(x))}
