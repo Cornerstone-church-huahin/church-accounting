@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD_OTHER, groupBoard } from './boardGroup'
+import { BOARD_OTHER, groupBoard, splitByChannel } from './boardGroup'
 import type { IncomeType } from './types'
 
 const T = (id: string, name: string, boardCat?: string) => ({ id, name, order: 0, active: true, updated: 1, ...(boardCat ? { boardCat } : {}) }) as IncomeType
@@ -17,5 +17,14 @@ describe('ใบติดบอร์ด: รายรับเป็นหม�
     const ty = [T('tt1', 'สิบลด'), T('t9', 'อ.อรสา', 'สิบลด')]
     const out = groupBoard([r('tt1', 'สิบลด', 100), r('t9', 'อ.อรสา', 2000)], ty, merge)
     expect(out.map((x) => [x.label, x.amount])).toEqual([['สิบลด', 2100]])
+  })
+  it('รายการที่เพิ่มเองแต่ชื่อตรงหมวดมาตรฐาน (แก้ชื่อเป็น สิบลด) อยู่หมวดสิบลด', () => {
+    const ty = [T('tt1', 'สิบลด'), T('t9', 'สิบลด ')]
+    expect(groupBoard([r('tt1', 'สิบลด', 100), r('t9', 'สิบลด ', 2000)], ty, merge).map((x) => [x.label, x.amount])).toEqual([['สิบลด', 2100]])
+  })
+  it('หมวดที่มีทั้งตู้และโอน แยกเป็น 2 แถว', () => {
+    const line = { key: 'board:สิบลด', label: 'สิบลด', cashN: 7, cash: 4550, trN: 2, tr: 2485, amt: 7035 }
+    const out = splitByChannel([line, { key: 'tt2', label: 'ประจำสัปดาห์', cashN: 8, cash: 1060, trN: 0, tr: 0, amt: 1060 }])
+    expect(out.map((x) => [x.label, x.cash, x.tr, x.amt])).toEqual([['สิบลด', 4550, 0, 4550], ['สิบลด (โอน)', 0, 2485, 2485], ['ประจำสัปดาห์', 1060, 0, 1060]])
   })
 })
