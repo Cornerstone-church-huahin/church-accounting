@@ -131,17 +131,18 @@ export default function BalancePage() {
       {kind === 'total' && (
         <section className="card" aria-label="รวมเงินทั้งหมด">
           <h2>🧮 รวมเงินคริสตจักร</h2>
-          <p className="muted small" style={{ margin: 0 }}>เงินหมุนเวียน + เงินกองทุนทุกกอง</p>
+          <p className="muted small" style={{ margin: 0 }}>เงินหมุนเวียน + เงินกองทุนทุกกอง (เงินกิจกรรมแสดงแยกต่างหาก)</p>
           <p className="bigfig">{fmtBaht(b.total)} บาท</p>
           <table className="tbl tbl--paper" aria-label="รวมเงินทั้งหมด">
             <tbody>
               <tr><td>{dot(OWN_COLOR)}🏠 เงินหมุนเวียน</td><td className="num">{m(b.own.balance)}</td></tr>
-              {b.funds.map((f) => <tr key={f.id}><td>{dot(fc[f.id])}💰 {f.name}</td><td className="num">{m(f.balance)}</td></tr>)}
+              {funds.map((f) => <tr key={f.id}><td>{dot(fc[f.id])}💰 {f.name}</td><td className="num">{m(f.balance)}</td></tr>)}
             </tbody>
-            <tfoot><tr><td>รวมทั้งหมด</td><td className="num">{m(b.total)}</td></tr></tfoot>
+            <tfoot><tr><td>รวมทั้งหมด (ไม่รวมเงินกิจกรรม)</td><td className="num">{m(b.total)}</td></tr></tfoot>
           </table>
+          {b.act !== 0 && <p className="healthact" role="status" aria-label="เงินกิจกรรม"><span><span aria-hidden="true">🎈</span> เงินกิจกรรม <small>(แยกต่างหาก ไม่รวมในยอดข้างบน)</small></span><b>{fmtBaht(b.act)} บาท</b></p>}
           <div className="stat-title">สัดส่วนเงินทั้งหมด (บาท · %)</div>
-          <Donut rows={[{ label: 'เงินหมุนเวียน', value: Math.max(0, b.own.balance), color: OWN_COLOR }, ...b.funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))].filter((r) => r.value > 0).sort((x, y) => y.value - x.value)} tone="in" />
+          <Donut rows={[{ label: 'เงินหมุนเวียน', value: Math.max(0, b.own.balance), color: OWN_COLOR }, ...funds.map((f) => ({ label: f.name, value: Math.max(0, f.balance), color: fc[f.id] }))].filter((r) => r.value > 0).sort((x, y) => y.value - x.value)} tone="in" />
           <p className="muted small">ยอดเหล่านี้คำนวณจากยอดตั้งต้น + รายการที่บันทึกในแอป ควรเทียบกับยอดในสมุดบัญชีธนาคารและเงินสดจริงที่ขั้น 3 ปรับ</p>
         </section>
       )}

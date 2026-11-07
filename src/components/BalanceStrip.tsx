@@ -21,8 +21,8 @@ export default function BalanceStrip({ compact }: { compact?: boolean }) {
     <section className={compact ? 'moneystrip no-print' : undefined} aria-label="เงินคริสตจักร ณ วันนี้">
     <p className="moneystrip__cap" style={compact ? undefined : { margin: '0.2rem 0 0.35rem' }}>
       <span>💰 เงินคริสตจักร ณ วันนี้</span>
-      <Link to={actTo} className="cashtotal" aria-label={`เงินกิจกรรม ${fmtBaht(act)} บาท`}>เงินกิจกรรม <b>{fmtBaht(act)}</b></Link>
     </p>
+    <Link to={actTo} className="healthact healthact--strip no-print" aria-label={`เงินกิจกรรม ${fmtBaht(act)} บาท`}><span><span aria-hidden="true">🎈</span> เงินกิจกรรม <small>(แยกต่างหาก ไม่รวมในยอดรวม)</small></span><b>{fmtBaht(act)} บาท</b></Link>
     <nav className={`balance-tiles no-print${compact ? ' balance-tiles--strip' : ''}`} aria-label="เงินคริสตจักร: หมุนเวียน กองทุน รวม">
       <Link to="/balance/own" className="btile btile--own"><small>🏠 หมุนเวียน</small><b>{fmtBaht(b.own.balance, { dec: false })}</b></Link>
       <Link to="/balance/fund" className="btile btile--fund"><small>💰 กองทุน</small><b>{fmtBaht(b.fundTotal, { dec: false })}</b></Link>
