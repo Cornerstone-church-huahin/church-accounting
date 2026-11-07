@@ -50,9 +50,9 @@ export function FitBox({ sig, children }: { sig: string; children: ReactNode }) 
 const FUND_NOTE = 'เงินส่วนกองทุน — แสดงเป็นรายงานให้ทราบเท่านั้น ไม่รวมกับเงินหมุนเวียน และไม่นำไปคำนวณรวมกับยอดรายรับ รายจ่าย หรือผลต่างของสัปดาห์นี้'
 const th: React.CSSProperties = { fontSize: 13 }
 /** จัดชิ้นเรียงกันในหน้าเดียวให้อยู่ในกรอบโซนเดียวกัน (หมุนเวียน / กองทุน) — sum อยู่นอกกรอบ · cont = โซนนี้ต่อจากหน้าก่อน */
-/** เรียงโซน: เงินกองทุนไว้บน → เงินหมุนเวียนไว้ล่าง → สรุป (ตามที่ผู้ใช้กำหนด) */
+/** เรียงโซน: เงินหมุนเวียน → กล่องสรุป → เงินกองทุนไว้ล่างสุด (ตามที่ผู้ใช้กำหนด) */
 function zonesInOrder<T extends { zone: 'circ' | 'fund' | 'sum' }>(zs: T[]): T[] {
-  const rank = { fund: 0, circ: 1, sum: 2 } as const
+  const rank = { circ: 0, sum: 1, fund: 2 } as const
   return [...zs].sort((a, b) => rank[a.zone] - rank[b.zone])
 }
 function groupZones(pcs: Piece[]): { zone: 'circ' | 'fund' | 'sum'; pieces: Piece[]; cont: boolean }[] {
@@ -132,7 +132,7 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
               </div>
             ) : (
               <div key={gi} className={`zone zone--${g.zone}`} style={g.zone === 'circ' ? { border: '3px solid #1a2b4c', background: '#f4f7fd' } : { border: '3px dashed #b8860b', background: '#fff8e6' }}>
-                <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? `■ ส่วนที่ ${gi + 1} · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)` : `▲ ส่วนที่ ${gi + 1} · เงินกองทุน (เงินของแต่ละกองทุน คริสตจักรเก็บรักษาไว้ ไม่ใช่รายรับ-รายจ่ายของคริสตจักร)`}{g.cont ? ' · (ต่อ)' : ''}</div>
+                <div className="zone__head" style={{ background: g.zone === 'circ' ? '#1a2b4c' : '#b8860b' }}>{g.zone === 'circ' ? `■ ส่วนที่ 1 · เงินหมุนเวียน (เงินที่คริสตจักรบริหารจัดการ)` : `▲ ส่วนที่ 2 · เงินกองทุน (เงินของแต่ละกองทุน คริสตจักรเก็บรักษาไว้ ไม่ใช่รายรับ-รายจ่ายของคริสตจักร)`}{g.cont ? ' · (ต่อ)' : ''}</div>
                 {g.pieces.map((p, i) => p.t === 'inc' ? <IncTable key={i} p={p} /> : p.t === 'out' ? <OutTable key={i} p={p} noNames={pub} catMode={cat} /> : null)}
               </div>
             ))}{meeting && <>
