@@ -1975,3 +1975,8 @@ a.healthact { color: #b3261e; }
 .healthstack { display: flex; flex-direction: column; gap: 0.12rem; }
 .healthstack > * { margin: 0 !important; }
 .healthstack .healthact { margin: 0 !important; }
+/* ลงนามสองด้าน (ซ้าย-ขวา) */
+.letter__sign--two { width: 100%; margin-left: 0; }
+.letter__signrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+.letter__signcol { text-align: center; }
+.il__bottom .letter__sign--two { margin-right: 0; }
