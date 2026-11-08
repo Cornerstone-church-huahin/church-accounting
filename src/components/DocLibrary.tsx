@@ -212,19 +212,24 @@ function DocForm({ doc, preset, cats, defCat, nextFor, prefixOf, onClose, onSave
   )
 }
 
-/** ปุ่ม ⚙️ หมวด: จัดการหมวดเอกสาร (สร้าง/แก้ชื่อ/ลบ/ตัวย่อเลขที่) ชุดเดียวกับในคลังเอกสาร — ใช้ในหน้าสร้างเอกสารได้ */
+/** หน้าต่างจัดการหมวดเอกสาร (สร้าง/แก้ชื่อ/ลบ/ตัวย่อเลขที่) ชุดเดียวกับในคลังเอกสาร — เรียกใช้จากหน้าอื่นได้ */
+export function DocCategorySheet({ onClose }: { onClose: () => void }) {
+  const lib = useDocLibrary()
+  const catStore = useDocCategories()
+  const cats = categoriesOf(lib.list, catStore.list.map((c) => c.name))
+  return <CatManager cats={cats} onClose={onClose} docs={lib.list} putDocs={lib.put} catStore={catStore} onRenamed={() => undefined} />
+}
+
+/** ปุ่ม ⚙️ หมวด (หน้าสร้างเอกสาร) */
 export function DocCategoryButton() {
   const role = useRole()
   const editor = role === 'admin' || canRole(role, 'detail') || canWork(1, 'edit')
-  const lib = useDocLibrary()
-  const catStore = useDocCategories()
   const [open, setOpen] = useState(false)
   if (!editor) return null
-  const cats = categoriesOf(lib.list, catStore.list.map((c) => c.name))
   return (
     <>
       <button type="button" className="btn btn--ghost" onClick={() => setOpen(true)} aria-label="จัดการหมวดเอกสาร">⚙️ หมวด</button>
-      {open && <CatManager cats={cats} onClose={() => setOpen(false)} docs={lib.list} putDocs={lib.put} catStore={catStore} onRenamed={() => undefined} />}
+      {open && <DocCategorySheet onClose={() => setOpen(false)} />}
     </>
   )
 }
