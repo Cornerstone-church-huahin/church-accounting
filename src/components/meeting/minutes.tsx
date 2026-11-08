@@ -21,7 +21,7 @@ export function minutesBlocks(m: Meeting, opts: { draft?: boolean; final?: boole
   out.push({ key: 'title', lines: 3, node: (
     <>
       <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18 }}>รายงานการประชุม{opts.draft ? ' (ร่าง)' : ''}</div>
-      <div style={{ textAlign: 'center' }}>{plainName(m.name)} ครั้งที่ {m.no}/{yearBE(m.year)}{m.type === 'พิเศษ' ? ' (การประชุมพิเศษ)' : ''}</div>
+      <div style={{ textAlign: 'center' }}>{plainName(m.name)} ครั้งที่ {m.no}/{yearBE(m.year)}{m.type === 'พิเศษ' ? ' (สมัยวิสามัญ)' : ' (สมัยสามัญ)'}</div>
       <div style={{ textAlign: 'center', marginBottom: 8 }}>วันที่ {letterDate(m.date) || '………'} เวลา {timeTh(m.time) || '………'} ณ {m.place || '………'}</div>
     </>) })
   const groups = [

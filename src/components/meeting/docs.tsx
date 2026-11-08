@@ -39,7 +39,7 @@ export function mergeNoticeAgenda(base: MtAgenda[], rows: { label: string; t: st
 }
 
 export const defaultNoticeBody = (m: Meeting) =>
-  `ด้วย${m.name || '………'} กำหนดจัดการประชุม${m.type === 'พิเศษ' ? 'พิเศษ' : ''} ครั้งที่ ${m.no}/${m.year} ในวันที่ ${letterDate(m.date) || '………'} เวลา ${timeTh(m.time) || '………'} ณ ${m.place || '………'} โดยมีระเบียบวาระการประชุมตามที่แนบมาพร้อมนี้\n\nจึงเรียนเชิญท่านเข้าร่วมประชุมตามวัน เวลา และสถานที่ดังกล่าว หากไม่สามารถเข้าร่วมได้ กรุณาแจ้งเลขานุการล่วงหน้า`
+  `ด้วย${m.name || '………'} กำหนดจัดการประชุม${m.type === 'พิเศษ' ? 'วิสามัญ' : 'สามัญ'} ครั้งที่ ${m.no}/${m.year} ในวันที่ ${letterDate(m.date) || '………'} เวลา ${timeTh(m.time) || '………'} ณ ${m.place || '………'} โดยมีระเบียบวาระการประชุมตามที่แนบมาพร้อมนี้\n\nจึงเรียนเชิญท่านเข้าร่วมประชุมตามวัน เวลา และสถานที่ดังกล่าว หากไม่สามารถเข้าร่วมได้ กรุณาแจ้งเลขานุการล่วงหน้า`
 
 const Row = ({ k, children }: { k: string; children: React.ReactNode }) => <div className="letter__row"><span>{k}</span><span style={{ flex: 1 }}>{children}</span></div>
 
@@ -70,7 +70,7 @@ export function AgendaBody({ m }: { m: Meeting }) {
   return (
     <>
       <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18, margin: '4px 0 2px' }}>ระเบียบวาระการประชุม</div>
-      <div style={{ textAlign: 'center' }}>{m.name} ครั้งที่ {m.no}/{m.year}{m.type === 'พิเศษ' ? ' (การประชุมพิเศษ)' : ''}</div>
+      <div style={{ textAlign: 'center' }}>{m.name} ครั้งที่ {m.no}/{m.year}{m.type === 'พิเศษ' ? ' (สมัยวิสามัญ)' : ' (สมัยสามัญ)'}</div>
       <div style={{ textAlign: 'center', marginBottom: 12 }}>วันที่ {letterDate(m.date) || '………'} เวลา {timeTh(m.time) || '………'} ณ {m.place || '………'}</div>
       <table aria-label="ระเบียบวาระ">
         <thead><tr><th style={{ width: 46 }}>วาระ</th><th>เรื่อง</th><th style={{ width: 70 }}>เพื่อ</th><th style={{ width: 150 }}>เอกสารประกอบ</th></tr></thead>
