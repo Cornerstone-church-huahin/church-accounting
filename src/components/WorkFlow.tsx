@@ -208,13 +208,18 @@ function MeetingRows({ flowId, titles }: { flowId: string; titles: Record<string
   const numOf = (m: Meeting) => noDigits(letters.items.find((x) => x.id === m.noticeLetterId && !x.deleted)?.no)
   // เรียงตามเลขที่: เลขน้อยสุดอยู่ล่าง ไล่ขึ้นไป ล่าสุดอยู่บนสุด (ชิ้นที่ยังไม่มีหนังสืออยู่บนสุด)
   const list = ms.list.filter((m) => kindOf(m) === tab).sort((a, b) => (numOf(b) || 1e9) - (numOf(a) || 1e9) || b.year - a.year || b.no - a.no || b.id.localeCompare(a.id))
+  // ครั้งที่ของแต่ละชิ้น = เลขจากแถบสีดำของหนังสือแจ้ง (สามัญ/วิสามัญนับแยกกัน) — ปรับให้ตรงอัตโนมัติ
+  useEffect(() => {
+    const fix = ms.list.flatMap((m) => { const n = numOf(m); return n > 0 && m.no !== n ? [{ ...m, no: n, updated: Date.now() }] : [] })
+    if (fix.length) ms.put(fix)
+  }, [ms.list.map((m) => `${m.id}:${m.no}`).join('|'), letters.items.map((x) => `${x.id}:${x.no}`).join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
   const key = q.trim()
   const shown = key ? list.filter((m) => `${m.name} ${m.no}/${m.year} ${m.date}`.includes(key)) : list
   const add = () => {
     const name = window.prompt(`ชื่อการประชุม${tab}`, key || (tab === 'วิสามัญ' ? 'ประชุมวิสามัญ' : 'ประชุมคณะธรรมกิจ'))
     if (name === null) return
     const y = yearOf(todayISO())
-    const m = { ...blankMeeting(y, nextNo(ms.list, y)), name: name.trim(), flowId, type: tab === 'วิสามัญ' ? 'พิเศษ' as const : 'ปกติ' as const }
+    const m = { ...blankMeeting(y, nextNo(ms.list.filter((x) => !x.deleted), y, tab === 'วิสามัญ')), name: name.trim(), flowId, type: tab === 'วิสามัญ' ? 'พิเศษ' as const : 'ปกติ' as const }
     if (!ms.put([m])) { setMsg('ไม่มีสิทธิ์สร้างการประชุม'); return }
     setMsg(''); setQ('')
   }
