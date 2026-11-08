@@ -22,8 +22,8 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
       <>
         <PaperHead church={church} title="ตารางถวายอาหารในโอกาสพิเศษ" sub={`เดือน${title} ${yrs}${pageNo ? ` · ${pageNo}` : ''}`} />
         <div style={{ textAlign: 'center', margin: '0 0 6px' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#1a2b4c', lineHeight: 1.15 }}>Cornerstone Church · Special Occasion Food Offering Schedule</div>
-          <div style={{ display: 'inline-block', marginTop: 4, padding: '3px 14px', border: '2px solid #b8860b', borderRadius: 999, background: '#fff8e6', fontSize: 14, fontWeight: 800 }}>🎉 ถวายอาหารในโอกาสพิเศษ · Food offering for a special occasion</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#1a2b4c', lineHeight: 1.15 }}>Cornerstone Church · Special Occasion Food Offering Schedule</div>
+          <div style={{ display: 'inline-block', marginTop: 4, padding: '3px 14px', border: '2px solid #b8860b', borderRadius: 999, background: '#fff8e6', fontSize: 16, fontWeight: 800 }}>🎉 ถวายอาหารในโอกาสพิเศษ · Food offering for a special occasion</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
           {months.map((x) => {
@@ -32,7 +32,7 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
               <section key={`${x.y}-${x.m}`} aria-label={`เดือน${monthName(x.m)} ${be(x.y)}`} style={{ border: '2.5px solid #1a2b4c', borderRadius: 14, padding: '8px 10px 10px', background: '#eef5fb' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 6px' }}>
                   <FoodIcon kind={ICONS[months.indexOf(x) % 2][0]} />
-                  <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18, lineHeight: 1.15, background: '#fff', border: '2px solid #1a2b4c', borderRadius: 18, padding: '3px 14px', flex: 1, maxWidth: '62%' }}>เดือน{monthName(x.m)} {be(x.y)}<div style={{ fontSize: 14, fontWeight: 700, color: '#1a2b4c' }}>{MONTH_EN[x.m - 1]} {x.y}</div></div>
+                  <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 21, lineHeight: 1.15, background: '#fff', border: '2px solid #1a2b4c', borderRadius: 18, padding: '3px 14px', flex: 1, maxWidth: '62%' }}>เดือน{monthName(x.m)} {be(x.y)}<div style={{ fontSize: 16, fontWeight: 700, color: '#1a2b4c' }}>{MONTH_EN[x.m - 1]} {x.y}</div></div>
                   <FoodIcon kind={ICONS[months.indexOf(x) % 2][1]} />
                 </div>
                 <table className="sheetpaper sheetpaper--foodrow" aria-label={`ตารางถวายอาหาร เดือน${monthName(x.m)} ${be(x.y)}`} style={{ background: '#fff' }}>
@@ -43,7 +43,7 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
                       const d = sun[i], s = d && !blank ? slots.get(d) : undefined
                       return (
                         <tr key={i} className={onRowClick && d ? 'sheetrow' : undefined} onClick={onRowClick && d ? (e) => { e.stopPropagation(); onRowClick(d) } : undefined}>
-                          <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 19 }}>{d ? shortThaiDate(d) : ''}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 23 }}>{d ? shortThaiDate(d) : ''}</td>
                           <td>{s?.donor ?? ''}</td>
                           <td>{s?.occasion ?? ''}</td>
                         </tr>
@@ -61,9 +61,9 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
               <path d="M4 16 L22 5 L40 16 Z" fill="#1a2b4c" /><rect x="7" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="15" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="24" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="32" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="4" y="34" width="36" height="5" rx="1" fill="#b8860b" />
             </svg>
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>ถวายด้วยการโอนเงิน{pay.note.trim() ? ` · ${pay.note.trim()}` : ''} <span style={{ fontWeight: 700 }}>/ Give by bank transfer</span></div>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>{[pay.bank.trim(), pay.accName.trim() && `ชื่อบัญชี ${pay.accName.trim()}`].filter(Boolean).join(' · ')}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1.5, color: '#1a2b4c' }}>เลขที่บัญชี / Account No. {pay.accNo.trim()}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>ถวายด้วยการโอนเงิน{pay.note.trim() ? ` · ${pay.note.trim()}` : ''} <span style={{ fontWeight: 700 }}>/ Give by bank transfer</span></div>
+              <div style={{ fontSize: 17, fontWeight: 700 }}>{[pay.bank.trim(), pay.accName.trim() && `ชื่อบัญชี ${pay.accName.trim()}`].filter(Boolean).join(' · ')}</div>
+              <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 1.5, color: '#1a2b4c' }}>เลขที่บัญชี / Account No. {pay.accNo.trim()}</div>
             </div>
           </aside>
         )}
