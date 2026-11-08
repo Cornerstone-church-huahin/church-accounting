@@ -20,10 +20,10 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
   return (
     <ScaledPage ref={ref}>
       <>
-        <PaperHead church={church} title="ตารางถวายอาหารวันพิเศษ" sub={`เดือน${title} ${yrs}${pageNo ? ` · ${pageNo}` : ''}`} />
+        <PaperHead church={church} title="ตารางถวายอาหารในโอกาสพิเศษ" sub={`เดือน${title} ${yrs}${pageNo ? ` · ${pageNo}` : ''}`} />
         <div style={{ textAlign: 'center', margin: '0 0 6px' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#1a2b4c', lineHeight: 1.15 }}>Cornerstone Church · Special Day Food Offering Schedule</div>
-          <div style={{ display: 'inline-block', marginTop: 4, padding: '3px 14px', border: '2px solid #b8860b', borderRadius: 999, background: '#fff8e6', fontSize: 14, fontWeight: 800 }}>🎉 ถวายอาหารเนื่องในวันพิเศษ · Food offering for a special day</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#1a2b4c', lineHeight: 1.15 }}>Cornerstone Church · Special Occasion Food Offering Schedule</div>
+          <div style={{ display: 'inline-block', marginTop: 4, padding: '3px 14px', border: '2px solid #b8860b', borderRadius: 999, background: '#fff8e6', fontSize: 14, fontWeight: 800 }}>🎉 ถวายอาหารในโอกาสพิเศษ · Food offering for a special occasion</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
           {months.map((x) => {
