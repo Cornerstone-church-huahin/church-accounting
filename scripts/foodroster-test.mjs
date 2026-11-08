@@ -43,13 +43,11 @@ try {
   must(/25\/10\/69\s+ครอบครัวสมชาย\s+วันเกิด/.test((await page.getByRole('table', { name: /เดือนตุลาคม 2569/ }).innerText()).replace(/\s+/g, ' ')), 'donor and occasion appear on the sheet')
   await page.reload(); await page.waitForLoadState('networkidle')
   must(/ครอบครัวสมชาย/.test(await page.locator('main').innerText()) || true, 'reload ok')
-  // ดาวน์โหลดใบเปล่า (ไม่มีชื่อ) และใบที่มีชื่อ · หลายแผ่นต่อเนื่อง
-  await page.getByLabel('จำนวนเดือน').selectOption('4')
-  must((await page.locator('.a4page').count()) === 2, 'four months = two A4 sheets')
-  const [d1] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF ไฟล์เปล่า/ }).click()])
-  const sz1 = fs.statSync(await d1.path()).size; must(sz1 > 2000, 'blank pdf downloaded (size ' + sz1 + ')')
-  const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF \(พร้อมชื่อ\)/ }).click()])
-  const sz2 = fs.statSync(await d2.path()).size; must(sz2 > 2000, 'filled pdf downloaded (size ' + sz2 + ')')
+  // แถบไอคอนเล็กใต้ใบ: ดาวน์โหลด · แชร์ PDF · แชร์เป็นรูป · พิมพ์ (ไม่มีแผงเลือกเดือน/ปุ่มใหญ่แล้ว)
+  must(await page.getByLabel('จำนวนเดือน').count() === 0, 'month panel removed')
+  const [d2] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.getByRole('button', { name: /ดาวน์โหลด PDF ตารางถวายอาหาร/ }).click()])
+  const sz2 = fs.statSync(await d2.path()).size; must(sz2 > 2000, 'pdf downloaded (size ' + sz2 + ')')
+  for (const n of ['แชร์ PDF', 'แชร์เป็นรูป', 'พิมพ์']) must(await page.getByRole('button', { name: new RegExp(n) }).count() >= 1, 'icon ' + n)
   must(errors.length === 0, 'no page errors: ' + errors.join('|'))
   console.log('foodroster-test OK')
 } catch (e) { console.error(e instanceof Error ? e.message : e); process.exitCode = 1 } finally { await browser.close(); server.kill() }
