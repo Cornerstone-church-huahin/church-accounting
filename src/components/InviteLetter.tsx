@@ -136,7 +136,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
               <div className="letter__signrow">
                 {([[c.signLName ?? DOUBLE_SIGN.signLName, c.signLRole ?? DOUBLE_SIGN.signLRole, c.signLImg], [c.signRName ?? DOUBLE_SIGN.signRName, c.signRRole ?? DOUBLE_SIGN.signRRole, c.signImg]] as const).map(([nm, rl, img], i) => (
                   <div key={i} className="letter__signcol">
-                    <div style={{ height: internal ? 44 : 88, position: 'relative' }}>{l.signed && img && <img src={img} alt={`ลายเซ็น ${nm}`} className={`il__sign${internal ? ' il__sign--s' : ''}`} />}</div>
+                    <div style={{ height: internal ? 44 : 88, position: 'relative', borderBottom: l.signed && img ? 'none' : '1px dotted #555', margin: '0 8%' }}>{l.signed && img && <img src={img} alt={`ลายเซ็น ${nm}`} className={`il__sign${internal ? ' il__sign--s' : ''}`} />}</div>
                     <div>{nm ? `(${nm})` : '(………………………)'}</div>
                     <div>{rl}</div>
                   </div>
