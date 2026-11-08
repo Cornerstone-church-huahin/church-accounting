@@ -18,7 +18,7 @@ import type { DocItem, MtApproval } from '../../lib/types'
 
 const PARTS = ['ตรวจร่างและส่งประธาน', 'ประธานตรวจและเซ็น', 'รับรองในที่ประชุม', 'ฉบับสมบูรณ์ · เก็บเข้าแฟ้ม']
 const OPTS: MtApproval[] = ['รับรองโดยไม่แก้ไข', 'รับรองโดยมีการแก้ไข', 'ยังไม่รับรอง']
-const LIB_CAT = 'รายงานการประชุม'
+const LIB_CAT_N = 'รายงานการประชุม', LIB_CAT_V = 'รายงานการประชุมวิสามัญ'
 const fmt = (t: number) => letterDate(new Date(t).toISOString().slice(0, 10))
 
 /**
@@ -48,6 +48,7 @@ export default function ReportFlow({ m, save }: StepProps) {
     if (patch) save(patch)
   }, [notice?.toName, notice?.body, m.date, m.time, m.place, m.whenSrc]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const libCat = m.type === 'พิเศษ' ? LIB_CAT_V : LIB_CAT_N   // สามัญ/วิสามัญ แยกหมวดเก็บแฟ้ม
   const drafts = m.drafts ?? []
   const last = drafts[drafts.length - 1]
   const changed = !!last && last.text !== minutesPlain(m)
@@ -87,9 +88,9 @@ export default function ReportFlow({ m, save }: StepProps) {
       const path = `attachments/docs/${new Date().getFullYear()}/doc-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}.pdf`
       await putBinary(cfg, path, data, 'คลังเอกสาร')
       void cacheImage(path, data, 'application/pdf')
-      if (!cats.items.some((c) => !c.deleted && c.name === LIB_CAT)) cats.put([{ id: newId('cat'), updated: Date.now(), name: LIB_CAT }])
+      if (!cats.items.some((c) => !c.deleted && c.name === libCat)) cats.put([{ id: newId('cat'), updated: Date.now(), name: libCat }])
       const docId = m.reportDocId && lib.list.some((d) => d.id === m.reportDocId) ? m.reportDocId : newId('doc')
-      const d: DocItem = { id: docId, updated: Date.now(), title: `รายงานการประชุม${plainName(m.name) ? ` ${plainName(m.name)}` : ''} ครั้งที่ ${m.no}/${yearBE(m.year)}`, category: LIB_CAT, no: `${m.no}/${yearBE(m.year)}`, date: ap?.date || m.date || '', access: m.access ?? 'ภายใน', note: `ฉบับสมบูรณ์ · ${ap?.result ?? ''}`, file: { path, name: fileName, type: 'application/pdf', size: data.byteLength } }
+      const d: DocItem = { id: docId, updated: Date.now(), title: `รายงานการประชุม${plainName(m.name) ? ` ${plainName(m.name)}` : ''} ครั้งที่ ${m.no}/${yearBE(m.year)}`, category: libCat, no: `${m.no}/${yearBE(m.year)}`, date: ap?.date || m.date || '', access: m.access ?? 'ภายใน', note: `ฉบับสมบูรณ์ · ${ap?.result ?? ''}`, file: { path, name: fileName, type: 'application/pdf', size: data.byteLength } }
       if (!lib.put([d])) throw new Error('ไม่มีสิทธิ์บันทึกลงคลังเอกสาร')
       save({ archived: { at: Date.now() }, reportDocId: docId })
       setMsg('')
@@ -187,7 +188,7 @@ export default function ReportFlow({ m, save }: StepProps) {
       {view === 3 && (<>
         <section className="card" aria-label="ฉบับสมบูรณ์">
           <h2 style={{ marginTop: 0 }}>ส่วนที่ 4 · ฉบับสมบูรณ์ ลงนาม และเก็บเข้าแฟ้ม</h2>
-          <p className="muted small" style={{ margin: '0 0 0.3rem' }}>ฉบับสมบูรณ์มีบรรทัดการรับรองและลายเซ็นผู้จด/ประธาน พร้อมใบลงชื่อแนบหน้าแรก · เก็บเป็นไฟล์ PDF เข้าคลังเอกสาร หมวด “{LIB_CAT}”</p>
+          <p className="muted small" style={{ margin: '0 0 0.3rem' }}>ฉบับสมบูรณ์มีบรรทัดการรับรองและลายเซ็นผู้จด/ประธาน พร้อมใบลงชื่อแนบหน้าแรก · เก็บเป็นไฟล์ PDF เข้าคลังเอกสาร หมวด “{libCat}”</p>
           {doc}
         </section>
         <section className="card" aria-label="เก็บเข้าแฟ้ม">
