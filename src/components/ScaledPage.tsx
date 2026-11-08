@@ -9,7 +9,7 @@ export const A4_W = 794, A4_H = 1123 // A4 แนวตั้งที่ 96 dpi
  */
 /** ตัดแสดงเฉพาะช่วงของหน้า (จาก from ถึงก้นของ to) แล้วย่อให้พอดีทั้งความกว้างและความสูงของกล่อง container (ใช้ในโหมดแบ่งจอ) */
 export type Crop = { from: string; to: string; container: string }
-const ScaledPage = forwardRef<HTMLDivElement, { children: ReactNode; className?: string; landscape?: boolean; half?: boolean; crop?: Crop | null }>(function ScaledPage({ children, className = 'a4page', landscape, half, crop }, ref) {
+const ScaledPage = forwardRef<HTMLDivElement, { children: ReactNode; className?: string; landscape?: boolean; half?: boolean; crop?: Crop | null; /** ไม่ใส่เครดิตท้ายหน้า (เอกสารส่งภายนอก) */ noCredit?: boolean }>(function ScaledPage({ noCredit, children, className = 'a4page', landscape, half, crop }, ref) {
   const PW = landscape ? A4_H : A4_W, PH = half ? A4_H / 2 : landscape ? A4_W : A4_H
   const wrap = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
@@ -50,7 +50,7 @@ const ScaledPage = forwardRef<HTMLDivElement, { children: ReactNode; className?:
   })
   return (
     <div ref={wrap} className={`a4wrap${landscape ? ' a4wrap--land' : ''}${half ? ' a4wrap--half' : ''}`} style={cropBox ? { height: cropBox.h * cropBox.k, overflow: 'hidden' } : { height: PH * k, overflowX: zoom ? 'auto' : 'hidden', cursor: 'zoom-in' }} onClick={() => { if (!cropBox) setZoom(!zoom) }} title={cropBox ? undefined : zoom ? 'แตะเพื่อย่อให้พอดีจอ' : 'แตะเพื่อขยาย'}>
-      <div ref={inner} className={`${className}${landscape ? ' a4page--land' : ''}${half ? ' a4page--half' : ''}`} style={{ transform: cropBox ? `translate(${cropBox.dx}px, ${-cropBox.top * cropBox.k}px) scale(${cropBox.k})` : `scale(${k})` }}>{children}<DocCredit /></div>
+      <div ref={inner} className={`${className}${landscape ? ' a4page--land' : ''}${half ? ' a4page--half' : ''}`} style={{ transform: cropBox ? `translate(${cropBox.dx}px, ${-cropBox.top * cropBox.k}px) scale(${cropBox.k})` : `scale(${k})` }}>{children}{!noCredit && <DocCredit />}</div>
     </div>
   )
 })
