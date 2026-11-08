@@ -1980,3 +1980,5 @@ a.healthact { color: #b3261e; }
 .letter__signrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
 .letter__signcol { text-align: center; }
 .il__bottom .letter__sign--two { margin-right: 0; }
+/* หนังสือส่งภายนอก: ไม่มีเครดิตท้ายหน้า ข้อมูลติดต่อชิดขอบล่างมากขึ้น */
+.il__foot--ext { padding-bottom: 12px; }

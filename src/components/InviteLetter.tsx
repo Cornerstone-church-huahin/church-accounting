@@ -105,7 +105,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
   // หนังสือภายใน (แจ้งการประชุม): แถบหัวเรื่องบอกทันทีว่าเป็นการแจ้งประชุมประจำเดือนอะไร ปีอะไร
   const mt = internal ? nextFirstSunday(l.date || todayISO()) : null
   return (
-    <ScaledPage ref={paperRef} className="a4page a4page--letter" crop={crop ? { from: '[data-split-start]', to: '.letter__sign', container: '.split__bottom' } : null}>
+    <ScaledPage ref={paperRef} noCredit={!internal} className="a4page a4page--letter" crop={crop ? { from: '[data-split-start]', to: '.letter__sign', container: '.split__bottom' } : null}>
       <div className={`il${internal ? ' il--internal' : ''}`}>
         <header className="il__head">
           <img src={logoUrl} alt="" className="il__logo" />
@@ -151,7 +151,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
             <div>{c.signRole}</div>
           </div>
           )}
-          <footer className="il__foot">{c.contact.split('\n').map((x, i) => <div key={i}>{x}</div>)}</footer>
+          <footer className={`il__foot${internal ? '' : ' il__foot--ext'}`}>{c.contact.split('\n').map((x, i) => <div key={i}>{x}</div>)}</footer>
         </div>
       </div>
     </ScaledPage>
