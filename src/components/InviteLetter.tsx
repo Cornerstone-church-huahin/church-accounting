@@ -643,7 +643,7 @@ function CfgForm({ sec, cfg, def: DEF, secretary, letterDouble, onClose, onSave 
     <Sheet title={`แก้ข้อความ: ${def.name}`} onClose={onClose}>
       {sec === 'head' && <>
         <p className="small muted" style={{ margin: 0 }}>โลโก้คริสตจักรใส่ให้ที่หัวจดหมายแล้ว</p>
-        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{!secretary && <>{f('enName', 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', 'ที่อยู่ · อีเมล', 2)}</>}{!secretary && f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
+        {f('thName', 'ชื่อคริสตจักร (ภาษาไทย)')}{f('enName', secretary ? 'ชื่อ (ภาษาอังกฤษ) — ไม่บังคับ ว่าง = ไม่แสดง' : 'ชื่อ (ภาษาอังกฤษ)')}{f('addr', secretary ? 'ที่อยู่ · อีเมล — ไม่บังคับ ว่าง = ไม่แสดง' : 'ที่อยู่ · อีเมล', 2)}{!secretary && f('numPrefix', 'ตัวย่อเลขที่หนังสือ (เช่น ศอช → ศอช.001 รันต่อไปเอง)')}
       </>}
       {sec === 'sign' && <>
         {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}
