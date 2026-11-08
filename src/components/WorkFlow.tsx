@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
 import { useDocCategories, useDocLibrary, useFlowTicks, useLetters, useMeetings } from '../lib/data'
-import { useAddLetter, VAR_CAT } from './InviteLetter'
+import { useAddLetter, VAR_CAT, VAR_PREFIX } from './InviteLetter'
 import { blankMeeting, nextNo, stepStatuses } from '../lib/meetings'
 import { MC_CUR_KEY } from '../lib/meetingCenter'
 import { noDigits } from '../lib/letterNo'
-import { cleanPrefix, nextDocNo } from '../lib/docLibrary'
+import { cleanPrefix, invitePrefix, nextDocNo } from '../lib/docLibrary'
 import { LETTER_KINDS } from '../lib/letterKinds'
 import { be, newId, todayISO, yearOf } from '../lib/money'
 import type { FlowStep, FlowTicks, Meeting } from '../lib/types'
@@ -124,8 +124,24 @@ function FlowForm({ flow, onClose, onSave }: { flow: FlowTicks | null; onClose: 
   const [icon, setIcon] = useState(flow?.icon ?? '📋')
   const [text, setText] = useState(stepsText(flow?.steps ?? []))
   const [msg, setMsg] = useState('')
+  // ลำดับงานการประชุม: ตั้งตัวย่อเลขที่หนังสือแจ้งประชุม สามัญ/วิสามัญ ได้ในที่เดียว (เก็บที่หมวดในคลังเอกสาร เหมือนการ์ดอื่น)
+  const cats = useDocCategories()
+  const isMeetingFlow = !!flow && /ประชุม/.test(flow.title ?? '')
+  const K = LETTER_KINDS.notice
+  const [preN, setPreN] = useState(() => invitePrefix(cats.list, K.numPrefix ?? 'ศอช', (n) => K.isCat(n)))
+  const [preV, setPreV] = useState(() => invitePrefix(cats.list, VAR_PREFIX, (n) => n === VAR_CAT))
+  const savePrefix = (name: string, match: (n: string) => boolean, v: string) => {
+    const pre = cleanPrefix(v)
+    const c = cats.list.find((x) => !x.deleted && match(x.name))
+    if (c) { if ((c.prefix ?? '') !== pre) cats.put([{ ...c, prefix: pre, updated: Date.now() }]) }
+    else if (pre) cats.put([{ id: newId('dcat'), updated: Date.now(), name, prefix: pre }])
+  }
   const save = () => {
     const steps = parseSteps(text, flow?.steps ?? [])
+    if (isMeetingFlow) {
+      savePrefix(K.defaultCat, (n) => K.isCat(n), preN)
+      savePrefix(VAR_CAT, (n) => n === VAR_CAT, preV)
+    }
     if (!title.trim()) return setMsg('ใส่ชื่อลำดับงาน')
     if (steps.length === 0) return setMsg('ใส่ขั้นตอนอย่างน้อย 1 ขั้น (บรรทัดละ 1 ขั้น)')
     onSave({ ...(flow ?? { id: newId('flow'), ticks: [], created: Date.now() }), title: title.trim(), icon: icon.trim() || '📋', steps, ticks: (flow?.ticks ?? []).filter((id) => steps.some((s) => s.id === id)), updated: Date.now() })
@@ -136,6 +152,16 @@ function FlowForm({ flow, onClose, onSave }: { flow: FlowTicks | null; onClose: 
       <div className="field"><label htmlFor="wf-icon">ไอคอน (อีโมจิ)</label><input id="wf-icon" className="input" value={icon} onChange={(e) => setIcon(e.target.value)} maxLength={4} /></div>
       <div className="field"><label htmlFor="wf-steps">ขั้นตอนตามลำดับ (บรรทัดละ 1 ขั้น ไม่ต้องใส่ “เก็บเอกสาร” · เติมคำอธิบายหลังเครื่องหมาย | ได้)</label><textarea id="wf-steps" className="input" rows={7} value={text} onChange={(e) => setText(e.target.value)} placeholder={'ตั้งคณะทำงาน | ประชุมผู้รับผิดชอบ\nวางแผนงบประมาณ\n…'} /></div>
       <p className="small muted" style={{ margin: 0 }}>ขั้นสุดท้าย “เก็บเอกสาร” (ส่งเข้าคลังเอกสาร) ใส่ให้ทุกลำดับงานอัตโนมัติ</p>
+      {isMeetingFlow && (
+        <fieldset style={{ border: '1.5px solid var(--line, #ddd)', borderRadius: 10, padding: '0.5rem 0.7rem', margin: 0 }}>
+          <legend className="small"><b>🔤 ตัวย่อเลขที่หนังสือแจ้งประชุม</b></legend>
+          <div className="row" style={{ gap: 8 }}>
+            <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="wf-preN">สามัญ</label><input id="wf-preN" className="input" value={preN} onChange={(e) => setPreN(e.target.value)} placeholder="เช่น ศอ/จป" /></div>
+            <div className="field" style={{ flex: 1, margin: 0 }}><label htmlFor="wf-preV">วิสามัญ</label><input id="wf-preV" className="input" value={preV} onChange={(e) => setPreV(e.target.value)} placeholder="เช่น ศอ/วส" /></div>
+          </div>
+          <p className="small muted" style={{ margin: '0.25rem 0 0' }}>เลขที่ออกเป็น “ตัวย่อ.001” แยกนับสามัญกับวิสามัญ · หนังสือที่ทำไว้แล้วจะเปลี่ยนคำนำหน้าตามเมื่อเปิดหนังสือนั้น (เลขลำดับคงเดิม)</p>
+        </fieldset>
+      )}
       {msg && <p className="error" role="alert">{msg}</p>}
       <div className="row"><button type="button" className="btn btn--gold" onClick={save}>บันทึก</button><button type="button" className="btn btn--ghost" onClick={onClose}>ยกเลิก</button></div>
     </Sheet>
