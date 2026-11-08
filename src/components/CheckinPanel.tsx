@@ -246,9 +246,14 @@ export function RecorderChip({ recorders, canManage, put, remove }: { recorders:
           {recorders.length === 0 && <p className="empty">ยังไม่มีรายชื่อผู้บันทึก{canManage ? ' — เพิ่มด้านล่าง' : ' — ให้แอดมินเพิ่มให้'}</p>}
           <ul className="list">
             {recorders.map((r) => (
-              <li key={r.id}><button type="button" className={`btn bigbtn btn--block${picked?.id === r.id ? ' btn--gold' : ' btn--ghost'}`} aria-pressed={picked?.id === r.id} onClick={() => { pick(r.id); setOpen(false); setManage(false) }}>{picked?.id === r.id ? '✓ ' : ''}{r.name}</button></li>
+              <li key={r.id} style={{ display: 'grid', gridTemplateColumns: canManage ? 'minmax(0, 1fr) auto auto' : 'minmax(0, 1fr)', gap: '0.4rem', alignItems: 'center' }}>
+                <button type="button" className={`btn bigbtn btn--block${picked?.id === r.id ? ' btn--gold' : ' btn--ghost'}`} aria-pressed={picked?.id === r.id} onClick={() => { pick(r.id); setOpen(false); setManage(false) }}>{picked?.id === r.id ? '✓ ' : ''}{r.name}</button>
+                {canManage && <button type="button" className="mini" aria-label={`แก้ชื่อ ${r.name}`} onClick={() => { const v = prompt('แก้ชื่อผู้บันทึก', r.name)?.trim().replace(/\s+/g, ' '); if (v && v !== r.name) put([{ ...r, name: v }]) }}>✏️</button>}
+                {canManage && <button type="button" className="mini" aria-label={`ลบ ${r.name}`} onClick={() => confirm(`ลบ “${r.name}” ออกจากรายชื่อผู้บันทึก?`) && remove(r.id)}>🗑️</button>}
+              </li>
             ))}
           </ul>
+          {canManage && <button type="button" className="btn btn--gold" onClick={() => { const n = prompt('ชื่อผู้บันทึกใหม่')?.trim().replace(/\s+/g, ' '); if (!n) return; if (recorders.some((r) => nameKey(r.name) === nameKey(n))) return alert(`มี “${n}” อยู่แล้ว`); put([{ id: uniqueId(new Set(recorders.map((r) => r.id)), 'rc'), name: n, updated: 0 }]) }}>＋ เพิ่มชื่อผู้บันทึก</button>}
           {canManage && <button type="button" className="mini" onClick={() => setManage(!manage)}>{manage ? 'ซ่อนการจัดการ' : 'จัดการรายชื่อผู้บันทึก'}</button>}
           {manage && canManage && <RecorderManager recorders={recorders} put={put} remove={remove} />}
         </Sheet>
