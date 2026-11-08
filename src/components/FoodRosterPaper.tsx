@@ -38,7 +38,7 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
                       const d = sun[i], s = d && !blank ? slots.get(d) : undefined
                       return (
                         <tr key={i} className={onRowClick && d ? 'sheetrow' : undefined} onClick={onRowClick && d ? (e) => { e.stopPropagation(); onRowClick(d) } : undefined}>
-                          <td style={{ textAlign: 'center', fontWeight: 700 }}>{d ? shortThaiDate(d) : ''}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 19 }}>{d ? shortThaiDate(d) : ''}</td>
                           <td>{s?.donor ?? ''}</td>
                           <td>{s?.occasion ?? ''}</td>
                         </tr>
@@ -56,8 +56,8 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
               <path d="M4 16 L22 5 L40 16 Z" fill="#1a2b4c" /><rect x="7" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="15" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="24" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="32" y="18" width="5" height="14" fill="#1a2b4c" /><rect x="4" y="34" width="36" height="5" rx="1" fill="#b8860b" />
             </svg>
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>ถวายด้วยการโอนเงิน{pay.note.trim() ? ` · ${pay.note.trim()}` : ''}</div>
-              <div style={{ fontSize: 13 }}>{[pay.bank.trim(), pay.accName.trim() && `ชื่อบัญชี ${pay.accName.trim()}`].filter(Boolean).join(' · ')}</div>
+              <div style={{ fontSize: 15, fontWeight: 800 }}>ถวายด้วยการโอนเงิน{pay.note.trim() ? ` · ${pay.note.trim()}` : ''}</div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>{[pay.bank.trim(), pay.accName.trim() && `ชื่อบัญชี ${pay.accName.trim()}`].filter(Boolean).join(' · ')}</div>
               <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1.5, color: '#1a2b4c' }}>เลขที่บัญชี {pay.accNo.trim()}</div>
             </div>
           </aside>
