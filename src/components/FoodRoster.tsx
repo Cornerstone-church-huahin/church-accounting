@@ -1,16 +1,15 @@
 import { useRef, useState } from 'react'
 import FoodRosterPaper from './FoodRosterPaper'
 import Sheet from './Sheet'
+import PdfTools from './PdfTools'
 import { canRole, canWork } from '../lib/access'
 import { useFoodPay, useFoodSlots, useSettings } from '../lib/data'
-import { exportBlankFood, foodFile } from '../lib/blankFood'
-import { monthPages, shiftMonth, shortThaiDate, type YM } from '../lib/foodRoster'
+import { foodFile } from '../lib/blankFood'
+import { monthPages, shortThaiDate, type YM } from '../lib/foodRoster'
 import { useRole } from '../lib/members'
-import { be, monthName, todayISO } from '../lib/money'
-import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
+import { todayISO } from '../lib/money'
 
 const OCCASIONS = ['วันเกิด', 'ครบรอบแต่งงาน', 'ขอบพระคุณพระเจ้า', 'ขอพระพรให้ครอบครัว', 'ระลึกถึงผู้ล่วงลับ', 'คริสต์มาส', 'อีสเตอร์']
-const COUNTS = [2, 4, 6, 12]
 
 /**
  * งานโรงครัว › ตารางถวายอาหาร: แผ่น A4 แผ่นละ 2 เดือนต่อเนื่อง วันอาทิตย์กำกับถูกต้อง
@@ -26,16 +25,14 @@ export default function FoodRoster() {
   const [pf, setPf] = useState({ bank: '', accName: '', accNo: '', note: '' })
   const [payOpen, setPayOpen] = useState(false)
   const today = todayISO()
-  const [start, setStart] = useState<YM>({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) })
-  const [count, setCount] = useState(2)
+  const start: YM = { y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) }
+  const count = 2
   const [edit, setEdit] = useState<string | null>(null)
   const [donor, setDonor] = useState('')
   const [occasion, setOccasion] = useState('')
-  const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const refs = useRef<(HTMLDivElement | null)[]>([])
   const pages = monthPages(start, count)
-  const years = Array.from({ length: 5 }, (_, i) => start.y - 1 + i)
 
   const open = (date: string) => { if (!canEdit) return; const s = slots.byDate.get(date); setDonor(s?.donor ?? ''); setOccasion(s?.occasion ?? ''); setEdit(date) }
   const save = () => {
@@ -46,39 +43,10 @@ export default function FoodRoster() {
     setEdit(null); setMsg('บันทึกแล้ว')
   }
   const els = () => refs.current.filter((e): e is HTMLDivElement => !!e)
-  const run = async (fn: () => Promise<unknown>, ok: string) => {
-    setBusy(true); setMsg('')
-    try { await fn(); setMsg(ok) } catch (e) { console.error('food pdf', e); setMsg('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แทน') }
-    setBusy(false)
-  }
   const file = foodFile(start, count, false)
-  const shareFilled = async () => { const r = await sharePdf(els(), file, 'full', 'ตารางถวายอาหาร'); if (r === 'unsupported') { await downloadSheetPdf(els(), file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') } }
-  const shareBlank = async () => { const r = await exportBlankFood('share', church, start, count, foodPay.pay); if (r === 'unsupported') alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แล้ว ส่งต่อจากไฟล์ที่ดาวน์โหลดได้เลย') }
-  const end = shiftMonth(start, count - 1)
 
   return (
     <div aria-label="ตารางถวายอาหาร">
-      <section className="card no-print" aria-label="ช่วงเดือนของตาราง" style={{ margin: '0 0 8px' }}>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
-          <div className="field" style={{ flex: 1, minWidth: 120 }}><label htmlFor="fr-m">เริ่มเดือน</label>
-            <select id="fr-m" className="input" value={start.m} onChange={(e) => setStart({ ...start, m: Number(e.target.value) })}>{Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{monthName(i + 1)}</option>)}</select></div>
-          <div className="field" style={{ width: 100 }}><label htmlFor="fr-y">ปี พ.ศ.</label>
-            <select id="fr-y" className="input" value={start.y} onChange={(e) => setStart({ ...start, y: Number(e.target.value) })}>{years.map((y) => <option key={y} value={y}>{be(y)}</option>)}</select></div>
-          <div className="field" style={{ width: 120 }}><label htmlFor="fr-n">จำนวนเดือน</label>
-            <select id="fr-n" className="input" value={count} onChange={(e) => setCount(Number(e.target.value))}>{COUNTS.map((n) => <option key={n} value={n}>{n} เดือน ({n / 2} แผ่น)</option>)}</select></div>
-        </div>
-        <p className="small muted" style={{ margin: '4px 0 0' }}>{monthName(start.m)} {be(start.y)} – {monthName(end.m)} {be(end.y)} · {pages.length} แผ่น A4 แผ่นละ 2 เดือนต่อเนื่อง · วันที่เป็นวันอาทิตย์ตามปฏิทินจริง{canEdit ? ' · แตะแถวในตารางเพื่อบันทึกชื่อผู้ถวาย' : ''}</p>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
-          <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run(() => exportBlankFood('download', church, start, count, foodPay.pay), 'ดาวน์โหลดใบเปล่าแล้ว')}>⬇️ ดาวน์โหลด PDF ไฟล์เปล่า</button>
-          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run(shareBlank, 'แชร์ใบเปล่าแล้ว')} title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ไฟล์เปล่า</button>
-        </div>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
-          <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void run(() => downloadSheetPdf(els(), file, 'full'), 'ดาวน์โหลดใบที่มีชื่อแล้ว')}>⬇️ ดาวน์โหลด PDF (พร้อมชื่อ)</button>
-          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void run(shareFilled, 'แชร์แล้ว')}>📤 แชร์ PDF</button>
-          <button type="button" className="btn btn--ghost" onClick={() => window.print()}>🖨️ พิมพ์</button>
-        </div>
-        {msg && <p className="note" role="status" style={{ margin: '6px 0 0' }}>{msg}</p>}
-      </section>
       <details className="card no-print" style={{ margin: '0 0 8px' }} open={payOpen} onToggle={(e) => { const o = (e.currentTarget as HTMLDetailsElement).open; setPayOpen(o); if (o) setPf({ bank: foodPay.pay.bank, accName: foodPay.pay.accName, accNo: foodPay.pay.accNo, note: foodPay.pay.note }) }}>
         <summary><b>💳 บัญชีรับถวาย (แสดงท้ายใบ)</b>{foodPay.pay.accNo.trim() ? <span className="small muted"> · {foodPay.pay.accNo}</span> : <span className="small muted"> · ยังไม่ได้ใส่</span>}</summary>
         {canEdit ? (
@@ -107,6 +75,8 @@ export default function FoodRoster() {
           </div>
         </Sheet>
       )}
+      {msg && <p className="note no-print" role="status" style={{ margin: '6px 0 0', textAlign: 'center' }}>{msg}</p>}
+      <PdfTools compact els={els} file={file} title="ตารางถวายอาหาร" label="ตารางถวายอาหาร" />
       <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ)</p>
     </div>
   )
