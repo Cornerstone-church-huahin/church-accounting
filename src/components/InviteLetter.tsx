@@ -728,9 +728,11 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
     if (d) lib.put([{ ...d, deleted: true, updated: Date.now() }])
     setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ')
   }
+  /** ชื่อในรายการ: หัวหน้าหมวดอยู่ที่หัวหน้าแล้ว จึงแสดงเฉพาะชื่อสั้นของฉบับนั้น (ไม่มีชื่อ = ใช้ชื่อหมวด) */
+  const shortTitle = (x: Letter) => x.toName?.trim() || letterTitle(x, kind, NAME)
   /** แก้ชื่อหนังสือ (ชื่อสั้นที่ใช้ตั้งชื่อในรายการและคลังเอกสาร) */
   const rename = (x: Letter) => {
-    const v = window.prompt('แก้ชื่อหนังสือ', x.toName ?? letterTitle(x, kind, NAME))
+    const v = window.prompt('แก้ชื่อหนังสือ', shortTitle(x))
     if (v === null) return
     const name = v.trim()
     if (!name || name === (x.toName ?? '')) return
@@ -754,7 +756,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
             <li key={x.id} className="wfitem">
               <Link to={`/meeting/1/4/${K.slug}-${x.id}`} className="wfcard" aria-label={`เปิด ${letterTitle(x, kind, NAME)}`}>
                 <span className="wfcard__icon" aria-hidden="true">{K.icon}</span>
-                <span className="wfcard__t"><b>{letterTitle(x, kind, NAME)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
+                <span className="wfcard__t"><b>{shortTitle(x)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
                 <span aria-hidden="true">›</span>
               </Link>
               <span className="wfitem__act"><button type="button" className="mini" aria-label={`แก้ชื่อ ${letterTitle(x, kind, NAME)}`} onClick={() => rename(x)}>✏️</button><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x, kind, NAME)}`} onClick={() => del(x)}>🗑️</button></span>
