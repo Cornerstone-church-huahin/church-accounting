@@ -1,3 +1,4 @@
+import { DocCategoryButton } from './DocLibrary'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Sheet from './Sheet'
@@ -60,11 +61,14 @@ export function WorkflowMenu() {
     <>
       <div className="page-head no-print"><h1>📋 สร้างเอกสาร</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
       <section className="card" aria-label="เลือกลำดับงาน">
-        <div className="field" style={{ margin: 0 }}><label htmlFor="wf-pick">เลือกเรียกเฉพาะการ์ด</label>
-          <select id="wf-pick" className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
-            <option value="">ทุกลำดับงาน ({cards.length})</option>
-            {cards.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.title}</option>)}
-          </select></div>
+        <div className="row" style={{ gap: 8, alignItems: 'end' }}>
+          <div className="field" style={{ margin: 0, flex: 1 }}><label htmlFor="wf-pick">เลือกเรียกเฉพาะการ์ด</label>
+            <select id="wf-pick" className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
+              <option value="">ทุกลำดับงาน ({cards.length})</option>
+              {cards.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.title}</option>)}
+            </select></div>
+          <DocCategoryButton />
+        </div>
         <div className="row" style={{ marginTop: '0.5rem' }}><button type="button" className="btn btn--gold" onClick={() => setForm('new')}>➕ เพิ่มลำดับงาน</button></div>
       </section>
       {msg && <p className="error" role="alert">{msg}</p>}
