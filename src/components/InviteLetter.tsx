@@ -728,6 +728,16 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
     if (d) lib.put([{ ...d, deleted: true, updated: Date.now() }])
     setMsg(store.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ')
   }
+  /** แก้ชื่อหนังสือ (ชื่อสั้นที่ใช้ตั้งชื่อในรายการและคลังเอกสาร) */
+  const rename = (x: Letter) => {
+    const v = window.prompt('แก้ชื่อหนังสือ', x.toName ?? letterTitle(x, kind, NAME))
+    if (v === null) return
+    const name = v.trim()
+    if (!name || name === (x.toName ?? '')) return
+    const d = x.docId ? lib.list.find((y) => y.id === x.docId) : undefined
+    if (d) lib.put([{ ...d, title: name, updated: Date.now() }])
+    setMsg(store.put([{ ...x, toName: name, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์แก้ไข')
+  }
   return (
     <>
       <div className="page-head no-print"><h1>{K.icon} {NAME}</h1><Link to="/meeting/1/4" className="mini">‹ สร้างเอกสาร</Link></div>
@@ -747,7 +757,7 @@ export function InviteLetterList({ kind = 'invite', cat }: { kind?: LetterKindId
                 <span className="wfcard__t"><b>{letterTitle(x, kind, NAME)}{x.signed ? ' ✅' : ''}</b><small>{[x.no, x.subject, x.date && fmtDate(x.date)].filter(Boolean).join(' · ') || 'ยังไม่กรอกรายละเอียด'}</small></span>
                 <span aria-hidden="true">›</span>
               </Link>
-              <span className="wfitem__act"><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x, kind, NAME)}`} onClick={() => del(x)}>🗑️</button></span>
+              <span className="wfitem__act"><button type="button" className="mini" aria-label={`แก้ชื่อ ${letterTitle(x, kind, NAME)}`} onClick={() => rename(x)}>✏️</button><button type="button" className="mini" aria-label={`ลบ ${letterTitle(x, kind, NAME)}`} onClick={() => del(x)}>🗑️</button></span>
             </li>
           ))}
         </ul>
