@@ -61,8 +61,10 @@ export const KINDS: MtPerson['kind'][] = ['กรรมการ', 'ผู้ม
 export const CHANNELS = ['กลุ่ม LINE', 'อีเมล', 'เอกสารกระดาษ', 'โทรศัพท์']
 
 /** การประชุมครั้งถัดไปของเลขครั้ง/ปีนี้ (เสนอเลขให้ตอนสร้างใหม่) */
-export function nextNo(list: Pick<Meeting, 'no' | 'year'>[], year: number): number {
-  return Math.max(0, ...list.filter((m) => m.year === year).map((m) => m.no)) + 1
+/** เลขครั้งที่ถัดไป · special ระบุ = นับแยกอิสระระหว่างสามัญ (false) กับวิสามัญ (true) */
+export function nextNo(list: (Pick<Meeting, 'no' | 'year'> & { type?: string })[], year: number, special?: boolean): number {
+  const pool = list.filter((m) => m.year === year && (special === undefined || (m.type === 'พิเศษ') === special))
+  return Math.max(0, ...pool.map((m) => m.no)) + 1
 }
 
 export type StepState = 'done' | 'partial' | 'todo'

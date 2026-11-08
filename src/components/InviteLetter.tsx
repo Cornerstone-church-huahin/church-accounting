@@ -318,23 +318,6 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
     if (mts.length) meetingsAll.put(mts)
     if (moved.size) store.put(group.flatMap((x) => { const n = moved.get(x.id); return n ? [{ ...x, no: padNo(/^(.*?)[.\s-]*\d+$/.exec(x.no.trim())?.[1] || prefix, n), updated: Date.now() }] : [] }))
   }
-  /** เลือกประเภทการประชุม สามัญ/วิสามัญ — มีผลตลอดทาง: เลขที่หนังสือ (ศอ/จป. ↔ ศอ/วส.) · ข้อความตั้งต้น · แถวการประชุม (บันทึก/รายงาน/เก็บแฟ้ม) */
-  const retype = (toVar: boolean) => {
-    if (kind !== 'notice' || toVar === isVar) return
-    const newCat = toVar ? VAR_CAT : ''
-    const pre = invitePrefix(cats.list, toVar ? VAR_PREFIX : cfg.numPrefix, (n) => (toVar ? n === VAR_CAT : K.isCat(n)))
-    const pool = store.items.filter((x) => x.id !== id && (x.category ?? '') === newCat && linkedIds.has(x.id)).map((x) => ({ no: x.no }))
-    const no = nextDocNo(pool, pre)
-    const base = l.date || todayISO()
-    const oldDef = blankOf(kind, base, isVar), newDef = blankOf(kind, base, toVar)
-    const patch: Partial<Draft> = { category: newCat || undefined, no, noPin: false }
-    if (l.subject === oldDef.subject) patch.subject = newDef.subject
-    if (l.body === oldDef.body) patch.body = newDef.body
-    autoSet(patch)
-    const me = meetingsAll.items.find((x) => x.noticeLetterId === id && !x.deleted)
-    if (me) meetingsAll.put([{ ...me, type: toVar ? 'พิเศษ' : 'ปกติ', no: noDigits(no) || me.no, updated: Date.now() }])
-    setMsg(`เปลี่ยนเป็นการประชุม${toVar ? 'วิสามัญ' : 'สามัญ'}แล้ว — เลขที่ใหม่ ${no}`)
-  }
   const dupNo = !!l.no.trim() && numOthers.some((x) => x.no.trim() === l.no.trim())
   useEffect(() => { if (!l.no.trim()) set({ no: nextNo }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // ฉบับที่ยังเป็นวาระตั้งต้นรุ่นเก่า (4 ข้อ ยังไม่ได้แก้) → ปรับเป็นวาระมาตรฐานตามต้นแบบ 10 วาระให้เอง (ฉบับที่แก้วาระเองแล้วไม่แตะ)
@@ -429,7 +412,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const seedMinutes = (): string | undefined => {
     const cur = meetings.items.find((x) => x.noticeLetterId === id && !x.deleted)
     const y = new Date().getFullYear()
-    const base = cur ?? { ...blankMeeting(y, nextMeetingNo(meetings.items, y)), name: (l.subject || l.toName || '').trim(), noticeLetterId: id }
+    const base = cur ?? { ...blankMeeting(y, nextMeetingNo(meetings.items.filter((x) => !x.deleted), y, isVar)), name: (l.subject || l.toName || '').trim(), noticeLetterId: id }
     const agenda = mergeNoticeAgenda(base.agenda, agendaOf(l), blankAgenda)
     const next = { ...base, no: noDigits(l.no) || base.no, type: (isVar ? 'พิเศษ' : 'ปกติ') as 'ปกติ' | 'พิเศษ', noticeLetterId: id, agenda, secretary: base.secretary || cfg.signName || '', notice: { channels: base.notice?.channels ?? [], body: l.body, ref: l.no.trim(), sentAt: base.notice?.sentAt ?? Date.now() }, updated: Date.now() }
     return meetings.put([next]) ? next.id : undefined
@@ -496,13 +479,6 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
 
   const formCard = (
     <section className="card no-print" aria-label={`กรอก${NAME}`} data-voice-scope>
-        {kind === 'notice' && (
-          <div className="field"><label>🗓️ ประเภทการประชุม <span className="muted small">(มีผลกับหนังสือ บันทึก รายงาน และการเก็บแฟ้มทั้งหมด)</span></label>
-            <div className="seg" role="group" aria-label="ประเภทการประชุม">
-              <button type="button" className={!isVar ? 'on' : ''} aria-pressed={!isVar} onClick={() => retype(false)}>การประชุมสามัญ</button>
-              <button type="button" className={isVar ? 'on' : ''} aria-pressed={isVar} onClick={() => retype(true)}>การประชุมวิสามัญ</button>
-            </div></div>
-        )}
         <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
 
         {SECTIONS.filter((x) => x.sec === 'head').map(secRow)}

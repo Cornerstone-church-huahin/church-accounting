@@ -40,7 +40,7 @@ function useCurrentMeeting() {
   }
   const create = () => {
     const y = yearOf(todayISO())
-    const m = blankMeeting(y, nextNo(ms.list, y))
+    const m = blankMeeting(y, nextNo(ms.list, y, false))
     if (!ms.put([m])) { setDenied(true); return }
     setDenied(false); select(m.id)
   }
