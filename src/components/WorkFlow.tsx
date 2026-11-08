@@ -55,13 +55,8 @@ export function WorkflowMenu() {
     ...f.flows.map((x) => ({ key: x.id, to: x.id === 'invite' ? '/meeting/1/4/invite' : `/meeting/1/4/f-${x.id}`, icon: x.icon || '📋', title: x.title || 'ลำดับงาน', blurb: `${x.steps.length + 1} ขั้น (รวมเก็บเอกสาร) · ติ๊กแล้ว ${[...x.steps, FILE_STEP].filter((s) => x.ticks.includes(s.id)).length}`, created: x.created ?? 0, flow: x })),
     ...catCards,
   ]
-  const hiddenN = allCards.filter((c) => f.hidden.has(c.key)).length
   const cards = allCards.filter((c) => !f.hidden.has(c.key)).sort((a, b) => b.created - a.created)
   const shown = pick ? cards.filter((c) => c.key === pick) : cards
-  /** การ์ดจากหมวดในคลัง: ลบ = ซ่อนการ์ด (เอกสารและหมวดในคลังไม่หาย) · แสดงอีกครั้งได้ที่ปุ่มใต้รายการ */
-  const hide = (c: { key: string; title: string }) => { if (window.confirm(`ซ่อนการ์ด “${c.title}” ออกจากหน้านี้?\n(เอกสารและหมวดในคลังเอกสารไม่ถูกลบ · แสดงกลับได้)`)) setMsg(f.put([{ id: `hide:${c.key}`, ticks: [], updated: Date.now() } as FlowTicks]) ? '' : 'ไม่มีสิทธิ์ซ่อน') }
-  const unhide = () => { const hs = f.all.filter((x) => x.id.startsWith('hide:') && !x.deleted); setMsg(f.put(hs.map((x) => ({ ...x, deleted: true, updated: Date.now() }))) ? '' : 'ไม่มีสิทธิ์') }
-  const remove = (x: FlowTicks) => { if (window.confirm(`ลบลำดับงาน “${x.title}” ?`)) setMsg(f.put([{ ...x, deleted: true, updated: Date.now() }]) ? '' : 'ไม่มีสิทธิ์ลบ') }
   return (
     <>
       <div className="page-head no-print"><h1>📋 สร้างเอกสาร</h1><Link to="/meeting/1" className="mini">‹ งานเลขา</Link></div>
@@ -88,19 +83,16 @@ export function WorkflowMenu() {
             {!c.flow && (
               <span className="wfitem__act">
                 <button type="button" className="mini" aria-label={`แก้ไข ${c.title}`} onClick={() => setCatEdit(true)}>✏️</button>
-                <button type="button" className="mini" aria-label={`ลบ ${c.title}`} onClick={() => hide(c)}>🗑️</button>
               </span>
             )}
             {c.flow && (
               <span className="wfitem__act">
                 <button type="button" className="mini" aria-label={`แก้ไข ${c.title}`} onClick={() => setForm(c.flow!)}>✏️</button>
-                <button type="button" className="mini" aria-label={`ลบ ${c.title}`} onClick={() => remove(c.flow!)}>🗑️</button>
               </span>
             )}
           </li>
         ))}
       </ul>
-      {hiddenN > 0 && <p style={{ textAlign: 'center' }}><button type="button" className="mini" onClick={unhide}>↩️ แสดงการ์ดที่ซ่อนไว้ ({hiddenN})</button></p>}
       {catEdit && <DocCategorySheet onClose={() => setCatEdit(false)} />}
       {form && <FlowForm flow={form === 'new' ? null : form} onClose={() => setForm(null)} onSave={(x) => { const ok = f.put([x]); setMsg(ok ? '' : 'ไม่มีสิทธิ์บันทึก'); if (ok) setForm(null); return ok }} />}
     </>
