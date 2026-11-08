@@ -22,8 +22,8 @@ type Tab = HomeTab
 const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; /** ชื่อสั้นในแถบเมนูตอนเปิดเต็มจอ */ short: string; sub: string }[] = [
   { k: 'in', n: 1, icon: '💚', name: 'รับ', short: 'รับ', sub: 'ใบบันทึกการถวาย' },
   { k: 'out', n: 2, icon: '🔴', name: 'จ่าย', short: 'จ่าย', sub: 'ใบเบิก-จ่ายเงินสด' },
-  { k: 'adj', n: 3, icon: '🏦', name: 'ปรับ', short: 'ปรับ', sub: 'ตรวจกับสมุดบัญชี' },
-  { k: 'wd', n: 4, icon: '📋', name: 'เตรียมเบิก', short: 'เบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
+  { k: 'wd', n: 3, icon: '📋', name: 'เตรียมเบิก', short: 'เบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
+  { k: 'adj', n: 4, icon: '🏦', name: 'ปรับ', short: 'ปรับ', sub: 'ตรวจกับสมุดบัญชี' },
   { k: 'sum', n: 5, icon: '📊', name: 'สรุป', short: 'สรุป', sub: 'สรุปและรายงาน' },
   { k: 'dep', n: 6, icon: '🧺', name: 'เตรียมนำฝาก', short: 'ฝาก', sub: 'นำเข้าบัญชีกองทุน' },
 ]
