@@ -46,7 +46,7 @@ const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; retu
 /** บรรทัดที่ขึ้นบนหนังสือ: เรียงตามที่ลากไว้ทุกข้อ (ข้อที่ยังไม่พิมพ์ชื่อขึ้นเป็น ……… ให้เห็นโครงที่จัดไว้) */
 export const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
-const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), l.verse ?? '', c.proceed, ...(l.verse?.trim() ? ['', l.verse.trim()] : []), c.bless, c.signName, c.signRole, c.signMode ?? 'single', ...(c.signMode === 'double' ? [c.signLName, c.signLRole, c.signRName, c.signRRole] : [])])
+const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), l.verse ?? '', c.proceed, ...(l.verse?.trim() ? ['', l.verse.trim()] : []), c.bless, c.signName, c.signRole, l.signMode ?? c.signMode ?? 'single', ...(isDouble(c, l) ? [c.signLName, c.signLRole, c.signRName, c.signRRole] : [])])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
 function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
@@ -79,7 +79,8 @@ export const defaultCfg = (kind: LetterKindId): Cfg => ({ ...INVITE_CFG, ...(LET
 export const DEFAULT_CFG = INVITE_CFG
 /** แบบลงนามสองด้าน (ซ้าย-ขวา): ค่าตั้งต้น · แก้ได้ที่ปุ่มแก้ข้อความลงนาม */
 export const DOUBLE_SIGN = { signLName: 'ครูศาสนาพิชิต เผ่าดี', signLRole: 'ศิษยาภิบาลคริสตจักรศิลาเอก', signRName: 'ผป.สมเจต เสมาทอง', signRRole: 'ผู้ปกครองคริสตจักรศิลาเอก' }
-const isDouble = (c: Pick<Cfg, 'signMode'>) => c.signMode === 'double'
+/** แบบลงนามที่ใช้จริง: ของฉบับนั้น (ถ้าเลือก) ไม่งั้นตามค่าตั้งต้น */
+const isDouble = (c: Pick<Cfg, 'signMode'>, l?: { signMode?: 'single' | 'double' }) => (l?.signMode ?? c.signMode) === 'double'
 type Sec = 'head' | 'sign' | 'contact'
 type TextKey = 'numPrefix' | 'thName' | 'enName' | 'addr' | 'proceed' | 'bless' | 'signName' | 'signRole' | 'contact'
 /** 3 ส่วนที่แก้ได้ (ตามเลขลำดับบนหน้า): ช่องข้อความของแต่ละส่วน */
@@ -129,7 +130,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
         {/* ลงนาม + ข้อมูลติดต่อ: ตรึงไว้ท้ายกระดาษเสมอ (เนื้อหาใช้พื้นที่ตรงกลางที่เหลือ) */}
         <div className="il__bottom">
           {l.verse?.trim() && <div className="letter__verse letter__verse--bottom">{l.verse.trim().split(/\n/).map((x, i) => <div key={i}>{x}</div>)}</div>}
-          {isDouble(c) ? (
+          {isDouble(c, l) ? (
             <div className="letter__sign letter__sign--two">
               {c.bless.split('\n').map((x, i) => <div key={i}>{x}</div>)}
               <div className="letter__signrow">
@@ -458,7 +459,7 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
   const filled = (v?: string) => !!v?.trim()
   const okOf: Record<string, boolean> = {
     '1': filled(l.toName), '2': filled(cfg.thName) && (!!K.secretarySigns || filled(cfg.addr)), '3': filled(l.no), '4': filled(l.date), '5': filled(l.subject), '6': filled(l.to),
-    '6.1': !!l.showAttach && filled(l.attach), '7': filled(l.body), '8': filled(cfg.proceed) && (isDouble(cfg) ? filled(cfg.signLName ?? DOUBLE_SIGN.signLName) && filled(cfg.signRName ?? DOUBLE_SIGN.signRName) : filled(cfg.signName) && filled(cfg.signRole)), '9': filled(cfg.contact),
+    '6.1': !!l.showAttach && filled(l.attach), '7': filled(l.body), '8': filled(cfg.proceed) && (isDouble(cfg, l) ? filled(cfg.signLName ?? DOUBLE_SIGN.signLName) && filled(cfg.signRName ?? DOUBLE_SIGN.signRName) : filled(cfg.signName) && filled(cfg.signRole)), '9': filled(cfg.contact),
     '10': !!l.notified, '11': !!l.signed, '12': K.secretarySigns ? !!myMeeting?.notice?.sentAt : !!l.docId && lib.list.some((d) => d.id === l.docId),
   }
   /** ข้อ 1–9 ที่ยังไม่ได้ใส่ (วงกลมยังซีด): ต้องครบก่อนจึงแจ้งประธานตรวจสอบได้ */
@@ -508,6 +509,13 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           <div className="field"><label htmlFor="il-verse"><No n="8" ok={filled(l.verse)} />ข้อพระคัมภีร์ <span className="muted small">(ไม่บังคับ · ขึ้นชิดล่างของหน้า เหนือคำลงท้าย · ขึ้นบรรทัดใหม่ได้)</span></label>
             <textarea id="il-verse" className="input" rows={3} value={l.verse ?? ''} onChange={(e) => set({ verse: e.target.value })} placeholder={'“จงรับใช้กันและกันด้วยความรัก”\n(กาลาเทีย 5:13)'} /></div>
         )}
+
+        <div className="field"><label>✍️ แบบลงนามของหนังสือฉบับนี้</label>
+          <div className="seg" role="group" aria-label="แบบลงนาม">
+            <button type="button" className={!isDouble(cfg, l) ? 'on' : ''} aria-pressed={!isDouble(cfg, l)} onClick={() => set({ signMode: 'single' })}>เซ็นคนเดียว</button>
+            <button type="button" className={isDouble(cfg, l) ? 'on' : ''} aria-pressed={isDouble(cfg, l)} onClick={() => set({ signMode: 'double' })}>เซ็นสองคน (ซ้าย-ขวา)</button>
+          </div>
+          <span className="muted small">แก้ชื่อ/ตำแหน่ง/ลายเซ็นของแต่ละแบบได้ที่ข้อ “ข้อความปิดท้าย · ลงนาม” ด้านล่าง</span></div>
 
         {SECTIONS.filter((x) => x.sec !== 'head').map(secRow)}
 
@@ -614,13 +622,13 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
           setSignSetup(false); setMsg('ลงลายเซ็นเรียบร้อย — ครั้งต่อไปกด ✍️ ลงลายเซ็นได้ทันที ไม่ต้องเลือกรูปอีก'); return true
         }} />
       )}
-      {edit && <CfgForm sec={edit} cfg={cfg} def={DEF} secretary={!!K.secretarySigns} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
+      {edit && <CfgForm sec={edit} cfg={cfg} def={DEF} secretary={!!K.secretarySigns} letterDouble={isDouble(cfg, l)} onClose={() => setEdit(null)} onSave={(c) => { const ok = putCfg(c); if (ok) setEdit(null); return ok }} />}
     </>
   )
 }
 
 /** แก้ข้อความของส่วนเดียว (หัวจดหมาย / ปิดท้าย·ลงนาม / ข้อมูลติดต่อ) — บันทึกแล้วใช้กับหนังสือทุกฉบับทันที */
-function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec; cfg: Cfg; def: Cfg; secretary?: boolean; onClose: () => void; onSave: (c: Cfg) => boolean }) {
+function CfgForm({ sec, cfg, def: DEF, secretary, letterDouble, onClose, onSave }: { sec: Sec; cfg: Cfg; def: Cfg; secretary?: boolean; letterDouble?: boolean; onClose: () => void; onSave: (c: Cfg) => boolean }) {
   const def = SECTIONS.find((x) => x.sec === sec)!
   const [c, setC] = useState<Cfg>(cfg)
   const [msg, setMsg] = useState('')
@@ -636,23 +644,20 @@ function CfgForm({ sec, cfg, def: DEF, secretary, onClose, onSave }: { sec: Sec;
       </>}
       {sec === 'sign' && <>
         {f('proceed', 'ประโยคปิดเรื่อง (ชิดซ้าย)')}{f('bless', 'คำอวยพร/ลงท้าย (กึ่งกลาง · ขึ้นบรรทัดใหม่ได้)', 3)}
-        <div className="seg" role="group" aria-label="แบบลงนาม">
-          <button type="button" className={!isDouble(c) ? 'on' : ''} aria-pressed={!isDouble(c)} onClick={() => setC({ ...c, signMode: 'single' })}>ลงนามคนเดียว (แบบเดิม)</button>
-          <button type="button" className={isDouble(c) ? 'on' : ''} aria-pressed={isDouble(c)} onClick={() => setC({ ...c, signMode: 'double', ...Object.fromEntries(Object.entries(DOUBLE_SIGN).filter(([k]) => !(c as Record<string, unknown>)[k])) })}>ลงนามสองด้าน (ซ้าย-ขวา)</button>
-        </div>
-        {!isDouble(c) ? <>
+        <details open={!letterDouble} style={{ margin: '0.3rem 0' }}><summary><b>✍️ แบบเซ็นคนเดียว</b></summary>
           <SignUpload secretary={secretary} value={c.signImg} onChange={(v) => setC({ ...c, signImg: v })} />
           {f('signName', 'ชื่อผู้ลงนาม (ไม่ต้องใส่วงเล็บ)')}{f('signRole', 'ตำแหน่ง')}
-        </> : <>
+        </details>
+        <details open={letterDouble} style={{ margin: '0.3rem 0' }}><summary><b>✍️✍️ แบบเซ็นสองคน (ซ้าย-ขวา)</b></summary>
           <b className="small">ด้านซ้าย</b>
           <SignUpload secretary={secretary} value={c.signLImg} onChange={(v) => setC({ ...c, signLImg: v })} label="ลายเซ็นด้านซ้าย (ไม่บังคับ)" id="cf-signl" />
-          <div className="field"><label htmlFor="cf-lname">ชื่อ (ซ้าย)</label><input id="cf-lname" className="input" value={c.signLName ?? ''} onChange={(e) => setC({ ...c, signLName: e.target.value })} /></div>
-          <div className="field"><label htmlFor="cf-lrole">ตำแหน่ง (ซ้าย)</label><input id="cf-lrole" className="input" value={c.signLRole ?? ''} onChange={(e) => setC({ ...c, signLRole: e.target.value })} /></div>
+          <div className="field"><label htmlFor="cf-lname">ชื่อ (ซ้าย)</label><input id="cf-lname" className="input" value={c.signLName ?? DOUBLE_SIGN.signLName} onChange={(e) => setC({ ...c, signLName: e.target.value })} /></div>
+          <div className="field"><label htmlFor="cf-lrole">ตำแหน่ง (ซ้าย)</label><input id="cf-lrole" className="input" value={c.signLRole ?? DOUBLE_SIGN.signLRole} onChange={(e) => setC({ ...c, signLRole: e.target.value })} /></div>
           <b className="small">ด้านขวา</b>
           <SignUpload secretary={secretary} value={c.signImg} onChange={(v) => setC({ ...c, signImg: v })} label="ลายเซ็นด้านขวา" id="cf-signr" />
-          <div className="field"><label htmlFor="cf-rname">ชื่อ (ขวา)</label><input id="cf-rname" className="input" value={c.signRName ?? ''} onChange={(e) => setC({ ...c, signRName: e.target.value })} /></div>
-          <div className="field"><label htmlFor="cf-rrole">ตำแหน่ง (ขวา)</label><input id="cf-rrole" className="input" value={c.signRRole ?? ''} onChange={(e) => setC({ ...c, signRRole: e.target.value })} /></div>
-        </>}
+          <div className="field"><label htmlFor="cf-rname">ชื่อ (ขวา)</label><input id="cf-rname" className="input" value={c.signRName ?? DOUBLE_SIGN.signRName} onChange={(e) => setC({ ...c, signRName: e.target.value })} /></div>
+          <div className="field"><label htmlFor="cf-rrole">ตำแหน่ง (ขวา)</label><input id="cf-rrole" className="input" value={c.signRRole ?? DOUBLE_SIGN.signRRole} onChange={(e) => setC({ ...c, signRRole: e.target.value })} /></div>
+        </details>
       </>}
       {sec === 'contact' && f('contact', 'ข้อมูลติดต่อ หากมีข้อสงสัย (บรรทัดละหนึ่งชุด)', 5)}
       {msg && <p className="error" role="alert">{msg}</p>}
