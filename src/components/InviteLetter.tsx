@@ -79,6 +79,8 @@ export const defaultCfg = (kind: LetterKindId): Cfg => ({ ...INVITE_CFG, ...(LET
 export const DEFAULT_CFG = INVITE_CFG
 /** แบบลงนามสองด้าน (ซ้าย-ขวา): ค่าตั้งต้น · แก้ได้ที่ปุ่มแก้ข้อความลงนาม */
 export const DOUBLE_SIGN = { signLName: 'ครูศาสนาพิชิต เผ่าดี', signLRole: 'ศิษยาภิบาลคริสตจักรศิลาเอก', signRName: 'ผป.สมเจต เสมาทอง', signRRole: 'ผู้ปกครองคริสตจักรศิลาเอก' }
+/** ปี พ.ศ. ของหนังสือ (ตามวันที่หนังสือ ไม่มี = ปีปัจจุบัน) — ต่อท้ายเลขที่ในหนังสือเอง เช่น ศอ/ขอ.001/2569 */
+const yearBEOf = (date?: string) => { const y = /^(\d{4})-/.exec(date ?? '')?.[1]; return Number(y ?? new Date().getFullYear()) + 543 }
 /** แบบลงนามที่ใช้จริง: ของฉบับนั้น (ถ้าเลือก) ไม่งั้นตามค่าตั้งต้น */
 const isDouble = (c: Pick<Cfg, 'signMode'>, l?: { signMode?: 'single' | 'double' }) => (l?.signMode ?? c.signMode) === 'double'
 type Sec = 'head' | 'sign' | 'contact'
@@ -118,7 +120,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
         </header>
         {mt && <div className="il__banner il__banner--3">{noticeHeading(l.date || todayISO()).map((x, i) => <div key={i}>{x}</div>)}</div>}
         <div className="il__body">
-          <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no || '………'}</div>
+          <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no ? `${l.no}/${yearBEOf(l.date)}` : '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
           <div className="letter__row" data-split-start><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
