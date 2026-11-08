@@ -178,7 +178,7 @@ const SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 /**
  * หัวหนังสือแจ้งการประชุม (3 บรรทัด ตามหัววาระมาตรฐานของคริสตจักร): ชื่อวาระการประชุม · สมัยสามัญ ครั้งที่ เดือนย่อ/ปี ค.ศ. · วันอาทิตย์ที่ … (อาทิตย์แรกของเดือนที่จะถึง ตามวันที่ของหนังสือ)
  */
-export function noticeHeading(todayIso: string, special = false): string[] {
+export function noticeHeading(todayIso: string, special = false, no?: string): string[] {
   const n = nextFirstSunday(todayIso)
-  return ['วาระการประชุมธรรมกิจคริสตจักรศิลาเอก', `สมัย${special ? 'วิสามัญ' : 'สามัญ'} ครั้งที่ ${SHORT_MONTHS[n.m - 1]}/${n.y}`, `วันอาทิตย์ที่ ${n.d} ${MONTHS[n.m - 1]} ${n.y}`]
+  return ['วาระการประชุมธรรมกิจคริสตจักรศิลาเอก', `สมัย${special ? 'วิสามัญ' : 'สามัญ'} ครั้งที่ ${no?.trim() ? `${no.trim()}/${n.y + 543}` : `${SHORT_MONTHS[n.m - 1]}/${n.y + 543}`}`, `วันอาทิตย์ที่ ${n.d} ${MONTHS[n.m - 1]} ${n.y}`]
 }
