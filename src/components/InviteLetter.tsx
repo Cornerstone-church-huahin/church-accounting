@@ -46,7 +46,7 @@ const agendaLabels = (items: AgendaItem[]): string[] => { let v = 0, r = 0; retu
 /** บรรทัดที่ขึ้นบนหนังสือ: เรียงตามที่ลากไว้ทุกข้อ (ข้อที่ยังไม่พิมพ์ชื่อขึ้นเป็น ……… ให้เห็นโครงที่จัดไว้) */
 export const agendaOf = (l: { agenda?: (string | AgendaItem)[] }): { label: string; t: string; r: boolean }[] => { const it = agendaItems(l), lb = agendaLabels(it); return it.map((x, i) => ({ label: lb[i], t: x.t.trim() || '………………', r: x.k === 'r' })) }
 /** ภาพรวมข้อความของหนังสือ ณ ตอนลงนาม (เทียบว่าแก้ไขหลังลงนามหรือไม่) */
-const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), l.verse ?? '', c.proceed, ...(l.verse?.trim() ? ['', l.verse.trim()] : []), c.bless, c.signName, c.signRole, l.signMode ?? c.signMode ?? 'single', ...(isDouble(c, l) ? [c.signLName, c.signLRole, c.signRName, c.signRRole] : [])])
+const snapOf = (l: Draft, c: Cfg) => JSON.stringify([l.no, l.meetingNo ?? '', l.category ?? '', l.date, l.subject, l.to, l.attach, l.showAttach, l.body, agendaOf(l), l.verse ?? '', c.proceed, ...(l.verse?.trim() ? ['', l.verse.trim()] : []), c.bless, c.signName, c.signRole, l.signMode ?? c.signMode ?? 'single', ...(isDouble(c, l) ? [c.signLName, c.signLRole, c.signRName, c.signRRole] : [])])
 /** เลขลำดับในวงกลม: ซีดเมื่อยังไม่ได้ใส่ · เขียวเมื่อใส่แล้ว (ข้อความเลขแบบเต็มอยู่ให้โปรแกรมอ่านหน้าจอ) */
 function No({ n, ok }: { n: string; ok: boolean }) {
   return <><span className={`il-no${ok ? ' il-no--ok' : ''}`} aria-hidden="true" data-n={n} /><span className="sr-only">{n}. </span></>
@@ -119,7 +119,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
             {internal && <span className="il__tag">หนังสือภายใน</span>}
           </div>
         </header>
-        {mt && <div className="il__banner il__banner--3">{noticeHeading(l.date || todayISO(), !!l.category).map((x, i) => <div key={i}>{x}</div>)}</div>}
+        {mt && <div className="il__banner il__banner--3">{noticeHeading(l.date || todayISO(), !!l.category, l.meetingNo?.trim() || (l.category ? String(noDigits(l.no) || '') : '')).map((x, i) => <div key={i}>{x}</div>)}</div>}
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no ? `${l.no}/${yearBEOf(l.date)}` : '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
@@ -502,6 +502,12 @@ function InviteEditor({ id, kind }: { id: string; kind: LetterKindId }) {
               <button type="button" className={!isVar ? 'on' : ''} aria-pressed={!isVar} onClick={() => retype(false)}>การประชุมสามัญ</button>
               <button type="button" className={isVar ? 'on' : ''} aria-pressed={isVar} onClick={() => retype(true)}>การประชุมวิสามัญ</button>
             </div></div>
+        )}
+        {kind === 'notice' && (
+          <div className="field"><label htmlFor="il-mno">🔢 ครั้งที่ของการประชุม <span className="muted small">(แสดงที่หัววาระ · ปล่อยว่าง = {isVar ? 'ตามเลขที่หนังสือ' : 'แสดงเป็นเดือน/ปี'})</span></label>
+            <input id="il-mno" className="input" inputMode="numeric" value={l.meetingNo ?? ''} placeholder={isVar ? String(noDigits(l.no) || '') : 'เช่น 10'}
+              onChange={(e) => set({ meetingNo: e.target.value.replace(/[^\d]/g, '') })}
+              onBlur={() => { const me = meetingsAll.items.find((x) => x.noticeLetterId === id && !x.deleted); const nn = Number(l.meetingNo); if (me && nn > 0 && me.no !== nn) meetingsAll.put([{ ...me, no: nn, updated: Date.now() }]) }} /></div>
         )}
         <div className="field"><label htmlFor="il-tn"><No n="1" ok={okOf['1']} />ส่งถึง (ชื่อสั้น ใช้ตั้งชื่อในรายการและคลังเอกสาร)</label><input id="il-tn" className="input" value={l.toName ?? ''} onChange={(e) => set({ toName: e.target.value })} placeholder="เช่น นพพร" /></div>
 
