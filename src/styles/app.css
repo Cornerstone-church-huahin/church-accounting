@@ -1982,3 +1982,6 @@ a.healthact { color: #b3261e; }
 .il__bottom .letter__sign--two { margin-right: 0; }
 /* หนังสือส่งภายนอก: ไม่มีเครดิตท้ายหน้า ข้อมูลติดต่อชิดขอบล่างมากขึ้น */
 .il__foot--ext { padding-bottom: 12px; }
+/* เนื้อหาหนังสือ: เคาะสเปซกี่ครั้งก็ห่างตามจริง (ไม่ยืดช่องว่างให้เต็มบรรทัด) · เว้นบรรทัดว่าง (Enter ซ้ำ) = เว้นบรรทัดจริง */
+.letter__p--exact { text-align: left; white-space: pre-wrap; }
+.letter__gap { height: 1.4em; }

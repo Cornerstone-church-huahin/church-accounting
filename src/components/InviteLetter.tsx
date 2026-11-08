@@ -125,7 +125,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
           <div className="letter__row" data-split-start><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
           <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
           {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
-          <div style={{ margin: internal ? '10px 0 6px' : '18px 0 8px', minHeight: internal ? 0 : 120 }}>{(l.body || '………').split(/\n/).filter((x) => x.trim()).map((p, i) => <p key={i} className="letter__p">{p}</p>)}</div>
+          <div style={{ margin: internal ? '10px 0 6px' : '18px 0 8px', minHeight: internal ? 0 : 120 }}>{(l.body || '………').replace(/\s+$/, '').split(/\n/).map((p, i) => p.trim() ? <p key={i} className="letter__p letter__p--exact">{p}</p> : <div key={i} className="letter__gap" aria-hidden="true" />)}</div>
           {agendaOf(l).length > 0 && <div className="letter__agenda" data-split-focus>{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}>{x.r ? `${x.label} ${x.t}` : <b>{x.label} {x.t}</b>}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
         </div>
