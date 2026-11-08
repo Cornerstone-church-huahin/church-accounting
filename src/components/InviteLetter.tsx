@@ -104,6 +104,7 @@ export function letterText(l: Draft, c: Cfg): string {
 /** หน้า A4: หัวจดหมาย (โลโก้ + ข้อความ) บน · เนื้อหากลาง · ลงนามขวา · ข้อมูลติดต่อล็อกท้ายกระดาษ */
 function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef: React.Ref<HTMLDivElement>; internal?: boolean; /** โหมดแบ่งจอ: แสดงตั้งแต่ เรื่อง/เรียน จนถึงลายเซ็น ย่อให้พอดีกล่อง */ crop?: boolean }) {
   const signed = !!l.signed && !!c.signImg
+  const lw = attachOf(l) ? 100 : 50 // ความกว้างช่องป้าย เรื่อง/เรียน (ชิดค่ามากขึ้น) · มี “สิ่งที่ส่งมาด้วย” ต้องกว้างพอ
   // หนังสือภายใน (แจ้งการประชุม): แถบหัวเรื่องบอกทันทีว่าเป็นการแจ้งประชุมประจำเดือนอะไร ปีอะไร
   const mt = internal ? nextFirstSunday(l.date || todayISO()) : null
   return (
@@ -122,9 +123,9 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no ? `${l.no}/${yearBEOf(l.date)}` : '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
-          <div className="letter__row" data-split-start><span>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
-          <div className="letter__row"><span>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
-          {attachOf(l) && <div className="letter__row"><span>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
+          <div className="letter__row" data-split-start><span style={{ width: lw }}>เรื่อง</span><span style={{ flex: 1 }}>{l.subject || '………'}</span></div>
+          <div className="letter__row"><span style={{ width: lw }}>เรียน</span><span style={{ flex: 1 }}>{l.to || '………'}</span></div>
+          {attachOf(l) && <div className="letter__row"><span style={{ width: lw }}>สิ่งที่ส่งมาด้วย</span><span style={{ flex: 1 }}>{attachOf(l)}</span></div>}
           <div style={{ margin: internal ? '10px 0 6px' : '18px 0 8px', minHeight: internal ? 0 : 120 }}>{(l.body || '………').replace(/\s+$/, '').split(/\n/).map((p, i) => p.trim() ? <p key={i} className="letter__p letter__p--exact">{p}</p> : <div key={i} className="letter__gap" aria-hidden="true" />)}</div>
           {agendaOf(l).length > 0 && <div className="letter__agenda" data-split-focus>{agendaOf(l).map((x, i) => <div key={i} className={x.r ? 'letter__agenda-r' : undefined}>{x.r ? `${x.label} ${x.t}` : <b>{x.label} {x.t}</b>}</div>)}</div>}
           <p className="letter__p">{c.proceed}</p>
