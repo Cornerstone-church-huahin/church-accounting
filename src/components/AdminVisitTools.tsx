@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Sheet from './Sheet'
+import MemberAvatar from './MemberAvatar'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { isWorkStaffOnly } from '../lib/access'
@@ -235,7 +236,7 @@ export function MemberHomesMap() {
   const [msg, setMsg] = useState('')
   const [sel, setSel] = useState<string | null>(null)
   const [pop, setPop] = useState(true) // ป๊อปอัพรายชื่อที่ตรงกับคำค้น (ปิดหลังเลือกแล้ว)
-  const withC = useMemo(() => people.items.flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', lat: m.lat, lng: m.lng }] : [])), [people.items])
+  const withC = useMemo(() => people.items.flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, lat: m.lat, lng: m.lng }] : [])), [people.items])
   // ค้นหา: ชื่อ/ชื่อเล่น/หมายเหตุ ตรงคำค้น + "คนที่เกี่ยวข้อง" ดึงจากข้อมูลหลังบ้าน (นามสกุลเดียวกัน · ที่อยู่เดียวกัน · หมายเหตุที่กล่าวถึงกัน)
   // ไม่แสดงว่าเกี่ยวข้องอย่างไร แสดงเฉพาะรายชื่อ (ตรงคำค้นก่อน แล้วตามด้วยคนที่เกี่ยวข้อง)
   const matched = useMemo(() => {
@@ -256,7 +257,7 @@ export function MemberHomesMap() {
     }))
     return [...direct, ...rel]
   }, [people.items, q])
-  const shown = useMemo(() => (q.trim() ? matched : people.items).flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', lat: m.lat, lng: m.lng }] : [])), [matched, people.items, q])
+  const shown = useMemo(() => (q.trim() ? matched : people.items).flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, lat: m.lat, lng: m.lng }] : [])), [matched, people.items, q])
   const noCoord = useMemo(() => matched.filter((m) => !hasCoord(m)), [matched])
   const target = q.trim() ? (shown.find((m) => m.id === sel) ?? shown[0] ?? null) : null // พิมพ์ชื่อแล้ว: คนที่แตะเลือก หรือคนแรกที่ตรง
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
@@ -305,11 +306,11 @@ export function MemberHomesMap() {
             {shown.length + noCoord.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดบ้านตรงกับคำค้น{noCoord.length ? ' — มีคนที่ตรงแต่ยังไม่มีพิกัด ดูใต้แผนที่' : ''}</p>}
             {shown.map((m) => (
               <button key={m.id} type="button" role="option" aria-selected={target?.id === m.id} className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '12px', border: 0, borderBottom: '1px solid #eee', background: '#fff', textAlign: 'left', font: 'inherit' }} onClick={() => { setSel(m.id); setPop(false); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
-                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small>🧭 นำทาง</small>
+                <MemberAvatar path={m.photo} name={m.name} size={48} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small>🧭 นำทาง</small>
               </button>))}
             {noCoord.map((m) => (
               <div key={m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '12px', borderBottom: '1px solid #eee', opacity: 0.6 }}>
-                <span aria-hidden="true">👤</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}</span><small>ยังไม่มีพิกัดบ้าน</small>
+                <MemberAvatar path={m.photoPath} name={m.name} size={48} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}</span><small>ยังไม่มีพิกัดบ้าน</small>
               </div>))}
           </div>
         )}
@@ -327,7 +328,7 @@ export function MemberHomesMap() {
           return (
             <li key={m.id} className="row" style={{ gap: 4, alignItems: 'center', borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent' }}>
               <button type="button" className="row" style={{ flex: 1, gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, background: 'transparent', textAlign: 'left', font: 'inherit' }} aria-label={`นำทางไปบ้าน ${m.name}`} onClick={() => { setSel(m.id); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
-                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : <small className="muted"> · ยังไม่มีชื่อเล่น</small>}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
+                <MemberAvatar path={m.photo} name={m.name} size={44} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : <small className="muted"> · ยังไม่มีชื่อเล่น</small>}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
               </button>
               <button type="button" className="mini" aria-label={`แก้ชื่อเล่น ${m.name}`} title="เพิ่ม/แก้ชื่อเล่น" onClick={editNick}>✏️</button>
             </li>)
