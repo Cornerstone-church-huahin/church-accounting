@@ -10,7 +10,8 @@ import PastoralMembers from '../components/PastoralMembers'
 import MapPickSheet from '../components/MapPickSheet'
 import { removeMemberPhotoFile, uploadMemberPhoto } from '../lib/memberPhoto'
 import { getSync } from '../lib/sync'
-import { can, isRegistryHelper, registryCanSign } from '../lib/access'
+import { can, isRegistryHelper, myWorkLevel, registryCanSign } from '../lib/access'
+import { MemberHomesMap } from '../components/AdminVisitTools'
 import { useAttendance, useChurchMembers, useRecorders, useSettings, useVisitPlans } from '../lib/data'
 import { useRole } from '../lib/members'
 import { fmtDate, newId, todayISO, yearOf } from '../lib/money'
@@ -33,7 +34,7 @@ import AgeView from '../components/AgeView'
 import Stats from '../components/AttendanceStats'
 import type { Attendance, CheckIn, ChurchMember, Recorder } from '../lib/types'
 
-type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender' | 'age'
+type Tab = 'audit' | 'checkin' | 'roster' | 'stats' | 'birth' | 'gender' | 'age' | 'homes'
 const YEARS_BACK = 3 // โหลดบันทึกลงชื่อย้อนหลัง 4 ปี (ปีนี้ + 3 ปี) · ระดับ "ขาดเกิน N ปี" จึงนับได้ไม่เกินช่วงนี้
 
 /** registry = เปิดจากห้องงานฝ่ายทะเบียน (เฉพาะที่นี่มีปุ่มคัดลอกลิงก์แบบกรอกข้อมูล) */
@@ -94,7 +95,10 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
   const absStats = useMemo(() => visitStats(attendance, today), [attendance, today]) // ขาดนมัสการมานานเท่าไร (ใช้ในหน้าวันเกิด)
   const merged = !!registry && canEdit && !lite // งานทะเบียน: หน้า “รวมสมาชิก” รวมของเดิมแท็บตรวจสอบ+ทะเบียนไว้หน้าเดียว
   const HELPER_TABS = (canSign ? [['audit', 'รวมสมาชิก', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']] : [['audit', 'รวมสมาชิก', '🔍'], ['stats', 'รายงาน', '📊'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']]) as readonly (readonly [Tab, string, string])[]   // ผู้ช่วยฝ่ายทะเบียน: เห็นครบทุกไอคอน (ดูอย่างเดียว) ลงชื่อได้จริง
-  const tabItems = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
+  const lvl = registry ? myWorkLevel(2) : null
+  const homesOk = !!registry && (lvl === 'admin' || lvl === 'owner' || lvl === 'lead') // แท็บ บ้านสมาชิก: เฉพาะแอดมินและผู้ดูแล
+  const tabItemsBase = (helper ? HELPER_TABS : lite ? [['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒']] as const : [['audit', registry && canEdit ? 'รวมสมาชิก' : 'ตรวจสอบ', '🔍'], ['checkin', 'ลงชื่อ', '✍️'], ['stats', 'รายงาน', '📊'], ['roster', 'ทะเบียน', '📒'], ['birth', 'วันเกิด', '🎂'], ['gender', 'เพศ', '👫'], ['age', 'อายุ', '📅']] as const).filter(([key]) => !(merged && key === 'roster')).map(([key, label, icon]) => ({ key, label, icon }))
+  const tabItems = homesOk ? [...tabItemsBase, { key: 'homes' as const, label: 'บ้านสมาชิก', icon: '🗺️' }] : tabItemsBase
   // หน้ารวมสมาชิก (งานทะเบียน): ตัวกรองจากผลตรวจ/เพศ/จุดอัปเดต รวมเป็นชุดรหัสเดียวส่งให้การ์ดสมาชิก
   const regIds = useMemo(() => {
     if (!merged || (!checkF.length && !genF && !updF)) return null
@@ -163,6 +167,7 @@ function MembersPage({ registry, onMenu }: { registry?: boolean; onMenu?: (inMen
       {!lite && tab === 'audit' && <Audit checkOnly={merged} ext={merged ? [checkF, setCheckF] : undefined} registry={!!registry && canEdit} onOpen={setDetail} result={result} criteria={criteria} canEdit={canEdit} canTune={can(role, 'settings')} today={today} put={people.put} onCriteria={(p) => save(p)} />}
       {helper && tab === 'audit' && <PastoralMembers work={2} hideMap />}
       {(!lite || helper) && tab === 'gender' && <GenderView members={people.items} canEdit={canEdit} put={people.put} onOpen={setDetail} />}
+      {homesOk && tab === 'homes' && <MemberHomesMap embedded />}
       {(!lite || helper) && tab === 'age' && <AgeView members={people.items} today={today} onOpen={setDetail} />}
       {(!lite || helper) && tab === 'birth' && <BirthdayList members={people.items} today={today} onOpen={setDetail} absLabel={(m) => (isLive(m) ? absence(absStats.get(m.id)?.last, today).label : '')} />}
       {tab === 'stats' && <Stats attendance={attendance} members={people.items} />}
