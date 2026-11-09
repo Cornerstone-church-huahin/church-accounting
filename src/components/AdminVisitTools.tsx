@@ -234,6 +234,7 @@ export function MemberHomesMap() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [sel, setSel] = useState<string | null>(null)
+  const [pop, setPop] = useState(true) // ป๊อปอัพรายชื่อที่ตรงกับคำค้น (ปิดหลังเลือกแล้ว)
   const withC = useMemo(() => people.items.flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', lat: m.lat, lng: m.lng }] : [])), [people.items])
   const shown = useMemo(() => { const t = q.trim().toLowerCase(); return withC.filter((m) => !t || m.name.toLowerCase().includes(t) || m.nick.toLowerCase().includes(t)) }, [withC, q]) // ค้นได้ทั้งชื่อและชื่อเล่น
   const noCoord = useMemo(() => { const t = q.trim().toLowerCase(); return !t ? [] : people.items.filter((m) => !hasCoord(m) && ((m.name ?? '').toLowerCase().includes(t) || (m.nick ?? '').toLowerCase().includes(t))).slice(0, 15) }, [people.items, q])
@@ -261,8 +262,8 @@ export function MemberHomesMap() {
       <Back title="🗺️ แผนที่บ้านสมาชิก" />
       <p>มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน (พิกัดเข้าอัตโนมัติเมื่อ “เช็คอินที่บ้าน”)</p>
       <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
-        <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null) }} />
-        <button type="button" className="btn btn--gold" disabled={busy || !target} aria-label={target ? `นำทางไปบ้าน ${target.name}` : 'นำทาง (พิมพ์ชื่อก่อน)'} onClick={() => target && go(target)}>🧭 นำทาง</button>
+        <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null); setPop(true) }} />
+        <button type="button" className="btn btn--gold" disabled={busy || !target} aria-label={target ? `นำทางไปบ้าน ${target.name}` : 'นำทาง (พิมพ์ชื่อก่อน)'} onClick={() => { if (target) { setPop(false); go(target) } }}>🧭 นำทาง</button>
       </div>
       {dest && (
         <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, background: '#eef5ff' }} role="status">
@@ -275,9 +276,21 @@ export function MemberHomesMap() {
         </div>
       )}
       {!dest && msg && <p className="muted small" role="status">{msg}</p>}
+      <div style={{ position: 'relative', minHeight: 150 }}>
       {shown.length === 0 ? <p className="empty">ไม่มีสมาชิกที่มีพิกัด</p> : (
         <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} {...(line ? { line } : {})} height={420} label="แผนที่บ้านสมาชิก" /></Suspense>
       )}
+        {pop && q.trim() && (
+          <div role="listbox" aria-label="ชื่อที่ตรงกับคำค้น" style={{ position: 'absolute', left: 8, right: 8, top: 8, zIndex: 1000, maxHeight: '85%', overflowY: 'auto', background: '#fff', border: '2px solid #1a73e8', borderRadius: 14, boxShadow: '0 8px 24px rgba(0,0,0,.45)' }}>
+            <div style={{ padding: '8px 12px', background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อที่ต้องการนำทาง</b> <small className="muted">({shown.length} คนตรงกับ “{q.trim()}”)</small></div>
+            {shown.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดบ้านตรงกับคำค้น{noCoord.length ? ' — มีคนที่ตรงแต่ยังไม่มีพิกัด ดูใต้แผนที่' : ''}</p>}
+            {shown.map((m) => (
+              <button key={m.id} type="button" role="option" aria-selected={target?.id === m.id} className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '12px', border: 0, borderBottom: '1px solid #eee', background: '#fff', textAlign: 'left', font: 'inherit' }} onClick={() => { setSel(m.id); setPop(false); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
+                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small>🧭 นำทาง</small>
+              </button>))}
+          </div>
+        )}
+      </div>
       <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกที่มีพิกัด">
         {shown.map((m) => {
           const on = !!q.trim() && target?.id === m.id
