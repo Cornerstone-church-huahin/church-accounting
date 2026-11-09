@@ -25,7 +25,7 @@ export default function VisitReports() {
   const members = useChurchMembers()
   const [open, setOpen] = useState<string | null>(null)
   const [a4, setA4] = useState(false)
-  const [view, setView] = useState<'table' | 'weeks' | 'cards' | 'report'>('table') // รายการสัปดาห์ · การ์ด 7 วัน · ใบรายงานสัปดาห์
+  const [view] = useState<'table' | 'weeks' | 'cards' | 'report'>('table') // รายการสัปดาห์ · การ์ด 7 วัน · ใบรายงานสัปดาห์
   const [pic, setPic] = useState<{ v: Visit; path: string } | null>(null)
   const weeks = useMemo(() => {
     const m = new Map<string, Visit[]>()
@@ -97,12 +97,6 @@ export default function VisitReports() {
 
   return (
     <div className="vrep">
-      <div className="seg seg--3 no-print" role="tablist" aria-label="มุมมองรายงาน" style={{ marginBottom: '0.4rem' }}>
-        <button type="button" role="tab" aria-selected={view === 'table'} className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}>📅 ตาราง</button>
-        <button type="button" role="tab" aria-selected={view === 'weeks'} className={view === 'weeks' ? 'on' : ''} onClick={() => setView('weeks')}>📋 สัปดาห์</button>
-        <button type="button" role="tab" aria-selected={view === 'cards'} className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>🗓️ การ์ด</button>
-        <button type="button" role="tab" aria-selected={view === 'report'} className={view === 'report' ? 'on' : ''} onClick={() => setView('report')}>📄 รายงาน</button>
-      </div>
       {view === 'table' ? <VisitTimetable mode="report" /> : null}
       {view === 'cards' ? <PastoralVisits key="cards" only="cards" readOnly /> : view === 'report' ? <PastoralVisits key="report" only="report" readOnly /> : null}
       {view !== 'weeks' ? null : weeks.length === 0
