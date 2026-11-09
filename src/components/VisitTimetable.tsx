@@ -168,7 +168,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
                       const vsl = visits.list.filter((v) => v.date === d && slotOfVisit(v, pd) === sl.k)
                       return (
                         <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
-                          {note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginBottom: 3 }}>📝 {note}</div>}
+                          {!report && note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginBottom: 3 }}>📝 {note}</div>}
                           {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName}{v.absent ? ' ✗ ไม่พบ' : ' ✓'}{v.checkin ? <small style={{ color: '#555' }}> {new Date(v.checkin.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</small> : null}{v.visitor ? <div style={{ fontSize: 14, color: '#555' }}>ผู้เยี่ยม: {v.visitor}</div> : null}</div>) : null}
                           {report ? null : ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
                           {report ? null : pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}{seen.has(`place:${p}`) ? ' ✓' : ''}</div>)}
