@@ -173,7 +173,9 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const [shareMsg, setShareMsg] = useState('')
   const [warn, setWarn] = useState<string[] | null>(null) // ป๊อปอัพเตือนเมื่อขาดพิกัด/รูป
   // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
-  const testMode = !!useSettings().settings.visitTestMode // 🧪 โหมดทดสอบ: ไม่บังคับเช็คอิน/รูป ใช้พิกัดบ้านในทะเบียนแทน
+  const stSet = useSettings()
+  const roleNow = useRole()
+  const testMode = !!stSet.settings.visitTestMode // 🧪 โหมดทดสอบ: ไม่บังคับเช็คอิน/รูป ใช้พิกัดบ้านในทะเบียนแทน
   const needProof = !testMode && (!entry || !!entry.checkin)
   const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
   const lockedMember = !entry && !!preset?.member
@@ -223,13 +225,13 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     return m && hasCoord(m) ? { lat: m.lat, lng: m.lng, at: Date.now() + i * 1000, kind: 'home', sim: true } : undefined
   }
   const save = () => {
-    const visitor = joinVisitors(picked)
+    const visitor = joinVisitors(picked) || (testMode ? 'ทดสอบ' : '')
     if (group ? group.every((x) => gsel[x.id] === 'skip') : !member) return setErr(group ? 'เลือกอย่างน้อย 1 คนที่จะบันทึก' : 'เลือกสมาชิกที่ไปเยี่ยม')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
     const foundAny = group ? group.some((x) => gsel[x.id] === 'met') : !absent
-    const miss = [...(!visitor ? ['👥 ผู้ออกเยี่ยม — เลือกอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!testMode && !entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
+    const miss = [...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยม — เลือกอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!testMode && !entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
@@ -246,7 +248,10 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   }
   return (
     <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
-      {testMode && <p role="status" style={{ margin: 0, background: '#fff3cd', border: '1px solid #e0b100', borderRadius: 10, padding: '6px 10px' }}>🧪 <b>โหมดทดสอบ</b> — ไม่ต้องเช็คอิน/ถ่ายรูป ระบบใช้พิกัดบ้านของสมาชิกที่มีในทะเบียนสร้างเส้นทางให้ (ปิดได้ที่โซนแอดมิน)</p>}
+      {roleNow === 'admin' && <label className="row" style={{ margin: 0, gap: 8, alignItems: 'center', background: testMode ? '#fff3cd' : '#f4f4f4', border: '1px solid #e0b100', borderRadius: 10, padding: '6px 10px' }}>
+        <input type="checkbox" style={{ width: 22, height: 22 }} checked={testMode} onChange={(e) => stSet.save({ visitTestMode: e.target.checked })} />
+        <span>🧪 <b>โหมดทดสอบ (แอดมิน)</b>{testMode ? ' — ไม่ต้องใส่ผู้ออกเยี่ยม/เช็คอิน/รูป ระบบใช้พิกัดบ้านที่มีในทะเบียนสร้างเส้นทางให้' : ' — ติ๊กเพื่อบันทึกโดยไม่ต้องเช็คอิน/ถ่ายรูป'}</span>
+      </label>}
       {group
         ? (
           <div className="field"><label>ติ๊กคนที่ไปเยี่ยมพร้อมกัน (เช็คอินที่เดียวกัน) — ติ๊กเฉพาะบางคน หรือทั้งกลุ่มก็ได้</label>
