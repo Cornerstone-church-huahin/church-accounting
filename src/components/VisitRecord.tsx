@@ -9,7 +9,7 @@ import { useAttendance, useChurchMembers, useVisitPlans, useVisits, useWorkTeams
 import { absentMonths, visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
-import { addItem, dropItem, setStop, stopColor } from '../lib/visitPlan'
+import { addItem, dropItem, setSlot, setStop, SLOTS, stopColor } from '../lib/visitPlan'
 import { homeFromCheckin } from '../lib/geo'
 import { timeText } from '../lib/visitProof'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
@@ -42,7 +42,13 @@ export default function VisitRecord() {
   const [adding, setAdding] = useState<number | null>(null) // เปิดป๊อปอัพเลือกคนเพิ่มเข้าจุดนี้
   const planDoc = plans.of(today)
   // รายชื่อจากตะกร้าที่เลือกจุดแล้ว ขึ้นหน้านี้อัตโนมัติ · คนที่บันทึกการเยี่ยมแล้ว อยู่ตามจุดที่บันทึก (แก้ตะกร้าทีหลังไม่มีผลต่อรายการที่บันทึกแล้ว)
-  const assigned = planDoc.items.filter((x) => x.g > 0)
+  // แผนจากตารางเยี่ยม (หน้า “วางแผน”): คนที่ยังไม่มีเลขจุด จัดตามภาค เช้า/บ่าย/ค่ำ (จุดเสมือน 101–103) + สถานที่/โครงการ (id = place:ชื่อ)
+  const vstop = (slot?: string) => 101 + Math.max(0, SLOTS.findIndex((x) => x.k === (slot ?? 'บ่าย')))
+  const assigned = [
+    ...planDoc.items.map((x) => ({ ...x, g: x.g > 0 ? x.g : vstop(x.slot) })),
+    ...SLOTS.flatMap((sl) => (planDoc.places?.[sl.k] ?? []).map((p) => ({ id: `place:${p}`, name: `📍 ${p}`, g: vstop(sl.k) }))),
+  ]
+  const stopTitle = (g: number) => (g > 100 ? `${SLOTS[g - 101].icon} ภาค${SLOTS[g - 101].k}` : `จุดที่ ${g}`)
   const canPlan = canWrite
   const todays = visitsOn(visits.list, today).filter((v) => (v.stop ?? 0) > 0)
   const isDone = (id: string) => todays.some((v) => v.memberId === id)
@@ -77,16 +83,16 @@ export default function VisitRecord() {
       </p>
       {note && <p className="small pvnote" role="status" style={{ margin: '0 0 0.4rem' }}>📍 {note}</p>}
       {stopNos.length === 0 && (
-        <p className="empty">ยังไม่มีรายการเตรียมเยี่ยมของวันนี้ — ไปที่ “วางแผนเยี่ยม” จัดตะกร้าและเลือกจุดเยี่ยม รายชื่อจะมาที่นี่ตามจุดโดยอัตโนมัติ</p>
+        <p className="empty">ยังไม่มีรายการเตรียมเยี่ยมของวันนี้ — ไปที่ “วางแผน” ใส่คน/สถานที่ในช่องตาราง (วันนี้)เยี่ยม รายชื่อจะมาที่นี่ตามจุดโดยอัตโนมัติ</p>
       )}
       {stopNos.map((g) => {
         const waiting = assigned.filter((x) => x.g === g && !isDone(x.id))
         const done = todays.filter((v) => v.stop === g)
         const c = stopColor(g)
         return (
-          <section key={g} className="vrec__stop" aria-label={`จุดที่ ${g}`} style={{ borderLeft: `6px solid ${c.dark}`, background: c.tint }}>
+          <section key={g} className="vrec__stop" aria-label={stopTitle(g)} style={{ borderLeft: `6px solid ${c.dark}`, background: c.tint }}>
             <div className="vplan__gh">
-              <b style={{ color: c.dark }}>จุดที่ {g}</b><span className="small muted">{waiting.length + done.length} คน</span>
+              <b style={{ color: c.dark }}>{stopTitle(g)}</b><span className="small muted">{waiting.length + done.length} คน</span>
               {canWrite && waiting.length > 0 && (
                 <span className="vrec__ico">
                   <button type="button" className="mini" aria-label="บันทึกทุกคนในจุดนี้" title="บันทึกทุกคนในจุดนี้" onClick={() => setForm({ entry: null, stop: g, group: waiting.map((x) => ({ id: x.id, name: x.name })) })}>👥</button>
@@ -97,28 +103,28 @@ export default function VisitRecord() {
             </div>
             <ul className="vrec__list">
               {done.map((v) => <Row key={v.id} id={v.memberId} name={v.memberName} photo={byId(v.memberId)?.photoPath} mem={byId(v.memberId)} v={v} canTap={canWrite} onTap={() => setForm({ entry: v, stop: g })} />)}
-              {waiting.map((x) => <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} mem={byId(x.id)} onRemove={canPlan ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } })} />)}
+              {waiting.map((x) => <Row key={x.id} id={x.id} name={x.name} photo={byId(x.id)?.photoPath} mem={byId(x.id)} onRemove={canPlan && !x.id.startsWith('place:') ? () => setLeave({ id: x.id, name: x.name, stop: g }) : undefined} canTap={canWrite} onTap={() => setForm({ entry: null, stop: g, member: { id: x.id, name: x.name } })} />)}
             </ul>
           </section>
         )
       })}
       {canPlan && (assigned.length > 0 || todays.length > 0) && (
-        <button type="button" className="mini" onClick={() => setAdding(Math.max(0, ...stopNos) + 1)}>＋ เพิ่มจุดเยี่ยม</button>
+        <button type="button" className="mini" onClick={() => setAdding(Math.max(0, ...stopNos.filter((n) => n < 100)) + 1)}>＋ เพิ่มจุดเยี่ยม</button>
       )}
       {adding !== null && (
-        <Sheet title={`เพิ่มผู้ถูกเยี่ยมในจุดที่ ${adding}`} onClose={() => setAdding(null)}>
+        <Sheet title={`เพิ่มผู้ถูกเยี่ยมใน${stopTitle(adding)}`} onClose={() => setAdding(null)}>
           <AbsentList label="ค้นหาสมาชิก แล้วแตะ ＋ เพื่อเพิ่มเข้าจุดนี้" members={people.items} stats={stats} today={today}
-            selectedIds={planDoc.items.filter((x) => x.g === adding).map((x) => x.id)}
+            selectedIds={assigned.filter((x) => x.g === adding).map((x) => x.id)}
             onPick={(m) => {
               const cur = planDoc.items.find((x) => x.id === m.id)
               if (cur && (cur.g === adding || isDone(m.id))) return // อยู่จุดนี้แล้ว / บันทึกการเยี่ยมไปแล้ว
-              plans.save(today, setStop(cur ? planDoc : addItem(planDoc, m), m.id, adding))
+              plans.save(today, adding > 100 ? setSlot(cur ? planDoc : addItem(planDoc, m), m.id, SLOTS[adding - 101].k) : setStop(cur ? planDoc : addItem(planDoc, m), m.id, adding))
             }} />
           <div className="row"><button type="button" className="btn btn--gold" onClick={() => setAdding(null)}>เสร็จ</button></div>
         </Sheet>
       )}
       {soloPick !== null && (
-        <Sheet title={`จุดที่ ${soloPick} · เลือกเยี่ยมเฉพาะบุคคล`} onClose={() => setSoloPick(null)}>
+        <Sheet title={`${stopTitle(soloPick)} · เลือกเยี่ยมเฉพาะบุคคล`} onClose={() => setSoloPick(null)}>
           <p style={{ margin: 0 }}>เลือกคนที่จะบันทึก — เช็คอินและผู้ออกเยี่ยมของจุดนี้ใส่ให้ก่อน แต่แต่ละคนไม่ต้องเหมือนกัน</p>
           <ul className="vrec__list">
             {assigned.filter((x) => x.g === soloPick && !isDone(x.id)).map((x) => (
