@@ -49,32 +49,34 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, today), [att, today])
     const [place, setPlace] = useState('')
+  const [ticked, setTicked] = useState<string[]>([]) // ติ๊กไว้เพื่อบันทึก “เยี่ยมแล้ว” ทีเดียวพร้อมกัน
+  const tick = (id: string, on: boolean) => setTicked((xs) => on ? (xs.includes(id) ? xs : [...xs, id]) : xs.filter((x) => x !== id))
   const visits = useVisits(true)
   const team = useWorkTeams().of(4)
   const [form, setForm] = useState<{ entry: Visit | null; member?: { id: string; name: string }; group?: { id: string; name: string }[] } | null>(null)
   const done = (id: string) => visits.list.find((v) => v.date === date && v.memberId === id)
   const mine = doc.items.filter((x) => (x.slot ?? 'บ่าย') === slot)
   const places = doc.places?.[slot] ?? []
-  const toggle = (m: { id: string; name: string }) => onChange(mine.some((x) => x.id === m.id) ? removeItem(doc, m.id) : doc.items.some((x) => x.id === m.id) ? setSlot(doc, m.id, slot) : setSlot(addItem(doc, m), m.id, slot))
+  const toggle = (m: { id: string; name: string }) => { if (!planOnly) tick(m.id, !mine.some((x) => x.id === m.id)); onChange(mine.some((x) => x.id === m.id) ? removeItem(doc, m.id) : doc.items.some((x) => x.id === m.id) ? setSlot(doc, m.id, slot) : setSlot(addItem(doc, m), m.id, slot)) }
+  const pend = [...mine.map((x) => ({ id: x.id, name: x.name })), ...places.map((p) => ({ id: `place:${p}`, name: p }))].filter((x) => ticked.includes(x.id) && !done(x.id))
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
       {mine.length > 0 && <b className="small">👥 คนที่จะไปเยี่ยม ({mine.length})</b>}
-      {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id}>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''} {!planOnly && <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v ?? null, member: { id: x.id, name: x.name } })}>{v ? '✎ แก้' : '📝 เยี่ยมแล้ว'}</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => onChange(removeItem(doc, x.id))}>✕</button>}</li> })}</ul>}
+      {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (พิมพ์ข้อความ หรือจะเลือกคนจากรายชื่อด้านล่างก็ได้)</label>
         <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>}
       {!recordOnly && <AbsentList hideLabel members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
       <b className="small">📍 สถานที่ / โครงการ{recordOnly ? '' : ' (ไม่ใส่ชื่อคน)'}</b>
-      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`}>📍 {p}{v ? ' ✓' : ''} {!planOnly && <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${p}`} onClick={() => setForm({ entry: v ?? null, member: { id: `place:${p}`, name: p } })}>{v ? '✎ แก้' : '📝 ไปแล้ว (แผนที่+รูป)'}</button>} {!recordOnly && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => onChange(removePlace(doc, slot, i))}>✕</button>}</li> })}</ul>
+      <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กไปแล้ว ${p}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(`place:${p}`)} disabled={!!v} onChange={(e) => tick(`place:${p}`, e.target.checked)} />}<span>📍 {p}{v ? ' ✓' : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${p}`} onClick={() => setForm({ entry: v, member: { id: `place:${p}`, name: p } })}>✎ แก้</button>} {!recordOnly && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => { tick(`place:${p}`, false); onChange(removePlace(doc, slot, i)) }}>✕</button>}</li> })}</ul>
       {!recordOnly && (
       <div className="row" style={{ gap: 6 }}>
         <input className="input grow" aria-label="สถานที่หรือโครงการ" placeholder="เช่น โครงการโคโค่ · ร้านพี่ตาล" value={place} onChange={(e) => setPlace(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }} />
         <button type="button" className="btn btn--gold" onClick={() => { if (place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }}>＋ เพิ่ม</button>
       </div>
       )}
-      {!planOnly && (mine.length + places.length > 1) && <button type="button" className="btn" onClick={() => setForm({ entry: null, group: [...mine.map((x) => ({ id: x.id, name: x.name })), ...places.map((p) => ({ id: `place:${p}`, name: p }))].filter((x) => !done(x.id)) })} disabled={[...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)].every((id) => !!done(id))}>📝 บันทึกพร้อมกัน (ไปที่เดียวกัน ใช้แผนที่และรูปชุดเดียว · ติ๊กเฉพาะคนที่ไปเยี่ยมจริง)</button>}
-      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}>{!planOnly && pend.length > 0 && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}><button type="button" className="btn btn--gold" style={{ minWidth: '60%' }} onClick={() => setForm({ entry: null, group: pend })}>✅ เยี่ยมแล้ว ({pend.length}) · เลือกพิกัด</button></div>}<button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={form.member ? { member: form.member } : {}}
