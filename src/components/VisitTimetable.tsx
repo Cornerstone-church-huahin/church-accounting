@@ -96,7 +96,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       </div>
       )}
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
-      <div style={{ position: 'sticky', bottom: 0, ...LIGHT, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={form.member ? { member: form.member } : {}}
