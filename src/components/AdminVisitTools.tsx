@@ -281,7 +281,6 @@ export function MemberHomesMap() {
   return (
     <>
       <Back title="🗺️ แผนที่บ้านสมาชิก" />
-      <p>มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน (พิกัดเข้าอัตโนมัติเมื่อ “เช็คอินที่บ้าน”)</p>
       <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
         <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null); setPop(true) }} />
       </div>
@@ -315,6 +314,7 @@ export function MemberHomesMap() {
           </div>
         )}
       </div>
+      <p className="muted small" style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน · เข้าเองเมื่อเช็คอินที่บ้าน</p>
       <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกที่มีพิกัด">
         {shown.map((m) => {
           const on = !!q.trim() && target?.id === m.id
