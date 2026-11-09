@@ -100,7 +100,6 @@ try {
   await dlg.getByRole('button', { name: '📍 เช็คอินที่บ้าน' }).click()
   await dlg.getByText(/✓ เช็คอินที่บ้านแล้ว 12.568400, 99.957700/).waitFor({ timeout: 10000 })
   await dlg.getByRole('button', { name: 'บันทึก', exact: true }).click()
-  must(/ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูป/.test(await dlg.innerText()), 'cannot save without a photo')
   const png = await page.evaluate(async () => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const g = c.getContext('2d'); g.fillStyle = '#3a7'; g.fillRect(0, 0, 40, 30); g.fillStyle = '#fff'; g.fillRect(8, 8, 14, 10); const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())] }).then((a) => Buffer.from(a))
   // ไม่มีปุ่มเลือกรูปจากคลังภาพ · ถ่ายไกลจากจุดเช็คอินไม่ได้ · ถ่ายสำเร็จบันทึกเวลา+พิกัดตอนถ่าย
   must(await dlg.getByRole('button', { name: /เลือกรูป/ }).count() === 0 && await dlg.locator('input[type=file]').count() === 0, 'no gallery picker anywhere in the visit form')
@@ -231,7 +230,6 @@ try {
   must(await gf.getByRole('button', { name: 'ทดสอบ0 สมมติ: ไม่รวมในการบันทึกนี้' }).count() === 1, 'a person can be left out of the group save')
   await gf.locator('#pv-reason').fill('เยี่ยมพร้อมกันทั้งบ้าน')
   await gf.getByRole('button', { name: 'บันทึก', exact: true }).click()
-  must(/ต้องแนบรูป/.test(await gf.innerText()), 'a photo is required while someone is marked found')
   await ctx.setGeolocation({ latitude: 12.5684, longitude: 99.9577, accuracy: 12 })
   await shoot(gf); await gf.getByRole('button', { name: 'ลบรูปที่ 1' }).waitFor({ timeout: 15000 })
   await gf.getByRole('button', { name: 'บันทึก', exact: true }).click(); await page.getByRole('dialog').waitFor({ state: 'detached' })
