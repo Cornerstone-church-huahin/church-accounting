@@ -56,12 +56,14 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const mine = doc.items.filter((x) => (x.slot ?? 'บ่าย') === slot)
   const places = doc.places?.[slot] ?? []
   const toggle = (m: { id: string; name: string }) => onChange(mine.some((x) => x.id === m.id) ? removeItem(doc, m.id) : doc.items.some((x) => x.id === m.id) ? setSlot(doc, m.id, slot) : setSlot(addItem(doc, m), m.id, slot))
+  const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
+  const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
-    <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={onClose}>
+    <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
       {mine.length > 0 && <b className="small">👥 คนที่จะไปเยี่ยม ({mine.length})</b>}
       {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id}>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''} {!planOnly && <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v ?? null, member: { id: x.id, name: x.name } })}>{v ? '✎ แก้' : '📝 เยี่ยมแล้ว'}</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => onChange(removeItem(doc, x.id))}>✕</button>}</li> })}</ul>}
       {!recordOnly && <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (พิมพ์ข้อความ หรือจะเลือกคนจากรายชื่อด้านล่างก็ได้)</label>
-        <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onBlur={(e) => onChange(setSlotNote(doc, slot, e.target.value))} /></div>}
+        <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>}
       {!recordOnly && <AbsentList hideLabel members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
       <b className="small">📍 สถานที่ / โครงการ{recordOnly ? '' : ' (ไม่ใส่ชื่อคน)'}</b>
       <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`}>📍 {p}{v ? ' ✓' : ''} {!planOnly && <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${p}`} onClick={() => setForm({ entry: v ?? null, member: { id: `place:${p}`, name: p } })}>{v ? '✎ แก้' : '📝 ไปแล้ว (แผนที่+รูป)'}</button>} {!recordOnly && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => onChange(removePlace(doc, slot, i))}>✕</button>}</li> })}</ul>
@@ -72,7 +74,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       </div>
       )}
       {!planOnly && (mine.length + places.length > 1) && <button type="button" className="btn" onClick={() => setForm({ entry: null, group: [...mine.map((x) => ({ id: x.id, name: x.name })), ...places.map((p) => ({ id: `place:${p}`, name: p }))].filter((x) => !done(x.id)) })} disabled={[...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)].every((id) => !!done(id))}>📝 บันทึกพร้อมกัน (ไปที่เดียวกัน ใช้แผนที่และรูปชุดเดียว · ติ๊กเฉพาะคนที่ไปเยี่ยมจริง)</button>}
-      <button type="button" className="btn" onClick={onClose}>เสร็จ</button>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={form.member ? { member: form.member } : {}}
