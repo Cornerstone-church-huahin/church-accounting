@@ -143,11 +143,10 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
 
 /** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
 export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
-  const lastBy = (() => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } })()
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
   const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
   const names = useVisitorNames()
-  const initBy = splitVisitors(entry?.visitor ?? preset?.visitor ?? lastBy)
+  const initBy = splitVisitors(entry?.visitor ?? preset?.visitor ?? '') // ผู้ออกเยี่ยมเริ่มต้นว่าง ต้องติ๊กเลือกเอง
   const roster = visitorRoster(team, names.items)
   const [picked, setPicked] = useState<string[]>(initBy)
   // ชื่อที่เลือกไว้แต่ไม่อยู่ในรายชื่อแล้ว (เช่น บันทึกเก่า) MultiPick ยังแสดงให้เห็น เพื่อไม่ให้หายตอนแก้ไข
@@ -219,12 +218,11 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const save = () => {
     const visitor = joinVisitors(picked)
     if (group ? group.every((x) => gsel[x.id] === 'skip') : !member) return setErr(group ? 'เลือกอย่างน้อย 1 คนที่จะบันทึก' : 'เลือกสมาชิกที่ไปเยี่ยม')
-    if (!visitor) return setErr('ลงชื่อผู้ออกเยี่ยมอย่างน้อย 1 คน')
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
     const foundAny = group ? group.some((x) => gsel[x.id] === 'met') : !absent
-    const miss = [...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
+    const miss = [...(!visitor ? ['👥 ผู้ออกเยี่ยม — เลือกอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
@@ -241,17 +239,6 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   }
   return (
     <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
-      <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
-        <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
-          {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
-      <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
-        <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button type="button" className={`btn ${checkin?.kind === 'work' ? '' : 'btn--gold'}`} disabled={locBusy} onClick={() => locate('home')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin && checkin.kind !== 'work' ? '📍 เช็คอินที่บ้านใหม่' : '📍 เช็คอินที่บ้าน'}</button>
-          <button type="button" className={`btn ${checkin?.kind === 'work' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('work')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'work' ? '🏢 เช็คอินที่ทำงานใหม่' : '🏢 เช็คอินที่ทำงาน'}</button>
-          {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
-        </div>
-        <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'work' ? '' : ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ'}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
-        {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
       {group
         ? (
           <div className="field"><label>ติ๊กคนที่ไปเยี่ยมพร้อมกัน (เช็คอินที่เดียวกัน) — ติ๊กเฉพาะบางคน หรือทั้งกลุ่มก็ได้</label>
@@ -276,7 +263,18 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         ? <p style={{ margin: 0 }}>ผู้ถูกเยี่ยม: <b>{member?.name}</b></p>
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
+      <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
+        <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
+          {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
+      <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
+        <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className={`btn ${checkin?.kind === 'work' ? '' : 'btn--gold'}`} disabled={locBusy} onClick={() => locate('home')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin && checkin.kind !== 'work' ? '📍 เช็คอินที่บ้านใหม่' : '📍 เช็คอินที่บ้าน'}</button>
+          <button type="button" className={`btn ${checkin?.kind === 'work' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('work')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'work' ? '🏢 เช็คอินที่ทำงานใหม่' : '🏢 เช็คอินที่ทำงาน'}</button>
+          {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
+        </div>
+        <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'work' ? '' : ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ'}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
+        {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
       <div className="field"><label>รูปการเยี่ยม (บังคับอย่างน้อย 1 รูป · แนบได้สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
@@ -295,7 +293,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       {warn && <div role="alertdialog" aria-label="ต้องบันทึกพิกัดและถ่ายรูปก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
-          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องบันทึกพิกัดและถ่ายรูปก่อน</b>
+          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องใส่ข้อมูลให้ครบก่อนบันทึก</b>
           <p style={{ margin: '8px 0' }}>ยังขาด:</p>
           <ul style={{ margin: '0 0 12px', paddingLeft: '1.2rem' }}>{warn.map((w) => <li key={w}>{w}</li>)}</ul>
           <button type="button" className="btn btn--gold btn--block" onClick={() => setWarn(null)}>เข้าใจแล้ว</button>
