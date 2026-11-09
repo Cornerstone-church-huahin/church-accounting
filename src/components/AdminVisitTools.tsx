@@ -104,6 +104,15 @@ export function VisitRoute() {
   }
   const all = trips.flat()
   const grand = trips.reduce((a, t) => a + calc(t).total, 0)
+  const pins = [
+    ...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ', color: '#1f5fbf', badge: '⛪' }] : []),
+    ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: s.kind === 'work' ? '#e67700' : '#c2255c', badge: String(i + 1) }))),
+  ]
+  // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (ทุกรอบต่อกันเป็นเส้นเดียว)
+  const lineTrips = trips.map((t) => calc(t))
+  const linePts: Coord[] = trips.flatMap((t) => (church ? [church, ...t, church] : t))
+  const lineLabels: string[] = trips.flatMap((_, ti) => [...lineTrips[ti].legs.map(km), ...(ti < trips.length - 1 ? [''] : [])])
+  const line = linePts.length > 1 ? { points: linePts, labels: lineLabels } : undefined
   return (
     <>
       <Back title="🧭 รายงานเส้นทาง" />
@@ -112,7 +121,8 @@ export function VisitRoute() {
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
           <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> <small className="muted">(เส้นตรงระหว่างจุด ไม่ใช่ระยะถนนจริง)</small></p>
-          <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ' }] : []), ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `รอบ ${ti + 1} · ${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at) })))]} height={300} label="เส้นทางการเยี่ยม" /></Suspense>
+          <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
+          <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1f5fbf', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ color: '#c2255c', fontWeight: 700 }}>● บ้านสมาชิก/จุดเยี่ยม (เลขตามลำดับ)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
             const { legs, total } = calc(t)
             const off = church ? 0 : 1
