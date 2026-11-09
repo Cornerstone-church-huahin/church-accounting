@@ -17,6 +17,7 @@ import MemberAvatar from './MemberAvatar'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
+import { shareVisit, visitShareText } from '../lib/visitShare'
 import { toAttendance } from '../lib/registry'
 import { DAY_NAMES, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
@@ -170,6 +171,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const [busy, setBusy] = useState(false)
   const [checkin, setCheckin] = useState<Visit['checkin'] | null>(entry?.checkin ?? preset?.checkin ?? null)
   const [locBusy, setLocBusy] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
   // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
   const needProof = !entry || !!entry.checkin
   const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
@@ -206,6 +208,13 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const close = () => { added.current.filter((p) => !(entry?.photos ?? []).includes(p) && !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p)); if (!saved.current) added.current.forEach((p) => void removeMemberPhotoFile(p)); onClose() }
   const saved = useRef(false)
   const pick = (m: ChurchMember, label: string) => { setMember({ id: m.id, name: m.name }); if (!reason.trim() && label) setReason(label) }
+  const share = async () => {
+    const ids = group ? group.filter((x) => gsel[x.id] === 'met') : member && !absent ? [member] : []
+    const gone = group ? group.filter((x) => gsel[x.id] === 'absent') : member && absent ? [member] : []
+    const text = visitShareText({ dateText: `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`, names: ids.map((x) => x.name.replace(/^place:/, '')), absentNames: gone.map((x) => x.name), visitor: joinVisitors(picked), checkin, note: reason })
+    const r = await shareVisit(text, photos)
+    setShareMsg(r === 'shared' ? 'ส่งออกแล้ว (ข้อความถูกคัดลอกไว้ด้วย ถ้าแอปไม่รับข้อความพร้อมรูปให้กดวาง)' : r === 'copied' ? 'คัดลอกข้อความแล้ว — เปิดไลน์แล้วกดวาง' : r === 'cancelled' ? '' : 'แชร์ไม่ได้บนเครื่องนี้')
+  }
   const save = () => {
     const visitor = joinVisitors(picked)
     if (group ? group.every((x) => gsel[x.id] === 'skip') : !member) return setErr(group ? 'เลือกอย่างน้อย 1 คนที่จะบันทึก' : 'เลือกสมาชิกที่ไปเยี่ยม')
@@ -281,6 +290,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       {proof.length > 0 && <ul className="small muted pvproof" aria-label="เวลาและตำแหน่งตอนถ่ายรูป">{proof.map((x, i) => <li key={x.path}>รูปที่ {i + 1}: ถ่ายเวลา {timeText(x.at)} น. · {formatCoord(x)}{checkin ? ` · ห่างจุดเช็คอิน ${nearCheckin(x, checkin).meters} ม.` : ''}</li>)}</ul>}
       {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
+      {checkin && <div className="field"><button type="button" className="btn" onClick={() => void share()}>📤 แชร์เข้ากลุ่ม (รูป + ข้อความ)</button>{shareMsg && <span className="muted small" role="status">{shareMsg}</span>}</div>}
       <div className="row"><button type="button" className="btn btn--gold" onClick={save}>บันทึก</button>{onDelete && <button type="button" className="mini" onClick={onDelete}>ลบ</button>}</div>
     </Sheet>
   )
