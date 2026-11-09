@@ -74,9 +74,9 @@ try {
   // งานอภิบาล: สมาชิก 👥 / วางแผนเยี่ยม เปิดหน้าเต็มว่าง
   await page.goto(`http://localhost:${PORT}/#/meeting`); await tiles.nth(3).click()
   const tabs4 = await links('หมวดงานอภิบาล').allInnerTexts()
-  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'รวมสมาชิก|วางแผนเยี่ยม|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
+  must(tabs4.map((x) => x.replace(/^\S+\s+/, '').trim()).join('|') === 'รวมสมาชิก|แผนงาน/การเยี่ยม|แท็บ 3|แท็บ 4|แท็บ 5|แท็บ 6', 'pastoral tabs: ' + tabs4.join('|'))
   must(tabs4[0].includes('👥'), 'สมาชิก tile has the members icon')
-  for (const parent of ['สมาชิก', 'วางแผนเยี่ยม']) {
+  for (const parent of ['สมาชิก', 'แผนงาน/การเยี่ยม']) {
     await links('หมวดงานอภิบาล').filter({ hasText: parent }).click()
     await page.getByRole('heading', { name: new RegExp(parent), level: 1 }).waitFor({ timeout: 5000 })
     must((parent === 'สมาชิก' ? /รายชื่อทั้งหมด/ : /ขาดนมัสการตั้งแต่ 1 เดือน/).test(await page.locator('main').innerText()) && await page.locator('.tiletabs').count() === 0, parent + ' opens a full page without sub tabs')
