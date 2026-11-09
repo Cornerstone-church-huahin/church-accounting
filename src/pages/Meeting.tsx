@@ -10,6 +10,7 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
+import { AdminZone, MemberHomesMap, VisitRoute } from '../components/AdminVisitTools'
 import { VisitGroupsAuto } from '../components/VisitGroups'
 import { useVisitPlans } from '../lib/data'
 import { todayISO } from '../lib/money'
@@ -104,6 +105,7 @@ function WorkMenu({ n, name }: { n: number; name: string }) {
           </Link>
         ))}
       </nav>
+      {n === 4 && <AdminZone />}
     </>
   )
 }
@@ -236,6 +238,8 @@ function MeetingRoom() {
   if (tab?.n === 3 && (step === 'rec' || step === 'dash' || step === 'tab3')) return <Home tab={step} onTab={setStep} /> // หน้า “บันทึก”: ไม่แสดงหัวงาน/ตารางงาน — เฉพาะแผ่นรับ-จ่าย
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} extra={step ? undefined : <Link to="/meeting/3/members" className="memtile no-print" aria-label="รวมสมาชิก"><span aria-hidden="true">👥</span> รวมสมาชิก <small>ทะเบียนสมาชิกทั้งหมด</small></Link>} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
+  if (tab?.n === 4 && k === 'route') return <VisitRoute />
+  if (tab?.n === 4 && k === 'homes') return <MemberHomesMap />
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={tab.n === 1 && k === '1' && s !== undefined ? 4 : Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
