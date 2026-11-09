@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { LIGHT } from '../lib/lightBox'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
@@ -248,7 +249,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   }
   return (
     <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
-      {roleNow === 'admin' && <label className="row" style={{ margin: 0, gap: 8, alignItems: 'center', background: testMode ? '#fff3cd' : '#f4f4f4', border: '1px solid #e0b100', borderRadius: 10, padding: '6px 10px' }}>
+      {roleNow === 'admin' && <label className="row" style={{ margin: 0, gap: 8, alignItems: 'center', ...LIGHT, background: testMode ? '#fff3cd' : '#f4f4f4', border: '1px solid #e0b100', borderRadius: 10, padding: '6px 10px' }}>
         <input type="checkbox" style={{ width: 22, height: 22 }} checked={testMode} onChange={(e) => stSet.save({ visitTestMode: e.target.checked })} />
         <span>🧪 <b>โหมดทดสอบ (แอดมิน)</b>{testMode ? ' — ไม่ต้องใส่ผู้ออกเยี่ยม/เช็คอิน/รูป ระบบใช้พิกัดบ้านที่มีในทะเบียนสร้างเส้นทางให้' : ' — ติ๊กเพื่อบันทึกโดยไม่ต้องเช็คอิน/ถ่ายรูป'}</span>
       </label>}
@@ -305,7 +306,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       {warn && <div role="alertdialog" aria-label="ต้องบันทึกพิกัดและถ่ายรูปก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+        <div style={{ ...LIGHT, background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
           <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องใส่ข้อมูลให้ครบก่อนบันทึก</b>
           <p style={{ margin: '8px 0' }}>ยังขาด:</p>
           <ul style={{ margin: '0 0 12px', paddingLeft: '1.2rem' }}>{warn.map((w) => <li key={w}>{w}</li>)}</ul>
