@@ -7,14 +7,14 @@ export const SLOTS: { k: Slot; icon: string; label: string; time: string }[] = [
   { k: 'ค่ำ', icon: '🌙', label: 'ภาคค่ำ', time: '19.00-21.00 น. (กลุ่มเซล)' },
 ]
 export interface PlanItem { id: string; name: string; g: number; slot?: Slot }
-export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<string, string>; dropped?: VisitPlan['dropped']; slotNotes?: VisitPlan['slotNotes'] }
+export interface PlanDoc { items: PlanItem[]; groups: number; names: Record<string, string>; dropped?: VisitPlan['dropped']; slotNotes?: VisitPlan['slotNotes']; places?: VisitPlan['places']; dayText?: string }
 export interface PlanGroup { g: number; name: string; items: PlanItem[] }
 
 /** แผนเยี่ยม 1 วัน: รายชื่อ (เรียงลำดับ) แบ่งเป็นกลุ่มที่ 1, 2, 3 … (เช่น ชุดที่ไปสถานที่เดียวกัน/โซนเดียวกัน) · กลุ่มมีชื่อสถานที่ตั้งได้ */
-export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v' | 'dropped' | 'slotNotes'>): PlanDoc {
+export function planDoc(p?: Pick<VisitPlan, 'items' | 'groups' | 'names' | 'v' | 'dropped' | 'slotNotes' | 'places' | 'dayText'>): PlanDoc {
   const items = (p?.items ?? []).map((x) => ({ id: x.id, name: x.name, g: p?.v === 2 ? Math.max(0, Math.round(x.g ?? 0)) : 0, ...(x.slot ? { slot: x.slot } : {}) }))
   const groups = Math.max(1, p?.groups ?? 1, ...items.map((x) => x.g))
-  return { items, groups, names: { ...(p?.names ?? {}) }, ...(p?.dropped?.length ? { dropped: p.dropped } : {}), ...(p?.slotNotes && Object.values(p.slotNotes).some(Boolean) ? { slotNotes: p.slotNotes } : {}) }
+  return { items, groups, names: { ...(p?.names ?? {}) }, ...(p?.dropped?.length ? { dropped: p.dropped } : {}), ...(p?.slotNotes && Object.values(p.slotNotes).some(Boolean) ? { slotNotes: p.slotNotes } : {}), ...(p?.places && Object.values(p.places).some((x) => x?.length) ? { places: p.places } : {}), ...(p?.dayText ? { dayText: p.dayText } : {}) }
 }
 /** จัดเรียงตามกลุ่ม (ลำดับในกลุ่มคงเดิม) */
 const tidy = (d: PlanDoc): PlanDoc => ({ ...d, items: [...d.items].sort((a, b) => a.g - b.g) })
@@ -53,6 +53,10 @@ export const addGroup = (d: PlanDoc): PlanDoc => ({ ...d, groups: d.groups + 1 }
 export const setSlot = (d: PlanDoc, id: string, slot?: Slot): PlanDoc => ({ ...d, items: d.items.map((x) => { if (x.id !== id) return x; const { slot: _s, ...rest } = x; void _s; return slot ? { ...rest, slot } : rest }) })
 /** ข้อความเพิ่มเติมของภาค (ว่าง = ลบ) */
 export const setSlotNote = (d: PlanDoc, slot: Slot, text: string): PlanDoc => { const n = { ...(d.slotNotes ?? {}) }; if (text.trim()) n[slot] = text.trim(); else delete n[slot]; return { ...d, slotNotes: n } }
+/** เพิ่ม/ลบสถานที่หรือโครงการของภาค · ข้อความช่วงเช้าของวัน */
+export const addPlace = (d: PlanDoc, slot: Slot, text: string): PlanDoc => { const t = text.trim(); if (!t) return d; const cur = d.places?.[slot] ?? []; return cur.includes(t) ? d : { ...d, places: { ...(d.places ?? {}), [slot]: [...cur, t] } } }
+export const removePlace = (d: PlanDoc, slot: Slot, i: number): PlanDoc => ({ ...d, places: { ...(d.places ?? {}), [slot]: (d.places?.[slot] ?? []).filter((_, j) => j !== i) } })
+export const setDayText = (d: PlanDoc, text: string): PlanDoc => { const { dayText: _t, ...rest } = d; void _t; return text.trim() ? { ...rest, dayText: text.trim() } : rest }
 /** ลบกลุ่มที่ว่าง (เลขกลุ่มถัดไปเลื่อนขึ้น) · มีคนอยู่ = ไม่ลบ · เหลือกลุ่มเดียว = ไม่ลบ */
 export function removeGroup(d: PlanDoc, g: number): PlanDoc {
   if (d.groups <= 1 || d.items.some((x) => x.g === g)) return d
