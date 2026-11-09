@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { LIGHT } from '../lib/lightBox'
 import AbsentList from './AbsentList'
 import { VisitForm } from './PastoralVisits'
 import PdfTools from './PdfTools'
@@ -75,7 +76,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
       {!planOnly && pend.length > 0 && <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', justifyContent: 'flex-end', paddingBottom: 6, pointerEvents: 'none' }}>
-        <div role="dialog" aria-label="ยืนยันบันทึกการเยี่ยม" style={{ pointerEvents: 'auto', width: '88%', background: '#fff', border: '3px solid #d4af37', borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,.4)', padding: '10px 12px' }}>
+        <div role="dialog" aria-label="ยืนยันบันทึกการเยี่ยม" style={{ pointerEvents: 'auto', width: '88%', ...LIGHT, background: '#fff', border: '3px solid #d4af37', borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,.4)', padding: '10px 12px' }}>
           <b style={{ display: 'block', fontSize: '1.05rem' }}>✅ บันทึกการเยี่ยมและพิกัด · {pend.length} คน ในพิกัดเดียวกัน</b>
           <ol style={{ margin: '4px 0 6px', paddingLeft: '1.4rem', fontSize: '1.05rem', maxHeight: '8.5rem', overflowY: 'auto' }}>{pend.map((x) => <li key={x.id}>{x.name.replace(/^place:/, '')}</li>)}</ol>
           <div className="muted small" style={{ marginBottom: 6 }}>กดปุ่มด้านล่างเพื่อบันทึกการเยี่ยม — เลือกเช็คอินที่บ้านหรือที่ทำงาน (ใช้พิกัดเดียวกันทั้ง {pend.length} คน · ใครอยู่คนละที่ ให้เอาติ๊กออกแล้วบันทึกแยกทีหลัง)</div>
@@ -95,7 +96,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       </div>
       )}
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
-      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
+      <div style={{ position: 'sticky', bottom: 0, ...LIGHT, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>✓ บันทึก</button></div>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={form.member ? { member: form.member } : {}}
@@ -204,7 +205,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
               })}
             </tbody>
           </table>
-          <div style={{ ...keep, marginTop: 8, border: `2px solid ${GOLD}`, background: '#fff8e6', borderRadius: 12, padding: '6px 14px', textAlign: 'center', fontSize: 19, fontWeight: 700, color: NAVY, cursor: canEdit ? 'pointer' : undefined }} onClick={() => { if (!canEdit) return; const v = window.prompt('ข้อพระคัมภีร์ท้ายตาราง (ว่าง = ใช้ข้อความตั้งต้น)', verse); if (v !== null) plans.saveVerse(monday, v) }} aria-label="ข้อพระคัมภีร์">✝ {verse}</div>
+          <div style={{ ...keep, marginTop: 8, border: `2px solid ${GOLD}`, ...LIGHT, background: '#fff8e6', borderRadius: 12, padding: '6px 14px', textAlign: 'center', fontSize: 19, fontWeight: 700, color: NAVY, cursor: canEdit ? 'pointer' : undefined }} onClick={() => { if (!canEdit) return; const v = window.prompt('ข้อพระคัมภีร์ท้ายตาราง (ว่าง = ใช้ข้อความตั้งต้น)', verse); if (v !== null) plans.saveVerse(monday, v) }} aria-label="ข้อพระคัมภีร์">✝ {verse}</div>
           <div style={{ fontSize: 13.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว / Visited · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
       </ScaledPage>

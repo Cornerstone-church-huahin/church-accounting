@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { LIGHT } from '../lib/lightBox'
 import { Link } from 'react-router-dom'
 import Sheet from './Sheet'
 import MemberAvatar from './MemberAvatar'
@@ -24,7 +25,7 @@ export function AdminZone() {
   if (!useIsAdminZone()) return null
   const on = !!st.settings.visitTestMode
   return (
-    <section aria-label="โซนแอดมิน" className="no-print" style={{ marginTop: 14, border: '2px dashed #a4262c', borderRadius: 16, padding: '10px 10px 12px', background: '#fff7f7' }}>
+    <section aria-label="โซนแอดมิน" className="no-print" style={{ marginTop: 14, border: '2px dashed #a4262c', borderRadius: 16, padding: '10px 10px 12px', ...LIGHT, background: '#fff7f7' }}>
       <b style={{ display: 'block', marginBottom: 8, color: '#a4262c' }}>🔒 โซนแอดมิน · ทดสอบระบบ (คนอื่นไม่เห็น)</b>
       <nav className="balance-tiles tiletabs" aria-label="เครื่องมือแอดมิน">
         {TOOLS.map((t, i) => (
@@ -34,7 +35,7 @@ export function AdminZone() {
           <span key={n} className="btile btile--indebt" style={{ opacity: 0.45 }} aria-disabled="true"><small aria-hidden="true">➕</small><b>ช่อง {n} (ว่าง)</b></span>
         ))}
       </nav>
-      <label className="row" style={{ gap: 10, alignItems: 'center', marginTop: 10, padding: 8, borderRadius: 10, background: on ? '#fff3cd' : '#fff', border: '1px solid #e0b100' }}>
+      <label className="row" style={{ gap: 10, alignItems: 'center', marginTop: 10, padding: 8, borderRadius: 10, ...LIGHT, background: on ? '#fff3cd' : '#fff', border: '1px solid #e0b100' }}>
         <input type="checkbox" style={{ width: 24, height: 24 }} checked={on} onChange={(e) => st.save({ visitTestMode: e.target.checked })} />
         <span><b>🧪 โหมดทดสอบการเยี่ยม</b><br /><small>เปิด = บันทึกเยี่ยมโดยไม่ต้องเช็คอิน/ถ่ายรูป ระบบใช้พิกัดบ้านที่มีในทะเบียนสร้างเส้นทาง · ปิด = กลับเป็นบังคับตามปกติ</small></span>
       </label>
@@ -284,7 +285,7 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
         <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null); setPop(true) }} />
       </div>
       {dest && (
-        <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, background: '#eef5ff' }} role="status">
+        <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, ...LIGHT, background: '#eef5ff' }} role="status">
           <b>🧭 นำทางไปบ้าน {dest.name}</b>
           <div>{busy ? 'กำลังหาตำแหน่งปัจจุบันและเส้นทาง…' : nav ? <>จากที่ที่คุณอยู่ <b>{km(nav.m)}</b>{nav.road ? <> · ขับประมาณ <b>{mins(nav.s)}</b></> : ' (เส้นตรง — คำนวณตามถนนไม่ได้ตอนนี้)'}</> : msg}</div>
           <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
@@ -299,11 +300,11 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
         <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} {...(line ? { line } : {})} height={420} label="แผนที่บ้านสมาชิก" /></Suspense>
       )}
         {pop && q.trim() && (
-          <div role="listbox" aria-label="ชื่อที่ตรงกับคำค้น" style={{ position: 'absolute', left: 8, right: 8, top: 8, zIndex: 1000, maxHeight: '85%', overflowY: 'auto', background: '#fff', border: '2px solid #1a73e8', borderRadius: 14, boxShadow: '0 8px 24px rgba(0,0,0,.45)' }}>
-            <div style={{ padding: '8px 12px', background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อที่ต้องการนำทาง</b> <small className="muted">({shown.length + noCoord.length} คนที่ตรงและเกี่ยวข้องกับ “{q.trim()}”)</small></div>
+          <div role="listbox" aria-label="ชื่อที่ตรงกับคำค้น" style={{ position: 'absolute', left: 8, right: 8, top: 8, zIndex: 1000, maxHeight: '85%', overflowY: 'auto', ...LIGHT, background: '#fff', border: '2px solid #1a73e8', borderRadius: 14, boxShadow: '0 8px 24px rgba(0,0,0,.45)' }}>
+            <div style={{ padding: '8px 12px', ...LIGHT, background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อที่ต้องการนำทาง</b> <small className="muted">({shown.length + noCoord.length} คนที่ตรงและเกี่ยวข้องกับ “{q.trim()}”)</small></div>
             {shown.length + noCoord.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดบ้านตรงกับคำค้น{noCoord.length ? ' — มีคนที่ตรงแต่ยังไม่มีพิกัด ดูใต้แผนที่' : ''}</p>}
             {shown.map((m) => (
-              <button key={m.id} type="button" role="option" aria-selected={target?.id === m.id} className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '12px', border: 0, borderBottom: '1px solid #eee', background: '#fff', textAlign: 'left', font: 'inherit' }} onClick={() => { setSel(m.id); setPop(false); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
+              <button key={m.id} type="button" role="option" aria-selected={target?.id === m.id} className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '12px', border: 0, borderBottom: '1px solid #eee', ...LIGHT, background: '#fff', textAlign: 'left', font: 'inherit' }} onClick={() => { setSel(m.id); setPop(false); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
                 <MemberAvatar path={m.photo} name={m.name} size={48} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small>🧭 นำทาง</small>
               </button>))}
             {noCoord.map((m) => (
@@ -325,7 +326,7 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
             if (!people.put([{ ...full, nick: v.trim() }])) setMsg('บันทึกชื่อเล่นไม่ได้ (ต้องมีสิทธิ์แก้ทะเบียนสมาชิก)')
           }
           return (
-            <li key={m.id} className="row" style={{ gap: 4, alignItems: 'center', borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent' }}>
+            <li key={m.id} className="row" style={{ gap: 4, alignItems: 'center', borderBottom: '1px solid #eee', ...LIGHT, background: on ? '#fff3cd' : 'transparent' }}>
               <button type="button" className="row" style={{ flex: 1, gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, background: 'transparent', textAlign: 'left', font: 'inherit' }} aria-label={`นำทางไปบ้าน ${m.name}`} onClick={() => { setSel(m.id); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
                 <MemberAvatar path={m.photo} name={m.name} size={44} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : <small className="muted"> · ยังไม่มีชื่อเล่น</small>}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
               </button>
