@@ -17,7 +17,9 @@ const TONE: Record<Slot, { bg: string; dark: string; tint: string }> = {
   บ่าย: { bg: '#4a90d9', dark: '#0e3a6b', tint: '#e8f2fc' },
   ค่ำ: { bg: '#7b5ea7', dark: '#3a2466', tint: '#f0eaf8' },
 }
-const DEFAULT_VERSE = '“จงรักกันและกัน เหมือนที่เรารักท่านทั้งหลาย” — ยอห์น 15:12'
+const EN: Record<Slot, string> = { เช้า: 'Morning Visits', บ่าย: 'Afternoon Visits', ค่ำ: 'Evening · Cell Group' }
+const DAY_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const DEFAULT_VERSE = '“จงรักกันและกัน เหมือนที่เรารักท่านทั้งหลาย” — ยอห์น 15:12 · “Love one another as I have loved you.” — John 15:12'
 const cell: React.CSSProperties = { border: '1.5px solid #5a6a8c', padding: '6px 8px', verticalAlign: 'top', fontSize: 15, lineHeight: 1.35 }
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 
@@ -107,7 +109,7 @@ export default function VisitTimetable() {
               <div style={{ fontSize: 13, letterSpacing: 1, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
               <div style={{ fontSize: 27, fontWeight: 800, lineHeight: 1.15 }}>ตารางเยี่ยมเยียนครอบครัวศิลาเอก</div>
               <div style={{ fontSize: 17, fontWeight: 700, color: '#ffd978' }}>วันที่ {range}</div>
-              <div style={{ fontSize: 12.5, opacity: 0.9 }}>Cornerstone Family Visitation Schedule</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, opacity: 0.95 }}>Cornerstone Family Visitation Schedule · Pastoral Visits</div>
             </div>
             <span style={{ fontSize: 40 }} aria-hidden="true">💛</span>
           </div>
@@ -115,9 +117,9 @@ export default function VisitTimetable() {
             <colgroup><col style={{ width: '12%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23.6%' }} /><col style={{ width: '23.6%' }} /><col style={{ width: '23.8%' }} /></colgroup>
             <thead>
               <tr>
-                <th style={{ ...cell, ...keep, background: NAVY, color: '#fff', textAlign: 'center', fontSize: 16 }}>📅 วัน</th>
-                <th style={{ ...cell, ...keep, background: '#2e7d6b', color: '#fff', textAlign: 'center', fontSize: 15 }}>🙏 กิจกรรมช่วงเช้า</th>
-                {SLOTS.map((sl) => <th key={sl.k} style={{ ...cell, ...keep, background: TONE[sl.k].bg, color: sl.k === 'เช้า' ? TONE[sl.k].dark : '#fff', textAlign: 'center', fontSize: 15 }}>{sl.icon} {sl.label}<br /><span style={{ fontSize: 13 }}>{sl.time.replace(' (กลุ่มเซล)', '')}{sl.k === 'ค่ำ' ? ' (กลุ่มเซล)' : ''}</span></th>)}
+                <th style={{ ...cell, ...keep, background: NAVY, color: '#fff', textAlign: 'center', fontSize: 16 }}>📅 วัน<br /><span style={{ fontSize: 12 }}>Day / Date</span></th>
+                <th style={{ ...cell, ...keep, background: '#2e7d6b', color: '#fff', textAlign: 'center', fontSize: 15 }}>🙏 กิจกรรมช่วงเช้า<br /><span style={{ fontSize: 12 }}>Morning Activity</span></th>
+                {SLOTS.map((sl) => <th key={sl.k} style={{ ...cell, ...keep, background: TONE[sl.k].bg, color: sl.k === 'เช้า' ? TONE[sl.k].dark : '#fff', textAlign: 'center', fontSize: 15 }}>{sl.icon} {sl.label}<br /><span style={{ fontSize: 13 }}>{sl.time.replace(' (กลุ่มเซล)', '')}{sl.k === 'ค่ำ' ? ' (กลุ่มเซล)' : ''}</span><br /><span style={{ fontSize: 12 }}>{EN[sl.k]}</span></th>)}
               </tr>
             </thead>
             <tbody>
@@ -126,7 +128,7 @@ export default function VisitTimetable() {
                 return (
                   <tr key={d} style={{ height: 92 }}>
                     <td style={{ ...cell, ...keep, textAlign: 'center', verticalAlign: 'middle', background: i % 2 ? '#fdecec' : '#fff5f5', color: RED, fontWeight: 800 }}>
-                      <div style={{ fontSize: 17 }}>{dayName(d)}</div><div style={{ fontSize: 15 }}>{dmy(d)}</div>
+                      <div style={{ fontSize: 17 }}>{dayName(d)}</div><div style={{ fontSize: 12.5, fontWeight: 600 }}>{DAY_EN[new Date(d + 'T00:00:00Z').getUTCDay()]}</div><div style={{ fontSize: 15 }}>{dmy(d)}</div>
                     </td>
                     <td style={{ ...cell, ...keep, background: '#eaf6f2', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle' }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{pd.dayText ?? ''}</td>
                     {SLOTS.map((sl) => {
@@ -147,7 +149,7 @@ export default function VisitTimetable() {
             </tbody>
           </table>
           <div style={{ ...keep, marginTop: 8, border: `2px solid ${GOLD}`, background: '#fff8e6', borderRadius: 12, padding: '6px 14px', textAlign: 'center', fontSize: 16, fontWeight: 700, color: NAVY, cursor: canEdit ? 'pointer' : undefined }} onClick={() => { if (!canEdit) return; const v = window.prompt('ข้อพระคัมภีร์ท้ายตาราง (ว่าง = ใช้ข้อความตั้งต้น)', verse); if (v !== null) plans.saveVerse(monday, v) }} aria-label="ข้อพระคัมภีร์">✝ {verse}</div>
-          <div style={{ fontSize: 11.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว · 📍 = สถานที่/โครงการ · ที่ยังไม่เลือกภาคนับเป็นภาคบ่าย</div>
+          <div style={{ fontSize: 11.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว / Visited · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
       </ScaledPage>
       <PdfTools compact mode="landscape" els={() => (ref.current ? [ref.current] : [])} file={`ตารางเยี่ยม-${monday}.pdf`} title={`ตารางเยี่ยมเยียน ${range}`} label="ตารางเยี่ยมเยียน" />
