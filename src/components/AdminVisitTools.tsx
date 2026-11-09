@@ -233,8 +233,10 @@ export function MemberHomesMap() {
   const [nav, setNav] = useState<{ from: Coord; m: number; s: number; road: boolean; g: Coord[] } | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [sel, setSel] = useState<string | null>(null)
   const withC = useMemo(() => people.items.flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, lat: m.lat, lng: m.lng }] : [])), [people.items])
   const shown = useMemo(() => withC.filter((m) => !q.trim() || m.name.includes(q.trim())), [withC, q])
+  const target = q.trim() ? (shown.find((m) => m.id === sel) ?? shown[0] ?? null) : null // พิมพ์ชื่อแล้ว: คนที่แตะเลือก หรือคนแรกที่ตรง
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
   // นำทาง: ตำแหน่งปัจจุบัน → บ้านสมาชิก (วาดเส้นตามถนนบนแผนที่ + เปิดนำทางต่อใน Google Maps)
   const go = (d: { name: string; lat: number; lng: number }) => {
@@ -257,7 +259,10 @@ export function MemberHomesMap() {
     <>
       <Back title="🗺️ แผนที่บ้านสมาชิก" />
       <p>มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน (พิกัดเข้าอัตโนมัติเมื่อ “เช็คอินที่บ้าน”)</p>
-      <input className="input" placeholder="ค้นหาชื่อ" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
+        <input className="input grow" placeholder="พิมพ์ชื่อสมาชิก" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null) }} />
+        <button type="button" className="btn btn--gold" disabled={busy || !target} aria-label={target ? `นำทางไปบ้าน ${target.name}` : 'นำทาง (พิมพ์ชื่อก่อน)'} onClick={() => target && go(target)}>🧭 นำทาง</button>
+      </div>
       {dest && (
         <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, background: '#eef5ff' }} role="status">
           <b>🧭 นำทางไปบ้าน {dest.name}</b>
@@ -273,11 +278,15 @@ export function MemberHomesMap() {
         <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} {...(line ? { line } : {})} height={420} label="แผนที่บ้านสมาชิก" /></Suspense>
       )}
       <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกที่มีพิกัด">
-        {shown.slice(0, 20).map((m) => (
-          <li key={m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
-            <span style={{ flex: 1 }}>{m.name}</span>
-            <button type="button" className="btn btn--gold" disabled={busy} onClick={() => go(m)}>🧭 นำทาง</button>
-          </li>))}
+        {shown.slice(0, 20).map((m) => {
+          const on = !!q.trim() && target?.id === m.id
+          return (
+            <li key={m.id}>
+              <button type="button" className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent', textAlign: 'left', font: 'inherit' }} aria-pressed={on} onClick={() => { if (q.trim()) setSel(m.id) }}>
+                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}>{m.name}</span>{on && <small className="muted">เลือกแล้ว — กด 🧭 นำทาง</small>}
+              </button>
+            </li>)
+        })}
       </ul>
       {shown.length > 20 && <p className="muted small">แสดง 20 คนแรก — พิมพ์ชื่อในช่องค้นหาเพื่อเลือกคนที่ต้องการ</p>}
     </>
