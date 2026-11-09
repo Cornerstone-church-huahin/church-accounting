@@ -175,8 +175,6 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
   const lockedMember = !entry && !!preset?.member
   const [gsel, setGsel] = useState<Record<string, 'met' | 'absent' | 'skip'>>(() => Object.fromEntries((group ?? []).map((x) => [x.id, 'met' as const])))
-  const anyMet = group ? group.some((x) => gsel[x.id] === 'met') : !absent
-  const needPhotos = needProof && anyMet
   const dropFile = (p: string) => { if (!photoShared?.(p)) void removeMemberPhotoFile(p) }
   const locate = (kind: 'home' | 'work' = 'home') => {
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
@@ -191,7 +189,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const addShot = async (shot: Shot) => {
     setCam(false)
     if (photos.length >= MAX_VISIT_PHOTOS) return
-    if (checkin) {
+    if (checkin && !entry) { // แนบรูปเพิ่มตอนแก้ไขภายหลัง ไม่ต้องอยู่ใกล้จุดเช็คอิน
       const n = nearCheckin({ lat: shot.lat, lng: shot.lng }, checkin)
       if (!n.ok) return setErr(`ตำแหน่งที่ถ่ายห่างจากจุดเช็คอิน ${n.meters} เมตร (ต้องไม่เกิน ${MAX_SHOT_FROM_CHECKIN_M} เมตร) — ถ่ายที่บ้านสมาชิก หรือเช็คอินใหม่ที่จุดนี้ก่อน`)
     }
@@ -216,7 +214,6 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
     if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน” ก่อนจึงบันทึกการเยี่ยมได้')
-    if (needPhotos && photos.length === 0) return setErr('ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูปก่อนจึงบันทึกได้')
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
@@ -268,7 +265,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
-      <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป{needPhotos ? ' · บังคับอย่างน้อย 1 รูป' : ''})</label>
+      <div className="field"><label>รูปการเยี่ยม (ไม่บังคับ · แนบได้ 1–{MAX_VISIT_PHOTOS} รูป จะมาเพิ่มภายหลังก็ได้)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
@@ -279,7 +276,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
             </button>
           )}
         </div>
-        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — ควรแนบอย่างน้อย 1 รูป' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
+        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — เพิ่มภายหลังได้ที่ปุ่ม ✎ แก้' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
       {needProof && !checkin && <span className="muted small">ต้องเช็คอินตำแหน่งก่อนจึงถ่ายรูปได้ · รูปถ่ายด้วยกล้องในแอปเท่านั้น (เลือกจากคลังภาพไม่ได้) และบันทึกเวลา + ตำแหน่งตอนถ่าย</span>}
       {proof.length > 0 && <ul className="small muted pvproof" aria-label="เวลาและตำแหน่งตอนถ่ายรูป">{proof.map((x, i) => <li key={x.path}>รูปที่ {i + 1}: ถ่ายเวลา {timeText(x.at)} น. · {formatCoord(x)}{checkin ? ` · ห่างจุดเช็คอิน ${nearCheckin(x, checkin).meters} ม.` : ''}</li>)}</ul>}
       {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
