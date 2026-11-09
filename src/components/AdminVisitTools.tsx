@@ -4,7 +4,8 @@ import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { isWorkStaffOnly } from '../lib/access'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
-import { fmtDate, todayISO } from '../lib/money'
+import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
+import { DAY_NAMES, dayKind, sundayOf, weekDays } from '../lib/visits'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
@@ -120,7 +121,16 @@ export function VisitRoute() {
   const church: Coord | null = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null
   const rate = typeof st.settings.fuelPerKm === 'number' && st.settings.fuelPerKm >= 0 ? st.settings.fuelPerKm : 3.5
   const [rateTxt, setRateTxt] = useState<string | null>(null)
-  const [date, setDate] = useState(todayISO())
+  // สัปดาห์: ใช้ตัวเลือกเดียวกับตารางเยี่ยม (จำสัปดาห์ร่วมกัน) · เลือกวันในสัปดาห์ด้วยปุ่มวัน
+  const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : todayISO() } catch { return todayISO() } })
+  const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
+  const sunday = sundayOf(anchor)
+  const days = weekDays(sunday).filter((d) => dayKind(d) === 'visit')
+  const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
+  const [pickDay, setPickDay] = useState<string | null>(null)
+  const checkDays = useMemo(() => new Set(visits.list.filter((v) => v.checkin && days.includes(v.date)).map((v) => v.date)), [visits.list, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
+  const date = pickDay && days.includes(pickDay) ? pickDay : days.includes(todayISO()) ? todayISO() : days.find((d) => checkDays.has(d)) ?? days[0]
+  const range = (() => { const [ya, ma, da] = days[0].split('-').map(Number), [yb, mb, db] = days[days.length - 1].split('-').map(Number); return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}` })()
   const trips = useMemo(() => {
     const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work'; sim?: boolean; names: string[] }>()
     for (const v of visits.list) {
@@ -159,6 +169,16 @@ export function VisitRoute() {
   return (
     <>
       <Back title="🧭 รายงานเส้นทาง" />
+      <div className="weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <button type="button" className="mini" aria-label="สัปดาห์ก่อน" onClick={() => shift(-1)}>‹</button>
+        <span className="small"><b>{range}</b></span>
+        <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" onClick={() => shift(1)}>›</button>
+      </div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }} role="tablist" aria-label="เลือกวัน">
+        {days.map((d) => (
+          <button key={d} type="button" role="tab" aria-selected={d === date} className={`mini${d === date ? ' on' : ''}`} style={d === date ? { background: '#1a2b4c', color: '#fff' } : undefined} onClick={() => setPickDay(d)}>{DAY_NAMES[new Date(d + 'T00:00:00Z').getUTCDay()]} {Number(d.slice(8))}{checkDays.has(d) ? ' ●' : ''}</button>
+        ))}
+      </div>
       <ChurchPoint />
       <div className="field" style={{ border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
         <label htmlFor="rt-fuel"><b>⛽ ค่าน้ำมัน (บาทต่อ 1 กิโลเมตร)</b> — แก้ได้เมื่อราคาน้ำมันเปลี่ยน</label>
@@ -168,7 +188,6 @@ export function VisitRoute() {
         </div>
         <span className="muted small">ตอนนี้ใช้ {rate} บาท/กม. · ประมาณการจากระยะไป-กลับ ไม่ใช่ค่าน้ำมันจริงที่จ่าย</span>
       </div>
-      <div className="field"><label htmlFor="rt-date">วันที่</label><input id="rt-date" type="date" className="input" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></div>
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
           <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(grand / 1000 * rate)}</b> <small className="muted">({roadNote})</small></p>
