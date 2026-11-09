@@ -25,6 +25,14 @@ const DEFAULT_VERSE = '“จงรักกันและกัน เหม�
 const cell: React.CSSProperties = { border: '1.5px solid #5a6a8c', padding: '6px 8px', verticalAlign: 'top', fontSize: 15, lineHeight: 1.35 }
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 
+/** ภาคของการเยี่ยมจริง: ตามภาคที่วางแผนไว้ ไม่มีแผน = ดูจากเวลาเช็คอิน (ก่อน 12 เช้า · ก่อน 18 บ่าย · หลังจากนั้นค่ำ) */
+const slotOfVisit = (v: Visit, doc: PlanDoc): Slot => {
+  const planned = doc.items.find((x) => x.id === v.memberId)?.slot
+  if (planned) return planned
+  if (v.memberId.startsWith('place:')) for (const sl of SLOTS) if (doc.places?.[sl.k]?.includes(v.memberId.slice(6))) return sl.k
+  const h = v.checkin ? new Date(v.checkin.at).getHours() : 13
+  return h < 12 ? 'เช้า' : h < 18 ? 'บ่าย' : 'ค่ำ'
+}
 const dmy = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return `${d}/${m}/${String(be(y)).slice(2)}` }
 const dayName = (d: string) => DAY_NAMES[new Date(d + 'T00:00:00Z').getUTCDay()]
 /** “10-14 พฤศจิกายน 2569” หรือข้ามเดือน “30 พฤศจิกายน 2569 – 4 ธันวาคม 2569” */
@@ -96,6 +104,8 @@ export default function VisitTimetable() {
   const monday = addDays(sunday, 1)
   const verse = plans.verseOf(monday) || DEFAULT_VERSE
   const [edit, setEdit] = useState<{ d: string; slot: Slot | 'day' } | null>(null)
+  const [sheet, setSheet] = useState<'plan' | 'report'>('plan') // แผ่นที่ 1 วางแผน · แผ่นที่ 2 รายงานผลจริง
+  const report = sheet === 'report'
   const visitedBy = useMemo(() => {
     const m = new Map<string, Set<string>>()
     for (const v of visits.list) if (!v.absent) m.set(v.date, new Set([...(m.get(v.date) ?? []), v.memberId]))
@@ -104,7 +114,7 @@ export default function VisitTimetable() {
   const shift = (n: number) => { const t = addDays(sunday, n * 7 + 3); setAnchor(t < today ? today : t) }
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
-  const open = (d: string, slot: Slot | 'day') => { if (canEdit) setEdit({ d, slot }) }
+  const open = (d: string, slot: Slot | 'day') => { if (canEdit && !report) setEdit({ d, slot }) }
   const doc = edit ? plans.of(edit.d) : null
   const save = (d: string, next: PlanDoc) => plans.save(d, next)
   return (
@@ -114,16 +124,20 @@ export default function VisitTimetable() {
         <div style={{ textAlign: 'center', lineHeight: 1.25 }}><b>ตารางเยี่ยม</b><br /><span className="small">{range} · {total} คนในแผน</span></div>
         <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
-      {canEdit && <p className="muted small no-print" style={{ margin: '0 0 0.3rem', textAlign: 'center' }}>👆 แตะช่องในตารางเพื่อเพิ่มคน สถานที่/โครงการ หรือหมายเหตุ</p>}
+      <div className="seg seg--2 no-print" role="tablist" aria-label="แผ่นตาราง" style={{ margin: '0 0 0.4rem' }}>
+        <button type="button" role="tab" aria-selected={!report} className={!report ? 'on' : ''} onClick={() => setSheet('plan')}>📅 วางแผนการเยี่ยม</button>
+        <button type="button" role="tab" aria-selected={report} className={report ? 'on' : ''} onClick={() => setSheet('report')}>📋 รายงานการเยี่ยม</button>
+      </div>
+      {canEdit && !report && <p className="muted small no-print" style={{ margin: '0 0 0.3rem', textAlign: 'center' }}>👆 แตะช่องในตารางเพื่อเพิ่มคน สถานที่/โครงการ หรือหมายเหตุ</p>}
       <ScaledPage ref={ref} landscape>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', height: '100%', color: '#111' }}>
           <div style={{ ...keep, background: `linear-gradient(100deg, ${NAVY}, #274a8a)`, color: '#fff', borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: `5px solid ${GOLD}` }}>
             <span style={{ fontSize: 40 }} aria-hidden="true">🏠</span>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: 13, letterSpacing: 1, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
-              <div style={{ fontSize: 27, fontWeight: 800, lineHeight: 1.15 }}>ตารางเยี่ยมเยียนครอบครัวศิลาเอก</div>
+              <div style={{ fontSize: 27, fontWeight: 800, lineHeight: 1.15 }}>{report ? 'รายงานการเยี่ยมเยียนครอบครัวศิลาเอก' : 'ตารางเยี่ยมเยียนครอบครัวศิลาเอก'}</div>
               <div style={{ fontSize: 17, fontWeight: 700, color: '#ffd978' }}>วันที่ {range}</div>
-              <div style={{ fontSize: 14.5, fontWeight: 700, opacity: 0.95 }}>Cornerstone Family Visitation Schedule · Pastoral Visits</div>
+              <div style={{ fontSize: 14.5, fontWeight: 700, opacity: 0.95 }}>{report ? 'Cornerstone Family Visitation Report · Pastoral Visits' : 'Cornerstone Family Visitation Schedule · Pastoral Visits'}</div>
             </div>
             <span style={{ fontSize: 40 }} aria-hidden="true">💛</span>
           </div>
@@ -148,12 +162,14 @@ export default function VisitTimetable() {
                     {SLOTS.map((sl) => {
                       const ppl = pd.items.filter((x) => (x.slot ?? 'บ่าย') === sl.k), pls = pd.places?.[sl.k] ?? [], note = pd.slotNotes?.[sl.k]
                       let n = 0
+                      const vsl = visits.list.filter((v) => v.date === d && slotOfVisit(v, pd) === sl.k)
                       return (
                         <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
-                          {ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
-                          {pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}{seen.has(`place:${p}`) ? ' ✓' : ''}</div>)}
-                          {note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginTop: 3 }}>📝 {note}</div>}
-                          {canEdit && !ppl.length && !pls.length && !note && <span className="no-print" style={{ color: '#9aa5bd', fontSize: 22 }}>＋</span>}
+                          {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName}{v.absent ? ' ✗ ไม่พบ' : ' ✓'}{v.checkin ? <small style={{ color: '#555' }}> {new Date(v.checkin.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</small> : null}{v.visitor ? <div style={{ fontSize: 12.5, color: '#555' }}>ผู้เยี่ยม: {v.visitor}</div> : null}</div>) : null}
+                          {report ? null : ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
+                          {report ? null : pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}{seen.has(`place:${p}`) ? ' ✓' : ''}</div>)}
+                          {report ? null : note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginTop: 3 }}>📝 {note}</div>}
+                          {!report && canEdit && !ppl.length && !pls.length && !note && <span className="no-print" style={{ color: '#9aa5bd', fontSize: 22 }}>＋</span>}
                         </td>
                       )
                     })}
@@ -166,7 +182,7 @@ export default function VisitTimetable() {
           <div style={{ fontSize: 11.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว / Visited · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
       </ScaledPage>
-      <PdfTools compact mode="landscape" els={() => (ref.current ? [ref.current] : [])} file={`ตารางเยี่ยม-${monday}.pdf`} title={`ตารางเยี่ยมเยียน ${range}`} label="ตารางเยี่ยมเยียน" />
+      <PdfTools compact mode="landscape" els={() => (ref.current ? [ref.current] : [])} file={`${report ? 'รายงานเยี่ยม' : 'ตารางเยี่ยม'}-${monday}.pdf`} title={`${report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} ${range}`} label={report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} />
       {edit && doc && edit.slot === 'day' && (
         <Sheet title={`${dayName(edit.d)} ${dmy(edit.d)} · กิจกรรมช่วงเช้า`} onClose={() => setEdit(null)}>
           <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
