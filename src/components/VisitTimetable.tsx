@@ -116,7 +116,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
-  const open = (d: string, slot: Slot | 'day') => { if (canEdit && !report && !(mode === 'record' && slot === 'day')) setEdit({ d, slot }) }
+  const open = (d: string, slot: Slot | 'day') => { if (canEdit && !report) setEdit({ d, slot }) }
   const doc = edit ? plans.of(edit.d) : null
   const save = (d: string, next: PlanDoc) => plans.save(d, next)
   return (
@@ -187,7 +187,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
-      {edit && doc && edit.slot !== 'day' && <CellEditor recordOnly={mode === 'record'} date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} />}
+      {edit && doc && edit.slot !== 'day' && <CellEditor date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} />}
     </section>
   )
 }
