@@ -17,7 +17,6 @@ export const useIsAdminZone = () => useRole() === 'admin' && !isWorkStaffOnly()
 const TOOLS = [
   { to: '/meeting/4/report', icon: '📊', label: 'รายงานการเยี่ยม' },
   { to: '/meeting/4/route', icon: '🧭', label: 'รายงานเส้นทาง' },
-  { to: '/meeting/4/homes', icon: '🗺️', label: 'แผนที่บ้านสมาชิก' },
 ] as const
 
 export function AdminZone() {
@@ -31,7 +30,7 @@ export function AdminZone() {
         {TOOLS.map((t, i) => (
           <Link key={t.to} to={t.to} className={`btile btile--${(['own', 'fund', 'total'] as const)[i]}`}><small aria-hidden="true">{t.icon}</small><b>{t.label}</b></Link>
         ))}
-        {[4, 5, 6].map((n) => (
+        {[3, 4, 5, 6].map((n) => (
           <span key={n} className="btile btile--indebt" style={{ opacity: 0.45 }} aria-disabled="true"><small aria-hidden="true">➕</small><b>ช่อง {n} (ว่าง)</b></span>
         ))}
       </nav>
@@ -226,8 +225,8 @@ export function VisitRoute() {
 }
 
 /** แผนที่บ้านของสมาชิกที่มีพิกัด */
-export function MemberHomesMap() {
-  const ok = useIsAdminZone()
+export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
+  const ok = true // เปิดให้ทีมอภิบาล (สิทธิ์ตรวจที่หน้าเรียกใช้)
   const people = useChurchMembers()
   const [q, setQ] = useState('')
   const [dest, setDest] = useState<{ name: string; lat: number; lng: number } | null>(null)
@@ -280,7 +279,7 @@ export function MemberHomesMap() {
   const line = nav ? { segments: [nav.g], labels: [{ at: nav.g[Math.floor(nav.g.length / 2)], text: `${km(nav.m)}${nav.road ? ` · ${mins(nav.s)}` : ''}` }] } : undefined
   return (
     <>
-      <Back title="🗺️ แผนที่บ้านสมาชิก" />
+      {!embedded && <Back title="🗺️ แผนที่บ้านสมาชิก" />}
       <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
         <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null); setPop(true) }} />
       </div>
