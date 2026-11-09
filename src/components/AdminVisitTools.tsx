@@ -282,8 +282,8 @@ export function MemberHomesMap() {
           const on = !!q.trim() && target?.id === m.id
           return (
             <li key={m.id}>
-              <button type="button" className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent', textAlign: 'left', font: 'inherit' }} aria-pressed={on} onClick={() => { if (q.trim()) setSel(m.id) }}>
-                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}>{m.name}</span>{on && <small className="muted">เลือกแล้ว — กด 🧭 นำทาง</small>}
+              <button type="button" className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent', textAlign: 'left', font: 'inherit' }} aria-label={`นำทางไปบ้าน ${m.name}`} onClick={() => { setSel(m.id); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
+                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}>{m.name}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
               </button>
             </li>)
         })}
