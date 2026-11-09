@@ -31,6 +31,9 @@ export interface BankAccount extends SharedItem { name: string; bank: string; la
   role?: 'operating' | 'restricted' }
 export interface Settings extends SharedItem {
   churchName: string
+  /** พิกัดคริสตจักร (จุดเริ่มต้น-สิ้นสุดของรอบเยี่ยม ใช้วัดระยะไป-กลับ) */
+  churchLat?: number
+  churchLng?: number
   /** ใบเบิกที่เกินจำนวนนี้ต้องอนุมัติ 2 ขั้น (ผู้ตรวจสอบ + แอดมิน) · ต่ำกว่าอนุมัติ 1 ขั้น */
   twoStepOver: number
   /** จำนวนวันที่ยอมให้วันที่ในสเตตเมนต์ต่างจากวันที่ในระบบเมื่อแนะนำการจับคู่ */
