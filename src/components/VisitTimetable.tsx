@@ -3,6 +3,8 @@ import AbsentList from './AbsentList'
 import { VisitForm } from './PastoralVisits'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
+import { useRole } from '../lib/members'
+import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
@@ -141,7 +143,9 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
-  const open = (d: string, slot: Slot | 'day') => { if (canEdit && !report) setEdit({ d, slot }) }
+  const isAdmin = useRole() === 'admin'
+  const [del, setDel] = useState<{ d: string; slot: Slot } | null>(null) // รายงาน: แอดมินยกเลิกการบันทึกที่บันทึกผิด
+  const open = (d: string, slot: Slot | 'day') => { if (report) { if (isAdmin && slot !== 'day') setDel({ d, slot }); return } if (canEdit) setEdit({ d, slot }) }
   const doc = edit ? plans.of(edit.d) : null
   const save = (d: string, next: PlanDoc) => plans.save(d, next)
   return (
@@ -186,7 +190,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
                       let n = 0
                       const vsl = visits.list.filter((v) => v.date === d && slotOfVisit(v, pd) === sl.k)
                       return (
-                        <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
+                        <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit || (report && isAdmin) ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
                           {!report && note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginBottom: 3 }}>📝 {note}</div>}
                           {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName}{v.absent ? ' ✗ ไม่พบ' : ' ✓'}{v.checkin ? <small style={{ color: '#555' }}> {new Date(v.checkin.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</small> : null}{v.visitor ? <div style={{ fontSize: 14, color: '#555' }}>ผู้เยี่ยม: {v.visitor}</div> : null}</div>) : null}
                           {report ? null : ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
@@ -212,6 +216,27 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
+      {del && (() => {
+        const pd = plans.of(del.d)
+        const vs = visits.list.filter((v) => v.date === del.d && slotOfVisit(v, pd) === del.slot)
+        const cancel = (v: Visit) => {
+          if (!confirm(`ยกเลิกการบันทึกเยี่ยม ${v.memberName}?\n(ลบออกจากรายงานและลบรูปของรายการนี้)`)) return
+          visits.remove(v.id)
+          ;(v.photos ?? []).filter((ph) => !visits.list.some((x) => x.id !== v.id && x.photos?.includes(ph))).forEach((ph) => void removeMemberPhotoFile(ph))
+        }
+        return (
+          <Sheet title={`${dayName(del.d)} ${dmy(del.d)} · ภาค${del.slot} · การบันทึกเยี่ยม`} onClose={() => setDel(null)}>
+            {vs.length === 0 && <p className="muted">ไม่มีรายการบันทึกในช่องนี้</p>}
+            <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{vs.map((v) => (
+              <li key={v.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
+                <span style={{ flex: 1 }}>{v.memberName.replace(/^place:/, '')}{v.absent ? ' ✗ ไม่พบ' : ' ✓'}{v.visitor ? <small className="muted"> · {v.visitor}</small> : null}</span>
+                <button type="button" className="btn btn--danger" aria-label={`ยกเลิกการบันทึก ${v.memberName}`} onClick={() => cancel(v)}>🗑 ยกเลิกการบันทึก</button>
+              </li>))}</ul>
+            <p className="muted small">เฉพาะแอดมินเท่านั้นที่ยกเลิกได้</p>
+            <button type="button" className="btn" onClick={() => setDel(null)}>ปิด</button>
+          </Sheet>
+        )
+      })()}
       {edit && doc && edit.slot !== 'day' && <CellEditor date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} planOnly={mode === 'plan'} />}
     </section>
   )
