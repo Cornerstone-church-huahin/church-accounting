@@ -54,3 +54,19 @@ describe('ครั้งที่ออกเยี่ยม (บ้านใ�
     expect(timesVisited(vs, 'm2')).toBe(1); expect(timesVisited(vs, 'm1')).toBe(1)
   })
 })
+
+import { planDoc as _pd, setSlot, setSlotNote } from './visitPlan'
+describe('ภาคเช้า/บ่าย/ค่ำ ของแผนเยี่ยม', () => {
+  it('กำหนดภาค เปลี่ยน และยกเลิก · ข้อความรายภาค', () => {
+    let d = _pd({ items: [{ id: 'a', name: 'ก', g: 1 }, { id: 'b', name: 'ข', g: 1 }], v: 2 })
+    d = setSlot(d, 'a', 'เช้า'); expect(d.items.find((x) => x.id === 'a')?.slot).toBe('เช้า')
+    d = setSlot(d, 'a', 'ค่ำ'); expect(d.items.find((x) => x.id === 'a')?.slot).toBe('ค่ำ')
+    d = setSlot(d, 'a'); expect(d.items.find((x) => x.id === 'a')?.slot).toBeUndefined()
+    d = setSlotNote(d, 'ค่ำ', ' เตรียมสถานที่ '); expect(d.slotNotes?.ค่ำ).toBe('เตรียมสถานที่')
+    d = setSlotNote(d, 'ค่ำ', ''); expect(d.slotNotes?.ค่ำ).toBeUndefined()
+  })
+  it('planDoc เก็บภาคและข้อความรายภาคไว้', () => {
+    const d = _pd({ items: [{ id: 'a', name: 'ก', g: 2, slot: 'เช้า' }], v: 2, slotNotes: { บ่าย: 'x' } })
+    expect(d.items[0].slot).toBe('เช้า'); expect(d.slotNotes?.บ่าย).toBe('x')
+  })
+})

@@ -7,7 +7,8 @@ import { useAttendance, useChurchMembers, useVisitPlans } from '../lib/data'
 import { absentMonths, type VisitStat } from '../lib/pastoral'
 import { statusShort } from '../lib/registry'
 import { DAY_NAMES } from '../lib/visits'
-import { moveItem, removeItem, setStop, stopColor, type PlanDoc } from '../lib/visitPlan'
+import { moveItem, removeItem, setSlot, setStop, stopColor, SLOTS, type PlanDoc } from '../lib/visitPlan'
+import { usePlanDate } from '../lib/planDate'
 import { toAttendance } from '../lib/registry'
 import { todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
@@ -22,7 +23,7 @@ type Plans = ReturnType<typeof useVisitPlans>
  * ตัวเลขจำนวนคนในแผนอยู่ที่แถบขั้นที่ 2 ทุกหน้า (plans เดียวกัน) · บันทึกเยี่ยมแล้วก็ยังนับอยู่ จนกว่าจะกด “ล้างตะกร้า”
  */
 export default function VisitGroups({ plans, members, stats, today }: { plans: Plans; members: ChurchMember[]; stats: Map<string, VisitStat>; today: string }) {
-  const date = today // แผนเป็นของวันนี้เท่านั้น (บันทึกจริงทำตอนไปหน้างาน)
+  const [date, setDate] = usePlanDate(today) // วันที่วางแผน (ตั้งต้นวันนี้ · เลือกวันล่วงหน้าได้) — บันทึกจริงทำตอนไปหน้างานของวันนั้น
   const [ask, setAsk] = useState<{ id: string; name: string; val: string } | null>(null) // ป๊อปอัพ “จุดเยี่ยมที่”
   const [msg, setMsg] = useState('')
   const doc = plans.of(date)
@@ -73,7 +74,8 @@ export default function VisitGroups({ plans, members, stats, today }: { plans: P
   }
   return (
     <section className="vgroup" aria-label="จัดกลุ่มเยี่ยม" ref={sheet}>
-      <p className="pagehint" style={{ margin: '0 0 0.3rem' }}>วันนี้ {dayLabel}</p>
+      <div className="field no-print" style={{ margin: '0 0 0.3rem' }}><label htmlFor="vg-date">📅 แผนของวันที่ · {dayLabel}</label>
+        <input id="vg-date" className="input" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} /></div>
       {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
         <div className="vplan__body">
           {n === 0
@@ -93,7 +95,8 @@ export default function VisitGroups({ plans, members, stats, today }: { plans: P
                           ? <button type="button" className="vplan__stop" aria-label={x.g > 0 ? `${x.name} จุดที่ ${x.g} (แตะเพื่อเปลี่ยนจุด)` : `กำหนดจุดเยี่ยมของ ${x.name}`} style={x.g > 0 ? { background: stopColor(x.g).dark, borderColor: stopColor(x.g).dark } : undefined} onClick={() => askStop(x)}>{x.g > 0 ? x.g : '＋'}</button>
                           : <span className="vplan__no" aria-hidden="true">{x.g > 0 ? x.g : '–'}</span>}
                         <MemberAvatar path={m?.photoPath} name={x.name} size={44} member={m} />
-                        <span className="vplan__who"><b>{x.name}</b><small className="muted">{m ? `${statusShort(m.status)} · ${monthsText(mo)}` : 'ไม่พบในทะเบียน'}</small></span>
+                        <span className="vplan__who"><b>{x.name}</b><small className="muted">{m ? `${statusShort(m.status)} · ${monthsText(mo)}` : 'ไม่พบในทะเบียน'}</small>
+                          <span className="vslot no-print" role="group" aria-label={`ภาคของ ${x.name}`}>{SLOTS.map((sl) => <button key={sl.k} type="button" disabled={!canEdit} aria-pressed={x.slot === sl.k} className={`vslot__b${x.slot === sl.k ? ' on' : ''}`} onClick={() => write(setSlot(doc, x.id, x.slot === sl.k ? undefined : sl.k))}>{sl.icon} {sl.k}</button>)}</span></span>
                         {canEdit && <button type="button" className="mini vplan__x" aria-label={`เอา ${x.name} ออกจากตะกร้า`} onClick={() => write(removeItem(doc, x.id))}>✕</button>}
                       </li>
                     )
