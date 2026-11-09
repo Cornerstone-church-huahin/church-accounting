@@ -91,6 +91,13 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
  * ตารางเยี่ยมเยียนรายสัปดาห์: แถว = วัน (อังคาร–เสาร์ · วันที่ตามปฏิทินอัตโนมัติ) · คอลัมน์ 2 = ข้อความช่วงเช้า/กิจกรรมประจำของวัน (พิมพ์เอง)
  * คอลัมน์ 3–5 = ภาคเช้า/บ่าย/ค่ำ: เลือกคน (กด ＋) · เพิ่มสถานที่/โครงการ · หมายเหตุ · พิมพ์/PDF A4 แนวนอน
  */
+/** หัวกระดาษ 3 แผ่น: เตรียมการเยี่ยม → บันทึกการเยี่ยม → รายงานการเยี่ยม (แผ่นที่ 3 ใช้ประมวลผล/ติดประกาศ) */
+const TITLE = {
+  plan: { th: 'เตรียมการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Preparation · Pastoral Visits', short: 'เตรียมการเยี่ยม', file: 'เตรียมการเยี่ยม' },
+  record: { th: 'บันทึกการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Record · Pastoral Visits', short: 'บันทึกการเยี่ยม', file: 'บันทึกการเยี่ยม' },
+  report: { th: 'รายงานการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Report · Pastoral Visits', short: 'รายงานการเยี่ยม', file: 'รายงานการเยี่ยม' },
+} as const
+
 export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'record' | 'report' }) {
   const { settings } = useSettings()
   const church = settings.churchName.split(' ')[0]
@@ -132,9 +139,9 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
             <span style={{ fontSize: 40 }} aria-hidden="true">🏠</span>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: 15, letterSpacing: 1, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
-              <div style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15 }}>{report ? 'รายงานการเยี่ยมเยียนครอบครัวศิลาเอก' : 'ตารางเยี่ยมเยียนครอบครัวศิลาเอก'}</div>
+              <div style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15 }}>{TITLE[mode].th}</div>
               <div style={{ fontSize: 21, fontWeight: 700, color: '#ffd978' }}>วันที่ {range}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.95 }}>{report ? 'Cornerstone Family Visitation Report · Pastoral Visits' : 'Cornerstone Family Visitation Schedule · Pastoral Visits'}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.95 }}>{TITLE[mode].en}</div>
             </div>
             <span style={{ fontSize: 40 }} aria-hidden="true">💛</span>
           </div>
@@ -179,7 +186,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
           <div style={{ fontSize: 13.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว / Visited · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
       </ScaledPage>
-      <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${report ? 'รายงานเยี่ยม' : 'ตารางเยี่ยม'}-${monday}.pdf`} title={`${report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} ${range}`} label={report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} />
+      <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${TITLE[mode].file}-${monday}.pdf`} title={`${TITLE[mode].short} ${range}`} label={TITLE[mode].short} />
       {edit && doc && edit.slot === 'day' && (
         <Sheet title={`${dayName(edit.d)} ${dmy(edit.d)} · กิจกรรมช่วงเช้า`} onClose={() => setEdit(null)}>
           <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
