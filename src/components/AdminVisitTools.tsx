@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import Sheet from './Sheet'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { isWorkStaffOnly } from '../lib/access'
@@ -128,6 +129,7 @@ export function VisitRoute() {
   const days = weekDays(sunday).filter((d) => dayKind(d) === 'visit')
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const [pickDay, setPickDay] = useState<string | null>(null)
+  const [cfg, setCfg] = useState(false)
   const checkDays = useMemo(() => new Set(visits.list.filter((v) => v.checkin && days.includes(v.date)).map((v) => v.date)), [visits.list, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
   const date = pickDay && days.includes(pickDay) ? pickDay : days.includes(todayISO()) ? todayISO() : days.find((d) => checkDays.has(d)) ?? days[0]
   const range = (() => { const [ya, ma, da] = days[0].split('-').map(Number), [yb, mb, db] = days[days.length - 1].split('-').map(Number); return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}` })()
@@ -179,6 +181,8 @@ export function VisitRoute() {
           <button key={d} type="button" role="tab" aria-selected={d === date} className={`mini${d === date ? ' on' : ''}`} style={d === date ? { background: '#1a2b4c', color: '#fff' } : undefined} onClick={() => setPickDay(d)}>{DAY_NAMES[new Date(d + 'T00:00:00Z').getUTCDay()]} {Number(d.slice(8))}{checkDays.has(d) ? ' ●' : ''}</button>
         ))}
       </div>
+      <button type="button" className="btn btn--block" style={{ marginBottom: 8 }} onClick={() => setCfg(true)}>⚙️ ตั้งค่า (พิกัดคริสตจักร · ค่าน้ำมัน)</button>
+      {cfg && <Sheet title="⚙️ ตั้งค่ารายงานเส้นทาง" onClose={() => setCfg(false)}>
       <ChurchPoint />
       <div className="field" style={{ border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
         <label htmlFor="rt-fuel"><b>⛽ ค่าน้ำมัน (บาทต่อ 1 กิโลเมตร)</b> — แก้ได้เมื่อราคาน้ำมันเปลี่ยน</label>
@@ -188,6 +192,8 @@ export function VisitRoute() {
         </div>
         <span className="muted small">ตอนนี้ใช้ {rate} บาท/กม. · ประมาณการจากระยะไป-กลับ ไม่ใช่ค่าน้ำมันจริงที่จ่าย</span>
       </div>
+        <button type="button" className="btn btn--block" onClick={() => setCfg(false)}>เสร็จ</button>
+      </Sheet>}
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
           <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(grand / 1000 * rate)}</b> <small className="muted">({roadNote})</small></p>
