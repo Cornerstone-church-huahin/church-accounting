@@ -239,10 +239,10 @@ export function MemberHomesMap() {
   // ค้นหา: ชื่อ/ชื่อเล่น/หมายเหตุ ตรงคำค้น + "คนที่เกี่ยวข้อง" ดึงจากข้อมูลหลังบ้าน (นามสกุลเดียวกัน · ที่อยู่เดียวกัน · หมายเหตุที่กล่าวถึงกัน)
   // ไม่แสดงว่าเกี่ยวข้องอย่างไร แสดงเฉพาะรายชื่อ (ตรงคำค้นก่อน แล้วตามด้วยคนที่เกี่ยวข้อง)
   const matched = useMemo(() => {
-    const t = q.trim().toLowerCase()
+    const t = q.trim().toLowerCase().replace(/\s+/g, '')
     if (!t) return []
     const all = people.items
-    const direct = all.filter((m) => (m.name ?? '').toLowerCase().includes(t) || (m.nick ?? '').toLowerCase().includes(t) || (m.note ?? '').toLowerCase().includes(t))
+    const direct = all.filter((m) => `${m.name ?? ''}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) // ค้นเหมือนหน้าสมาชิก (ชื่อ ชื่อเล่น รหัส เบอร์ หมายเหตุ)
     if (t.length < 3) return direct
     const sur = (n: string) => { const w = n.trim().split(/\s+/); return w.length >= 2 ? w[w.length - 1] : '' }
     const ids = new Set(direct.map((m) => m.id))
@@ -257,7 +257,7 @@ export function MemberHomesMap() {
     return [...direct, ...rel]
   }, [people.items, q])
   const shown = useMemo(() => (q.trim() ? matched : people.items).flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', lat: m.lat, lng: m.lng }] : [])), [matched, people.items, q])
-  const noCoord = useMemo(() => matched.filter((m) => !hasCoord(m)).slice(0, 15), [matched])
+  const noCoord = useMemo(() => matched.filter((m) => !hasCoord(m)), [matched])
   const target = q.trim() ? (shown.find((m) => m.id === sel) ?? shown[0] ?? null) : null // พิมพ์ชื่อแล้ว: คนที่แตะเลือก หรือคนแรกที่ตรง
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
   // นำทาง: ตำแหน่งปัจจุบัน → บ้านสมาชิก (วาดเส้นตามถนนบนแผนที่ + เปิดนำทางต่อใน Google Maps)
@@ -301,12 +301,16 @@ export function MemberHomesMap() {
       )}
         {pop && q.trim() && (
           <div role="listbox" aria-label="ชื่อที่ตรงกับคำค้น" style={{ position: 'absolute', left: 8, right: 8, top: 8, zIndex: 1000, maxHeight: '85%', overflowY: 'auto', background: '#fff', border: '2px solid #1a73e8', borderRadius: 14, boxShadow: '0 8px 24px rgba(0,0,0,.45)' }}>
-            <div style={{ padding: '8px 12px', background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อที่ต้องการนำทาง</b> <small className="muted">({shown.length} คนที่ตรงและเกี่ยวข้องกับ “{q.trim()}”)</small></div>
-            {shown.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดบ้านตรงกับคำค้น{noCoord.length ? ' — มีคนที่ตรงแต่ยังไม่มีพิกัด ดูใต้แผนที่' : ''}</p>}
+            <div style={{ padding: '8px 12px', background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อที่ต้องการนำทาง</b> <small className="muted">({shown.length + noCoord.length} คนที่ตรงและเกี่ยวข้องกับ “{q.trim()}”)</small></div>
+            {shown.length + noCoord.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดบ้านตรงกับคำค้น{noCoord.length ? ' — มีคนที่ตรงแต่ยังไม่มีพิกัด ดูใต้แผนที่' : ''}</p>}
             {shown.map((m) => (
               <button key={m.id} type="button" role="option" aria-selected={target?.id === m.id} className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '12px', border: 0, borderBottom: '1px solid #eee', background: '#fff', textAlign: 'left', font: 'inherit' }} onClick={() => { setSel(m.id); setPop(false); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
                 <span aria-hidden="true">📍</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small>🧭 นำทาง</small>
               </button>))}
+            {noCoord.map((m) => (
+              <div key={m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '12px', borderBottom: '1px solid #eee', opacity: 0.6 }}>
+                <span aria-hidden="true">👤</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}</span><small>ยังไม่มีพิกัดบ้าน</small>
+              </div>))}
           </div>
         )}
       </div>
@@ -329,7 +333,6 @@ export function MemberHomesMap() {
             </li>)
         })}
       </ul>
-      {noCoord.length > 0 && <div className="muted small" style={{ margin: '4px 0' }}>ตรงกับคำค้นแต่ยังไม่มีพิกัดบ้าน (นำทางไม่ได้): {noCoord.map((m) => `${m.name}${m.nick?.trim() ? ` (${m.nick.trim()})` : ''}`).join(' · ')}</div>}
     </>
   )
 }
