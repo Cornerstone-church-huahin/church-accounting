@@ -63,7 +63,13 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
-      {!planOnly && pend.length > 0 && <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', justifyContent: 'flex-end', paddingBottom: 4, pointerEvents: 'none' }}><button type="button" className="btn btn--gold" style={{ pointerEvents: 'auto', boxShadow: '0 4px 14px rgba(0,0,0,.35)', fontSize: '1.05rem' }} onClick={() => setForm({ entry: null, group: pend })}>📝 บันทึกการเยี่ยม ({pend.length} คน) ›</button></div>}
+      {!planOnly && pend.length > 0 && <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', justifyContent: 'flex-end', paddingBottom: 6, pointerEvents: 'none' }}>
+        <div role="dialog" aria-label="ยืนยันบันทึกการเยี่ยม" style={{ pointerEvents: 'auto', width: '88%', background: '#fff', border: '3px solid #d4af37', borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,.4)', padding: '10px 12px' }}>
+          <b style={{ display: 'block', fontSize: '1.05rem' }}>✅ เลือกไว้ {pend.length} คน</b>
+          <ol style={{ margin: '4px 0 6px', paddingLeft: '1.4rem', fontSize: '1.05rem', maxHeight: '8.5rem', overflowY: 'auto' }}>{pend.map((x) => <li key={x.id}>{x.name.replace(/^place:/, '')}</li>)}</ol>
+          <div className="muted small" style={{ marginBottom: 6 }}>กดปุ่มด้านล่างเพื่อบันทึกการเยี่ยม — เลือกเช็คอินที่บ้านหรือที่ทำงาน (พิกัดเดียวกันทั้ง {pend.length} คน)</div>
+          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend })}>📝 กดที่นี่เพื่อบันทึกการเยี่ยม ›</button>
+        </div></div>}
       {mine.length > 0 && <b className="small">👥 คนที่จะไปเยี่ยม ({mine.length})</b>}
       {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (พิมพ์ข้อความ หรือจะเลือกคนจากรายชื่อด้านล่างก็ได้)</label>
