@@ -70,3 +70,16 @@ describe('ภาคเช้า/บ่าย/ค่ำ ของแผนเย�
     expect(d.items[0].slot).toBe('เช้า'); expect(d.slotNotes?.บ่าย).toBe('x')
   })
 })
+
+import { addPlace, removePlace, setDayText } from './visitPlan'
+describe('สถานที่/โครงการ และข้อความช่วงเช้าของแผนเยี่ยม', () => {
+  it('เพิ่ม-ลบสถานที่ ไม่ซ้ำ · ข้อความวัน', () => {
+    let d = _pd({ items: [], v: 2 })
+    d = addPlace(d, 'เช้า', ' โครงการโคโค่ '); d = addPlace(d, 'เช้า', 'โครงการโคโค่'); d = addPlace(d, 'เช้า', 'ร้านพี่ตาล')
+    expect(d.places?.เช้า).toEqual(['โครงการโคโค่', 'ร้านพี่ตาล'])
+    d = removePlace(d, 'เช้า', 0); expect(d.places?.เช้า).toEqual(['ร้านพี่ตาล'])
+    d = setDayText(d, ' กลุ่มอธิษฐาน '); expect(d.dayText).toBe('กลุ่มอธิษฐาน')
+    d = setDayText(d, ''); expect(d.dayText).toBeUndefined()
+    expect(_pd({ items: [], v: 2, places: { ค่ำ: ['x'] }, dayText: 'y' } as never).places?.ค่ำ).toEqual(['x'])
+  })
+})
