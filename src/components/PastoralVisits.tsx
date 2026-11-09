@@ -172,6 +172,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const [checkin, setCheckin] = useState<Visit['checkin'] | null>(entry?.checkin ?? preset?.checkin ?? null)
   const [locBusy, setLocBusy] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
+  const [warn, setWarn] = useState<string[] | null>(null) // ป๊อปอัพเตือนเมื่อขาดพิกัด/รูป
   // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
   const needProof = !entry || !!entry.checkin
   const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
@@ -222,7 +223,9 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
-    if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน” ก่อนจึงบันทึกการเยี่ยมได้')
+    const foundAny = group ? group.some((x) => gsel[x.id] === 'met') : !absent
+    const miss = [...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
+    if (miss.length) { setErr(''); return setWarn(miss) }
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
@@ -274,7 +277,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
-      <div className="field"><label>รูปการเยี่ยม (ไม่บังคับ · แนบได้ 1–{MAX_VISIT_PHOTOS} รูป จะมาเพิ่มภายหลังก็ได้)</label>
+      <div className="field"><label>รูปการเยี่ยม (บังคับอย่างน้อย 1 รูป · แนบได้สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
@@ -285,11 +288,18 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
             </button>
           )}
         </div>
-        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — เพิ่มภายหลังได้ที่ปุ่ม ✎ แก้' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
+        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — ต้องมีรูปอย่างน้อย 1 รูปจึงบันทึกได้' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
       {needProof && !checkin && <span className="muted small">ต้องเช็คอินตำแหน่งก่อนจึงถ่ายรูปได้ · รูปถ่ายด้วยกล้องในแอปเท่านั้น (เลือกจากคลังภาพไม่ได้) และบันทึกเวลา + ตำแหน่งตอนถ่าย</span>}
       {proof.length > 0 && <ul className="small muted pvproof" aria-label="เวลาและตำแหน่งตอนถ่ายรูป">{proof.map((x, i) => <li key={x.path}>รูปที่ {i + 1}: ถ่ายเวลา {timeText(x.at)} น. · {formatCoord(x)}{checkin ? ` · ห่างจุดเช็คอิน ${nearCheckin(x, checkin).meters} ม.` : ''}</li>)}</ul>}
       {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
+      {warn && <div role="alertdialog" aria-label="ต้องบันทึกพิกัดและถ่ายรูปก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องบันทึกพิกัดและถ่ายรูปก่อน</b>
+          <p style={{ margin: '8px 0' }}>ยังขาด:</p>
+          <ul style={{ margin: '0 0 12px', paddingLeft: '1.2rem' }}>{warn.map((w) => <li key={w}>{w}</li>)}</ul>
+          <button type="button" className="btn btn--gold btn--block" onClick={() => setWarn(null)}>เข้าใจแล้ว</button>
+        </div></div>}
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
       <div className="row" style={{ gap: 8, alignItems: 'center' }}><button type="button" className="btn" style={{ flex: 1, background: '#1e8e3e', borderColor: '#1e8e3e', color: '#fff', fontWeight: 800, fontSize: '1.1rem' }} onClick={save}>💾 บันทึกการเยี่ยม</button>{checkin && <button type="button" className="mini" style={{ width: 52, height: 52, fontSize: 24, borderRadius: '50%' }} aria-label="แชร์เข้ากลุ่ม (รูป + ข้อความ)" title="แชร์เข้ากลุ่ม (รูป + ข้อความ)" onClick={() => void share()}>📤</button>}{onDelete && <button type="button" className="mini" onClick={onDelete}>ลบ</button>}</div>
     </Sheet>
