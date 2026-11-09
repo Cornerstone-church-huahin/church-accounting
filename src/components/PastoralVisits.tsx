@@ -58,7 +58,7 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
   // เช็คอินที่บ้าน → พิกัดบ้านเข้าทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด) · ถ้ามีแล้วและห่างเกิน 100 ม. ถามก่อนทับ
   const applyCheckin = (v: Visit) => {
     const m = v.checkin ? people.items.find((x) => x.id === v.memberId) : undefined
-    if (!m || !v.checkin) return
+    if (!m || !v.checkin || v.checkin.kind === 'work') return
     const at = { lat: v.checkin.lat, lng: v.checkin.lng }
     const r = homeFromCheckin(m, at)
     if (r.action === 'keep') return
@@ -178,11 +178,11 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const anyMet = group ? group.some((x) => gsel[x.id] === 'met') : !absent
   const needPhotos = needProof && anyMet
   const dropFile = (p: string) => { if (!photoShared?.(p)) void removeMemberPhotoFile(p) }
-  const locate = () => {
+  const locate = (kind: 'home' | 'work' = 'home') => {
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setLocBusy(true); setErr('')
     navigator.geolocation.getCurrentPosition(
-      (p) => { setCheckin({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6, acc: Math.round(p.coords.accuracy), at: Date.now() }); setLocBusy(false) },
+      (p) => { setCheckin({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6, acc: Math.round(p.coords.accuracy), at: Date.now(), kind }); setLocBusy(false) },
       () => { setLocBusy(false); setErr('หาตำแหน่งไม่ได้ — เปิด GPS และอนุญาตให้แอปใช้ตำแหน่ง แล้วกดเช็คอินอีกครั้ง') },
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
   }
@@ -215,7 +215,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
-    if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” ก่อนจึงบันทึกการเยี่ยมได้')
+    if (needProof && !checkin) return setErr('ต้องกด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน” ก่อนจึงบันทึกการเยี่ยมได้')
     if (needPhotos && photos.length === 0) return setErr('ต้องแนบรูปการเยี่ยมอย่างน้อย 1 รูปก่อนจึงบันทึกได้')
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
@@ -235,13 +235,29 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
+      <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
+        <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className={`btn ${checkin?.kind === 'work' ? '' : 'btn--gold'}`} disabled={locBusy} onClick={() => locate('home')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin && checkin.kind !== 'work' ? '📍 เช็คอินที่บ้านใหม่' : '📍 เช็คอินที่บ้าน'}</button>
+          <button type="button" className={`btn ${checkin?.kind === 'work' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('work')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'work' ? '🏢 เช็คอินที่ทำงานใหม่' : '🏢 เช็คอินที่ทำงาน'}</button>
+          {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
+        </div>
+        <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'work' ? '' : ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ'}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
+        {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
       {group
         ? (
-          <div className="field"><label>ผู้ถูกเยี่ยมในจุดนี้ (แตะที่ปุ่มเพื่อสลับ พบ → ไม่พบ → ไม่รวม)</label>
-            <ul className="vrec__gsel" aria-label="ผู้ถูกเยี่ยมในจุดนี้">
+          <div className="field"><label>ติ๊กคนที่ไปเยี่ยมพร้อมกัน (เช็คอินที่เดียวกัน) — ติ๊กเฉพาะบางคน หรือทั้งกลุ่มก็ได้</label>
+            <div className="row" style={{ gap: 6, marginBottom: 4 }}>
+              <button type="button" className="mini" onClick={() => setGsel(Object.fromEntries(group.map((x) => [x.id, 'met' as const])))}>☑ ติ๊กทั้งกลุ่ม</button>
+              <button type="button" className="mini" onClick={() => setGsel(Object.fromEntries(group.map((x) => [x.id, 'skip' as const])))}>☐ ไม่เลือกเลย</button>
+            </div>
+            <ul className="vrec__gsel" aria-label="ผู้ถูกเยี่ยมในจุดนี้" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {group.map((x) => (
-                <li key={x.id}><b>{x.name}</b>
-                  <button type="button" className={`vrec__gbtn vrec__gbtn--${gsel[x.id]}`} aria-label={`${x.name}: ${{ met: 'พบ', absent: 'ไม่พบ', skip: 'ไม่รวมในการบันทึกนี้' }[gsel[x.id]]}`} onClick={() => setGsel((g) => ({ ...g, [x.id]: g[x.id] === 'met' ? 'absent' : g[x.id] === 'absent' ? 'skip' : 'met' }))}>{{ met: '✓ พบ', absent: '✗ ไม่พบ', skip: '— ไม่รวม' }[gsel[x.id]]}</button>
+                <li key={x.id} className="row" style={{ gap: 10, alignItems: 'center', padding: '4px 0' }}>
+                  <label className="row" style={{ gap: 8, alignItems: 'center', flex: 1 }}>
+                    <input type="checkbox" checked={gsel[x.id] !== 'skip'} onChange={(e) => setGsel((g) => ({ ...g, [x.id]: e.target.checked ? 'met' : 'skip' }))} />
+                    <b>{x.name}</b>
+                  </label>
+                  {gsel[x.id] !== 'skip' && <label className="small row" style={{ gap: 4, alignItems: 'center' }}><input type="checkbox" checked={gsel[x.id] === 'absent'} onChange={(e) => setGsel((g) => ({ ...g, [x.id]: e.target.checked ? 'absent' : 'met' }))} /> ไม่พบ</label>}
                 </li>
               ))}
             </ul>
@@ -252,13 +268,6 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
-      <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
-        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-          <button type="button" className="btn btn--gold" disabled={locBusy} onClick={locate}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin ? '📍 เช็คอินใหม่' : '📍 เช็คอินที่บ้าน'}</button>
-          {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
-        </div>
-        <span className="muted small" role="status">{checkin ? `✓ เช็คอินแล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ` : 'ยังไม่ได้เช็คอิน — ไปถึงบ้านสมาชิกแล้วกดปุ่มนี้'}</span>
-        {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
       <div className="field"><label>รูปการเยี่ยม (แนบ 1–{MAX_VISIT_PHOTOS} รูป{needPhotos ? ' · บังคับอย่างน้อย 1 รูป' : ''})</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
