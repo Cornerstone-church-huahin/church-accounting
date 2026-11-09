@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
@@ -44,6 +44,41 @@ const Back = ({ title }: { title: string }) => <div className="page-head page-he
 
 const km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} กม.` : `${m} ม.`)
 const hhmm = (at: number) => new Date(at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.'
+
+// ---- ระยะตามถนนจริง: OSRM (OpenStreetMap routing · ฟรี ไม่ต้องใช้คีย์) · ล้มเหลว/ออฟไลน์ = ใช้เส้นตรงแทน ----
+interface Road { m: number; s: number; g: Coord[] }
+const roadCache = new Map<string, Road>()
+const keyOf = (a: Coord, b: Coord) => `${a.lat},${a.lng}>${b.lat},${b.lng}`
+async function fetchRoad(a: Coord, b: Coord): Promise<Road | null> {
+  try {
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`)
+    if (!r.ok) return null
+    const j = await r.json() as { routes?: { distance: number; duration: number; geometry: { coordinates: [number, number][] } }[] }
+    const x = j.routes?.[0]
+    return x ? { m: Math.round(x.distance), s: Math.round(x.duration), g: x.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })) } : null
+  } catch { return null }
+}
+function useRoadLegs(pairs: [Coord, Coord][]) {
+  const [, bump] = useState(0)
+  const sig = pairs.map(([a, b]) => keyOf(a, b)).join('|')
+  useEffect(() => {
+    let dead = false
+    void (async () => {
+      let changed = false
+      await Promise.all(pairs.map(async ([a, b]) => {
+        const k = keyOf(a, b)
+        if (roadCache.has(k)) return
+        if (a.lat === b.lat && a.lng === b.lng) { roadCache.set(k, { m: 0, s: 0, g: [a, b] }); changed = true; return }
+        const r = await fetchRoad(a, b)
+        if (r) { roadCache.set(k, r); changed = true }
+      }))
+      if (changed && !dead) bump((n) => n + 1)
+    })()
+    return () => { dead = true }
+  }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (a: Coord, b: Coord) => roadCache.get(keyOf(a, b))
+}
+const mins = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)} ชม. ${Math.round((s % 3600) / 60)} น.` : `${Math.max(1, Math.round(s / 60))} น.`)
 const GAP_MS = 3 * 3600 * 1000 // จุดเช็คอินห่างกันเกิน 3 ชม. = คนละรอบ (กลับคริสตจักรแล้วออกใหม่)
 
 /** ตั้งพิกัดคริสตจักร: ใช้ตำแหน่งปัจจุบัน หรือวางลิงก์/พิกัดจาก Google Maps */
@@ -96,23 +131,28 @@ export function VisitRoute() {
     for (const s of stops) { const last = out[out.length - 1]; if (last && s.at - last[last.length - 1].at <= GAP_MS) last.push(s); else out.push([s]) }
     return out
   }, [visits.list, date])
+  const tripPts = (t: Coord[]) => (church ? [church, ...t, church] : t)
+  const allPairs = trips.flatMap((t) => { const pts = tripPts(t); return pts.slice(1).map((p, i) => [pts[i], p] as [Coord, Coord]) })
+  const road = useRoadLegs(allPairs)
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
-  const calc = (stops: { lat: number; lng: number }[]) => {
-    const pts = church ? [church, ...stops, church] : stops
-    const legs = pts.slice(1).map((p, i) => distanceM(pts[i], p))
-    return { legs, total: legs.reduce((a, b) => a + b, 0) }
+  const calc = (stops: Coord[]) => {
+    const pts = tripPts(stops)
+    const legs = pts.slice(1).map((p, i) => { const r = road(pts[i], p); return { m: r ? r.m : distanceM(pts[i], p), s: r?.s ?? 0, road: !!r, g: r?.g ?? [pts[i], p] } })
+    return { legs, total: legs.reduce((a, b) => a + b.m, 0), secs: legs.reduce((a, b) => a + b.s, 0) }
   }
   const all = trips.flat()
-  const grand = trips.reduce((a, t) => a + calc(t).total, 0)
+  const calcs = trips.map((t) => calc(t))
+  const grand = calcs.reduce((a, c) => a + c.total, 0)
+  const legCount = calcs.reduce((a, c) => a + c.legs.length, 0)
+  const roadCount = calcs.reduce((a, c) => a + c.legs.filter((l) => l.road).length, 0)
   const pins = [
     ...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ', color: '#1f5fbf', badge: '⛪' }] : []),
     ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: s.kind === 'work' ? '#e67700' : '#c2255c', badge: String(i + 1) }))),
   ]
-  // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (ทุกรอบต่อกันเป็นเส้นเดียว)
-  const lineTrips = trips.map((t) => calc(t))
-  const linePts: Coord[] = trips.flatMap((t) => (church ? [church, ...t, church] : t))
-  const lineLabels: string[] = trips.flatMap((_, ti) => [...lineTrips[ti].legs.map(km), ...(ti < trips.length - 1 ? [''] : [])])
-  const line = linePts.length > 1 ? { points: linePts, labels: lineLabels } : undefined
+  // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (สีน้ำเงิน ตามถนนจริงเมื่อคำนวณได้)
+  const segs = calcs.flatMap((c) => c.legs)
+  const line = segs.length ? { segments: segs.map((l) => l.g), labels: segs.map((l) => ({ at: l.g[Math.floor(l.g.length / 2)], text: `${km(l.m)}${l.road ? ` · ${mins(l.s)}` : ''}` })) } : undefined
+  const roadNote = legCount === 0 ? '' : roadCount === legCount ? '🛣️ ระยะตามถนนจริง' : roadCount === 0 ? '⏳ กำลังคำนวณตามถนน… (ถ้าไม่ขึ้น ใช้เส้นตรงแทนชั่วคราว)' : `⏳ คำนวณตามถนนแล้ว ${roadCount}/${legCount} ช่วง`
   return (
     <>
       <Back title="🧭 รายงานเส้นทาง" />
@@ -120,7 +160,7 @@ export function VisitRoute() {
       <div className="field"><label htmlFor="rt-date">วันที่</label><input id="rt-date" type="date" className="input" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></div>
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
-          <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> <small className="muted">(เส้นตรงระหว่างจุด ไม่ใช่ระยะถนนจริง)</small></p>
+          <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> <small className="muted">({roadNote})</small></p>
           <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
           <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1f5fbf', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ color: '#c2255c', fontWeight: 700 }}>● บ้านสมาชิก/จุดเยี่ยม (เลขตามลำดับ)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
@@ -134,10 +174,10 @@ export function VisitRoute() {
                   {t.map((s, i) => (
                     <li key={s.at} style={{ marginBottom: 4 }}>
                       <b>{s.names.join(', ')}</b> · {s.kind === 'work' ? '🏢 ที่ทำงาน' : '🏠 ที่บ้าน'}{s.sim ? ' 🧪จำลอง' : ''} · {hhmm(s.at)}
-                      {legs[i - off] != null && i - off >= 0 && <small className="muted"> · +{km(legs[i - off])}</small>}
+                      {legs[i - off] != null && i - off >= 0 && <small className="muted"> · +{km(legs[i - off].m)}{legs[i - off].road ? ` · ${mins(legs[i - off].s)}` : ''}</small>}
                       {' '}<a className="mini" href={mapsLink(s)} target="_blank" rel="noreferrer">แผนที่</a>
                     </li>))}
-                  {church && <li>⛪ กลับคริสตจักร <small className="muted">· +{km(legs[legs.length - 1])}</small></li>}
+                  {church && <li>⛪ กลับคริสตจักร <small className="muted">· +{km(legs[legs.length - 1].m)}{legs[legs.length - 1].road ? ` · ${mins(legs[legs.length - 1].s)}` : ''}</small></li>}
                 </ol>
               </section>
             )

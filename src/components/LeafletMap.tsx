@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { HUAHIN, type Coord } from '../lib/geo'
 
 export interface MapPin { id: string; lat: number; lng: number; label: string; sub?: string; /** สีหมุด (ไม่ใส่ = ชมพูมาตรฐาน) */ color?: string; /** ข้อความในหมุด เช่น ลำดับจุด หรือ ⛪ */ badge?: string }
-export interface MapLine { points: Coord[]; /** ป้ายระยะกลางเส้นแต่ละช่วง (ลำดับตรงกับช่วงของ points) */ labels?: string[] }
+export interface MapLine { /** เส้นทางแต่ละช่วง (จุดตามถนน หรือเส้นตรง 2 จุด) */ segments: Coord[][]; /** ป้ายระยะ/เวลาวางบนเส้น */ labels?: { at: Coord; text: string }[] }
 
 const badgeIcon = (color: string, badge: string) => L.divIcon({ className: '', html: `<span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${color};color:#fff;font:700 15px/1 sans-serif;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.6)">${badge}</span>`, iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -16] })
 const dot = (cls = '') => L.divIcon({ className: '', html: `<span class="mapdot${cls}"></span>`, iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -20] })
@@ -56,15 +56,15 @@ export default function LeafletMap({ pins = [], line, pick, onPick, height = 320
   // เส้นทาง: เส้นน้ำเงินหนา + ป้ายระยะกลางแต่ละช่วง
   useEffect(() => {
     const m = map.current
-    if (!m || !line || line.points.length < 2) return
+    if (!m || !line || line.segments.length === 0) return
     const g = L.layerGroup().addTo(m)
-    const pts = line.points.map((c) => [c.lat, c.lng] as [number, number])
-    L.polyline(pts, { color: '#ffffff', weight: 9, opacity: 0.9 }).addTo(g) // ขอบขาวให้เด่นบนภาพดาวเทียม
-    L.polyline(pts, { color: '#1a73e8', weight: 5, opacity: 1 }).addTo(g)
-    line.labels?.forEach((t, i) => {
-      if (!t || !pts[i + 1]) return
-      const mid: [number, number] = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]
-      L.marker(mid, { interactive: false, icon: L.divIcon({ className: '', html: `<span style="display:inline-block;transform:translate(-50%,-50%);background:#fff;color:#1a3b8f;font:700 12px/1 sans-serif;padding:3px 6px;border-radius:10px;border:1.5px solid #1a73e8;white-space:nowrap">${t}</span>`, iconSize: [0, 0] }) }).addTo(g)
+    for (const seg of line.segments) {
+      const pts = seg.map((c) => [c.lat, c.lng] as [number, number])
+      L.polyline(pts, { color: '#ffffff', weight: 9, opacity: 0.9, lineJoin: 'round' }).addTo(g) // ขอบขาวให้เด่นบนภาพดาวเทียม
+      L.polyline(pts, { color: '#1a73e8', weight: 5, opacity: 1, lineJoin: 'round' }).addTo(g)
+    }
+    line.labels?.forEach(({ at, text }) => {
+      L.marker([at.lat, at.lng], { interactive: false, icon: L.divIcon({ className: '', html: `<span style="display:inline-block;transform:translate(-50%,-50%);background:#fff;color:#1a3b8f;font:700 12px/1 sans-serif;padding:3px 6px;border-radius:10px;border:1.5px solid #1a73e8;white-space:nowrap">${text}</span>`, iconSize: [0, 0] }) }).addTo(g)
     })
     return () => { g.remove() }
   }, [line])
