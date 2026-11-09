@@ -76,11 +76,11 @@ function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ป�
 const DEFAULT_LABELS = ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บันทึกเยี่ยม': '📝', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📝', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
-  4: ['รวมสมาชิก', 'งาน/การเยี่ยม', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  4: ['รวมสมาชิก', 'งาน/การเยี่ยม', 'บ้านสมาชิก', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['รวมสมาชิก', 'ตารางถวาย', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -137,6 +137,10 @@ function TimetableGate({ mode = 'plan' }: { mode?: 'plan' | 'record' }) {
   const role = useRole()
   return canRole(role, 'detail') || canWork(4, 'view') ? <VisitTimetable mode={mode} /> : <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
 }
+function HomesGate() {
+  const role = useRole()
+  return canRole(role, 'detail') || canWork(4, 'view') ? <MemberHomesMap embedded /> : <p className="empty">ไม่มีสิทธิ์ดูแผนที่บ้านสมาชิก</p>
+}
 function PastoralBar({ active }: { active: PastoralStep }) {
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
   return (
@@ -176,7 +180,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {n === 4 ? (k === 2 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <TimetableGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <TimetableGate /> : n === 4 && k === 3 ? <HomesGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
@@ -239,7 +243,7 @@ function MeetingRoom() {
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} extra={step ? undefined : <Link to="/meeting/3/members" className="memtile no-print" aria-label="รวมสมาชิก"><span aria-hidden="true">👥</span> รวมสมาชิก <small>ทะเบียนสมาชิกทั้งหมด</small></Link>} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && k === 'route') return <VisitRoute />
-  if (tab?.n === 4 && k === 'homes') return <MemberHomesMap />
+  if (tab?.n === 4 && k === 'homes') return <HomesGate />
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={tab.n === 1 && k === '1' && s !== undefined ? 4 : Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
