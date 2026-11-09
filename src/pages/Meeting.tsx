@@ -125,7 +125,7 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
 
 /** งานอภิบาล: ทางลัด 3 หน้าที่เกี่ยวกับการเยี่ยม (วางแผน → บันทึก → รายงาน) แสดงเป็นแถบยาวมีข้อความ ใช้สลับหน้ากันเอง ไม่ต้องกลับเมนูหน้าแรก */
 const PASTORAL_PAGES = [
-  { id: 'plan', to: '/meeting/4/2', label: 'ตาราง', title: 'ตารางเยี่ยม', icon: '📅' },
+  { id: 'plan', to: '/meeting/4/2', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '📅' },
   { id: 'group', to: '/meeting/4/group', label: 'จัดกลุ่ม', title: 'จัดกลุ่มเยี่ยม', icon: '🧺' },
   { id: 'record', to: '/meeting/4/record', label: 'บันทึก', title: 'บันทึกเยี่ยม', icon: '📝' },
   { id: 'report', to: '/meeting/4/report', label: 'รายงาน', title: 'รายงานเยี่ยม', icon: '📊' },
@@ -139,7 +139,7 @@ function TimetableGate() {
 function PastoralBar({ active }: { active: PastoralStep }) {
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
   return (
-    <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="ตาราง บันทึก รายงาน">
+    <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="วางแผน บันทึก รายงาน">
       {PASTORAL_PAGES.filter((x) => x.id !== 'group').map((x, i) => ( // ขั้น “จัดกลุ่ม” เดิมเลิกใช้ในแถบ (ตารางเยี่ยมทำแทน)
         <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'record' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
           <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
