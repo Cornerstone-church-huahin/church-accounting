@@ -32,6 +32,8 @@ export interface BankAccount extends SharedItem { name: string; bank: string; la
 export interface Settings extends SharedItem {
   churchName: string
   /** พิกัดคริสตจักร (จุดเริ่มต้น-สิ้นสุดของรอบเยี่ยม ใช้วัดระยะไป-กลับ) */
+  /** โหมดทดสอบการเยี่ยม (แอดมินเปิด): ไม่บังคับเช็คอิน/รูป ใช้พิกัดบ้านในทะเบียนแทน */
+  visitTestMode?: boolean
   churchLat?: number
   churchLng?: number
   /** ใบเบิกที่เกินจำนวนนี้ต้องอนุมัติ 2 ขั้น (ผู้ตรวจสอบ + แอดมิน) · ต่ำกว่าอนุมัติ 1 ขั้น */
@@ -453,7 +455,7 @@ export interface VisitPlan extends SharedItem { date: string; items: { id: strin
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่มเอง (hide = ซ่อนชื่อที่มาจากทีมงานอภิบาล) */
 export interface VisitorName extends SharedItem { name: string; hide?: boolean }
 /** บันทึกการเยี่ยม 1 ครั้ง: วันที่ · สมาชิกที่เยี่ยม · เหตุผล/หมายเหตุ · ผู้เยี่ยม (ลงชื่อ) */
-export interface Visit extends SharedItem { date: string; /** จุดเยี่ยมที่ (จากตะกร้าเตรียมเยี่ยม) */ stop?: number; /** ไปแล้วไม่พบ/ไม่อยู่บ้าน (บันทึกหมายเหตุได้ ไม่ต้องมีรูป) */ absent?: boolean; memberId: string; memberName: string; reason: string; detail?: string; visitor: string; /** รูปการเยี่ยม 1–2 รูป (ที่อยู่ในที่เก็บข้อมูล) */ photos?: string[]; /** เช็คอินตำแหน่งที่บ้านตอนเยี่ยม (บังคับกับการเยี่ยมใหม่) · acc = ความคลาดเคลื่อน (เมตร) */ checkin?: { lat: number; lng: number; acc?: number; at: number; /** work = เช็คอินที่ทำงาน (ไม่ใช้เป็นพิกัดบ้าน) */ kind?: 'home' | 'work' }; /** หลักฐานรูป: เวลา+พิกัดตอนถ่ายของแต่ละรูป (กล้องในแอปเท่านั้น ไม่มีการเลือกรูปจากคลังภาพ) */ photoProof?: { path: string; at: number; lat: number; lng: number; acc?: number; src: 'live' | 'camera-file' }[] }
+export interface Visit extends SharedItem { date: string; /** จุดเยี่ยมที่ (จากตะกร้าเตรียมเยี่ยม) */ stop?: number; /** ไปแล้วไม่พบ/ไม่อยู่บ้าน (บันทึกหมายเหตุได้ ไม่ต้องมีรูป) */ absent?: boolean; memberId: string; memberName: string; reason: string; detail?: string; visitor: string; /** รูปการเยี่ยม 1–2 รูป (ที่อยู่ในที่เก็บข้อมูล) */ photos?: string[]; /** เช็คอินตำแหน่งที่บ้านตอนเยี่ยม (บังคับกับการเยี่ยมใหม่) · acc = ความคลาดเคลื่อน (เมตร) */ checkin?: { lat: number; lng: number; acc?: number; at: number; /** work = เช็คอินที่ทำงาน (ไม่ใช้เป็นพิกัดบ้าน) */ kind?: 'home' | 'work'; /** จำลองจากพิกัดบ้านในทะเบียน (โหมดทดสอบ) ไม่ใช่การเช็คอินจริง */ sim?: boolean }; /** หลักฐานรูป: เวลา+พิกัดตอนถ่ายของแต่ละรูป (กล้องในแอปเท่านั้น ไม่มีการเลือกรูปจากคลังภาพ) */ photoProof?: { path: string; at: number; lat: number; lng: number; acc?: number; src: 'live' | 'camera-file' }[] }
 
 // ---------- งานโรงครัว › ตารางถวายอาหาร ----------
 /** ผู้ถวายอาหารของวันอาทิตย์หนึ่ง: date = วันอาทิตย์ (ISO) · id = food-{date} (วันละหนึ่งรายการ) */

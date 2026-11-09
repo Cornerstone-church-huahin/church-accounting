@@ -173,7 +173,8 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const [shareMsg, setShareMsg] = useState('')
   const [warn, setWarn] = useState<string[] | null>(null) // ป๊อปอัพเตือนเมื่อขาดพิกัด/รูป
   // การเยี่ยมใหม่ (และฉบับที่เคยเช็คอินไว้) ต้องมีเช็คอินตำแหน่ง + รูป · ฉบับเก่าที่บันทึกก่อนมีกฎนี้แก้ไขได้ตามเดิม
-  const needProof = !entry || !!entry.checkin
+  const testMode = !!useSettings().settings.visitTestMode // 🧪 โหมดทดสอบ: ไม่บังคับเช็คอิน/รูป ใช้พิกัดบ้านในทะเบียนแทน
+  const needProof = !testMode && (!entry || !!entry.checkin)
   const [absent, setAbsent] = useState(!!entry?.absent || !!startAbsent) // ไปแล้วไม่พบ/ไม่อยู่บ้าน: ต้องเช็คอิน แต่ไม่ต้องมีรูป
   const lockedMember = !entry && !!preset?.member
   const [gsel, setGsel] = useState<Record<string, 'met' | 'absent' | 'skip'>>(() => Object.fromEntries((group ?? []).map((x) => [x.id, 'met' as const])))
@@ -215,6 +216,12 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     const r = await shareVisit(text, photos)
     setShareMsg(r === 'shared' ? 'ส่งออกแล้ว (ข้อความถูกคัดลอกไว้ด้วย ถ้าแอปไม่รับข้อความพร้อมรูปให้กดวาง)' : r === 'copied' ? 'คัดลอกข้อความแล้ว — เปิดไลน์แล้วกดวาง' : r === 'cancelled' ? '' : 'แชร์ไม่ได้บนเครื่องนี้')
   }
+  const ckFor = (id: string, i: number): Visit['checkin'] | undefined => {
+    if (checkin) return checkin
+    if (!testMode) return undefined
+    const m = members.find((x) => x.id === id)
+    return m && hasCoord(m) ? { lat: m.lat, lng: m.lng, at: Date.now() + i * 1000, kind: 'home', sim: true } : undefined
+  }
   const save = () => {
     const visitor = joinVisitors(picked)
     if (group ? group.every((x) => gsel[x.id] === 'skip') : !member) return setErr(group ? 'เลือกอย่างน้อย 1 คนที่จะบันทึก' : 'เลือกสมาชิกที่ไปเยี่ยม')
@@ -222,23 +229,24 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
     const foundAny = group ? group.some((x) => gsel[x.id] === 'met') : !absent
-    const miss = [...(!visitor ? ['👥 ผู้ออกเยี่ยม — เลือกอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
+    const miss = [...(!visitor ? ['👥 ผู้ออกเยี่ยม — เลือกอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!testMode && !entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
     if (group && onSaveMany) {
       const note = reason.trim()
-      return onSaveMany(group.filter((x) => gsel[x.id] !== 'skip').map((x) => {
+      return onSaveMany(group.filter((x) => gsel[x.id] !== 'skip').map((x, gi) => {
         const gone = gsel[x.id] === 'absent'
-        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 } as Visit
+        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(ckFor(x.id, gi) ? { checkin: ckFor(x.id, gi) } : {}), updated: 0 } as Visit
       }))
     }
     if (!member) return
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(checkin ? { checkin } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(ckFor(member.id, 0) ? { checkin: ckFor(member.id, 0) } : {}), updated: 0 })
   }
   return (
     <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
+      {testMode && <p role="status" style={{ margin: 0, background: '#fff3cd', border: '1px solid #e0b100', borderRadius: 10, padding: '6px 10px' }}>🧪 <b>โหมดทดสอบ</b> — ไม่ต้องเช็คอิน/ถ่ายรูป ระบบใช้พิกัดบ้านของสมาชิกที่มีในทะเบียนสร้างเส้นทางให้ (ปิดได้ที่โซนแอดมิน)</p>}
       {group
         ? (
           <div className="field"><label>ติ๊กคนที่ไปเยี่ยมพร้อมกัน (เช็คอินที่เดียวกัน) — ติ๊กเฉพาะบางคน หรือทั้งกลุ่มก็ได้</label>
