@@ -10,7 +10,6 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
-import VisitRecord from '../components/VisitRecord'
 import { VisitGroupsAuto } from '../components/VisitGroups'
 import { useVisitPlans } from '../lib/data'
 import { todayISO } from '../lib/money'
@@ -132,9 +131,9 @@ const PASTORAL_PAGES = [
 ] as const
 type PastoralStep = (typeof PASTORAL_PAGES)[number]['id']
 /** หน้าแรกของงานอภิบาล (ตารางเยี่ยม): เปิดมาเห็นตารางสัปดาห์ แตะช่องเพื่อใส่คน/สถานที่/บันทึกการเยี่ยม */
-function TimetableGate() {
+function TimetableGate({ mode = 'plan' }: { mode?: 'plan' | 'record' }) {
   const role = useRole()
-  return canRole(role, 'detail') || canWork(4, 'view') ? <VisitTimetable /> : <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
+  return canRole(role, 'detail') || canWork(4, 'view') ? <VisitTimetable mode={mode} /> : <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
 }
 function PastoralBar({ active }: { active: PastoralStep }) {
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
@@ -156,7 +155,7 @@ function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' 
     <>
       <div className="page-head no-print"><h1>{p.icon} {p.title}</h1><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
       <PastoralBar active={which} />
-      {which === 'group' ? <VisitGroupsAuto /> : which === 'record' ? <VisitRecord /> : <VisitReports />}
+      {which === 'group' ? <VisitGroupsAuto /> : which === 'record' ? <TimetableGate mode="record" /> : <VisitReports />}
     </>
   )
 }
