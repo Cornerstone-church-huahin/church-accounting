@@ -229,17 +229,57 @@ export function MemberHomesMap() {
   const ok = useIsAdminZone()
   const people = useChurchMembers()
   const [q, setQ] = useState('')
+  const [dest, setDest] = useState<{ name: string; lat: number; lng: number } | null>(null)
+  const [nav, setNav] = useState<{ from: Coord; m: number; s: number; road: boolean; g: Coord[] } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
   const withC = useMemo(() => people.items.flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, lat: m.lat, lng: m.lng }] : [])), [people.items])
   const shown = useMemo(() => withC.filter((m) => !q.trim() || m.name.includes(q.trim())), [withC, q])
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
+  // นำทาง: ตำแหน่งปัจจุบัน → บ้านสมาชิก (วาดเส้นตามถนนบนแผนที่ + เปิดนำทางต่อใน Google Maps)
+  const go = (d: { name: string; lat: number; lng: number }) => {
+    if (!navigator.geolocation) return setMsg('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
+    setDest(d); setNav(null); setMsg(''); setBusy(true)
+    navigator.geolocation.getCurrentPosition(async (p) => {
+      const from = { lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6 }
+      const r = await fetchRoad(from, d)
+      setNav(r ? { from, m: r.m, s: r.s, road: true, g: r.g } : { from, m: distanceM(from, d), s: 0, road: false, g: [from, d] })
+      setBusy(false)
+    }, () => { setBusy(false); setMsg('หาตำแหน่งปัจจุบันไม่ได้ — เปิด GPS และอนุญาตให้แอปใช้ตำแหน่ง แล้วลองใหม่') }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  }
+  const gmaps = (d: Coord) => `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}&travelmode=driving`
+  const pins = [
+    ...shown.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng, label: m.name, sub: formatCoord(m), ...(dest && m.lat === dest.lat && m.lng === dest.lng ? { color: '#c2255c', badge: '🏠' } : {}) })),
+    ...(nav ? [{ id: 'me', lat: nav.from.lat, lng: nav.from.lng, label: '📍 ฉันอยู่ที่นี่', sub: 'ตำแหน่งปัจจุบัน', color: '#1f5fbf', badge: '📍' }] : []),
+  ]
+  const line = nav ? { segments: [nav.g], labels: [{ at: nav.g[Math.floor(nav.g.length / 2)], text: `${km(nav.m)}${nav.road ? ` · ${mins(nav.s)}` : ''}` }] } : undefined
   return (
     <>
       <Back title="🗺️ แผนที่บ้านสมาชิก" />
       <p>มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน (พิกัดเข้าอัตโนมัติเมื่อ “เช็คอินที่บ้าน”)</p>
       <input className="input" placeholder="ค้นหาชื่อ" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => setQ(e.target.value)} />
-      {shown.length === 0 ? <p className="empty">ไม่มีสมาชิกที่มีพิกัด</p> : (
-        <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={shown.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng, label: m.name, sub: formatCoord(m) }))} height={420} label="แผนที่บ้านสมาชิก" /></Suspense>
+      {dest && (
+        <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, background: '#eef5ff' }} role="status">
+          <b>🧭 นำทางไปบ้าน {dest.name}</b>
+          <div>{busy ? 'กำลังหาตำแหน่งปัจจุบันและเส้นทาง…' : nav ? <>จากที่ที่คุณอยู่ <b>{km(nav.m)}</b>{nav.road ? <> · ขับประมาณ <b>{mins(nav.s)}</b></> : ' (เส้นตรง — คำนวณตามถนนไม่ได้ตอนนี้)'}</> : msg}</div>
+          <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+            <a className="btn btn--gold" href={gmaps(dest)} target="_blank" rel="noreferrer">🚗 เปิดนำทางใน Google Maps</a>
+            <button type="button" className="btn" onClick={() => { setDest(null); setNav(null); setMsg('') }}>ปิดเส้นทาง</button>
+          </div>
+        </div>
       )}
+      {!dest && msg && <p className="muted small" role="status">{msg}</p>}
+      {shown.length === 0 ? <p className="empty">ไม่มีสมาชิกที่มีพิกัด</p> : (
+        <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} {...(line ? { line } : {})} height={420} label="แผนที่บ้านสมาชิก" /></Suspense>
+      )}
+      <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกที่มีพิกัด">
+        {shown.slice(0, 20).map((m) => (
+          <li key={m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
+            <span style={{ flex: 1 }}>{m.name}</span>
+            <button type="button" className="btn btn--gold" disabled={busy} onClick={() => go(m)}>🧭 นำทาง</button>
+          </li>))}
+      </ul>
+      {shown.length > 20 && <p className="muted small">แสดง 20 คนแรก — พิมพ์ชื่อในช่องค้นหาเพื่อเลือกคนที่ต้องการ</p>}
     </>
   )
 }
