@@ -281,11 +281,19 @@ export function MemberHomesMap() {
       <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกที่มีพิกัด">
         {shown.map((m) => {
           const on = !!q.trim() && target?.id === m.id
+          const editNick = () => {
+            const full = people.items.find((x) => x.id === m.id)
+            if (!full) return
+            const v = window.prompt(`ชื่อเล่นของ ${m.name}${m.nick ? ` (ตอนนี้: ${m.nick})` : ' (ยังไม่มี)'}\nพิมพ์ชื่อเล่น แล้วกดตกลง (เว้นว่าง = ลบ)`, m.nick)
+            if (v === null) return
+            if (!people.put([{ ...full, nick: v.trim() }])) setMsg('บันทึกชื่อเล่นไม่ได้ (ต้องมีสิทธิ์แก้ทะเบียนสมาชิก)')
+          }
           return (
-            <li key={m.id}>
-              <button type="button" className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent', textAlign: 'left', font: 'inherit' }} aria-label={`นำทางไปบ้าน ${m.name}`} onClick={() => { setSel(m.id); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
-                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
+            <li key={m.id} className="row" style={{ gap: 4, alignItems: 'center', borderBottom: '1px solid #eee', background: on ? '#fff3cd' : 'transparent' }}>
+              <button type="button" className="row" style={{ flex: 1, gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, background: 'transparent', textAlign: 'left', font: 'inherit' }} aria-label={`นำทางไปบ้าน ${m.name}`} onClick={() => { setSel(m.id); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
+                <span aria-hidden="true">📍</span><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : <small className="muted"> · ยังไม่มีชื่อเล่น</small>}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
               </button>
+              <button type="button" className="mini" aria-label={`แก้ชื่อเล่น ${m.name}`} title="เพิ่ม/แก้ชื่อเล่น" onClick={editNick}>✏️</button>
             </li>)
         })}
       </ul>
