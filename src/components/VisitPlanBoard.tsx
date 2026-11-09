@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import AbsentList from './AbsentList'
 import { Link } from 'react-router-dom'
 import { useVisitPlans } from '../lib/data'
+import { usePlanDate } from '../lib/planDate'
+import { DAY_NAMES } from '../lib/visits'
 import type { VisitStat } from '../lib/pastoral'
 import { addItem, removeItem, type PlanDoc } from '../lib/visitPlan'
 import type { ChurchMember } from '../lib/types'
@@ -13,13 +15,16 @@ import type { ChurchMember } from '../lib/types'
 export default function VisitPlanBoard({ members, stats, today }: { members: ChurchMember[]; stats: Map<string, VisitStat>; today: string }) {
   const plans = useVisitPlans()
   const [msg, setMsg] = useState('')
-  const doc = plans.of(today)
+  const [date, setDate] = usePlanDate(today)
+  const doc = plans.of(date)
   const canEdit = plans.canEdit()
   const ids = useMemo(() => doc.items.map((x) => x.id), [doc])
-  const write = (next: PlanDoc) => setMsg(plans.save(today, next) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
+  const write = (next: PlanDoc) => setMsg(plans.save(date, next) ? '' : 'สิทธิ์ของท่านแก้แผนเยี่ยมไม่ได้')
   const toggle = (m: ChurchMember) => write(ids.includes(m.id) ? removeItem(doc, m.id) : addItem(doc, m))
   return (
     <div className="vplan">
+      <div className="field no-print" style={{ margin: '0 0 0.3rem' }}><label htmlFor="vp-date">📅 วางแผนเยี่ยมของวันที่ ({DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]}{date === today ? ' · วันนี้' : ''})</label>
+        <input id="vp-date" className="input" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} /></div>
       {msg && <p className="error small" role="alert" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
       {!canEdit && <p className="pagehint" style={{ margin: '0.3rem 0 0' }}>ดูอย่างเดียว — แอดมิน ผู้ดูแลหลัก และผู้ช่วยเลือกคนเข้าแผนได้</p>}
       {doc.items.length > 0 && (
