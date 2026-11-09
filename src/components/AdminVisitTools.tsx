@@ -18,7 +18,9 @@ const TOOLS = [
 ] as const
 
 export function AdminZone() {
+  const st = useSettings()
   if (!useIsAdminZone()) return null
+  const on = !!st.settings.visitTestMode
   return (
     <section aria-label="โซนแอดมิน" className="no-print" style={{ marginTop: 14, border: '2px dashed #a4262c', borderRadius: 16, padding: '10px 10px 12px', background: '#fff7f7' }}>
       <b style={{ display: 'block', marginBottom: 8, color: '#a4262c' }}>🔒 โซนแอดมิน · ทดสอบระบบ (คนอื่นไม่เห็น)</b>
@@ -30,6 +32,10 @@ export function AdminZone() {
           <span key={n} className="btile btile--indebt" style={{ opacity: 0.45 }} aria-disabled="true"><small aria-hidden="true">➕</small><b>ช่อง {n} (ว่าง)</b></span>
         ))}
       </nav>
+      <label className="row" style={{ gap: 10, alignItems: 'center', marginTop: 10, padding: 8, borderRadius: 10, background: on ? '#fff3cd' : '#fff', border: '1px solid #e0b100' }}>
+        <input type="checkbox" style={{ width: 24, height: 24 }} checked={on} onChange={(e) => st.save({ visitTestMode: e.target.checked })} />
+        <span><b>🧪 โหมดทดสอบการเยี่ยม</b><br /><small>เปิด = บันทึกเยี่ยมโดยไม่ต้องเช็คอิน/ถ่ายรูป ระบบใช้พิกัดบ้านที่มีในทะเบียนสร้างเส้นทาง · ปิด = กลับเป็นบังคับตามปกติ</small></span>
+      </label>
     </section>
   )
 }
@@ -78,10 +84,10 @@ export function VisitRoute() {
   const church: Coord | null = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null
   const [date, setDate] = useState(todayISO())
   const trips = useMemo(() => {
-    const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work'; names: string[] }>()
+    const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work'; sim?: boolean; names: string[] }>()
     for (const v of visits.list) {
       if (v.date !== date || !v.checkin) continue
-      const s = byAt.get(v.checkin.at) ?? { at: v.checkin.at, lat: v.checkin.lat, lng: v.checkin.lng, kind: v.checkin.kind, names: [] }
+      const s = byAt.get(v.checkin.at) ?? { at: v.checkin.at, lat: v.checkin.lat, lng: v.checkin.lng, kind: v.checkin.kind, sim: v.checkin.sim, names: [] }
       s.names.push(v.memberName.replace(/^place:/, ''))
       byAt.set(v.checkin.at, s)
     }
@@ -117,7 +123,7 @@ export function VisitRoute() {
                   {church && <li>⛪ คริสตจักร (ออกเดินทาง)</li>}
                   {t.map((s, i) => (
                     <li key={s.at} style={{ marginBottom: 4 }}>
-                      <b>{s.names.join(', ')}</b> · {s.kind === 'work' ? '🏢 ที่ทำงาน' : '🏠 ที่บ้าน'} · {hhmm(s.at)}
+                      <b>{s.names.join(', ')}</b> · {s.kind === 'work' ? '🏢 ที่ทำงาน' : '🏠 ที่บ้าน'}{s.sim ? ' 🧪จำลอง' : ''} · {hhmm(s.at)}
                       {legs[i - off] != null && i - off >= 0 && <small className="muted"> · +{km(legs[i - off])}</small>}
                       {' '}<a className="mini" href={mapsLink(s)} target="_blank" rel="noreferrer">แผนที่</a>
                     </li>))}
