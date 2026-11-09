@@ -103,7 +103,7 @@ export default function VisitReports() {
         <button type="button" role="tab" aria-selected={view === 'cards'} className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>🗓️ การ์ด</button>
         <button type="button" role="tab" aria-selected={view === 'report'} className={view === 'report' ? 'on' : ''} onClick={() => setView('report')}>📄 รายงาน</button>
       </div>
-      {view === 'table' ? <VisitTimetable /> : null}
+      {view === 'table' ? <VisitTimetable mode="report" /> : null}
       {view === 'cards' ? <PastoralVisits key="cards" only="cards" readOnly /> : view === 'report' ? <PastoralVisits key="report" only="report" readOnly /> : null}
       {view !== 'weeks' ? null : weeks.length === 0
         ? <p className="empty">ยังไม่มีบันทึกการเยี่ยม — บันทึกที่แท็บ “บันทึกเยี่ยม” แล้วจะขึ้นที่นี่</p>

@@ -5,7 +5,6 @@ import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
-import { usePlanDate } from '../lib/planDate'
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
@@ -22,7 +21,7 @@ const TONE: Record<Slot, { bg: string; dark: string; tint: string }> = {
 const EN: Record<Slot, string> = { เช้า: 'Morning Visits', บ่าย: 'Afternoon Visits', ค่ำ: 'Evening · Cell Group' }
 const DAY_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DEFAULT_VERSE = '“จงรักกันและกัน เหมือนที่เรารักท่านทั้งหลาย” — ยอห์น 15:12 · “Love one another as I have loved you.” — John 15:12'
-const cell: React.CSSProperties = { border: '1.5px solid #5a6a8c', padding: '6px 8px', verticalAlign: 'top', fontSize: 15, lineHeight: 1.35 }
+const cell: React.CSSProperties = { border: '1.5px solid #5a6a8c', padding: '6px 8px', verticalAlign: 'top', fontSize: 14, lineHeight: 1.35 }
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 
 /** ภาคของการเยี่ยมจริง: ตามภาคที่วางแผนไว้ ไม่มีแผน = ดูจากเวลาเช็คอิน (ก่อน 12 เช้า · ก่อน 18 บ่าย · หลังจากนั้นค่ำ) */
@@ -42,7 +41,7 @@ const rangeTitle = (a: string, b: string) => {
 }
 
 /** หน้าต่างแก้ช่องหนึ่ง: เลือกคน (จากรายชื่อขาดนมัสการ กด ＋) · สถานที่/โครงการ (ไม่ผูกรายชื่อ) · หมายเหตุ */
-function CellEditor({ date, slot, doc, onChange, onClose }: { date: string; slot: Slot; doc: PlanDoc; onChange: (d: PlanDoc) => void; onClose: () => void }) {
+function CellEditor({ date, slot, doc, onChange, onClose, recordOnly }: { date: string; slot: Slot; doc: PlanDoc; onChange: (d: PlanDoc) => void; onClose: () => void; /** หน้า “บันทึก”: เห็นรายชื่อที่วางแผนไว้และบันทึกเยี่ยมได้ แก้แผนไม่ได้ */ recordOnly?: boolean }) {
   const people = useChurchMembers()
   const y = new Date().getFullYear()
   const a0 = useAttendance(y), a1 = useAttendance(y - 1, false), a2 = useAttendance(y - 2, false), a3 = useAttendance(y - 3, false)
@@ -62,18 +61,20 @@ function CellEditor({ date, slot, doc, onChange, onClose }: { date: string; slot
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={onClose}>
       <b className="small">👥 คนที่จะไปเยี่ยม ({mine.length})</b>
       {mine.length === 0 && <p className="muted small" style={{ margin: 0 }}>ยังไม่มี — กด ＋ เลือกคน</p>}
-      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id}>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''} <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v ?? null, member: { id: x.id, name: x.name } })}>{v ? '✎ แก้' : '📝 เยี่ยมแล้ว'}</button> <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => onChange(removeItem(doc, x.id))}>✕</button></li> })}</ul>
-      <button type="button" className="btn btn--gold" onClick={() => setPick(!pick)}>{pick ? 'ปิดรายชื่อ' : '＋ เลือกคนจากรายชื่อ (ดูว่าขาดนมัสการกี่เดือน)'}</button>
-      {pick && <AbsentList hideLabel members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
-      <b className="small">📍 สถานที่ / โครงการ (ไม่ใส่ชื่อคน)</b>
-      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`}>📍 {p}{v ? ' ✓' : ''} <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${p}`} onClick={() => setForm({ entry: v ?? null, member: { id: `place:${p}`, name: p } })}>{v ? '✎ แก้' : '📝 ไปแล้ว (แผนที่+รูป)'}</button> <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => onChange(removePlace(doc, slot, i))}>✕</button></li> })}</ul>
+      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id}>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''} <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v ?? null, member: { id: x.id, name: x.name } })}>{v ? '✎ แก้' : '📝 เยี่ยมแล้ว'}</button> {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => onChange(removeItem(doc, x.id))}>✕</button>}</li> })}</ul>
+      {!recordOnly && <button type="button" className="btn btn--gold" onClick={() => setPick(!pick)}>{pick ? 'ปิดรายชื่อ' : '＋ เลือกคนจากรายชื่อ (ดูว่าขาดนมัสการกี่เดือน)'}</button>}
+      {!recordOnly && pick && <AbsentList hideLabel members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
+      <b className="small">📍 สถานที่ / โครงการ{recordOnly ? '' : ' (ไม่ใส่ชื่อคน)'}</b>
+      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`}>📍 {p}{v ? ' ✓' : ''} <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${p}`} onClick={() => setForm({ entry: v ?? null, member: { id: `place:${p}`, name: p } })}>{v ? '✎ แก้' : '📝 ไปแล้ว (แผนที่+รูป)'}</button> {!recordOnly && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => onChange(removePlace(doc, slot, i))}>✕</button>}</li> })}</ul>
+      {!recordOnly && (
       <div className="row" style={{ gap: 6 }}>
         <input className="input grow" aria-label="สถานที่หรือโครงการ" placeholder="เช่น โครงการโคโค่ · ร้านพี่ตาล" value={place} onChange={(e) => setPlace(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }} />
         <button type="button" className="btn btn--gold" onClick={() => { if (place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }}>＋ เพิ่ม</button>
       </div>
+      )}
       {(mine.length + places.length > 1) && <button type="button" className="btn" onClick={() => setForm({ entry: null, group: [...mine.map((x) => ({ id: x.id, name: x.name })), ...places.map((p) => ({ id: `place:${p}`, name: p }))].filter((x) => !done(x.id)) })} disabled={[...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)].every((id) => !!done(id))}>📝 บันทึกพร้อมกัน (ไปที่เดียวกัน ใช้แผนที่และรูปชุดเดียว · ติ๊กเฉพาะคนที่ไปเยี่ยมจริง)</button>}
-      <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (เช่น ไม่ได้เยี่ยมวันนั้น แต่ทำอะไร)</label>
-        <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onBlur={(e) => onChange(setSlotNote(doc, slot, e.target.value))} /></div>
+      {!recordOnly && <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (เช่น ไม่ได้เยี่ยมวันนั้น แต่ทำอะไร)</label>
+        <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onBlur={(e) => onChange(setSlotNote(doc, slot, e.target.value))} /></div>}
       <button type="button" className="btn" onClick={onClose}>เสร็จ</button>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
@@ -90,13 +91,15 @@ function CellEditor({ date, slot, doc, onChange, onClose }: { date: string; slot
  * ตารางเยี่ยมเยียนรายสัปดาห์: แถว = วัน (อังคาร–เสาร์ · วันที่ตามปฏิทินอัตโนมัติ) · คอลัมน์ 2 = ข้อความช่วงเช้า/กิจกรรมประจำของวัน (พิมพ์เอง)
  * คอลัมน์ 3–5 = ภาคเช้า/บ่าย/ค่ำ: เลือกคน (กด ＋) · เพิ่มสถานที่/โครงการ · หมายเหตุ · พิมพ์/PDF A4 แนวนอน
  */
-export default function VisitTimetable() {
+export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'record' | 'report' }) {
   const { settings } = useSettings()
   const church = settings.churchName.split(' ')[0]
   const plans = useVisitPlans()
   const visits = useVisits(true)
   const today = todayISO()
-  const [anchor, setAnchor] = usePlanDate(today)
+  // สัปดาห์ที่เปิดดู: ใช้ร่วมกันทั้ง วางแผน/บันทึก/รายงาน (เลื่อนไปสัปดาห์ก่อน/ถัดไปได้อิสระ)
+  const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : today } catch { return today } })
+  const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
   const sunday = sundayOf(anchor)
   const days = weekDays(sunday).filter((d) => dayKind(d) === 'visit')
   const ref = useRef<HTMLDivElement>(null)
@@ -104,45 +107,39 @@ export default function VisitTimetable() {
   const monday = addDays(sunday, 1)
   const verse = plans.verseOf(monday) || DEFAULT_VERSE
   const [edit, setEdit] = useState<{ d: string; slot: Slot | 'day' } | null>(null)
-  const [sheet, setSheet] = useState<'plan' | 'report'>('plan') // แผ่นที่ 1 วางแผน · แผ่นที่ 2 รายงานผลจริง
-  const report = sheet === 'report'
+  const report = mode === 'report' // รายงานผลจริง · plan = วางแผน (แก้ได้) · record = มุมมองเดียวกัน แตะช่องเพื่อบันทึกเยี่ยม
   const visitedBy = useMemo(() => {
     const m = new Map<string, Set<string>>()
     for (const v of visits.list) if (!v.absent) m.set(v.date, new Set([...(m.get(v.date) ?? []), v.memberId]))
     return m
   }, [visits.list])
-  const shift = (n: number) => { const t = addDays(sunday, n * 7 + 3); setAnchor(t < today ? today : t) }
+  const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
-  const open = (d: string, slot: Slot | 'day') => { if (canEdit && !report) setEdit({ d, slot }) }
+  const open = (d: string, slot: Slot | 'day') => { if (canEdit && !report && !(mode === 'record' && slot === 'day')) setEdit({ d, slot }) }
   const doc = edit ? plans.of(edit.d) : null
   const save = (d: string, next: PlanDoc) => plans.save(d, next)
   return (
     <section aria-label="ตารางเยี่ยมเยียน">
       <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <button type="button" className="mini" aria-label="สัปดาห์ก่อน" onClick={() => shift(-1)}>‹</button>
-        <div style={{ textAlign: 'center', lineHeight: 1.25 }}><b>ตารางเยี่ยม</b><br /><span className="small">{range} · {total} คนในแผน</span></div>
+        <span className="small"><b>{range}</b>{total ? ` · ${total} คนในแผน` : ''}</span>
         <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
-      <div className="seg seg--2 no-print" role="tablist" aria-label="แผ่นตาราง" style={{ margin: '0 0 0.4rem' }}>
-        <button type="button" role="tab" aria-selected={!report} className={!report ? 'on' : ''} onClick={() => setSheet('plan')}>📅 วางแผนการเยี่ยม</button>
-        <button type="button" role="tab" aria-selected={report} className={report ? 'on' : ''} onClick={() => setSheet('report')}>📋 รายงานการเยี่ยม</button>
-      </div>
-      {canEdit && !report && <p className="muted small no-print" style={{ margin: '0 0 0.3rem', textAlign: 'center' }}>👆 แตะช่องในตารางเพื่อเพิ่มคน สถานที่/โครงการ หรือหมายเหตุ</p>}
-      <ScaledPage ref={ref} landscape>
+      <ScaledPage ref={ref}>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', height: '100%', color: '#111' }}>
           <div style={{ ...keep, background: `linear-gradient(100deg, ${NAVY}, #274a8a)`, color: '#fff', borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: `5px solid ${GOLD}` }}>
             <span style={{ fontSize: 40 }} aria-hidden="true">🏠</span>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: 13, letterSpacing: 1, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
-              <div style={{ fontSize: 27, fontWeight: 800, lineHeight: 1.15 }}>{report ? 'รายงานการเยี่ยมเยียนครอบครัวศิลาเอก' : 'ตารางเยี่ยมเยียนครอบครัวศิลาเอก'}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15 }}>{report ? 'รายงานการเยี่ยมเยียนครอบครัวศิลาเอก' : 'ตารางเยี่ยมเยียนครอบครัวศิลาเอก'}</div>
               <div style={{ fontSize: 17, fontWeight: 700, color: '#ffd978' }}>วันที่ {range}</div>
               <div style={{ fontSize: 14.5, fontWeight: 700, opacity: 0.95 }}>{report ? 'Cornerstone Family Visitation Report · Pastoral Visits' : 'Cornerstone Family Visitation Schedule · Pastoral Visits'}</div>
             </div>
             <span style={{ fontSize: 40 }} aria-hidden="true">💛</span>
           </div>
           <table aria-label="ตารางเยี่ยมเยียน" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginTop: 8, flex: 1 }}>
-            <colgroup><col style={{ width: '12%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23.6%' }} /><col style={{ width: '23.6%' }} /><col style={{ width: '23.8%' }} /></colgroup>
+            <colgroup><col style={{ width: '13%' }} /><col style={{ width: '15%' }} /><col style={{ width: '24%' }} /><col style={{ width: '24%' }} /><col style={{ width: '24%' }} /></colgroup>
             <thead>
               <tr>
                 <th style={{ ...cell, ...keep, background: NAVY, color: '#fff', textAlign: 'center', fontSize: 16 }}>📅 วัน<br /><span style={{ fontSize: 12 }}>Day / Date</span></th>
@@ -154,7 +151,7 @@ export default function VisitTimetable() {
               {days.map((d, i) => {
                 const pd = plans.of(d), seen = visitedBy.get(d) ?? new Set<string>()
                 return (
-                  <tr key={d} style={{ height: 92 }}>
+                  <tr key={d} style={{ height: 150 }}>
                     <td style={{ ...cell, ...keep, textAlign: 'center', verticalAlign: 'middle', background: i % 2 ? '#fdecec' : '#fff5f5', color: RED, fontWeight: 800 }}>
                       <div style={{ fontSize: 17 }}>{dayName(d)}</div><div style={{ fontSize: 12.5, fontWeight: 600 }}>{DAY_EN[new Date(d + 'T00:00:00Z').getUTCDay()]}</div><div style={{ fontSize: 15 }}>{dmy(d)}</div>
                     </td>
@@ -182,7 +179,7 @@ export default function VisitTimetable() {
           <div style={{ fontSize: 11.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว / Visited · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
       </ScaledPage>
-      <PdfTools compact mode="landscape" els={() => (ref.current ? [ref.current] : [])} file={`${report ? 'รายงานเยี่ยม' : 'ตารางเยี่ยม'}-${monday}.pdf`} title={`${report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} ${range}`} label={report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} />
+      <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${report ? 'รายงานเยี่ยม' : 'ตารางเยี่ยม'}-${monday}.pdf`} title={`${report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} ${range}`} label={report ? 'รายงานการเยี่ยมเยียน' : 'ตารางเยี่ยมเยียน'} />
       {edit && doc && edit.slot === 'day' && (
         <Sheet title={`${dayName(edit.d)} ${dmy(edit.d)} · กิจกรรมช่วงเช้า`} onClose={() => setEdit(null)}>
           <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
@@ -190,7 +187,7 @@ export default function VisitTimetable() {
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
-      {edit && doc && edit.slot !== 'day' && <CellEditor date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} />}
+      {edit && doc && edit.slot !== 'day' && <CellEditor recordOnly={mode === 'record'} date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} />}
     </section>
   )
 }
