@@ -263,7 +263,6 @@ export function MemberHomesMap() {
       <p>มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน (พิกัดเข้าอัตโนมัติเมื่อ “เช็คอินที่บ้าน”)</p>
       <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
         <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null); setPop(true) }} />
-        <button type="button" className="btn btn--gold" disabled={busy || !target} aria-label={target ? `นำทางไปบ้าน ${target.name}` : 'นำทาง (พิมพ์ชื่อก่อน)'} onClick={() => { if (target) { setPop(false); go(target) } }}>🧭 นำทาง</button>
       </div>
       {dest && (
         <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, background: '#eef5ff' }} role="status">
