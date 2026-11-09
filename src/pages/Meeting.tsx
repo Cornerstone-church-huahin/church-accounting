@@ -8,7 +8,7 @@ import WorkTerm from '../components/WorkTerm'
 import { APP_CREDIT } from '../lib/credit'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
-import PastoralVisits from '../components/PastoralVisits'
+import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
 import VisitRecord from '../components/VisitRecord'
 import { VisitGroupsAuto } from '../components/VisitGroups'
@@ -23,6 +23,7 @@ import FoodRoster from '../components/FoodRoster'
 import WorkCalendar from '../components/WorkCalendar'
 import { can, isRegistryHelper, myWorks } from '../lib/access'
 import { useRole } from '../lib/members'
+import { canRole, canWork } from '../lib/access'
 import { useYear } from '../lib/year'
 import AccountTabs from '../components/AccountTabs'
 import ChurchHealth, { HealthButton } from '../components/ChurchHealth'
@@ -124,20 +125,25 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
 
 /** งานอภิบาล: ทางลัด 3 หน้าที่เกี่ยวกับการเยี่ยม (วางแผน → บันทึก → รายงาน) แสดงเป็นแถบยาวมีข้อความ ใช้สลับหน้ากันเอง ไม่ต้องกลับเมนูหน้าแรก */
 const PASTORAL_PAGES = [
-  { id: 'plan', to: '/meeting/4/2', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '🗓️' },
+  { id: 'plan', to: '/meeting/4/2', label: 'ตาราง', title: 'ตารางเยี่ยม', icon: '📅' },
   { id: 'group', to: '/meeting/4/group', label: 'จัดกลุ่ม', title: 'จัดกลุ่มเยี่ยม', icon: '🧺' },
   { id: 'record', to: '/meeting/4/record', label: 'บันทึก', title: 'บันทึกเยี่ยม', icon: '📝' },
   { id: 'report', to: '/meeting/4/report', label: 'รายงาน', title: 'รายงานเยี่ยม', icon: '📊' },
 ] as const
 type PastoralStep = (typeof PASTORAL_PAGES)[number]['id']
+/** หน้าแรกของงานอภิบาล (ตารางเยี่ยม): เปิดมาเห็นตารางสัปดาห์ แตะช่องเพื่อใส่คน/สถานที่/บันทึกการเยี่ยม */
+function TimetableGate() {
+  const role = useRole()
+  return canRole(role, 'detail') || canWork(4, 'view') ? <VisitTimetable /> : <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
+}
 function PastoralBar({ active }: { active: PastoralStep }) {
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
   return (
-    <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="ทำตามลำดับ 1 วางแผน 2 จัดกลุ่ม 3 บันทึก 4 รายงาน">
-      {PASTORAL_PAGES.map((x, i) => (
-        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'group' || x.id === 'record' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
+    <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="ตาราง บันทึก รายงาน">
+      {PASTORAL_PAGES.filter((x) => x.id !== 'group').map((x, i) => ( // ขั้น “จัดกลุ่ม” เดิมเลิกใช้ในแถบ (ตารางเยี่ยมทำแทน)
+        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'record' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
           <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
-          {(x.id === 'group' || x.id === 'record') && n > 0 && <b className="tabicons__n" aria-hidden="true"><u>👤</u>{n}</b>}
+          {(x.id === 'record') && n > 0 && <b className="tabicons__n" aria-hidden="true"><u>👤</u>{n}</b>}
         </Link>
       ))}
     </nav>
@@ -169,7 +175,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {n === 4 ? (k === 2 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <PastoralVisits plan /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <TimetableGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

@@ -20,7 +20,7 @@ try {
     localStorage.setItem('acct.visit-plans.v1', JSON.stringify([{ id: 'plan-' + t, date: t, v: 2, groups: 1, names: {}, items: [{ id: 'm1', name: 'คุณสมชาย', g: 1, slot: 'เช้า' }, { id: 'm2', name: 'คุณสมหญิง', g: 2, slot: 'ค่ำ' }], slotNotes: { ค่ำ: 'เตรียมสถานที่งาน' }, updated: 1 }]))
   }, [t])
   await p.route('**/api.github.com/**', (r) => r.fulfill({ status: 404, body: '{}' }))
-  await p.goto(`http://localhost:${PORT}/#/meeting/4/report`); await p.reload()
+  await p.goto(`http://localhost:${PORT}/#/meeting/4/2`); await p.reload()
   const tb = p.getByRole('table', { name: 'ตารางเยี่ยมเยียน' })
   await tb.waitFor({ timeout: 15000 })
   const txt = await tb.innerText()

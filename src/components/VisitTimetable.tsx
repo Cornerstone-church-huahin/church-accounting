@@ -1,14 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import AbsentList from './AbsentList'
+import { VisitForm } from './PastoralVisits'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
-import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits } from '../lib/data'
+import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
 import { usePlanDate } from '../lib/planDate'
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
 import { dayKind, DAY_NAMES, sundayOf, weekDays } from '../lib/visits'
+import type { Visit } from '../lib/types'
 import { addItem, addPlace, removeItem, removePlace, setDayText, setSlot, setSlotNote, SLOTS, type PlanDoc, type Slot } from '../lib/visitPlan'
 
 const NAVY = '#14264a', RED = '#a4262c', GOLD = '#c99a14'
@@ -41,6 +43,10 @@ function CellEditor({ date, slot, doc, onChange, onClose }: { date: string; slot
   const stats = useMemo(() => visitStats(att, today), [att, today])
   const [pick, setPick] = useState(false)
   const [place, setPlace] = useState('')
+  const visits = useVisits(true)
+  const team = useWorkTeams().of(4)
+  const [form, setForm] = useState<{ entry: Visit | null; member?: { id: string; name: string }; group?: { id: string; name: string }[] } | null>(null)
+  const done = (id: string) => visits.list.find((v) => v.date === date && v.memberId === id)
   const mine = doc.items.filter((x) => (x.slot ?? 'บ่าย') === slot)
   const places = doc.places?.[slot] ?? []
   const toggle = (m: { id: string; name: string }) => onChange(mine.some((x) => x.id === m.id) ? removeItem(doc, m.id) : doc.items.some((x) => x.id === m.id) ? setSlot(doc, m.id, slot) : setSlot(addItem(doc, m), m.id, slot))
@@ -48,18 +54,26 @@ function CellEditor({ date, slot, doc, onChange, onClose }: { date: string; slot
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={onClose}>
       <b className="small">👥 คนที่จะไปเยี่ยม ({mine.length})</b>
       {mine.length === 0 && <p className="muted small" style={{ margin: 0 }}>ยังไม่มี — กด ＋ เลือกคน</p>}
-      <ol style={{ margin: 0, paddingLeft: '1.2rem' }}>{mine.map((x) => <li key={x.id}>{x.name} <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => onChange(removeItem(doc, x.id))}>✕</button></li>)}</ol>
+      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id}>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''} <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v ?? null, member: { id: x.id, name: x.name } })}>{v ? '✎ แก้' : '📝 เยี่ยมแล้ว'}</button> <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => onChange(removeItem(doc, x.id))}>✕</button></li> })}</ul>
       <button type="button" className="btn btn--gold" onClick={() => setPick(!pick)}>{pick ? 'ปิดรายชื่อ' : '＋ เลือกคนจากรายชื่อ (ดูว่าขาดนมัสการกี่เดือน)'}</button>
       {pick && <AbsentList hideLabel members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
       <b className="small">📍 สถานที่ / โครงการ (ไม่ใส่ชื่อคน)</b>
-      <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>{places.map((p, i) => <li key={`${p}-${i}`}>{p} <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => onChange(removePlace(doc, slot, i))}>✕</button></li>)}</ul>
+      <ul style={{ margin: 0, paddingLeft: '1.1rem', listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`}>📍 {p}{v ? ' ✓' : ''} <button type="button" className="mini" aria-label={`บันทึกเยี่ยม ${p}`} onClick={() => setForm({ entry: v ?? null, member: { id: `place:${p}`, name: p } })}>{v ? '✎ แก้' : '📝 ไปแล้ว (แผนที่+รูป)'}</button> <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => onChange(removePlace(doc, slot, i))}>✕</button></li> })}</ul>
       <div className="row" style={{ gap: 6 }}>
         <input className="input grow" aria-label="สถานที่หรือโครงการ" placeholder="เช่น โครงการโคโค่ · ร้านพี่ตาล" value={place} onChange={(e) => setPlace(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }} />
         <button type="button" className="btn btn--gold" onClick={() => { if (place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }}>＋ เพิ่ม</button>
       </div>
+      {(mine.length + places.length > 1) && <button type="button" className="btn" onClick={() => setForm({ entry: null, group: [...mine.map((x) => ({ id: x.id, name: x.name })), ...places.map((p) => ({ id: `place:${p}`, name: p }))].filter((x) => !done(x.id)) })} disabled={[...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)].every((id) => !!done(id))}>📝 บันทึกพร้อมกัน (ไปที่เดียวกัน ใช้แผนที่และรูปชุดเดียว · ติ๊กเฉพาะคนที่ไปเยี่ยมจริง)</button>}
       <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (เช่น ไม่ได้เยี่ยมวันนั้น แต่ทำอะไร)</label>
         <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onBlur={(e) => onChange(setSlotNote(doc, slot, e.target.value))} /></div>
       <button type="button" className="btn" onClick={onClose}>เสร็จ</button>
+      {form && (
+        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
+          preset={form.member ? { member: form.member } : {}}
+          photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
+          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); setForm(null) }}
+          onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
+      )}
     </Sheet>
   )
 }
@@ -137,7 +151,7 @@ export default function VisitTimetable() {
                       return (
                         <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
                           {ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
-                          {pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}</div>)}
+                          {pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}{seen.has(`place:${p}`) ? ' ✓' : ''}</div>)}
                           {note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginTop: 3 }}>📝 {note}</div>}
                           {canEdit && !ppl.length && !pls.length && !note && <span className="no-print" style={{ color: '#9aa5bd', fontSize: 22 }}>＋</span>}
                         </td>
