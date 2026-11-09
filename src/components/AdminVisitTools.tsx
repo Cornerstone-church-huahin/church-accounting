@@ -78,6 +78,7 @@ function useRoadLegs(pairs: [Coord, Coord][]) {
   }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
   return (a: Coord, b: Coord) => roadCache.get(keyOf(a, b))
 }
+const baht = (n: number) => `${n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`
 const mins = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)} ชม. ${Math.round((s % 3600) / 60)} น.` : `${Math.max(1, Math.round(s / 60))} น.`)
 const GAP_MS = 3 * 3600 * 1000 // จุดเช็คอินห่างกันเกิน 3 ชม. = คนละรอบ (กลับคริสตจักรแล้วออกใหม่)
 
@@ -117,6 +118,8 @@ export function VisitRoute() {
   const visits = useVisits(true)
   const st = useSettings()
   const church: Coord | null = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null
+  const rate = typeof st.settings.fuelPerKm === 'number' && st.settings.fuelPerKm >= 0 ? st.settings.fuelPerKm : 3.5
+  const [rateTxt, setRateTxt] = useState<string | null>(null)
   const [date, setDate] = useState(todayISO())
   const trips = useMemo(() => {
     const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work'; sim?: boolean; names: string[] }>()
@@ -157,10 +160,18 @@ export function VisitRoute() {
     <>
       <Back title="🧭 รายงานเส้นทาง" />
       <ChurchPoint />
+      <div className="field" style={{ border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
+        <label htmlFor="rt-fuel"><b>⛽ ค่าน้ำมัน (บาทต่อ 1 กิโลเมตร)</b> — แก้ได้เมื่อราคาน้ำมันเปลี่ยน</label>
+        <div className="row" style={{ gap: 6 }}>
+          <input id="rt-fuel" className="input grow" inputMode="decimal" value={rateTxt ?? String(rate)} onChange={(e) => setRateTxt(e.target.value)} />
+          <button type="button" className="btn btn--gold" onClick={() => { const n = Number(String(rateTxt ?? rate).replace(/,/g, '')); if (Number.isFinite(n) && n >= 0) { st.save({ fuelPerKm: n }); setRateTxt(null) } }}>บันทึก</button>
+        </div>
+        <span className="muted small">ตอนนี้ใช้ {rate} บาท/กม. · ประมาณการจากระยะไป-กลับ ไม่ใช่ค่าน้ำมันจริงที่จ่าย</span>
+      </div>
       <div className="field"><label htmlFor="rt-date">วันที่</label><input id="rt-date" type="date" className="input" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></div>
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
-          <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> <small className="muted">({roadNote})</small></p>
+          <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(grand / 1000 * rate)}</b> <small className="muted">({roadNote})</small></p>
           <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
           <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1f5fbf', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ color: '#c2255c', fontWeight: 700 }}>● บ้านสมาชิก/จุดเยี่ยม (เลขตามลำดับ)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
@@ -168,7 +179,7 @@ export function VisitRoute() {
             const off = church ? 0 : 1
             return (
               <section key={t[0].at} style={{ marginTop: 10, border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
-                <b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''}
+                <b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{baht(total / 1000 * rate)}</b>
                 <ol style={{ margin: '6px 0 0', paddingLeft: '1.3rem' }}>
                   {church && <li>⛪ คริสตจักร (ออกเดินทาง)</li>}
                   {t.map((s, i) => (
