@@ -25,7 +25,7 @@ export default function LeafletMap({ pins = [], pick, onPick, height = 320, labe
     const street = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: noLinks ? '© OpenStreetMap' : '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })
     // ดาวเทียม (Esri World Imagery · ไม่ต้องใช้คีย์) — สลับด้วยปุ่มมุมขวาบน
     const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery © Esri' })
-    street.addTo(m)
+    sat.addTo(m) // เริ่มที่มุมมองดาวเทียมเสมอ
     L.control.layers({ '🗺️ แผนที่ถนน': street, '🛰️ ดาวเทียม': sat }, undefined, { position: 'topright', collapsed: height < 250 }).addTo(m)
     if (noLinks) m.attributionControl.setPrefix(false)
     layer.current = L.layerGroup().addTo(m)
