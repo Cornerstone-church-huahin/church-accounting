@@ -1989,3 +1989,6 @@ a.healthact { color: #b3261e; }
 .vslot { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
 .vslot__b { font: inherit; font-size: 0.74rem; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1.5px solid var(--line, #ccc); background: var(--surface, #fff); color: inherit; cursor: pointer; }
 .vslot__b.on { background: #1b2a4e; color: #fff; border-color: #1b2a4e; font-weight: 700; }
+
+/* ป้ายจำนวน "เยี่ยมแล้ว" ที่ขั้นรายงาน = สีเขียว (คู่กับป้ายแดงของขั้นบันทึก) */
+.tabicons__n.tabicons__n--ok { background: #1e9e4a; color: #fff; box-shadow: 0 0 0 1px #0b6b2c }
