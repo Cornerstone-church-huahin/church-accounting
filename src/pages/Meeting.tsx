@@ -166,7 +166,7 @@ function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' 
   const p = PASTORAL_PAGES.find((x) => x.id === which)!
   return (
     <>
-      <div className="page-head no-print"><h1>{p.icon} {p.title}</h1>{which === 'report' && <Link to="/meeting/4/stats" className="mini" aria-label="สถิติงานเยี่ยม">📈 สถิติ</Link>}<Link to="/meeting/4" className="mini">‹ {name}</Link></div>
+      <div className="page-head no-print"><h1>{p.icon} {p.title}</h1>{(which === 'report' || which === 'record') && <Link to="/meeting/4/stats" className="mini" aria-label="สถิติงานเยี่ยม">📈 สถิติ</Link>}<Link to="/meeting/4" className="mini">‹ {name}</Link></div>
       <PastoralBar active={which} />
       {which === 'group' ? <VisitGroupsAuto /> : which === 'record' ? <TimetableGate mode="record" /> : <VisitReports />}
     </>
@@ -184,6 +184,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
     <>
       <div className={`page-head no-print${isMembers ? ' page-head--tight' : ''}`}>
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
+        {n === 4 && k === 3 && <Link to="/meeting/4/stats" className="mini" aria-label="สถิติงานเยี่ยม">📈 สถิติ</Link>}
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {n === 4 ? (k === 3 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
