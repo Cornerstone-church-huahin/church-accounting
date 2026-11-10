@@ -118,7 +118,7 @@ export default function VisitStats() {
         <span className="small"><b>{title}</b></span>
         <button type="button" className="mini" aria-label="ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
-      <ScaledPage ref={ref} noCredit>
+      <ScaledPage ref={ref}>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', gap: 10, height: '100%', color: '#111' }}>
           <div style={{ ...keep, background: '#fff', color: NAVY, borderRadius: 14, padding: '12px 18px', border: `2px solid ${GOLD}`, borderBottom: `5px solid ${GOLD}`, textAlign: 'center' }}>
             <div style={{ fontSize: 15, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
