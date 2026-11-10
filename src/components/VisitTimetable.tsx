@@ -165,6 +165,11 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const open = (d: string, slot: Slot | 'day') => { if (report) { if (isAdmin && slot !== 'day') setDel({ d, slot }); return } if (canEdit) setEdit({ d, slot }) }
   const doc = edit ? plans.of(edit.d) : null
   const save = (d: string, next: PlanDoc) => plans.save(d, next)
+  // ธีมสีต่างกันตามหน้า: วางแผน = ขาวเรียบ · บันทึก/เช็คอิน = สีอ่อนนุ่ม · รายงาน = เต็มรูปแบบ (กรอบทอง ไล่เฉด) เพราะเป็นหน้าที่ใช้นำเสนอ/ติดประกาศ
+  const P = mode === 'plan', R = mode === 'report'
+  const cl: React.CSSProperties = { ...cell, border: `1.5px solid ${P ? '#c3cbdb' : R ? '#a8924a' : '#5a6a8c'}` }
+  const thx = (bg: string, color: string): React.CSSProperties => ({ ...cl, ...keep, background: P ? '#eef1f6' : bg, color: P ? NAVY : color, textAlign: 'center', ...(R ? { borderBottom: `3px solid ${GOLD}` } : {}) })
+  const slotBg = (i: number, tint: string) => (P ? '#fff' : R ? `linear-gradient(180deg, ${i % 2 ? '#fff' : tint}, ${i % 2 ? tint : '#fff'})` : tint)
   return (
     <section aria-label="ตารางเยี่ยมเยียน">
       <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -174,23 +179,24 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
       </div>
       <ScaledPage ref={ref}>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', height: '100%', color: '#111' }}>
-          <div style={{ ...keep, background: `linear-gradient(100deg, ${NAVY}, #274a8a)`, color: '#fff', borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: `5px solid ${GOLD}` }}>
+          <div style={{ ...keep, ...(P ? { background: '#fff', color: NAVY, border: '2px solid #c3cbdb', borderBottom: `5px solid #c3cbdb` } : R ? { background: `linear-gradient(100deg, ${NAVY}, #274a8a 55%, #1a3566)`, color: '#fff', border: `2px solid ${GOLD}`, borderBottom: `6px solid ${GOLD}`, boxShadow: '0 3px 10px rgba(20,38,74,.35)' } : { background: `linear-gradient(100deg, ${NAVY}, #274a8a)`, color: '#fff', borderBottom: `5px solid ${GOLD}` }), borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <span style={{ fontSize: 40 }} aria-hidden="true">🏠</span>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: 15, letterSpacing: 1, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
               <div style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15 }}>{TITLE[mode].th}</div>
-              <div style={{ fontSize: 21, fontWeight: 700, color: '#ffd978' }}>วันที่ {range}</div>
+              <div style={{ fontSize: 21, fontWeight: 700, color: P ? '#8a6a00' : '#ffd978' }}>วันที่ {range}</div>
               <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.95 }}>{TITLE[mode].en}</div>
             </div>
             <span style={{ fontSize: 40 }} aria-hidden="true">💛</span>
           </div>
-          <table aria-label="ตารางเยี่ยมเยียน" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginTop: 8, flex: 1 }}>
+          <div style={{ ...keep, display: 'flex', flexDirection: 'column', flex: 1, marginTop: 8, ...(R ? { border: `4px double ${GOLD}`, borderRadius: 12, padding: 4, background: '#fffdf5' } : {}) }}>
+          <table aria-label="ตารางเยี่ยมเยียน" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', flex: 1 }}>
             <colgroup><col style={{ width: '13%' }} /><col style={{ width: '15%' }} /><col style={{ width: '24%' }} /><col style={{ width: '24%' }} /><col style={{ width: '24%' }} /></colgroup>
             <thead>
               <tr>
-                <th style={{ ...cell, ...keep, background: NAVY, color: '#fff', textAlign: 'center', fontSize: 18 }}>📅 วัน<br /><span style={{ fontSize: 14 }}>Day / Date</span></th>
-                <th style={{ ...cell, ...keep, background: '#2e7d6b', color: '#fff', textAlign: 'center', fontSize: 17 }}>🙏 กิจกรรมช่วงเช้า<br /><span style={{ fontSize: 14 }}>Morning Activity</span></th>
-                {SLOTS.map((sl) => <th key={sl.k} style={{ ...cell, ...keep, background: TONE[sl.k].bg, color: sl.k === 'เช้า' ? TONE[sl.k].dark : '#fff', textAlign: 'center', fontSize: 18 }}>{sl.icon} {sl.label}<br /><span style={{ fontSize: 15 }}>{sl.time.replace(' (กลุ่มเซล)', '')}{sl.k === 'ค่ำ' ? ' (กลุ่มเซล)' : ''}</span><br /><span style={{ fontSize: 14 }}>{EN[sl.k]}</span></th>)}
+                <th style={{ ...thx(NAVY, '#fff'), fontSize: 18 }}>📅 วัน<br /><span style={{ fontSize: 14 }}>Day / Date</span></th>
+                <th style={{ ...thx('#2e7d6b', '#fff'), fontSize: 17 }}>🙏 กิจกรรมช่วงเช้า<br /><span style={{ fontSize: 14 }}>Morning Activity</span></th>
+                {SLOTS.map((sl) => <th key={sl.k} style={{ ...thx(TONE[sl.k].bg, sl.k === 'เช้า' ? TONE[sl.k].dark : '#fff'), fontSize: 18 }}>{sl.icon} {sl.label}<br /><span style={{ fontSize: 15 }}>{sl.time.replace(' (กลุ่มเซล)', '')}{sl.k === 'ค่ำ' ? ' (กลุ่มเซล)' : ''}</span><br /><span style={{ fontSize: 14 }}>{EN[sl.k]}</span></th>)}
               </tr>
             </thead>
             <tbody>
@@ -198,16 +204,16 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
                 const pd = plans.of(d), seen = visitedBy.get(d) ?? new Set<string>()
                 return (
                   <tr key={d} style={{ height: 160 }}>
-                    <td style={{ ...cell, ...keep, textAlign: 'center', verticalAlign: 'middle', background: i % 2 ? '#fdecec' : '#fff5f5', color: RED, fontWeight: 800 }}>
+                    <td style={{ ...cl, ...keep, textAlign: 'center', verticalAlign: 'middle', background: P ? '#fff' : R ? 'linear-gradient(180deg, #fff5f5, #fbdcdc)' : i % 2 ? '#fdecec' : '#fff5f5', color: RED, fontWeight: 800 }}>
                       <div style={{ fontSize: 21 }}>{dayName(d)}</div><div style={{ fontSize: 14, fontWeight: 600 }}>{DAY_EN[new Date(d + 'T00:00:00Z').getUTCDay()]}</div><div style={{ fontSize: 18 }}>{dmy(d)}</div>
                     </td>
-                    <td style={{ ...cell, ...keep, background: '#eaf6f2', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle', fontSize: 18 }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{pd.dayText ?? ''}</td>
+                    <td style={{ ...cl, ...keep, background: P ? '#fff' : R ? 'linear-gradient(180deg, #f1faf7, #d6efe6)' : '#eaf6f2', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle', fontSize: 18 }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{pd.dayText ?? ''}</td>
                     {SLOTS.map((sl) => {
                       const ppl = pd.items.filter((x) => (x.slot ?? 'บ่าย') === sl.k), pls = pd.places?.[sl.k] ?? [], note = pd.slotNotes?.[sl.k]
                       let n = 0
                       const vsl = visits.list.filter((v) => v.date === d && slotOfVisit(v, pd) === sl.k)
                       return (
-                        <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit || (report && isAdmin) ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
+                        <td key={sl.k} style={{ ...cl, ...keep, background: slotBg(i, TONE[sl.k].tint), cursor: canEdit || (report && isAdmin) ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
                           {!report && note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginBottom: 3 }}>📝 {note}</div>}
                           {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName.replace(/^place:/, '')}{v.absent ? ' ✗ ไม่พบ' : ''}{v.checkin ? <GreenPin /> : null}</div>) : null}
                           {report ? null : ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
@@ -221,6 +227,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
               })}
             </tbody>
           </table>
+          </div>
           <div style={{ ...keep, marginTop: 8, border: `2px solid ${GOLD}`, ...LIGHT, background: '#fff8e6', borderRadius: 12, padding: '6px 14px', textAlign: 'center', fontSize: 19, fontWeight: 700, color: NAVY, cursor: canEdit ? 'pointer' : undefined }} onClick={() => { if (!canEdit) return; const v = window.prompt('ข้อพระคัมภีร์ท้ายตาราง (ว่าง = ใช้ข้อความตั้งต้น)', verse); if (v !== null) plans.saveVerse(monday, v) }} aria-label="ข้อพระคัมภีร์">✝ {verse}</div>
           <div style={{ fontSize: 13.5, marginTop: 3, color: '#555', textAlign: 'center' }}>{report ? '📍 หมุดเขียว = เช็คอินแล้ว / Checked in' : '✓ = ไปเยี่ยมและบันทึกแล้ว / Visited'} · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
