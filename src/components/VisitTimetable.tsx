@@ -60,7 +60,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const tick = (id: string, on: boolean) => setTicked((xs) => on ? (xs.includes(id) ? xs : [...xs, id]) : xs.filter((x) => x !== id))
   const visits = useVisits(true)
   const team = useWorkTeams().of(4)
-  const [form, setForm] = useState<{ entry: Visit | null; member?: { id: string; name: string }; group?: { id: string; name: string }[] } | null>(null)
+  const [form, setForm] = useState<{ entry: Visit | null; member?: { id: string; name: string }; group?: { id: string; name: string }[]; place?: string } | null>(null)
   const done = (id: string) => visits.list.find((v) => v.date === date && v.memberId === id)
   const mine = doc.items.filter((x) => (x.slot ?? 'บ่าย') === slot)
   const places = doc.places?.[slot] ?? []
@@ -93,10 +93,9 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       people.put([{ ...m, ...(work ? { workLat: final.lat, workLng: final.lng } : final) }])
     }
   }
-  // ชื่อสถานที่ตั้งต้น = หมายเหตุของช่อง เฉพาะจุดแรกของช่องนี้ · หลังมีคนบันทึกไปแล้ว คนที่เหลือย้ายไปที่ใหม่ ต้องกรอกสถานที่/พิกัดใหม่เอง
-  const anyDone = [...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)].some((id) => !!done(id))
-  const presetPlace = anyDone ? '' : (doc.slotNotes?.[slot] ?? '')
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
+  // บันทึกจุดนี้แล้ว: ชื่อสถานที่ย้ายไปอยู่กับรายการที่บันทึก และล้างช่องหมายเหตุ/สถานที่ของช่อง ให้คนที่เหลือที่ย้ายไปที่ใหม่พิมพ์ใหม่ (เช่น โคโค่ หัวหิน)
+  const clearNote = () => { noteRef.current = null; if (doc.slotNotes?.[slot]) onChange(setSlotNote(doc, slot, '')) }
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
@@ -105,12 +104,12 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
           <b style={{ display: 'block', fontSize: '1.05rem' }}>📍 บันทึกและเช็คอินการเยี่ยม · {pend.length} คน ในพิกัดเดียวกัน</b>
           <ol style={{ margin: '4px 0 6px', paddingLeft: '1.4rem', fontSize: '1.05rem', maxHeight: '8.5rem', overflowY: 'auto' }}>{pend.map((x) => <li key={x.id}>{x.name.replace(/^place:/, '')}</li>)}</ol>
           <div className="muted small" style={{ marginBottom: 6 }}>กดปุ่มด้านล่างเพื่อบันทึกการเยี่ยม — เลือกเช็คอินที่บ้านหรือที่ทำงาน (ใช้พิกัดเดียวกันทั้ง {pend.length} คน · ใครอยู่คนละที่ ให้เอาติ๊กออกแล้วบันทึกแยกทีหลัง)</div>
-          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend })}>📍 คลิกเพื่อบันทึกและเช็คอินตามรายชื่อ ›</button>
+          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend, place: noteRef.current ?? doc.slotNotes?.[slot] ?? '' })}>📍 คลิกเพื่อบันทึกและเช็คอินตามรายชื่อ ›</button>
         </div></div>}
       {mine.length > 0 && <b className="small">{planOnly ? '👥 คนที่จะไปเยี่ยม' : '📍 คนที่จะบันทึกและเช็คอินเยี่ยม'} ({mine.length})</b>}
       {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${x.name}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (พิมพ์ข้อความ หรือจะเลือกคนจากรายชื่อด้านล่างก็ได้)</label>
-        <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>}
+        <textarea key={doc.slotNotes?.[slot] ?? ''} id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>}
       {!recordOnly && <AbsentList hideLabel members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
       <b className="small">📍 สถานที่ / โครงการ{recordOnly ? '' : ' (ไม่ใส่ชื่อคน)'}</b>
       <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กไปแล้ว ${p}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(`place:${p}`)} disabled={!!v} onChange={(e) => tick(`place:${p}`, e.target.checked)} />}<span>📍 {p}{v ? ' ✓' : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${p}`} onClick={() => setForm({ entry: v, member: { id: `place:${p}`, name: p } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${p}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => { tick(`place:${p}`, false); onChange(removePlace(doc, slot, i)) }}>✕</button>}</li> })}</ul>
@@ -123,10 +122,10 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
       {form && (
-        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
-          preset={{ ...(form.member ? { member: form.member } : {}), place: presetPlace }}
+        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); clearNote(); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
+          preset={{ ...(form.member ? { member: form.member } : {}), ...(form.entry ? {} : { place: form.place ?? '' }) }}
           photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
-          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); setForm(null) }}
+          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); if (!form.entry) clearNote(); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
       )}
     </Sheet>
