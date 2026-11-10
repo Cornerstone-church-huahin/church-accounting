@@ -38,7 +38,7 @@ try {
     const it = (i, g) => ({ id: `t${i}`, name: `ทดสอบ${i} สมมติ`, g })
     localStorage.setItem('acct.visit-plans.v1', JSON.stringify([{ id: `plan-${today}`, date: today, v: 2, groups: 2, names: {}, items: [it(5, 1), it(4, 2), it(2, 2)], prep: { at: Date.now(), items: [it(5, 1), it(4, 2), it(2, 2)] }, updated: 1 }]))
   })
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.reload(); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.reload(); await page.waitForLoadState('networkidle')
   await page.getByRole('heading', { name: /วางแผนเยี่ยม/, level: 1 }).waitFor({ timeout: 8000 })
   // แท็บ 2 (วางแผน): เปิดมาเห็นรายชื่อคนที่ขาดนมัสการ (เหมือนในป๊อปอัพบันทึกการเยี่ยม) · ดูอย่างเดียว
   must(await page.getByRole('list', { name: 'รายชื่อสมาชิก' }).locator('.pvpick__r').count() === 6 && await page.locator('.pvabs').count() === 6, 'plan tab lists members who need a visit with their red bars')

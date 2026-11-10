@@ -80,7 +80,7 @@ const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'ร
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
-  4: ['รวมสมาชิก', 'งาน/การเยี่ยม', 'บ้านสมาชิก', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  4: ['รวมสมาชิก', 'บ้านสมาชิก', 'งาน/การเยี่ยม', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['รวมสมาชิก', 'ตารางถวาย', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -126,7 +126,7 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
 
 /** งานอภิบาล: ทางลัด 3 หน้าที่เกี่ยวกับการเยี่ยม (วางแผน → บันทึก → รายงาน) แสดงเป็นแถบยาวมีข้อความ ใช้สลับหน้ากันเอง ไม่ต้องกลับเมนูหน้าแรก */
 const PASTORAL_PAGES = [
-  { id: 'plan', to: '/meeting/4/2', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '📅' },
+  { id: 'plan', to: '/meeting/4/3', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '📅' },
   { id: 'group', to: '/meeting/4/group', label: 'จัดกลุ่ม', title: 'จัดกลุ่มเยี่ยม', icon: '🧺' },
   { id: 'record', to: '/meeting/4/record', label: 'บันทึก/เช็คอิน', title: 'บันทึก/เช็คอิน', icon: '📍' },
   { id: 'report', to: '/meeting/4/report', label: 'รายงาน', title: 'รายงานเยี่ยม', icon: '📊' },
@@ -179,8 +179,8 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <h1>{NAMED_ICONS[label] ? `${NAMED_ICONS[label]} ` : ''}{label}</h1>
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
-      {n === 4 ? (k === 2 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 2 ? <TimetableGate /> : n === 4 && k === 3 ? <HomesGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {n === 4 ? (k === 3 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 3 ? <TimetableGate /> : n === 4 && k === 2 ? <HomesGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }

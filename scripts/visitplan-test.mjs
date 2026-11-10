@@ -36,7 +36,7 @@ async function open(meId, meName) {
     localStorage.setItem('acct.members.v1', JSON.stringify(members))
     localStorage.setItem('acct.church-members.v1', JSON.stringify(cm))
   }, [meId, meName, MEMBERS, CM])
-  await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle')
+  await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle')
   return page
 }
 try {
@@ -73,7 +73,7 @@ try {
   must(await rowBg('สมาชิก1') !== await rowBg('สมาชิก3') && JSON.stringify(await order()) === JSON.stringify(['สมาชิก1', 'สมาชิก3', 'สมาชิก0']), 'rows are tinted per stop and grouped automatically: ' + await order())
   must(await page.getByRole('link', { name: /ต่อไป: บันทึกเยี่ยม/ }).count() === 1, 'step 2 leads on to step 3')
   await page.screenshot({ path: 'shots/visitplan-group.png' })
-  const goPlan = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/2`); await page.waitForLoadState('networkidle') }
+  const goPlan = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/3`); await page.waitForLoadState('networkidle') }
   const goGroup = async () => { await page.goto(`http://localhost:${PORT}/#/meeting/4/group`); await page.waitForLoadState('networkidle') }
   await page.getByRole('link', { name: /^วางแผน/ }).click()
   must(await page.locator('.pvpick__add').count() >= 4 && await page.locator('.pvpick__add.in').count() === 3 && await cnt() === 3, 'back on step 1 every row shows ＋ (✓ when chosen) and step 2 still counts 3')
