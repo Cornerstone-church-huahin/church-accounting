@@ -163,7 +163,7 @@ export function VisitRoute() {
   const legCount = calcs.reduce((a, c) => a + c.legs.length, 0)
   const roadCount = calcs.reduce((a, c) => a + c.legs.filter((l) => l.road).length, 0)
   const pins = [
-    ...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ', color: '#1f5fbf', badge: '⛪' }] : []),
+    ...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ', color: '#1e9e4a', badge: '⛪', size: 42 }] : []),
     ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: s.kind === 'work' ? '#e67700' : '#c2255c', badge: String(i + 1) }))),
   ]
   // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (สีน้ำเงิน ตามถนนจริงเมื่อคำนวณได้)
@@ -200,7 +200,7 @@ export function VisitRoute() {
         <>
           <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(grand / 1000 * rate)}</b> <small className="muted">({roadNote})</small></p>
           <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
-          <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1f5fbf', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ color: '#c2255c', fontWeight: 700 }}>● บ้านสมาชิก/จุดเยี่ยม (เลขตามลำดับ)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
+          <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1e9e4a', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ color: '#c2255c', fontWeight: 700 }}>● บ้านสมาชิก/จุดเยี่ยม (เลขตามลำดับ)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
             const { legs, total } = calc(t)
             const off = church ? 0 : 1
@@ -245,6 +245,8 @@ function NavButtons({ m, onGo }: { m: HomeRow; onGo: (kind: 'home' | 'work') => 
 export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
   const ok = true // เปิดให้ทีมอภิบาล (สิทธิ์ตรวจที่หน้าเรียกใช้)
   const people = useChurchMembers()
+  const st = useSettings()
+  const churchPt = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null // พิกัดคริสตจักรที่ตั้งไว้แล้ว = จุดศูนย์กลางของแผนที่
   const [q, setQ] = useState('')
   const [dest, setDest] = useState<{ name: string; lat: number; lng: number; work?: boolean } | null>(null)
   const [nav, setNav] = useState<{ from: Coord; m: number; s: number; road: boolean; g: Coord[] } | null>(null)
@@ -314,7 +316,7 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
       { id: 'dest', lat: dest.lat, lng: dest.lng, label: dest.name, sub: formatCoord(dest), color: dest.work ? '#e67700' : '#c2255c', badge: dest.work ? '🏢' : '🏠' },
       ...(nav ? [{ id: 'me', lat: nav.from.lat, lng: nav.from.lng, label: '📍 ฉันอยู่ที่นี่', sub: 'ตำแหน่งปัจจุบัน', color: '#1f5fbf', badge: '📍' }] : []),
     ]
-    : [...groupPins('home'), ...groupPins('work')]
+    : [...(churchPt ? [{ id: 'church', lat: churchPt.lat, lng: churchPt.lng, label: '⛪ คริสตจักรศิลาเอก', sub: 'ศูนย์กลาง · จุดเริ่มต้นการเยี่ยม', color: '#1e9e4a', badge: '⛪', size: 42 }] : []), ...groupPins('home'), ...groupPins('work')]
   const line = nav ? { segments: [nav.g], labels: [{ at: nav.g[Math.floor(nav.g.length / 2)], text: `${km(nav.m)}${nav.road ? ` · ${mins(nav.s)}` : ''}` }] } : undefined
   return (
     <>
