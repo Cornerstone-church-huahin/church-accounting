@@ -272,12 +272,17 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
       setBusy(false)
     }, () => { setBusy(false); setMsg('หาตำแหน่งปัจจุบันไม่ได้ — เปิด GPS และอนุญาตให้แอปใช้ตำแหน่ง แล้วลองใหม่') }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
   }
-  const gmaps = (d: Coord) => `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}&travelmode=driving`
-  const pins = [
-    ...shown.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng, label: `${m.name}${m.nick ? ` (${m.nick})` : ''}`, sub: formatCoord(m), ...(dest && m.lat === dest.lat && m.lng === dest.lng ? { color: '#c2255c', badge: '🏠' } : {}) })),
-    ...shown.flatMap((m) => (typeof m.wlat === 'number' && typeof m.wlng === 'number' ? [{ id: `${m.id}-work`, lat: m.wlat, lng: m.wlng, label: `🏢 ที่ทำงาน ${m.name}`, sub: formatCoord({ lat: m.wlat, lng: m.wlng }), color: '#e67700', badge: '🏢' }] : [])),
-    ...(nav ? [{ id: 'me', lat: nav.from.lat, lng: nav.from.lng, label: '📍 ฉันอยู่ที่นี่', sub: 'ตำแหน่งปัจจุบัน', color: '#1f5fbf', badge: '📍' }] : []),
-  ]
+  const gmaps = (d: Coord) => `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}&travelmode=driving&dir_action=navigate`
+  // เลือกนำทางแล้ว: แผนที่แสดงเฉพาะบ้าน/ที่ทำงานของคนที่เลือก + จุดที่ผู้ใช้อยู่ (ซูมพอดีกับเส้นทาง) · ยังไม่เลือก: แสดงทุกหมุด
+  const pins = dest
+    ? [
+      { id: 'dest', lat: dest.lat, lng: dest.lng, label: dest.name, sub: formatCoord(dest), color: dest.work ? '#e67700' : '#c2255c', badge: dest.work ? '🏢' : '🏠' },
+      ...(nav ? [{ id: 'me', lat: nav.from.lat, lng: nav.from.lng, label: '📍 ฉันอยู่ที่นี่', sub: 'ตำแหน่งปัจจุบัน', color: '#1f5fbf', badge: '📍' }] : []),
+    ]
+    : [
+      ...shown.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng, label: `${m.name}${m.nick ? ` (${m.nick})` : ''}`, sub: formatCoord(m) })),
+      ...shown.flatMap((m) => (typeof m.wlat === 'number' && typeof m.wlng === 'number' ? [{ id: `${m.id}-work`, lat: m.wlat, lng: m.wlng, label: `🏢 ที่ทำงาน ${m.name}`, sub: formatCoord({ lat: m.wlat, lng: m.wlng }), color: '#e67700', badge: '🏢' }] : [])),
+    ]
   const line = nav ? { segments: [nav.g], labels: [{ at: nav.g[Math.floor(nav.g.length / 2)], text: `${km(nav.m)}${nav.road ? ` · ${mins(nav.s)}` : ''}` }] } : undefined
   return (
     <>
