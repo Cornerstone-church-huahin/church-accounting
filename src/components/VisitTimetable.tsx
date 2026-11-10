@@ -36,7 +36,7 @@ const cell: React.CSSProperties = { border: '1.5px solid #5a6a8c', padding: '6px
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 
 /** ภาคของการเยี่ยมจริง: ตามภาคที่วางแผนไว้ ไม่มีแผน = ดูจากเวลาเช็คอิน (ก่อน 12 เช้า · ก่อน 18 บ่าย · หลังจากนั้นค่ำ) */
-const slotOfVisit = (v: Visit, doc: PlanDoc): Slot => {
+export const slotOfVisit = (v: Visit, doc: PlanDoc): Slot => {
   const planned = doc.items.find((x) => x.id === v.memberId)?.slot
   if (planned) return planned
   if (v.memberId.startsWith('place:')) for (const sl of SLOTS) if (doc.places?.[sl.k]?.includes(v.memberId.slice(6))) return sl.k
