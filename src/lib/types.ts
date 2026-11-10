@@ -547,3 +547,6 @@ export interface InviteSettings extends SharedItem { /** แบบลงนา�
 /** สมุดส่วนตัวของแอดมินต่อหนึ่งงาน: gain = สิ่งที่แบ่งเบาได้/ประโยชน์ที่ได้ (มีน้ำหนักและสถานะ) · note = บันทึกอิสระรายวัน */
 export type GainStatus = 'todo' | 'part' | 'done'
 export interface AdminNote extends SharedItem { work: number; kind: 'gain' | 'note'; title: string; detail?: string; weight?: number; status?: GainStatus; hours?: number; date?: string }
+
+/** บันทึกกิจกรรมที่ทำแล้ว (งานอภิบาล): กิจกรรมช่วงเช้า/ภาคเช้า-บ่าย-ค่ำ ที่ติ๊กว่า “ทำแล้ว” จึงขึ้นรายงาน */
+export interface ActivityLog extends SharedItem { date: string; slot: string; text: string; by: string; at: number }

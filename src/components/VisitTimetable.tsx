@@ -9,9 +9,11 @@ import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { distanceM, homeFromCheckin } from '../lib/geo'
 import MapPickSheet from './MapPickSheet'
 import { formatCoord, parseCoords, type Coord } from '../lib/geo'
+import { activityId, activityLines } from '../lib/activityLines'
+import { getMe } from '../lib/access'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
-import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
+import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
@@ -96,6 +98,29 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) =
   )
 }
 
+/** รายการกิจกรรมของช่วงนั้น พร้อมช่องติ๊ก “ทำแล้ว” — ติ๊กแล้วจึงขึ้นรายงาน (ไม่บังคับเช็คอิน/รูป) */
+function ActivityChecklist({ date, slot, text }: { date: string; slot: string; text: string | undefined }) {
+  const acts = useActivityLog()
+  const me = getMe()
+  const lines = activityLines(text)
+  if (!lines.length) return <p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — พิมพ์ได้ที่หน้า “วางแผน”</p>
+  return (
+    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }} aria-label="กิจกรรม">
+      {lines.map((l) => {
+        const id = activityId(date, slot, l), rec = acts.list.find((x) => x.id === id)
+        return (
+          <li key={id} style={{ padding: '4px 0' }}>
+            <label className="row" style={{ gap: 10, alignItems: 'center' }}>
+              <input type="checkbox" style={{ width: 24, height: 24 }} checked={!!rec} onChange={(e) => { if (e.target.checked) acts.put([{ id, date, slot, text: l, by: me?.name ?? '', at: Date.now(), updated: 0 }]); else acts.remove(id) }} />
+              <span style={{ flex: 1 }}>{l}</span>
+              {rec && <small className="muted">✓ ทำแล้ว {new Date(rec.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.{rec.by ? ` · ${rec.by}` : ''}</small>}
+            </label>
+          </li>)
+      })}
+    </ul>
+  )
+}
+
 /** หน้าต่างแก้ช่องหนึ่ง: เลือกคน (จากรายชื่อขาดนมัสการ กด ＋) · สถานที่/โครงการ (ไม่ผูกรายชื่อ) · หมายเหตุ */
 function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }: { date: string; slot: Slot; doc: PlanDoc; onChange: (d: PlanDoc) => void; onClose: () => void; /** หน้า “บันทึก”: เห็นรายชื่อที่วางแผนไว้และบันทึกเยี่ยมได้ แก้แผนไม่ได้ */ recordOnly?: boolean; /** หน้า “วางแผน”: เป็นแค่ข้อความ ไม่มีปุ่มบันทึกเยี่ยม/แผนที่ */ planOnly?: boolean }) {
   const people = useChurchMembers()
@@ -144,7 +169,6 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   }
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
   // บันทึกจุดนี้แล้ว: ชื่อสถานที่ย้ายไปอยู่กับรายการที่บันทึก และล้างช่องหมายเหตุ/สถานที่ของช่อง ให้คนที่เหลือที่ย้ายไปที่ใหม่พิมพ์ใหม่ (เช่น โคโค่ หัวหิน)
-  const clearNote = () => { noteRef.current = null; if (doc.slotNotes?.[slot]) onChange(setSlotNote(doc, slot, '')) }
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
@@ -153,8 +177,12 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
           <b style={{ display: 'block', fontSize: '1.05rem' }}>📍 บันทึกและเช็คอินการเยี่ยม · {pend.length} คน ในพิกัดเดียวกัน</b>
           <ol style={{ margin: '4px 0 6px', paddingLeft: '1.4rem', fontSize: '1.05rem', maxHeight: '8.5rem', overflowY: 'auto' }}>{pend.map((x) => <li key={x.id}>{x.name.replace(/^place:/, '')}</li>)}</ol>
           <div className="muted small" style={{ marginBottom: 6 }}>กดปุ่มด้านล่างเพื่อบันทึกการเยี่ยม — เลือกเช็คอินที่บ้านหรือที่ทำงาน (ใช้พิกัดเดียวกันทั้ง {pend.length} คน · ใครอยู่คนละที่ ให้เอาติ๊กออกแล้วบันทึกแยกทีหลัง)</div>
-          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend, place: noteRef.current ?? doc.slotNotes?.[slot] ?? '' })}>📍 คลิกเพื่อบันทึกและเช็คอินตามรายชื่อ ›</button>
+          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend, place: '' })}>📍 คลิกเพื่อบันทึกและเช็คอินตามรายชื่อ ›</button>
         </div></div>}
+      {planOnly
+        ? <div className="field"><label htmlFor="vt-note">📋 กิจกรรมของช่วงนี้ (พิมพ์ได้หลายบรรทัด · ไปติ๊ก “ทำแล้ว” ที่หน้าบันทึก/เช็คอิน)</label>
+          <textarea key={doc.slotNotes?.[slot] ?? ''} id="vt-note" className="input" rows={3} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>
+        : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
       {mine.length > 0 && <b className="small">{planOnly ? '👥 คนที่จะไปเยี่ยม' : '📍 คนที่จะบันทึกและเช็คอินเยี่ยม'} ({mine.length})</b>}
       {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${x.name}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <AbsentList hideLabel {...(planOnly ? { att } : { hideStatus: true })} members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
@@ -169,10 +197,10 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
       {form && (
-        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); clearNote(); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
+        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={{ ...(form.member ? { member: form.member } : {}), ...(form.entry ? {} : { place: form.place ?? '' }) }}
           photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
-          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); if (!form.entry) clearNote(); setForm(null) }}
+          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
       )}
     </Sheet>
@@ -216,6 +244,8 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
   const isAdmin = useRole() === 'admin'
+  const acts = useActivityLog()
+  const doneAct = (d: string, slot: string, line: string) => acts.list.some((x) => x.id === activityId(d, slot, line))
   const [fix, setFix] = useState<Visit | null>(null) // แอดมินแก้การบันทึกให้
   const [del, setDel] = useState<{ d: string; slot: Slot } | null>(null) // รายงาน: แอดมินยกเลิกการบันทึกที่บันทึกผิด
   const open = (d: string, slot: Slot | 'day') => { if (report) { if (isAdmin && slot !== 'day') setDel({ d, slot }); return } if (canEdit) setEdit({ d, slot }) }
@@ -263,14 +293,14 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
                     <td style={{ ...cl, ...keep, textAlign: 'center', verticalAlign: 'middle', background: P ? '#fff' : R ? 'linear-gradient(180deg, #fff5f5, #fbdcdc)' : i % 2 ? '#e1f4ee' : '#edf9f5', color: C ? '#0f5f56' : RED, fontWeight: 800 }}>
                       <div style={{ fontSize: 21 }}>{dayName(d)}</div><div style={{ fontSize: 14, fontWeight: 600 }}>{DAY_EN[new Date(d + 'T00:00:00Z').getUTCDay()]}</div><div style={{ fontSize: 18 }}>{dmy(d)}</div>
                     </td>
-                    <td style={{ ...cl, ...keep, background: P ? '#fff' : R ? 'linear-gradient(180deg, #f1faf7, #d6efe6)' : '#f6fcfa', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle', fontSize: 18 }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{pd.dayText ?? ''}</td>
+                    <td style={{ ...cl, ...keep, background: P ? '#fff' : R ? 'linear-gradient(180deg, #f1faf7, #d6efe6)' : '#f6fcfa', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle', fontSize: 18 }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{mode === 'plan' ? pd.dayText ?? '' : activityLines(pd.dayText).filter((l) => !report || doneAct(d, 'day', l)).map((l) => <div key={l}>{l}{doneAct(d, 'day', l) ? (report ? <GreenPin /> : ' ✓') : ''}</div>)}</td>
                     {SLOTS.map((sl) => {
                       const ppl = pd.items.filter((x) => (x.slot ?? 'บ่าย') === sl.k), pls = pd.places?.[sl.k] ?? [], note = pd.slotNotes?.[sl.k]
                       let n = 0
                       const vsl = visits.list.filter((v) => v.date === d && slotOfVisit(v, pd) === sl.k)
                       return (
                         <td key={sl.k} style={{ ...cl, ...keep, background: slotBg(i, TONE[sl.k].tint), cursor: canEdit || (report && isAdmin) ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
-                          {!report && note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginBottom: 3 }}>📝 {note}</div>}
+                          {activityLines(note).filter((l) => !report || doneAct(d, sl.k, l)).map((l) => <div key={l} style={{ fontStyle: 'italic', marginBottom: 2 }}>📋 {l}{doneAct(d, sl.k, l) ? (report ? <GreenPin /> : ' ✓') : ''}</div>)}
                           {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName.replace(/^place:/, '')}{v.absent ? ' ✗ ไม่พบ' : ''}{v.checkin ? <GreenPin /> : null}</div>) : null}
                           {report ? null : ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
                           {report ? null : pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}{seen.has(`place:${p}`) ? ' ✓' : ''}</div>)}
@@ -291,8 +321,10 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
       <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${TITLE[mode].file}-${monday}.pdf`} title={`${TITLE[mode].short} ${range}`} label={TITLE[mode].short} />
       {edit && doc && edit.slot === 'day' && (
         <Sheet title={`${dayName(edit.d)} ${dmy(edit.d)} · กิจกรรมช่วงเช้า`} onClose={() => setEdit(null)}>
-          <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
-            <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => save(edit.d, setDayText(doc, e.target.value))} /></div>
+          {mode === 'plan'
+            ? <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (บรรทัดละกิจกรรม เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
+              <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => save(edit.d, setDayText(doc, e.target.value))} /></div>
+            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist date={edit.d} slot="day" text={doc.dayText} /></div>}
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
