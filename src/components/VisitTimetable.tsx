@@ -16,6 +16,8 @@ import { dayKind, DAY_NAMES, sundayOf, weekDays } from '../lib/visits'
 import type { Visit } from '../lib/types'
 import { addItem, addPlace, removeItem, removePlace, setDayText, setSlot, setSlotNote, SLOTS, type PlanDoc, type Slot } from '../lib/visitPlan'
 
+/** หมุดสีเขียว = เช็คอินแล้ว (รายงาน) */
+const GreenPin = () => <svg viewBox="0 0 24 24" width="1em" height="1em" role="img" aria-label="เช็คอินแล้ว" style={{ marginLeft: 6, verticalAlign: '-0.12em' }}><path fill="#1e9e4a" stroke="#0b6b2c" strokeWidth="1" d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" /><circle cx="12" cy="9" r="2.6" fill="#fff" /></svg>
 const NAVY = '#14264a', RED = '#a4262c', GOLD = '#c99a14'
 const TONE: Record<Slot, { bg: string; dark: string; tint: string }> = {
   เช้า: { bg: '#f6b73c', dark: '#6b4a00', tint: '#fff6dd' },
@@ -193,7 +195,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
                       return (
                         <td key={sl.k} style={{ ...cell, ...keep, background: i % 2 ? '#fff' : TONE[sl.k].tint, cursor: canEdit || (report && isAdmin) ? 'pointer' : undefined }} onClick={() => open(d, sl.k)} aria-label={`${dayName(d)} ภาค${sl.k}`}>
                           {!report && note && <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', marginBottom: 3 }}>📝 {note}</div>}
-                          {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName}{v.absent ? ' ✗ ไม่พบ' : ' ✓'}{v.checkin ? <small style={{ color: '#555' }}> {new Date(v.checkin.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</small> : null}{v.visitor ? <div style={{ fontSize: 14, color: '#555' }}>ผู้เยี่ยม: {v.visitor}</div> : null}</div>) : null}
+                          {report ? vsl.map((v) => <div key={v.id} style={{ color: v.absent ? '#a4262c' : undefined }}>{++n}. {v.memberName.replace(/^place:/, '')}{v.absent ? ' ✗ ไม่พบ' : ''}{v.checkin ? <GreenPin /> : null}</div>) : null}
                           {report ? null : ppl.map((x) => <div key={x.id}>{++n}. {x.name}{seen.has(x.id) ? ' ✓' : ''}</div>)}
                           {report ? null : pls.map((p, j) => <div key={j} style={{ fontWeight: 700, color: TONE[sl.k].dark }}>📍 {p}{seen.has(`place:${p}`) ? ' ✓' : ''}</div>)}
                                                     {!report && canEdit && !ppl.length && !pls.length && !note && <span className="no-print" style={{ color: '#9aa5bd', fontSize: 22 }}>＋</span>}
@@ -206,7 +208,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
             </tbody>
           </table>
           <div style={{ ...keep, marginTop: 8, border: `2px solid ${GOLD}`, ...LIGHT, background: '#fff8e6', borderRadius: 12, padding: '6px 14px', textAlign: 'center', fontSize: 19, fontWeight: 700, color: NAVY, cursor: canEdit ? 'pointer' : undefined }} onClick={() => { if (!canEdit) return; const v = window.prompt('ข้อพระคัมภีร์ท้ายตาราง (ว่าง = ใช้ข้อความตั้งต้น)', verse); if (v !== null) plans.saveVerse(monday, v) }} aria-label="ข้อพระคัมภีร์">✝ {verse}</div>
-          <div style={{ fontSize: 13.5, marginTop: 3, color: '#555', textAlign: 'center' }}>✓ = ไปเยี่ยมและบันทึกแล้ว / Visited · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
+          <div style={{ fontSize: 13.5, marginTop: 3, color: '#555', textAlign: 'center' }}>{report ? '📍 หมุดเขียว = เช็คอินแล้ว / Checked in' : '✓ = ไปเยี่ยมและบันทึกแล้ว / Visited'} · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
       </ScaledPage>
       <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${TITLE[mode].file}-${monday}.pdf`} title={`${TITLE[mode].short} ${range}`} label={TITLE[mode].short} />
