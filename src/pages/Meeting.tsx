@@ -12,7 +12,7 @@ import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
 import { AdminZone, MemberHomesMap, VisitRoute } from '../components/AdminVisitTools'
 import { VisitGroupsAuto } from '../components/VisitGroups'
-import { useVisitPlans } from '../lib/data'
+import { useVisitPlans, useVisits } from '../lib/data'
 import { todayISO } from '../lib/money'
 import AnnualPlan from '../components/AnnualPlan'
 import InviteLetterPage, { InviteLetterList } from '../components/InviteLetter'
@@ -142,13 +142,15 @@ function HomesGate() {
   return canRole(role, 'detail') || canWork(4, 'view') ? <MemberHomesMap embedded /> : <p className="empty">ไม่มีสิทธิ์ดูแผนที่บ้านสมาชิก</p>
 }
 function PastoralBar({ active }: { active: PastoralStep }) {
+  const done = useVisits(true).list.filter((v) => v.date === todayISO() && !v.absent && !v.memberId.startsWith('place:')).length // บันทึกเยี่ยมแล้ว (วันนี้) → ป้ายเขียวที่ขั้นรายงาน
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
   return (
     <nav className="tabicons tabicons--txt tabicons--arrow tabicons--four no-print" aria-label="วางแผน บันทึก รายงาน">
       {PASTORAL_PAGES.filter((x) => x.id !== 'group').map((x, i) => ( // ขั้น “จัดกลุ่ม” เดิมเลิกใช้ในแถบ (ตารางเยี่ยมทำแทน)
-        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'record' ? `${x.label} ${n} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
+        <Link key={x.id} to={x.to} replace className={`tabicons__i${x.id === active ? ' on' : ''}`} aria-label={x.id === 'record' ? `${x.label} ${n} คน` : x.id === 'report' && done > 0 ? `${x.label} เยี่ยมแล้ว ${done} คน` : x.label} aria-current={x.id === active ? 'page' : undefined}>
           <i aria-hidden="true">{i + 1}</i><span aria-hidden="true">{x.icon}</span><em aria-hidden="true">{x.label}</em>
           {(x.id === 'record') && n > 0 && <b className="tabicons__n" aria-hidden="true"><u>👤</u>{n}</b>}
+          {(x.id === 'report') && done > 0 && <b className="tabicons__n tabicons__n--ok" aria-hidden="true"><u>👤</u>{done}</b>}
         </Link>
       ))}
     </nav>
