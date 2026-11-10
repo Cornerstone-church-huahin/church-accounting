@@ -74,17 +74,19 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
     const r = await shareVisit(text, [...new Set(same.flatMap((x) => x.photos ?? []))])
     setShareMsg(r === 'shared' ? 'ส่งออกแล้ว' : r === 'copied' ? 'คัดลอกข้อความแล้ว — เปิดไลน์แล้วกดวาง' : r === 'cancelled' ? '' : 'แชร์ไม่ได้บนเครื่องนี้')
   }
-  // เช็คอินที่บ้าน → ปักหมุดบ้านในทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด = ตั้งให้เลย · มีแล้วและห่างเกิน 100 ม. ถามก่อนทับ) · ที่ทำงาน/สถานที่/โหมดทดสอบไม่นับ
+  // เช็คอินที่บ้าน → พิกัดบ้าน · เช็คอินที่ทำงาน → พิกัดที่ทำงาน ในทะเบียนสมาชิกอัตโนมัติ (ยังไม่มี = ตั้งให้เลย · มีแล้วและห่างเกิน 100 ม. ถามก่อนทับ) · สถานที่/โหมดทดสอบไม่นับ
   const pinHomes = (vs: Visit[]) => {
     for (const v of vs) {
-      if (!v.checkin || v.checkin.kind === 'work' || v.checkin.sim || v.memberId.startsWith('place:')) continue
+      if (!v.checkin || v.checkin.sim || v.memberId.startsWith('place:')) continue
       const m = people.items.find((x) => x.id === v.memberId)
       if (!m) continue
       const at = { lat: v.checkin.lat, lng: v.checkin.lng }
-      const r = homeFromCheckin(m, at)
+      const work = v.checkin.kind === 'work' // เช็คอินที่ทำงาน → พิกัดที่ทำงานของสมาชิก (ทุกคนที่ติ๊กพร้อมกันได้พิกัดเดียวกัน)
+      const cur = work ? { lat: m.workLat, lng: m.workLng } : { lat: m.lat, lng: m.lng }
+      const r = homeFromCheckin(cur, at)
       if (r.action === 'keep') continue
-      if (r.action === 'ask' && !window.confirm(`พิกัดบ้านของ ${m.name} ในทะเบียนต่างจากจุดเช็คอินนี้ ${r.meters} เมตร\nอัปเดตพิกัดบ้านตามจุดเช็คอินนี้ไหม?`)) continue
-      people.put([{ ...m, ...at }])
+      if (r.action === 'ask' && !window.confirm(`พิกัด${work ? 'ที่ทำงาน' : 'บ้าน'}ของ ${m.name} ในทะเบียนต่างจากจุดเช็คอินนี้ ${r.meters} เมตร\nอัปเดตตามจุดเช็คอินนี้ไหม?`)) continue
+      people.put([{ ...m, ...(work ? { workLat: at.lat, workLng: at.lng } : at) }])
     }
   }
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด

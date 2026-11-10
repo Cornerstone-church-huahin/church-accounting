@@ -591,6 +591,7 @@ function Detail({ worshipDays, lite, showStatus, canPhoto, canLog, r, statuses, 
     ['วันที่รับเป็นสมาชิก', m.since && <>{fmtDate(m.since)} ({spanText(m.since, today)}){sinceShared >= 5 && <span className="small" style={{ color: '#b45309' }}><br />⚠ หลายคน ({sinceShared}) ใช้วันนี้เหมือนกัน — อาจเป็นวันตั้งต้นของระบบเก่า ไม่ใช่วันจริง</span>}</>],
     ['มานมัสการครั้งแรก (ประมาณ)', m.firstWorship && `${fmtDate(m.firstWorship)} (${spanText(m.firstWorship, today)})`],
     ...(lite ? [] : [['พิกัดบ้าน', hasCoord(m) && <a href={mapsLink({ lat: m.lat, lng: m.lng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.lat, lng: m.lng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
+    ...(lite ? [] : [['พิกัดที่ทำงาน', typeof m.workLat === 'number' && typeof m.workLng === 'number' && <a href={mapsLink({ lat: m.workLat, lng: m.workLng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.workLat, lng: m.workLng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
   ]
   return (
@@ -612,6 +613,8 @@ function Detail({ worshipDays, lite, showStatus, canPhoto, canLog, r, statuses, 
             : <span className="muted small">ยังไม่มีพิกัดบ้าน — ปักหมุดเองได้ หรือแผนที่จะขึ้นเองเมื่อมีการเช็คอินเยี่ยมบ้านจากตารางเยี่ยม</span>}
             {canEdit && <div className="no-print" style={{ marginTop: 6 }}><button type="button" className="mini" aria-haspopup="dialog" onClick={() => setPinOpen(true)}>🗺️ {hasCoord(m) ? 'ปรับตำแหน่งบ้านบนแผนที่' : 'ปักหมุดบ้านบนแผนที่'}</button></div>}
             {pinOpen && <MapPickSheet initial={hasCoord(m) ? { lat: m.lat, lng: m.lng } : null} onClose={() => setPinOpen(false)} onSave={(c) => { if (put([{ ...m, lat: c.lat, lng: c.lng }])) setPinOpen(false) }} />}</dd>
+        
+          {typeof m.workLat === 'number' && typeof m.workLng === 'number' && <dd style={{ margin: '0.5rem 0 0' }}><div className="muted small">แผนที่ที่ทำงาน</div><Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: `${m.id}-work`, lat: m.workLat, lng: m.workLng, label: `ที่ทำงาน ${m.name}`, color: '#e67700', badge: '🏢' }]} height={150} label={`แผนที่ที่ทำงาน ${m.name}`} noLinks /></Suspense></dd>}
         </div>
         )}
         {!lite && (
