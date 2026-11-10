@@ -18,7 +18,7 @@ import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -130,6 +130,11 @@ export function useVisitPlans() {
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
 export function useVisitorNames() {
   return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', writeCheck: writeWork4 })
+}
+/** กิจกรรมที่ทีมอภิบาลติ๊กว่า “ทำแล้ว” (ไฟล์เดียว) */
+export function useActivityLog() {
+  const s = useSharedStore<ActivityLog>({ localKey: k('activity-log'), file: 'activity-log.json', label: 'บันทึกกิจกรรมเยี่ยม', writeCheck: writeWork4 })
+  return { ...s, list: [...s.items].filter((x) => !x.deleted) }
 }
 /** log = ข้อมูลการเยี่ยมจริง (visit-log.json) ใช้ร่วมกันทั้งแท็บ “ตารางเยี่ยม” “บันทึกการเยี่ยม” และ “รายงานการเยี่ยม” · false = ไฟล์เดิม visits.json (เลิกใช้แล้ว) */
 export function useVisits(log = false) {
