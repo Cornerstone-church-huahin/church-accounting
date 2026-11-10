@@ -130,9 +130,9 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
  */
 /** หัวกระดาษ 3 แผ่น: เตรียมการเยี่ยม → บันทึกการเยี่ยม → รายงานการเยี่ยม (แผ่นที่ 3 ใช้ประมวลผล/ติดประกาศ) */
 const TITLE = {
-  plan: { th: 'เตรียมการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Preparation · Pastoral Visits', short: 'เตรียมการเยี่ยม', file: 'เตรียมการเยี่ยม' },
-  record: { th: 'บันทึกการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Record · Pastoral Visits', short: 'บันทึกการเยี่ยม', file: 'บันทึกการเยี่ยม' },
-  report: { th: 'รายงานการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Report · Pastoral Visits', short: 'รายงานการเยี่ยม', file: 'รายงานการเยี่ยม' },
+  plan: { th: 'เตรียมงานและการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Preparation · Pastoral Visits', short: 'เตรียมการเยี่ยม', file: 'เตรียมการเยี่ยม' },
+  record: { th: 'บันทึกงานและการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Record · Pastoral Visits', short: 'บันทึกการเยี่ยม', file: 'บันทึกการเยี่ยม' },
+  report: { th: 'รายงานงานและการเยี่ยมครอบครัวศิลาเอก', en: 'Cornerstone Family Visitation Report · Pastoral Visits', short: 'รายงานการเยี่ยม', file: 'รายงานการเยี่ยม' },
 } as const
 
 export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'record' | 'report' }) {
