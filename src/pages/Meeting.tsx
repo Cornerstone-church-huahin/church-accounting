@@ -11,6 +11,7 @@ import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
 import { AdminZone, MemberHomesMap, VisitRoute } from '../components/AdminVisitTools'
+import VisitStats from '../components/VisitStats'
 import { VisitGroupsAuto } from '../components/VisitGroups'
 import { useVisitPlans, useVisits } from '../lib/data'
 import { todayISO } from '../lib/money'
@@ -141,6 +142,10 @@ function HomesGate() {
   const role = useRole()
   return canRole(role, 'detail') || canWork(4, 'view') ? <MemberHomesMap embedded /> : <p className="empty">ไม่มีสิทธิ์ดูแผนที่บ้านสมาชิก</p>
 }
+function StatsGate() {
+  const role = useRole()
+  return canRole(role, 'detail') || canWork(4, 'view') ? <VisitStats /> : <p className="empty">ไม่มีสิทธิ์ดูสถิติงานเยี่ยม</p>
+}
 function PastoralBar({ active }: { active: PastoralStep }) {
   const done = useVisits(true).list.filter((v) => v.date === todayISO() && !v.absent && !v.memberId.startsWith('place:')).length // บันทึกเยี่ยมแล้ว (วันนี้) → ป้ายเขียวที่ขั้นรายงาน
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
@@ -161,7 +166,7 @@ function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' 
   const p = PASTORAL_PAGES.find((x) => x.id === which)!
   return (
     <>
-      <div className="page-head no-print"><h1>{p.icon} {p.title}</h1><Link to="/meeting/4" className="mini">‹ {name}</Link></div>
+      <div className="page-head no-print"><h1>{p.icon} {p.title}</h1>{which === 'report' && <Link to="/meeting/4/stats" className="mini" aria-label="สถิติงานเยี่ยม">📈 สถิติ</Link>}<Link to="/meeting/4" className="mini">‹ {name}</Link></div>
       <PastoralBar active={which} />
       {which === 'group' ? <VisitGroupsAuto /> : which === 'record' ? <TimetableGate mode="record" /> : <VisitReports />}
     </>
@@ -245,6 +250,7 @@ function MeetingRoom() {
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} extra={step ? undefined : <Link to="/meeting/3/members" className="memtile no-print" aria-label="รวมสมาชิก"><span aria-hidden="true">👥</span> รวมสมาชิก <small>ทะเบียนสมาชิกทั้งหมด</small></Link>} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && k === 'route') return <VisitRoute />
+  if (tab?.n === 4 && k === 'stats') return <StatsGate />
   if (tab?.n === 4 && k === 'homes') return <HomesGate />
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4
