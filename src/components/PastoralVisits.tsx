@@ -143,9 +143,10 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
 }
 
 /** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
-export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; /** ชื่อสถานที่ตั้งต้น (ว่าง = จุดใหม่ที่ต้องกรอกเอง) */ place?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
   const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
+  const [place, setPlace] = useState(entry?.place ?? preset?.place ?? '')
   const names = useVisitorNames()
   const initBy = splitVisitors(entry?.visitor ?? preset?.visitor ?? '') // ผู้ออกเยี่ยมเริ่มต้นว่าง ต้องติ๊กเลือกเอง
   const roster = visitorRoster(team, names.items)
@@ -215,7 +216,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const share = async () => {
     const ids = group ? group.filter((x) => gsel[x.id] === 'met') : member && !absent ? [member] : []
     const gone = group ? group.filter((x) => gsel[x.id] === 'absent') : member && absent ? [member] : []
-    const text = visitShareText({ dateText: `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`, names: ids.map((x) => x.name.replace(/^place:/, '')), absentNames: gone.map((x) => x.name), visitor: joinVisitors(picked), checkin, note: reason })
+    const text = visitShareText({ dateText: `${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`, names: ids.map((x) => x.name.replace(/^place:/, '')), absentNames: gone.map((x) => x.name), visitor: joinVisitors(picked), checkin, note: reason, place })
     const r = await shareVisit(text, photos)
     setShareMsg(r === 'shared' ? 'ส่งออกแล้ว (ข้อความถูกคัดลอกไว้ด้วย ถ้าแอปไม่รับข้อความพร้อมรูปให้กดวาง)' : r === 'copied' ? 'คัดลอกข้อความแล้ว — เปิดไลน์แล้วกดวาง' : r === 'cancelled' ? '' : 'แชร์ไม่ได้บนเครื่องนี้')
   }
@@ -241,11 +242,11 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       const note = reason.trim()
       return onSaveMany(group.filter((x) => gsel[x.id] !== 'skip').map((x, gi) => {
         const gone = gsel[x.id] === 'absent'
-        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(ckFor(x.id, gi) ? { checkin: ckFor(x.id, gi) } : {}), updated: 0 } as Visit
+        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(place.trim() ? { place: place.trim() } : {}), ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(ckFor(x.id, gi) ? { checkin: ckFor(x.id, gi) } : {}), updated: 0 } as Visit
       }))
     }
     if (!member) return
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(ckFor(member.id, 0) ? { checkin: ckFor(member.id, 0) } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), ...(place.trim() ? { place: place.trim() } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(ckFor(member.id, 0) ? { checkin: ckFor(member.id, 0) } : {}), updated: 0 })
   }
   return (
     <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
@@ -280,6 +281,8 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       <div className="field"><label htmlFor="pv-by">ผู้ออกเยี่ยม (ลงชื่อ · เลือกได้หลายคน)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
+      <div className="field"><label htmlFor="pv-place">📌 ชื่อสถานที่ที่ไปเยี่ยมจุดนี้ <span className="muted small">(เช่น The Pine Plus · จุดใหม่ให้พิมพ์ใหม่)</span></label>
+        <input id="pv-place" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="ชื่อสถานที่ ถ้ามี" /></div>
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
         <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>

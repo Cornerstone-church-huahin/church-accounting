@@ -70,7 +70,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const shareDone = async (v: Visit) => { // แชร์รายงาน: เยี่ยมที่ไหน/ใคร + รูป (รวมคนที่เช็คอินพร้อมกัน)
     const same = v.checkin ? visits.list.filter((x) => x.date === date && x.checkin?.at === v.checkin!.at) : [v]
     const names = same.filter((x) => !x.absent).map((x) => x.memberName), gone = same.filter((x) => x.absent).map((x) => x.memberName)
-    const text = visitShareText({ dateText: `${dayName(date)} ${dmy(date)}`, names, absentNames: gone, visitor: v.visitor, checkin: v.checkin ?? null, note: v.reason })
+    const text = visitShareText({ dateText: `${dayName(date)} ${dmy(date)}`, names, absentNames: gone, visitor: v.visitor, checkin: v.checkin ?? null, note: v.reason, place: v.place })
     const r = await shareVisit(text, [...new Set(same.flatMap((x) => x.photos ?? []))])
     setShareMsg(r === 'shared' ? 'ส่งออกแล้ว' : r === 'copied' ? 'คัดลอกข้อความแล้ว — เปิดไลน์แล้วกดวาง' : r === 'cancelled' ? '' : 'แชร์ไม่ได้บนเครื่องนี้')
   }
@@ -93,6 +93,9 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       people.put([{ ...m, ...(work ? { workLat: final.lat, workLng: final.lng } : final) }])
     }
   }
+  // ชื่อสถานที่ตั้งต้น = หมายเหตุของช่อง เฉพาะจุดแรกของช่องนี้ · หลังมีคนบันทึกไปแล้ว คนที่เหลือย้ายไปที่ใหม่ ต้องกรอกสถานที่/พิกัดใหม่เอง
+  const anyDone = [...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)].some((id) => !!done(id))
+  const presetPlace = anyDone ? '' : (doc.slotNotes?.[slot] ?? '')
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
@@ -121,7 +124,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
-          preset={form.member ? { member: form.member } : {}}
+          preset={{ ...(form.member ? { member: form.member } : {}), place: presetPlace }}
           photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
           onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
