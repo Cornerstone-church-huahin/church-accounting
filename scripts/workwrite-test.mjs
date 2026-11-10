@@ -59,7 +59,7 @@ try {
   await page.getByLabel('เพิ่มชื่อใหม่').fill('อ.ทดสอบ'); await page.getByRole('button', { name: '＋ เพิ่ม', exact: true }).click()
   must(await page.getByRole('checkbox', { name: /อ.ทดสอบ/ }).isChecked() && await page.evaluate(() => JSON.parse(localStorage.getItem('acct.visit-names.v1') ?? '[]').length) === 1, 'pastoral lead can add visitor names')
   // ผู้ช่วยงานอภิบาล: ดูตารางเยี่ยม/บันทึกการเยี่ยมได้ (อ่านอย่างเดียว ไม่มีปุ่มเพิ่ม)
-  page = await open('help4', 'ผู้ช่วยอภิบาล', '/meeting/4/2', `localStorage.setItem('acct.church-members.v1', JSON.stringify([{ id: 'm1', name: 'สมชาย ใจดี', status: '1.สมบูรณ์ ( 1 )', updated: 1 }]))`)
+  page = await open('help4', 'ผู้ช่วยอภิบาล', '/meeting/4/3', `localStorage.setItem('acct.church-members.v1', JSON.stringify([{ id: 'm1', name: 'สมชาย ใจดี', status: '1.สมบูรณ์ ( 1 )', updated: 1 }]))`)
   must(await page.locator('.pvpick__r').count() === 1 && /สมชาย ใจดี/.test(await page.locator('main').innerText()), 'helper sees the member list for planning on tab 2')
   for (const k of ['record', 'report']) {
     page = await open('help4', 'ผู้ช่วยอภิบาล', `/meeting/4/${k}`, `localStorage.setItem('acct.visit-log.v1', JSON.stringify([{ id: 'v1', updated: 5, date: '${k === 'record' ? todayStr : wed}', memberId: 'm1', memberName: 'สมชาย ใจดี', reason: 'ทดสอบ', visitor: 'คศ.กฤต', stop: 1 }])); localStorage.setItem('acct.visits.v1', localStorage.getItem('acct.visit-log.v1'))`)
