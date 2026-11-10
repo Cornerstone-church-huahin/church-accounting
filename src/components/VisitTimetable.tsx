@@ -6,6 +6,7 @@ import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import { useRole } from '../lib/members'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
+import { homeFromCheckin } from '../lib/geo'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
@@ -73,6 +74,19 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
     const r = await shareVisit(text, [...new Set(same.flatMap((x) => x.photos ?? []))])
     setShareMsg(r === 'shared' ? 'ส่งออกแล้ว' : r === 'copied' ? 'คัดลอกข้อความแล้ว — เปิดไลน์แล้วกดวาง' : r === 'cancelled' ? '' : 'แชร์ไม่ได้บนเครื่องนี้')
   }
+  // เช็คอินที่บ้าน → ปักหมุดบ้านในทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด = ตั้งให้เลย · มีแล้วและห่างเกิน 100 ม. ถามก่อนทับ) · ที่ทำงาน/สถานที่/โหมดทดสอบไม่นับ
+  const pinHomes = (vs: Visit[]) => {
+    for (const v of vs) {
+      if (!v.checkin || v.checkin.kind === 'work' || v.checkin.sim || v.memberId.startsWith('place:')) continue
+      const m = people.items.find((x) => x.id === v.memberId)
+      if (!m) continue
+      const at = { lat: v.checkin.lat, lng: v.checkin.lng }
+      const r = homeFromCheckin(m, at)
+      if (r.action === 'keep') continue
+      if (r.action === 'ask' && !window.confirm(`พิกัดบ้านของ ${m.name} ในทะเบียนต่างจากจุดเช็คอินนี้ ${r.meters} เมตร\nอัปเดตพิกัดบ้านตามจุดเช็คอินนี้ไหม?`)) continue
+      people.put([{ ...m, ...at }])
+    }
+  }
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
@@ -100,10 +114,10 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
       {form && (
-        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
+        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={form.member ? { member: form.member } : {}}
           photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
-          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); setForm(null) }}
+          onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); setForm(null) }}
           onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
       )}
     </Sheet>
