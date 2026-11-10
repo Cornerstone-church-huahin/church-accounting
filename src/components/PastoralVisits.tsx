@@ -313,7 +313,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
           <button type="button" className="btn btn--gold btn--block" onClick={() => setWarn(null)}>เข้าใจแล้ว</button>
         </div></div>}
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
-      <div className="row" style={{ gap: 8, alignItems: 'center' }}><button type="button" className="btn" style={{ flex: 1, background: '#1e8e3e', borderColor: '#1e8e3e', color: '#fff', fontWeight: 800, fontSize: '1.1rem' }} onClick={save}>💾 บันทึกและเช็คอินการเยี่ยม</button>{checkin && <button type="button" className="mini" style={{ width: 52, height: 52, fontSize: 24, borderRadius: '50%' }} aria-label="แชร์เข้ากลุ่ม (รูป + ข้อความ)" title="แชร์เข้ากลุ่ม (รูป + ข้อความ)" onClick={() => void share()}>📤</button>}{onDelete && <button type="button" className="mini" onClick={onDelete}>ลบ</button>}</div>
+      <div className="row" style={{ gap: 8, alignItems: 'center' }}><button type="button" className="btn" style={{ flex: 1, background: '#1e8e3e', borderColor: '#1e8e3e', color: '#fff', fontWeight: 800, fontSize: '1.1rem' }} onClick={save}>📍 บันทึกและเช็คอินการเยี่ยม</button>{checkin && <button type="button" className="mini" style={{ width: 52, height: 52, fontSize: 24, borderRadius: '50%' }} aria-label="แชร์เข้ากลุ่ม (รูป + ข้อความ)" title="แชร์เข้ากลุ่ม (รูป + ข้อความ)" onClick={() => void share()}>📤</button>}{onDelete && <button type="button" className="mini" onClick={onDelete}>ลบ</button>}</div>
     </Sheet>
   )
 }
