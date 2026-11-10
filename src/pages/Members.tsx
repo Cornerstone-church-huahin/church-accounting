@@ -1068,6 +1068,17 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
   const [coord, setCoord] = useState<Coord | null>(member && hasCoord(member) ? { lat: member.lat, lng: member.lng } : null)
   const [coordText, setCoordText] = useState(member && hasCoord(member) ? formatCoord({ lat: member.lat, lng: member.lng }) : '')
   const [mapOpen, setMapOpen] = useState(false)
+  // พิกัดที่ทำงาน: ทำงานเหมือนพิกัดบ้านทุกอย่าง (พิมพ์เลข/วางลิงก์ · ตำแหน่งปัจจุบัน · เลือกบนแผนที่)
+  const hasW = !!member && typeof member.workLat === 'number' && typeof member.workLng === 'number'
+  const [wcoord, setWcoord] = useState<Coord | null>(hasW ? { lat: member!.workLat as number, lng: member!.workLng as number } : null)
+  const [wText, setWText] = useState(hasW ? formatCoord({ lat: member!.workLat as number, lng: member!.workLng as number }) : '')
+  const [wMapOpen, setWMapOpen] = useState(false)
+  const pickW = (c: Coord | null) => { setWcoord(c); setWText(c ? formatCoord(c) : ''); setErr('') }
+  const onWText = (v: string) => { setWText(v); setWcoord(parseCoords(v)) }
+  const hereW = () => {
+    if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
+    navigator.geolocation.getCurrentPosition((p) => pickW({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6 }), () => setErr('หาตำแหน่งไม่ได้ — อนุญาตการเข้าถึงตำแหน่งแล้วลองใหม่'), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  }
   const pickCoord = (c: Coord | null) => { setCoord(c); setCoordText(c ? formatCoord(c) : ''); setErr('') }
   const onCoordText = (v: string) => { setCoordText(v); setCoord(parseCoords(v)) }
   const here = () => {
@@ -1077,9 +1088,10 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const save = () => {
     if (!f.name.trim()) return setErr('ใส่ชื่อ-สกุล')
+    if (wText.trim() && !wcoord) return setErr('พิกัดที่ทำงานอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps หรือเลือกบนแผนที่')
     if (coordText.trim() && !coord) return setErr('พิกัดบ้านอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps หรือเลือกบนแผนที่')
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
-    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng }), ...(!member || statusLabel(member.status) !== statusLabel(f.status) ? { statusAt: todayISO() } : {}), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
+    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng, workLat: wcoord?.lat, workLng: wcoord?.lng }), ...(!member || statusLabel(member.status) !== statusLabel(f.status) ? { statusAt: todayISO() } : {}), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
   const text = (k: keyof typeof f, label: string, type = 'text', full = false) => <div className={`field${full ? ' full' : ''}`}><label htmlFor={`m-${k}`}>{label}</label><input id={`m-${k}`} className="input" type={type} value={f[k]} onChange={set(k)} /></div>
   return (
@@ -1121,6 +1133,20 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
             </div>
             <p className="small muted" role="status" style={{ margin: '0.2rem 0 0' }}>{coord ? `บันทึกพิกัด ${formatCoord(coord)}` : coordText ? 'ยังอ่านพิกัดไม่ได้' : 'ยังไม่มีพิกัด'}</p>
             {mapOpen && <MapPickSheet initial={coord} onClose={() => setMapOpen(false)} onSave={(c) => { pickCoord(c); setMapOpen(false) }} />}
+          </div>
+        )}
+        {!lite && (
+          <div className="field full">
+            <label htmlFor="m-wcoord">พิกัดที่ทำงาน <span className="muted small">(เข้าเองเมื่อ “เช็คอินที่ทำงาน” จากตารางเยี่ยม)</span></label>
+            <input id="m-wcoord" className="input" inputMode="decimal" value={wText} onChange={(e) => onWText(e.target.value)} placeholder="เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps" />
+            <div className="row" style={{ marginTop: '0.3rem' }}>
+              <button type="button" className="mini" onClick={hereW}>📍 ใช้ตำแหน่งปัจจุบัน</button>
+              <button type="button" className="mini" aria-haspopup="dialog" onClick={() => setWMapOpen(true)}>🏢 เลือก/ปรับบนแผนที่</button>
+              {wText && <button type="button" className="mini" onClick={() => pickW(null)}>ล้างพิกัด</button>}
+              {wcoord && <a className="mini" href={mapsLink(wcoord)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
+            </div>
+            <p className="small muted" role="status" style={{ margin: '0.2rem 0 0' }}>{wcoord ? `บันทึกพิกัด ${formatCoord(wcoord)}` : wText ? 'ยังอ่านพิกัดไม่ได้' : 'ยังไม่มีพิกัด'}</p>
+            {wMapOpen && <MapPickSheet initial={wcoord} onClose={() => setWMapOpen(false)} onSave={(c) => { pickW(c); setWMapOpen(false) }} />}
           </div>
         )}
       </div>

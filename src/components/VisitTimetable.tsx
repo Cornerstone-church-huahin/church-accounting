@@ -6,7 +6,7 @@ import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import { useRole } from '../lib/members'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
-import { homeFromCheckin } from '../lib/geo'
+import { distanceM, homeFromCheckin } from '../lib/geo'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
@@ -86,7 +86,10 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       const r = homeFromCheckin(cur, at)
       if (r.action === 'keep') continue
       if (r.action === 'ask' && !window.confirm(`พิกัด${work ? 'ที่ทำงาน' : 'บ้าน'}ของ ${m.name} ในทะเบียนต่างจากจุดเช็คอินนี้ ${r.meters} เมตร\nอัปเดตตามจุดเช็คอินนี้ไหม?`)) continue
-      people.put([{ ...m, ...(work ? { workLat: at.lat, workLng: at.lng } : at) }])
+      // บ้านกับที่ทำงานอยู่ใกล้กัน (ห่างไม่เกิน 100 ม.) → ปรับให้เป็นพิกัดเดียวกัน
+      const other = work ? { lat: m.lat, lng: m.lng } : { lat: m.workLat, lng: m.workLng }
+      const same = typeof other.lat === 'number' && typeof other.lng === 'number' && distanceM(at, { lat: other.lat, lng: other.lng }) <= 100
+      people.put([{ ...m, ...(work ? { workLat: at.lat, workLng: at.lng } : at), ...(same ? (work ? at : { workLat: at.lat, workLng: at.lng }) : {}) }])
     }
   }
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
