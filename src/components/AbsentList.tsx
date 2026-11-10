@@ -14,7 +14,8 @@ export const monthsText = (n: number | null) => (n === null ? 'ไม่เค�
 const TABS = [['own', 'เก่าแก่'], ['fund', 'สม่ำเสมอ'], ['total', 'สถานะ'], ['indebt', 'กลุ่ม'], ['debt', 'อายุ'], ['land', 'เพศ']] as const
 const grpOf = (m: { group?: string }) => { const raw = (m.group ?? '').trim(); return !raw || /ไม่มีกลุ่ม/.test(raw) ? 'ไม่มีกลุ่ม' : raw }
 
-export default function AbsentList({ members, stats, today, selectedId, selectedIds, onPick, label, hideLabel, att }: {
+export default function AbsentList({ members, stats, today, selectedId, selectedIds, onPick, label, hideLabel, att, hideStatus }: {
+  /** ซ่อนตัวเลือกสถานะ (เหลือแต่ช่องพิมพ์ค้นชื่อยาวเต็มแถว) */ hideStatus?: boolean
   /** ใส่เมื่อต้องการแถบวิเคราะห์ 6 แบบ (เก่าแก่ · สม่ำเสมอ · สถานะ · กลุ่ม · อายุ · เพศ) แบบเดียวกับหน้ารวมสมาชิก */ att?: { date: string; ids: string[]; deleted?: boolean }[]
   members: ChurchMember[]; stats: Map<string, VisitStat>; today: string
   selectedId?: string; /** เลือกได้หลายคน (ตะกร้าแผนเยี่ยม) */ selectedIds?: string[]; onPick?: (m: ChurchMember, absentLabel: string) => void; label: string; /** ซ่อนข้อความหัวช่องค้นหา (ยังอ่านออกเสียงได้) */ hideLabel?: boolean
@@ -63,9 +64,9 @@ export default function AbsentList({ members, stats, today, selectedId, selected
         </div>
       )}
       <div className="field"><label htmlFor="pv-q" className={hideLabel ? 'sr-only' : undefined}>{label}</label>
-        <div className="pvfind">
-          <input id="pv-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
-          <MultiPick id="pv-st" title="สถานะสมาชิก" allLabel="ทุกสถานะ" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />
+        <div className="pvfind" style={hideStatus ? { display: 'block' } : undefined}>
+          <input id="pv-q" className="input" style={hideStatus ? { width: '100%' } : undefined} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / ชื่อเล่น" />
+          {!hideStatus && <MultiPick id="pv-st" title="สถานะสมาชิก" allLabel="ทุกสถานะ" options={OFFICIAL_STATUSES.map((x) => ({ value: x, label: statusShort(x) }))} value={status} onChange={setStatus} empty="ทุกสถานะ" />}
         </div></div>
       <div className="field"><span className="pvhint">② {tab ? `${TABS[tab - 1][1]}${tab === 2 ? ` · ${per.label}` : ''} · ${list.length} คน` : q.trim() ? 'ผลการค้นหา' : `ขาดนมัสการตั้งแต่ 1 เดือนขึ้นไป${status.length ? ` · ${status.map(statusShort).join(', ')}` : ''}`} · เรียงจากขาดน้อย → มาก ({list.length} คน)</span>
         <ul className="pvpick" aria-label="รายชื่อสมาชิก">
