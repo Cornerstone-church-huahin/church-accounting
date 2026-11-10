@@ -178,10 +178,13 @@ export function VisitRoute() {
         <span className="small"><b>{range}</b></span>
         <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
-      <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }} role="tablist" aria-label="เลือกวัน">
-        {days.map((d) => (
-          <button key={d} type="button" role="tab" aria-selected={d === date} className={`mini${d === date ? ' on' : ''}`} style={d === date ? { background: '#1a2b4c', color: '#fff' } : undefined} onClick={() => setPickDay(d)}>{DAY_NAMES[new Date(d + 'T00:00:00Z').getUTCDay()]} {Number(d.slice(8))}{checkDays.has(d) ? ' ●' : ''}</button>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, marginBottom: 8 }} role="tablist" aria-label="เลือกวัน">
+        {days.map((d) => {
+          const full = DAY_NAMES[new Date(d + 'T00:00:00Z').getUTCDay()], short = full.startsWith('พฤ') ? 'พฤ.' : `${full[0]}.`
+          return (
+            <button key={d} type="button" role="tab" aria-selected={d === date} aria-label={`${full} ${Number(d.slice(8))}${checkDays.has(d) ? ' มีเช็คอิน' : ''}`} className="mini" style={{ minHeight: 0, padding: '4px 0', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', ...(d === date ? { background: '#1a2b4c', color: '#fff' } : {}) }} onClick={() => setPickDay(d)}>{short}{Number(d.slice(8))}{checkDays.has(d) ? <span style={{ color: d === date ? '#7fe0a0' : '#1e9e4a' }}>●</span> : null}</button>
+          )
+        })}
       </div>
       <button type="button" className="btn btn--block" style={{ marginBottom: 8 }} onClick={() => setCfg(true)}>⚙️ ตั้งค่า (พิกัดคริสตจักร · ค่าน้ำมัน)</button>
       {cfg && <Sheet title="⚙️ ตั้งค่ารายงานเส้นทาง" onClose={() => setCfg(false)}>
