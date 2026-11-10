@@ -561,6 +561,7 @@ function Detail({ worshipDays, lite, showStatus, canPhoto, canLog, r, statuses, 
   const [photoErr, setPhotoErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [pinOpen, setPinOpen] = useState(false)
+  const [pinWorkOpen, setPinWorkOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const dropPhoto = () => { if (!m.photoPath || !confirm(`ลบรูปของ ${m.name}?`)) return; const old = m.photoPath; if (put([{ ...m, photoPath: undefined }])) void removeMemberPhotoFile(old) }
   const setPhoto = async (f: File | undefined) => {
@@ -614,6 +615,8 @@ function Detail({ worshipDays, lite, showStatus, canPhoto, canLog, r, statuses, 
             {canEdit && <div className="no-print" style={{ marginTop: 6 }}><button type="button" className="mini" aria-haspopup="dialog" onClick={() => setPinOpen(true)}>🗺️ {hasCoord(m) ? 'ปรับตำแหน่งบ้านบนแผนที่' : 'ปักหมุดบ้านบนแผนที่'}</button></div>}
             {pinOpen && <MapPickSheet initial={hasCoord(m) ? { lat: m.lat, lng: m.lng } : null} onClose={() => setPinOpen(false)} onSave={(c) => { if (put([{ ...m, lat: c.lat, lng: c.lng }])) setPinOpen(false) }} />}</dd>
         
+          {canEdit && <div className="no-print" style={{ marginTop: 6 }}><button type="button" className="mini" aria-haspopup="dialog" onClick={() => setPinWorkOpen(true)}>🏢 {typeof m.workLat === 'number' ? 'ปรับตำแหน่งที่ทำงานบนแผนที่' : 'ปักหมุดที่ทำงานบนแผนที่'}</button></div>}
+          {pinWorkOpen && <MapPickSheet initial={typeof m.workLat === 'number' && typeof m.workLng === 'number' ? { lat: m.workLat, lng: m.workLng } : null} onClose={() => setPinWorkOpen(false)} onSave={(c) => { if (put([{ ...m, workLat: c.lat, workLng: c.lng }])) setPinWorkOpen(false) }} />}
           {typeof m.workLat === 'number' && typeof m.workLng === 'number' && <dd style={{ margin: '0.5rem 0 0' }}><div className="muted small">แผนที่ที่ทำงาน</div><Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: `${m.id}-work`, lat: m.workLat, lng: m.workLng, label: `ที่ทำงาน ${m.name}`, color: '#e67700', badge: '🏢' }]} height={150} label={`แผนที่ที่ทำงาน ${m.name}`} noLinks /></Suspense></dd>}
         </div>
         )}
