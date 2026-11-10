@@ -46,7 +46,7 @@ export default function LeafletMap({ pins = [], line, pick, onPick, height = 320
     for (const p of pins) {
       const el = document.createElement('div')
       const b = document.createElement('b'); b.textContent = p.label; el.appendChild(b)
-      if (p.sub) { el.appendChild(document.createElement('br')); const s = document.createElement('span'); s.textContent = p.sub; el.appendChild(s) }
+      if (p.sub) { el.appendChild(document.createElement('br')); const s = document.createElement('span'); s.style.whiteSpace = 'pre-line'; s.textContent = p.sub; el.appendChild(s) }
       L.marker([p.lat, p.lng], { icon: p.color || p.badge ? badgeIcon(p.color ?? '#c2255c', p.badge ?? '') : dot(), title: p.label }).bindPopup(el).addTo(g)
     }
     if (pins.length > 1) m.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number])), { padding: [24, 24], maxZoom: 17, animate: false })

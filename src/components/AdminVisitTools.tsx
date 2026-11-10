@@ -9,6 +9,7 @@ import { isWorkStaffOnly } from '../lib/access'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
 import { DAY_NAMES, dayKind, sundayOf, weekDays } from '../lib/visits'
+import type { ChurchMember } from '../lib/types'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
 
@@ -226,6 +227,21 @@ export function VisitRoute() {
 }
 
 /** แผนที่บ้านของสมาชิกที่มีพิกัด */
+type HomeRow = { id: string; name: string; nick: string; photo?: string; lat?: number; lng?: number; wlat?: number; wlng?: number }
+const hasW = (m: { workLat?: number; workLng?: number }) => typeof m.workLat === 'number' && typeof m.workLng === 'number'
+
+/** ปุ่มนำทาง 2 แบบ: 🏠 ไปบ้าน · 🏢 ไปที่ทำงาน (ไม่มีพิกัดแบบไหน ปุ่มนั้นจาง กดไม่ได้) */
+function NavButtons({ m, onGo }: { m: HomeRow; onGo: (kind: 'home' | 'work') => void }) {
+  const btn = (kind: 'home' | 'work', ok: boolean) => (
+    <button type="button" disabled={!ok} onClick={() => onGo(kind)} aria-label={`นำทางไป${kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'} ${m.name}`} title={ok ? `นำทางไป${kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'}` : `ยังไม่มีพิกัด${kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'}`}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 60, padding: '5px 6px', borderRadius: 12, border: `2px solid ${kind === 'home' ? '#c2255c' : '#e67700'}`, background: ok ? '#fff' : '#f1f1f1', opacity: ok ? 1 : 0.4, color: '#1a2b4c', font: 'inherit', lineHeight: 1.1 }}>
+      <span style={{ fontSize: 22 }} aria-hidden="true">{kind === 'home' ? '🏠' : '🏢'}</span><small style={{ fontSize: 12, fontWeight: 700 }}>{kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'}</small>
+    </button>
+  )
+  return <span style={{ display: 'flex', gap: 8, flex: 'none' }}>{btn('home', typeof m.lat === 'number' && typeof m.lng === 'number')}{btn('work', typeof m.wlat === 'number' && typeof m.wlng === 'number')}</span>
+}
+
+/** แผนที่บ้านและที่ทำงานของสมาชิก */
 export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
   const ok = true // เปิดให้ทีมอภิบาล (สิทธิ์ตรวจที่หน้าเรียกใช้)
   const people = useChurchMembers()
@@ -236,14 +252,14 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
   const [msg, setMsg] = useState('')
   const [sel, setSel] = useState<string | null>(null)
   const [pop, setPop] = useState(true) // ป๊อปอัพรายชื่อที่ตรงกับคำค้น (ปิดหลังเลือกแล้ว)
-  const withC = useMemo(() => people.items.flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, lat: m.lat, lng: m.lng, wlat: m.workLat, wlng: m.workLng }] : [])), [people.items])
-  // ค้นหา: ชื่อ/ชื่อเล่น/หมายเหตุ ตรงคำค้น + "คนที่เกี่ยวข้อง" ดึงจากข้อมูลหลังบ้าน (นามสกุลเดียวกัน · ที่อยู่เดียวกัน · หมายเหตุที่กล่าวถึงกัน)
-  // ไม่แสดงว่าเกี่ยวข้องอย่างไร แสดงเฉพาะรายชื่อ (ตรงคำค้นก่อน แล้วตามด้วยคนที่เกี่ยวข้อง)
+  const toRow = (m: ChurchMember): HomeRow => ({ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, ...(hasCoord(m) ? { lat: m.lat, lng: m.lng } : {}), ...(hasW(m) ? { wlat: m.workLat, wlng: m.workLng } : {}) })
+  const homeCount = useMemo(() => people.items.filter(hasCoord).length, [people.items])
+  // ค้นหา: ชื่อ/ชื่อเล่น/รหัส/เบอร์/หมายเหตุ ตรงคำค้น + "คนที่เกี่ยวข้อง" ดึงจากข้อมูลหลังบ้าน (นามสกุลเดียวกัน · ที่อยู่เดียวกัน · หมายเหตุที่กล่าวถึงกัน) แสดงเฉพาะรายชื่อ
   const matched = useMemo(() => {
     const t = q.trim().toLowerCase().replace(/\s+/g, '')
     if (!t) return []
     const all = people.items
-    const direct = all.filter((m) => `${m.name ?? ''}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t)) // ค้นเหมือนหน้าสมาชิก (ชื่อ ชื่อเล่น รหัส เบอร์ หมายเหตุ)
+    const direct = all.filter((m) => `${m.name ?? ''}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(t))
     if (t.length < 3) return direct
     const sur = (n: string) => { const w = n.trim().split(/\s+/); return w.length >= 2 ? w[w.length - 1] : '' }
     const ids = new Set(direct.map((m) => m.id))
@@ -257,9 +273,9 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
     }))
     return [...direct, ...rel]
   }, [people.items, q])
-  const shown = useMemo(() => (q.trim() ? matched : people.items).flatMap((m) => (hasCoord(m) ? [{ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, lat: m.lat, lng: m.lng, wlat: m.workLat, wlng: m.workLng }] : [])), [matched, people.items, q])
-  const noCoord = useMemo(() => matched.filter((m) => !hasCoord(m)), [matched])
-  const target = q.trim() ? (shown.find((m) => m.id === sel) ?? shown[0] ?? null) : null // พิมพ์ชื่อแล้ว: คนที่แตะเลือก หรือคนแรกที่ตรง
+  const shown = useMemo<HomeRow[]>(() => (q.trim() ? matched : people.items).filter((m) => hasCoord(m) || hasW(m)).map(toRow), [matched, people.items, q]) // eslint-disable-line react-hooks/exhaustive-deps
+  const noCoord = useMemo(() => matched.filter((m) => !hasCoord(m) && !hasW(m)), [matched])
+  const target = q.trim() ? (shown.find((m) => m.id === sel) ?? shown[0] ?? null) : null
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
   // นำทาง: ตำแหน่งปัจจุบัน → บ้านสมาชิก (วาดเส้นตามถนนบนแผนที่ + เปิดนำทางต่อใน Google Maps)
   const go = (d: { name: string; lat: number; lng: number; work?: boolean }) => {
@@ -273,20 +289,35 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
     }, () => { setBusy(false); setMsg('หาตำแหน่งปัจจุบันไม่ได้ — เปิด GPS และอนุญาตให้แอปใช้ตำแหน่ง แล้วลองใหม่') }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
   }
   const gmaps = (d: Coord) => `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}&travelmode=driving&dir_action=navigate`
-  // เลือกนำทางแล้ว: แผนที่แสดงเฉพาะบ้าน/ที่ทำงานของคนที่เลือก + จุดที่ผู้ใช้อยู่ (ซูมพอดีกับเส้นทาง) · ยังไม่เลือก: แสดงทุกหมุด
+  const goKind = (m: HomeRow, kind: 'home' | 'work') => {
+    setSel(m.id); setPop(false)
+    if (kind === 'work' && typeof m.wlat === 'number' && typeof m.wlng === 'number') go({ name: `ที่ทำงานของ ${m.name}`, lat: m.wlat, lng: m.wlng, work: true })
+    else if (typeof m.lat === 'number' && typeof m.lng === 'number') go({ name: m.name, lat: m.lat, lng: m.lng })
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ }
+  }
+  // หมุดบนแผนที่: คนที่อยู่จุดเดียวกัน (บ้านเดียวกัน/ที่ทำงานเดียวกัน) รวมเป็นหมุดเดียว — ป๊อปอัพบรรทัดแรก = บ้าน/ที่ทำงาน แล้วตามด้วยชื่อทีละบรรทัด
+  const groupPins = (kind: 'home' | 'work') => {
+    const g = new Map<string, { lat: number; lng: number; names: string[] }>()
+    for (const m of shown) {
+      const lat = kind === 'home' ? m.lat : m.wlat, lng = kind === 'home' ? m.lng : m.wlng
+      if (typeof lat !== 'number' || typeof lng !== 'number') continue
+      const k = `${lat.toFixed(5)},${lng.toFixed(5)}`
+      const e = g.get(k) ?? { lat, lng, names: [] }
+      e.names.push(m.name); g.set(k, e)
+    }
+    return [...g.entries()].map(([k, e]) => ({ id: `${kind}-${k}`, lat: e.lat, lng: e.lng, label: kind === 'home' ? '🏠 บ้าน' : '🏢 ที่ทำงาน', sub: e.names.join('\n'), ...(kind === 'work' ? { color: '#e67700', badge: '🏢' } : {}) }))
+  }
+  // เลือกนำทางแล้ว: แผนที่แสดงเฉพาะปลายทาง + จุดที่ผู้ใช้อยู่ (ซูมพอดีกับเส้นทาง) · ยังไม่เลือก: แสดงทุกหมุด
   const pins = dest
     ? [
       { id: 'dest', lat: dest.lat, lng: dest.lng, label: dest.name, sub: formatCoord(dest), color: dest.work ? '#e67700' : '#c2255c', badge: dest.work ? '🏢' : '🏠' },
       ...(nav ? [{ id: 'me', lat: nav.from.lat, lng: nav.from.lng, label: '📍 ฉันอยู่ที่นี่', sub: 'ตำแหน่งปัจจุบัน', color: '#1f5fbf', badge: '📍' }] : []),
     ]
-    : [
-      ...shown.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng, label: `${m.name}${m.nick ? ` (${m.nick})` : ''}`, sub: formatCoord(m) })),
-      ...shown.flatMap((m) => (typeof m.wlat === 'number' && typeof m.wlng === 'number' ? [{ id: `${m.id}-work`, lat: m.wlat, lng: m.wlng, label: `🏢 ที่ทำงาน ${m.name}`, sub: formatCoord({ lat: m.wlat, lng: m.wlng }), color: '#e67700', badge: '🏢' }] : [])),
-    ]
+    : [...groupPins('home'), ...groupPins('work')]
   const line = nav ? { segments: [nav.g], labels: [{ at: nav.g[Math.floor(nav.g.length / 2)], text: `${km(nav.m)}${nav.road ? ` · ${mins(nav.s)}` : ''}` }] } : undefined
   return (
     <>
-      {!embedded && <Back title="🗺️ แผนที่บ้านสมาชิก" />}
+      {!embedded && <Back title="🗺️ บ้านและที่ทำงานสมาชิก" />}
       <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
         <input className="input grow" placeholder="พิมพ์ชื่อหรือชื่อเล่น" aria-label="ค้นหาชื่อ" value={q} onChange={(e) => { setQ(e.target.value); setSel(null); setPop(true) }} />
       </div>
@@ -302,25 +333,26 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
       )}
       {!dest && msg && <p className="muted small" role="status">{msg}</p>}
       <div style={{ position: 'relative', minHeight: 150 }}>
-      {shown.length === 0 ? <p className="empty">ไม่มีสมาชิกที่มีพิกัด</p> : (
-        <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} {...(line ? { line } : {})} height={420} label="แผนที่บ้านสมาชิก" /></Suspense>
-      )}
+        {shown.length === 0 ? <p className="empty">ไม่มีสมาชิกที่มีพิกัด</p> : (
+          <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} {...(line ? { line } : {})} height={420} label="แผนที่บ้านและที่ทำงานสมาชิก" /></Suspense>
+        )}
         {pop && q.trim() && (
           <div role="listbox" aria-label="ชื่อที่ตรงกับคำค้น" style={{ position: 'absolute', left: 8, right: 8, top: 8, zIndex: 1000, maxHeight: '85%', overflowY: 'auto', ...LIGHT, background: '#fff', border: '2px solid #1a73e8', borderRadius: 14, boxShadow: '0 8px 24px rgba(0,0,0,.45)' }}>
-            <div style={{ padding: '8px 12px', ...LIGHT, background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อที่ต้องการนำทาง</b> <small className="muted">({shown.length + noCoord.length} คนที่ตรงและเกี่ยวข้องกับ “{q.trim()}”)</small></div>
-            {shown.length + noCoord.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดบ้านตรงกับคำค้น{noCoord.length ? ' — มีคนที่ตรงแต่ยังไม่มีพิกัด ดูใต้แผนที่' : ''}</p>}
+            <div style={{ padding: '8px 12px', ...LIGHT, background: '#eef5ff', borderBottom: '1px solid #cfe0ff' }}><b>เลือกชื่อและปลายทางที่ต้องการนำทาง</b> <small className="muted">({shown.length + noCoord.length} คนที่ตรงและเกี่ยวข้องกับ “{q.trim()}”)</small></div>
+            {shown.length + noCoord.length === 0 && <p className="muted" style={{ padding: 12, margin: 0 }}>ไม่พบผู้ที่มีพิกัดตรงกับคำค้น</p>}
             {shown.map((m) => (
-              <button key={m.id} type="button" role="option" aria-selected={target?.id === m.id} className="row" style={{ width: '100%', gap: 8, alignItems: 'center', padding: '12px', border: 0, borderBottom: '1px solid #eee', ...LIGHT, background: '#fff', textAlign: 'left', font: 'inherit' }} onClick={() => { setSel(m.id); setPop(false); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
-                <MemberAvatar path={m.photo} name={m.name} size={48} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span><small>🧭 นำทาง</small>
-              </button>))}
+              <div key={m.id} role="option" aria-selected={target?.id === m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #eee', ...LIGHT, background: '#fff' }}>
+                <MemberAvatar path={m.photo} name={m.name} size={48} /><span style={{ flex: 1, minWidth: 0 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : ''}</span>
+                <NavButtons m={m} onGo={(k) => goKind(m, k)} />
+              </div>))}
             {noCoord.map((m) => (
               <div key={m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '12px', borderBottom: '1px solid #eee', opacity: 0.6 }}>
-                <MemberAvatar path={m.photoPath} name={m.name} size={48} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}</span><small>ยังไม่มีพิกัดบ้าน</small>
+                <MemberAvatar path={m.photoPath} name={m.name} size={48} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick?.trim() ? ` (${m.nick.trim()})` : ''}</span><small>ยังไม่มีพิกัด</small>
               </div>))}
           </div>
         )}
       </div>
-      <p className="muted small" style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 มีพิกัดบ้านแล้ว <b>{withC.length}</b> จาก {people.items.length} คน · เข้าเองเมื่อเช็คอินที่บ้าน</p>
+      <p className="muted small" style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 มีพิกัดบ้านแล้ว <b>{homeCount}</b> จาก {people.items.length} คน · เข้าเองเมื่อเช็คอิน</p>
       <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกที่มีพิกัด">
         {shown.map((m) => {
           const on = !!q.trim() && target?.id === m.id
@@ -332,11 +364,10 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
             if (!people.put([{ ...full, nick: v.trim() }])) setMsg('บันทึกชื่อเล่นไม่ได้ (ต้องมีสิทธิ์แก้ทะเบียนสมาชิก)')
           }
           return (
-            <li key={m.id} className="row" style={{ gap: 4, alignItems: 'center', borderBottom: '1px solid #eee', ...LIGHT, background: on ? '#fff3cd' : 'transparent' }}>
-              <button type="button" className="row" style={{ flex: 1, gap: 8, alignItems: 'center', padding: '8px 6px', border: 0, background: 'transparent', textAlign: 'left', font: 'inherit' }} aria-label={`นำทางไปบ้าน ${m.name}`} onClick={() => { setSel(m.id); go(m); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>
-                <MemberAvatar path={m.photo} name={m.name} size={44} /><span style={{ flex: 1 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : <small className="muted"> · ยังไม่มีชื่อเล่น</small>}</span><small className="muted">{on ? 'เลือกแล้ว' : 'แตะเพื่อนำทาง'} 🧭</small>
-              </button>
-              {typeof m.wlat === 'number' && typeof m.wlng === 'number' && <button type="button" className="mini" aria-label={`นำทางไปที่ทำงาน ${m.name}`} title="นำทางไปที่ทำงาน" onClick={() => { setSel(m.id); go({ name: `ที่ทำงานของ ${m.name}`, lat: m.wlat as number, lng: m.wlng as number, work: true }); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } }}>🏢</button>}
+            <li key={m.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee', ...LIGHT, background: on ? '#fff3cd' : 'transparent' }}>
+              <MemberAvatar path={m.photo} name={m.name} size={44} />
+              <span style={{ flex: 1, minWidth: 0 }}><b>{m.name}</b>{m.nick ? ` (${m.nick})` : <small className="muted"> · ยังไม่มีชื่อเล่น</small>}</span>
+              <NavButtons m={m} onGo={(k) => goKind(m, k)} />
               <button type="button" className="mini" aria-label={`แก้ชื่อเล่น ${m.name}`} title="เพิ่ม/แก้ชื่อเล่น" onClick={editNick}>✏️</button>
             </li>)
         })}
