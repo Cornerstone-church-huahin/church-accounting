@@ -7,6 +7,8 @@ import ScaledPage from './ScaledPage'
 import { useRole } from '../lib/members'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { distanceM, homeFromCheckin } from '../lib/geo'
+import MapPickSheet from './MapPickSheet'
+import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import { useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
@@ -45,6 +47,53 @@ const dayName = (d: string) => DAY_NAMES[new Date(d + 'T00:00:00Z').getUTCDay()]
 const rangeTitle = (a: string, b: string) => {
   const [ya, ma, da] = a.split('-').map(Number), [yb, mb, db] = b.split('-').map(Number)
   return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}`
+}
+
+const toLocalInput = (ms: number) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16) }
+
+/** แอดมินแก้การบันทึกเยี่ยมให้ภายหลัง: เติม/แก้พิกัดเช็คอิน เวลา ประเภท (บ้าน/ที่ทำงาน) ชื่อสถานที่ ผู้เยี่ยม — ใช้เมื่อผู้ใช้บันทึกแล้วไม่ได้เช็คอิน แต่แอดมินรู้ข้อมูลจริง */
+function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) => void; onClose: () => void }) {
+  const ck = v.checkin
+  const [coordText, setCoordText] = useState(ck ? formatCoord({ lat: ck.lat, lng: ck.lng }) : '')
+  const [coord, setCoord] = useState<Coord | null>(ck ? { lat: ck.lat, lng: ck.lng } : null)
+  const [kind, setKind] = useState<'home' | 'work'>(ck?.kind === 'work' ? 'work' : 'home')
+  const [when, setWhen] = useState(toLocalInput(ck?.at ?? new Date(`${v.date}T10:00:00`).getTime()))
+  const [place, setPlace] = useState(v.place ?? '')
+  const [visitor, setVisitor] = useState(v.visitor ?? '')
+  const [mapOpen, setMapOpen] = useState(false)
+  const [err, setErr] = useState('')
+  const pick = (c: Coord | null) => { setCoord(c); setCoordText(c ? formatCoord(c) : '') }
+  const here = () => {
+    if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
+    navigator.geolocation.getCurrentPosition((p) => pick({ lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6 }), () => setErr('หาตำแหน่งไม่ได้'), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  }
+  const save = () => {
+    if (coordText.trim() && !coord) return setErr('อ่านพิกัดไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps')
+    const at = new Date(when).getTime()
+    if (!Number.isFinite(at)) return setErr('วันเวลาไม่ถูกต้อง')
+    const next: Visit = { ...v, visitor: visitor.trim(), ...(place.trim() ? { place: place.trim() } : { place: undefined }), ...(coord ? { checkin: { ...(ck ?? {}), lat: coord.lat, lng: coord.lng, at, kind, manual: true } } : { checkin: undefined }) }
+    onSave(next)
+  }
+  return (
+    <Sheet title={`แก้การบันทึกเยี่ยม · ${v.memberName.replace(/^place:/, '')}`} onClose={onClose}>
+      <p className="muted small" style={{ margin: 0 }}>เฉพาะแอดมิน — ใช้เติมพิกัด/เวลาที่เช็คอินให้ ในกรณีที่ผู้ใช้บันทึกแล้วไม่ได้เช็คอิน แต่ทราบข้อมูลจริง</p>
+      <div className="field"><label htmlFor="ave-kind">ประเภทเช็คอิน</label>
+        <div className="seg seg--2" role="tablist"><button type="button" role="tab" aria-selected={kind === 'home'} className={kind === 'home' ? 'on' : ''} onClick={() => setKind('home')}>🏠 ที่บ้าน</button><button type="button" role="tab" aria-selected={kind === 'work'} className={kind === 'work' ? 'on' : ''} onClick={() => setKind('work')}>🏢 ที่ทำงาน</button></div></div>
+      <div className="field"><label htmlFor="ave-c">พิกัดเช็คอิน</label>
+        <input id="ave-c" className="input" inputMode="decimal" value={coordText} onChange={(e) => { setCoordText(e.target.value); setCoord(parseCoords(e.target.value)) }} placeholder="เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps" />
+        <div className="row" style={{ marginTop: 4, flexWrap: 'wrap' }}>
+          <button type="button" className="mini" onClick={here}>📍 ใช้ตำแหน่งปัจจุบัน</button>
+          <button type="button" className="mini" aria-haspopup="dialog" onClick={() => setMapOpen(true)}>🗺️ เลือกบนแผนที่</button>
+          {coordText && <button type="button" className="mini" onClick={() => pick(null)}>ล้างพิกัด</button>}
+        </div>
+        {mapOpen && <MapPickSheet initial={coord} title="เลือกตำแหน่งเช็คอิน" onClose={() => setMapOpen(false)} onSave={(c) => { pick(c); setMapOpen(false) }} />}</div>
+      <div className="field"><label htmlFor="ave-t">วัน-เวลาที่เช็คอิน</label><input id="ave-t" type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
+      <div className="field"><label htmlFor="ave-p">ชื่อสถานที่</label><input id="ave-p" className="input" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
+      <div className="field"><label htmlFor="ave-v">ผู้ออกเยี่ยม</label><input id="ave-v" className="input" value={visitor} onChange={(e) => setVisitor(e.target.value)} /></div>
+      {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
+      <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการแก้ไข</button>
+    </Sheet>
+  )
 }
 
 /** หน้าต่างแก้ช่องหนึ่ง: เลือกคน (จากรายชื่อขาดนมัสการ กด ＋) · สถานที่/โครงการ (ไม่ผูกรายชื่อ) · หมายเหตุ */
@@ -167,6 +216,7 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
   const isAdmin = useRole() === 'admin'
+  const [fix, setFix] = useState<Visit | null>(null) // แอดมินแก้การบันทึกให้
   const [del, setDel] = useState<{ d: string; slot: Slot } | null>(null) // รายงาน: แอดมินยกเลิกการบันทึกที่บันทึกผิด
   const open = (d: string, slot: Slot | 'day') => { if (report) { if (isAdmin && slot !== 'day') setDel({ d, slot }); return } if (canEdit) setEdit({ d, slot }) }
   const doc = edit ? plans.of(edit.d) : null
@@ -260,13 +310,16 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
             <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{vs.map((v) => (
               <li key={v.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
                 <span style={{ flex: 1 }}>{v.memberName.replace(/^place:/, '')}{v.absent ? ' ✗ ไม่พบ' : ' ✓'}{v.visitor ? <small className="muted"> · {v.visitor}</small> : null}</span>
-                <button type="button" className="btn btn--danger" aria-label={`ยกเลิกการบันทึก ${v.memberName}`} onClick={() => cancel(v)}>🗑 ยกเลิกการบันทึก</button>
+                {!v.checkin && <small style={{ color: '#a4262c' }}>ยังไม่มีเช็คอิน</small>}
+                <button type="button" className="btn" aria-label={`แก้การบันทึก ${v.memberName}`} onClick={() => setFix(v)}>✎ แก้ไข</button>
+                <button type="button" className="btn btn--danger" aria-label={`ยกเลิกการบันทึก ${v.memberName}`} onClick={() => cancel(v)}>🗑 ยกเลิก</button>
               </li>))}</ul>
-            <p className="muted small">เฉพาะแอดมินเท่านั้นที่ยกเลิกได้</p>
+            <p className="muted small">เฉพาะแอดมินเท่านั้นที่แก้ไข/ยกเลิกได้ · ✎ แก้ไข = เติมพิกัด เวลา สถานที่ ให้รายการที่ลืมเช็คอิน</p>
             <button type="button" className="btn" onClick={() => setDel(null)}>ปิด</button>
           </Sheet>
         )
       })()}
+      {fix && <AdminVisitEdit v={fix} onClose={() => setFix(null)} onSave={(nv) => { visits.put([nv]); setFix(null) }} />}
       {edit && doc && edit.slot !== 'day' && <CellEditor date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} planOnly={mode === 'plan'} />}
     </section>
   )
