@@ -128,7 +128,7 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
 const PASTORAL_PAGES = [
   { id: 'plan', to: '/meeting/4/2', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '📅' },
   { id: 'group', to: '/meeting/4/group', label: 'จัดกลุ่ม', title: 'จัดกลุ่มเยี่ยม', icon: '🧺' },
-  { id: 'record', to: '/meeting/4/record', label: 'บันทึก', title: 'บันทึกเยี่ยม', icon: '📝' },
+  { id: 'record', to: '/meeting/4/record', label: 'บันทึก/เช็คอิน', title: 'บันทึก/เช็คอิน', icon: '📝' },
   { id: 'report', to: '/meeting/4/report', label: 'รายงาน', title: 'รายงานเยี่ยม', icon: '📊' },
 ] as const
 type PastoralStep = (typeof PASTORAL_PAGES)[number]['id']
