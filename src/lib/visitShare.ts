@@ -4,10 +4,11 @@ import { mapsLink } from './geo'
 import type { Visit } from './types'
 
 /** ข้อความสรุปการเยี่ยมสำหรับส่งเข้ากลุ่ม (ไลน์ ฯลฯ) */
-export function visitShareText(o: { dateText: string; names: string[]; visitor: string; checkin?: Visit['checkin'] | null; note?: string; absentNames?: string[] }): string {
+export function visitShareText(o: { dateText: string; names: string[]; visitor: string; checkin?: Visit['checkin'] | null; note?: string; place?: string; absentNames?: string[] }): string {
   const lines = [`🏠 รายงานการเยี่ยม · ${o.dateText}`]
   if (o.names.length) lines.push(`✅ เยี่ยมแล้ว: ${o.names.join(', ')}`)
   if (o.absentNames?.length) lines.push(`✗ ไม่พบ/ไม่อยู่บ้าน: ${o.absentNames.join(', ')}`)
+  if (o.place?.trim()) lines.push(`📌 สถานที่: ${o.place.trim()}`)
   if (o.visitor) lines.push(`👥 ผู้เยี่ยม: ${o.visitor}`)
   if (o.checkin) {
     const t = new Date(o.checkin.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
