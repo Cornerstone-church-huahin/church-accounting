@@ -166,10 +166,10 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const doc = edit ? plans.of(edit.d) : null
   const save = (d: string, next: PlanDoc) => plans.save(d, next)
   // ธีมสีต่างกันตามหน้า: วางแผน = ขาวเรียบ · บันทึก/เช็คอิน = สีอ่อนนุ่ม · รายงาน = เต็มรูปแบบ (กรอบทอง ไล่เฉด) เพราะเป็นหน้าที่ใช้นำเสนอ/ติดประกาศ
-  const P = mode === 'plan', R = mode === 'report'
-  const cl: React.CSSProperties = { ...cell, border: `1.5px solid ${P ? '#c3cbdb' : R ? '#a8924a' : '#5a6a8c'}` }
-  const thx = (bg: string, color: string): React.CSSProperties => ({ ...cl, ...keep, background: P ? '#eef1f6' : bg, color: P ? NAVY : color, textAlign: 'center', ...(R ? { borderBottom: `3px solid ${GOLD}` } : {}) })
-  const slotBg = (i: number, tint: string) => (P ? '#fff' : R ? `linear-gradient(180deg, ${i % 2 ? '#fff' : tint}, ${i % 2 ? tint : '#fff'})` : tint)
+  const P = mode === 'plan', R = mode === 'report', C = mode === 'record' // C = บันทึก/เช็คอิน: โทนเขียวมิ้นต์ (สีของการเช็คอิน)
+  const cl: React.CSSProperties = { ...cell, border: `1.5px solid ${P ? '#c3cbdb' : R ? '#a8924a' : '#79b8ac'}` }
+  const thx = (bg: string, color: string): React.CSSProperties => ({ ...cl, ...keep, background: P ? '#eef1f6' : C ? '#d4efe8' : bg, color: P ? NAVY : C ? '#0f4f47' : color, textAlign: 'center', ...(R ? { borderBottom: `3px solid ${GOLD}` } : {}) })
+  const slotBg = (i: number, tint: string) => (P ? '#fff' : C ? (i % 2 ? '#f3fbf8' : '#e4f6f1') : R ? `linear-gradient(180deg, ${i % 2 ? '#fff' : tint}, ${i % 2 ? tint : '#fff'})` : tint)
   return (
     <section aria-label="ตารางเยี่ยมเยียน">
       <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -179,12 +179,12 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
       </div>
       <ScaledPage ref={ref}>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', height: '100%', color: '#111' }}>
-          <div style={{ ...keep, ...(P ? { background: '#fff', color: NAVY, border: '2px solid #c3cbdb', borderBottom: `5px solid #c3cbdb` } : R ? { background: `linear-gradient(100deg, ${NAVY}, #274a8a 55%, #1a3566)`, color: '#fff', border: `2px solid ${GOLD}`, borderBottom: `6px solid ${GOLD}`, boxShadow: '0 3px 10px rgba(20,38,74,.35)' } : { background: `linear-gradient(100deg, ${NAVY}, #274a8a)`, color: '#fff', borderBottom: `5px solid ${GOLD}` }), borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ ...keep, ...(P ? { background: '#fff', color: NAVY, border: '2px solid #c3cbdb', borderBottom: `5px solid #c3cbdb` } : R ? { background: `linear-gradient(100deg, ${NAVY}, #274a8a 55%, #1a3566)`, color: '#fff', border: `2px solid ${GOLD}`, borderBottom: `6px solid ${GOLD}`, boxShadow: '0 3px 10px rgba(20,38,74,.35)' } : { background: 'linear-gradient(100deg, #0f5f56, #1f8a7a)', color: '#fff', borderBottom: '5px solid #7fd1c1' }), borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <span style={{ fontSize: 40 }} aria-hidden="true">🏠</span>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: 15, letterSpacing: 1, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
               <div style={{ fontSize: 29, fontWeight: 800, lineHeight: 1.15 }}>{TITLE[mode].th}</div>
-              <div style={{ fontSize: 21, fontWeight: 700, color: P ? '#8a6a00' : '#ffd978' }}>วันที่ {range}</div>
+              <div style={{ fontSize: 21, fontWeight: 700, color: P ? '#8a6a00' : C ? '#d8fff5' : '#ffd978' }}>วันที่ {range}</div>
               <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.95 }}>{TITLE[mode].en}</div>
             </div>
             <span style={{ fontSize: 40 }} aria-hidden="true">💛</span>
@@ -204,10 +204,10 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
                 const pd = plans.of(d), seen = visitedBy.get(d) ?? new Set<string>()
                 return (
                   <tr key={d} style={{ height: 160 }}>
-                    <td style={{ ...cl, ...keep, textAlign: 'center', verticalAlign: 'middle', background: P ? '#fff' : R ? 'linear-gradient(180deg, #fff5f5, #fbdcdc)' : i % 2 ? '#fdecec' : '#fff5f5', color: RED, fontWeight: 800 }}>
+                    <td style={{ ...cl, ...keep, textAlign: 'center', verticalAlign: 'middle', background: P ? '#fff' : R ? 'linear-gradient(180deg, #fff5f5, #fbdcdc)' : i % 2 ? '#e1f4ee' : '#edf9f5', color: C ? '#0f5f56' : RED, fontWeight: 800 }}>
                       <div style={{ fontSize: 21 }}>{dayName(d)}</div><div style={{ fontSize: 14, fontWeight: 600 }}>{DAY_EN[new Date(d + 'T00:00:00Z').getUTCDay()]}</div><div style={{ fontSize: 18 }}>{dmy(d)}</div>
                     </td>
-                    <td style={{ ...cl, ...keep, background: P ? '#fff' : R ? 'linear-gradient(180deg, #f1faf7, #d6efe6)' : '#eaf6f2', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle', fontSize: 18 }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{pd.dayText ?? ''}</td>
+                    <td style={{ ...cl, ...keep, background: P ? '#fff' : R ? 'linear-gradient(180deg, #f1faf7, #d6efe6)' : '#f6fcfa', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', fontWeight: 700, textAlign: 'center', verticalAlign: 'middle', fontSize: 18 }} onClick={() => open(d, 'day')} aria-label={`${dayName(d)} กิจกรรมช่วงเช้า`}>{pd.dayText ?? ''}</td>
                     {SLOTS.map((sl) => {
                       const ppl = pd.items.filter((x) => (x.slot ?? 'บ่าย') === sl.k), pls = pd.places?.[sl.k] ?? [], note = pd.slotNotes?.[sl.k]
                       let n = 0
