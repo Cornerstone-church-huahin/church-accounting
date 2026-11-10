@@ -76,7 +76,7 @@ function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ป�
 const DEFAULT_LABELS = ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📝', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
+const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📍', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
@@ -128,7 +128,7 @@ function TabIcons({ n, active, upTo, text = false }: { n: number; active: number
 const PASTORAL_PAGES = [
   { id: 'plan', to: '/meeting/4/2', label: 'วางแผน', title: 'วางแผนเยี่ยม', icon: '📅' },
   { id: 'group', to: '/meeting/4/group', label: 'จัดกลุ่ม', title: 'จัดกลุ่มเยี่ยม', icon: '🧺' },
-  { id: 'record', to: '/meeting/4/record', label: 'บันทึก/เช็คอิน', title: 'บันทึก/เช็คอิน', icon: '📝' },
+  { id: 'record', to: '/meeting/4/record', label: 'บันทึก/เช็คอิน', title: 'บันทึก/เช็คอิน', icon: '📍' },
   { id: 'report', to: '/meeting/4/report', label: 'รายงาน', title: 'รายงานเยี่ยม', icon: '📊' },
 ] as const
 type PastoralStep = (typeof PASTORAL_PAGES)[number]['id']

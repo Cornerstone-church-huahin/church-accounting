@@ -77,12 +77,12 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
       {!planOnly && pend.length > 0 && <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', justifyContent: 'flex-end', paddingBottom: 6, pointerEvents: 'none' }}>
         <div role="dialog" aria-label="ยืนยันบันทึกการเยี่ยม" style={{ pointerEvents: 'auto', width: '88%', ...LIGHT, background: '#fff', border: '3px solid #d4af37', borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,.4)', padding: '10px 12px' }}>
-          <b style={{ display: 'block', fontSize: '1.05rem' }}>✅ บันทึกและเช็คอินการเยี่ยม · {pend.length} คน ในพิกัดเดียวกัน</b>
+          <b style={{ display: 'block', fontSize: '1.05rem' }}>📍 บันทึกและเช็คอินการเยี่ยม · {pend.length} คน ในพิกัดเดียวกัน</b>
           <ol style={{ margin: '4px 0 6px', paddingLeft: '1.4rem', fontSize: '1.05rem', maxHeight: '8.5rem', overflowY: 'auto' }}>{pend.map((x) => <li key={x.id}>{x.name.replace(/^place:/, '')}</li>)}</ol>
           <div className="muted small" style={{ marginBottom: 6 }}>กดปุ่มด้านล่างเพื่อบันทึกการเยี่ยม — เลือกเช็คอินที่บ้านหรือที่ทำงาน (ใช้พิกัดเดียวกันทั้ง {pend.length} คน · ใครอยู่คนละที่ ให้เอาติ๊กออกแล้วบันทึกแยกทีหลัง)</div>
-          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend })}>📝 คลิกบันทึกและเช็คอินการเยี่ยม ›</button>
+          <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend })}>📍 คลิกบันทึกและเช็คอินการเยี่ยม ›</button>
         </div></div>}
-      {mine.length > 0 && <b className="small">👥 {planOnly ? 'คนที่จะไปเยี่ยม' : 'คนที่จะบันทึกและเช็คอินเยี่ยม'} ({mine.length})</b>}
+      {mine.length > 0 && <b className="small">{planOnly ? '👥 คนที่จะไปเยี่ยม' : '📍 คนที่จะบันทึกและเช็คอินเยี่ยม'} ({mine.length})</b>}
       {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${x.name}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <div className="field"><label htmlFor="vt-note">📝 หมายเหตุ (พิมพ์ข้อความ หรือจะเลือกคนจากรายชื่อด้านล่างก็ได้)</label>
         <textarea id="vt-note" className="input" rows={2} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>}
@@ -96,7 +96,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       </div>
       )}
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
-      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '✓ บันทึกและเช็คอิน'}</button></div>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
       {form && (
         <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={form.member ? { member: form.member } : {}}
