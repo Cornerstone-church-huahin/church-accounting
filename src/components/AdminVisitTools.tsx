@@ -13,6 +13,8 @@ import VisitTimetableLab from './VisitTimetableLab'
 import VisitStatsLab from './VisitStatsLab'
 import { useActivityLog, useTripLogs, useVisitPlans } from '../lib/data'
 import { getMe } from '../lib/access'
+import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
+import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { VEHICLES, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
 import { DAY_NAMES, dayKind, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { ChurchMember } from '../lib/types'
@@ -612,6 +614,8 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
   const [dest, setDest] = useState<Coord | null>(initial?.dest ?? null)
   const [destTxt, setDestTxt] = useState(initial?.dest ? formatCoord(initial.dest) : '')
   const [oneWay, setOneWay] = useState<number | null>(initial?.dest ? initial.km / (initial.roundTrip ? 2 : 1) : null)
+  const [photos, setPhotos] = useState<string[]>(initial?.photos ?? [])
+  const [photoBusy, setPhotoBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const admin = !!initial // แก้ย้อนหลัง = แอดมินกรอกพิกัด/กม.เองได้
@@ -639,7 +643,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
     let d = dest
     if (admin && destTxt.trim()) { d = parseCoords(destTxt); if (!d) return setErr('อ่านพิกัดไม่ได้') }
     const me = getMe()
-    const rec: TripLog = { id: initial?.id ?? `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmNum * 10) / 10, roundTrip: true, ...(d ? { dest: d } : {}), by: initial?.by ?? me?.name ?? '', at: initial?.at ?? Date.now(), updated: 0 }
+    const rec: TripLog = { id: initial?.id ?? `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmNum * 10) / 10, roundTrip: true, ...(d ? { dest: d } : {}), ...(photos.length ? { photos } : {}), by: initial?.by ?? me?.name ?? '', at: initial?.at ?? Date.now(), updated: 0 }
     if (tl.put([rec])) onClose(); else setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)')
   }
   return (
@@ -662,6 +666,17 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
       <div className="field"><label htmlFor="tl-k">ระยะทางรวมที่นับค่าน้ำมัน (กม.){admin ? ' — แอดมินแก้เองได้' : ''}</label>
         <input id="tl-k" className="input" inputMode="decimal" value={kmTxt} readOnly={!admin} onChange={(e) => setKmTxt(e.target.value)} placeholder={admin ? 'เช่น 560' : 'ระบบคำนวณให้หลังเช็คอิน'} />
         {vehicle && Number.isFinite(kmNum) && kmNum > 0 && <span className="small" role="status">⛽ ประมาณ <b>{baht(kmNum * rate)}</b> ({rate} บ./กม. · {vehicleOf(vehicle)?.name})</span>}</div>
+      <div className="field"><label>📷 ถ่ายรูป (ไม่บังคับ · สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {photos.map((p) => (
+            <span key={p} style={{ position: 'relative', display: 'inline-block' }}><MemberAvatar path={p} name="📷" size={72} />
+              <button type="button" className="mini" aria-label="ลบรูป" style={{ position: 'absolute', top: -6, right: -6 }} onClick={() => { setPhotos((xs) => xs.filter((x) => x !== p)); void removeMemberPhotoFile(p) }}>✕</button></span>))}
+          {photos.length < MAX_VISIT_PHOTOS && (
+            <label className="act-btn" style={{ cursor: photoBusy ? 'wait' : 'pointer' }}>
+              <span className="act-btn__ico" aria-hidden="true">📸</span><span>{photoBusy ? 'กำลังแนบ…' : 'ถ่ายรูป'}</span>
+              <input type="file" accept="image/*" capture="environment" hidden disabled={photoBusy} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setPhotoBusy(true); try { const p = await uploadVisitPhoto(f); setPhotos((xs) => [...xs, p].slice(0, MAX_VISIT_PHOTOS)) } catch { setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') } setPhotoBusy(false) }} />
+            </label>)}
+        </div></div>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการเดินทาง</button>
     </Sheet>
@@ -735,7 +750,7 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
             {list.map((x) => (
               <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #eee' }}>
                 <img src={vehicleOf(x.vehicle)?.img} alt="" style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 5, border: `2px solid ${vehicleOf(x.vehicle)?.color ?? '#999'}` }} />
-                <span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
+                {x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={44} /> : null}<span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
                 <button type="button" className="mini" aria-label={`แก้ ${x.title}`} onClick={() => setEditTrip(x)}>✎</button>
                 <button type="button" className="mini" aria-label={`ลบ ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>
               </div>))}
