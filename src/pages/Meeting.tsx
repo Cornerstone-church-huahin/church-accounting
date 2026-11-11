@@ -10,7 +10,7 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
-import { AdminZone, MemberHomesMap, VisitRoute } from '../components/AdminVisitTools'
+import { AdminZone, MemberHomesMap, VisitLab, VisitRoute } from '../components/AdminVisitTools'
 import VisitStats from '../components/VisitStats'
 import { VisitGroupsAuto } from '../components/VisitGroups'
 import { useVisitPlans, useVisits } from '../lib/data'
@@ -252,6 +252,7 @@ function MeetingRoom() {
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && k === 'route') return <VisitRoute />
   if (tab?.n === 4 && k === 'stats') return <StatsGate />
+  if (tab?.n === 4 && k === 'lab') return <VisitLab step={s} />
   if (tab?.n === 4 && k === 'homes') return <HomesGate />
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4

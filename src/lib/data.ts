@@ -123,8 +123,8 @@ export function useNotes() {
 
 /** บันทึกการเยี่ยมของงานอภิบาล (ไฟล์เดียว ไม่แบ่งปี) */
 /** แผนเยี่ยมรายวัน (วันละ 1 รายการ เรียงลำดับเส้นทาง) · ซิงก์ถี่ทุก 10 วินาทีเพื่อวางแผนร่วมกันแบบสด */
-export function useVisitPlans() {
-  const s = useSharedStore<VisitPlan>({ localKey: k('visit-plans'), file: 'visit-plans.json', label: 'แผนเยี่ยม', writeCheck: writePlan4, pollMs: 10_000 })
+export function useVisitPlans(ns = '') { // ns = '-lab' → ชุดข้อมูลทดลอง แยกจากของจริง
+  const s = useSharedStore<VisitPlan>({ localKey: k(`visit-plans${ns}`), file: `visit-plans${ns}.json`, label: 'แผนเยี่ยม', writeCheck: writePlan4, pollMs: 10_000 })
   return { ...s, of: (date: string) => planDoc(s.items.find((x) => x.id === `plan-${date}`)), save: (date: string, d: PlanDoc) => s.put([{ id: `plan-${date}`, date, items: d.items, groups: d.groups, names: d.names, v: 2, ...(d.dropped?.length ? { dropped: d.dropped } : {}), ...(d.slotNotes ? { slotNotes: d.slotNotes } : {}), ...(d.places ? { places: d.places } : {}), ...(d.dayText ? { dayText: d.dayText } : {}), updated: 0 }]), verseOf: (week: string) => s.items.find((x) => x.id === `weekmeta-${week}` && !x.deleted)?.verse ?? '', saveVerse: (week: string, text: string) => s.put([{ id: `weekmeta-${week}`, date: week, items: [], verse: text.trim(), updated: 0 }]), canEdit: () => canPlan4() }
 }
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
@@ -132,14 +132,14 @@ export function useVisitorNames() {
   return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', writeCheck: writeWork4 })
 }
 /** กิจกรรมที่ทีมอภิบาลติ๊กว่า “ทำแล้ว” (ไฟล์เดียว) */
-export function useActivityLog() {
-  const s = useSharedStore<ActivityLog>({ localKey: k('activity-log'), file: 'activity-log.json', label: 'บันทึกกิจกรรมเยี่ยม', writeCheck: writeWork4 })
+export function useActivityLog(ns = '') {
+  const s = useSharedStore<ActivityLog>({ localKey: k(`activity-log${ns}`), file: `activity-log${ns}.json`, label: 'บันทึกกิจกรรมเยี่ยม', writeCheck: writeWork4 })
   return { ...s, list: [...s.items].filter((x) => !x.deleted) }
 }
 /** log = ข้อมูลการเยี่ยมจริง (visit-log.json) ใช้ร่วมกันทั้งแท็บ “ตารางเยี่ยม” “บันทึกการเยี่ยม” และ “รายงานการเยี่ยม” · false = ไฟล์เดิม visits.json (เลิกใช้แล้ว) */
-export function useVisits(log = false) {
+export function useVisits(log = false, ns = '') {
   const s = useSharedStore<Visit>(log
-    ? { localKey: k('visit-log'), file: 'visit-log.json', label: 'บันทึกการเยี่ยม', writeCheck: writeWork4 }
+    ? { localKey: k(`visit-log${ns}`), file: `visit-log${ns}.json`, label: 'บันทึกการเยี่ยม', writeCheck: writeWork4 }
     : { localKey: k('visits'), file: 'visits.json', label: 'ตารางเยี่ยม', writeCheck: writeWork4 })
   return { ...s, list: [...s.items].filter((x) => !x.deleted).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated) }
 }
