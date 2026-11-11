@@ -7,13 +7,15 @@ export interface PickOption { value: string; label: string }
  * ตัวเลือกหลายรายการแบบป๊อปอัพ: ปุ่มเดียวบรรทัดเดียว (ไม่กินพื้นที่) → แตะแล้วมีรายการให้ติ๊กได้หลายอัน → “เสร็จ”
  * onAdd = เพิ่มรายการใหม่ในป๊อปอัพ (เก็บถาวรโดยเจ้าของข้อมูล) · onRemove = โหมด “ลบ” แสดงปุ่ม ✕ ที่แต่ละรายการ
  */
-export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, addHint, allLabel }: {
+export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, onRename, addHint, allLabel }: {
+  /** แก้ไขชื่อรายการ (เก่า → ใหม่) */ onRename?: (oldName: string, newName: string) => void
   /** แถวแรกในป๊อปอัพ “ทุก…” (ติ๊กอยู่เมื่อยังไม่ได้เลือกรายการใด · แตะ = ล้างที่เลือกทั้งหมด) */ allLabel?: string; title: string; options: PickOption[]; value: string[]; onChange: (v: string[]) => void; empty: string; id?: string
   onAdd?: (name: string) => void; onRemove?: (value: string) => void; addHint?: string
 }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [del, setDel] = useState(false)
+  const [ed, setEd] = useState(false)
   const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? v
   const shown = value.length === 0 ? empty : value.length <= 2 ? value.map(labelOf).join(', ') : `${value.length} รายการ · ${labelOf(value[0])} …`
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
               {rows.map((o) => (
                 <li key={o.value}>
                   <label className="mpick__row"><input type="checkbox" checked={value.includes(o.value)} onChange={() => toggle(o.value)} /><span>{o.label}</span></label>
+                  {ed && onRename && <button type="button" className="chip__x" aria-label={`แก้ชื่อ ${o.label}`} onClick={() => { const n = window.prompt(`แก้ชื่อ “${o.label}” เป็น`, o.label); if (n && n.trim() && n.trim() !== o.value) { onRename(o.value, n.trim()); onChange(value.map((x) => (x === o.value ? n.trim() : x))) } }}>✎</button>}
                   {del && onRemove && <button type="button" className="chip__x" aria-label={`ลบ ${o.label} ออกจากรายชื่อ`} onClick={() => { onRemove(o.value); onChange(value.filter((x) => x !== o.value)) }}>✕</button>}
                 </li>
               ))}
@@ -54,7 +57,10 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
               </div>
             )}
             <div className="row row--between">
-              {onRemove ? <button type="button" className={`mini${del ? ' on' : ''}`} aria-pressed={del} onClick={() => setDel((v) => !v)}>{del ? 'เลิกลบ' : '✏️ ลบชื่อ'}</button> : <span />}
+              <span className="row" style={{ gap: 6 }}>
+                {onRename && <button type="button" className={`mini${ed ? ' on' : ''}`} aria-pressed={ed} onClick={() => { setEd((v) => !v); setDel(false) }}>{ed ? 'เลิกแก้' : '✎ แก้ชื่อ'}</button>}
+                {onRemove && <button type="button" className={`mini${del ? ' on' : ''}`} aria-pressed={del} onClick={() => { setDel((v) => !v); setEd(false) }}>{del ? 'เลิกลบ' : '🗑 ลบชื่อ'}</button>}
+              </span>
               <button type="button" className="btn btn--gold" onClick={() => setOpen(false)}>เสร็จ</button>
             </div>
           </div>

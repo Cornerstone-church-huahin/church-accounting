@@ -160,6 +160,19 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     if (!roster.includes(n) && !names.items.some((x) => !x.hide && x.name === n) && !(team.includes(n) && hid)) names.put([{ id: newId('vn'), name: n, updated: 0 }])
     setPicked((xs) => (xs.includes(n) ? xs : [...xs, n]))
   }
+  // แก้ชื่อผู้ออกเยี่ยม: ชื่อที่เพิ่มเอง = เปลี่ยนชื่อตรงๆ · ชื่อจากทีมงาน = ซ่อนชื่อเดิมแล้วเพิ่มชื่อใหม่ · และแก้ในบันทึกเยี่ยมเก่าทุกรายการให้ตรงกัน
+  const allVisits = useVisits(true)
+  const renameName = (oldN: string, raw: string) => {
+    const n = raw.trim().replace(/,/g, ' ')
+    if (!n || n === oldN) return
+    const mine = names.items.filter((y) => !y.hide && y.name === oldN)
+    const ups = mine.map((x) => ({ ...x, name: n }))
+    if (team.includes(oldN)) { names.put([{ id: `hide-${oldN}`, name: oldN, hide: true, updated: 0 }]); if (!roster.includes(n) || n !== oldN) names.put([{ id: newId('vn'), name: n, updated: 0 }]) }
+    if (ups.length) names.put(ups)
+    const old = allVisits.list.filter((v) => splitVisitors(v.visitor ?? '').includes(oldN))
+    if (old.length) allVisits.put(old.map((v) => ({ ...v, visitor: joinVisitors(splitVisitors(v.visitor ?? '').map((x) => (x === oldN ? n : x))) })))
+    setPicked((xs) => xs.map((x) => (x === oldN ? n : x)))
+  }
   const dropName = (n: string) => {
     for (const x of names.items.filter((y) => !y.hide && y.name === n)) names.remove(x.id)
     if (team.includes(n)) names.put([{ id: `hide-${n}`, name: n, hide: true, updated: 0 }])
@@ -279,7 +292,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
       <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองและทีมของสายนี้เท่านั้น (เลือกได้หลายคน)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
-          {...(writeNames ? { onAdd: addName, onRemove: dropName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
+          {...(writeNames ? { onAdd: addName, onRemove: dropName, onRename: renameName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
       <div className="field"><label htmlFor="pv-place">📌 ชื่อสถานที่ที่ไปเยี่ยมจุดนี้ <span className="muted small">(เช่น The Pine Plus · จุดใหม่ให้พิมพ์ใหม่)</span></label>
         <input id="pv-place" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="ชื่อสถานที่ ถ้ามี" /></div>
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
