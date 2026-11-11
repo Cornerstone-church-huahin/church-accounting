@@ -616,6 +616,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
   const [oneWay, setOneWay] = useState<number | null>(initial?.dest ? initial.km / (initial.roundTrip ? 2 : 1) : null)
   const [photos, setPhotos] = useState<string[]>(initial?.photos ?? [])
   const [photoBusy, setPhotoBusy] = useState(false)
+  const [needCheckin, setNeedCheckin] = useState(false) // ป๊อปอัพเตือน: ยังไม่ได้เช็คอินปลายทาง
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const admin = !!initial // แก้ย้อนหลัง = แอดมินกรอกพิกัด/กม.เองได้
@@ -638,7 +639,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
   const save = () => {
     if (!vehicle) return setErr('เลือกรถก่อน')
     if (!title.trim()) return setErr('ใส่ว่าไปทำอะไร')
-    if (!dest && !admin) return setErr('ต้องกด “เช็คอินปลายทาง” ที่ปลายทางก่อนจึงบันทึกได้')
+    if (!dest && !admin) { setErr(''); return setNeedCheckin(true) }
     if (!Number.isFinite(kmNum) || kmNum <= 0) return setErr('ยังไม่มีระยะทาง — กด “เช็คอินปลายทาง” หรือ (แอดมิน) กรอกกม.เอง')
     let d = dest
     if (admin && destTxt.trim()) { d = parseCoords(destTxt); if (!d) return setErr('อ่านพิกัดไม่ได้') }
@@ -679,6 +680,13 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
         </div></div>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการเดินทาง</button>
+      {needCheckin && <div role="alertdialog" aria-label="ต้องเช็คอินปลายทางก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ ...LIGHT, background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องเช็คอินปลายทางก่อนบันทึก</b>
+          <p style={{ margin: '8px 0 12px' }}>ยังไม่ได้กด <b>“📍 เช็คอินปลายทาง”</b> — ไปถึงที่หมายแล้วกดปุ่มเช็คอิน ระบบจึงรู้ตำแหน่งและคำนวณระยะทาง/ค่าน้ำมันให้ บันทึกโดยไม่เช็คอินไม่ได้</p>
+          <button type="button" className="btn btn--gold btn--block" onClick={() => { setNeedCheckin(false); checkin() }}>📍 เช็คอินตอนนี้</button>
+          <button type="button" className="btn btn--block" style={{ marginTop: 6 }} onClick={() => setNeedCheckin(false)}>ปิด</button>
+        </div></div>}
     </Sheet>
   )
 }
