@@ -8,6 +8,7 @@ import AbsentList from './AbsentList'
 import VisitPlanBoard from './VisitPlanBoard'
 import VisitCamera, { type Shot } from './VisitCamera'
 import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
+import { VEHICLES } from '../lib/vehicles'
 import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
@@ -143,10 +144,11 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
 }
 
 /** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
-export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; /** ชื่อสถานที่ตั้งต้น (ว่าง = จุดใหม่ที่ต้องกรอกเอง) */ place?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { /** เปิดตัวเลือกยานพาหนะ (แท็บทดลอง) */ vehicles?: boolean; date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; /** ชื่อสถานที่ตั้งต้น (ว่าง = จุดใหม่ที่ต้องกรอกเอง) */ place?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
   const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
   const [place, setPlace] = useState(entry?.place ?? preset?.place ?? '')
+  const [vehicle, setVehicle] = useState<string>(entry?.vehicle ?? '')
   const names = useVisitorNames()
   const initBy = splitVisitors(entry?.visitor ?? preset?.visitor ?? '') // ผู้ออกเยี่ยมเริ่มต้นว่าง ต้องติ๊กเลือกเอง
   const roster = visitorRoster(team, names.items)
@@ -245,7 +247,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
-    const miss = [...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : [])]
+    const miss = [...(vehicles && !vehicle && !testMode ? ['🚗 ยานพาหนะ — เลือกรถที่ใช้ออกเยี่ยม'] : []), ...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
     // เช็คอินอยู่ใกล้คริสตจักร (≤ 150 ม.) = มักกดเช็คอินก่อนออกเดินทาง ไม่ได้อยู่ที่หมาย → ถามก่อนบันทึก
     const cl = stSet.settings
@@ -258,11 +260,11 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       const note = reason.trim()
       return onSaveMany(group.filter((x) => gsel[x.id] !== 'skip').map((x, gi) => {
         const gone = gsel[x.id] === 'absent'
-        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(place.trim() ? { place: place.trim() } : {}), ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(ckFor(x.id, gi) ? { checkin: ckFor(x.id, gi) } : {}), updated: 0 } as Visit
+        return { id: newId('vis'), date, memberId: x.id, memberName: x.name, reason: gone ? `ไม่พบ/ไม่อยู่บ้าน${note ? ` — ${note}` : ''}` : note, ...(stop ? { stop } : {}), ...(gone ? { absent: true } : {}), visitor, ...(place.trim() ? { place: place.trim() } : {}), ...(vehicle ? { vehicle } : {}), ...(photos.length && !gone ? { photos, photoProof: proof.filter((y) => photos.includes(y.path)) } : {}), ...(ckFor(x.id, gi) ? { checkin: ckFor(x.id, gi) } : {}), updated: 0 } as Visit
       }))
     }
     if (!member) return
-    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), ...(place.trim() ? { place: place.trim() } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(ckFor(member.id, 0) ? { checkin: ckFor(member.id, 0) } : {}), updated: 0 })
+    onSave({ id: entry?.id ?? newId('vis'), date, memberId: member.id, memberName: member.name, reason: absent && !/^ไม่พบ/.test(reason.trim()) ? `ไม่พบ/ไม่อยู่บ้าน${reason.trim() ? ` — ${reason.trim()}` : ''}` : reason.trim(), ...(stop ?? entry?.stop ? { stop: (stop ?? entry?.stop) as number } : {}), ...(absent ? { absent: true } : {}), ...(entry?.detail ? { detail: entry.detail } : {}), ...(place.trim() ? { place: place.trim() } : {}), ...(vehicle ? { vehicle } : {}), visitor, ...(photos.length ? { photos, photoProof: proof.filter((x) => photos.includes(x.path)) } : {}), ...(ckFor(member.id, 0) ? { checkin: ckFor(member.id, 0) } : {}), updated: 0 })
   }
   return (
     <Sheet title={`${stop ?? entry?.stop ? `จุดที่ ${stop ?? entry?.stop} · ` : ''}${group ? 'บันทึกทุกคนในจุดนี้' : `${entry ? 'แก้ไข' : 'บันทึก'}การเยี่ยม`} · ${DAY_NAMES[new Date(date + 'T00:00:00Z').getUTCDay()]} ${fmtDay(date)}`} onClose={close}>
@@ -294,6 +296,14 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         ? <p style={{ margin: 0 }}>ผู้ถูกเยี่ยม: <b>{member?.name}</b></p>
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
+      {vehicles && <div className="field"><label>🚗 ยานพาหนะที่ใช้ออกเยี่ยม (เลือกรถก่อน · สีเส้นทางตามรถ)</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }} role="radiogroup" aria-label="ยานพาหนะ">
+          {VEHICLES.map((c) => (
+            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(c.id)} style={{ ...LIGHT, background: '#fff', padding: 4, borderRadius: 12, border: `3px solid ${vehicle === c.id ? c.color : '#d6dbe8'}`, boxShadow: vehicle === c.id ? `0 0 0 2px ${c.color}55` : undefined, textAlign: 'center', font: 'inherit' }}>
+              <img src={c.img} alt={c.name} style={{ width: '100%', height: 70, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}><span style={{ display: 'inline-block', width: 22, height: 5, background: c.color, borderRadius: 3, verticalAlign: 'middle', marginRight: 4 }} />{c.name}{vehicle === c.id ? ' ✓' : ''}</div>
+            </button>))}
+        </div></div>}
       <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อ “หัวหน้าสาย” เป็นคนแรก แล้วตามด้วยทีม (ระบบแยกสายตามหัวหน้า)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, onRename: renameName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
