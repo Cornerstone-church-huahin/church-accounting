@@ -245,18 +245,19 @@ export function VisitRoute() {
 }
 
 /** แผนที่บ้านของสมาชิกที่มีพิกัด */
-type HomeRow = { id: string; name: string; nick: string; photo?: string; lat?: number; lng?: number; wlat?: number; wlng?: number }
+type HomeRow = { id: string; name: string; nick: string; photo?: string; lat?: number; lng?: number; wlat?: number; wlng?: number; plat?: number; plng?: number; pname?: string }
 const hasW = (m: { workLat?: number; workLng?: number }) => typeof m.workLat === 'number' && typeof m.workLng === 'number'
 
 /** ปุ่มนำทาง 2 แบบ: 🏠 ไปบ้าน · 🏢 ไปที่ทำงาน (ไม่มีพิกัดแบบไหน ปุ่มนั้นจาง กดไม่ได้) */
-function NavButtons({ m, onGo }: { m: HomeRow; onGo: (kind: 'home' | 'work') => void }) {
-  const btn = (kind: 'home' | 'work', ok: boolean) => (
-    <button type="button" disabled={!ok} onClick={() => onGo(kind)} aria-label={`นำทางไป${kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'} ${m.name}`} title={ok ? `นำทางไป${kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'}` : `ยังไม่มีพิกัด${kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'}`}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 60, padding: '5px 6px', borderRadius: 12, border: `2px solid ${ok ? (kind === 'home' ? '#c2255c' : '#e67700') : '#b9bec7'}`, background: ok ? '#fff' : '#e6e8ec', filter: ok ? undefined : 'grayscale(1)', opacity: ok ? 1 : 0.55, color: '#1a2b4c', font: 'inherit', lineHeight: 1.1 }}>
-      <span style={{ fontSize: 22 }} aria-hidden="true">{kind === 'home' ? '🏠' : '🏢'}</span><small style={{ fontSize: 12, fontWeight: 700 }}>{kind === 'home' ? 'บ้าน' : 'ที่ทำงาน'}</small>
+function NavButtons({ m, onGo }: { m: HomeRow; onGo: (kind: 'home' | 'work' | 'place') => void }) {
+  const NAME = { home: 'บ้าน', work: 'ที่ทำงาน', place: 'สถานที่' } as const, COL = { home: '#c2255c', work: '#e67700', place: '#6a1b9a' } as const, ICO = { home: '🏠', work: '🏢', place: '📌' } as const
+  const btn = (kind: 'home' | 'work' | 'place', ok: boolean) => (
+    <button type="button" disabled={!ok} onClick={() => onGo(kind)} aria-label={`นำทางไป${NAME[kind]} ${m.name}`} title={ok ? `นำทางไป${NAME[kind]}${kind === 'place' && m.pname ? ` (${m.pname})` : ''}` : `ยังไม่มีพิกัด${NAME[kind]}`}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 52, padding: '5px 4px', borderRadius: 12, border: `2px solid ${ok ? COL[kind] : '#b9bec7'}`, background: ok ? '#fff' : '#e6e8ec', filter: ok ? undefined : 'grayscale(1)', opacity: ok ? 1 : 0.55, color: '#1a2b4c', font: 'inherit', lineHeight: 1.1 }}>
+      <span style={{ fontSize: 22 }} aria-hidden="true">{ICO[kind]}</span><small style={{ fontSize: 11.5, fontWeight: 700 }}>{NAME[kind]}</small>
     </button>
   )
-  return <span style={{ display: 'flex', gap: 8, flex: 'none' }}>{btn('home', typeof m.lat === 'number' && typeof m.lng === 'number')}{btn('work', typeof m.wlat === 'number' && typeof m.wlng === 'number')}</span>
+  return <span style={{ display: 'flex', gap: 8, flex: 'none' }}>{btn('home', typeof m.lat === 'number' && typeof m.lng === 'number')}{btn('work', typeof m.wlat === 'number' && typeof m.wlng === 'number')}{btn('place', typeof m.plat === 'number' && typeof m.plng === 'number')}</span>
 }
 
 /** แผนที่บ้านและที่ทำงานของสมาชิก */
@@ -266,13 +267,13 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
   const st = useSettings()
   const churchPt = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null // พิกัดคริสตจักรที่ตั้งไว้แล้ว = จุดศูนย์กลางของแผนที่
   const [q, setQ] = useState('')
-  const [dest, setDest] = useState<{ name: string; lat: number; lng: number; work?: boolean } | null>(null)
+  const [dest, setDest] = useState<{ name: string; lat: number; lng: number; work?: boolean; place?: boolean } | null>(null)
   const [nav, setNav] = useState<{ from: Coord; m: number; s: number; road: boolean; g: Coord[] } | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [sel, setSel] = useState<string | null>(null)
   const [pop, setPop] = useState(true) // ป๊อปอัพรายชื่อที่ตรงกับคำค้น (ปิดหลังเลือกแล้ว)
-  const toRow = (m: ChurchMember): HomeRow => ({ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, ...(hasCoord(m) ? { lat: m.lat, lng: m.lng } : {}), ...(hasW(m) ? { wlat: m.workLat, wlng: m.workLng } : {}) })
+  const toRow = (m: ChurchMember): HomeRow => ({ id: m.id, name: m.name, nick: m.nick?.trim() ?? '', photo: m.photoPath, ...(hasCoord(m) ? { lat: m.lat, lng: m.lng } : {}), ...(hasW(m) ? { wlat: m.workLat, wlng: m.workLng } : {}), ...(typeof m.placeLat === 'number' && typeof m.placeLng === 'number' ? { plat: m.placeLat, plng: m.placeLng, ...(m.placeName ? { pname: m.placeName } : {}) } : {}) })
   const homeCount = useMemo(() => people.items.filter(hasCoord).length, [people.items])
   // ค้นหา: ชื่อ/ชื่อเล่น/รหัส/เบอร์/หมายเหตุ ตรงคำค้น + "คนที่เกี่ยวข้อง" ดึงจากข้อมูลหลังบ้าน (นามสกุลเดียวกัน · ที่อยู่เดียวกัน · หมายเหตุที่กล่าวถึงกัน) แสดงเฉพาะรายชื่อ
   const matched = useMemo(() => {
@@ -293,13 +294,13 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
     }))
     return [...direct, ...rel]
   }, [people.items, q])
-  const shown = useMemo<HomeRow[]>(() => (q.trim() ? matched : people.items).filter((m) => hasCoord(m) || hasW(m)).map(toRow), [matched, people.items, q]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = useMemo<HomeRow[]>(() => (q.trim() ? matched : people.items).filter((m) => hasCoord(m) || hasW(m) || typeof m.placeLat === 'number').map(toRow), [matched, people.items, q]) // eslint-disable-line react-hooks/exhaustive-deps
   // รายชื่อ: สมาชิกทุกคน (หรือทุกคนที่ตรงคำค้น) — คนที่มีพิกัดขึ้นก่อน · ปุ่มบ้าน/ที่ทำงานที่ยังไม่มีพิกัดเป็นสีเทา
-  const rows = useMemo<HomeRow[]>(() => { const r = (q.trim() ? matched : people.items).map(toRow); return [...r.filter((x) => x.lat != null || x.wlat != null), ...r.filter((x) => x.lat == null && x.wlat == null)] }, [matched, people.items, q]) // eslint-disable-line react-hooks/exhaustive-deps
+  const rows = useMemo<HomeRow[]>(() => { const r = (q.trim() ? matched : people.items).map(toRow); return [...r.filter((x) => x.lat != null || x.wlat != null || x.plat != null), ...r.filter((x) => x.lat == null && x.wlat == null && x.plat == null)] }, [matched, people.items, q]) // eslint-disable-line react-hooks/exhaustive-deps
   const target = q.trim() ? (shown.find((m) => m.id === sel) ?? shown[0] ?? null) : null
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
   // นำทาง: ตำแหน่งปัจจุบัน → บ้านสมาชิก (วาดเส้นตามถนนบนแผนที่ + เปิดนำทางต่อใน Google Maps)
-  const go = (d: { name: string; lat: number; lng: number; work?: boolean }) => {
+  const go = (d: { name: string; lat: number; lng: number; work?: boolean; place?: boolean }) => {
     if (!navigator.geolocation) return setMsg('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setDest(d); setNav(null); setMsg(''); setBusy(true)
     navigator.geolocation.getCurrentPosition(async (p) => {
@@ -310,31 +311,32 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
     }, () => { setBusy(false); setMsg('หาตำแหน่งปัจจุบันไม่ได้ — เปิด GPS และอนุญาตให้แอปใช้ตำแหน่ง แล้วลองใหม่') }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
   }
   const gmaps = (d: Coord) => `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}&travelmode=driving&dir_action=navigate`
-  const goKind = (m: HomeRow, kind: 'home' | 'work') => {
+  const goKind = (m: HomeRow, kind: 'home' | 'work' | 'place') => {
     setSel(m.id); setPop(false)
+    if (kind === 'place' && typeof m.plat === 'number' && typeof m.plng === 'number') { go({ name: `${m.pname || 'สถานที่นัดพบ'} (${m.name})`, lat: m.plat, lng: m.plng, place: true }); try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ } return }
     if (kind === 'work' && typeof m.wlat === 'number' && typeof m.wlng === 'number') go({ name: `ที่ทำงานของ ${m.name}`, lat: m.wlat, lng: m.wlng, work: true })
     else if (typeof m.lat === 'number' && typeof m.lng === 'number') go({ name: m.name, lat: m.lat, lng: m.lng })
     try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch { /* ignore */ }
   }
   // หมุดบนแผนที่: คนที่อยู่จุดเดียวกัน (บ้านเดียวกัน/ที่ทำงานเดียวกัน) รวมเป็นหมุดเดียว — ป๊อปอัพบรรทัดแรก = บ้าน/ที่ทำงาน แล้วตามด้วยชื่อทีละบรรทัด
-  const groupPins = (kind: 'home' | 'work') => {
+  const groupPins = (kind: 'home' | 'work' | 'place') => {
     const g = new Map<string, { lat: number; lng: number; names: string[] }>()
     for (const m of shown) {
-      const lat = kind === 'home' ? m.lat : m.wlat, lng = kind === 'home' ? m.lng : m.wlng
+      const lat = kind === 'home' ? m.lat : kind === 'work' ? m.wlat : m.plat, lng = kind === 'home' ? m.lng : kind === 'work' ? m.wlng : m.plng
       if (typeof lat !== 'number' || typeof lng !== 'number') continue
       const k = `${lat.toFixed(5)},${lng.toFixed(5)}`
       const e = g.get(k) ?? { lat, lng, names: [] }
       e.names.push(m.name); g.set(k, e)
     }
-    return [...g.entries()].map(([k, e]) => ({ id: `${kind}-${k}`, lat: e.lat, lng: e.lng, label: kind === 'home' ? '🏠 บ้าน' : '🏢 ที่ทำงาน', sub: e.names.join('\n'), ...(kind === 'work' ? { color: '#e67700', badge: '🏢' } : {}) }))
+    return [...g.entries()].map(([k, e]) => ({ id: `${kind}-${k}`, lat: e.lat, lng: e.lng, label: kind === 'home' ? '🏠 บ้าน' : kind === 'work' ? '🏢 ที่ทำงาน' : '📌 สถานที่นัดพบ', sub: e.names.join('\n'), ...(kind === 'work' ? { color: '#e67700', badge: '🏢' } : kind === 'place' ? { color: '#6a1b9a', badge: '📌' } : {}) }))
   }
   // เลือกนำทางแล้ว: แผนที่แสดงเฉพาะปลายทาง + จุดที่ผู้ใช้อยู่ (ซูมพอดีกับเส้นทาง) · ยังไม่เลือก: แสดงทุกหมุด
   const pins = dest
     ? [
-      { id: 'dest', lat: dest.lat, lng: dest.lng, label: dest.name, sub: formatCoord(dest), color: dest.work ? '#e67700' : '#c2255c', badge: dest.work ? '🏢' : '🏠' },
+      { id: 'dest', lat: dest.lat, lng: dest.lng, label: dest.name, sub: formatCoord(dest), color: dest.work ? '#e67700' : dest.place ? '#6a1b9a' : '#c2255c', badge: dest.work ? '🏢' : dest.place ? '📌' : '🏠' },
       ...(nav ? [{ id: 'me', lat: nav.from.lat, lng: nav.from.lng, label: '📍 ฉันอยู่ที่นี่', sub: 'ตำแหน่งปัจจุบัน', color: '#1f5fbf', badge: '📍' }] : []),
     ]
-    : [...(churchPt ? [{ id: 'church', lat: churchPt.lat, lng: churchPt.lng, label: '⛪ คริสตจักรศิลาเอก', sub: 'ศูนย์กลาง · จุดเริ่มต้นการเยี่ยม', color: '#1e9e4a', badge: '⛪', size: 42 }] : []), ...groupPins('home'), ...groupPins('work')]
+    : [...(churchPt ? [{ id: 'church', lat: churchPt.lat, lng: churchPt.lng, label: '⛪ คริสตจักรศิลาเอก', sub: 'ศูนย์กลาง · จุดเริ่มต้นการเยี่ยม', color: '#1e9e4a', badge: '⛪', size: 42 }] : []), ...groupPins('home'), ...groupPins('work'), ...groupPins('place')]
   const line = nav ? { segments: [nav.g], labels: [{ at: nav.g[Math.floor(nav.g.length / 2)], text: `${km(nav.m)}${nav.road ? ` · ${mins(nav.s)}` : ''}` }] } : undefined
   return (
     <>
@@ -344,7 +346,7 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
       </div>
       {dest && (
         <div style={{ margin: '8px 0', border: '2px solid #1a73e8', borderRadius: 12, padding: 10, ...LIGHT, background: '#eef5ff' }} role="status">
-          <b>🧭 นำทางไป{dest.work ? '' : 'บ้าน'} {dest.name}</b>
+          <b>🧭 นำทางไป{dest.work || dest.place ? '' : 'บ้าน'} {dest.name}</b>
           <div>{busy ? 'กำลังหาตำแหน่งปัจจุบันและเส้นทาง…' : nav ? <>จากที่ที่คุณอยู่ <b>{km(nav.m)}</b>{nav.road ? <> · ขับประมาณ <b>{mins(nav.s)}</b></> : ' (เส้นตรง — คำนวณตามถนนไม่ได้ตอนนี้)'}</> : msg}</div>
           <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
             <a className="btn btn--gold" href={gmaps(dest)} target="_blank" rel="noreferrer">🚗 เปิดนำทางใน Google Maps</a>

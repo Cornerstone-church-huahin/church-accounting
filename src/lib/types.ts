@@ -384,6 +384,10 @@ export interface ChurchMember extends SharedItem {
   lat?: number
   lng?: number
   /** พิกัดที่ทำงาน (เข้าอัตโนมัติเมื่อ “เช็คอินที่ทำงาน” จากตารางเยี่ยม · ใช้คนละตัวกับพิกัดบ้าน) */
+  /** จุดนัดพบ/สถานที่ที่เคยพบสมาชิกนอกบ้าน (เข้าอัตโนมัติเมื่อ “เช็คอินที่สถานที่”) */
+  placeLat?: number
+  placeLng?: number
+  placeName?: string
   workLat?: number
   workLng?: number
   /** ผู้ดูแลกำหนดผลตรวจเอง (ว่าง = ตามการคำนวณ) */
