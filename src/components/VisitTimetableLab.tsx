@@ -224,7 +224,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
       {form && (
-        <VisitForm date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
+        <VisitForm vehicles date={date} entry={form.entry} stop={0} {...(form.group ? { group: form.group, onSaveMany: (vs: Visit[]) => { visits.put(vs); pinHomes(vs); setForm(null) } } : {})} team={team.map((t) => t.name).filter(Boolean)} writeNames members={people.items} stats={stats} today={today}
           preset={{ ...(form.member ? { member: form.member } : {}), ...(form.entry ? {} : { place: form.place ?? '' }) }}
           photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
           onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); setForm(null) }}
