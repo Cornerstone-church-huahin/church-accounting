@@ -636,15 +636,28 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
   }
   const kmNum = Number(kmTxt.replace(/,/g, ''))
   const rate = vehicleRate(st.settings.vehicleFuel, vehicle, base)
-  const save = () => {
+  const save = async () => {
     if (!vehicle) return setErr('เลือกรถก่อน')
     if (!title.trim()) return setErr('ใส่ว่าไปทำอะไร')
     if (!dest && !admin) { setErr(''); return setNeedCheckin(true) }
     if (!Number.isFinite(kmNum) || kmNum <= 0) return setErr('ยังไม่มีระยะทาง — กด “เช็คอินปลายทาง” หรือ (แอดมิน) กรอกกม.เอง')
     let d = dest
-    if (admin && destTxt.trim()) { d = parseCoords(destTxt); if (!d) return setErr('อ่านพิกัดไม่ได้') }
+    let kmFinal = kmNum
+    if (admin && destTxt.trim()) {
+      d = parseCoords(destTxt); if (!d) return setErr('อ่านพิกัดไม่ได้')
+      // พิกัดเปลี่ยนจากเดิม → คำนวณระยะตามถนนใหม่ให้อัตโนมัติก่อนบันทึก (กม.ที่ค้างจากพิกัดเก่าไม่ถูกใช้)
+      const changed = !initial?.dest || distanceM(d, initial.dest) > 20
+      if (changed && church) {
+        setBusy(true)
+        const r = await fetchRoad(church, d)
+        setBusy(false)
+        const one = (r ? r.m : distanceM(church, d)) / 1000
+        kmFinal = Math.round(one * 2 * 10) / 10
+        setKmTxt(kmFinal.toFixed(1)); setOneWay(one)
+      }
+    }
     const me = getMe()
-    const rec: TripLog = { id: initial?.id ?? `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmNum * 10) / 10, roundTrip: true, ...(d ? { dest: d } : {}), ...(photos.length ? { photos } : {}), by: initial?.by ?? me?.name ?? '', at: initial?.at ?? Date.now(), updated: 0 }
+    const rec: TripLog = { id: initial?.id ?? `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmFinal * 10) / 10, roundTrip: true, ...(d ? { dest: d } : {}), ...(photos.length ? { photos } : {}), by: initial?.by ?? me?.name ?? '', at: initial?.at ?? Date.now(), updated: 0 }
     if (tl.put([rec])) onClose(); else setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)')
   }
   return (
@@ -663,7 +676,8 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
       <div className="field"><label htmlFor="tl-d">วันที่</label><input id="tl-d" type="date" className="input" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></div>
       <button type="button" className="btn btn--gold btn--block" disabled={busy} onClick={checkin} style={{ fontSize: '1.05rem' }}>{busy ? 'กำลังหาตำแหน่ง/คำนวณ…' : dest ? '📍 เช็คอินปลายทางใหม่' : '📍 เช็คอินปลายทาง'}</button>
       {dest && <span className="small" role="status">✓ เช็คอินแล้ว{oneWay ? ` · ระยะทางไป ${oneWay.toFixed(1)} กม. × 2 (ไป-กลับ)` : ''} <a href={mapsLink(dest)} target="_blank" rel="noreferrer">เปิดแผนที่</a></span>}
-      {admin && <div className="field"><label htmlFor="tl-c">พิกัดปลายทาง (แอดมินแก้ได้)</label><input id="tl-c" className="input" inputMode="decimal" value={destTxt} onChange={(e) => setDestTxt(e.target.value)} placeholder="เช่น 11.8124, 99.7973" /></div>}
+      {admin && <div className="field"><label htmlFor="tl-c">พิกัดปลายทาง (แอดมินแก้ได้)</label><input id="tl-c" className="input" inputMode="decimal" value={destTxt} onChange={(e) => setDestTxt(e.target.value)} onBlur={() => { const c = parseCoords(destTxt); if (c && (!dest || distanceM(c, dest) > 20)) void apply(c) }} placeholder="เช่น 11.8124, 99.7973" />
+        <button type="button" className="mini" style={{ marginTop: 4 }} disabled={busy} onClick={() => { const c = parseCoords(destTxt); if (c) void apply(c); else setErr('อ่านพิกัดไม่ได้') }}>🔄 คำนวณระยะใหม่จากพิกัดนี้</button></div>}
       <div className="field"><label htmlFor="tl-k">ระยะทางรวมที่นับค่าน้ำมัน (กม.){admin ? ' — แอดมินแก้เองได้' : ''}</label>
         <input id="tl-k" className="input" inputMode="decimal" value={kmTxt} readOnly={!admin} onChange={(e) => setKmTxt(e.target.value)} placeholder={admin ? 'เช่น 560' : 'ระบบคำนวณให้หลังเช็คอิน'} />
         {vehicle && Number.isFinite(kmNum) && kmNum > 0 && <span className="small" role="status">⛽ ประมาณ <b>{baht(kmNum * rate)}</b> ({rate} บ./กม. · {vehicleOf(vehicle)?.name})</span>}</div>
@@ -679,7 +693,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
             </label>)}
         </div></div>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
-      <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการเดินทาง</button>
+      <button type="button" className="btn btn--gold btn--block" onClick={() => void save()} disabled={busy}>✓ บันทึกการเดินทาง</button>
       {needCheckin && <div role="alertdialog" aria-label="ต้องเช็คอินปลายทางก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ ...LIGHT, background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
           <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องเช็คอินปลายทางก่อนบันทึก</b>
