@@ -12,7 +12,7 @@ import VisitTimetableLab from './VisitTimetableLab'
 import VisitStatsLab from './VisitStatsLab'
 import { useActivityLog, useTripLogs, useVisitPlans } from '../lib/data'
 import { getMe } from '../lib/access'
-import { VEHICLES, vehicleOf, vehicleRate } from '../lib/vehicles'
+import { VEHICLES, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
 import { DAY_NAMES, dayKind, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { ChurchMember } from '../lib/types'
 
@@ -455,21 +455,29 @@ export function VehicleRateSheet({ onClose }: { onClose: () => void }) {
   const base = typeof st.settings.fuelPerKm === 'number' ? st.settings.fuelPerKm : 3.5
   const [txt, setTxt] = useState<Record<string, string>>(() => Object.fromEntries(VEHICLES.map((v) => [v.id, String(vehicleRate(st.settings.vehicleFuel, v.id, base))])))
   const [msg, setMsg] = useState('')
+  const [own, setOwn] = useState<Record<string, { kind: 'church' | 'personal'; name?: string }>>(() => Object.fromEntries(VEHICLES.map((v) => [v.id, vehicleOwner(st.settings.vehicleOwner, v.id)])))
   const save = () => {
     const out: Record<string, number> = {}
     for (const v of VEHICLES) { const n = Number(String(txt[v.id]).replace(/,/g, '')); if (!Number.isFinite(n) || n < 0) return setMsg(`อัตราของ ${v.name} ไม่ถูกต้อง`); out[v.id] = n }
-    if (st.save({ vehicleFuel: out })) onClose() // บันทึกสำเร็จ → ปิดหน้าต่าง ตัวเลขด้านหลังอัปเดตทันที
+    if (st.save({ vehicleFuel: out, vehicleOwner: own })) onClose() // บันทึกสำเร็จ → ปิดหน้าต่าง ตัวเลขด้านหลังอัปเดตทันที
     else setMsg('บันทึกไม่ได้ (ต้องเป็นแอดมิน)')
   }
   return (
     <Sheet title="⛽ อัตราค่าน้ำมันรายคัน (บาท/กม.)" onClose={onClose}>
-      <p className="muted small" style={{ margin: 0 }}>ตั้งราคาต่อกิโลเมตรของรถแต่ละคัน (ค่าเริ่มต้น {base} บาท/กม.) ใช้คำนวณค่าน้ำมันในเส้นทางรถและรายงานค่าน้ำมัน</p>
+      <p className="muted small" style={{ margin: 0 }}>ตั้งราคาต่อกิโลเมตรและเจ้าของรถ: 🏛 รถคริสตจักร = คริสตจักรจ่ายค่าน้ำมันเอง · 👤 รถส่วนตัว = เจ้าของสำรองจ่าย คริสตจักรจ่ายคืนตามระยะจริง (ค่าเริ่มต้น {base} บาท/กม.) ใช้คำนวณค่าน้ำมันในเส้นทางรถและรายงานค่าน้ำมัน</p>
       {VEHICLES.map((v) => (
-        <div key={v.id} className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <div key={v.id} className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid #eee', paddingBottom: 6 }}>
           <img src={v.img} alt={v.name} style={{ width: 64, height: 42, objectFit: 'cover', borderRadius: 8, border: `3px solid ${v.color}` }} />
           <span style={{ flex: 1 }}><b>{v.name}</b></span>
           <input className="input" style={{ width: 90 }} inputMode="decimal" aria-label={`อัตรา ${v.name}`} value={txt[v.id]} onChange={(e) => setTxt({ ...txt, [v.id]: e.target.value })} />
           <span className="small">บ./กม.</span>
+          <div style={{ flexBasis: '100%', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="seg seg--2" role="tablist" aria-label={`เจ้าของ ${v.name}`} style={{ flex: 'none', width: 210 }}>
+              <button type="button" role="tab" aria-selected={own[v.id].kind === 'church'} className={own[v.id].kind === 'church' ? 'on' : ''} onClick={() => setOwn({ ...own, [v.id]: { kind: 'church' } })}>🏛 คริสตจักร</button>
+              <button type="button" role="tab" aria-selected={own[v.id].kind === 'personal'} className={own[v.id].kind === 'personal' ? 'on' : ''} onClick={() => setOwn({ ...own, [v.id]: { ...own[v.id], kind: 'personal' } })}>👤 ส่วนตัว</button>
+            </div>
+            {own[v.id].kind === 'personal' && <input className="input grow" aria-label={`ชื่อเจ้าของ ${v.name}`} placeholder="ชื่อเจ้าของรถ (ถ้าต้องการ)" value={own[v.id].name ?? ''} onChange={(e) => setOwn({ ...own, [v.id]: { kind: 'personal', name: e.target.value } })} />}
+          </div>
         </div>))}
       {msg && <span className="small" role="status">{msg}</span>}
       <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกอัตราและปิด</button>
@@ -560,9 +568,11 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
             {vids.map((id) => (
               <div key={id || 'none'} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
                 {vehicleOf(id) ? <img src={vehicleOf(id)!.img} alt={name(id)} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${vehicleOf(id)!.color}` }} /> : <span aria-hidden="true">🚗</span>}
-                <span style={{ flex: 1, minWidth: 0 }}><b>{name(id)}</b><br /><small className="muted">{km(Math.round(totM(id)))} × {rate(id)} บ./กม.{tripM(id) > 0 ? ` (เยี่ยม ${km(Math.round(totM(id) - tripM(id)))} + เที่ยวงาน ${km(Math.round(tripM(id)))})` : ''}</small></span>
+                <span style={{ flex: 1, minWidth: 0 }}><b>{name(id)}</b> <small style={{ fontWeight: 700, color: vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '#1a73e8' : '#c2185b' }}>{vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '🏛 รถคริสตจักร' : `👤 รถส่วนตัว${vehicleOwner(st.settings.vehicleOwner, id).name ? ` · ${vehicleOwner(st.settings.vehicleOwner, id).name}` : ''}`}</small><br /><small className="muted">{km(Math.round(totM(id)))} × {rate(id)} บ./กม.{tripM(id) > 0 ? ` (เยี่ยม ${km(Math.round(totM(id) - tripM(id)))} + เที่ยวงาน ${km(Math.round(tripM(id)))})` : ''}</small></span>
                 <b style={{ fontSize: '1.1rem' }}>{baht(totM(id) / 1000 * rate(id))}</b>
               </div>))}
+            <div className="row row--between" style={{ paddingTop: 6 }}><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{baht(vids.filter((id) => vehicleOwner(st.settings.vehicleOwner, id).kind === 'church').reduce((a, id) => a + totM(id) / 1000 * rate(id), 0))}</b></div>
+            <div className="row row--between"><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{baht(vids.filter((id) => vehicleOwner(st.settings.vehicleOwner, id).kind !== 'church').reduce((a, id) => a + totM(id) / 1000 * rate(id), 0))}</b></div>
             <div className="row row--between" style={{ paddingTop: 6 }}><b>รวมทั้งหมด</b><b style={{ fontSize: '1.2rem' }}>{baht(grand)}</b></div>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 8 }}>
