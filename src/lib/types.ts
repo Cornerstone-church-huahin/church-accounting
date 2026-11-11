@@ -36,6 +36,8 @@ export interface Settings extends SharedItem {
   visitTestMode?: boolean
   /** ค่าน้ำมันโดยประมาณ (บาทต่อกิโลเมตร) ใช้คำนวณในรายงานเส้นทาง · ว่าง = 3.5 */
   fuelPerKm?: number
+  /** อัตราค่าน้ำมันรายคัน (บาท/กม.) — รหัสรถ → ราคา · ไม่ตั้ง = ใช้ fuelPerKm */
+  vehicleFuel?: Record<string, number>
   churchLat?: number
   churchLng?: number
   /** ใบเบิกที่เกินจำนวนนี้ต้องอนุมัติ 2 ขั้น (ผู้ตรวจสอบ + แอดมิน) · ต่ำกว่าอนุมัติ 1 ขั้น */

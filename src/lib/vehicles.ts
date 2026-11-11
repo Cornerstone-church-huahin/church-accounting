@@ -7,4 +7,6 @@ export const VEHICLES: Vehicle[] = [
   { id: 'van', name: 'รถตู้ขาว', color: '#8e24aa', img: `${base}vehicles/van.jpg` },
   { id: 'suv', name: 'รถ SUV แดง', color: '#d32f2f', img: `${base}vehicles/suv.jpg` },
 ]
+/** อัตราค่าน้ำมัน (บาท/กม.) ของรถคันนั้น: ตั้งรายคัน → ใช้ค่านั้น ไม่ตั้ง → ใช้ค่ากลาง */
+export const vehicleRate = (map: Record<string, number> | undefined, id: string, fallback: number): number => (typeof map?.[id] === 'number' && map[id] >= 0 ? map[id] : fallback)
 export const vehicleOf = (id?: string): Vehicle | undefined => VEHICLES.find((v) => v.id === id)
