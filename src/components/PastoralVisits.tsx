@@ -8,7 +8,7 @@ import AbsentList from './AbsentList'
 import VisitPlanBoard from './VisitPlanBoard'
 import VisitCamera, { type Shot } from './VisitCamera'
 import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
-import { formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
+import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
@@ -60,7 +60,7 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
   // เช็คอินที่บ้าน → พิกัดบ้านเข้าทะเบียนสมาชิกอัตโนมัติ (ยังไม่มีพิกัด) · ถ้ามีแล้วและห่างเกิน 100 ม. ถามก่อนทับ
   const applyCheckin = (v: Visit) => {
     const m = v.checkin ? people.items.find((x) => x.id === v.memberId) : undefined
-    if (!m || !v.checkin || v.checkin.kind === 'work') return
+    if (!m || !v.checkin || v.checkin.kind === 'work' || v.checkin.kind === 'place') return
     const at = { lat: v.checkin.lat, lng: v.checkin.lng }
     const r = homeFromCheckin(m, at)
     if (r.action === 'keep') return
@@ -196,7 +196,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
   const lockedMember = !entry && !!preset?.member
   const [gsel, setGsel] = useState<Record<string, 'met' | 'absent' | 'skip'>>(() => Object.fromEntries((group ?? []).map((x) => [x.id, 'met' as const])))
   const dropFile = (p: string) => { if (!photoShared?.(p)) void removeMemberPhotoFile(p) }
-  const locate = (kind: 'home' | 'work' = 'home') => {
+  const locate = (kind: 'home' | 'work' | 'place' = 'home') => {
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setLocBusy(true); setErr('')
     navigator.geolocation.getCurrentPosition(
@@ -247,6 +247,10 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
     const miss = [...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
+    // เช็คอินอยู่ใกล้คริสตจักร (≤ 150 ม.) = มักกดเช็คอินก่อนออกเดินทาง ไม่ได้อยู่ที่หมาย → ถามก่อนบันทึก
+    const cl = stSet.settings
+    if (checkin && !checkin.sim && !entry && typeof cl.churchLat === 'number' && typeof cl.churchLng === 'number' && distanceM(checkin, { lat: cl.churchLat, lng: cl.churchLng }) <= 150
+      && !window.confirm('⚠️ จุดเช็คอินอยู่ใกล้คริสตจักร (ไม่เกิน 150 เมตร)\nถึงที่หมายจริงแล้วหรือยัง?\n\nกด “ตกลง” = บันทึกตามนี้\nกด “ยกเลิก” = กลับไปเช็คอินใหม่ที่ปลายทาง')) return
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
     added.current.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
@@ -298,11 +302,12 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>
       <div className="field"><label>เช็คอินตำแหน่ง{needProof ? ' (บังคับ)' : ''}</label>
         <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button type="button" className={`btn ${checkin?.kind === 'work' ? '' : 'btn--gold'}`} disabled={locBusy} onClick={() => locate('home')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin && checkin.kind !== 'work' ? '📍 เช็คอินที่บ้านใหม่' : '📍 เช็คอินที่บ้าน'}</button>
+          <button type="button" className={`btn ${!checkin || checkin.kind === 'home' || !checkin.kind ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('home')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin && (checkin.kind === 'home' || !checkin.kind) ? '📍 เช็คอินที่บ้านใหม่' : '📍 เช็คอินที่บ้าน'}</button>
           <button type="button" className={`btn ${checkin?.kind === 'work' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('work')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'work' ? '🏢 เช็คอินที่ทำงานใหม่' : '🏢 เช็คอินที่ทำงาน'}</button>
+          <button type="button" className={`btn ${checkin?.kind === 'place' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('place')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'place' ? '📌 เช็คอินที่สถานที่ใหม่' : '📌 เช็คอินที่สถานที่'}</button>
           {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
         </div>
-        <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'work' ? '' : ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ'}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
+        <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : checkin.kind === 'place' ? 'ที่สถานที่นัดพบ' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'home' || !checkin.kind ? ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ' : ''}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
         {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
       {entry && <div className="field"><label>รูปการเยี่ยม (ไม่บังคับ · เพิ่มภายหลังได้ สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
