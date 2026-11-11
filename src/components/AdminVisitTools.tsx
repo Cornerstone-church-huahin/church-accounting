@@ -8,6 +8,9 @@ import { useRole } from '../lib/members'
 import { isWorkStaffOnly } from '../lib/access'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
+import VisitTimetableLab from './VisitTimetableLab'
+import VisitStatsLab from './VisitStatsLab'
+import { useActivityLog, useVisitPlans } from '../lib/data'
 import { DAY_NAMES, dayKind, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { ChurchMember } from '../lib/types'
 
@@ -19,6 +22,7 @@ export const useIsAdminZone = () => useRole() === 'admin' && !isWorkStaffOnly()
 const TOOLS = [
   { to: '/meeting/4/report', icon: '📊', label: 'รายงานการเยี่ยม' },
   { to: '/meeting/4/route', icon: '🧭', label: 'รายงานเส้นทาง' },
+  { to: '/meeting/4/lab/1', icon: '🧪', label: 'งาน/การเยี่ยม (ทดลอง)' },
 ] as const
 
 export function AdminZone() {
@@ -32,7 +36,7 @@ export function AdminZone() {
         {TOOLS.map((t, i) => (
           <Link key={t.to} to={t.to} className={`btile btile--${(['own', 'fund', 'total'] as const)[i]}`}><small aria-hidden="true">{t.icon}</small><b>{t.label}</b></Link>
         ))}
-        {[3, 4, 5, 6].map((n) => (
+        {[4, 5, 6].map((n) => (
           <span key={n} className="btile btile--indebt" style={{ opacity: 0.45 }} aria-disabled="true"><small aria-hidden="true">➕</small><b>ช่อง {n} (ว่าง)</b></span>
         ))}
       </nav>
@@ -393,6 +397,47 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
             </li>)
         })}
       </ul>
+    </>
+  )
+}
+
+/** 🧪 งาน/การเยี่ยม (ทดลอง): สำเนาของแท็บจริง ข้อมูลแยกชุด (-lab) เห็นและเข้าได้เฉพาะแอดมิน — ใช้พัฒนาฟังก์ชันใหม่โดยไม่กระทบผู้ดูแลและข้อมูลจริง */
+export function VisitLab({ step }: { step?: string }) {
+  const ok = useIsAdminZone()
+  const realPlans = useVisitPlans(), labPlans = useVisitPlans('-lab')
+  const realVisits = useVisits(true), labVisits = useVisits(true, '-lab')
+  const realActs = useActivityLog(), labActs = useActivityLog('-lab')
+  const [msg, setMsg] = useState('')
+  if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
+  const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : 1
+  const seed = () => {
+    if (!window.confirm('คัดลอกข้อมูลจริง (แผน บันทึกเยี่ยม กิจกรรม) มาเป็นข้อมูลตั้งต้นของแท็บทดลอง?\nข้อมูลทดลองเดิมที่ id ซ้ำกันจะถูกเขียนทับ — ข้อมูลจริงไม่เปลี่ยน')) return
+    labPlans.put(realPlans.items.filter((x) => !x.deleted).map((x) => ({ ...x, updated: 0 })))
+    labVisits.put(realVisits.list.map((x) => ({ ...x, updated: 0 })))
+    labActs.put(realActs.list.map((x) => ({ ...x, updated: 0 })))
+    setMsg(`คัดลอกแล้ว: แผน ${realPlans.items.filter((x) => !x.deleted).length} · บันทึกเยี่ยม ${realVisits.list.length} · กิจกรรม ${realActs.list.length}`)
+  }
+  const wipe = () => {
+    if (!window.confirm('ล้างข้อมูลทดลองทั้งหมด (แผน บันทึกเยี่ยม กิจกรรม ของแท็บทดลอง)? ข้อมูลจริงไม่เปลี่ยน')) return
+    labPlans.items.forEach((x) => labPlans.remove(x.id)); labVisits.list.forEach((x) => labVisits.remove(x.id)); labActs.list.forEach((x) => labActs.remove(x.id))
+    setMsg('ล้างข้อมูลทดลองแล้ว')
+  }
+  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ']] as const
+  return (
+    <>
+      <div className="page-head no-print"><h1>🧪 งาน/การเยี่ยม (ทดลอง)</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
+      <div role="note" className="no-print" style={{ ...LIGHT, background: '#fff3cd', border: '1.5px dashed #e0b100', borderRadius: 12, padding: '6px 10px', marginBottom: 8, fontSize: '0.9rem' }}>
+        🔒 <b>สำเนาทดลอง · เฉพาะแอดมิน</b> — ใช้ข้อมูลแยกจากของจริง ผู้ดูแลคนอื่นไม่เห็นและไม่กระทบ
+        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          <button type="button" className="mini" onClick={seed}>📥 คัดลอกข้อมูลจริงมาเป็นตั้งต้น</button>
+          <button type="button" className="mini" onClick={wipe}>🗑 ล้างข้อมูลทดลอง</button>
+        </div>
+        {msg && <div className="small" role="status">{msg}</div>}
+      </div>
+      <nav className="tabicons tabicons--txt no-print" aria-label="ขั้นตอน (ทดลอง)" style={{ marginBottom: 6 }}>
+        {steps.map(([k, ico, label]) => <Link key={k} to={`/meeting/4/lab/${k}`} replace className={`tabicons__i${String(n) === k ? ' on' : ''}`} aria-current={String(n) === k ? 'page' : undefined}><i aria-hidden="true">{k}</i><span aria-hidden="true">{ico}</span><em aria-hidden="true">{label}</em></Link>)}
+      </nav>
+      {n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
     </>
   )
 }
