@@ -294,7 +294,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         ? <p style={{ margin: 0 }}>ผู้ถูกเยี่ยม: <b>{member?.name}</b></p>
         : <AbsentList label={`① เลือกสมาชิกที่ไปเยี่ยม${member ? ` · เลือกแล้ว: ${member.name}` : ''}`} members={members} stats={stats} today={today} selectedId={member?.id} onPick={pick} />}
       {!group && <label className="row" style={{ gap: 8, alignItems: 'center' }}><input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} /> <span>ไม่พบ / ไม่อยู่บ้าน (ใส่หมายเหตุได้ · ไม่ต้องถ่ายรูป)</span></label>}
-      <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองและทีมของสายนี้เท่านั้น (เลือกได้หลายคน)</label>
+      <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อ “หัวหน้าสาย” เป็นคนแรก แล้วตามด้วยทีม (ระบบแยกสายตามหัวหน้า)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, onRename: renameName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
       <div className="field"><label htmlFor="pv-place">📌 ชื่อสถานที่ที่ไปเยี่ยมจุดนี้ <span className="muted small">(เช่น The Pine Plus · จุดใหม่ให้พิมพ์ใหม่)</span></label>

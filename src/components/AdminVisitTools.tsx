@@ -136,10 +136,10 @@ export function VisitRoute() {
   const date = pickDay && days.includes(pickDay) ? pickDay : days.includes(todayISO()) ? todayISO() : days.find((d) => checkDays.has(d)) ?? days[0]
   const range = (() => { const [ya, ma, da] = days[0].split('-').map(Number), [yb, mb, db] = days[days.length - 1].split('-').map(Number); return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}` })()
   const trips = useMemo(() => {
-    const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work' | 'place'; sim?: boolean; who: string; names: string[] }>()
+    const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work' | 'place'; sim?: boolean; who: string; team: string[]; names: string[] }>()
     for (const v of visits.list) {
       if (v.date !== date || !v.checkin) continue
-      const s = byAt.get(v.checkin.at) ?? { at: v.checkin.at, lat: v.checkin.lat, lng: v.checkin.lng, kind: v.checkin.kind, sim: v.checkin.sim, who: splitVisitors(v.visitor ?? '').sort().join(', '), names: [] }
+      const s = byAt.get(v.checkin.at) ?? { at: v.checkin.at, lat: v.checkin.lat, lng: v.checkin.lng, kind: v.checkin.kind, sim: v.checkin.sim, who: splitVisitors(v.visitor ?? '')[0] ?? '', team: splitVisitors(v.visitor ?? ''), names: [] }
       s.names.push(v.memberName.replace(/^place:/, ''))
       byAt.set(v.checkin.at, s)
     }
@@ -173,6 +173,8 @@ export function VisitRoute() {
   const LINE_COL = ['#1a73e8', '#e8710a', '#8e24aa', '#0b8043', '#c2185b']
   const lineOf = (t: { who: string }[]) => Math.max(0, whoList.indexOf(t[0].who))
   const multi = whoList.length > 1
+  // สาย = หัวหน้าทีม (ชื่อแรกที่ลงไว้) · ทีม = ผู้ออกเยี่ยมทุกคนที่ไปกับหัวหน้าคนนั้นในวัน
+  const teamOf = (w: string) => [...new Set(trips.filter((t) => t[0].who === w).flatMap((t) => t.flatMap((s) => s.team)))].filter((n) => n !== w)
   const legCount = calcs.reduce((a, c) => a + c.legs.length, 0)
   const roadCount = calcs.reduce((a, c) => a + c.legs.filter((l) => l.road).length, 0)
   const pins = [
@@ -216,7 +218,7 @@ export function VisitRoute() {
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
           <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(grand / 1000 * rate)}</b> <small className="muted">({roadNote})</small></p>
-          {multi && <div className="small" style={{ margin: '4px 0' }} aria-label="สรุปแต่ละสาย">{whoList.map((w, i) => { const tot = calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + c.total : x), 0); return <div key={w} style={{ color: '#222' }}><b style={{ color: LINE_COL[i % LINE_COL.length] }}>━━ สายที่ {i + 1}</b> ({w || 'ไม่ระบุผู้ออกเยี่ยม'}) · <b>{km(tot)}</b> · ⛽ {baht(tot / 1000 * rate)}</div> })}</div>}
+          {multi && <div className="small" style={{ margin: '4px 0' }} aria-label="สรุปแต่ละสาย">{whoList.map((w, i) => { const tot = calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + c.total : x), 0); return <div key={w} style={{ color: '#222' }}><b style={{ color: LINE_COL[i % LINE_COL.length] }}>━━ สายที่ {i + 1}</b> · หัวหน้า <b>{w || 'ไม่ระบุ'}</b>{teamOf(w).length ? <small className="muted"> (ทีม: {teamOf(w).join(', ')})</small> : null} · <b>{km(tot)}</b> · ⛽ {baht(tot / 1000 * rate)}</div> })}</div>}
           <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
           <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1e9e4a', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ fontWeight: 700 }}>● จุดเยี่ยม (เลขตามลำดับ · สีเดียวกับเส้นของสาย)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
@@ -224,7 +226,7 @@ export function VisitRoute() {
             const off = church ? 0 : 1
             return (
               <section key={t[0].at} style={{ marginTop: 10, border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
-                {multi && <b style={{ color: LINE_COL[lineOf(t) % LINE_COL.length] }}>━ สายที่ {lineOf(t) + 1} <small style={{ color: '#555', fontWeight: 600 }}>({t[0].who || 'ไม่ระบุผู้ออกเยี่ยม'})</small> · </b>}<b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{baht(total / 1000 * rate)}</b>
+                {multi && <b style={{ color: LINE_COL[lineOf(t) % LINE_COL.length] }}>━ สายที่ {lineOf(t) + 1} <small style={{ color: '#555', fontWeight: 600 }}>(หัวหน้า {t[0].who || 'ไม่ระบุ'})</small> · </b>}<b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{baht(total / 1000 * rate)}</b>
                 <ol style={{ margin: '6px 0 0', paddingLeft: '1.3rem' }}>
                   {church && <li>⛪ คริสตจักร (ออกเดินทาง)</li>}
                   {t.map((s, i) => (

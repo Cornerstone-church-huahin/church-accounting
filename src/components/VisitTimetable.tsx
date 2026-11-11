@@ -193,7 +193,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
         const ids = new Set([...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)])
         const vs = visits.list.filter((v) => v.date === date && ids.has(v.memberId))
         const g = new Map<string, Visit[]>()
-        for (const v of vs) { const key = splitVisitors(v.visitor ?? '').sort().join(', ') || '(ไม่ระบุผู้ออกเยี่ยม)'; g.set(key, [...(g.get(key) ?? []), v]) }
+        for (const v of vs) { const key = splitVisitors(v.visitor ?? '')[0] || '(ไม่ระบุผู้ออกเยี่ยม)'; g.set(key, [...(g.get(key) ?? []), v]) }
         const lines = [...g.entries()].sort((a, b) => Math.min(...a[1].map((v) => v.checkin?.at ?? v.updated)) - Math.min(...b[1].map((v) => v.checkin?.at ?? v.updated)))
         const left = [...mine.map((x) => x.name), ...places].filter((_, i) => !done(i < mine.length ? mine[i].id : `place:${places[i - mine.length]}`))
         if (!lines.length && !left.length) return null
@@ -202,7 +202,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
             <b>🚗 ความคืบหน้าของแต่ละสาย</b>
             {lines.map(([who, list], i) => (
               <div key={who} style={{ marginTop: 4 }}>
-                <b>สายที่ {i + 1}</b> · {who} — <span style={{ color: '#1e7a3c', fontWeight: 700 }}>ออกเยี่ยมแล้ว {list.length} คน ✓</span>
+                <b>สายที่ {i + 1}</b> · หัวหน้า {who} — <span style={{ color: '#1e7a3c', fontWeight: 700 }}>ออกเยี่ยมแล้ว {list.length} คน ✓</span>
                 <div className="small" style={{ color: '#555' }}>{list.map((v) => v.memberName.replace(/^place:/, '')).join(' · ')}{list[0].place ? ` · 📌 ${list[0].place}` : ''}</div>
               </div>))}
             {left.length > 0
