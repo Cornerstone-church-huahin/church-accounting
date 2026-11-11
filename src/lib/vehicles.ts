@@ -9,4 +9,6 @@ export const VEHICLES: Vehicle[] = [
 ]
 /** อัตราค่าน้ำมัน (บาท/กม.) ของรถคันนั้น: ตั้งรายคัน → ใช้ค่านั้น ไม่ตั้ง → ใช้ค่ากลาง */
 export const vehicleRate = (map: Record<string, number> | undefined, id: string, fallback: number): number => (typeof map?.[id] === 'number' && map[id] >= 0 ? map[id] : fallback)
+/** เจ้าของรถ: ค่าเริ่มต้น รถตู้ = ของคริสตจักร · คันอื่น = รถส่วนตัว (ตั้งเปลี่ยนได้) */
+export const vehicleOwner = (map: Record<string, { kind: 'church' | 'personal'; name?: string }> | undefined, id: string): { kind: 'church' | 'personal'; name?: string } => map?.[id] ?? { kind: id === 'van' ? 'church' : 'personal' }
 export const vehicleOf = (id?: string): Vehicle | undefined => VEHICLES.find((v) => v.id === id)

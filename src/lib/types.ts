@@ -38,6 +38,8 @@ export interface Settings extends SharedItem {
   fuelPerKm?: number
   /** อัตราค่าน้ำมันรายคัน (บาท/กม.) — รหัสรถ → ราคา · ไม่ตั้ง = ใช้ fuelPerKm */
   vehicleFuel?: Record<string, number>
+  /** เจ้าของรถ: church = รถคริสตจักร (คริสตจักรจ่ายค่าน้ำมันเอง) · personal = รถส่วนตัว (เจ้าของสำรองจ่าย → คริสตจักรจ่ายคืนตามระยะจริง) */
+  vehicleOwner?: Record<string, { kind: 'church' | 'personal'; name?: string }>
   churchLat?: number
   churchLng?: number
   /** ใบเบิกที่เกินจำนวนนี้ต้องอนุมัติ 2 ขั้น (ผู้ตรวจสอบ + แอดมิน) · ต่ำกว่าอนุมัติ 1 ขั้น */
