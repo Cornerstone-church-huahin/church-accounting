@@ -415,7 +415,7 @@ export function VisitLab({ step }: { step?: string }) {
   const realActs = useActivityLog(), labActs = useActivityLog('-lab')
   const [msg, setMsg] = useState('')
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
-  const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : step === '5' ? 5 : step === '6' ? 6 : 1
+  const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : step === '5' ? 5 : step === '6' ? 6 : step === '7' ? 7 : 1
   const seed = () => {
     if (!window.confirm('คัดลอกข้อมูลจริง (แผน บันทึกเยี่ยม กิจกรรม) มาเป็นข้อมูลตั้งต้นของแท็บทดลอง?\nข้อมูลทดลองเดิมที่ id ซ้ำกันจะถูกเขียนทับ — ข้อมูลจริงไม่เปลี่ยน')) return
     labPlans.put(realPlans.items.filter((x) => !x.deleted).map((x) => ({ ...x, updated: 0 })))
@@ -428,7 +428,7 @@ export function VisitLab({ step }: { step?: string }) {
     labPlans.items.forEach((x) => labPlans.remove(x.id)); labVisits.list.forEach((x) => labVisits.remove(x.id)); labActs.list.forEach((x) => labActs.remove(x.id))
     setMsg('ล้างข้อมูลทดลองแล้ว')
   }
-  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน']] as const
+  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน'], ['7', '🚗', 'เดินทาง/เที่ยวงาน']] as const
   return (
     <>
       <div className="page-head no-print"><h1>🧪 งาน/การเยี่ยม (ทดลอง)</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
@@ -443,8 +443,7 @@ export function VisitLab({ step }: { step?: string }) {
       <nav className="tabicons tabicons--txt no-print" aria-label="ขั้นตอน (ทดลอง)" style={{ marginBottom: 6 }}>
         {steps.map(([k, ico, label]) => <Link key={k} to={`/meeting/4/lab/${k}`} replace className={`tabicons__i${String(n) === k ? ' on' : ''}`} aria-current={String(n) === k ? 'page' : undefined}><i aria-hidden="true">{k}</i><span aria-hidden="true">{ico}</span><em aria-hidden="true">{label}</em></Link>)}
       </nav>
-      {n === 2 && <TripLogButton ns="-lab" />}
-      {n === 6 ? <VehicleFuelReport ns="-lab" /> : n === 5 ? <VisitRoute ns="-lab" byVehicle embedded /> : n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
+            {n === 7 ? <VehicleTripsPage ns="-lab" /> : n === 6 ? <VehicleFuelReport ns="-lab" /> : n === 5 ? <VisitRoute ns="-lab" byVehicle embedded /> : n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
     </>
   )
 }
@@ -584,7 +583,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
               </tbody>
             </table>
           </div>
-          {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 เที่ยวงานในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b> <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}{x.roundTrip ? ' ไป-กลับ' : ''} · {baht(x.km * rate(x.vehicle))}</small></span><button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบเที่ยวงาน “${x.title}”?`)) tl.remove(x.id) }}>🗑</button></div>)}</div>}
+          {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 เที่ยวงานในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}{x.roundTrip ? ' ไป-กลับ' : ''} · {baht(x.km * rate(x.vehicle))}</small></span><button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบเที่ยวงาน “${x.title}”?`)) tl.remove(x.id) }}>🗑</button></div>)}</div>}
           <p className="muted small">คำนวณจากระยะ คริสตจักร → จุดเช็คอิน → กลับ ตามถนนจริง (เส้นตรงถ้าคำนวณไม่ได้) เป็นค่าประมาณ ไม่ใช่ค่าน้ำมันที่จ่ายจริง</p>
         </>
       )}
@@ -601,6 +600,7 @@ export function TripLogButton({ ns = '' }: { ns?: string }) {
   const [open, setOpen] = useState(false)
   const [vehicle, setVehicle] = useState('')
   const [title, setTitle] = useState('')
+  const [placeName, setPlaceName] = useState('')
   const [date, setDate] = useState(todayISO())
   const [round, setRound] = useState(true)
   const [kmTxt, setKmTxt] = useState('')
@@ -609,7 +609,7 @@ export function TripLogButton({ ns = '' }: { ns?: string }) {
   const [oneWay, setOneWay] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const reset = () => { setVehicle(''); setTitle(''); setDate(todayISO()); setRound(true); setKmTxt(''); setDestTxt(''); setDest(null); setOneWay(null); setErr('') }
+  const reset = () => { setVehicle(''); setTitle(''); setPlaceName(''); setDate(todayISO()); setRound(true); setKmTxt(''); setDestTxt(''); setDest(null); setOneWay(null); setErr('') }
   const calc = async () => {
     const c = parseCoords(destTxt)
     if (!c) return setErr('อ่านพิกัดปลายทางไม่ได้ — วางลิงก์ Google Maps หรือพิมพ์ เช่น 12.5684, 99.9577')
@@ -627,12 +627,12 @@ export function TripLogButton({ ns = '' }: { ns?: string }) {
     if (!title.trim()) return setErr('ใส่เรื่อง/จุดประสงค์ของเที่ยวนี้')
     if (!Number.isFinite(kmNum) || kmNum <= 0) return setErr('ใส่ระยะทาง (กม.) หรือวางพิกัดปลายทางแล้วกด “คำนวณระยะ”')
     const me = getMe()
-    if (tl.put([{ id: `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), km: Math.round(kmNum * 10) / 10, roundTrip: round, ...(dest ? { dest } : {}), by: me?.name ?? '', at: Date.now(), updated: 0 }])) { reset(); setOpen(false) }
+    if (tl.put([{ id: `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmNum * 10) / 10, roundTrip: round, ...(dest ? { dest } : {}), by: me?.name ?? '', at: Date.now(), updated: 0 }])) { reset(); setOpen(false) }
     else setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)')
   }
   return (
     <>
-      <button type="button" className="btn btn--block no-print" style={{ marginBottom: 8 }} onClick={() => setOpen(true)}>🚗 บันทึกเที่ยวงาน (สัมมนา / ไปรับของ ฯลฯ)</button>
+      <button type="button" className="btn btn--gold btn--block no-print" style={{ marginBottom: 8, fontSize: '1.05rem' }} onClick={() => setOpen(true)}>＋ 🚗 บันทึกการเดินทาง (ไปทำอะไร · รถคันไหน · ไปที่ไหน)</button>
       {open && (
         <Sheet title="🚗 บันทึกเที่ยวงาน" onClose={() => setOpen(false)}>
           <p className="muted small" style={{ margin: 0 }}>รถคันไหนไป ค่าน้ำมันเป็นของคันนั้น (ไม่ต้องเลือกผู้ขับ) ยอดเข้ารายงานค่าน้ำมันรวมกับการเยี่ยม</p>
@@ -644,7 +644,8 @@ export function TripLogButton({ ns = '' }: { ns?: string }) {
                   <div style={{ fontSize: 10.5, fontWeight: 700 }}>{c.name.replace('รถ', '')}{vehicle === c.id ? ' ✓' : ''}</div>
                 </button>))}
             </div></div>
-          <div className="field"><label htmlFor="tl-t">เรื่อง / จุดประสงค์</label><input id="tl-t" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น สัมมนาที่ประจวบฯ · ไปรับของที่กรุงเทพ" /></div>
+          <div className="field"><label htmlFor="tl-t">ไปทำอะไร (หมายเหตุ)</label><input id="tl-t" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ไปสัมมนา · ไปรับของ" /></div>
+          <div className="field"><label htmlFor="tl-pl">ปลายทาง (ชื่อสถานที่)</label><input id="tl-pl" className="input" value={placeName} onChange={(e) => setPlaceName(e.target.value)} placeholder="เช่น จ.ประจวบคีรีขันธ์ · กรุงเทพฯ" /></div>
           <div className="field"><label htmlFor="tl-d">วันที่</label><input id="tl-d" type="date" className="input" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></div>
           <div className="seg seg--2" role="tablist" aria-label="เที่ยว"><button type="button" role="tab" aria-selected={round} className={round ? 'on' : ''} onClick={() => { setRound(true); if (oneWay) setKmTxt((oneWay * 2).toFixed(1)) }}>↔ ไป-กลับ</button><button type="button" role="tab" aria-selected={!round} className={!round ? 'on' : ''} onClick={() => { setRound(false); if (oneWay) setKmTxt(oneWay.toFixed(1)) }}>→ เที่ยวเดียว</button></div>
           <div className="field"><label htmlFor="tl-c">ปลายทาง (วางลิงก์ Google Maps / พิกัด — ให้ระบบคำนวณระยะตามถนนจากคริสตจักร)</label>
@@ -656,5 +657,73 @@ export function TripLogButton({ ns = '' }: { ns?: string }) {
         </Sheet>
       )}
     </>
+  )
+}
+
+/** หน้า “เดินทาง/เที่ยวงาน”: บันทึกการเดินทาง (ไปทำอะไร · รถคันไหน · ไปที่ไหน) + รายงานต่อรถ: ใช้น้ำมันกี่กม./กี่บาท และใครต้องได้เงินคืน */
+export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
+  const tl = useTripLogs(ns)
+  const st = useSettings()
+  const base = typeof st.settings.fuelPerKm === 'number' ? st.settings.fuelPerKm : 3.5
+  const [mode, setMode] = useState<'week' | 'month' | 'year'>('month')
+  const [anchor, setAnchor] = useState(todayISO())
+  const [rateSheet, setRateSheet] = useState(false)
+  const y = Number(anchor.slice(0, 4)), m = Number(anchor.slice(5, 7))
+  const range = mode === 'year' ? { from: `${y}-01-01`, to: `${y}-12-31`, title: `ปี ${be(y)}` }
+    : mode === 'month' ? { from: `${y}-${String(m).padStart(2, '0')}-01`, to: `${y}-${String(m).padStart(2, '0')}-31`, title: `${monthName(m)} ${be(y)}` }
+    : (() => { const sun = sundayOf(anchor); return { from: sun, to: addDays(sun, 6), title: `สัปดาห์ ${sun.slice(8)}/${sun.slice(5, 7)} – ${addDays(sun, 6).slice(8)}/${addDays(sun, 6).slice(5, 7)}` } })()
+  const shift = (n: number) => {
+    if (mode === 'week') return setAnchor(addDays(anchor, n * 7))
+    if (mode === 'year') return setAnchor(`${y + n}-01-15`)
+    const t = y * 12 + (m - 1) + n
+    setAnchor(`${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}-15`)
+  }
+  const list = tl.list.filter((x) => x.date >= range.from && x.date <= range.to)
+  const vids = VEHICLES.map((v) => v.id).filter((id) => list.some((x) => x.vehicle === id))
+  const rate = (id: string) => vehicleRate(st.settings.vehicleFuel, id, base)
+  const sum = (id: string) => list.filter((x) => x.vehicle === id).reduce((a, x) => a + x.km, 0)
+  const own = (id: string) => vehicleOwner(st.settings.vehicleOwner, id)
+  return (
+    <section aria-label="เดินทาง/เที่ยวงาน">
+      {rateSheet && <VehicleRateSheet onClose={() => setRateSheet(false)} />}
+      <TripLogButton ns={ns} />
+      <div className="seg seg--3 no-print" role="tablist" aria-label="ช่วงเวลา" style={{ marginBottom: 6 }}>
+        {([['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'รายปี']] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={mode === k} className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>{l}</button>)}
+      </div>
+      <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <button type="button" className="mini" aria-label="ย้อนหลัง" onClick={() => shift(-1)}>‹</button>
+        <span className="small"><b>{range.title}</b></span>
+        <button type="button" className="mini" aria-label="ถัดไป" onClick={() => shift(1)}>›</button>
+      </div>
+      {list.length === 0 ? <p className="empty">ยังไม่มีการเดินทางในช่วงนี้ — กดปุ่มด้านบนเพื่อบันทึก</p> : (
+        <>
+          <div style={{ ...LIGHT, background: '#fff', border: '2px solid #d6dbe8', borderRadius: 12, padding: 10 }}>
+            <b>⛽ ใช้น้ำมันเท่าไหร่ · ใครได้เงินคืน ({range.title})</b>
+            {vids.map((id) => {
+              const o = own(id), tot = sum(id) * rate(id)
+              return (
+                <div key={id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
+                  <img src={vehicleOf(id)!.img} alt={vehicleOf(id)!.name} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${vehicleOf(id)!.color}` }} />
+                  <span style={{ flex: 1, minWidth: 0 }}><b>{vehicleOf(id)!.name}</b><br /><small className="muted">{km(Math.round(sum(id) * 1000))} × {rate(id)} บ./กม.</small><br /><small style={{ fontWeight: 700, color: o.kind === 'church' ? '#1a73e8' : '#c2185b' }}>{o.kind === 'church' ? '🏛 รถคริสตจักร — คริสตจักรจ่ายค่าน้ำมันเอง' : `👤 จ่ายคืนเจ้าของรถ${o.name ? `: ${o.name}` : ''}`}</small></span>
+                  <b style={{ fontSize: '1.1rem' }}>{baht(tot)}</b>
+                </div>)
+            })}
+            <div className="row row--between" style={{ paddingTop: 6 }}><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{baht(vids.filter((id) => own(id).kind !== 'church').reduce((a, id) => a + sum(id) * rate(id), 0))}</b></div>
+            <div className="row row--between"><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{baht(vids.filter((id) => own(id).kind === 'church').reduce((a, id) => a + sum(id) * rate(id), 0))}</b></div>
+          </div>
+          <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}>
+            <b>🚗 รายการเดินทาง</b>
+            {list.map((x) => (
+              <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #eee' }}>
+                <img src={vehicleOf(x.vehicle)?.img} alt="" style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 5, border: `2px solid ${vehicleOf(x.vehicle)?.color ?? '#999'}` }} />
+                <span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}{x.roundTrip ? ' ไป-กลับ' : ' เที่ยวเดียว'} · {baht(x.km * rate(x.vehicle))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
+                <button type="button" className="mini" aria-label={`ลบ ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>
+              </div>))}
+          </div>
+        </>
+      )}
+      <button type="button" className="btn btn--block no-print" style={{ marginTop: 8 }} onClick={() => setRateSheet(true)}>⚙️ ตั้งอัตราค่าน้ำมัน / เจ้าของรถ</button>
+      <p className="muted small">ระยะทางตามที่บันทึก × อัตราของรถคันนั้น เป็นค่าประมาณสำหรับจ่ายคืน</p>
+    </section>
   )
 }
