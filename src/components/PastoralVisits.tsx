@@ -232,8 +232,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
-    const foundAny = group ? group.some((x) => gsel[x.id] === 'met') : !absent
-    const miss = [...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(!testMode && !entry && foundAny && photos.length === 0 ? ['📷 รูปถ่าย — กด “ถ่ายรูป” อย่างน้อย 1 รูป'] : [])]
+    const miss = [...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
     saved.current = true
     ;(entry?.photos ?? []).filter((p) => !photos.includes(p)).forEach(dropFile)
@@ -292,7 +291,7 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
         </div>
         <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'work' ? '' : ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ'}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
         {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
-      <div className="field"><label>รูปการเยี่ยม (บังคับอย่างน้อย 1 รูป · แนบได้สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
+      {entry && <div className="field"><label>รูปการเยี่ยม (ไม่บังคับ · เพิ่มภายหลังได้ สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
@@ -303,14 +302,13 @@ export function VisitForm({ date, entry, stop, startAbsent, group, onSaveMany, p
             </button>
           )}
         </div>
-        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — ต้องมีรูปอย่างน้อย 1 รูปจึงบันทึกได้' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>
-      {needProof && !checkin && <span className="muted small">ต้องเช็คอินตำแหน่งก่อนจึงถ่ายรูปได้ · รูปถ่ายด้วยกล้องในแอปเท่านั้น (เลือกจากคลังภาพไม่ได้) และบันทึกเวลา + ตำแหน่งตอนถ่าย</span>}
+        <span className="muted small">{busy ? 'กำลังแนบรูป…' : photos.length === 0 ? 'ยังไม่ได้แนบรูป — เพิ่มทีหลังได้' : `แนบแล้ว ${photos.length} รูป · รูปแรกจะขึ้นที่การ์ด`}</span></div>}
       {proof.length > 0 && <ul className="small muted pvproof" aria-label="เวลาและตำแหน่งตอนถ่ายรูป">{proof.map((x, i) => <li key={x.path}>รูปที่ {i + 1}: ถ่ายเวลา {timeText(x.at)} น. · {formatCoord(x)}{checkin ? ` · ห่างจุดเช็คอิน ${nearCheckin(x, checkin).meters} ม.` : ''}</li>)}</ul>}
       {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
-      {warn && <div role="alertdialog" aria-label="ต้องบันทึกพิกัดและถ่ายรูปก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      {warn && <div role="alertdialog" aria-label="ต้องเช็คอินพิกัดก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ ...LIGHT, background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
-          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องใส่ข้อมูลให้ครบก่อนบันทึก</b>
+          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องเช็คอินพิกัดก่อนบันทึก</b>
           <p style={{ margin: '8px 0' }}>ยังขาด:</p>
           <ul style={{ margin: '0 0 12px', paddingLeft: '1.2rem' }}>{warn.map((w) => <li key={w}>{w}</li>)}</ul>
           <button type="button" className="btn btn--gold btn--block" onClick={() => setWarn(null)}>เข้าใจแล้ว</button>
