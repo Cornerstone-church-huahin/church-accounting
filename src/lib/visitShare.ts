@@ -12,7 +12,7 @@ export function visitShareText(o: { dateText: string; names: string[]; visitor: 
   if (o.visitor) lines.push(`👥 ผู้เยี่ยม: ${o.visitor}`)
   if (o.checkin) {
     const t = new Date(o.checkin.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    lines.push(`📍 เช็คอิน${o.checkin.kind === 'work' ? 'ที่ทำงาน' : 'ที่บ้าน'} ${t} น.`, mapsLink(o.checkin))
+    lines.push(`📍 เช็คอิน${o.checkin.kind === 'work' ? 'ที่ทำงาน' : o.checkin.kind === 'place' ? 'ที่สถานที่นัดพบ' : 'ที่บ้าน'} ${t} น.`, mapsLink(o.checkin))
   }
   if (o.note?.trim()) lines.push(`📝 ${o.note.trim()}`)
   return lines.join('\n')

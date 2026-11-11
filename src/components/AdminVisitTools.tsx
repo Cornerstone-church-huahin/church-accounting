@@ -136,7 +136,7 @@ export function VisitRoute() {
   const date = pickDay && days.includes(pickDay) ? pickDay : days.includes(todayISO()) ? todayISO() : days.find((d) => checkDays.has(d)) ?? days[0]
   const range = (() => { const [ya, ma, da] = days[0].split('-').map(Number), [yb, mb, db] = days[days.length - 1].split('-').map(Number); return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}` })()
   const trips = useMemo(() => {
-    const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work'; sim?: boolean; who: string; names: string[] }>()
+    const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work' | 'place'; sim?: boolean; who: string; names: string[] }>()
     for (const v of visits.list) {
       if (v.date !== date || !v.checkin) continue
       const s = byAt.get(v.checkin.at) ?? { at: v.checkin.at, lat: v.checkin.lat, lng: v.checkin.lng, kind: v.checkin.kind, sim: v.checkin.sim, who: splitVisitors(v.visitor ?? '').sort().join(', '), names: [] }
@@ -177,7 +177,7 @@ export function VisitRoute() {
   const roadCount = calcs.reduce((a, c) => a + c.legs.filter((l) => l.road).length, 0)
   const pins = [
     ...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ', color: '#1e9e4a', badge: '⛪', size: 42 }] : []),
-    ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: s.kind === 'work' ? '#e67700' : '#c2255c', badge: String(i + 1) }))),
+    ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: s.kind === 'work' ? '#e67700' : s.kind === 'place' ? '#6a1b9a' : '#c2255c', badge: String(i + 1) }))),
   ]
   // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (สีน้ำเงิน ตามถนนจริงเมื่อคำนวณได้)
   const segs = calcs.flatMap((c) => c.legs)
@@ -229,7 +229,7 @@ export function VisitRoute() {
                   {church && <li>⛪ คริสตจักร (ออกเดินทาง)</li>}
                   {t.map((s, i) => (
                     <li key={s.at} style={{ marginBottom: 4 }}>
-                      <b>{s.names.join(', ')}</b> · {s.kind === 'work' ? '🏢 ที่ทำงาน' : '🏠 ที่บ้าน'}{s.sim ? ' 🧪จำลอง' : ''} · {hhmm(s.at)}
+                      <b>{s.names.join(', ')}</b> · {s.kind === 'work' ? '🏢 ที่ทำงาน' : s.kind === 'place' ? '📌 สถานที่นัดพบ' : '🏠 ที่บ้าน'}{s.sim ? ' 🧪จำลอง' : ''} · {hhmm(s.at)}
                       {legs[i - off] != null && i - off >= 0 && <small className="muted"> · +{km(legs[i - off].m)}{legs[i - off].road ? ` · ${mins(legs[i - off].s)}` : ''}</small>}
                       {' '}<a className="mini" href={mapsLink(s)} target="_blank" rel="noreferrer">แผนที่</a>
                     </li>))}

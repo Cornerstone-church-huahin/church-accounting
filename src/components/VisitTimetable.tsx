@@ -58,7 +58,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) =
   const ck = v.checkin
   const [coordText, setCoordText] = useState(ck ? formatCoord({ lat: ck.lat, lng: ck.lng }) : '')
   const [coord, setCoord] = useState<Coord | null>(ck ? { lat: ck.lat, lng: ck.lng } : null)
-  const [kind, setKind] = useState<'home' | 'work'>(ck?.kind === 'work' ? 'work' : 'home')
+  const [kind, setKind] = useState<'home' | 'work' | 'place'>(ck?.kind === 'work' ? 'work' : ck?.kind === 'place' ? 'place' : 'home')
   const [when, setWhen] = useState(toLocalInput(ck?.at ?? new Date(`${v.date}T10:00:00`).getTime()))
   const [place, setPlace] = useState(v.place ?? '')
   const [visitor, setVisitor] = useState(v.visitor ?? '')
@@ -80,7 +80,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) =
     <Sheet title={`แก้การบันทึกเยี่ยม · ${v.memberName.replace(/^place:/, '')}`} onClose={onClose}>
       <p className="muted small" style={{ margin: 0 }}>เฉพาะแอดมิน — ใช้เติมพิกัด/เวลาที่เช็คอินให้ ในกรณีที่ผู้ใช้บันทึกแล้วไม่ได้เช็คอิน แต่ทราบข้อมูลจริง</p>
       <div className="field"><label htmlFor="ave-kind">ประเภทเช็คอิน</label>
-        <div className="seg seg--2" role="tablist"><button type="button" role="tab" aria-selected={kind === 'home'} className={kind === 'home' ? 'on' : ''} onClick={() => setKind('home')}>🏠 ที่บ้าน</button><button type="button" role="tab" aria-selected={kind === 'work'} className={kind === 'work' ? 'on' : ''} onClick={() => setKind('work')}>🏢 ที่ทำงาน</button></div></div>
+        <div className="seg seg--3" role="tablist"><button type="button" role="tab" aria-selected={kind === 'home'} className={kind === 'home' ? 'on' : ''} onClick={() => setKind('home')}>🏠 ที่บ้าน</button><button type="button" role="tab" aria-selected={kind === 'work'} className={kind === 'work' ? 'on' : ''} onClick={() => setKind('work')}>🏢 ที่ทำงาน</button><button type="button" role="tab" aria-selected={kind === 'place'} className={kind === 'place' ? 'on' : ''} onClick={() => setKind('place')}>📌 สถานที่</button></div></div>
       <div className="field"><label htmlFor="ave-c">พิกัดเช็คอิน</label>
         <input id="ave-c" className="input" inputMode="decimal" value={coordText} onChange={(e) => { setCoordText(e.target.value); setCoord(parseCoords(e.target.value)) }} placeholder="เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps" />
         <div className="row" style={{ marginTop: 4, flexWrap: 'wrap' }}>
@@ -151,7 +151,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   // เช็คอินที่บ้าน → พิกัดบ้าน · เช็คอินที่ทำงาน → พิกัดที่ทำงาน ในทะเบียนสมาชิกอัตโนมัติ (ยังไม่มี = ตั้งให้เลย · มีแล้วและห่างเกิน 100 ม. ถามก่อนทับ) · สถานที่/โหมดทดสอบไม่นับ
   const pinHomes = (vs: Visit[]) => {
     for (const v of vs) {
-      if (!v.checkin || v.checkin.sim || v.memberId.startsWith('place:')) continue
+      if (!v.checkin || v.checkin.sim || v.checkin.kind === 'place' || v.memberId.startsWith('place:')) continue
       const m = people.items.find((x) => x.id === v.memberId)
       if (!m) continue
       const at = { lat: v.checkin.lat, lng: v.checkin.lng }
