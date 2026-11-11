@@ -456,7 +456,8 @@ export function VehicleRateSheet({ onClose }: { onClose: () => void }) {
   const save = () => {
     const out: Record<string, number> = {}
     for (const v of VEHICLES) { const n = Number(String(txt[v.id]).replace(/,/g, '')); if (!Number.isFinite(n) || n < 0) return setMsg(`อัตราของ ${v.name} ไม่ถูกต้อง`); out[v.id] = n }
-    setMsg(st.save({ vehicleFuel: out }) ? 'บันทึกแล้ว' : 'บันทึกไม่ได้ (ต้องเป็นแอดมิน)')
+    if (st.save({ vehicleFuel: out })) onClose() // บันทึกสำเร็จ → ปิดหน้าต่าง ตัวเลขด้านหลังอัปเดตทันที
+    else setMsg('บันทึกไม่ได้ (ต้องเป็นแอดมิน)')
   }
   return (
     <Sheet title="⛽ อัตราค่าน้ำมันรายคัน (บาท/กม.)" onClose={onClose}>
@@ -469,7 +470,7 @@ export function VehicleRateSheet({ onClose }: { onClose: () => void }) {
           <span className="small">บ./กม.</span>
         </div>))}
       {msg && <span className="small" role="status">{msg}</span>}
-      <button type="button" className="btn btn--gold btn--block" onClick={save}>บันทึกอัตรา</button>
+      <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกอัตราและปิด</button>
     </Sheet>
   )
 }
