@@ -79,7 +79,9 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, todayISO()), [att])
   const all = people.items
-  const qn = query.trim().toLowerCase().replace(/\s+/g, '')
+  const [ownQ, setOwnQ] = useState('') // ช่องค้นหาในตัว (ทุกห้องงาน) · งานทะเบียนส่ง query เข้ามาเอง จึงไม่ใช้ช่องนี้
+  const ownSearch = !onOpen && !idFilter
+  const qn = (ownSearch ? ownQ : query).trim().toLowerCase().replace(/\s+/g, '')
   const sel = useMemo(() => all.filter((m) => (gs.length === 0 || gs.some((x) => inGroup(m, x))) && (!idFilter || idFilter.has(m.id)) && (!qn || `${m.name}${m.nick ?? ''}${m.code ?? ''}${m.tel ?? ''}${m.note ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(qn))), [all, gs, qn, idFilter])
   const ev = useMemo(() => { const r = evaluate(all, att, DEFAULT_CRITERIA, todayISO()); return { map: new Map(r.rows.map((x) => [x.member.id, x])), hasData: r.hasData, yearServices: r.yearServices } }, [all, att])
   const head = useMemo(() => headline(all), [all])
@@ -128,6 +130,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   return (
     <div className="pastoral">
       {quick}
+      {ownSearch && <input className="input regsearch no-print" type="search" value={ownQ} onChange={(e) => setOwnQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />}
       {/* โซน 1: แท็บ 1–4 (แถบเตี้ย ชิดบนสุด) + ตัวเลือกค้นหา 2 ตัว */}
       <section className="pzone1 no-print" aria-label="เลือกแท็บและตัวเลือก">
         <nav className="ptabs" role="tablist" aria-label="แท็บสมาชิก">
