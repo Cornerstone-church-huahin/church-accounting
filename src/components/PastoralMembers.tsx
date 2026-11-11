@@ -130,7 +130,7 @@ export default function PastoralMembers({ work = 4, onOpen, query = '', slot, id
   return (
     <div className="pastoral">
       {quick}
-      {ownSearch && <input className="input regsearch no-print" type="search" value={ownQ} onChange={(e) => setOwnQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />}
+      {ownSearch && <input className="input regsearch no-print" style={{ margin: "0.5rem 0 0.7rem" }} type="search" value={ownQ} onChange={(e) => setOwnQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อจริง / นามสกุล / ชื่อเล่น / รหัส / เบอร์" aria-label="ค้นหารายชื่อ" />}
       {/* โซน 1: แท็บ 1–4 (แถบเตี้ย ชิดบนสุด) + ตัวเลือกค้นหา 2 ตัว */}
       <section className="pzone1 no-print" aria-label="เลือกแท็บและตัวเลือก">
         <nav className="ptabs" role="tablist" aria-label="แท็บสมาชิก">
