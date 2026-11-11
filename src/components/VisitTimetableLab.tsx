@@ -11,6 +11,7 @@ import MapPickSheet from './MapPickSheet'
 import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { activityId, activityLines } from '../lib/activityLines'
 import { getMe } from '../lib/access'
+import { VEHICLES } from '../lib/vehicles'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
@@ -54,7 +55,9 @@ const rangeTitle = (a: string, b: string) => {
 const toLocalInput = (ms: number) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16) }
 
 /** แอดมินแก้การบันทึกเยี่ยมให้ภายหลัง: เติม/แก้พิกัดเช็คอิน เวลา ประเภท (บ้าน/ที่ทำงาน) ชื่อสถานที่ ผู้เยี่ยม — ใช้เมื่อผู้ใช้บันทึกแล้วไม่ได้เช็คอิน แต่แอดมินรู้ข้อมูลจริง */
-function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) => void; onClose: () => void }) {
+function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, applyVehicleToGroup: boolean) => void; onClose: () => void }) {
+  const [vehicle, setVehicle] = useState(v.vehicle ?? '')
+  const [vehAll, setVehAll] = useState(true)
   const ck = v.checkin
   const [coordText, setCoordText] = useState(ck ? formatCoord({ lat: ck.lat, lng: ck.lng }) : '')
   const [coord, setCoord] = useState<Coord | null>(ck ? { lat: ck.lat, lng: ck.lng } : null)
@@ -74,7 +77,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) =
     const at = new Date(when).getTime()
     if (!Number.isFinite(at)) return setErr('วันเวลาไม่ถูกต้อง')
     const next: Visit = { ...v, visitor: visitor.trim(), ...(place.trim() ? { place: place.trim() } : { place: undefined }), ...(coord ? { checkin: { ...(ck ?? {}), lat: coord.lat, lng: coord.lng, at, kind, manual: true } } : { checkin: undefined }) }
-    onSave(next)
+    onSave({ ...next, vehicle: vehicle || undefined }, vehAll)
   }
   return (
     <Sheet title={`แก้การบันทึกเยี่ยม · ${v.memberName.replace(/^place:/, '')}`} onClose={onClose}>
@@ -91,6 +94,16 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) =
         {mapOpen && <MapPickSheet initial={coord} title="เลือกตำแหน่งเช็คอิน" onClose={() => setMapOpen(false)} onSave={(c) => { pick(c); setMapOpen(false) }} />}</div>
       <div className="field"><label htmlFor="ave-t">วัน-เวลาที่เช็คอิน</label><input id="ave-t" type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
       <div className="field"><label htmlFor="ave-p">ชื่อสถานที่</label><input id="ave-p" className="input" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
+      <div className="field"><label>🚗 ยานพาหนะ (แก้ได้เฉพาะแอดมิน)</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }} role="radiogroup" aria-label="ยานพาหนะ">
+          {VEHICLES.map((c) => (
+            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(vehicle === c.id ? '' : c.id)} style={{ ...LIGHT, background: '#fff', padding: 3, borderRadius: 10, border: `3px solid ${vehicle === c.id ? c.color : '#d6dbe8'}`, font: 'inherit', textAlign: 'center' }}>
+              <img src={c.img} alt={c.name} style={{ width: '100%', height: 44, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
+              <div style={{ fontSize: 10.5, fontWeight: 700 }}>{c.name.replace('รถ', '')}{vehicle === c.id ? ' ✓' : ''}</div>
+            </button>))}
+        </div>
+        <label className="row" style={{ gap: 8, alignItems: 'center', marginTop: 4 }}><input type="checkbox" checked={vehAll} onChange={(e) => setVehAll(e.target.checked)} /><span className="small">ใช้รถคันนี้กับทุกคนที่เช็คอินพร้อมกัน (จุดเดียวกัน) ด้วย</span></label>
+        <span className="muted small">กดรถที่เลือกซ้ำ = ล้าง (ไม่ระบุรถ)</span></div>
       <div className="field"><label htmlFor="ave-v">ผู้ออกเยี่ยม</label><input id="ave-v" className="input" value={visitor} onChange={(e) => setVisitor(e.target.value)} /></div>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการแก้ไข</button>
@@ -378,7 +391,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
           </Sheet>
         )
       })()}
-      {fix && <AdminVisitEdit v={fix} onClose={() => setFix(null)} onSave={(nv) => { visits.put([nv]); setFix(null) }} />}
+      {fix && <AdminVisitEdit v={fix} onClose={() => setFix(null)} onSave={(nv, all) => { const grp = all && nv.checkin ? visits.list.filter((x) => x.id !== nv.id && x.date === nv.date && x.checkin?.at === (fix.checkin?.at ?? -1)).map((x) => ({ ...x, vehicle: nv.vehicle })) : []; visits.put([nv, ...grp]); setFix(null) }} />}
       {edit && doc && edit.slot !== 'day' && <CellEditor date={edit.d} slot={edit.slot} doc={doc} onChange={(next) => save(edit.d, next)} onClose={() => setEdit(null)} planOnly={mode === 'plan'} />}
     </section>
   )
