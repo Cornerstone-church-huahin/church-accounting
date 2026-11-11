@@ -17,7 +17,7 @@ import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitP
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
-import { dayKind, DAY_NAMES, sundayOf, weekDays } from '../lib/visits'
+import { dayKind, DAY_NAMES, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { Visit } from '../lib/types'
 import { addItem, addPlace, removeItem, removePlace, setDayText, setSlot, setSlotNote, SLOTS, type PlanDoc, type Slot } from '../lib/visitPlan'
 
@@ -183,6 +183,28 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
         ? <div className="field"><label htmlFor="vt-note">📋 กิจกรรมของช่วงนี้ (พิมพ์ได้หลายบรรทัด · ไปติ๊ก “ทำแล้ว” ที่หน้าบันทึก/เช็คอิน)</label>
           <textarea key={doc.slotNotes?.[slot] ?? ''} id="vt-note" className="input" rows={3} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>
         : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
+      {!planOnly && (() => {
+        // สรุปสาย: จัดกลุ่มรายการที่บันทึกแล้วในช่องนี้ตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) เรียงตามเวลา
+        const ids = new Set([...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)])
+        const vs = visits.list.filter((v) => v.date === date && ids.has(v.memberId))
+        const g = new Map<string, Visit[]>()
+        for (const v of vs) { const key = splitVisitors(v.visitor ?? '').sort().join(', ') || '(ไม่ระบุผู้ออกเยี่ยม)'; g.set(key, [...(g.get(key) ?? []), v]) }
+        const lines = [...g.entries()].sort((a, b) => Math.min(...a[1].map((v) => v.checkin?.at ?? v.updated)) - Math.min(...b[1].map((v) => v.checkin?.at ?? v.updated)))
+        const left = [...mine.map((x) => x.name), ...places].filter((_, i) => !done(i < mine.length ? mine[i].id : `place:${places[i - mine.length]}`))
+        if (!lines.length && !left.length) return null
+        return (
+          <div role="status" style={{ ...LIGHT, background: '#f1f8f4', border: '1.5px solid #8fcfa4', borderRadius: 12, padding: '8px 10px' }}>
+            <b>🚗 ความคืบหน้าของแต่ละสาย</b>
+            {lines.map(([who, list], i) => (
+              <div key={who} style={{ marginTop: 4 }}>
+                <b>สายที่ {i + 1}</b> · {who} — <span style={{ color: '#1e7a3c', fontWeight: 700 }}>ออกเยี่ยมแล้ว {list.length} คน ✓</span>
+                <div className="small" style={{ color: '#555' }}>{list.map((v) => v.memberName.replace(/^place:/, '')).join(' · ')}{list[0].place ? ` · 📌 ${list[0].place}` : ''}</div>
+              </div>))}
+            {left.length > 0
+              ? <div style={{ marginTop: 6, color: '#8a5a00' }}><b>⏳ ยังเหลือ {left.length} คน</b> <span className="small">— สายถัดไปติ๊กชื่อคนที่จะไป แล้วกดบันทึกและเช็คอิน: {left.join(' · ')}</span></div>
+              : <div style={{ marginTop: 6, color: '#1e7a3c' }}><b>✅ ครบทุกคนในช่องนี้แล้ว</b></div>}
+          </div>)
+      })()}
       {mine.length > 0 && <b className="small">{planOnly ? '👥 คนที่จะไปเยี่ยม' : '📍 คนที่จะบันทึกและเช็คอินเยี่ยม'} ({mine.length})</b>}
       {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${x.name}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <AbsentList hideLabel {...(planOnly ? { att } : { hideStatus: true })} members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
