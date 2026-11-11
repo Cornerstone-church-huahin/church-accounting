@@ -592,6 +592,7 @@ function Detail({ worshipDays, lite, showStatus, canPhoto, canLog, r, statuses, 
     ['วันที่รับเป็นสมาชิก', m.since && <>{fmtDate(m.since)} ({spanText(m.since, today)}){sinceShared >= 5 && <span className="small" style={{ color: '#b45309' }}><br />⚠ หลายคน ({sinceShared}) ใช้วันนี้เหมือนกัน — อาจเป็นวันตั้งต้นของระบบเก่า ไม่ใช่วันจริง</span>}</>],
     ['มานมัสการครั้งแรก (ประมาณ)', m.firstWorship && `${fmtDate(m.firstWorship)} (${spanText(m.firstWorship, today)})`],
     ...(lite ? [] : [['พิกัดบ้าน', hasCoord(m) && <a href={mapsLink({ lat: m.lat, lng: m.lng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.lat, lng: m.lng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
+    ...(lite ? [] : [['สถานที่นัดพบ', typeof m.placeLat === 'number' && typeof m.placeLng === 'number' && <a href={mapsLink({ lat: m.placeLat, lng: m.placeLng })} target="_blank" rel="noreferrer">{m.placeName ? `${m.placeName} · ` : ''}{formatCoord({ lat: m.placeLat, lng: m.placeLng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
     ...(lite ? [] : [['พิกัดที่ทำงาน', typeof m.workLat === 'number' && typeof m.workLng === 'number' && <a href={mapsLink({ lat: m.workLat, lng: m.workLng })} target="_blank" rel="noreferrer">{formatCoord({ lat: m.workLat, lng: m.workLng })} · เปิดแผนที่</a>] as [string, ReactNode]]),
     ['สมัครสมาชิก', m.applied ? 'สมัครแล้ว' : undefined], ['ไฟล์รูปในทะเบียนเดิม', !m.photoPath && m.photo && <span className="small muted">{m.photo.split('/').pop()}</span>], ['หมายเหตุ', m.note],
   ]
@@ -1069,6 +1070,12 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
   const [coordText, setCoordText] = useState(member && hasCoord(member) ? formatCoord({ lat: member.lat, lng: member.lng }) : '')
   const [mapOpen, setMapOpen] = useState(false)
   // พิกัดที่ทำงาน: ทำงานเหมือนพิกัดบ้านทุกอย่าง (พิมพ์เลข/วางลิงก์ · ตำแหน่งปัจจุบัน · เลือกบนแผนที่)
+  const hasP = !!member && typeof member.placeLat === 'number' && typeof member.placeLng === 'number'
+  const [pcoord, setPcoord] = useState<Coord | null>(hasP ? { lat: member!.placeLat as number, lng: member!.placeLng as number } : null)
+  const [pText, setPText] = useState(hasP ? formatCoord({ lat: member!.placeLat as number, lng: member!.placeLng as number }) : '')
+  const [pName, setPName] = useState(member?.placeName ?? '')
+  const [pMapOpen, setPMapOpen] = useState(false)
+  const pickP = (c: Coord | null) => { setPcoord(c); setPText(c ? formatCoord(c) : ''); setErr('') }
   const hasW = !!member && typeof member.workLat === 'number' && typeof member.workLng === 'number'
   const [wcoord, setWcoord] = useState<Coord | null>(hasW ? { lat: member!.workLat as number, lng: member!.workLng as number } : null)
   const [wText, setWText] = useState(hasW ? formatCoord({ lat: member!.workLat as number, lng: member!.workLng as number }) : '')
@@ -1088,10 +1095,11 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
   const save = () => {
     if (!f.name.trim()) return setErr('ใส่ชื่อ-สกุล')
+    if (pText.trim() && !pcoord) return setErr('พิกัดสถานที่นัดพบอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps')
     if (wText.trim() && !wcoord) return setErr('พิกัดที่ทำงานอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps หรือเลือกบนแผนที่')
     if (coordText.trim() && !coord) return setErr('พิกัดบ้านอ่านไม่ได้ — พิมพ์เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps หรือเลือกบนแผนที่')
     const clean = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Partial<typeof f>
-    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng, workLat: wcoord?.lat, workLng: wcoord?.lng }), ...(!member || statusLabel(member.status) !== statusLabel(f.status) ? { statusAt: todayISO() } : {}), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
+    if (put([{ ...member, ...Object.fromEntries(Object.keys(f).map((k) => [k, undefined])), ...clean, gender: f.gender === 'ชาย' || f.gender === 'หญิง' ? f.gender : undefined, genderGuess: f.gender === (member?.gender ?? '') ? member?.genderGuess : undefined, name: f.name.trim(), ...(lite ? {} : { lat: coord?.lat, lng: coord?.lng, workLat: wcoord?.lat, workLng: wcoord?.lng, placeLat: pcoord?.lat, placeLng: pcoord?.lng, placeName: pName.trim() || undefined }), ...(!member || statusLabel(member.status) !== statusLabel(f.status) ? { statusAt: todayISO() } : {}), id: member?.id ?? newId('cm'), updated: 0 }])) onClose()
   }
   const text = (k: keyof typeof f, label: string, type = 'text', full = false) => <div className={`field${full ? ' full' : ''}`}><label htmlFor={`m-${k}`}>{label}</label><input id={`m-${k}`} className="input" type={type} value={f[k]} onChange={set(k)} /></div>
   return (
@@ -1147,6 +1155,19 @@ function MemberForm({ lite, canDelete, member, statuses, groups, onClose, put, r
             </div>
             <p className="small muted" role="status" style={{ margin: '0.2rem 0 0' }}>{wcoord ? `บันทึกพิกัด ${formatCoord(wcoord)}` : wText ? 'ยังอ่านพิกัดไม่ได้' : 'ยังไม่มีพิกัด'}</p>
             {wMapOpen && <MapPickSheet initial={wcoord} onClose={() => setWMapOpen(false)} onSave={(c) => { pickW(c); setWMapOpen(false) }} />}
+          </div>
+        )}
+        {!lite && (
+          <div className="field full">
+            <label htmlFor="m-pcoord">สถานที่นัดพบ <span className="muted small">(จุดที่เคยพบนอกบ้าน · เข้าเองเมื่อ “เช็คอินที่สถานที่”)</span></label>
+            <input id="m-pname" className="input" value={pName} onChange={(e) => setPName(e.target.value)} placeholder="ชื่อสถานที่ เช่น ร้านกาแฟ / รพ.หัวหิน" aria-label="ชื่อสถานที่นัดพบ" style={{ marginBottom: 4 }} />
+            <input id="m-pcoord" className="input" inputMode="decimal" value={pText} onChange={(e) => { setPText(e.target.value); setPcoord(parseCoords(e.target.value)) }} placeholder="เช่น 12.5684, 99.9577 หรือวางลิงก์ Google Maps" />
+            <div className="row" style={{ marginTop: '0.3rem' }}>
+              <button type="button" className="mini" aria-haspopup="dialog" onClick={() => setPMapOpen(true)}>📌 เลือก/ปรับบนแผนที่</button>
+              {pText && <button type="button" className="mini" onClick={() => pickP(null)}>ล้างพิกัด</button>}
+              {pcoord && <a className="mini" href={mapsLink(pcoord)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
+            </div>
+            {pMapOpen && <MapPickSheet initial={pcoord} onClose={() => setPMapOpen(false)} onSave={(c) => { pickP(c); setPMapOpen(false) }} />}
           </div>
         )}
       </div>

@@ -151,10 +151,15 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   // เช็คอินที่บ้าน → พิกัดบ้าน · เช็คอินที่ทำงาน → พิกัดที่ทำงาน ในทะเบียนสมาชิกอัตโนมัติ (ยังไม่มี = ตั้งให้เลย · มีแล้วและห่างเกิน 100 ม. ถามก่อนทับ) · สถานที่/โหมดทดสอบไม่นับ
   const pinHomes = (vs: Visit[]) => {
     for (const v of vs) {
-      if (!v.checkin || v.checkin.sim || v.checkin.kind === 'place' || v.memberId.startsWith('place:')) continue
+      if (!v.checkin || v.checkin.sim || v.memberId.startsWith('place:')) continue
       const m = people.items.find((x) => x.id === v.memberId)
       if (!m) continue
       const at = { lat: v.checkin.lat, lng: v.checkin.lng }
+      if (v.checkin.kind === 'place') { // จุดนัดพบ: เก็บล่าสุดเสมอ (คลาดเคลื่อน ≤100 ม. คงพิกัดเดิม แต่ใส่ชื่อสถานที่ถ้ายังไม่มี)
+        const near = typeof m.placeLat === 'number' && typeof m.placeLng === 'number' && distanceM(at, { lat: m.placeLat, lng: m.placeLng }) <= 100
+        people.put([{ ...m, ...(near ? { placeName: m.placeName || v.place || undefined } : { placeLat: at.lat, placeLng: at.lng, placeName: v.place || m.placeName }) }])
+        continue
+      }
       const work = v.checkin.kind === 'work' // เช็คอินที่ทำงาน → พิกัดที่ทำงานของสมาชิก (ทุกคนที่ติ๊กพร้อมกันได้พิกัดเดียวกัน)
       const cur = work ? { lat: m.workLat, lng: m.workLng } : { lat: m.lat, lng: m.lng }
       const r = homeFromCheckin(cur, at)
