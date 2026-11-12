@@ -119,7 +119,7 @@ function Paper({ l, c, paperRef, internal, crop }: { l: Draft; c: Cfg; paperRef:
             {internal && <span className="il__tag">หนังสือภายใน</span>}
           </div>
         </header>
-        {mt && <div className="il__banner il__banner--3">{noticeHeading(l.date || todayISO(), !!l.category, String(noDigits(l.no) || '')).map((x, i) => <div key={i}>{x}</div>)}</div>}
+        {mt && <div className="il__banner il__banner--3">{noticeHeading(l.date || todayISO(), !!l.category, String(noDigits(l.no) || ''), l.toName).map((x, i) => <div key={i}>{x}</div>)}</div>}
         <div className="il__body">
           <div style={{ textAlign: 'right', marginBottom: 4 }}>ที่ {l.no ? `${l.no}/${yearBEOf(l.date)}` : '………'}</div>
           <div style={{ textAlign: 'center', margin: '14px 0 22px' }}>{letterDate(l.date) || '………………'}</div>
