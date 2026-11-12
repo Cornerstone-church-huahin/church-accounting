@@ -6,7 +6,7 @@ import { HUAHIN, type Coord } from '../lib/geo'
 export interface MapPin { id: string; lat: number; lng: number; label: string; sub?: string; /** สีหมุด (ไม่ใส่ = ชมพูมาตรฐาน) */ color?: string; /** หมุดสีขาวขอบน้ำเงิน ตัวเลขน้ำเงิน */ white?: boolean; /** ข้อความในหมุด เช่น ลำดับจุด หรือ ⛪ */ badge?: string; /** ขนาดหมุดกลม (px · ค่าเริ่มต้น 30) — ใช้ทำหมุดเด่น เช่น คริสตจักร */ size?: number }
 export interface MapLine { /** เส้นทางแต่ละช่วง (จุดตามถนน หรือเส้นตรง 2 จุด) */ segments: Coord[][]; /** สีเส้นของแต่ละช่วง (ไม่ใส่ = น้ำเงิน) */ colors?: string[]; /** ป้ายระยะ/เวลาวางบนเส้น */ labels?: { at: Coord; text: string }[] }
 
-const badgeIcon = (color: string, badge: string, size = 30, white = false) => L.divIcon({ className: '', html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${white ? '#fff' : color};color:${white ? '#1a56db' : '#fff'};font:700 ${Math.round(size / 2)}px/1 sans-serif;border:${size > 34 ? 4 : 3}px solid ${white ? '#1a56db' : '#fff'};box-shadow:0 2px 8px rgba(0,0,0,.7)">${badge}</span>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 2)] })
+const badgeIcon = (color: string, badge: string, size = 30, white0 = false) => { const white = white0 || color.toLowerCase() === '#ffffff'; return L.divIcon({ className: '', html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${white ? '#fff' : color};color:${white ? '#1a56db' : '#fff'};font:700 ${Math.round(size / 2)}px/1 sans-serif;border:${size > 34 ? 4 : 3}px solid ${white ? '#1a56db' : '#fff'};box-shadow:0 2px 8px rgba(0,0,0,.7)">${badge}</span>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 2)] }) }
 const dot = (cls = '') => L.divIcon({ className: '', html: `<span class="mapdot${cls}"></span>`, iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -20] })
 
 /**
@@ -58,10 +58,12 @@ export default function LeafletMap({ pins = [], line, pick, onPick, height = 320
     const m = map.current
     if (!m || !line || line.segments.length === 0) return
     const g = L.layerGroup().addTo(m)
-    line.segments.forEach((seg) => {
+    line.segments.forEach((seg, si) => {
       const pts = seg.map((c) => [c.lat, c.lng] as [number, number])
-      L.polyline(pts, { color: '#1a56db', weight: 10, opacity: 1, lineJoin: 'round' }).addTo(g) // ขอบน้ำเงิน
-      L.polyline(pts, { color: '#ffffff', weight: 5, opacity: 1, lineJoin: 'round' }).addTo(g) // เส้นขาวขอบน้ำเงิน
+      const fill = line.colors?.[si] ?? '#1a73e8'
+      const isWhite = fill.toLowerCase() === '#ffffff'
+      L.polyline(pts, { color: isWhite ? '#1a56db' : '#ffffff', weight: 10, opacity: 1, lineJoin: 'round' }).addTo(g) // ขอบ (สีขาวใช้ขอบน้ำเงิน)
+      L.polyline(pts, { color: fill, weight: 5, opacity: 1, lineJoin: 'round' }).addTo(g)
     })
     line.labels?.forEach(({ at, text }) => {
       L.marker([at.lat, at.lng], { interactive: false, icon: L.divIcon({ className: '', html: `<span style="display:inline-block;transform:translate(-50%,-50%);background:#fff;color:#1a3b8f;font:700 12px/1 sans-serif;padding:3px 6px;border-radius:10px;border:1.5px solid #1a73e8;white-space:nowrap">${text}</span>`, iconSize: [0, 0] }) }).addTo(g)

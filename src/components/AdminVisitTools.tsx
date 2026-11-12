@@ -15,7 +15,7 @@ import { useActivityLog, useTripLogs, useVisitPlans } from '../lib/data'
 import { getMe } from '../lib/access'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
-import { VEHICLES, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
+import { VEHICLES, inkOf, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
 import { DAY_NAMES, dayKind, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { ChurchMember } from '../lib/types'
 
@@ -194,7 +194,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   const roadCount = calcs.reduce((a, c) => a + c.legs.filter((l) => l.road).length, 0)
   const pins = [
     ...(church ? [{ id: 'church', lat: church.lat, lng: church.lng, label: '⛪ คริสตจักร', sub: 'จุดเริ่มต้น/กลับ', color: '#1e9e4a', badge: '⛪', size: 42 }] : []),
-    ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: LINE_COL[lineOf(t) % LINE_COL.length], white: true, badge: String(i + 1) }))),
+    ...trips.flatMap((t, ti) => t.map((s, i) => ({ id: String(s.at), lat: s.lat, lng: s.lng, label: `${trips.length > 1 ? `รอบ ${ti + 1} · ` : ''}${i + 1}. ${s.names.join(', ')}`, sub: hhmm(s.at), color: LINE_COL[lineOf(t) % LINE_COL.length], badge: String(i + 1) }))),
   ]
   // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (สีน้ำเงิน ตามถนนจริงเมื่อคำนวณได้)
   const segs = calcs.flatMap((c) => c.legs)
@@ -242,7 +242,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
             const off = church ? 0 : 1
             return (
               <section key={t[0].at} style={{ marginTop: 10, border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
-                {multi && <b style={{ color: LINE_COL[lineOf(t) % LINE_COL.length] }}>━ {byVehicle ? '🚗' : `สายที่ ${lineOf(t) + 1}`} <small style={{ color: '#555', fontWeight: 600 }}>({byVehicle ? whoName(t[0].who) : `หัวหน้า ${t[0].who || 'ไม่ระบุ'}`})</small> · </b>}<b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{baht(total / 1000 * rateOf(t[0].who))}</b>
+                {multi && <b style={{ color: inkOf(LINE_COL[lineOf(t) % LINE_COL.length]) }}>━ {byVehicle ? '🚗' : `สายที่ ${lineOf(t) + 1}`} <small style={{ color: '#555', fontWeight: 600 }}>({byVehicle ? whoName(t[0].who) : `หัวหน้า ${t[0].who || 'ไม่ระบุ'}`})</small> · </b>}<b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{baht(total / 1000 * rateOf(t[0].who))}</b>
                 <ol style={{ margin: '6px 0 0', paddingLeft: '1.3rem' }}>
                   {church && <li>⛪ คริสตจักร (ออกเดินทาง)</li>}
                   {t.map((s, i) => (
@@ -475,7 +475,7 @@ export function VehicleRateSheet({ onClose }: { onClose: () => void }) {
       <p className="muted small" style={{ margin: 0 }}>ตั้งราคาต่อกิโลเมตรและเจ้าของรถ: 🏛 รถคริสตจักร = คริสตจักรจ่ายค่าน้ำมันเอง · 👤 รถส่วนตัว = เจ้าของสำรองจ่าย คริสตจักรจ่ายคืนตามระยะจริง (ค่าเริ่มต้น {base} บาท/กม.) ใช้คำนวณค่าน้ำมันในเส้นทางรถและรายงานค่าน้ำมัน</p>
       {VEHICLES.map((v) => (
         <div key={v.id} className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid #eee', paddingBottom: 6 }}>
-          <img src={v.img} alt={v.name} style={{ width: 64, height: 42, objectFit: 'cover', borderRadius: 8, border: `3px solid ${v.color}` }} />
+          <img src={v.img} alt={v.name} style={{ width: 64, height: 42, objectFit: 'cover', borderRadius: 8, border: `3px solid ${inkOf(v.color)}` }} />
           <span style={{ flex: 1 }}><b>{v.name}</b></span>
           <input className="input" style={{ width: 90 }} inputMode="decimal" aria-label={`อัตรา ${v.name}`} value={txt[v.id]} onChange={(e) => setTxt({ ...txt, [v.id]: e.target.value })} />
           <span className="small">บ./กม.</span>
@@ -575,7 +575,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
             <b>⛽ สรุปค่าน้ำมันที่ต้องจ่าย · {range.title}</b>
             {vids.map((id) => (
               <div key={id || 'none'} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
-                {vehicleOf(id) ? <img src={vehicleOf(id)!.img} alt={name(id)} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${vehicleOf(id)!.color}` }} /> : <span aria-hidden="true">🚗</span>}
+                {vehicleOf(id) ? <img src={vehicleOf(id)!.img} alt={name(id)} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${inkOf(vehicleOf(id)!.color)}` }} /> : <span aria-hidden="true">🚗</span>}
                 <span style={{ flex: 1, minWidth: 0 }}><b>{name(id)}</b> <small style={{ fontWeight: 700, color: vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '#1a73e8' : '#c2185b' }}>{vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '🏛 รถคริสตจักร' : `👤 รถส่วนตัว${vehicleOwner(st.settings.vehicleOwner, id).name ? ` · ${vehicleOwner(st.settings.vehicleOwner, id).name}` : ''}`}</small><br /><small className="muted">{km(Math.round(totM(id)))} × {rate(id)} บ./กม.{tripM(id) > 0 ? ` (เยี่ยม ${km(Math.round(totM(id) - tripM(id)))} + เดินทาง ${km(Math.round(tripM(id)))})` : ''}</small></span>
                 <b style={{ fontSize: '1.1rem' }}>{baht(totM(id) / 1000 * rate(id))}</b>
               </div>))}
@@ -685,7 +685,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
       <div className="field"><label>🚗 รถที่ใช้</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }} role="radiogroup" aria-label="รถ">
           {VEHICLES.map((c) => (
-            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(c.id)} style={{ ...LIGHT, background: '#fff', padding: 3, borderRadius: 10, border: `3px solid ${vehicle === c.id ? c.color : '#d6dbe8'}`, font: 'inherit', textAlign: 'center' }}>
+            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(c.id)} style={{ ...LIGHT, background: '#fff', padding: 3, borderRadius: 10, border: `3px solid ${vehicle === c.id ? inkOf(c.color) : '#d6dbe8'}`, font: 'inherit', textAlign: 'center' }}>
               <img src={c.img} alt={c.name} style={{ width: '100%', height: 44, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
               <div style={{ fontSize: 10.5, fontWeight: 700 }}>{c.name.replace('รถ', '')}{vehicle === c.id ? ' ✓' : ''}</div>
             </button>))}
@@ -789,7 +789,7 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
               const o = own(id), tot = sum(id) * rate(id)
               return (
                 <div key={id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
-                  <img src={vehicleOf(id)!.img} alt={vehicleOf(id)!.name} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${vehicleOf(id)!.color}` }} />
+                  <img src={vehicleOf(id)!.img} alt={vehicleOf(id)!.name} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${inkOf(vehicleOf(id)!.color)}` }} />
                   <span style={{ flex: 1, minWidth: 0 }}><b>{vehicleOf(id)!.name}</b><br /><small className="muted">{km(Math.round(sum(id) * 1000))} × {rate(id)} บ./กม.</small><br /><small style={{ fontWeight: 700, color: o.kind === 'church' ? '#1a73e8' : '#c2185b' }}>{o.kind === 'church' ? '🏛 รถคริสตจักร — คริสตจักรจ่ายค่าน้ำมันเอง' : `👤 จ่ายคืนเจ้าของรถ${o.name ? `: ${o.name}` : ''}`}</small></span>
                   <b style={{ fontSize: '1.1rem' }}>{baht(tot)}</b>
                 </div>)
@@ -801,7 +801,7 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
             <b>🚗 รายการเดินทาง</b>
             {list.map((x) => (
               <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #eee' }}>
-                <img src={vehicleOf(x.vehicle)?.img} alt="" style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 5, border: `2px solid ${vehicleOf(x.vehicle)?.color ?? '#999'}` }} />
+                <img src={vehicleOf(x.vehicle)?.img} alt="" style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 5, border: `2px solid ${inkOf(vehicleOf(x.vehicle)?.color ?? '#999')}` }} />
                 {x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={44} /> : null}<span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
                 <button type="button" className="mini" aria-label={`แก้ ${x.title}`} onClick={() => setEditTrip(x)}>✎</button>
                 <button type="button" className="mini" aria-label={`ลบ ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>
