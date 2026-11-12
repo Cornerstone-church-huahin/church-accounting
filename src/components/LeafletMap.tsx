@@ -3,10 +3,10 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import { HUAHIN, type Coord } from '../lib/geo'
 
-export interface MapPin { id: string; lat: number; lng: number; label: string; sub?: string; /** สีหมุด (ไม่ใส่ = ชมพูมาตรฐาน) */ color?: string; /** ข้อความในหมุด เช่น ลำดับจุด หรือ ⛪ */ badge?: string; /** ขนาดหมุดกลม (px · ค่าเริ่มต้น 30) — ใช้ทำหมุดเด่น เช่น คริสตจักร */ size?: number }
+export interface MapPin { id: string; lat: number; lng: number; label: string; sub?: string; /** สีหมุด (ไม่ใส่ = ชมพูมาตรฐาน) */ color?: string; /** หมุดสีขาวขอบน้ำเงิน ตัวเลขน้ำเงิน */ white?: boolean; /** ข้อความในหมุด เช่น ลำดับจุด หรือ ⛪ */ badge?: string; /** ขนาดหมุดกลม (px · ค่าเริ่มต้น 30) — ใช้ทำหมุดเด่น เช่น คริสตจักร */ size?: number }
 export interface MapLine { /** เส้นทางแต่ละช่วง (จุดตามถนน หรือเส้นตรง 2 จุด) */ segments: Coord[][]; /** สีเส้นของแต่ละช่วง (ไม่ใส่ = น้ำเงิน) */ colors?: string[]; /** ป้ายระยะ/เวลาวางบนเส้น */ labels?: { at: Coord; text: string }[] }
 
-const badgeIcon = (color: string, badge: string, size = 30) => L.divIcon({ className: '', html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;font:700 ${Math.round(size / 2)}px/1 sans-serif;border:${size > 34 ? 4 : 3}px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.7)">${badge}</span>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 2)] })
+const badgeIcon = (color: string, badge: string, size = 30, white = false) => L.divIcon({ className: '', html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${white ? '#fff' : color};color:${white ? '#1a56db' : '#fff'};font:700 ${Math.round(size / 2)}px/1 sans-serif;border:${size > 34 ? 4 : 3}px solid ${white ? '#1a56db' : '#fff'};box-shadow:0 2px 8px rgba(0,0,0,.7)">${badge}</span>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 2)] })
 const dot = (cls = '') => L.divIcon({ className: '', html: `<span class="mapdot${cls}"></span>`, iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -20] })
 
 /**
@@ -47,7 +47,7 @@ export default function LeafletMap({ pins = [], line, pick, onPick, height = 320
       const el = document.createElement('div')
       const b = document.createElement('b'); b.textContent = p.label; el.appendChild(b)
       if (p.sub) { el.appendChild(document.createElement('br')); const s = document.createElement('span'); s.style.whiteSpace = 'pre-line'; s.textContent = p.sub; el.appendChild(s) }
-      L.marker([p.lat, p.lng], { icon: p.color || p.badge ? badgeIcon(p.color ?? '#c2255c', p.badge ?? '', p.size) : dot(), title: p.label }).bindPopup(el).addTo(g)
+      L.marker([p.lat, p.lng], { icon: p.color || p.badge ? badgeIcon(p.color ?? '#c2255c', p.badge ?? '', p.size, p.white) : dot(), title: p.label }).bindPopup(el).addTo(g)
     }
     if (pins.length > 1) m.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number])), { padding: [24, 24], maxZoom: 17, animate: false })
     else if (pins.length === 1) m.setView([pins[0].lat, pins[0].lng], 16, { animate: false })
@@ -58,10 +58,10 @@ export default function LeafletMap({ pins = [], line, pick, onPick, height = 320
     const m = map.current
     if (!m || !line || line.segments.length === 0) return
     const g = L.layerGroup().addTo(m)
-    line.segments.forEach((seg, si) => {
+    line.segments.forEach((seg) => {
       const pts = seg.map((c) => [c.lat, c.lng] as [number, number])
-      L.polyline(pts, { color: '#ffffff', weight: 9, opacity: 0.9, lineJoin: 'round' }).addTo(g) // ขอบขาวให้เด่นบนภาพดาวเทียม
-      L.polyline(pts, { color: line.colors?.[si] ?? '#1a73e8', weight: 5, opacity: 1, lineJoin: 'round' }).addTo(g)
+      L.polyline(pts, { color: '#1a56db', weight: 10, opacity: 1, lineJoin: 'round' }).addTo(g) // ขอบน้ำเงิน
+      L.polyline(pts, { color: '#ffffff', weight: 5, opacity: 1, lineJoin: 'round' }).addTo(g) // เส้นขาวขอบน้ำเงิน
     })
     line.labels?.forEach(({ at, text }) => {
       L.marker([at.lat, at.lng], { interactive: false, icon: L.divIcon({ className: '', html: `<span style="display:inline-block;transform:translate(-50%,-50%);background:#fff;color:#1a3b8f;font:700 12px/1 sans-serif;padding:3px 6px;border-radius:10px;border:1.5px solid #1a73e8;white-space:nowrap">${text}</span>`, iconSize: [0, 0] }) }).addTo(g)
