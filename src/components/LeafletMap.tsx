@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { HUAHIN, type Coord } from '../lib/geo'
 
 export interface MapPin { id: string; lat: number; lng: number; label: string; sub?: string; /** สีหมุด (ไม่ใส่ = ชมพูมาตรฐาน) */ color?: string; /** หมุดสีขาวขอบน้ำเงิน ตัวเลขน้ำเงิน */ white?: boolean; /** ข้อความในหมุด เช่น ลำดับจุด หรือ ⛪ */ badge?: string; /** ขนาดหมุดกลม (px · ค่าเริ่มต้น 30) — ใช้ทำหมุดเด่น เช่น คริสตจักร */ size?: number }
-export interface MapLine { /** เส้นทางแต่ละช่วง (จุดตามถนน หรือเส้นตรง 2 จุด) */ segments: Coord[][]; /** สีเส้นของแต่ละช่วง (ไม่ใส่ = น้ำเงิน) */ colors?: string[]; /** ป้ายระยะ/เวลาวางบนเส้น */ labels?: { at: Coord; text: string }[] }
+export interface MapLine { /** เส้นทางแต่ละช่วง (จุดตามถนน หรือเส้นตรง 2 จุด) */ segments: Coord[][]; /** สีเส้นของแต่ละช่วง (ไม่ใส่ = น้ำเงิน) */ colors?: string[]; /** น้ำหนักของแต่ละช่วง (เช่น ระยะรวมของรอบนั้น) — เส้นที่สั้น/ใกล้กว่าวาดทับด้านบนเสมอ */ weights?: number[]; /** ป้ายระยะ/เวลาวางบนเส้น */ labels?: { at: Coord; text: string }[] }
 
 const badgeIcon = (color: string, badge: string, size = 30, white0 = false) => { const white = white0 || color.toLowerCase() === '#ffffff'; return L.divIcon({ className: '', html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${white ? '#fff' : color};color:${white ? '#1a56db' : '#fff'};font:700 ${Math.round(size / 2)}px/1 sans-serif;border:${size > 34 ? 4 : 3}px solid ${white ? '#1a56db' : '#fff'};box-shadow:0 2px 8px rgba(0,0,0,.7)">${badge}</span>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 2)] }) }
 const dot = (cls = '') => L.divIcon({ className: '', html: `<span class="mapdot${cls}"></span>`, iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -20] })
@@ -58,7 +58,9 @@ export default function LeafletMap({ pins = [], line, pick, onPick, height = 320
     const m = map.current
     if (!m || !line || line.segments.length === 0) return
     const g = L.layerGroup().addTo(m)
-    line.segments.forEach((seg, si) => {
+    const order = line.segments.map((_, i) => i).sort((a, b) => (line.weights?.[b] ?? 0) - (line.weights?.[a] ?? 0) || line.segments[b].length - line.segments[a].length)
+    order.forEach((si) => {
+      const seg = line.segments[si]
       const pts = seg.map((c) => [c.lat, c.lng] as [number, number])
       const fill = line.colors?.[si] ?? '#1a73e8'
       const isWhite = fill.toLowerCase() === '#ffffff'
