@@ -11,7 +11,7 @@ import MapPickSheet from './MapPickSheet'
 import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { activityId, activityLines } from '../lib/activityLines'
 import { getMe } from '../lib/access'
-import { VEHICLES } from '../lib/vehicles'
+import { VEHICLES, inkOf } from '../lib/vehicles'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
@@ -97,7 +97,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, a
       <div className="field"><label>🚗 ยานพาหนะ (แก้ได้เฉพาะแอดมิน)</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }} role="radiogroup" aria-label="ยานพาหนะ">
           {VEHICLES.map((c) => (
-            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(vehicle === c.id ? '' : c.id)} style={{ ...LIGHT, background: '#fff', padding: 3, borderRadius: 10, border: `3px solid ${vehicle === c.id ? c.color : '#d6dbe8'}`, font: 'inherit', textAlign: 'center' }}>
+            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(vehicle === c.id ? '' : c.id)} style={{ ...LIGHT, background: '#fff', padding: 3, borderRadius: 10, border: `3px solid ${vehicle === c.id ? inkOf(c.color) : '#d6dbe8'}`, font: 'inherit', textAlign: 'center' }}>
               <img src={c.img} alt={c.name} style={{ width: '100%', height: 44, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
               <div style={{ fontSize: 10.5, fontWeight: 700 }}>{c.name.replace('รถ', '')}{vehicle === c.id ? ' ✓' : ''}</div>
             </button>))}

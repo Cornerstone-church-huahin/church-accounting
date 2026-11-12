@@ -8,7 +8,7 @@ import AbsentList from './AbsentList'
 import VisitPlanBoard from './VisitPlanBoard'
 import VisitCamera, { type Shot } from './VisitCamera'
 import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
-import { VEHICLES } from '../lib/vehicles'
+import { VEHICLES, inkOf } from '../lib/vehicles'
 import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
@@ -299,9 +299,9 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
       {vehicles && <div className="field"><label>🚗 ยานพาหนะที่ใช้ออกเยี่ยม (เลือกรถก่อน · สีเส้นทางตามรถ)</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }} role="radiogroup" aria-label="ยานพาหนะ">
           {VEHICLES.map((c) => (
-            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(c.id)} style={{ ...LIGHT, background: '#fff', padding: 4, borderRadius: 12, border: `3px solid ${vehicle === c.id ? c.color : '#d6dbe8'}`, boxShadow: vehicle === c.id ? `0 0 0 2px ${c.color}55` : undefined, textAlign: 'center', font: 'inherit' }}>
+            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(c.id)} style={{ ...LIGHT, background: '#fff', padding: 4, borderRadius: 12, border: `3px solid ${vehicle === c.id ? inkOf(c.color) : '#d6dbe8'}`, boxShadow: vehicle === c.id ? `0 0 0 2px ${inkOf(c.color)}55` : undefined, textAlign: 'center', font: 'inherit' }}>
               <img src={c.img} alt={c.name} style={{ width: '100%', height: 70, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}><span style={{ display: 'inline-block', width: 22, height: 5, background: c.color, borderRadius: 3, verticalAlign: 'middle', marginRight: 4 }} />{c.name}{vehicle === c.id ? ' ✓' : ''}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}><span style={{ display: 'inline-block', width: 22, height: 5, background: inkOf(c.color), borderRadius: 3, verticalAlign: 'middle', marginRight: 4 }} />{c.name}{vehicle === c.id ? ' ✓' : ''}</div>
             </button>))}
         </div></div>}
       <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อ “หัวหน้าสาย” เป็นคนแรก แล้วตามด้วยทีม (ระบบแยกสายตามหัวหน้า)</label>
