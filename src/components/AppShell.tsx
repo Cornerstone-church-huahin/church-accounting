@@ -38,6 +38,12 @@ const GATE_OPEN = ['/join', '/install', '/settings']
 const SOLO_OK = !!import.meta.env.VITE_ALLOW_SOLO || !!import.meta.env.VITE_EMBED
 const ROOTS = ['/', '/income', '/rounds', '/vouchers', '/members', '/more', '/budget', '/reports']
 
+/** ผู้ดูแลกองทุนที่ถูกมอบหมายหมวดของกิจกรรมเดียว → ใช้ชื่อกิจกรรมเป็นชื่อเมนู */
+const keeperLabel = (t: { subs?: { id: string; actId?: string }[]; activities?: { id: string; name: string }[] } | undefined, subs?: string[]): string => {
+  if (!t || !subs?.length) return ''
+  const ids = [...new Set(subs.map((i) => t.subs?.find((q) => q.id === i)?.actId))]
+  return ids.length === 1 && ids[0] ? t.activities?.find((a) => a.id === ids[0])?.name ?? '' : ''
+}
 export default function AppShell() {
   const { pathname } = useLocation()
   // งานที่กำลังใช้อยู่: จำไว้เมื่อเปิดหน้างาน (/meeting/N) แล้วคงไว้ตอนเข้าหน้ารายละเอียดนอกห้องทำงาน (เช่น กองทุน/ยอดเงิน) เพื่อมีปุ่มกลับหน้างาน · ล้างเมื่อกลับหน้าห้องทำงานหรือหน้าหลักของแอป
@@ -61,7 +67,7 @@ export default function AppShell() {
   const fk = role === 'fundkeeper' ? myFunds() ?? [] : null
   const fundNames = useIncomeTypes().list
   // ผู้ที่มีไอคอนลงชื่อที่หัวแอปอยู่แล้ว (แอดมิน/ผู้บันทึกบัญชี) ไม่ต้องมีเมนูสมาชิกซ้ำที่แถบล่าง
-  const FUNDTABS = (fk ?? []).map((f) => ({ to: `/funds/${f.id}`, label: fundNames.find((t) => t.id === f.id)?.name.replace(/^กองทุน-?/, '') || 'กองทุน', Icon: IconWallet, end: false }))
+  const FUNDTABS = (fk ?? []).map((f) => ({ to: `/funds/${f.id}`, label: keeperLabel(fundNames.find((t) => t.id === f.id), f.subs) || fundNames.find((t) => t.id === f.id)?.name.replace(/^กองทุน-?/, '') || 'กองทุน', Icon: IconWallet, end: false }))
   const BASE_TABS = fk ? FUNDTABS : role === 'worship' ? WORSHIP : full ? (can(role, 'registry') ? FULL.filter((t) => t.to !== '/members') : FULL) : VIEW
   // ผู้ดูแล/ผู้ช่วยงาน/ที่ปรึกษา: เมนูล่างเหลือ หน้าแรก + เพิ่มเติม (ไม่มี งบประมาณ/รายงาน)
   const TABS = !fk && role !== 'worship' && isWorkStaffOnly() ? BASE_TABS.filter((t) => t.to === '/' || t.to === '/more') : BASE_TABS

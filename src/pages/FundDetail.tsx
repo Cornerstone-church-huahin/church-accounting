@@ -17,6 +17,7 @@ import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fu
 import { actAccount, actSubIds, activityMoney, addActivity, autoActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
 import { ActEvaluation, ActHeader, ActivityCards, ActProgress, AddActivity } from '../components/FundActivities'
 import ActReportPages, { type ActReportKind } from '../components/ActReport'
+import InviteActButton from '../components/InviteActButton'
 import Pay from './Pay'
 import Receive from './Receive'
 
@@ -60,6 +61,17 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
     const first = (sid: string) => f.moves.filter((m) => m.subId === sid).map((m) => m.date).sort()[0]
     types.put([{ ...ft, ...autoActivities(ft, first, new Date().toISOString().slice(0, 10)) }])
   }, [id, f, types.list, role]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ผู้ดูแลกองทุนที่ได้รับมอบหมายหมวดของกิจกรรมเดียว: เข้าหน้ากิจกรรมนั้นทันที (ครั้งแรกที่เปิด)
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (autoOpened.current || role !== 'fundkeeper') return
+    const ft = types.list.find((x) => x.id === id)
+    if (!ft?.actMode) return
+    const mine = myFunds()?.find((a) => a.id === id)?.subs
+    const open = sortedActs(ft).filter((a) => !a.closed && (!mine?.length || actSubIds(ft, a.id).some((i) => mine.includes(i))))
+    autoOpened.current = true
+    if (open.length === 1) setActId(open[0].id)
+  }, [id, types.list, role])
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
   const t = types.list.find((x) => x.id === f.id)
   const keeper = role === 'fundkeeper'
@@ -190,6 +202,7 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
           <button type="button" role="tab" aria-selected={actTab === 'eval'} className={`home-tab home-tab--out${actTab === 'eval' ? ' on' : ''}`} onClick={() => setActTab('eval')}><i className="hn">3</i><span>⭐ ประเมินผล</span></button>
         </div>
       )}
+      {act && canManage && !act.closed && <InviteActButton fundId={f.id} act={act} />}
       {act && actTab === 'prog' && <ActProgress act={act} canManage={canManage} locked={!!act.closed}
         onSave={(patch) => { if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'; if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date ?? '')) return 'เลือกวันที่เริ่มกิจกรรม'; if (patch.endDate && patch.endDate < (patch.date ?? '')) return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม'; patchAct(act.id, patch); return null }}
         onReport={() => setReport('prog')} onGoals={(goals) => patchAct(act.id, { goals })} />}

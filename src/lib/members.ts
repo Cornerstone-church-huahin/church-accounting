@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_FOR_KEY, INVITE_ROLE_KEY, INVITE_WORK_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role, type WorkLevel } from './access'
+import { getMe, normalizeRoles, primaryRole, rolesOf, INVITE_ACT_KEY, INVITE_FOR_KEY, INVITE_ROLE_KEY, INVITE_WORK_KEY, MEMBERS_KEY, myRole, ROLE_EVENT, STORE_EVENT, type AccessRole, type FundAssign, type Member, type Role, type WorkLevel } from './access'
 import { isInstalled } from './install'
 import { useSharedStore } from './sharedStore'
 import { getSync, saveSync, SYNC_EVENT } from './sync'
@@ -61,7 +61,7 @@ export function useMembers() {
     isAdmin,
     adminCount,
     /** work: undefined = ตามที่ลิงก์ระบุ (invitedWork) · null = ไม่ให้เข้าห้องงาน · {n, level} = แอดมินกำหนดห้องงาน+ตำแหน่งตอนอนุมัติ */
-    approve: (id: string, roles: Role | Role[], work?: { n: number; level: WorkLevel } | null) => {
+    approve: (id: string, roles: Role | Role[], work?: { n: number; level: WorkLevel } | null, funds?: FundAssign[]) => {
       if (!isAdmin) return false
       const m = pending.find((x) => x.id === id)
       if (!m) return false
@@ -72,7 +72,7 @@ export function useMembers() {
       let workRoles = iw ? { ...(m.workRoles ?? {}), [String(iw.n)]: iw.level } : m.workRoles
       // ลิงก์/สิทธิ์เดิม “ผู้บันทึกการนมัสการ” = ผู้ช่วยงานของงานทะเบียน
       if (asked.includes('worship') && !workRoles?.['2']) { works = [...new Set([...(works ?? []), 2])].sort((a, b) => a - b); workRoles = { ...(workRoles ?? {}), '2': 'helper' } }
-      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined, ...(iw ? { works, workRoles, invitedWork: undefined } : { invitedWork: undefined }) }])
+      store.put([{ ...m, status: 'active', role: primaryRole(rs), roles: rs.length > 1 ? rs : undefined, invitedAct: undefined, ...(funds ? { funds } : {}), ...(iw ? { works, workRoles, invitedWork: undefined } : { invitedWork: undefined }) }])
       announce()
       return true
     },
@@ -98,9 +98,11 @@ export function useMembers() {
       if (!me || !cfg) return
       let invitedWork: { n: number; level: WorkLevel } | undefined
       try { const w = JSON.parse(localStorage.getItem(INVITE_WORK_KEY) ?? 'null'); if (w && Number.isInteger(w.n) && ['owner', 'deputy', 'lead', 'helper', 'advisor'].includes(w.level)) invitedWork = { n: w.n, level: w.level } } catch { /* ignore */ }
+      let invitedAct: { fund: string; act: string } | undefined
+      try { const a = JSON.parse(localStorage.getItem(INVITE_ACT_KEY) ?? 'null'); if (a && typeof a.fund === 'string' && typeof a.act === 'string') invitedAct = { fund: a.fund, act: a.act } } catch { /* ignore */ }
       const ua = navigator.userAgent
       const device = `${/iphone|ipad|ipod/i.test(ua) ? 'iPhone/iPad' : /android/i.test(ua) ? 'Android' : 'คอมพิวเตอร์'} · ${isInstalled() ? 'แอปที่ติดตั้ง' : 'เบราว์เซอร์'}`
-      store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, device, ...(invitedFor ? { invitedFor } : {}), ...(invitedWork ? { invitedWork } : {}), updated: 0 }])
+      store.put([{ id: me.id, name: cfg.name.trim(), role, joined: Date.now(), status, device, ...(invitedFor ? { invitedFor } : {}), ...(invitedWork ? { invitedWork } : {}), ...(invitedAct ? { invitedAct } : {}), updated: 0 }])
       announce()
     },
     rename: (name: string) => {
