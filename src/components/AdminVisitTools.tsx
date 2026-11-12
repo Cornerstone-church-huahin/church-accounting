@@ -617,6 +617,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
   const [oneWay, setOneWay] = useState<number | null>(initial?.dest ? initial.km / (initial.roundTrip ? 2 : 1) : null)
   const [stops, setStops] = useState<{ lat: number; lng: number; name: string; at: number }[]>(initial?.stops ?? [])
   const [extraTxt, setExtraTxt] = useState(initial?.extraKm ? String(initial.extraKm) : '')
+  const [stopTxt, setStopTxt] = useState<Record<number, string>>(() => Object.fromEntries((initial?.stops ?? []).map((x) => [x.at, formatCoord(x)])))
   const [destAt, setDestAt] = useState<number | undefined>(initial?.destAt)
   const [photos, setPhotos] = useState<string[]>(initial?.photos ?? [])
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -627,7 +628,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
   const extraNum = Math.max(0, Number(extraTxt.replace(/,/g, '')) || 0)
   /** ระยะเส้นต่อเนื่อง คริสตจักร → ปลายทาง → จุดแวะ (ตามเวลา) → กลับคริสตจักร ตามถนนจริง (กม.) */
   const chainKm = async (d: Coord, sts: { lat: number; lng: number; at: number }[]): Promise<{ km: number; road: boolean }> => {
-    const pts: Coord[] = [church!, d, ...[...sts].sort((a, b) => a.at - b.at).map((x) => ({ lat: x.lat, lng: x.lng })), church!]
+    const pts: Coord[] = [church!, d, ...[...sts].filter((x) => Number.isFinite(x.lat) && Number.isFinite(x.lng)).sort((a, b) => a.at - b.at).map((x) => ({ lat: x.lat, lng: x.lng })), church!]
     let m = 0, allRoad = true
     for (let i = 1; i < pts.length; i++) { const r = await fetchRoad(pts[i - 1], pts[i]); if (!r) allRoad = false; m += r ? r.m : distanceM(pts[i - 1], pts[i]) }
     return { km: m / 1000, road: allRoad }
@@ -648,6 +649,15 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setBusy(true); setErr('')
     navigator.geolocation.getCurrentPosition((p) => { setBusy(false); const ns2 = [...stops, { lat: Math.round(p.coords.latitude * 1e6) / 1e6, lng: Math.round(p.coords.longitude * 1e6) / 1e6, name: '', at: Date.now() }]; setStops(ns2); void recalc(dest, ns2, extraNum) }, () => { setBusy(false); setErr('หาตำแหน่งไม่ได้ — เปิด GPS แล้วกดเช็คอินจุดแวะอีกครั้ง') }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  }
+  /** แอดมิน: เพิ่มจุดแวะโดยพิมพ์พิกัดเอง (ยังไม่มีพิกัดจนกว่าจะกรอก) */
+  const addStopManual = () => { if (!dest) return setErr('ใส่/เช็คอินปลายทางก่อน แล้วจึงเพิ่มจุดแวะ'); setStops([...stops, { lat: NaN, lng: NaN, name: '', at: Date.now() }]) }
+  /** แอดมิน: แก้พิกัดจุดแวะ แล้วคำนวณระยะใหม่ */
+  const setStopCoord = (i: number, txt: string, force = false) => {
+    const c = parseCoords(txt); if (!c) { if (force) setErr('อ่านพิกัดจุดแวะไม่ได้'); return }
+    const cur = stops[i]
+    if (!force && Number.isFinite(cur.lat) && distanceM(c, cur) <= 20) return
+    const ns2 = stops.map((y, j) => (j === i ? { ...y, lat: c.lat, lng: c.lng } : y)); setStops(ns2); setStopTxt((m) => ({ ...m, [cur.at]: formatCoord(c) })); if (dest) void recalc(dest, ns2, extraNum)
   }
   const removeStop = (i: number) => { const ns2 = stops.filter((_, j) => j !== i); setStops(ns2); if (dest) void recalc(dest, ns2, extraNum) }
   const checkin = () => {
@@ -677,7 +687,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
       }
     }
     const me = getMe()
-    const rec: TripLog = { id: initial?.id ?? `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmFinal * 10) / 10, roundTrip: true, ...(d ? { dest: d } : {}), ...(photos.length ? { photos } : {}), ...(stops.length ? { stops: stops.map((x, i) => ({ ...x, name: x.name.trim() || `จุดแวะ ${i + 1}` })) } : {}), ...(extraNum > 0 ? { extraKm: extraNum } : {}), ...(destAt ? { destAt } : {}), by: initial?.by ?? me?.name ?? '', at: initial?.at ?? Date.now(), updated: 0 }
+    const rec: TripLog = { id: initial?.id ?? `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, date, vehicle, title: title.trim(), ...(placeName.trim() ? { place: placeName.trim() } : {}), km: Math.round(kmFinal * 10) / 10, roundTrip: true, ...(d ? { dest: d } : {}), ...(photos.length ? { photos } : {}), ...(stops.some((x) => Number.isFinite(x.lat)) ? { stops: stops.filter((x) => Number.isFinite(x.lat)).map((x, i) => ({ ...x, name: x.name.trim() || `จุดแวะ ${i + 1}` })) } : {}), ...(extraNum > 0 ? { extraKm: extraNum } : {}), ...(destAt ? { destAt } : {}), by: initial?.by ?? me?.name ?? '', at: initial?.at ?? Date.now(), updated: 0 }
     if (tl.put([rec])) onClose(); else setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)')
   }
   return (
@@ -703,12 +713,20 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
         {vehicle && Number.isFinite(kmNum) && kmNum > 0 && <span className="small" role="status">⛽ ประมาณ <b>{baht(kmNum * rate)}</b> ({rate} บ./กม. · {vehicleOf(vehicle)?.name})</span>}</div>
       <div className="field"><label>🛣️ จุดแวะระหว่างทาง (ไม่บังคับ · ไม่กดก็ได้)</label>
         {stops.map((x, i) => (
-          <div key={x.at} className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
-            <span aria-hidden="true">📍</span>
-            <input className="input grow" aria-label={`ชื่อจุดแวะ ${i + 1}`} placeholder={`ชื่อจุดแวะ ${i + 1} เช่น แวะรับของที่ชะอำ`} value={x.name} onChange={(e) => setStops(stops.map((y, j) => (j === i ? { ...y, name: e.target.value } : y)))} />
-            <button type="button" className="mini" aria-label={`ลบจุดแวะ ${i + 1}`} onClick={() => removeStop(i)}>✕</button>
+          <div key={x.at} style={{ marginBottom: 6 }}>
+            <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+              <span aria-hidden="true">📍</span>
+              <input className="input grow" aria-label={`ชื่อจุดแวะ ${i + 1}`} placeholder={`ชื่อจุดแวะ ${i + 1} เช่น แวะรับของที่ชะอำ`} value={x.name} onChange={(e) => setStops(stops.map((y, j) => (j === i ? { ...y, name: e.target.value } : y)))} />
+              <button type="button" className="mini" aria-label={`ลบจุดแวะ ${i + 1}`} onClick={() => removeStop(i)}>✕</button>
+            </div>
+            {admin && <div style={{ marginLeft: 26, marginTop: 4 }}>
+              <label htmlFor={`tl-s${i}`} className="small">พิกัดจุดแวะ {i + 1} (แอดมินแก้ได้)</label>
+              <input id={`tl-s${i}`} className="input" inputMode="decimal" value={stopTxt[x.at] ?? (Number.isFinite(x.lat) ? formatCoord(x) : '')} onChange={(e) => setStopTxt((m) => ({ ...m, [x.at]: e.target.value }))} onBlur={(e) => setStopCoord(i, e.target.value)} placeholder="เช่น 12.5684, 99.9577" />
+              <button type="button" className="mini" style={{ marginTop: 4 }} disabled={busy} onClick={() => setStopCoord(i, stopTxt[x.at] ?? '', true)}>🔄 คำนวณระยะใหม่จากพิกัดนี้</button>
+            </div>}
           </div>))}
         <button type="button" className="btn" disabled={busy || !dest} onClick={addStop}>＋ 📍 เช็คอินจุดแวะ (ที่จุดนั้น)</button>
+        {admin && <button type="button" className="btn" style={{ marginTop: 6 }} disabled={busy || !dest} onClick={addStopManual}>＋ เพิ่มจุดแวะ (แอดมินพิมพ์พิกัดเอง)</button>}
         <label htmlFor="tl-x" className="small" style={{ display: 'block', marginTop: 6 }}>ระยะแวะเพิ่มที่ไม่ได้เช็คอิน (กม. · ไม่บังคับ)</label>
         <input id="tl-x" className="input" inputMode="decimal" value={extraTxt} placeholder="เช่น 8" onChange={(e) => { setExtraTxt(e.target.value); const ex = Math.max(0, Number(e.target.value.replace(/,/g, '')) || 0); if (oneWay != null) setKmTxt((oneWay + ex).toFixed(1)) }} />
       </div>
