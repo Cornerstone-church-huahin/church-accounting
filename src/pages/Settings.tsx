@@ -98,7 +98,8 @@ function Connect() {
 
 function Members() {
   const m = useMembers()
-  const fundTypes = useIncomeTypes().list.filter((t) => t.active && !t.standalone && isFundType(t))
+  const useTypes = useIncomeTypes().list
+  const fundTypes = useTypes.filter((t) => t.active && !t.standalone && isFundType(t))
   const cfg = getSync()
   const [inviteWork, setInviteWork] = useState(0)
   const [inviteLevel, setInviteLevel] = useState<WorkLevel>('helper')
@@ -174,6 +175,7 @@ function Members() {
                           <div><dt>ขอเมื่อ</dt><dd>{x.joined ? new Date(x.joined).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.' : '—'}</dd></div>
                           <div><dt>ขอมาทาง</dt><dd>ลิงก์เชิญ{x.invitedFor ? ` ที่ส่งให้ “${x.invitedFor}”` : ' (ไม่ได้ระบุชื่อผู้รับ)'} · อุปกรณ์ {x.device ?? 'ไม่ทราบ (คำขอเก่า)'}</dd></div>
                           <div><dt>สิทธิ์ในลิงก์</dt><dd>{ROLE_LABEL[x.role]}</dd></div>
+                          {x.invitedAct && <div><dt>เชิญเข้ากิจกรรม</dt><dd><b>{useTypes.find((t) => t.id === x.invitedAct!.fund)?.activities?.find((a) => a.id === x.invitedAct!.act)?.name ?? '(กิจกรรมที่ถูกลบ)'}</b> — อนุมัติแล้วจะเป็นผู้ดูแลกองทุนของกิจกรรมนี้อัตโนมัติ</dd></div>}
                           <div><dt>ห้องงานที่ขอ</dt><dd>{x.invitedWork ? <><b>{wName(x.invitedWork.n)}</b> · ตำแหน่ง <b>{WORK_LEVEL_LABEL[x.invitedWork.level]}</b></> : <>ลิงก์นี้ไม่ได้ระบุห้องงาน/ตำแหน่ง (ขอเป็นผู้ดูทั่วไป)</>}</dd></div>
                         </dl>
                         <div className="row" style={{ alignItems: 'end' }}>
@@ -189,7 +191,14 @@ function Members() {
                         </div>
                         <div className="row">
                     <div className="grow small" style={{ minWidth: 0 }}>{ww ? <>จะให้เป็น <b>{WORK_LEVEL_LABEL[ww.level]}</b> ของ <b>{wName(ww.n)}</b> เมื่ออนุมัติ</> : <>จะอนุมัติเป็นผู้ดูทั่วไป (ตั้งตำแหน่งในงานได้หลังอนุมัติ)</>}</div>
-                    <button type="button" className="btn btn--gold" onClick={() => { m.approve(x.id, w, x.id in wantWork ? wantWork[x.id] : undefined); flash(`อนุมัติ ${x.name} แล้ว (${rolesLabel(normalizeRoles(w))})`) }}>✓ อนุมัติ</button>
+                    <button type="button" className="btn btn--gold" onClick={() => {
+                      const ia = x.invitedAct
+                      const ft = ia ? useTypes.find((t) => t.id === ia.fund) : undefined
+                      const subs = ia && ft ? (ft.subs ?? []).filter((q) => q.actId === ia.act).map((q) => q.id) : []
+                      const asKeeper = !!ia && !!ft && w.every((r) => r === 'viewer')
+                      m.approve(x.id, asKeeper ? ['fundkeeper'] : w, x.id in wantWork ? wantWork[x.id] : undefined, asKeeper ? [{ id: ia!.fund, ...(subs.length ? { subs } : {}) }] : undefined)
+                      flash(`อนุมัติ ${x.name} แล้ว (${asKeeper ? 'ผู้ดูแลกองทุน — กรรมการกิจกรรม' : rolesLabel(normalizeRoles(w))})`)
+                    }}>✓ อนุมัติ</button>
                     <button type="button" className="btn btn--ghost" onClick={() => { m.reject(x.id); flash(`ไม่อนุมัติ ${x.name}`) }}>✕</button>
                   </div>
                       </>
