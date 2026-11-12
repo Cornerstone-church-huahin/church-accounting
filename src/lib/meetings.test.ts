@@ -178,3 +178,15 @@ describe('วัน-เวลา-สถานที่จากหนังส�
     expect(plainName('01ประชุมคณะธรรมกิจ')).toBe('ประชุมคณะธรรมกิจ'); expect(plainName('01. ประชุม')).toBe('ประชุม'); expect(plainName('ประชุม 3')).toBe('ประชุม 3')
   })
 })
+
+describe('noticeHeading — วันที่ประชุมที่ผู้ใช้พิมพ์เอง', () => {
+  it('ใช้วันที่หน้าชื่อ “ส่งถึง” แทนวันอาทิตย์แรกของเดือนถัดไป', async () => {
+    const { noticeHeading } = await import('./meetings')
+    const h = noticeHeading('2026-11-12', true, '1', '15/11/2026 แจ้งการประชุมวิสามัญ')
+    expect(h[2]).toBe('วันอาทิตย์ที่ 15 พฤศจิกายน 2026')
+  })
+  it('ไม่มีวันที่ → วันอาทิตย์แรกถัดไปเหมือนเดิม', async () => {
+    const { noticeHeading } = await import('./meetings')
+    expect(noticeHeading('2026-11-12', true, '1', 'แจ้งการประชุม')[2]).toBe('วันอาทิตย์ที่ 6 ธันวาคม 2026')
+  })
+})

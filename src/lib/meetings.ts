@@ -180,7 +180,18 @@ const SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 /**
  * หัวหนังสือแจ้งการประชุม (3 บรรทัด ตามหัววาระมาตรฐานของคริสตจักร): ชื่อวาระการประชุม · สมัยสามัญ ครั้งที่ เดือนย่อ/ปี ค.ศ. · วันอาทิตย์ที่ … (อาทิตย์แรกของเดือนที่จะถึง ตามวันที่ของหนังสือ)
  */
-export function noticeHeading(todayIso: string, special = false, no?: string): string[] {
-  const n = nextFirstSunday(todayIso)
-  return ['วาระการประชุมธรรมกิจคริสตจักรศิลาเอก', `สมัย${special ? 'วิสามัญ' : 'สามัญ'} ครั้งที่ ${no?.trim() ? `${no.trim()}/${n.y + 543}` : `${SHORT_MONTHS[n.m - 1]}/${n.y + 543}`}`, `วันอาทิตย์ที่ ${n.d} ${MONTHS[n.m - 1]} ${n.y}`]
+/** วันที่ประชุมที่ผู้ใช้พิมพ์ไว้หน้าชื่อ “ส่งถึง” (เช่น 15/11/2026 แจ้งการประชุม…) — ไม่มี/อ่านไม่ได้ = null */
+export function meetingDateFromTitle(toName?: string): { d: number; m: number; y: number; dow: number } | null {
+  const x = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(toName ?? '')
+  if (!x) return null
+  const d = Number(x[1]), m = Number(x[2]); let y = Number(x[3]); if (y > 2400) y -= 543
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null
+  return { d, m, y, dow: dt.getUTCDay() }
+}
+const DOW_TH = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+export function noticeHeading(todayIso: string, special = false, no?: string, toName?: string): string[] {
+  const mine = meetingDateFromTitle(toName)
+  const n = mine ?? { ...nextFirstSunday(todayIso), dow: 0 }
+  return ['วาระการประชุมธรรมกิจคริสตจักรศิลาเอก', `สมัย${special ? 'วิสามัญ' : 'สามัญ'} ครั้งที่ ${no?.trim() ? `${no.trim()}/${n.y + 543}` : `${SHORT_MONTHS[n.m - 1]}/${n.y + 543}`}`, `วัน${DOW_TH[n.dow]}ที่ ${n.d} ${MONTHS[n.m - 1]} ${n.y}`]
 }
