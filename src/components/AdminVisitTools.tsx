@@ -199,7 +199,8 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   // เส้นทาง: คริสตจักร → จุด 1 → … → กลับคริสตจักร (สีน้ำเงิน ตามถนนจริงเมื่อคำนวณได้)
   const segs = calcs.flatMap((c) => c.legs)
   const segCol = calcs.flatMap((c, ci) => c.legs.map(() => LINE_COL[lineOf(trips[ci]) % LINE_COL.length]))
-  const line = segs.length ? { segments: segs.map((l) => l.g), colors: segCol, labels: segs.map((l) => ({ at: l.g[Math.floor(l.g.length / 2)], text: `${km(l.m)}${l.road ? ` · ${mins(l.s)}` : ''}` })) } : undefined
+  const segW = calcs.flatMap((c) => c.legs.map(() => c.total))
+  const line = segs.length ? { segments: segs.map((l) => l.g), colors: segCol, weights: segW, labels: segs.map((l) => ({ at: l.g[Math.floor(l.g.length / 2)], text: `${km(l.m)}${l.road ? ` · ${mins(l.s)}` : ''}` })) } : undefined
   const roadNote = legCount === 0 ? '' : roadCount === legCount ? '🛣️ ระยะตามถนนจริง' : roadCount === 0 ? '⏳ กำลังคำนวณตามถนน… (ถ้าไม่ขึ้น ใช้เส้นตรงแทนชั่วคราว)' : `⏳ คำนวณตามถนนแล้ว ${roadCount}/${legCount} ช่วง`
   return (
     <>
