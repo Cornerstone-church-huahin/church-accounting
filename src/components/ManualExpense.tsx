@@ -24,7 +24,6 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
   const [payee, setPayee] = useState('')
   const [biller, setBiller] = useState('')
   const [subId, setSubId] = useState(defaultSub ?? '')
-  const [method, setMethod] = useState<'cash' | 'transfer'>('cash')
   const [err, setErr] = useState('')
 
   const save = () => {
@@ -36,7 +35,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
     if (!amount || amount <= 0) errs.push('ใส่จำนวนเงิน')
     if (errs.length) return setErr(errs.join('\n'))
     if (!q || !amount) return
-    const ok = onAdd({ id: newId('ex'), updated: 0, channel: 'manual', date, amount, desc: q.name, catId: q.id, ...(subs?.length ? { subId } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(requester.trim() ? { requester: requester.trim() } : {}), ...(biller ? { biller } : {}), status: 'paid', paidDate: date, method })
+    const ok = onAdd({ id: newId('ex'), updated: 0, channel: 'manual', date, amount, desc: q.name, catId: q.id, ...(subs?.length ? { subId } : {}), ...(payee.trim() ? { who: payee.trim() } : {}), ...(requester.trim() ? { requester: requester.trim() } : {}), ...(biller ? { biller } : {}), status: 'paid', paidDate: date, method: 'cash' })
     if (!ok) return setErr('สิทธิ์ของท่านบันทึกไม่ได้')
     setErr(''); setAmount(null); setBiller('')
   }
@@ -55,10 +54,6 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
             <div className="field"><label htmlFor="me-req">หมายเหตุ</label><input id="me-req" className="input" value={requester} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setRequester(e.target.value)} /></div>
             <div className="field"><label htmlFor="me-pay">ผู้รับเงิน</label><input id="me-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
           </div>
-          <div className="field"><label>จ่ายด้วย</label>
-            <div className="row" style={{ gap: 6 }} role="radiogroup" aria-label="จ่ายด้วย">
-              {(['cash', 'transfer'] as const).map((k) => <button key={k} type="button" role="radio" aria-checked={method === k} className={`btn ${method === k ? 'btn--gold' : 'btn--ghost'}`} style={{ flex: 1 }} onClick={() => setMethod(k)}>{k === 'cash' ? '💵 เงินสด' : '🏦 โอน'}</button>)}
-            </div></div>
           <PersonField id="me-biller" value={biller} onChange={setBiller} />
           {err && <p className="err" role="alert">{err}</p>}
           <button type="button" className="btn btn--gold" onClick={save}>＋ เพิ่มลงตาราง</button>
@@ -74,7 +69,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
           <ul className="list">
             {rows.map((x) => (
               <li key={x.id}>
-                <span className="grow"><b>{x.desc}</b><br /><span className="small muted">{fmtDate(x.date)}{x.requester ? ` · หมายเหตุ ${x.requester}` : ''}{x.who ? ` · รับ ${x.who}` : ''}{x.method === 'transfer' ? ' · 🏦 โอน' : ' · 💵 เงินสด'}</span></span>
+                <span className="grow"><b>{x.desc}</b><br /><span className="small muted">{fmtDate(x.date)}{x.requester ? ` · หมายเหตุ ${x.requester}` : ''}{x.who ? ` · รับ ${x.who}` : ''}</span></span>
                 <b className="num">{m(x.amount)}</b>
                 <button type="button" className="mini" aria-label="แก้ไขรายการนี้" onClick={() => onEdit(x)}>✎</button>
                 <button type="button" className="mini" aria-label="ลบรายการนี้" onClick={() => onDelete(x)}>🗑</button>

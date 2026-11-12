@@ -60,17 +60,6 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
     const first = (sid: string) => f.moves.filter((m) => m.subId === sid).map((m) => m.date).sort()[0]
     types.put([{ ...ft, ...autoActivities(ft, first, new Date().toISOString().slice(0, 10)) }])
   }, [id, f, types.list, role]) // eslint-disable-line react-hooks/exhaustive-deps
-  // ผู้ดูแลกองทุนที่ได้รับมอบหมายหมวดของกิจกรรมเดียว: เข้าหน้ากิจกรรมนั้นทันที (ครั้งแรกที่เปิด)
-  const autoOpened = useRef(false)
-  useEffect(() => {
-    if (autoOpened.current || role !== 'fundkeeper') return
-    const ft = types.list.find((x) => x.id === id)
-    if (!ft?.actMode) return
-    const mine = myFunds()?.find((a) => a.id === id)?.subs
-    const open = sortedActs(ft).filter((a) => !a.closed && (!mine?.length || actSubIds(ft, a.id).some((i) => mine.includes(i))))
-    autoOpened.current = true
-    if (open.length === 1) setActId(open[0].id)
-  }, [id, types.list, role])
   if (!f) return <><div className="page-head"><h1>💰 กองทุน</h1><Link to="/funds" className="mini">‹ ทุกกองทุน</Link></div><p className="empty">ไม่พบกองทุนนี้ (อาจถูกลบหรือเปลี่ยนชื่อ)</p></>
   const t = types.list.find((x) => x.id === f.id)
   const keeper = role === 'fundkeeper'
