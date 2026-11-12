@@ -181,7 +181,7 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
   }
   return (
     <>
-      {act && <div className="no-print" style={{ margin: '6px 0' }}><button type="button" className="btn btn--ghost" onClick={() => { setActId(null); setPick(null); setSheetPick(null) }}>‹ ทุกกิจกรรม</button></div>}
+      {act && <div className="no-print row" style={{ margin: '6px 0', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><button type="button" className="btn btn--ghost" onClick={() => { setActId(null); setPick(null); setSheetPick(null) }}>‹ ทุกกิจกรรม</button>{canManage && !act.closed && <InviteActButton fundId={f.id} act={act} />}</div>}
       {act && <ActHeader act={act} onReport={() => setReport('all')} onTeam={canManage ? (team) => patchAct(act.id, { team: team.length ? team : undefined }) : undefined} onEdit={canManage ? (patch) => {
         if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'
         if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date)) return 'เลือกวันที่เริ่มกิจกรรม'
@@ -202,7 +202,6 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
           <button type="button" role="tab" aria-selected={actTab === 'eval'} className={`home-tab home-tab--out${actTab === 'eval' ? ' on' : ''}`} onClick={() => setActTab('eval')}><i className="hn">3</i><span>⭐ ประเมินผล</span></button>
         </div>
       )}
-      {act && canManage && !act.closed && <InviteActButton fundId={f.id} act={act} />}
       {act && actTab === 'prog' && <ActProgress act={act} canManage={canManage} locked={!!act.closed}
         onSave={(patch) => { if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'; if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date ?? '')) return 'เลือกวันที่เริ่มกิจกรรม'; if (patch.endDate && patch.endDate < (patch.date ?? '')) return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม'; patchAct(act.id, patch); return null }}
         onReport={() => setReport('prog')} onGoals={(goals) => patchAct(act.id, { goals })} />}

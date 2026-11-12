@@ -20,8 +20,8 @@ export default function InviteActButton({ fundId, act }: { fundId: string; act: 
     } catch { /* ผู้ใช้ปิดหน้าต่างแชร์ */ }
   }
   return (
-    <div className="no-print" style={{ margin: '8px 0' }}>
-      <button type="button" className="btn btn--gold btn--block" onClick={() => void send()}>📨 เชิญกรรมการ (ส่งทางไลน์)</button>
+    <div className="no-print" style={{ textAlign: 'right' }}>
+      <button type="button" className="btn btn--gold" onClick={() => void send()}>📨 เชิญกรรมการ</button>
       {msg && <p className="ok small" role="status" style={{ margin: '4px 0 0' }}>{msg}</p>}
     </div>
   )
