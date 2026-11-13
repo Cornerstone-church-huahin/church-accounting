@@ -341,7 +341,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
           {mode === 'plan'
             ? <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (บรรทัดละกิจกรรม เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
               <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => save(edit.d, setDayText(doc, e.target.value))} /></div>
-            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist date={edit.d} slot="day" text={doc.dayText} /></div>}
+            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns="-lab" date={edit.d} slot="day" text={doc.dayText} /></div>}
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
