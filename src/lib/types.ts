@@ -560,4 +560,4 @@ export interface AdminNote extends SharedItem { work: number; kind: 'gain' | 'no
 export interface TripLog extends SharedItem { date: string; vehicle: string; title: string; /** ชื่อปลายทาง/สถานที่ */ place?: string; /** ระยะรวมที่นับค่าน้ำมัน (กม.) */ km: number; roundTrip: boolean; /** รูปถ่ายประกอบ (ไม่บังคับ) */ photos?: string[]; /** จุดแวะระหว่างทาง (เช็คอินแล้ว เรียงตามเวลา) */ stops?: { lat: number; lng: number; name: string; at: number }[]; /** ระยะแวะเพิ่มที่กรอกเอง (กม.) */ extraKm?: number; /** เวลาที่เช็คอินปลายทาง */ destAt?: number; /** ปลายทาง (ถ้าระบุพิกัด) */ dest?: { lat: number; lng: number }; by: string; at: number }
 
 /** บันทึกกิจกรรมที่ทำแล้ว (งานอภิบาล): กิจกรรมช่วงเช้า/ภาคเช้า-บ่าย-ค่ำ ที่ติ๊กว่า “ทำแล้ว” จึงขึ้นรายงาน */
-export interface ActivityLog extends SharedItem { date: string; slot: string; text: string; by: string; at: number }
+export interface ActivityLog extends SharedItem { date: string; slot: string; text: string; by: string; at: number; /** รูปถ่ายยืนยันว่าทำกิจกรรมแล้ว */ photos?: string[]; /** พิกัดที่ถ่ายรูป (เช็คอิน) */ checkin?: { lat: number; lng: number; acc?: number } }
