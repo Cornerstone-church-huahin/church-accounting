@@ -143,10 +143,12 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const [pickDay, setPickDay] = useState<string | null>(null)
   const [cfg, setCfg] = useState(false)
-  const checkDays = useMemo(() => new Set(visits.list.filter((v) => v.checkin && days.includes(v.date)).map((v) => v.date)), [visits.list, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
+  const actDays = useActivityLog(ns)
+  const checkDays = useMemo(() => new Set([...visits.list.filter((v) => v.checkin && days.includes(v.date)).map((v) => v.date), ...actDays.list.filter((a) => a.checkin && days.includes(a.date)).map((a) => a.date)]), [visits.list, actDays.list, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
   const date = pickDay && days.includes(pickDay) ? pickDay : days.includes(todayISO()) ? todayISO() : days.find((d) => checkDays.has(d)) ?? days[0]
   const range = (() => { const [ya, ma, da] = days[0].split('-').map(Number), [yb, mb, db] = days[days.length - 1].split('-').map(Number); return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}` })()
   const tlogs = useTripLogs(ns)
+  const actLog = useActivityLog(ns)
   const trips = useMemo(() => {
     const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work' | 'place'; sim?: boolean; who: string; team: string[]; names: string[] }>()
     for (const v of visits.list) {
@@ -157,6 +159,8 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
     }
     if (byVehicle) for (const x of tlogs.list) if (x.date === date && x.dest) for (const sp of x.stops ?? []) byAt.set(sp.at, { at: sp.at, lat: sp.lat, lng: sp.lng, kind: 'place', who: x.vehicle, team: [], names: [`🛣️ แวะ: ${sp.name}`] })
     if (byVehicle) for (const x of tlogs.list) if (x.date === date && x.dest) byAt.set(x.destAt ?? x.at, { at: x.destAt ?? x.at, lat: x.dest.lat, lng: x.dest.lng, kind: 'place', who: x.vehicle, team: [], names: [`🚗 ${x.title}${x.place ? ` · ${x.place}` : ''}`] }) // การเดินทางที่เช็คอินปลายทางแล้ว ขึ้นเส้นทางรวมกับการเยี่ยม
+    // กิจกรรมที่ติ๊ก “ทำแล้ว” พร้อมเช็คอิน (ถ่ายรูป) ขึ้นเป็นจุดบนเส้นทางด้วย — คำนวณระยะ/ค่าน้ำมันไปทำกิจกรรม
+    for (const a of actLog.list) if (a.date === date && a.checkin) byAt.set(a.at, { at: a.at, lat: a.checkin.lat, lng: a.checkin.lng, kind: 'place', who: byVehicle ? (a.vehicle ?? '') : a.by, team: [], names: [`📋 ${a.text}`] })
     const stops = [...byAt.values()].sort((a, b) => a.at - b.at)
     // แยกสายตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) แล้วแยกรอบด้วยช่วงเวลาห่างกัน
     const byWho = new Map<string, typeof stops>()
@@ -169,7 +173,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
     }
     out.sort((a, b) => a[0].at - b[0].at)
     return out
-  }, [visits.list, date, tlogs.list])
+  }, [visits.list, date, tlogs.list, actLog.list])
   const tripPts = (t: Coord[]) => (church ? [church, ...t, church] : t)
   const allPairs = trips.flatMap((t) => { const pts = tripPts(t); return pts.slice(1).map((p, i) => [pts[i], p] as [Coord, Coord]) })
   const road = useRoadLegs(allPairs)
