@@ -224,6 +224,8 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
     } catch (e) { console.error('visit photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
     setBusy(false)
   }
+  /** ต้องถ่ายรูปอย่างน้อย 1 รูป: ยกเว้นกรณี “ไม่พบ/ไม่อยู่บ้าน” ทั้งหมด */
+  const photoNeeded = group ? group.some((x) => gsel[x.id] === 'met') : !absent
   const dropPhoto = (p: string) => { setPhotos((xs) => xs.filter((x) => x !== p)); setProof((xs) => xs.filter((x) => x.path !== p)) }
   const close = () => { added.current.filter((p) => !(entry?.photos ?? []).includes(p) && !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p)); if (!saved.current) added.current.forEach((p) => void removeMemberPhotoFile(p)); onClose() }
   const saved = useRef(false)
@@ -247,7 +249,7 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
     try { localStorage.setItem(KEY, visitor) } catch { /* ignore */ }
     if (busy) return setErr('กำลังแนบรูป รอสักครู่')
     if (locBusy) return setErr('กำลังหาตำแหน่ง รอสักครู่')
-    const miss = [...(vehicles && !vehicle && !testMode ? ['🚗 ยานพาหนะ — เลือกรถที่ใช้ออกเยี่ยม'] : []), ...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : [])]
+    const miss = [...(vehicles && !vehicle && !testMode ? ['🚗 ยานพาหนะ — เลือกรถที่ใช้ออกเยี่ยม'] : []), ...(!visitor && !testMode ? ['👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อตัวเองอย่างน้อย 1 คน'] : []), ...(needProof && !checkin ? ['📍 พิกัด — กด “เช็คอินที่บ้าน” หรือ “เช็คอินที่ทำงาน”'] : []), ...(needProof && !entry && photoNeeded && photos.length === 0 ? ['📸 รูปถ่าย — ถ่ายรูปอย่างน้อย 1 รูป (กดปุ่ม “ถ่ายรูป” หลังเช็คอิน)'] : [])]
     if (miss.length) { setErr(''); return setWarn(miss) }
     // เช็คอินอยู่ใกล้คริสตจักร (≤ 150 ม.) = มักกดเช็คอินก่อนออกเดินทาง ไม่ได้อยู่ที่หมาย → ถามก่อนบันทึก
     const cl = stSet.settings
@@ -315,11 +317,12 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
           <button type="button" className={`btn ${!checkin || checkin.kind === 'home' || !checkin.kind ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('home')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin && (checkin.kind === 'home' || !checkin.kind) ? '📍 เช็คอินที่บ้านใหม่' : '📍 เช็คอินที่บ้าน'}</button>
           <button type="button" className={`btn ${checkin?.kind === 'work' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('work')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'work' ? '🏢 เช็คอินที่ทำงานใหม่' : '🏢 เช็คอินที่ทำงาน'}</button>
           <button type="button" className={`btn ${checkin?.kind === 'place' ? 'btn--gold' : ''}`} disabled={locBusy} onClick={() => locate('place')}>{locBusy ? 'กำลังหาตำแหน่ง…' : checkin?.kind === 'place' ? '📌 เช็คอินที่สถานที่ใหม่' : '📌 เช็คอินที่สถานที่'}</button>
+          <button type="button" className={`btn ${photos.length ? '' : 'btn--gold'}`} disabled={busy || photos.length >= MAX_VISIT_PHOTOS} onClick={() => { if (needProof && !checkin) { setErr(''); setWarn(['📍 พิกัด — เช็คอินก่อน แล้วจึงถ่ายรูป']); return } setCam(true) }}>{busy ? 'กำลังแนบรูป…' : photos.length ? `📸 ถ่ายรูปเพิ่ม (${photos.length}/${MAX_VISIT_PHOTOS})` : '📸 ถ่ายรูป (บังคับ)'}</button>
           {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
         </div>
         <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : checkin.kind === 'place' ? 'ที่สถานที่นัดพบ' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'home' || !checkin.kind ? ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ' : ''}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
         {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
-      {entry && <div className="field"><label>รูปการเยี่ยม (ไม่บังคับ · เพิ่มภายหลังได้ สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
+      {(entry || photos.length > 0) && <div className="field"><label>รูปการเยี่ยม ({entry ? 'ไม่บังคับ · ' : ''}สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
             <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
@@ -334,9 +337,9 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
       {proof.length > 0 && <ul className="small muted pvproof" aria-label="เวลาและตำแหน่งตอนถ่ายรูป">{proof.map((x, i) => <li key={x.path}>รูปที่ {i + 1}: ถ่ายเวลา {timeText(x.at)} น. · {formatCoord(x)}{checkin ? ` · ห่างจุดเช็คอิน ${nearCheckin(x, checkin).meters} ม.` : ''}</li>)}</ul>}
       {cam && <VisitCamera who={member?.name} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
-      {warn && <div role="alertdialog" aria-label="ต้องเช็คอินพิกัดก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      {warn && <div role="alertdialog" aria-label="ต้องเช็คอินและถ่ายรูปก่อน" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ ...LIGHT, background: '#fff', borderRadius: 16, padding: 18, maxWidth: 380, width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
-          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องเช็คอินพิกัดก่อนบันทึก</b>
+          <b style={{ fontSize: '1.15rem', color: '#a4262c' }}>⚠️ ต้องเช็คอินและถ่ายรูปก่อนบันทึก</b>
           <p style={{ margin: '8px 0' }}>ยังขาด:</p>
           <ul style={{ margin: '0 0 12px', paddingLeft: '1.2rem' }}>{warn.map((w) => <li key={w}>{w}</li>)}</ul>
           <button type="button" className="btn btn--gold btn--block" onClick={() => setWarn(null)}>เข้าใจแล้ว</button>
