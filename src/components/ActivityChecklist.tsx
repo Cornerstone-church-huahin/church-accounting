@@ -85,6 +85,13 @@ function FixSheet({ rec, lab, onClose, onSave }: { rec: ActivityLog; lab: boolea
     } catch { setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
     setBusy(false)
   }
+  /** แอดมิน: เลือกรูปจากอัลบั้มในเครื่องได้ (ไม่ต้องถ่ายใหม่) */
+  const pickFile = async (f: File | undefined) => {
+    if (!f || photos.length >= 2) return
+    setBusy(true); setErr('')
+    try { const p = await uploadVisitPhoto(f); added.push(p); setPhotos((xs) => [...xs, p].slice(0, 2)) } catch { setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
+    setBusy(false)
+  }
   const here = () => {
     if (!navigator.geolocation) return setErr('เครื่องนี้ไม่รองรับการหาตำแหน่ง')
     setBusy(true); setErr('')
@@ -106,6 +113,7 @@ function FixSheet({ rec, lab, onClose, onSave }: { rec: ActivityLog; lab: boolea
         <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {photos.map((p) => <span key={p} style={{ position: 'relative', display: 'inline-block' }}><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="mini" aria-label="ลบรูป" style={{ position: 'absolute', top: -6, right: -6 }} onClick={() => setPhotos((xs) => xs.filter((x) => x !== p))}>✕</button></span>)}
           {photos.length < 2 && <button type="button" className="btn" disabled={busy} onClick={() => setCam(true)}>📸 ถ่ายรูป</button>}
+          {photos.length < 2 && <label className="btn" style={{ cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>🖼️ เลือกจากอัลบั้ม<input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pickFile(f) }} /></label>}
         </div></div>
       <div className="field"><label htmlFor="fx-c">📍 พิกัดเช็คอิน (แก้แล้วเส้นทางและค่าน้ำมันคำนวณใหม่ตามพิกัดนี้)</label>
         <input id="fx-c" className="input" inputMode="decimal" value={coord} onChange={(e) => setCoord(e.target.value)} placeholder="เช่น 12.5684, 99.9577" />
