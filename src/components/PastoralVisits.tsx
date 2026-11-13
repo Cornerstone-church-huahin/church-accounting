@@ -182,6 +182,8 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
   }
   const [err, setErr] = useState('')
   const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
+  /** ตัวอย่างรูปที่เพิ่งถ่าย (แสดงทันทีโดยไม่รอโหลดกลับจากเซิร์ฟเวอร์) */
+  const [local, setLocal] = useState<Record<string, string>>({})
   const [proof, setProof] = useState<ShotProof[]>(entry?.photoProof ?? [])
   const [cam, setCam] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -219,6 +221,7 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
     try {
       const p = await uploadVisitPhoto(new File([shot.blob], `visit-${shot.at}.jpg`, { type: 'image/jpeg' }))
       added.current.push(p)
+      try { const u = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(shot.blob) }); setLocal((m) => ({ ...m, [p]: u })) } catch { /* ใช้ตัวโหลดปกติแทน */ }
       setPhotos((xs) => [...xs, p].slice(0, MAX_VISIT_PHOTOS))
       setProof((xs) => [...xs, { path: p, at: shot.at, lat: Math.round(shot.lat * 1e6) / 1e6, lng: Math.round(shot.lng * 1e6) / 1e6, ...(shot.acc ? { acc: Math.round(shot.acc) } : {}), src: shot.src }])
     } catch (e) { console.error('visit photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
@@ -320,12 +323,18 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
           <button type="button" className={`btn ${photos.length ? '' : 'btn--gold'}`} disabled={busy || photos.length >= MAX_VISIT_PHOTOS} onClick={() => { if (needProof && !checkin) { setErr(''); setWarn(['📍 พิกัด — เช็คอินก่อน แล้วจึงถ่ายรูป']); return } setCam(true) }}>{busy ? 'กำลังแนบรูป…' : photos.length ? `📸 ถ่ายรูปเพิ่ม (${photos.length}/${MAX_VISIT_PHOTOS})` : '📸 ถ่ายรูป (บังคับ)'}</button>
           {checkin && <a className="mini" href={mapsLink(checkin)} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>}
         </div>
+        {!entry && photos.length > 0 && <div className="pvphotos" aria-label="รูปที่ถ่ายแล้ว" style={{ marginTop: 8 }}>
+          {photos.map((p, i) => (
+            <span key={p} className="pvphoto">{local[p] ? <img src={local[p]} alt={`รูปที่ ${i + 1}`} style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12, border: '2px solid #1e8e3e' }} /> : <MemberAvatar path={p} name="📷" size={96} />}<button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
+          ))}
+          <span className="small" style={{ color: '#1e8e3e', fontWeight: 700 }}>✓ ถ่ายรูปแล้ว {photos.length} รูป</span>
+        </div>}
         <span className="muted small" role="status">{checkin ? `✓ เช็คอิน${checkin.kind === 'work' ? 'ที่ทำงาน' : checkin.kind === 'place' ? 'ที่สถานที่นัดพบ' : 'ที่บ้าน'}แล้ว ${formatCoord(checkin)}${checkin.acc ? ` (±${checkin.acc} ม.)` : ''} ${checkin.kind === 'home' || !checkin.kind ? ' · พิกัดนี้จะเข้าทะเบียนสมาชิกเป็นแผนที่บ้านโดยอัตโนมัติ' : ''}` : 'ยังไม่ได้เช็คอิน — ไปถึงที่หมายแล้วกดปุ่มที่บ้านหรือที่ทำงาน (ใช้ร่วมกันทุกคนที่ติ๊กเลือกไว้)'}</span>
         {checkin && hasCoord(checkin) && <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={[{ id: 'ci', lat: checkin.lat, lng: checkin.lng, label: member?.name ?? 'จุดเช็คอิน' }]} height={150} label="จุดเช็คอินเยี่ยมบ้าน" noLinks /></Suspense>}</div>
-      {(entry || photos.length > 0) && <div className="field"><label>รูปการเยี่ยม ({entry ? 'ไม่บังคับ · ' : ''}สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
+      {entry && <div className="field"><label>รูปการเยี่ยม ({entry ? 'ไม่บังคับ · ' : ''}สูงสุด {MAX_VISIT_PHOTOS} รูป)</label>
         <div className="pvphotos" aria-label="รูปการเยี่ยม">
           {photos.map((p, i) => (
-            <span key={p} className="pvphoto"><MemberAvatar path={p} name="📷" size={84} /><button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
+            <span key={p} className="pvphoto">{local[p] ? <img src={local[p]} alt={`รูปที่ ${i + 1}`} style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12 }} /> : <MemberAvatar path={p} name="📷" size={84} />}<button type="button" className="pvphoto__x" aria-label={`ลบรูปที่ ${i + 1}`} onClick={() => dropPhoto(p)}>✕</button></span>
           ))}
           {photos.length < MAX_VISIT_PHOTOS && (
             <button type="button" className="act-btn pvphoto__add" disabled={busy || (needProof && !checkin)} onClick={() => setCam(true)}>
