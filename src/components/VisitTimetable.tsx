@@ -10,9 +10,9 @@ import { distanceM, homeFromCheckin } from '../lib/geo'
 import MapPickSheet from './MapPickSheet'
 import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { activityId, activityLines } from '../lib/activityLines'
-import { getMe } from '../lib/access'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
+import ActivityChecklist from './ActivityChecklist'
 import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
@@ -95,29 +95,6 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit) =
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการแก้ไข</button>
     </Sheet>
-  )
-}
-
-/** รายการกิจกรรมของช่วงนั้น พร้อมช่องติ๊ก “ทำแล้ว” — ติ๊กแล้วจึงขึ้นรายงาน (ไม่บังคับเช็คอิน/รูป) */
-function ActivityChecklist({ date, slot, text }: { date: string; slot: string; text: string | undefined }) {
-  const acts = useActivityLog()
-  const me = getMe()
-  const lines = activityLines(text)
-  if (!lines.length) return <p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — พิมพ์ได้ที่หน้า “วางแผน”</p>
-  return (
-    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }} aria-label="กิจกรรม">
-      {lines.map((l) => {
-        const id = activityId(date, slot, l), rec = acts.list.find((x) => x.id === id)
-        return (
-          <li key={id} style={{ padding: '4px 0' }}>
-            <label className="row" style={{ gap: 10, alignItems: 'center' }}>
-              <input type="checkbox" style={{ width: 24, height: 24 }} checked={!!rec} onChange={(e) => { if (e.target.checked) acts.put([{ id, date, slot, text: l, by: me?.name ?? '', at: Date.now(), updated: 0 }]); else acts.remove(id) }} />
-              <span style={{ flex: 1 }}>{l}</span>
-              {rec && <small className="muted">✓ ทำแล้ว {new Date(rec.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.{rec.by ? ` · ${rec.by}` : ''}</small>}
-            </label>
-          </li>)
-      })}
-    </ul>
   )
 }
 

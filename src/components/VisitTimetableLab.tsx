@@ -10,10 +10,10 @@ import { distanceM, homeFromCheckin } from '../lib/geo'
 import MapPickSheet from './MapPickSheet'
 import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { activityId, activityLines } from '../lib/activityLines'
-import { getMe } from '../lib/access'
 import { VEHICLES, inkOf } from '../lib/vehicles'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
+import ActivityChecklist from './ActivityChecklist'
 import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
@@ -111,29 +111,6 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, a
   )
 }
 
-/** รายการกิจกรรมของช่วงนั้น พร้อมช่องติ๊ก “ทำแล้ว” — ติ๊กแล้วจึงขึ้นรายงาน (ไม่บังคับเช็คอิน/รูป) */
-function ActivityChecklist({ date, slot, text }: { date: string; slot: string; text: string | undefined }) {
-  const acts = useActivityLog('-lab')
-  const me = getMe()
-  const lines = activityLines(text)
-  if (!lines.length) return <p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — พิมพ์ได้ที่หน้า “วางแผน”</p>
-  return (
-    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }} aria-label="กิจกรรม">
-      {lines.map((l) => {
-        const id = activityId(date, slot, l), rec = acts.list.find((x) => x.id === id)
-        return (
-          <li key={id} style={{ padding: '4px 0' }}>
-            <label className="row" style={{ gap: 10, alignItems: 'center' }}>
-              <input type="checkbox" style={{ width: 24, height: 24 }} checked={!!rec} onChange={(e) => { if (e.target.checked) acts.put([{ id, date, slot, text: l, by: me?.name ?? '', at: Date.now(), updated: 0 }]); else acts.remove(id) }} />
-              <span style={{ flex: 1 }}>{l}</span>
-              {rec && <small className="muted">✓ ทำแล้ว {new Date(rec.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.{rec.by ? ` · ${rec.by}` : ''}</small>}
-            </label>
-          </li>)
-      })}
-    </ul>
-  )
-}
-
 /** หน้าต่างแก้ช่องหนึ่ง: เลือกคน (จากรายชื่อขาดนมัสการ กด ＋) · สถานที่/โครงการ (ไม่ผูกรายชื่อ) · หมายเหตุ */
 function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }: { date: string; slot: Slot; doc: PlanDoc; onChange: (d: PlanDoc) => void; onClose: () => void; /** หน้า “บันทึก”: เห็นรายชื่อที่วางแผนไว้และบันทึกเยี่ยมได้ แก้แผนไม่ได้ */ recordOnly?: boolean; /** หน้า “วางแผน”: เป็นแค่ข้อความ ไม่มีปุ่มบันทึกเยี่ยม/แผนที่ */ planOnly?: boolean }) {
   const people = useChurchMembers()
@@ -200,7 +177,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       {planOnly
         ? <div className="field"><label htmlFor="vt-note">📋 กิจกรรมของช่วงนี้ (พิมพ์ได้หลายบรรทัด · ไปติ๊ก “ทำแล้ว” ที่หน้าบันทึก/เช็คอิน)</label>
           <textarea key={doc.slotNotes?.[slot] ?? ''} id="vt-note" className="input" rows={3} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>
-        : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
+        : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns="-lab" date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
       {!planOnly && (() => {
         // สรุปสาย: จัดกลุ่มรายการที่บันทึกแล้วในช่องนี้ตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) เรียงตามเวลา
         const ids = new Set([...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)])
