@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import MultiPick from './MultiPick'
+import MemberAvatar from './MemberAvatar'
+import MultiPick, { type PickOption } from './MultiPick'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
@@ -7,6 +8,7 @@ import { LIGHT } from '../lib/lightBox'
 import { getMe } from '../lib/access'
 import { useChurchMembers, useSchoolDays, useSchoolTeachers, useSettings } from '../lib/data'
 import { isLive } from '../lib/pastoral'
+import { searchMembers } from '../lib/memberSearch'
 import { useRole } from '../lib/members'
 import { addDays, be, monthName, newId, todayISO } from '../lib/money'
 import { copyPlan, schoolWeekDays, sortedItems, weekSummary } from '../lib/schoolTimetable'
@@ -136,7 +138,10 @@ function ItemSheet({ date, item, roster, members, canManageRoster, onAddTeacher,
   const [time, setTime] = useState(item?.time ?? '')
   const [title, setTitle] = useState(item?.title ?? '')
   const [picked, setPicked] = useState<string[]>(item?.teachers ?? [])
-  const pool = useMemo(() => members.map((m) => { const nm = m.name.replace(/^place:/, ''); return { value: nm, label: m.nick ? `${nm} (${m.nick})` : nm } }), [members])
+  const opt = (m: ChurchMember, sub?: string): PickOption => { const nm = m.name.replace(/^place:/, ''); return { value: nm, label: m.nick ? `${nm} (${m.nick})` : nm, avatar: { path: m.photoPath, member: m }, ...(sub ? { sub } : {}) } }
+  const byName = useMemo(() => new Map(members.map((m) => [m.name.replace(/^place:/, ''), m])), [members])
+  const find = (q: string): PickOption[] => { const r = searchMembers(members, q); return [...r.direct.map((m) => opt(m)), ...r.related.map((m) => opt(m, 'เกี่ยวข้อง (นามสกุล/ที่อยู่/หมายเหตุเดียวกัน)'))] }
+  const optOf = (n: string): PickOption => { const m = byName.get(n); return m ? opt(m) : { value: n, label: n } }
   const [err, setErr] = useState('')
   const go = () => { if (!title.trim()) return setErr('ใส่ชื่อรายการ เช่น ชั้นเด็กเล็ก · เตรียมสื่อการสอน'); onSave({ ...(item ?? {}), id: item?.id ?? newId('sc'), time: time.trim(), title: title.trim(), teachers: picked }) }
   return (
@@ -144,8 +149,15 @@ function ItemSheet({ date, item, roster, members, canManageRoster, onAddTeacher,
       <div className="field"><label htmlFor="sc-time">เวลา (ไม่บังคับ)</label><input id="sc-time" className="input" value={time} onChange={(e) => setTime(e.target.value)} placeholder="เช่น 09:00-10:00" /></div>
       <div className="field"><label htmlFor="sc-title">รายการ / ชั้น / วิชา / งาน</label><input id="sc-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ชั้นเด็กเล็ก · ประชุมครู · เตรียมสื่อ" /></div>
       <div className="field"><label htmlFor="sc-by">👩‍🏫 ครูผู้รับผิดชอบ (เลือกได้หลายคน)</label>
-        <MultiPick id="sc-by" title="ครูผู้รับผิดชอบ" options={[...new Set([...roster, ...picked])].map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกครู (พิมพ์ค้นหาจากทะเบียน) —" search={{ pool, placeholder: '🔎 พิมพ์ชื่อ / ชื่อเล่น เพื่อค้นหาจากทะเบียนสมาชิก' }}
+        <MultiPick id="sc-by" title="ครูผู้รับผิดชอบ" options={[...new Set([...roster, ...picked])].map(optOf)} value={picked} onChange={setPicked} empty="— เลือกครู (พิมพ์ค้นหาจากทะเบียน) —" search={{ find, placeholder: '🔎 ชื่อจริง / นามสกุล / ชื่อเล่น / ญาติ — พิมพ์ได้บางส่วน' }}
           {...(canManageRoster ? { onAdd: (n: string) => { const v = n.trim().replace(/,/g, ' '); if (!v) return; onAddTeacher(v); setPicked((xs) => (xs.includes(v) ? xs : [...xs, v])) }, onRemove: (n: string) => { onDropTeacher(n); setPicked((xs) => xs.filter((x) => x !== n)) }, addHint: 'พิมพ์ชื่อครูใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
+      {picked.length > 0 && <div className="row" style={{ gap: 8, flexWrap: 'wrap' }} aria-label="ครูที่เลือกแล้ว">
+        {picked.map((n) => { const m = byName.get(n); return (
+          <span key={n} className="row" style={{ gap: 6, alignItems: 'center', border: '1.5px solid #d6dbe8', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
+            <MemberAvatar path={m?.photoPath} name={n} size={36} member={m} /><b>{n}</b>
+            <button type="button" className="mini" aria-label={`เอา ${n} ออก`} onClick={() => setPicked((xs) => xs.filter((x) => x !== n))}>✕</button>
+          </span>) })}
+      </div>}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={go}>✓ บันทึก</button>
     </Sheet>
