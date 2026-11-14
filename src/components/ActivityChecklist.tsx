@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { LIGHT } from '../lib/lightBox'
 import MultiPick from './MultiPick'
 import NoCarToggle from './NoCarToggle'
 import { isLive } from '../lib/pastoral'
@@ -132,8 +133,12 @@ function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicl
         {doers.length > 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>{doers.map((n) => { const m = people.byName.get(n); return <span key={n} className="row" style={{ gap: 4, alignItems: 'center', border: '1.5px solid #d6dbe8', borderRadius: 999, padding: '2px 10px 2px 3px' }}><MemberAvatar path={m?.photoPath} name={n} size={28} member={m} /><b className="small">{n}</b></span> })}</div>}</div>
       <div className="field"><label htmlFor="fx-pl">📌 ไปทำที่ไหน (ชื่อสถานที่)</label><input id="fx-pl" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="เช่น ตลาดนัดหัวหิน" /></div>
       {vehicles && <div className="field"><label>🚗 รถที่ใช้ไปทำกิจกรรมนี้</label>
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }} role="radiogroup" aria-label="รถ">
-          {VEHICLES.map((v) => <button key={v.id} type="button" role="radio" aria-checked={vehicle === v.id} className={`btn ${vehicle === v.id ? 'btn--gold' : 'btn--ghost'}`} style={{ borderColor: inkOf(v.color) }} onClick={() => setVehicle(vehicle === v.id ? '' : v.id)}>{v.name}</button>)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }} role="radiogroup" aria-label="ยานพาหนะ">
+          {VEHICLES.map((c) => (
+            <button key={c.id} type="button" role="radio" aria-checked={vehicle === c.id} onClick={() => setVehicle(vehicle === c.id ? '' : c.id)} style={{ ...LIGHT, background: '#fff', padding: 3, borderRadius: 10, border: `3px solid ${vehicle === c.id ? inkOf(c.color) : '#d6dbe8'}`, font: 'inherit', textAlign: 'center' }}>
+              <img src={c.img} alt={c.name} style={{ width: '100%', height: 44, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
+              <div style={{ fontSize: 10.5, fontWeight: 700 }}>{c.name.replace('รถ', '')}{vehicle === c.id ? ' ✓' : ''}</div>
+            </button>))}
         </div>
         <NoCarToggle value={vehicle} onChange={setVehicle} /></div>}
       {busy && <p className="muted small" role="status" style={{ margin: 0 }}>กำลังทำงาน…</p>}
