@@ -1,3 +1,4 @@
+import { useVisitNs } from '../lib/labNs'
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PdfTools from './PdfTools'
@@ -58,10 +59,11 @@ const Box = ({ title, children }: { title: string; children: React.ReactNode }) 
 
 /** สถิติงานเยี่ยม: รายเดือน/รายปี · ตัวเลขสำคัญ · กราฟ · อันดับผู้ออกเยี่ยม — ส่งออก PDF/แชร์รูป/พิมพ์ได้ */
 export default function VisitStatsLab() {
+  const ns = useVisitNs()
   const ref = useRef<HTMLDivElement>(null)
-  const visits = useVisits(true, '-lab')
-  const acts = useActivityLog('-lab')
-  const plans = useVisitPlans('-lab')
+  const visits = useVisits(true, ns)
+  const acts = useActivityLog(ns)
+  const plans = useVisitPlans(ns)
   const church = useSettings().settings.churchName || 'คริสตจักรศิลาเอก'
   const today = todayISO()
   const [mode, setMode] = useState<'month' | 'year'>('month')
@@ -108,7 +110,7 @@ export default function VisitStatsLab() {
   )
   return (
     <section aria-label="สถิติงานเยี่ยม">
-      <div className="page-head no-print"><h1>🧪 📈 สถิติงานเยี่ยม (ทดลอง)</h1><Link to="/meeting/4/lab/3" className="mini">‹ รายงาน (ทดลอง)</Link></div>
+      <div className="page-head no-print"><h1>{ns ? '🧪 ' : '🆕 '}📈 สถิติงานเยี่ยม{ns ? ' (ทดลอง)' : ''}</h1><Link to={ns ? '/meeting/4/lab/3' : '/meeting/4/new/3'} className="mini">‹ รายงาน{ns ? ' (ทดลอง)' : ''}</Link></div>
       <div className="seg seg--2 no-print" role="tablist" aria-label="ช่วงเวลา" style={{ marginBottom: 6 }}>
         <button type="button" role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>รายเดือน</button>
         <button type="button" role="tab" aria-selected={mode === 'year'} className={mode === 'year' ? 'on' : ''} onClick={() => setMode('year')}>รายปี</button>

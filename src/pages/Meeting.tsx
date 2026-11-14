@@ -10,7 +10,7 @@ import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
-import { AdminZone, MemberHomesMap, VisitLab, VisitRoute } from '../components/AdminVisitTools'
+import { AdminZone, MemberHomesMap, useIsAdminZone, VisitHub, VisitLab, VisitRoute } from '../components/AdminVisitTools'
 import SchoolTimetable from '../components/SchoolTimetable'
 import VisitStats from '../components/VisitStats'
 import { VisitGroupsAuto } from '../components/VisitGroups'
@@ -78,11 +78,11 @@ function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ป�
 const DEFAULT_LABELS = ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'ตารางงานรวี': '🗓️', 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📍', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
+const NAMED_ICONS: Record<string, string> = { 'งาน/การเยี่ยม (ใหม่)': '🆕', 'ตารางงานรวี': '🗓️', 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📍', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
-  4: ['รวมสมาชิก', 'บ้านสมาชิก', 'งาน/การเยี่ยม', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  4: ['รวมสมาชิก', 'บ้านสมาชิก', 'งาน/การเยี่ยม', 'งาน/การเยี่ยม (ใหม่)', 'แท็บ 5', 'แท็บ 6'],
   8: ['รวมสมาชิก', 'ตารางงานรวี', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['รวมสมาชิก', 'ตารางถวาย', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
@@ -96,17 +96,18 @@ const TILE_TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
 
 /** หน้าหลักของงาน: ปุ่มตารางงาน + ช่องแท็บ (ลิงก์ไปหน้าเต็มของแต่ละแท็บ ไม่มีเมนูรกบนหน้าลึก) */
 function WorkMenu({ n, name }: { n: number; name: string }) {
+  const adminZone = useIsAdminZone()
   return (
     <>
       <WorkHead n={n} name={name} />
       <HealthButton n={n} />
       <CalToggle n={n} />
       <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
-        {labelsOf(n).map((l, i) => (
+        {labelsOf(n).map((l, i) => (n === 4 && i === 3 && !adminZone ? null : (
           <Link key={l} to={`/meeting/${n}/${i + 1}`} className={`btile btile--${TILE_TONES[i % TILE_TONES.length]}`}>
             <small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
           </Link>
-        ))}
+        )))}
       </nav>
       {n === 4 && <AdminZone />}
     </>
@@ -260,6 +261,7 @@ function MeetingRoom() {
   if (tab?.n === 4 && k === 'route') return <VisitRoute />
   if (tab?.n === 4 && k === 'stats') return <StatsGate />
   if (tab?.n === 4 && k === 'lab') return <VisitLab step={s} />
+  if (tab?.n === 4 && (k === 'new' || k === '4')) return <VisitHub step={s} />
   if (tab?.n === 4 && k === 'homes') return <HomesGate />
   if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4

@@ -11,6 +11,7 @@ import type { TripLog } from '../lib/types'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
 import VisitTimetableLab from './VisitTimetableLab'
 import VisitStatsLab from './VisitStatsLab'
+import { VisitNs } from '../lib/labNs'
 import { useActivityLog, useTripLogs, useVisitPlans } from '../lib/data'
 import { getMe } from '../lib/access'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
@@ -459,6 +460,32 @@ export function VisitLab({ step }: { step?: string }) {
       </nav>
             {n === 7 ? <VehicleTripsPage ns="-lab" /> : n === 6 ? <VehicleFuelReport ns="-lab" /> : n === 5 ? <VisitRoute ns="-lab" byVehicle embedded /> : n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
     </>
+  )
+}
+
+/**
+ * งาน/การเยี่ยม (ใหม่) = แท็บ 4 ของงานอภิบาล: หน้ารุ่นใหม่ชุดเดียวกับแท็บทดลอง แต่ใช้ “ข้อมูลจริง” ทั้งหมด
+ * เห็นและเข้าได้เฉพาะแอดมินระหว่างทดสอบ — พอใจแล้วค่อยย้ายไปแทนแท็บ 3
+ */
+export function VisitHub({ step }: { step?: string }) {
+  const ok = useIsAdminZone()
+  if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
+  const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : step === '5' ? 5 : step === '6' ? 6 : step === '7' ? 7 : 1
+  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน'], ['7', '🚗', 'เดินทาง']] as const
+  return (
+    <VisitNs.Provider value="">
+      <div className="page-head no-print"><h1>🆕 งาน/การเยี่ยม (ใหม่)</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
+      <div role="note" className="no-print" style={{ ...LIGHT, background: '#e8f5e9', border: '1.5px dashed #1e8e3e', borderRadius: 12, padding: '6px 10px', marginBottom: 8, fontSize: '0.9rem' }}>
+        ✅ <b>ใช้ข้อมูลจริง · เฉพาะแอดมิน (ระหว่างทดสอบ)</b> — สิ่งที่บันทึกที่นี่เข้าข้อมูลจริงและเห็นในแท็บ “งาน/การเยี่ยม” เดิมด้วย
+      </div>
+      <nav className="no-print" aria-label="ขั้นตอน (ใหม่)" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
+        {steps.map(([k, ico, label]) => (
+          <Link key={k} to={`/meeting/4/new/${k}`} replace aria-current={String(n) === k ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '6px 2px', borderRadius: 12, textDecoration: 'none', border: `2px solid ${String(n) === k ? '#14264a' : '#d6dbe8'}`, background: String(n) === k ? '#14264a' : '#fff', color: String(n) === k ? '#fff' : '#14264a', fontWeight: 700, fontSize: 12, lineHeight: 1.15, textAlign: 'center' }}>
+            <span style={{ fontSize: 20 }} aria-hidden="true">{ico}</span><span>{k}. {label}</span>
+          </Link>))}
+      </nav>
+      {n === 7 ? <VehicleTripsPage ns="" /> : n === 6 ? <VehicleFuelReport ns="" /> : n === 5 ? <VisitRoute ns="" byVehicle embedded /> : n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
+    </VisitNs.Provider>
   )
 }
 
