@@ -7,7 +7,8 @@ export interface PickOption { value: string; label: string }
  * ตัวเลือกหลายรายการแบบป๊อปอัพ: ปุ่มเดียวบรรทัดเดียว (ไม่กินพื้นที่) → แตะแล้วมีรายการให้ติ๊กได้หลายอัน → “เสร็จ”
  * onAdd = เพิ่มรายการใหม่ในป๊อปอัพ (เก็บถาวรโดยเจ้าของข้อมูล) · onRemove = โหมด “ลบ” แสดงปุ่ม ✕ ที่แต่ละรายการ
  */
-export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, onRename, addHint, allLabel }: {
+export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, onRename, addHint, allLabel, search }: {
+  /** ช่องค้นหาในป๊อปอัพ: พิมพ์แล้วแสดงรายชื่อจาก pool (เช่น ทะเบียนสมาชิก) ให้ติ๊กได้เลย · ไม่พิมพ์ = แสดงเฉพาะ options และที่เลือกไว้ */ search?: { pool: PickOption[]; placeholder?: string }
   /** แก้ไขชื่อรายการ (เก่า → ใหม่) */ onRename?: (oldName: string, newName: string) => void
   /** แถวแรกในป๊อปอัพ “ทุก…” (ติ๊กอยู่เมื่อยังไม่ได้เลือกรายการใด · แตะ = ล้างที่เลือกทั้งหมด) */ allLabel?: string; title: string; options: PickOption[]; value: string[]; onChange: (v: string[]) => void; empty: string; id?: string
   onAdd?: (name: string) => void; onRemove?: (value: string) => void; addHint?: string
@@ -27,7 +28,11 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v])
   const add = () => { const n = name.trim(); if (!n || !onAdd) return; onAdd(n); setName('') }
   // รายการที่เลือกไว้แต่ไม่อยู่ในตัวเลือกแล้ว (เช่น บันทึกเก่า) ยังติ๊กให้เห็น
-  const rows = [...options, ...value.filter((v) => !options.some((o) => o.value === v)).map((v) => ({ value: v, label: v }))]
+  const [q, setQ] = useState('')
+  const term = q.trim().toLowerCase()
+  const base = [...options, ...value.filter((v) => !options.some((o) => o.value === v)).map((v) => ({ value: v, label: v }))]
+  const hits = search && term ? search.pool.filter((o) => o.label.toLowerCase().includes(term)).slice(0, 40) : []
+  const rows = search && term ? [...hits, ...base.filter((o) => o.label.toLowerCase().includes(term) && !hits.some((h) => h.value === o.value))] : base
   return (
     <>
       <button type="button" id={id} className="input mpick__btn" aria-haspopup="dialog" aria-label={`${title}: ${shown}`} onClick={() => setOpen(true)}>
@@ -37,6 +42,7 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
         <div className="mpick no-print" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
           <div className="mpick__card">
             <div className="row row--between"><b>{title}{value.length ? ` · เลือกแล้ว ${value.length}` : ''}</b>{value.length > 0 && <button type="button" className="mini" onClick={() => onChange([])}>ล้าง</button>}</div>
+            {search && <input aria-label="ค้นหา" className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={search.placeholder ?? 'พิมพ์ชื่อเพื่อค้นหา'} />}
             <ul className="mpick__list">
               {allLabel && (
                 <li><label className="mpick__row mpick__row--all"><input type="checkbox" checked={value.length === 0} onChange={() => { if (value.length > 0) onChange([]) }} /><span><b>{allLabel}</b></span></label></li>
@@ -48,7 +54,7 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
                   {del && onRemove && <button type="button" className="chip__x" aria-label={`ลบ ${o.label} ออกจากรายชื่อ`} onClick={() => { onRemove(o.value); onChange(value.filter((x) => x !== o.value)) }}>✕</button>}
                 </li>
               ))}
-              {rows.length === 0 && <li className="muted small" style={{ padding: '0.6rem' }}>ยังไม่มีรายชื่อ — เพิ่มด้านล่าง</li>}
+              {rows.length === 0 && <li className="muted small" style={{ padding: '0.6rem' }}>{search && term ? 'ไม่พบชื่อนี้ — พิมพ์ชื่อใหม่ในช่องด้านล่างแล้วกด เพิ่ม ได้' : search ? 'พิมพ์ชื่อในช่องค้นหาด้านบนเพื่อเลือกจากทะเบียนสมาชิก' : 'ยังไม่มีรายชื่อ — เพิ่มด้านล่าง'}</li>}
             </ul>
             {onAdd && (
               <div className="pvadd2">
