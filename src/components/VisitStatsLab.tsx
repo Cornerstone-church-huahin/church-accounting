@@ -15,7 +15,7 @@ const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorA
 const SLOT_COL: Record<string, string> = { เช้า: '#fde9b8', บ่าย: '#d6e8f8', ค่ำ: '#e4d9f1' }
 
 /** แผ่นแท่งแนวตั้ง (SVG) */
-function Bars({ data, color = '#8fa6d6', height = 150 }: { data: { label: string; v: number }[]; color?: string; height?: number }) {
+function Bars({ data, color = '#8fa6d6', height = 105 }: { data: { label: string; v: number }[]; color?: string; height?: number }) {
   const max = Math.max(1, ...data.map((d) => d.v))
   const W = 700, bw = W / data.length
   return (
@@ -93,9 +93,18 @@ export default function VisitStatsLab() {
     const bars = mode === 'year'
       ? Array.from({ length: 12 }, (_, i) => ({ label: monthName(i + 1).slice(0, 3), v: vs.filter((v) => Number(v.date.slice(5, 7)) === i + 1).length }))
       : Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => ({ label: String(i + 1), v: vs.filter((v) => Number(v.date.slice(8, 10)) === i + 1).length }))
-    const actDone = acts.list.filter((a) => a.date.startsWith(prefix)).length
+    const actsIn = acts.list.filter((a) => a.date.startsWith(prefix))
+    const actDone = actsIn.length
+    const doerCount = new Map<string, number>()
+    for (const a of actsIn) for (const n of (a.doers?.length ? a.doers : [a.by]).filter(Boolean)) doerCount.set(n, (doerCount.get(n) ?? 0) + 1)
+    const doers = [...doerCount].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th'))
+    // รวมผู้ปฏิบัติงาน: เยี่ยม + กิจกรรม ต่อคน
+    const allWork = new Map<string, { visit: number; act: number }>()
+    for (const [n, v] of visitorCount) allWork.set(n, { visit: v, act: 0 })
+    for (const [n, v] of doerCount) allWork.set(n, { visit: allWork.get(n)?.visit ?? 0, act: v })
+    const workers = [...allWork].map(([name, e]) => ({ name: `${name} (เยี่ยม ${e.visit} · กิจกรรม ${e.act})`, v: e.visit + e.act })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th'))
     return {
-      total: vs.length, trips, days: days.size, people: people.size, met: met.length, notMet: notMet.length, actDone, bars,
+      doers, workers, total: vs.length, trips, days: days.size, people: people.size, met: met.length, notMet: notMet.length, actDone, bars,
       visitors: [...visitorCount].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th')),
       top: [...visited.values()].sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th')).slice(0, 10),
       absentNames: [...new Set(notMet.map((v) => v.memberName))].slice(0, 12), slotCount,
@@ -145,8 +154,12 @@ export default function VisitStatsLab() {
             ))}</div>
           </Box>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="👥 ผู้ออกเยี่ยม (ครั้ง)"><HBars rows={st.visitors.slice(0, 10)} color="#8fa6d6" /></Box></div>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="⭐ ผู้ที่ได้รับการเยี่ยม"><HBars rows={st.top.map((t) => ({ name: t.name, v: t.v }))} color="#8fcfa4" /></Box></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="👥 ผู้ออกเยี่ยม (ครั้ง)"><HBars rows={st.visitors.slice(0, 6)} color="#8fa6d6" /></Box></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="⭐ ผู้ที่ได้รับการเยี่ยม"><HBars rows={st.top.slice(0, 6).map((t) => ({ name: t.name, v: t.v }))} color="#8fcfa4" /></Box></div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="📋 ผู้ทำกิจกรรม (ครั้ง)"><HBars rows={st.doers.slice(0, 5)} color="#f0c27a" empty="ยังไม่มีกิจกรรมที่ทำแล้ว" /></Box></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="🙌 รวมผู้ปฏิบัติงาน (เยี่ยม + กิจกรรม)"><HBars rows={st.workers.slice(0, 5)} color="#b9a3dc" /></Box></div>
           </div>
           {st.absentNames.length > 0 && <Box title="✗ ไม่พบ / ไม่อยู่บ้าน"><div style={{ fontSize: 15.5 }}>{st.absentNames.join(' · ')}</div></Box>}
           <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: 12.5, color: '#666' }}>พิมพ์/สรุปเมื่อ {today.split('-').reverse().join('/')} · ข้อมูลจากบันทึกการเยี่ยมที่เช็คอินแล้ว</div>
