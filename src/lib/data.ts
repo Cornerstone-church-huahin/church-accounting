@@ -18,7 +18,7 @@ import { mergeItems } from './sync'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -130,6 +130,17 @@ export function useVisitPlans(ns = '') { // ns = '-lab' → ชุดข้อ�
 /** รายชื่อผู้ออกเยี่ยมที่เพิ่ม/ซ่อนเอง (เพิ่มครั้งเดียวแล้วเลือกได้ทุกครั้ง) */
 export function useVisitorNames() {
   return useSharedStore<VisitorName>({ localKey: k('visit-names'), file: 'visit-names.json', label: 'รายชื่อผู้ออกเยี่ยม', writeCheck: writeWork4 })
+}
+// งานรวี (งานที่ 8): ผู้ดูแล/ผู้ช่วยของงานนี้ + แอดมินบันทึกได้
+const writeWork8 = () => canWork(8, 'calendar') || !blockedEdit('detail')
+/** ตารางงานรวีรายวัน (วันละ 1 รายการ id = sch-วันที่) */
+export function useSchoolDays() {
+  const s = useSharedStore<SchoolDay>({ localKey: k('school-days'), file: 'school-days.json', label: 'ตารางงานรวี', writeCheck: writeWork8, pollMs: 15_000 })
+  return { ...s, of: (date: string): SchoolDay => s.items.find((x) => x.id === `sch-${date}` && !x.deleted) ?? { id: `sch-${date}`, date, items: [], logs: [], updated: 0 } }
+}
+/** รายชื่อครูงานรวี */
+export function useSchoolTeachers() {
+  return useSharedStore<SchoolTeacher>({ localKey: k('school-teachers'), file: 'school-teachers.json', label: 'รายชื่อครูงานรวี', writeCheck: writeWork8 })
 }
 /** เที่ยวงานของรถ (ไฟล์เดียว) */
 export function useTripLogs(ns = '') {
