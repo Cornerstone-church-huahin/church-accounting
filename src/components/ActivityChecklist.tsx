@@ -22,7 +22,7 @@ import { uploadVisitPhoto } from '../lib/visitPhoto'
  * รายการกิจกรรมของช่วงนั้น พร้อมช่องติ๊ก “ทำแล้ว”
  * ติ๊ก = เปิดกล้องในแอป ถ่ายรูปอย่างน้อย 1 รูป (บังคับ) — ตำแหน่งที่ถ่ายบันทึกเป็นการเช็คอินของกิจกรรมนั้นด้วย
  */
-export default function ActivityChecklist({ date, slot, text, ns = '', vehicles = false }: { date: string; slot: string; text: string | undefined; ns?: string; /** หน้าที่ใช้รถ (แท็บใหม่/ทดลอง): แอดมินเลือกรถที่ใช้ได้ */ vehicles?: boolean }) {
+export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, vehicles = false }: { date: string; slot: string; text: string | undefined; ns?: string; /** เพิ่มกิจกรรมนอกแผนหน้างาน: ใส่ลงแผนของช่วงนี้แล้วถ่ายรูปเช็คอินทันที */ onAdd?: (line: string) => void; /** หน้าที่ใช้รถ (แท็บใหม่/ทดลอง): แอดมินเลือกรถที่ใช้ได้ */ vehicles?: boolean }) {
   const acts = useActivityLog(ns)
   const me = getMe()
   const lines = activityLines(text)
@@ -31,7 +31,14 @@ export default function ActivityChecklist({ date, slot, text, ns = '', vehicles 
   const [err, setErr] = useState('')
   const isAdmin = useRole() === 'admin'
   const [fix, setFix] = useState<ActivityLog | null>(null) // แอดมินแก้รายการที่ทำแล้ว
-  if (!lines.length) return <p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — พิมพ์ได้ที่หน้า “วางแผน”</p>
+  const [newLine, setNewLine] = useState('')
+  const addNow = () => { const t = newLine.trim().replace(/\r?\n/g, ' '); if (!t || !onAdd) return; if (lines.includes(t)) { setErr('มีกิจกรรมนี้ในรายการแล้ว — ติ๊กที่รายการได้เลย'); return } setErr(''); onAdd(t); setNewLine(''); setCam(t) }
+  const addBox = onAdd ? (
+    <div className="row" style={{ gap: 6, marginTop: 8 }}>
+      <input className="input grow" aria-label="กิจกรรมนอกแผน" value={newLine} onChange={(e) => setNewLine(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNow() } }} placeholder="＋ กิจกรรมนอกแผน เช่น ไปรับของที่ชะอำ" />
+      <button type="button" className="btn btn--gold" disabled={!newLine.trim() || busy} onClick={addNow}>＋ เพิ่ม + ถ่ายรูป</button>
+    </div>) : null
+  if (!lines.length) return <><p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — วางแผนไว้ที่ขั้น “วางแผน” หรือเพิ่มนอกแผนด้านล่าง</p>{addBox}{err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}{cam && <VisitCamera who={cam} onShot={(s) => void done(cam, s)} onClose={() => setCam(null)} />}</>
   const done = async (line: string, shot: Shot) => {
     setCam(null); setBusy(true); setErr('')
     try {
@@ -65,6 +72,7 @@ export default function ActivityChecklist({ date, slot, text, ns = '', vehicles 
             </li>)
         })}
       </ul>
+      {addBox}
       {busy && <p className="muted small" role="status" style={{ margin: '4px 0 0' }}>กำลังแนบรูป…</p>}
       {err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}
       {cam && <VisitCamera who={cam} onShot={(s) => void done(cam, s)} onClose={() => setCam(null)} />}

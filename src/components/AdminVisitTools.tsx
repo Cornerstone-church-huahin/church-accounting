@@ -471,7 +471,7 @@ export function VisitHub({ step }: { step?: string }) {
   const ok = useIsAdminZone()
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
   const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : step === '5' ? 5 : step === '6' ? 6 : step === '7' ? 7 : 1
-  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน'], ['7', '🚗', 'เดินทาง']] as const
+  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน / เที่ยวพิเศษ']] as const
   return (
     <VisitNs.Provider value="">
       <div className="page-head no-print"><h1>🆕 งาน/การเยี่ยม (ใหม่)</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
@@ -484,7 +484,7 @@ export function VisitHub({ step }: { step?: string }) {
             <span style={{ fontSize: 20 }} aria-hidden="true">{ico}</span><span>{k}. {label}</span>
           </Link>))}
       </nav>
-      {n === 7 ? <VehicleTripsPage ns="" /> : n === 6 ? <VehicleFuelReport ns="" /> : n === 5 ? <VisitRoute ns="" byVehicle embedded /> : n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
+      {n === 6 || n === 7 ? <><VehicleFuelReport ns="" /><details style={{ marginTop: 10 }}><summary><b>🚗 เที่ยวพิเศษนอกตาราง (กำหนดระยะเองได้ · มีจุดแวะ)</b></summary><p className="muted small" style={{ margin: '4px 0' }}>ปกติให้วางแผนและติ๊กกิจกรรมในตารางงานก่อน — ใช้ส่วนนี้เฉพาะทริปไกล/นอกตารางที่ต้องกำหนดระยะทางเอง</p><VehicleTripsPage ns="" /></details></> : n === 5 ? <VisitRoute ns="" byVehicle embedded /> : n === 4 ? <VisitStatsLab /> : <VisitTimetableLab mode={n === 1 ? 'plan' : n === 2 ? 'record' : 'report'} />}
     </VisitNs.Provider>
   )
 }
@@ -529,6 +529,7 @@ export function VehicleRateSheet({ onClose }: { onClose: () => void }) {
 export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
   const ok = useIsAdminZone()
   const visits = useVisits(true, ns)
+  const fuelActs = useActivityLog(ns)
   const tl = useTripLogs(ns)
   const st = useSettings()
   const base = typeof st.settings.fuelPerKm === 'number' ? st.settings.fuelPerKm : 3.5
@@ -560,6 +561,13 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
       const m = byKey.get(key) ?? new Map<number, Coord>()
       m.set(v.checkin.at, { lat: v.checkin.lat, lng: v.checkin.lng }); byKey.set(key, m)
     }
+    // กิจกรรมที่ทำแล้วและเช็คอิน (ถ่ายรูป) นับเป็นจุดเดียวกับการเยี่ยม — รถเดียวกันวันเดียวกันต่อเป็นเส้นเดียว
+    for (const a of fuelActs.list) {
+      if (!a.checkin || a.vehicle === NO_CAR || a.date < range.from || a.date > range.to) continue
+      const key = `${a.date}|${a.vehicle ?? ''}`
+      const m = byKey.get(key) ?? new Map<number, Coord>()
+      m.set(a.at, { lat: a.checkin.lat, lng: a.checkin.lng }); byKey.set(key, m)
+    }
     const out: { date: string; vehicle: string; pts: Coord[] }[] = []
     for (const [key, m] of byKey) {
       const [date, vehicle] = key.split('|')
@@ -569,7 +577,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
       if (cur.length) out.push({ date, vehicle, pts: cur.map((x) => x[1]) })
     }
     return out
-  }, [visits.list, range])
+  }, [visits.list, fuelActs.list, range])
   const chain = (pts: Coord[]) => (church ? [church, ...pts, church] : pts)
   const pairs = trips.slice(0, 120).flatMap((t) => { const c = chain(t.pts); return c.slice(1).map((p, i) => [c[i], p] as [Coord, Coord]) })
   const road = useRoadLegs(pairs)
