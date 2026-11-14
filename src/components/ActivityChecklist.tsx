@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import MultiPick from './MultiPick'
+import { isLive } from '../lib/pastoral'
+import { usePeople } from '../lib/usePeople'
 import Sheet from './Sheet'
 import { useRole } from '../lib/members'
-import { VEHICLES, inkOf } from '../lib/vehicles'
+import { VEHICLES, inkOf, vehicleOf } from '../lib/vehicles'
 import { formatCoord, parseCoords } from '../lib/geo'
 import type { ActivityLog } from '../lib/types'
 import VisitCamera, { type Shot } from './VisitCamera'
 import MemberAvatar from './MemberAvatar'
 import { activityId, activityLines } from '../lib/activityLines'
 import { getMe } from '../lib/access'
-import { useActivityLog } from '../lib/data'
+import { useActivityLog, useChurchMembers } from '../lib/data'
 import { mapsLink } from '../lib/geo'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { uploadVisitPhoto } from '../lib/visitPhoto'
@@ -17,7 +20,7 @@ import { uploadVisitPhoto } from '../lib/visitPhoto'
  * รายการกิจกรรมของช่วงนั้น พร้อมช่องติ๊ก “ทำแล้ว”
  * ติ๊ก = เปิดกล้องในแอป ถ่ายรูปอย่างน้อย 1 รูป (บังคับ) — ตำแหน่งที่ถ่ายบันทึกเป็นการเช็คอินของกิจกรรมนั้นด้วย
  */
-export default function ActivityChecklist({ date, slot, text, ns = '' }: { date: string; slot: string; text: string | undefined; ns?: string }) {
+export default function ActivityChecklist({ date, slot, text, ns = '', vehicles = false }: { date: string; slot: string; text: string | undefined; ns?: string; /** หน้าที่ใช้รถ (แท็บใหม่/ทดลอง): แอดมินเลือกรถที่ใช้ได้ */ vehicles?: boolean }) {
   const acts = useActivityLog(ns)
   const me = getMe()
   const lines = activityLines(text)
@@ -50,8 +53,9 @@ export default function ActivityChecklist({ date, slot, text, ns = '' }: { date:
               </label>
               {rec && !(rec.photos?.length || rec.checkin) && isAdmin && <div style={{ marginLeft: 34, marginTop: 4 }}><button type="button" className="mini" onClick={() => setFix(rec)}>✎ แก้ (แอดมิน) · เพิ่มรูป/พิกัด</button></div>}
               {rec && (rec.photos?.length || rec.checkin) && (
-                <div className="row" style={{ gap: 8, alignItems: 'center', marginLeft: 34, marginTop: 4 }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 34, marginTop: 4 }}>
                   {rec.photos?.map((p) => <MemberAvatar key={p} path={p} name="📷" size={64} />)}
+                  {(rec.doers?.length || rec.vehicle || rec.place) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{rec.vehicle ? ` · 🚗 ${vehicleOf(rec.vehicle)?.name ?? rec.vehicle}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}</small>}
                   {rec.checkin && <a className="mini" href={mapsLink(rec.checkin)} target="_blank" rel="noreferrer">📍 เช็คอินแล้ว · เปิดแผนที่</a>}
                   {isAdmin && <button type="button" className="mini" onClick={() => setFix(rec)}>✎ แก้ (แอดมิน)</button>}
                 </div>)}
@@ -62,16 +66,20 @@ export default function ActivityChecklist({ date, slot, text, ns = '' }: { date:
       {busy && <p className="muted small" role="status" style={{ margin: '4px 0 0' }}>กำลังแนบรูป…</p>}
       {err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}
       {cam && <VisitCamera who={cam} onShot={(s) => void done(cam, s)} onClose={() => setCam(null)} />}
-      {fix && <FixSheet rec={fix} lab={ns === '-lab'} onClose={() => setFix(null)} onSave={(next) => { if (acts.put([next])) setFix(null) }} />}
+      {fix && <FixSheet rec={fix} vehicles={vehicles} onClose={() => setFix(null)} onSave={(next) => { if (acts.put([next])) setFix(null) }} />}
     </>
   )
 }
 
 /** แอดมินแก้กิจกรรมที่ทำแล้ว: รูป · พิกัดเช็คอิน (มีผลกับเส้นทาง/ระยะ/ค่าน้ำมันในรายงานเส้นทาง) · รถที่ใช้ (แท็บทดลอง) */
-function FixSheet({ rec, lab, onClose, onSave }: { rec: ActivityLog; lab: boolean; onClose: () => void; onSave: (a: ActivityLog) => void }) {
+function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicles: boolean; onClose: () => void; onSave: (a: ActivityLog) => void }) {
   const [photos, setPhotos] = useState<string[]>(rec.photos ?? [])
   const [coord, setCoord] = useState(rec.checkin ? formatCoord(rec.checkin) : '')
   const [vehicle, setVehicle] = useState(rec.vehicle ?? '')
+  const [doers, setDoers] = useState<string[]>(rec.doers ?? [])
+  const [place, setPlace] = useState(rec.place ?? '')
+  const members = useChurchMembers()
+  const people = usePeople(useMemo(() => members.items.filter((m) => !m.deleted && isLive(m)), [members.items]))
   const [cam, setCam] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -102,9 +110,9 @@ function FixSheet({ rec, lab, onClose, onSave }: { rec: ActivityLog; lab: boolea
     if (coord.trim() && !c) return setErr('อ่านพิกัดไม่ได้ (เช่น 12.5684, 99.9577)')
     ;(rec.photos ?? []).filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
     added.filter((p) => !photos.includes(p)).forEach((p) => void removeMemberPhotoFile(p))
-    const { checkin: _c, photos: _p, vehicle: _v, ...rest } = rec
-    void _c; void _p; void _v
-    onSave({ ...rest, ...(photos.length ? { photos } : {}), ...(c ? { checkin: { lat: c.lat, lng: c.lng } } : {}), ...(vehicle ? { vehicle } : {}) })
+    const { checkin: _c, photos: _p, vehicle: _v, doers: _d, place: _pl, ...rest } = rec
+    void _c; void _p; void _v; void _d; void _pl
+    onSave({ ...rest, ...(photos.length ? { photos } : {}), ...(c ? { checkin: { lat: c.lat, lng: c.lng } } : {}), ...(vehicle ? { vehicle } : {}), ...(doers.length ? { doers } : {}), ...(place.trim() ? { place: place.trim() } : {}) })
   }
   return (
     <Sheet title="✎ แก้กิจกรรม (แอดมิน)" onClose={onClose}>
@@ -118,7 +126,11 @@ function FixSheet({ rec, lab, onClose, onSave }: { rec: ActivityLog; lab: boolea
       <div className="field"><label htmlFor="fx-c">📍 พิกัดเช็คอิน (แก้แล้วเส้นทางและค่าน้ำมันคำนวณใหม่ตามพิกัดนี้)</label>
         <input id="fx-c" className="input" inputMode="decimal" value={coord} onChange={(e) => setCoord(e.target.value)} placeholder="เช่น 12.5684, 99.9577" />
         <div className="row" style={{ gap: 6, marginTop: 4 }}><button type="button" className="mini" disabled={busy} onClick={here}>📍 ใช้ตำแหน่งปัจจุบัน</button>{parseCoords(coord) && <a className="mini" href={mapsLink(parseCoords(coord)!)} target="_blank" rel="noreferrer">เปิดแผนที่</a>}</div></div>
-      {lab && <div className="field"><label>🚗 รถที่ใช้ไปทำกิจกรรมนี้</label>
+      <div className="field"><label htmlFor="fx-by">👥 ผู้ไปทำกิจกรรม (เลือกได้หลายคน · ค้นจากทะเบียน)</label>
+        <MultiPick id="fx-by" title="ผู้ไปทำกิจกรรม" options={doers.map(people.optOf)} value={doers} onChange={setDoers} empty="— เลือกผู้ไปทำกิจกรรม —" search={{ find: people.find, placeholder: '🔎 ชื่อจริง / นามสกุล / ชื่อเล่น / ญาติ' }} />
+        {doers.length > 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>{doers.map((n) => { const m = people.byName.get(n); return <span key={n} className="row" style={{ gap: 4, alignItems: 'center', border: '1.5px solid #d6dbe8', borderRadius: 999, padding: '2px 10px 2px 3px' }}><MemberAvatar path={m?.photoPath} name={n} size={28} member={m} /><b className="small">{n}</b></span> })}</div>}</div>
+      <div className="field"><label htmlFor="fx-pl">📌 ไปทำที่ไหน (ชื่อสถานที่)</label><input id="fx-pl" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="เช่น ตลาดนัดหัวหิน" /></div>
+      {vehicles && <div className="field"><label>🚗 รถที่ใช้ไปทำกิจกรรมนี้</label>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }} role="radiogroup" aria-label="รถ">
           {VEHICLES.map((v) => <button key={v.id} type="button" role="radio" aria-checked={vehicle === v.id} className={`btn ${vehicle === v.id ? 'btn--gold' : 'btn--ghost'}`} style={{ borderColor: inkOf(v.color) }} onClick={() => setVehicle(vehicle === v.id ? '' : v.id)}>{v.name}</button>)}
         </div></div>}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
-import MultiPick, { type PickOption } from './MultiPick'
+import MultiPick from './MultiPick'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
@@ -8,12 +8,12 @@ import { LIGHT } from '../lib/lightBox'
 import { getMe } from '../lib/access'
 import { useChurchMembers, useSchoolCfg, useSchoolDays, useSchoolTeachers, useSettings } from '../lib/data'
 import { isLive } from '../lib/pastoral'
-import { searchMembers } from '../lib/memberSearch'
+import { usePeople, type People } from '../lib/usePeople'
 import { useRole } from '../lib/members'
 import { addDays, be, monthName, newId, todayISO } from '../lib/money'
 import { dutyFor, itemsFromTpl, schoolWeekDays, sortedItems, weekSummary, withDuty } from '../lib/schoolTimetable'
 import { DAY_NAMES, sundayOf } from '../lib/visits'
-import type { ChurchMember, SchoolCfg, SchoolDay, SchoolItem, SchoolTpl } from '../lib/types'
+import type { SchoolCfg, SchoolDay, SchoolItem, SchoolTpl } from '../lib/types'
 
 type Step = 'plan' | 'record' | 'report'
 const STEPS: { id: Step; icon: string; label: string }[] = [{ id: 'plan', icon: '📅', label: 'วางแผน' }, { id: 'record', icon: '📝', label: 'บันทึก' }, { id: 'report', icon: '📊', label: 'รายงาน' }]
@@ -22,16 +22,6 @@ const dow = (iso: string) => DAY_NAMES[new Date(iso + 'T00:00:00Z').getUTCDay()]
 const dm = (iso: string) => `${Number(iso.slice(8))}/${iso.slice(5, 7)}/${String(be(Number(iso.slice(0, 4)))).slice(2)}`
 const hhmm = (at: number) => new Date(at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
 const nextSunday = () => { const t = todayISO(), s = sundayOf(t); return s === t ? t : addDays(s, 7) }
-
-/** ตัวช่วยเลือกคนจากทะเบียนสมาชิก (รูป + ค้นชื่อจริง/นามสกุล/ชื่อเล่น/ญาติ) */
-function usePeople(members: ChurchMember[]) {
-  const byName = useMemo(() => new Map(members.map((m) => [m.name.replace(/^place:/, ''), m])), [members])
-  const opt = (m: ChurchMember, sub?: string): PickOption => { const nm = m.name.replace(/^place:/, ''); return { value: nm, label: m.nick ? `${nm} (${m.nick})` : nm, avatar: { path: m.photoPath, member: m }, ...(sub ? { sub } : {}) } }
-  const find = (q: string): PickOption[] => { const r = searchMembers(members, q); return [...r.direct.map((m) => opt(m)), ...r.related.map((m) => opt(m, 'เกี่ยวข้อง (นามสกุล/ที่อยู่/หมายเหตุเดียวกัน)'))] }
-  const optOf = (n: string): PickOption => { const m = byName.get(n); return m ? opt(m) : { value: n, label: n } }
-  return { byName, find, optOf }
-}
-type People = ReturnType<typeof usePeople>
 
 /** ชิปชื่อพร้อมรูป */
 function Chips({ names, people, empty = '—' }: { names: string[]; people: People; empty?: string }) {
