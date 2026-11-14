@@ -5,8 +5,8 @@ import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import { slotOfVisit } from './VisitTimetableLab'
 import { useActivityLog, useSettings, useVisitPlans, useVisits } from '../lib/data'
-import { be, monthName, todayISO } from '../lib/money'
-import { splitVisitors, tripsOf } from '../lib/visits'
+import { addDays, be, monthName, todayISO } from '../lib/money'
+import { splitVisitors, sundayOf, tripsOf } from '../lib/visits'
 import { paginate } from '../lib/paginate'
 
 const NAVY = '#14264a', GOLD = '#c99a14'
@@ -31,6 +31,28 @@ function Bars({ data, color = '#8fa6d6', height = 105 }: { data: { label: string
           </g>
         )
       })}
+    </svg>
+  )
+}
+
+/** กราฟเส้นหลายชุด (SVG): แกนนอน = ช่วงเวลา แกนตั้ง = จำนวน พร้อมตัวเลขบนจุด */
+function Lines({ labels, series, height = 150 }: { labels: string[]; series: { name: string; color: string; values: number[] }[]; height?: number }) {
+  const W = 700, padL = 28, padR = 14, padT = 18, padB = 30
+  const max = Math.max(1, ...series.flatMap((x) => x.values))
+  const step = labels.length > 1 ? (W - padL - padR) / (labels.length - 1) : 0
+  const X = (i: number) => padL + (labels.length > 1 ? i * step : (W - padL - padR) / 2)
+  const Y = (v: number) => padT + (1 - v / max) * height
+  const ticks = [0, Math.ceil(max / 2), max].filter((t, i, a) => a.indexOf(t) === i)
+  const dense = labels.length > 14
+  return (
+    <svg viewBox={`0 0 ${W} ${height + padT + padB}`} width="100%" role="img" aria-label="กราฟเส้นแนวโน้ม" style={{ display: 'block' }}>
+      {ticks.map((t) => <g key={t}><line x1={padL} x2={W - padR} y1={Y(t)} y2={Y(t)} stroke="#e3e7ef" strokeDasharray="4 4" /><text x={padL - 6} y={Y(t) + 4} textAnchor="end" fontSize={11} fill="#777">{t}</text></g>)}
+      {labels.map((l, i) => <text key={i} x={X(i)} y={height + padT + 20} textAnchor="middle" fontSize={dense ? 9.5 : 12} fill="#555">{l}</text>)}
+      {series.map((sr) => (
+        <g key={sr.name}>
+          <polyline points={sr.values.map((v, i) => `${X(i)},${Y(v)}`).join(' ')} fill="none" stroke={sr.color} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+          {sr.values.map((v, i) => <g key={i}><circle cx={X(i)} cy={Y(v)} r={4} fill="#fff" stroke={sr.color} strokeWidth={2.5} />{!dense || v === max ? <text x={X(i)} y={Y(v) - 8} textAnchor="middle" fontSize={11} fontWeight={700} fill={sr.color}>{v}</text> : null}</g>)}
+        </g>))}
     </svg>
   )
 }
@@ -83,6 +105,7 @@ export default function VisitStatsLab() {
     const t = y * 12 + (m - 1) + n
     setY(Math.floor(t / 12)); setM((t % 12) + 1)
   }
+  const [trend, setTrend] = useState<'week' | 'month' | 'year'>('week') // กราฟเส้น: 12 สัปดาห์ · 12 เดือน · 5 ปี
   const prefix = mode === 'year' ? `${y}-` : `${y}-${String(m).padStart(2, '0')}-`
   const title = mode === 'year' ? `ปี ${be(y)}` : `${monthName(m)} ${be(y)}`
   const st = useMemo(() => {
@@ -121,6 +144,25 @@ export default function VisitStatsLab() {
       absentNames: [...new Set(notMet.map((v) => v.memberName))].slice(0, 12), slotCount,
     }
   }, [visits.list, acts.list, plans, prefix, mode, y, m])
+  /** กราฟเส้นแนวโน้ม: การเยี่ยม (บันทึก) กับกิจกรรมที่ทำแล้ว ตามช่วงที่เลือก (สิ้นสุดที่เดือน/ปีที่ดูอยู่ ไม่เกินวันนี้) */
+  const trendData = useMemo(() => {
+    const endDay = mode === 'year' ? `${y}-12-31` : `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+    const end = endDay > today ? today : endDay
+    const vdates = visits.list.map((v) => v.date), adates = acts.list.map((a) => a.date)
+    const cnt = (ds: string[], a: string, b: string) => ds.filter((d) => d >= a && d <= b).length
+    const labels: string[] = [], v: number[] = [], a: number[] = []
+    if (trend === 'week') {
+      const mon = addDays(sundayOf(addDays(end, -1)), 1) // วันจันทร์ของสัปดาห์ที่มีวันสิ้นสุด
+      for (let i = 11; i >= 0; i--) { const s0 = addDays(mon, -7 * i), e0 = addDays(s0, 6); labels.push(`${Number(s0.slice(8))}/${s0.slice(5, 7)}`); v.push(cnt(vdates, s0, e0)); a.push(cnt(adates, s0, e0)) }
+    } else if (trend === 'month') {
+      const ey = Number(end.slice(0, 4)), em = Number(end.slice(5, 7))
+      for (let i = 11; i >= 0; i--) { const t = ey * 12 + (em - 1) - i, yy = Math.floor(t / 12), mm = (t % 12) + 1, pre = `${yy}-${String(mm).padStart(2, '0')}-`; labels.push(`${monthName(mm).slice(0, 3)}${i === 11 || mm === 1 ? ` ${String(be(yy)).slice(2)}` : ''}`); v.push(vdates.filter((d) => d.startsWith(pre)).length); a.push(adates.filter((d) => d.startsWith(pre)).length) }
+    } else {
+      const ey = Number(end.slice(0, 4))
+      for (let i = 4; i >= 0; i--) { const yy = ey - i; labels.push(String(be(yy))); v.push(vdates.filter((d) => d.startsWith(`${yy}-`)).length); a.push(adates.filter((d) => d.startsWith(`${yy}-`)).length) }
+    }
+    return { labels, series: [{ name: 'บันทึกการเยี่ยม', color: '#3b6fd8', values: v }, { name: 'กิจกรรมที่ทำแล้ว', color: '#e8710a', values: a }] }
+  }, [visits.list, acts.list, trend, mode, y, m, today])
   /** แผ่นรายชื่อครบทุกคน: ผู้ปฏิบัติงาน (หน้าละ 40) แล้วต่อด้วยผู้ที่ได้รับการเยี่ยม (หน้าละ 56) · เกินก็ต่อหน้าถัดไปเอง */
   const pages = useMemo(() => [
     ...paginate(st.workers, 40).map((rows, i) => ({ kind: 'workers' as const, n: i + 1, rows })),
@@ -145,6 +187,9 @@ export default function VisitStatsLab() {
         <span className="small"><b>{title}</b></span>
         <button type="button" className="mini" aria-label="ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
+      <div className="seg seg--3 no-print" role="tablist" aria-label="กราฟเส้นแนวโน้ม" style={{ marginBottom: 6 }}>
+        {([['week', '📈 กราฟ 12 สัปดาห์'], ['month', '12 เดือน'], ['year', '5 ปี']] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={trend === k} className={trend === k ? 'on' : ''} onClick={() => setTrend(k)}>{l}</button>)}
+      </div>
       <ScaledPage ref={ref}>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', gap: 10, height: '100%', color: '#111' }}>
           <div style={{ ...keep, background: '#fff', color: NAVY, borderRadius: 14, padding: '12px 18px', border: `2px solid ${GOLD}`, borderBottom: `5px solid ${GOLD}`, textAlign: 'center' }}>
@@ -168,6 +213,10 @@ export default function VisitStatsLab() {
             <div style={{ display: 'flex', gap: 8 }}>{(['เช้า', 'บ่าย', 'ค่ำ'] as const).map((k) => (
               <div key={k} style={{ ...keep, flex: 1, textAlign: 'center', borderRadius: 10, padding: '6px 0', background: SLOT_COL[k], color: '#1a2b4c', fontWeight: 700, border: '1px solid #cfd6e4' }}><div style={{ fontSize: 15 }}>ภาค{k}</div><div style={{ fontSize: 28, fontWeight: 800 }}>{st.slotCount[k]}</div></div>
             ))}</div>
+          </Box>
+          <Box title={`📈 แนวโน้ม${trend === 'week' ? ' 12 สัปดาห์ล่าสุด' : trend === 'month' ? ' 12 เดือน' : ' 5 ปี'}`}>
+            <Lines labels={trendData.labels} series={trendData.series} height={125} />
+            <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 13.5, marginTop: 2 }}>{trendData.series.map((x) => <span key={x.name}><b style={{ color: x.color }}>●</b> {x.name} (รวม {x.values.reduce((p, q) => p + q, 0)})</span>)}</div>
           </Box>
           {st.absentNames.length > 0 && <Box title="✗ ไม่พบ / ไม่อยู่บ้าน"><div style={{ fontSize: 15.5 }}>{st.absentNames.join(' · ')}</div></Box>}
           <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: 12.5, color: '#666' }}>พิมพ์/สรุปเมื่อ {today.split('-').reverse().join('/')} · ข้อมูลจากบันทึกการเยี่ยมที่เช็คอินแล้ว</div>
