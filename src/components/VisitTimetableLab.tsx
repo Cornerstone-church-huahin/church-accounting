@@ -13,6 +13,7 @@ import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { activityId, activityLines } from '../lib/activityLines'
 import { VEHICLES, inkOf } from '../lib/vehicles'
 import NoCarToggle from './NoCarToggle'
+import VisitorPick from './VisitorPick'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import ActivityChecklist from './ActivityChecklist'
@@ -21,7 +22,7 @@ import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitP
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
 import { toAttendance } from '../lib/registry'
-import { dayKind, DAY_NAMES, splitVisitors, sundayOf, weekDays } from '../lib/visits'
+import { dayKind, DAY_NAMES, joinVisitors, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { Visit } from '../lib/types'
 import { addItem, addPlace, removeItem, removePlace, setDayText, setSlot, setSlotNote, SLOTS, type PlanDoc, type Slot } from '../lib/visitPlan'
 
@@ -108,7 +109,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, a
         <NoCarToggle value={vehicle} onChange={setVehicle} />
         <label className="row" style={{ gap: 8, alignItems: 'center', marginTop: 4 }}><input type="checkbox" checked={vehAll} onChange={(e) => setVehAll(e.target.checked)} /><span className="small">ใช้รถคันนี้กับทุกคนที่เช็คอินพร้อมกัน (จุดเดียวกัน) ด้วย</span></label>
         <span className="muted small">กดรถที่เลือกซ้ำ = ล้าง (ไม่ระบุรถ)</span></div>
-      <div className="field"><label htmlFor="ave-v">ผู้ออกเยี่ยม</label><input id="ave-v" className="input" value={visitor} onChange={(e) => setVisitor(e.target.value)} /></div>
+      <div className="field"><label htmlFor="ave-v">ผู้ออกเยี่ยม (ชื่อแรก = หัวหน้าสาย)</label><VisitorPick id="ave-v" title="ผู้ออกเยี่ยม" value={splitVisitors(visitor)} onChange={(vs) => setVisitor(joinVisitors(vs))} empty="— เลือกผู้ออกเยี่ยม —" /></div>
       {err && <p role="alert" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={save}>✓ บันทึกการแก้ไข</button>
     </Sheet>
