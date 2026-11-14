@@ -139,8 +139,8 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   // สัปดาห์: ใช้ตัวเลือกเดียวกับตารางเยี่ยม (จำสัปดาห์ร่วมกัน) · เลือกวันในสัปดาห์ด้วยปุ่มวัน
   const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : todayISO() } catch { return todayISO() } })
   const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
-  const sunday = sundayOf(anchor)
-  const days = weekDays(sunday).filter((d) => dayKind(d) === 'visit')
+  const sunday = sundayOf(addDays(anchor, -1)) // วันอาทิตย์ตรงกับสัปดาห์ที่จบด้วยวันนั้น
+  const days = [...weekDays(sunday).filter((d) => dayKind(d) === 'visit'), addDays(sunday, 7)] // รวมวันอาทิตย์ถัดมา
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const [pickDay, setPickDay] = useState<string | null>(null)
   const [cfg, setCfg] = useState(false)
@@ -541,8 +541,8 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
     const y = Number(anchor.slice(0, 4)), m = Number(anchor.slice(5, 7))
     if (mode === 'year') return { from: `${y}-01-01`, to: `${y}-12-31`, title: `ปี ${be(y)}` }
     if (mode === 'month') { const last = new Date(y, m, 0).getDate(); return { from: `${y}-${String(m).padStart(2, '0')}-01`, to: `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`, title: `${monthName(m)} ${be(y)}` } }
-    const sun = sundayOf(anchor)
-    return { from: sun, to: addDays(sun, 6), title: `สัปดาห์ ${sun.slice(8)}/${sun.slice(5, 7)} – ${addDays(sun, 6).slice(8)}/${addDays(sun, 6).slice(5, 7)}/${be(Number(sun.slice(0, 4)))}` }
+    const sun = sundayOf(addDays(anchor, -1)), a = addDays(sun, 1), b = addDays(sun, 7) // จันทร์–อาทิตย์ (ตรงกับตารางที่จบวันอาทิตย์)
+    return { from: a, to: b, title: `สัปดาห์ ${a.slice(8)}/${a.slice(5, 7)} – ${b.slice(8)}/${b.slice(5, 7)}/${be(Number(b.slice(0, 4)))}` }
   }, [anchor, mode])
   const shift = (n: number) => {
     if (mode === 'week') return setAnchor(addDays(anchor, n * 7))
@@ -806,7 +806,7 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
   const y = Number(anchor.slice(0, 4)), m = Number(anchor.slice(5, 7))
   const range = mode === 'year' ? { from: `${y}-01-01`, to: `${y}-12-31`, title: `ปี ${be(y)}` }
     : mode === 'month' ? { from: `${y}-${String(m).padStart(2, '0')}-01`, to: `${y}-${String(m).padStart(2, '0')}-31`, title: `${monthName(m)} ${be(y)}` }
-    : (() => { const sun = sundayOf(anchor); return { from: sun, to: addDays(sun, 6), title: `สัปดาห์ ${sun.slice(8)}/${sun.slice(5, 7)} – ${addDays(sun, 6).slice(8)}/${addDays(sun, 6).slice(5, 7)}` } })()
+    : (() => { const sun = sundayOf(addDays(anchor, -1)), a = addDays(sun, 1), b = addDays(sun, 7); return { from: a, to: b, title: `สัปดาห์ ${a.slice(8)}/${a.slice(5, 7)} – ${b.slice(8)}/${b.slice(5, 7)}` } })()
   const shift = (n: number) => {
     if (mode === 'week') return setAnchor(addDays(anchor, n * 7))
     if (mode === 'year') return setAnchor(`${y + n}-01-15`)
