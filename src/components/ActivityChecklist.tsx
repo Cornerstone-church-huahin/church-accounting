@@ -6,7 +6,7 @@ import { isLive } from '../lib/pastoral'
 import { usePeople } from '../lib/usePeople'
 import Sheet from './Sheet'
 import { useRole } from '../lib/members'
-import { NO_CAR, VEHICLES, inkOf, vehicleLabel } from '../lib/vehicles'
+import { NO_CAR, VEHICLES, actVehicle, inkOf, vehicleLabel } from '../lib/vehicles'
 import { formatCoord, parseCoords } from '../lib/geo'
 import type { ActivityLog } from '../lib/types'
 import VisitCamera, { type Shot } from './VisitCamera'
@@ -43,7 +43,7 @@ export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, ve
     setCam(null); setBusy(true); setErr('')
     try {
       const p = await uploadVisitPhoto(new File([shot.blob], `act-${shot.at}.jpg`, { type: 'image/jpeg' }))
-      const ok = acts.put([{ id: activityId(date, slot, line), date, slot, text: line, by: me?.name ?? '', at: shot.at, photos: [p], checkin: { lat: Math.round(shot.lat * 1e6) / 1e6, lng: Math.round(shot.lng * 1e6) / 1e6, ...(shot.acc ? { acc: Math.round(shot.acc) } : {}) }, updated: 0 }])
+      const ok = acts.put([{ id: activityId(date, slot, line), date, slot, text: line, by: me?.name ?? '', at: shot.at, photos: [p], vehicle: NO_CAR, checkin: { lat: Math.round(shot.lat * 1e6) / 1e6, lng: Math.round(shot.lng * 1e6) / 1e6, ...(shot.acc ? { acc: Math.round(shot.acc) } : {}) }, updated: 0 }])
       if (!ok) { void removeMemberPhotoFile(p); setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)') }
     } catch (e) { console.error('activity photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
     setBusy(false)
@@ -64,7 +64,7 @@ export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, ve
               {rec && (rec.photos?.length || rec.checkin) && (
                 <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 34, marginTop: 4 }}>
                   {rec.photos?.map((p) => <MemberAvatar key={p} path={p} name="📷" size={64} />)}
-                  {(rec.doers?.length || rec.vehicle || rec.place) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{rec.vehicle ? ` · ${rec.vehicle === NO_CAR ? '🚫' : '🚗'} ${vehicleLabel(rec.vehicle)}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}</small>}
+                  {(rec.doers?.length || rec.vehicle || rec.place || vehicles) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{vehicles ? ` · ${actVehicle(rec) === NO_CAR ? '🚫' : '🚗'} ${vehicleLabel(actVehicle(rec))}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}</small>}
                   {rec.checkin && <a className="mini" href={mapsLink(rec.checkin)} target="_blank" rel="noreferrer">📍 เช็คอินแล้ว · เปิดแผนที่</a>}
                   {isAdmin && <button type="button" className="mini" onClick={() => setFix(rec)}>✎ แก้ (แอดมิน)</button>}
                 </div>)}
@@ -85,7 +85,7 @@ export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, ve
 function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicles: boolean; onClose: () => void; onSave: (a: ActivityLog) => void }) {
   const [photos, setPhotos] = useState<string[]>(rec.photos ?? [])
   const [coord, setCoord] = useState(rec.checkin ? formatCoord(rec.checkin) : '')
-  const [vehicle, setVehicle] = useState(rec.vehicle ?? '')
+  const [vehicle, setVehicle] = useState(actVehicle(rec))
   const [doers, setDoers] = useState<string[]>(rec.doers ?? [])
   const [place, setPlace] = useState(rec.place ?? '')
   const members = useChurchMembers()
