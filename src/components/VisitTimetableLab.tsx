@@ -14,6 +14,7 @@ import { VEHICLES, inkOf } from '../lib/vehicles'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import ActivityChecklist from './ActivityChecklist'
+import ActivityPlanEditor from './ActivityPlanEditor'
 import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
 import { addDays, be, monthName, todayISO } from '../lib/money'
 import { visitStats } from '../lib/pastoral'
@@ -175,8 +176,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
           <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend, place: '' })}>📍 คลิกเพื่อบันทึกและเช็คอินตามรายชื่อ ›</button>
         </div></div>}
       {planOnly
-        ? <div className="field"><label htmlFor="vt-note">📋 กิจกรรมของช่วงนี้ (พิมพ์ได้หลายบรรทัด · ไปติ๊ก “ทำแล้ว” ที่หน้าบันทึก/เช็คอิน)</label>
-          <textarea key={doc.slotNotes?.[slot] ?? ''} id="vt-note" className="input" rows={3} defaultValue={doc.slotNotes?.[slot] ?? ''} onChange={(e) => { noteRef.current = e.target.value }} onBlur={(e) => { noteRef.current = null; onChange(setSlotNote(doc, slot, e.target.value)) }} /></div>
+        ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; onChange(setSlotNote(doc, slot, t)) }} />
         : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns="-lab" date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
       {!planOnly && (() => {
         // สรุปสาย: จัดกลุ่มรายการที่บันทึกแล้วในช่องนี้ตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) เรียงตามเวลา
