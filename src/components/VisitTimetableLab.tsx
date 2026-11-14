@@ -181,7 +181,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
         </div></div>}
       {planOnly
         ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; onChange(setSlotNote(doc, slot, t)) }} />
-        : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
+        : <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={date} slot={slot} text={doc.slotNotes?.[slot]} onAdd={(t) => onChange(setSlotNote(doc, slot, [doc.slotNotes?.[slot], t].filter(Boolean).join('\n')))} /></div>}
       {!planOnly && (() => {
         // สรุปสาย: จัดกลุ่มรายการที่บันทึกแล้วในช่องนี้ตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) เรียงตามเวลา
         const ids = new Set([...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)])
@@ -346,7 +346,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
           {mode === 'plan'
             ? <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (บรรทัดละกิจกรรม เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
               <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => save(edit.d, setDayText(doc, e.target.value))} /></div>
-            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={edit.d} slot="day" text={doc.dayText} /></div>}
+            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={edit.d} slot="day" text={doc.dayText} onAdd={(t) => save(edit.d, setDayText(doc, [doc.dayText, t].filter(Boolean).join('\n')))} /></div>}
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
