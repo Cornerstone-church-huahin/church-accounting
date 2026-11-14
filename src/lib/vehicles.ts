@@ -15,5 +15,7 @@ export const vehicleOwner = (map: Record<string, { kind: 'church' | 'personal'; 
 export const inkOf = (c: string): string => (c.toLowerCase() === '#ffffff' ? '#7b8aa8' : c)
 /** ตัวเลือก “ไม่ใช้รถ” (เช่น กิจกรรมในคริสตจักร · ใช้รถคนอื่นที่ไม่เบิกน้ำมัน): ไม่ขึ้นเส้นทาง ไม่คิดระยะ/ค่าน้ำมัน */
 export const NO_CAR = 'none'
+/** กิจกรรมที่ไม่ได้ระบุรถ = ไม่ใช้รถ (ค่าเริ่มต้น) — แอดมินเลือกรถทีหลังได้ */
+export const actVehicle = (a: { vehicle?: string }): string => a.vehicle || NO_CAR
 export const vehicleLabel = (id?: string): string => (id === NO_CAR ? 'ไม่ใช้รถ' : vehicleOf(id)?.name ?? (id || 'ไม่ระบุรถ'))
 export const vehicleOf = (id?: string): Vehicle | undefined => VEHICLES.find((v) => v.id === id)
