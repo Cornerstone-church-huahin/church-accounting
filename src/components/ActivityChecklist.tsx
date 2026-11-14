@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { LIGHT } from '../lib/lightBox'
-import MultiPick from './MultiPick'
+import VisitorPick from './VisitorPick'
 import NoCarToggle from './NoCarToggle'
 import { isLive } from '../lib/pastoral'
 import { usePeople } from '../lib/usePeople'
@@ -137,7 +137,7 @@ function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicl
         <input id="fx-c" className="input" inputMode="decimal" value={coord} onChange={(e) => setCoord(e.target.value)} placeholder="เช่น 12.5684, 99.9577" />
         <div className="row" style={{ gap: 6, marginTop: 4 }}><button type="button" className="mini" disabled={busy} onClick={here}>📍 ใช้ตำแหน่งปัจจุบัน</button>{parseCoords(coord) && <a className="mini" href={mapsLink(parseCoords(coord)!)} target="_blank" rel="noreferrer">เปิดแผนที่</a>}</div></div>
       <div className="field"><label htmlFor="fx-by">👥 ผู้ไปทำกิจกรรม (เลือกได้หลายคน · ค้นจากทะเบียน)</label>
-        <MultiPick id="fx-by" title="ผู้ไปทำกิจกรรม" options={doers.map(people.optOf)} value={doers} onChange={setDoers} empty="— เลือกผู้ไปทำกิจกรรม —" search={{ find: people.find, placeholder: '🔎 ชื่อจริง / นามสกุล / ชื่อเล่น / ญาติ' }} />
+        <VisitorPick id="fx-by" title="ผู้ไปทำกิจกรรม" value={doers} onChange={setDoers} empty="— เลือกผู้ไปทำกิจกรรม —" />
         {doers.length > 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>{doers.map((n) => { const m = people.byName.get(n); return <span key={n} className="row" style={{ gap: 4, alignItems: 'center', border: '1.5px solid #d6dbe8', borderRadius: 999, padding: '2px 10px 2px 3px' }}><MemberAvatar path={m?.photoPath} name={n} size={28} member={m} /><b className="small">{n}</b></span> })}</div>}</div>
       <div className="field"><label htmlFor="fx-pl">📌 ไปทำที่ไหน (ชื่อสถานที่)</label><input id="fx-pl" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="เช่น ตลาดนัดหัวหิน" /></div>
       {vehicles && <div className="field"><label>🚗 รถที่ใช้ไปทำกิจกรรมนี้</label>
