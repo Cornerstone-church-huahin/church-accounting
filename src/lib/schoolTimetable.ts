@@ -10,7 +10,7 @@ export const DEFAULT_TPL: SchoolTpl[] = [
   { id: 't5', time: '12:20', title: 'ขนม และอธิษฐานปิดท้าย', role: 'duty' },
 ]
 /** ค่าตั้งต้น (ยังไม่เคยตั้งค่า) */
-export const normCfg = (c: Partial<SchoolCfg> | undefined): SchoolCfg => ({ ...(c ?? {}), id: 'cfg', updated: c?.updated ?? 0, lead: c?.lead ?? [], helpers: c?.helpers ?? [], pool: c?.pool ?? [], perWeek: c?.perWeek ?? 2, anchor: c?.anchor ?? '', tpl: c?.tpl?.length ? c.tpl : DEFAULT_TPL })
+export const normCfg = (c: Partial<SchoolCfg> | undefined): SchoolCfg => ({ ...(c ?? {}), id: 'cfg', updated: c?.updated ?? 0, overseers: c?.overseers ?? [], lead: c?.lead ?? [], helpers: c?.helpers ?? [], pool: c?.pool ?? [], perWeek: c?.perWeek ?? 2, anchor: c?.anchor ?? '', tpl: c?.tpl?.length ? c.tpl : DEFAULT_TPL })
 
 /** ระยะเป็นสัปดาห์ระหว่างวันอาทิตย์สองวัน */
 const weeksBetween = (a: string, b: string) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / (7 * 86_400_000))
