@@ -8,6 +8,7 @@ import { useRole } from '../lib/members'
 import { NO_CAR, actVehicle, vehicleLabel } from '../lib/vehicles'
 import { formatCoord, parseCoords } from '../lib/geo'
 import type { ActivityLog } from '../lib/types'
+import ActivityForm, { type ActivityFormResult } from './ActivityForm'
 import VisitCamera, { type Shot } from './VisitCamera'
 import MemberAvatar from './MemberAvatar'
 import { activityId, activityLines } from '../lib/activityLines'
@@ -25,41 +26,34 @@ export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, ve
   const acts = useActivityLog(ns)
   const me = getMe()
   const lines = activityLines(text)
-  const [cam, setCam] = useState<string | null>(null) // บรรทัดกิจกรรมที่กำลังถ่ายรูป
-  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState<string | null>(null) // กิจกรรมที่กำลังบันทึก (ฟอร์มเรียงขั้น)
+  const busy = false
   const [err, setErr] = useState('')
   const isAdmin = useRole() === 'admin'
   const [fix, setFix] = useState<ActivityLog | null>(null) // แอดมินแก้รายการที่ทำแล้ว
   const [newLine, setNewLine] = useState('')
-  const [pend, setPend] = useState<{ line: string; shot: Shot } | null>(null) // ถ่ายรูปแล้ว รอผู้ทำยืนยัน ใครไป/รถ/ที่ไหน
-  const addNow = () => { const t = newLine.trim().replace(/\r?\n/g, ' '); if (!t || !onAdd) return; if (lines.includes(t)) { setErr('มีกิจกรรมนี้ในรายการแล้ว — ติ๊กที่รายการได้เลย'); return } setErr(''); onAdd(t); setNewLine(''); setCam(t) }
+  const addNow = () => { const t = newLine.trim().replace(/\r?\n/g, ' '); if (!t || !onAdd) return; if (lines.includes(t)) { setErr('มีกิจกรรมนี้ในรายการแล้ว — ติ๊กที่รายการได้เลย'); return } setErr(''); onAdd(t); setNewLine(''); setForm(t) }
   const addBox = onAdd ? (
     <div className="row" style={{ gap: 6, marginTop: 8 }}>
       <input className="input grow" aria-label="กิจกรรมนอกแผน" value={newLine} onChange={(e) => setNewLine(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNow() } }} placeholder="＋ กิจกรรมนอกแผน เช่น ไปรับของที่ชะอำ" />
-      <button type="button" className="btn btn--gold" disabled={!newLine.trim() || busy} onClick={addNow}>＋ เพิ่ม + ถ่ายรูป</button>
+      <button type="button" className="btn btn--gold" disabled={!newLine.trim() || busy} onClick={addNow}>＋ เพิ่ม + บันทึก</button>
     </div>) : null
-  if (!lines.length) return <><p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — วางแผนไว้ที่ขั้น “วางแผน” หรือเพิ่มนอกแผนด้านล่าง</p>{addBox}{err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}{cam && <VisitCamera who={cam} onShot={(s) => done(cam, s)} onClose={() => setCam(null)} />}{pend && <DoneSheet line={pend.line} vehicles={vehicles} onClose={() => setPend(null)} onSave={(meta) => void confirmDone(pend.line, pend.shot, meta)} />}</>
-  const done = (line: string, shot: Shot) => { setCam(null); setErr(''); setPend({ line, shot }) }
-  /** ผู้ทำยืนยัน: ผู้ไปทำ + รถ + สถานที่ — ผู้เดินทางรับผิดชอบข้อมูลเอง แอดมินแก้เฉพาะเมื่อผิดพลาด */
-  const confirmDone = async (line: string, shot: Shot, meta: { doers: string[]; vehicle: string; place: string }) => {
-    setPend(null); setBusy(true); setErr('')
-    try {
-      const p = await uploadVisitPhoto(new File([shot.blob], `act-${shot.at}.jpg`, { type: 'image/jpeg' }))
-      const ok = acts.put([{ id: activityId(date, slot, line), date, slot, text: line, by: me?.name ?? '', at: shot.at, photos: [p], vehicle: vehicles ? meta.vehicle || NO_CAR : NO_CAR, ...(meta.doers.length ? { doers: meta.doers } : {}), ...(meta.place ? { place: meta.place } : {}), checkin: { lat: Math.round(shot.lat * 1e6) / 1e6, lng: Math.round(shot.lng * 1e6) / 1e6, ...(shot.acc ? { acc: Math.round(shot.acc) } : {}) }, updated: 0 }])
-      if (!ok) { void removeMemberPhotoFile(p); setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)') }
-    } catch (e) { console.error('activity photo', e); setErr('แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง') }
-    setBusy(false)
+  if (!lines.length) return <><p className="muted small" style={{ margin: 0 }}>ยังไม่มีกิจกรรมที่วางแผนไว้ในช่วงนี้ — วางแผนไว้ที่ขั้น “วางแผน” หรือเพิ่มนอกแผนด้านล่าง</p>{addBox}{err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}{form && <ActivityForm line={form} vehicles={vehicles} onClose={() => setForm(null)} onSave={(r) => saveForm(form, r)} />}</>
+  /** บันทึกจากฟอร์ม: 1 กิจกรรม = 1 เช็คอิน (เวลาเช็คอินคือเวลาของรายการ เรียงเป็นเส้นทางตามเวลา) */
+  const saveForm = (line: string, r: ActivityFormResult) => {
+    setForm(null); setErr('')
+    const ok = acts.put([{ id: activityId(date, slot, line), date, slot, text: line, by: me?.name ?? '', at: r.at, photos: r.photos, vehicle: r.vehicle, doers: r.doers, ...(r.place ? { place: r.place } : {}), ...(r.note ? { note: r.note } : {}), checkin: r.checkin, updated: 0 }])
+    if (!ok) { r.photos.forEach((p) => void removeMemberPhotoFile(p)); setErr('บันทึกไม่ได้ (สิทธิ์ไม่พอ)') }
   }
   return (
     <>
-      {pend && <DoneSheet line={pend.line} vehicles={vehicles} onClose={() => setPend(null)} onSave={(meta) => void confirmDone(pend.line, pend.shot, meta)} />}
       <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }} aria-label="กิจกรรม">
         {lines.map((l) => {
           const id = activityId(date, slot, l), rec = acts.list.find((x) => x.id === id)
           return (
             <li key={id} style={{ padding: '4px 0' }}>
               <label className="row" style={{ gap: 10, alignItems: 'center' }}>
-                <input type="checkbox" style={{ width: 24, height: 24 }} disabled={busy} checked={!!rec} onChange={(e) => { if (e.target.checked) { setErr(''); setCam(l) } else { (rec?.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); acts.remove(id) } }} />
+                <input type="checkbox" style={{ width: 24, height: 24 }} disabled={busy} checked={!!rec} onChange={(e) => { if (e.target.checked) { setErr(''); setForm(l) } else { (rec?.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); acts.remove(id) } }} />
                 <span style={{ flex: 1 }}>{l}</span>
                 {rec && <small className="muted">✓ ทำแล้ว {new Date(rec.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.{rec.by ? ` · ${rec.by}` : ''}</small>}
               </label>
@@ -67,18 +61,18 @@ export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, ve
               {rec && (rec.photos?.length || rec.checkin) && (
                 <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 34, marginTop: 4 }}>
                   {rec.photos?.map((p) => <MemberAvatar key={p} path={p} name="📷" size={64} />)}
-                  {(rec.doers?.length || rec.vehicle || rec.place || vehicles) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{vehicles ? ` · ${actVehicle(rec) === NO_CAR ? '🚫' : '🚗'} ${vehicleLabel(actVehicle(rec))}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}</small>}
+                  {(rec.doers?.length || rec.vehicle || rec.place || vehicles) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{vehicles ? ` · ${actVehicle(rec) === NO_CAR ? '🚫' : '🚗'} ${vehicleLabel(actVehicle(rec))}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}{rec.note ? ` · 📝 ${rec.note}` : ''}</small>}
                   {rec.checkin && <a className="mini" href={mapsLink(rec.checkin)} target="_blank" rel="noreferrer">📍 เช็คอินแล้ว · เปิดแผนที่</a>}
                   {isAdmin && <button type="button" className="mini" onClick={() => setFix(rec)}>✎ แก้ (แอดมิน)</button>}
                 </div>)}
-              {!rec && <div className="muted small" style={{ marginLeft: 34 }}>ติ๊กแล้วจะเปิดกล้อง — ต้องถ่ายรูป 1 รูป (บันทึกตำแหน่งเช็คอินให้อัตโนมัติ)</div>}
+              {!rec && <div className="muted small" style={{ marginLeft: 34 }}>ติ๊กแล้วเปิดฟอร์มบันทึกกิจกรรม — ต้องเช็คอินตำแหน่งและถ่ายรูป</div>}
             </li>)
         })}
       </ul>
       {addBox}
       {busy && <p className="muted small" role="status" style={{ margin: '4px 0 0' }}>กำลังแนบรูป…</p>}
       {err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}
-      {cam && <VisitCamera who={cam} onShot={(s) => done(cam, s)} onClose={() => setCam(null)} />}
+      {form && <ActivityForm line={form} vehicles={vehicles} onClose={() => setForm(null)} onSave={(r) => saveForm(form, r)} />}
       {fix && <FixSheet rec={fix} vehicles={vehicles} onClose={() => setFix(null)} onSave={(next) => { if (acts.put([next])) setFix(null) }} />}
     </>
   )
@@ -149,27 +143,6 @@ function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicl
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" disabled={busy} onClick={save}>✓ บันทึกการแก้ไข</button>
       {cam && <VisitCamera who={rec.text} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
-    </Sheet>
-  )
-}
-
-/** หลังถ่ายรูป: ผู้ทำระบุว่าใครไป · ใช้รถอะไร (ค่าเริ่มต้น ไม่ใช้รถ) · ไปที่ไหน แล้วบันทึก */
-function DoneSheet({ line, vehicles, onClose, onSave }: { line: string; vehicles: boolean; onClose: () => void; onSave: (m: { doers: string[]; vehicle: string; place: string }) => void }) {
-  const [doers, setDoers] = useState<string[]>([])
-  const [vehicle, setVehicle] = useState(NO_CAR)
-  const [place, setPlace] = useState('')
-  const [err, setErr] = useState('')
-  const go = () => { if (!doers.length) return setErr('เลือกผู้ไปทำกิจกรรมอย่างน้อย 1 คน'); onSave({ doers, vehicle: vehicle || NO_CAR, place: place.trim() }) }
-  return (
-    <Sheet title="✓ ยืนยันการทำกิจกรรม" onClose={onClose}>
-      <p style={{ margin: 0 }}><b>{line}</b></p>
-      <p className="muted small" style={{ margin: 0 }}>ถ่ายรูปและเช็คอินพิกัดแล้ว — ระบุว่าใครไป ใช้รถอะไร เพื่อให้สถิติและค่าน้ำมันถูกต้อง</p>
-      <div className="field"><label htmlFor="dn-by">👥 ผู้ไปทำกิจกรรม (เลือกได้หลายคน · ค้นจากทะเบียน)</label>
-        <VisitorPick id="dn-by" title="ผู้ไปทำกิจกรรม" value={doers} onChange={setDoers} empty="— เลือกผู้ไปทำกิจกรรม —" /></div>
-      <div className="field"><label htmlFor="dn-pl">📌 ไปทำที่ไหน (ไม่บังคับ)</label><input id="dn-pl" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="เช่น ตลาดนัดหัวหิน" /></div>
-      {vehicles && <div className="field"><label>🚗 รถที่ใช้ (ค่าเริ่มต้น ไม่ใช้รถ)</label><VehicleGrid value={vehicle} onChange={setVehicle} /></div>}
-      {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
-      <button type="button" className="btn btn--gold btn--block" onClick={go}>✓ บันทึกว่าทำแล้ว</button>
     </Sheet>
   )
 }
