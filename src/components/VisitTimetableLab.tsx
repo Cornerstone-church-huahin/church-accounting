@@ -1,3 +1,4 @@
+import { useVisitNs } from '../lib/labNs'
 import { useMemo, useRef, useState } from 'react'
 import { LIGHT } from '../lib/lightBox'
 import AbsentList from './AbsentList'
@@ -114,6 +115,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, a
 
 /** หน้าต่างแก้ช่องหนึ่ง: เลือกคน (จากรายชื่อขาดนมัสการ กด ＋) · สถานที่/โครงการ (ไม่ผูกรายชื่อ) · หมายเหตุ */
 function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }: { date: string; slot: Slot; doc: PlanDoc; onChange: (d: PlanDoc) => void; onClose: () => void; /** หน้า “บันทึก”: เห็นรายชื่อที่วางแผนไว้และบันทึกเยี่ยมได้ แก้แผนไม่ได้ */ recordOnly?: boolean; /** หน้า “วางแผน”: เป็นแค่ข้อความ ไม่มีปุ่มบันทึกเยี่ยม/แผนที่ */ planOnly?: boolean }) {
+  const ns = useVisitNs()
   const people = useChurchMembers()
   const y = new Date().getFullYear()
   const a0 = useAttendance(y), a1 = useAttendance(y - 1, false), a2 = useAttendance(y - 2, false), a3 = useAttendance(y - 3, false)
@@ -123,7 +125,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
     const [place, setPlace] = useState('')
   const [ticked, setTicked] = useState<string[]>([]) // ติ๊กไว้เพื่อบันทึก “เยี่ยมแล้ว” ทีเดียวพร้อมกัน
   const tick = (id: string, on: boolean) => setTicked((xs) => on ? (xs.includes(id) ? xs : [...xs, id]) : xs.filter((x) => x !== id))
-  const visits = useVisits(true, '-lab')
+  const visits = useVisits(true, ns)
   const team = useWorkTeams().of(4)
   const [form, setForm] = useState<{ entry: Visit | null; member?: { id: string; name: string }; group?: { id: string; name: string }[]; place?: string } | null>(null)
   const done = (id: string) => visits.list.find((v) => v.date === date && v.memberId === id)
@@ -177,7 +179,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
         </div></div>}
       {planOnly
         ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; onChange(setSlotNote(doc, slot, t)) }} />
-        : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns="-lab" date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
+        : activityLines(doc.slotNotes?.[slot]).length > 0 && <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} date={date} slot={slot} text={doc.slotNotes?.[slot]} /></div>}
       {!planOnly && (() => {
         // สรุปสาย: จัดกลุ่มรายการที่บันทึกแล้วในช่องนี้ตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) เรียงตามเวลา
         const ids = new Set([...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)])
@@ -236,10 +238,11 @@ const TITLE = {
 } as const
 
 export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | 'record' | 'report' }) {
+  const ns = useVisitNs()
   const { settings } = useSettings()
   const church = settings.churchName.split(' ')[0]
-  const plans = useVisitPlans('-lab')
-  const visits = useVisits(true, '-lab')
+  const plans = useVisitPlans(ns)
+  const visits = useVisits(true, ns)
   const today = todayISO()
   // สัปดาห์ที่เปิดดู: ใช้ร่วมกันทั้ง วางแผน/บันทึก/รายงาน (เลื่อนไปสัปดาห์ก่อน/ถัดไปได้อิสระ)
   const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : today } catch { return today } })
@@ -261,7 +264,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
   const total = days.reduce((n, d) => n + plans.of(d).items.length, 0)
   const range = rangeTitle(days[0], days[days.length - 1])
   const isAdmin = useRole() === 'admin'
-  const acts = useActivityLog('-lab')
+  const acts = useActivityLog(ns)
   const doneAct = (d: string, slot: string, line: string) => acts.list.some((x) => x.id === activityId(d, slot, line))
   const [fix, setFix] = useState<Visit | null>(null) // แอดมินแก้การบันทึกให้
   const [del, setDel] = useState<{ d: string; slot: Slot } | null>(null) // รายงาน: แอดมินยกเลิกการบันทึกที่บันทึกผิด
@@ -274,7 +277,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
   const thx = (bg: string, color: string): React.CSSProperties => ({ ...cl, ...keep, background: P ? '#eef1f6' : C ? '#d4efe8' : bg, color: P ? NAVY : C ? '#0f4f47' : color, textAlign: 'center', ...(R ? { borderBottom: `3px solid ${GOLD}` } : {}) })
   const slotBg = (i: number, tint: string) => (P ? '#fff' : C ? (i % 2 ? '#f3fbf8' : '#e4f6f1') : R ? `linear-gradient(180deg, ${i % 2 ? '#fff' : tint}, ${i % 2 ? tint : '#fff'})` : tint)
   return (
-    <section aria-label="ตารางเยี่ยมเยียน (ทดลอง)">
+    <section aria-label={ns ? 'ตารางเยี่ยมเยียน (ทดลอง)' : 'ตารางเยี่ยมเยียน (ใหม่)'}>
       <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <button type="button" className="mini" aria-label="สัปดาห์ก่อน" onClick={() => shift(-1)}>‹</button>
         <span className="small"><b>{range}</b>{total ? ` · ${total} คนในแผน` : ''}</span>
@@ -341,7 +344,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
           {mode === 'plan'
             ? <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (บรรทัดละกิจกรรม เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
               <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => save(edit.d, setDayText(doc, e.target.value))} /></div>
-            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns="-lab" date={edit.d} slot="day" text={doc.dayText} /></div>}
+            : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} date={edit.d} slot="day" text={doc.dayText} /></div>}
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
       )}
