@@ -35,14 +35,14 @@ function Bars({ data, color = '#8fa6d6', height = 105 }: { data: { label: string
 }
 
 /** แถบแนวนอน: รายชื่อ + จำนวน */
-function HBars({ rows, color = '#8fcfa4', empty = 'ยังไม่มีข้อมูล' }: { rows: { name: string; v: number }[]; color?: string; empty?: string }) {
+function HBars({ rows, color = '#8fcfa4', empty = 'ยังไม่มีข้อมูล' }: { rows: { name: string; sub?: string; v: number }[]; color?: string; empty?: string }) {
   const max = Math.max(1, ...rows.map((r) => r.v))
   if (!rows.length) return <div style={{ color: '#777', fontSize: 15 }}>{empty}</div>
   return (
     <div>
       {rows.map((r) => (
         <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '3px 0', fontSize: 15.5 }}>
-          <span style={{ width: 190, flex: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+          <span style={{ width: 190, flex: 'none', overflow: 'hidden', lineHeight: 1.15 }}><span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>{r.sub && <span style={{ display: 'block', fontSize: 12.5, color: '#555' }}>{r.sub}</span>}</span>
           <span style={{ flex: 1, background: '#eef0f5', borderRadius: 6, height: 16, ...keep }}><span style={{ display: 'block', width: `${Math.max(4, (r.v / max) * 100)}%`, height: '100%', background: color, borderRadius: 6, ...keep }} /></span>
           <b style={{ width: 34, textAlign: 'right' }}>{r.v}</b>
         </div>
@@ -61,6 +61,7 @@ const Box = ({ title, children }: { title: string; children: React.ReactNode }) 
 export default function VisitStatsLab() {
   const ns = useVisitNs()
   const ref = useRef<HTMLDivElement>(null)
+  const ref2 = useRef<HTMLDivElement>(null)
   const visits = useVisits(true, ns)
   const acts = useActivityLog(ns)
   const plans = useVisitPlans(ns)
@@ -104,7 +105,7 @@ export default function VisitStatsLab() {
     const allWork = new Map<string, { visit: number; act: number }>()
     for (const [n, v] of visitorCount) allWork.set(n, { visit: v, act: 0 })
     for (const [n, v] of doerCount) allWork.set(n, { visit: allWork.get(n)?.visit ?? 0, act: v })
-    const workers = [...allWork].map(([name, e]) => ({ name: `${name} (เยี่ยม ${e.visit} · กิจกรรม ${e.act})`, v: e.visit + e.act })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th'))
+    const workers = [...allWork].map(([name, e]) => ({ name, sub: `เยี่ยม ${e.visit} · กิจกรรม ${e.act}`, v: e.visit + e.act })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th'))
     return {
       doers, workers, noDoer, total: vs.length, trips, days: days.size, people: people.size, met: met.length, notMet: notMet.length, actDone, bars,
       visitors: [...visitorCount].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th')),
@@ -149,25 +150,35 @@ export default function VisitStatsLab() {
             {tile('👥', 'ผู้ออกเยี่ยม (คน)', st.visitors.length, SOFT.purple)}
             {tile('📋', 'กิจกรรมที่ทำแล้ว', st.actDone, SOFT.orange)}
           </div>
-          <Box title={mode === 'year' ? '📊 จำนวนบันทึกเยี่ยมรายเดือน' : '📊 จำนวนบันทึกเยี่ยมรายวัน'}><Bars data={st.bars} /></Box>
+          <Box title={mode === 'year' ? '📊 จำนวนบันทึกเยี่ยมรายเดือน' : '📊 จำนวนบันทึกเยี่ยมรายวัน'}><Bars data={st.bars} height={150} /></Box>
           <Box title="🕘 แยกตามช่วงเวลา">
             <div style={{ display: 'flex', gap: 8 }}>{(['เช้า', 'บ่าย', 'ค่ำ'] as const).map((k) => (
               <div key={k} style={{ ...keep, flex: 1, textAlign: 'center', borderRadius: 10, padding: '6px 0', background: SLOT_COL[k], color: '#1a2b4c', fontWeight: 700, border: '1px solid #cfd6e4' }}><div style={{ fontSize: 15 }}>ภาค{k}</div><div style={{ fontSize: 28, fontWeight: 800 }}>{st.slotCount[k]}</div></div>
             ))}</div>
           </Box>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="👥 ผู้ออกเยี่ยม (ครั้ง)"><HBars rows={st.visitors.slice(0, 6)} color="#8fa6d6" /></Box></div>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="⭐ ผู้ที่ได้รับการเยี่ยม"><HBars rows={st.top.slice(0, 6).map((t) => ({ name: t.name, v: t.v }))} color="#8fcfa4" /></Box></div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="📋 ผู้ทำกิจกรรม (ครั้ง)"><HBars rows={st.doers.slice(0, 5)} color="#f0c27a" empty="ยังไม่ได้ระบุผู้ไปทำกิจกรรม" />{st.noDoer > 0 && <div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ยังไม่ระบุผู้ทำ {st.noDoer} กิจกรรม (แอดมินระบุได้ที่ ✎ แก้)</div>}</Box></div>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="🙌 รวมผู้ปฏิบัติงาน (เยี่ยม + กิจกรรม)"><HBars rows={st.workers.slice(0, 5)} color="#b9a3dc" /></Box></div>
-          </div>
           {st.absentNames.length > 0 && <Box title="✗ ไม่พบ / ไม่อยู่บ้าน"><div style={{ fontSize: 15.5 }}>{st.absentNames.join(' · ')}</div></Box>}
           <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: 12.5, color: '#666' }}>พิมพ์/สรุปเมื่อ {today.split('-').reverse().join('/')} · ข้อมูลจากบันทึกการเยี่ยมที่เช็คอินแล้ว</div>
         </div>
       </ScaledPage>
-      <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`สถิติงานเยี่ยม-${mode === 'year' ? y : `${y}-${String(m).padStart(2, '0')}`}.pdf`} title={`สถิติงานเยี่ยม ${title}`} label="สถิติงานเยี่ยม" />
+      <ScaledPage ref={ref2}>
+        <div style={{ ...keep, display: 'flex', flexDirection: 'column', gap: 10, height: '100%', color: '#111' }}>
+          <div style={{ ...keep, background: '#fff', color: NAVY, borderRadius: 14, padding: '12px 18px', border: `2px solid ${GOLD}`, borderBottom: `5px solid ${GOLD}`, textAlign: 'center' }}>
+            <div style={{ fontSize: 15, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
+            <div style={{ fontSize: 30, fontWeight: 800 }}>📈 สถิติงานและการเยี่ยมครอบครัว — รายชื่อ</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#8a6a00' }}>{mode === 'year' ? 'สรุปรายปี' : 'สรุปรายเดือน'} · {title}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="👥 ผู้ออกเยี่ยม (ครั้ง)"><HBars rows={st.visitors.slice(0, 10)} color="#8fa6d6" /></Box></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="⭐ ผู้ที่ได้รับการเยี่ยม"><HBars rows={st.top.slice(0, 10).map((t) => ({ name: t.name, v: t.v }))} color="#8fcfa4" /></Box></div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="📋 ผู้ทำกิจกรรม (ครั้ง)"><HBars rows={st.doers.slice(0, 10)} color="#f0c27a" empty="ยังไม่ได้ระบุผู้ไปทำกิจกรรม" />{st.noDoer > 0 && <div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ยังไม่ระบุผู้ทำ {st.noDoer} กิจกรรม (แอดมินระบุได้ที่ ✎ แก้)</div>}</Box></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="🙌 รวมผู้ปฏิบัติงาน (เยี่ยม + กิจกรรม)"><HBars rows={st.workers.slice(0, 10)} color="#b9a3dc" /></Box></div>
+          </div>
+          <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: 12.5, color: '#666' }}>พิมพ์/สรุปเมื่อ {today.split('-').reverse().join('/')} · ข้อมูลจากบันทึกการเยี่ยมที่เช็คอินแล้ว</div>
+        </div>
+      </ScaledPage>
+      <PdfTools compact mode="full" els={() => [ref.current, ref2.current].filter((x): x is HTMLDivElement => !!x)} file={`สถิติงานเยี่ยม-${mode === 'year' ? y : `${y}-${String(m).padStart(2, '0')}`}.pdf`} title={`สถิติงานเยี่ยม ${title}`} label="สถิติงานเยี่ยม" />
     </section>
   )
 }
