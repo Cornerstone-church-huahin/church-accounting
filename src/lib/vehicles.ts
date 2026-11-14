@@ -13,4 +13,7 @@ export const vehicleRate = (map: Record<string, number> | undefined, id: string,
 export const vehicleOwner = (map: Record<string, { kind: 'church' | 'personal'; name?: string }> | undefined, id: string): { kind: 'church' | 'personal'; name?: string } => map?.[id] ?? { kind: id === 'van' ? 'church' : 'personal' }
 /** สีสำหรับตัวหนังสือ/ขอบบนพื้นขาว (สีขาวมองไม่เห็น จึงใช้เทาน้ำเงินแทน) */
 export const inkOf = (c: string): string => (c.toLowerCase() === '#ffffff' ? '#7b8aa8' : c)
+/** ตัวเลือก “ไม่ใช้รถ” (เช่น กิจกรรมในคริสตจักร · ใช้รถคนอื่นที่ไม่เบิกน้ำมัน): ไม่ขึ้นเส้นทาง ไม่คิดระยะ/ค่าน้ำมัน */
+export const NO_CAR = 'none'
+export const vehicleLabel = (id?: string): string => (id === NO_CAR ? 'ไม่ใช้รถ' : vehicleOf(id)?.name ?? (id || 'ไม่ระบุรถ'))
 export const vehicleOf = (id?: string): Vehicle | undefined => VEHICLES.find((v) => v.id === id)

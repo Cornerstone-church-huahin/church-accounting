@@ -9,6 +9,7 @@ import VisitPlanBoard from './VisitPlanBoard'
 import VisitCamera, { type Shot } from './VisitCamera'
 import { nearCheckin, timeText, MAX_SHOT_FROM_CHECKIN_M, type ShotProof } from '../lib/visitProof'
 import { VEHICLES, inkOf } from '../lib/vehicles'
+import NoCarToggle from './NoCarToggle'
 import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
 import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
@@ -308,7 +309,8 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
               <img src={c.img} alt={c.name} style={{ width: '100%', height: 70, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
               <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}><span style={{ display: 'inline-block', width: 22, height: 5, background: inkOf(c.color), borderRadius: 3, verticalAlign: 'middle', marginRight: 4 }} />{c.name}{vehicle === c.id ? ' ✓' : ''}</div>
             </button>))}
-        </div></div>}
+        </div>
+        <NoCarToggle value={vehicle} onChange={setVehicle} /></div>}
       <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อ “หัวหน้าสาย” เป็นคนแรก แล้วตามด้วยทีม (ระบบแยกสายตามหัวหน้า)</label>
         <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
           {...(writeNames ? { onAdd: addName, onRemove: dropName, onRename: renameName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>

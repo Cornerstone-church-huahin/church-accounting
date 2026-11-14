@@ -16,7 +16,7 @@ import { useActivityLog, useTripLogs, useVisitPlans } from '../lib/data'
 import { getMe } from '../lib/access'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
-import { VEHICLES, inkOf, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
+import { NO_CAR, VEHICLES, inkOf, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
 import { DAY_NAMES, dayKind, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { ChurchMember } from '../lib/types'
 
@@ -153,7 +153,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   const trips = useMemo(() => {
     const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work' | 'place'; sim?: boolean; who: string; team: string[]; names: string[] }>()
     for (const v of visits.list) {
-      if (v.date !== date || !v.checkin) continue
+      if (v.date !== date || !v.checkin || v.vehicle === NO_CAR) continue
       const s = byAt.get(v.checkin.at) ?? { at: v.checkin.at, lat: v.checkin.lat, lng: v.checkin.lng, kind: v.checkin.kind, sim: v.checkin.sim, who: byVehicle ? (v.vehicle ?? '') : splitVisitors(v.visitor ?? '')[0] ?? '', team: splitVisitors(v.visitor ?? ''), names: [] }
       s.names.push(v.memberName.replace(/^place:/, ''))
       byAt.set(v.checkin.at, s)
@@ -161,7 +161,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
     if (byVehicle) for (const x of tlogs.list) if (x.date === date && x.dest) for (const sp of x.stops ?? []) byAt.set(sp.at, { at: sp.at, lat: sp.lat, lng: sp.lng, kind: 'place', who: x.vehicle, team: [], names: [`🛣️ แวะ: ${sp.name}`] })
     if (byVehicle) for (const x of tlogs.list) if (x.date === date && x.dest) byAt.set(x.destAt ?? x.at, { at: x.destAt ?? x.at, lat: x.dest.lat, lng: x.dest.lng, kind: 'place', who: x.vehicle, team: [], names: [`🚗 ${x.title}${x.place ? ` · ${x.place}` : ''}`] }) // การเดินทางที่เช็คอินปลายทางแล้ว ขึ้นเส้นทางรวมกับการเยี่ยม
     // กิจกรรมที่ติ๊ก “ทำแล้ว” พร้อมเช็คอิน (ถ่ายรูป) ขึ้นเป็นจุดบนเส้นทางด้วย — คำนวณระยะ/ค่าน้ำมันไปทำกิจกรรม
-    for (const a of actLog.list) if (a.date === date && a.checkin) byAt.set(a.at, { at: a.at, lat: a.checkin.lat, lng: a.checkin.lng, kind: 'place', who: byVehicle ? (a.vehicle ?? '') : (a.doers?.[0] ?? a.by), team: a.doers ?? [], names: [`📋 ${a.text}${a.place ? ` · ${a.place}` : ''}${a.doers?.length ? ` (${a.doers.join(', ')})` : ''}`] })
+    for (const a of actLog.list) if (a.date === date && a.checkin && a.vehicle !== NO_CAR) byAt.set(a.at, { at: a.at, lat: a.checkin.lat, lng: a.checkin.lng, kind: 'place', who: byVehicle ? (a.vehicle ?? '') : (a.doers?.[0] ?? a.by), team: a.doers ?? [], names: [`📋 ${a.text}${a.place ? ` · ${a.place}` : ''}${a.doers?.length ? ` (${a.doers.join(', ')})` : ''}`] })
     const stops = [...byAt.values()].sort((a, b) => a.at - b.at)
     // แยกสายตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) แล้วแยกรอบด้วยช่วงเวลาห่างกัน
     const byWho = new Map<string, typeof stops>()
@@ -555,7 +555,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
   const trips = useMemo(() => {
     const byKey = new Map<string, Map<number, Coord>>()
     for (const v of visits.list) {
-      if (!v.checkin || v.date < range.from || v.date > range.to) continue
+      if (!v.checkin || v.date < range.from || v.date > range.to || v.vehicle === NO_CAR) continue
       const key = `${v.date}|${v.vehicle ?? ''}`
       const m = byKey.get(key) ?? new Map<number, Coord>()
       m.set(v.checkin.at, { lat: v.checkin.lat, lng: v.checkin.lng }); byKey.set(key, m)
