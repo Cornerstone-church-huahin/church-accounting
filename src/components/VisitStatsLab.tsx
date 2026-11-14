@@ -96,7 +96,9 @@ export default function VisitStatsLab() {
     const actsIn = acts.list.filter((a) => a.date.startsWith(prefix))
     const actDone = actsIn.length
     const doerCount = new Map<string, number>()
-    for (const a of actsIn) for (const n of (a.doers?.length ? a.doers : [a.by]).filter(Boolean)) doerCount.set(n, (doerCount.get(n) ?? 0) + 1)
+    // นับเฉพาะผู้ไปทำกิจกรรมที่ระบุชื่อไว้ — ผู้ติ๊กไม่นับ (การติ๊กเป็นแค่การยืนยันว่าทำแล้ว)
+    for (const a of actsIn) for (const n of a.doers ?? []) doerCount.set(n, (doerCount.get(n) ?? 0) + 1)
+    const noDoer = actsIn.filter((a) => !a.doers?.length).length
     const doers = [...doerCount].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th'))
     // รวมผู้ปฏิบัติงาน: เยี่ยม + กิจกรรม ต่อคน
     const allWork = new Map<string, { visit: number; act: number }>()
@@ -104,7 +106,7 @@ export default function VisitStatsLab() {
     for (const [n, v] of doerCount) allWork.set(n, { visit: allWork.get(n)?.visit ?? 0, act: v })
     const workers = [...allWork].map(([name, e]) => ({ name: `${name} (เยี่ยม ${e.visit} · กิจกรรม ${e.act})`, v: e.visit + e.act })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th'))
     return {
-      doers, workers, total: vs.length, trips, days: days.size, people: people.size, met: met.length, notMet: notMet.length, actDone, bars,
+      doers, workers, noDoer, total: vs.length, trips, days: days.size, people: people.size, met: met.length, notMet: notMet.length, actDone, bars,
       visitors: [...visitorCount].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th')),
       top: [...visited.values()].sort((a, b) => b.v - a.v || a.name.localeCompare(b.name, 'th')).slice(0, 10),
       absentNames: [...new Set(notMet.map((v) => v.memberName))].slice(0, 12), slotCount,
@@ -158,7 +160,7 @@ export default function VisitStatsLab() {
             <div style={{ flex: 1, minWidth: 0 }}><Box title="⭐ ผู้ที่ได้รับการเยี่ยม"><HBars rows={st.top.slice(0, 6).map((t) => ({ name: t.name, v: t.v }))} color="#8fcfa4" /></Box></div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Box title="📋 ผู้ทำกิจกรรม (ครั้ง)"><HBars rows={st.doers.slice(0, 5)} color="#f0c27a" empty="ยังไม่มีกิจกรรมที่ทำแล้ว" /></Box></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Box title="📋 ผู้ทำกิจกรรม (ครั้ง)"><HBars rows={st.doers.slice(0, 5)} color="#f0c27a" empty="ยังไม่ได้ระบุผู้ไปทำกิจกรรม" />{st.noDoer > 0 && <div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ยังไม่ระบุผู้ทำ {st.noDoer} กิจกรรม (แอดมินระบุได้ที่ ✎ แก้)</div>}</Box></div>
             <div style={{ flex: 1, minWidth: 0 }}><Box title="🙌 รวมผู้ปฏิบัติงาน (เยี่ยม + กิจกรรม)"><HBars rows={st.workers.slice(0, 5)} color="#b9a3dc" /></Box></div>
           </div>
           {st.absentNames.length > 0 && <Box title="✗ ไม่พบ / ไม่อยู่บ้าน"><div style={{ fontSize: 15.5 }}>{st.absentNames.join(' · ')}</div></Box>}
