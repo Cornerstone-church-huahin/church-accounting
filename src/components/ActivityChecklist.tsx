@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import MultiPick from './MultiPick'
+import NoCarToggle from './NoCarToggle'
 import { isLive } from '../lib/pastoral'
 import { usePeople } from '../lib/usePeople'
 import Sheet from './Sheet'
 import { useRole } from '../lib/members'
-import { VEHICLES, inkOf, vehicleOf } from '../lib/vehicles'
+import { NO_CAR, VEHICLES, inkOf, vehicleLabel } from '../lib/vehicles'
 import { formatCoord, parseCoords } from '../lib/geo'
 import type { ActivityLog } from '../lib/types'
 import VisitCamera, { type Shot } from './VisitCamera'
@@ -55,7 +56,7 @@ export default function ActivityChecklist({ date, slot, text, ns = '', vehicles 
               {rec && (rec.photos?.length || rec.checkin) && (
                 <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 34, marginTop: 4 }}>
                   {rec.photos?.map((p) => <MemberAvatar key={p} path={p} name="📷" size={64} />)}
-                  {(rec.doers?.length || rec.vehicle || rec.place) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{rec.vehicle ? ` · 🚗 ${vehicleOf(rec.vehicle)?.name ?? rec.vehicle}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}</small>}
+                  {(rec.doers?.length || rec.vehicle || rec.place) && <small className="muted" style={{ flexBasis: '100%' }}>{rec.doers?.length ? `👥 ${rec.doers.join(', ')}` : ''}{rec.vehicle ? ` · ${rec.vehicle === NO_CAR ? '🚫' : '🚗'} ${vehicleLabel(rec.vehicle)}` : ''}{rec.place ? ` · 📌 ${rec.place}` : ''}</small>}
                   {rec.checkin && <a className="mini" href={mapsLink(rec.checkin)} target="_blank" rel="noreferrer">📍 เช็คอินแล้ว · เปิดแผนที่</a>}
                   {isAdmin && <button type="button" className="mini" onClick={() => setFix(rec)}>✎ แก้ (แอดมิน)</button>}
                 </div>)}
@@ -133,7 +134,8 @@ function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicl
       {vehicles && <div className="field"><label>🚗 รถที่ใช้ไปทำกิจกรรมนี้</label>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }} role="radiogroup" aria-label="รถ">
           {VEHICLES.map((v) => <button key={v.id} type="button" role="radio" aria-checked={vehicle === v.id} className={`btn ${vehicle === v.id ? 'btn--gold' : 'btn--ghost'}`} style={{ borderColor: inkOf(v.color) }} onClick={() => setVehicle(vehicle === v.id ? '' : v.id)}>{v.name}</button>)}
-        </div></div>}
+        </div>
+        <NoCarToggle value={vehicle} onChange={setVehicle} /></div>}
       {busy && <p className="muted small" role="status" style={{ margin: 0 }}>กำลังทำงาน…</p>}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" disabled={busy} onClick={save}>✓ บันทึกการแก้ไข</button>

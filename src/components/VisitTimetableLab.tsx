@@ -12,6 +12,7 @@ import MapPickSheet from './MapPickSheet'
 import { formatCoord, parseCoords, type Coord } from '../lib/geo'
 import { activityId, activityLines } from '../lib/activityLines'
 import { VEHICLES, inkOf } from '../lib/vehicles'
+import NoCarToggle from './NoCarToggle'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import ActivityChecklist from './ActivityChecklist'
@@ -104,6 +105,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, a
               <div style={{ fontSize: 10.5, fontWeight: 700 }}>{c.name.replace('รถ', '')}{vehicle === c.id ? ' ✓' : ''}</div>
             </button>))}
         </div>
+        <NoCarToggle value={vehicle} onChange={setVehicle} />
         <label className="row" style={{ gap: 8, alignItems: 'center', marginTop: 4 }}><input type="checkbox" checked={vehAll} onChange={(e) => setVehAll(e.target.checked)} /><span className="small">ใช้รถคันนี้กับทุกคนที่เช็คอินพร้อมกัน (จุดเดียวกัน) ด้วย</span></label>
         <span className="muted small">กดรถที่เลือกซ้ำ = ล้าง (ไม่ระบุรถ)</span></div>
       <div className="field"><label htmlFor="ave-v">ผู้ออกเยี่ยม</label><input id="ave-v" className="input" value={visitor} onChange={(e) => setVisitor(e.target.value)} /></div>
