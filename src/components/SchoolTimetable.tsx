@@ -11,7 +11,7 @@ import { isLive } from '../lib/pastoral'
 import { searchMembers } from '../lib/memberSearch'
 import { useRole } from '../lib/members'
 import { addDays, be, monthName, newId, todayISO } from '../lib/money'
-import { copyPlan, schoolWeekDays, sortedItems, weekSummary } from '../lib/schoolTimetable'
+import { schoolWeekDays, sortedItems, weekSummary } from '../lib/schoolTimetable'
 import { DAY_NAMES, sundayOf } from '../lib/visits'
 import type { ChurchMember, SchoolDay, SchoolItem } from '../lib/types'
 
@@ -45,12 +45,6 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const roster = useMemo(() => [...new Set(teachers.items.filter((x) => !x.deleted).map((x) => x.name))].sort((a, b) => a.localeCompare(b)), [teachers.items])
 
-  const copyPrev = () => {
-    const prev = days.map((d) => store.of(addDays(d, -7)))
-    const next = docs.filter((d, i) => d.items.length === 0 && prev[i].items.length > 0).map((d) => ({ ...d, items: copyPlan(prev[docs.indexOf(d)], () => newId('sc')) }))
-    if (!next.length) return alert('ไม่มีวันว่างที่จะคัดลอก หรือสัปดาห์ก่อนยังไม่มีตาราง')
-    if (confirm(`คัดลอกตารางจากสัปดาห์ก่อนมาใส่ ${next.length} วันที่ยังว่าง?`)) next.forEach(save)
-  }
   const nav = (
     <div className="no-print weekbar" style={{ margin: '0.2rem 0 0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <button type="button" className="mini" aria-label="สัปดาห์ก่อน" onClick={() => setAnchor(addDays(sunday, -4))}>‹</button>
@@ -72,7 +66,6 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
 
       {step === 'plan' && (
         <>
-          {canEdit && <button type="button" className="btn btn--block no-print" onClick={copyPrev}>📋 คัดลอกตารางจากสัปดาห์ก่อน (เฉพาะวันที่ยังว่าง)</button>}
           {days.map((d, i) => (
             <div key={d} className="card" style={{ ...LIGHT, background: '#fff', marginTop: 8 }}>
               <div className="row row--between"><b>{dow(d)} {dm(d)}</b>{canEdit && <button type="button" className="mini" onClick={() => setEdit({ date: d, item: null })}>＋ เพิ่มรายการ</button>}</div>
