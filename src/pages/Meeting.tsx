@@ -11,6 +11,7 @@ import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
 import VisitReports from '../components/VisitReports'
 import { AdminZone, MemberHomesMap, VisitLab, VisitRoute } from '../components/AdminVisitTools'
+import SchoolTimetable from '../components/SchoolTimetable'
 import VisitStats from '../components/VisitStats'
 import { VisitGroupsAuto } from '../components/VisitGroups'
 import { useVisitPlans, useVisits } from '../lib/data'
@@ -77,11 +78,12 @@ function WorkHead({ n, name, back, extra }: { n: number; name: string; /** ป�
 const DEFAULT_LABELS = ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6']
 const TAB_ICONS = ['📋', '📝', '📂', '🗂️', '📌', '📎']
 /** ไอคอนของแท็บที่ตั้งชื่อแล้ว */
-const NAMED_ICONS: Record<string, string> = { 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📍', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
+const NAMED_ICONS: Record<string, string> = { 'ตารางงานรวี': '🗓️', 'สมาชิก': '👥', 'รวมสมาชิก': '👥', 'งาน/การเยี่ยม': '🗓️', 'บ้านสมาชิก': '🗺️', 'บันทึกเยี่ยม': '📍', 'รายงานเยี่ยม': '📊', 'ตารางถวาย': '🍽️', 'แผนประจำปี': '📅', 'คลังเอกสาร': '🗄️', 'ลำดับงาน': '📋' }
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
   4: ['รวมสมาชิก', 'บ้านสมาชิก', 'งาน/การเยี่ยม', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
+  8: ['รวมสมาชิก', 'ตารางงานรวี', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['รวมสมาชิก', 'ตารางถวาย', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
 }
@@ -138,6 +140,11 @@ function TimetableGate({ mode = 'plan' }: { mode?: 'plan' | 'record' }) {
   const role = useRole()
   return canRole(role, 'detail') || canWork(4, 'view') ? <VisitTimetable mode={mode} /> : <p className="empty">ไม่มีสิทธิ์ดูตารางเยี่ยม</p>
 }
+function SchoolGate() {
+  const role = useRole()
+  if (!(canRole(role, 'detail') || canWork(8, 'view'))) return <p className="empty">ไม่มีสิทธิ์ดูตารางงานรวี</p>
+  return <SchoolTimetable canEdit={canRole(role, 'settings') || canWork(8, 'calendar')} />
+}
 function HomesGate() {
   const role = useRole()
   return canRole(role, 'detail') || canWork(4, 'view') ? <MemberHomesMap embedded /> : <p className="empty">ไม่มีสิทธิ์ดูแผนที่บ้านสมาชิก</p>
@@ -188,7 +195,7 @@ function WorkPage({ n, name, k, s, raw }: { n: number; name: string; k: number; 
         <Link to={`/meeting/${n}`} className="mini">‹ {name}</Link>
       </div>
       {n === 4 ? (k === 3 ? <PastoralBar active="plan" /> : null) : <TabIcons n={n} active={k} upTo={6} />}
-      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 3 ? <TimetableGate /> : n === 4 && k === 2 ? <HomesGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
+      {isMembers ? <PastoralMembers work={n} /> : n === 4 && k === 3 ? <TimetableGate /> : n === 4 && k === 2 ? <HomesGate /> : n === 8 && label === 'ตารางงานรวี' ? <SchoolGate /> : n === 14 && label === 'ตารางถวาย' ? <FoodRoster /> : n === 1 && label === 'แผนประจำปี' ? <AnnualPlan /> : n === 1 && label === 'คลังเอกสาร' ? <DocLibrary /> : <section className="card" aria-label={`${name} ${label}`}><p className="empty">{label} — ยังว่าง (รอพัฒนา)</p></section>}
     </>
   )
 }
