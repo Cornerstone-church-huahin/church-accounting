@@ -247,8 +247,8 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
   // สัปดาห์ที่เปิดดู: ใช้ร่วมกันทั้ง วางแผน/บันทึก/รายงาน (เลื่อนไปสัปดาห์ก่อน/ถัดไปได้อิสระ)
   const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : today } catch { return today } })
   const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
-  const sunday = sundayOf(anchor)
-  const days = weekDays(sunday).filter((d) => dayKind(d) === 'visit')
+  const sunday = sundayOf(addDays(anchor, -1)) // ถ้าเปิดตรงวันอาทิตย์ ให้อยู่ในสัปดาห์ที่จบด้วยวันอาทิตย์นั้น
+  const days = [...weekDays(sunday).filter((d) => dayKind(d) === 'visit'), addDays(sunday, 7)] // อังคาร–เสาร์ + วันอาทิตย์ถัดมา (มีการใช้รถ/เยี่ยมในวันอาทิตย์ด้วย)
   const ref = useRef<HTMLDivElement>(null)
   const canEdit = plans.canEdit()
   const monday = addDays(sunday, 1)
@@ -309,7 +309,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
               {days.map((d, i) => {
                 const pd = plans.of(d), seen = visitedBy.get(d) ?? new Set<string>()
                 return (
-                  <tr key={d} style={{ height: 160 }}>
+                  <tr key={d} style={{ height: days.length > 5 ? 136 : 160 }}>
                     <td style={{ ...cl, ...keep, textAlign: 'center', verticalAlign: 'middle', background: P ? '#fff' : R ? 'linear-gradient(180deg, #fff5f5, #fbdcdc)' : i % 2 ? '#e1f4ee' : '#edf9f5', color: C ? '#0f5f56' : RED, fontWeight: 800 }}>
                       <div style={{ fontSize: 21 }}>{dayName(d)}</div><div style={{ fontSize: 14, fontWeight: 600 }}>{DAY_EN[new Date(d + 'T00:00:00Z').getUTCDay()]}</div><div style={{ fontSize: 18 }}>{dmy(d)}</div>
                     </td>
