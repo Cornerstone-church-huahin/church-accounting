@@ -126,6 +126,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const att = useMemo(() => toAttendance([a3, a2, a1, a0].flatMap((st) => st.items)), [a0.items, a1.items, a2.items, a3.items]) // eslint-disable-line react-hooks/exhaustive-deps
   const stats = useMemo(() => visitStats(att, today), [att, today])
     const [place, setPlace] = useState('')
+  const [kind, setKind] = useState<'act' | 'visit' | null>(null) // เลือกก่อนว่าจะทำกิจกรรมหรือการเยี่ยม
   const [ticked, setTicked] = useState<string[]>([]) // ติ๊กไว้เพื่อบันทึก “เยี่ยมแล้ว” ทีเดียวพร้อมกัน
   const tick = (id: string, on: boolean) => setTicked((xs) => on ? (xs.includes(id) ? xs : [...xs, id]) : xs.filter((x) => x !== id))
   const visits = useVisits(true, ns)
@@ -173,6 +174,26 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
+      {kind === null && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }} role="group" aria-label="เลือกประเภทที่จะ{planOnly ? 'วางแผน' : 'บันทึก'}">
+          <button type="button" onClick={() => setKind('act')} style={{ ...LIGHT, background: '#fff7e6', border: '3px solid #e0b100', borderRadius: 16, padding: '18px 8px', font: 'inherit', fontWeight: 800, fontSize: '1.1rem', color: '#1a2b4c' }}>
+            <div style={{ fontSize: 44 }} aria-hidden="true">📋</div>กิจกรรม<div className="small" style={{ fontWeight: 600 }}>{planOnly ? 'วางแผนกิจกรรม' : 'ติ๊กทำแล้ว · ถ่ายรูป'}</div>
+          </button>
+          <button type="button" onClick={() => setKind('visit')} style={{ ...LIGHT, background: '#eef9f2', border: '3px solid #1e8e3e', borderRadius: 16, padding: '18px 8px', font: 'inherit', fontWeight: 800, fontSize: '1.1rem', color: '#1a2b4c' }}>
+            <div style={{ fontSize: 44 }} aria-hidden="true">🏠</div>การเยี่ยม<div className="small" style={{ fontWeight: 600 }}>{planOnly ? 'เลือกคนที่จะไปเยี่ยม' : `บันทึกและเช็คอิน${mine.length ? ` · ${mine.length} คนในแผน` : ''}`}</div>
+          </button>
+        </div>
+      )}
+      {kind !== null && <button type="button" className="mini" style={{ alignSelf: 'flex-start' }} onClick={() => setKind(null)}>‹ เปลี่ยนประเภท ({kind === 'act' ? '📋 กิจกรรม' : '🏠 การเยี่ยม'})</button>}
+      {kind === 'act' && (
+        <>
+      {planOnly
+        ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; onChange(setSlotNote(doc, slot, t)) }} />
+        : <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={date} slot={slot} text={doc.slotNotes?.[slot]} onAdd={(t) => onChange(setSlotNote(doc, slot, [doc.slotNotes?.[slot], t].filter(Boolean).join('\n')))} /></div>}
+        </>
+      )}
+      {kind === 'visit' && (
+        <>
       {!planOnly && pend.length > 0 && <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', justifyContent: 'flex-end', paddingBottom: 6, pointerEvents: 'none' }}>
         <div role="dialog" aria-label="ยืนยันบันทึกการเยี่ยม" style={{ pointerEvents: 'auto', width: '88%', ...LIGHT, background: '#fff', border: '3px solid #d4af37', borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,.4)', padding: '10px 12px' }}>
           <b style={{ display: 'block', fontSize: '1.05rem' }}>📍 บันทึกและเช็คอินการเยี่ยม · {pend.length} คน ในพิกัดเดียวกัน</b>
@@ -180,9 +201,6 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
           <div className="muted small" style={{ marginBottom: 6 }}>กดปุ่มด้านล่างเพื่อบันทึกการเยี่ยม — เลือกเช็คอินที่บ้านหรือที่ทำงาน (ใช้พิกัดเดียวกันทั้ง {pend.length} คน · ใครอยู่คนละที่ ให้เอาติ๊กออกแล้วบันทึกแยกทีหลัง)</div>
           <button type="button" className="btn btn--gold btn--block" onClick={() => setForm({ entry: null, group: pend, place: '' })}>📍 คลิกเพื่อบันทึกและเช็คอินตามรายชื่อ ›</button>
         </div></div>}
-      {planOnly
-        ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; onChange(setSlotNote(doc, slot, t)) }} />
-        : <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={date} slot={slot} text={doc.slotNotes?.[slot]} onAdd={(t) => onChange(setSlotNote(doc, slot, [doc.slotNotes?.[slot], t].filter(Boolean).join('\n')))} /></div>}
       {!planOnly && (() => {
         // สรุปสาย: จัดกลุ่มรายการที่บันทึกแล้วในช่องนี้ตามชุดผู้ออกเยี่ยม (ชุดเดียวกัน = สายเดียวกัน) เรียงตามเวลา
         const ids = new Set([...mine.map((x) => x.id), ...places.map((p) => `place:${p}`)])
@@ -215,6 +233,8 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
         <input className="input grow" aria-label="สถานที่หรือโครงการ" placeholder="เช่น โครงการโคโค่ · ร้านพี่ตาล" value={place} onChange={(e) => setPlace(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }} />
         <button type="button" className="btn btn--gold" onClick={() => { if (place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }}>＋ เพิ่ม</button>
       </div>
+      )}
+        </>
       )}
       {shareMsg && <span className="muted small" role="status">{shareMsg}</span>}
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--card, #fff)', paddingTop: 6, paddingBottom: 6, zIndex: 2 }}><button type="button" className="btn btn--block" onClick={finish}>{planOnly ? '✓ บันทึก' : '📍 บันทึกและเช็คอิน'}</button></div>
