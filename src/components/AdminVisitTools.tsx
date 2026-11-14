@@ -5,7 +5,7 @@ import Sheet from './Sheet'
 import MemberAvatar from './MemberAvatar'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
-import { isWorkStaffOnly } from '../lib/access'
+import { canRole, canWork, isWorkStaffOnly } from '../lib/access'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
 import type { TripLog } from '../lib/types'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
@@ -24,6 +24,8 @@ const LeafletMap = lazy(() => import('./LeafletMap'))
 
 /** โซนแอดมิน (ทดสอบ): มองเห็นเฉพาะแอดมินเท่านั้น */
 export const useIsAdminZone = () => useRole() === 'admin' && !isWorkStaffOnly()
+/** ดูรายงานเส้นทาง/ค่าน้ำมันได้: ทีมงานอภิบาลทุกคน (ผู้ดูแล ผู้ช่วย ที่ปรึกษา) + แอดมิน · แก้ไข/ตั้งค่า = แอดมินเท่านั้น (useIsAdminZone) */
+export const useCanViewVisits = () => { const role = useRole(); return (role === 'admin' && !isWorkStaffOnly()) || canRole(role, 'detail') || canWork(4, 'view') }
 
 const TOOLS = [
   { to: '/meeting/4/report', icon: '📊', label: 'รายงานการเยี่ยม' },
@@ -128,7 +130,8 @@ function ChurchPoint() {
 
 /** รายงานเส้นทาง: คริสตจักร → จุดที่ 1 → … → กลับคริสตจักร (แยกเป็นรอบ) พร้อมระยะไป-กลับ */
 export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /** ชุดข้อมูล (-lab = ทดลอง) */ ns?: string; /** แยกสาย/สีตามยานพาหนะ แทนหัวหน้าทีม */ byVehicle?: boolean; embedded?: boolean } = {}) {
-  const ok = useIsAdminZone()
+  const ok = useCanViewVisits()
+  const adminEdit = useIsAdminZone()
   const visits = useVisits(true, ns)
   const st = useSettings()
   const church: Coord | null = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null
@@ -224,7 +227,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
           )
         })}
       </div>
-      <button type="button" className="btn btn--block" style={{ marginBottom: 8 }} onClick={() => setCfg(true)}>⚙️ ตั้งค่า (พิกัดคริสตจักร · ค่าน้ำมัน)</button>
+      {adminEdit && <button type="button" className="btn btn--block" style={{ marginBottom: 8 }} onClick={() => setCfg(true)}>⚙️ ตั้งค่า (พิกัดคริสตจักร · ค่าน้ำมัน)</button>}
       {cfg && <Sheet title="⚙️ ตั้งค่ารายงานเส้นทาง" onClose={() => setCfg(false)}>
       <ChurchPoint />
       <div className="field" style={{ border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
@@ -240,7 +243,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
           <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(calcs.reduce((x, c, ci) => x + c.total / 1000 * rateOf(trips[ci][0].who), 0))}</b> <small className="muted">({roadNote})</small></p>
-          {multi && <div className="small" style={{ margin: '4px 0' }} aria-label="สรุปแต่ละสาย">{whoList.map((w, i) => { const tot = calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + c.total : x), 0); return <div key={w} style={{ color: '#222' }}><b style={{ color: LINE_COL[i % LINE_COL.length] }}>━━ สายที่ {i + 1}</b> · {byVehicle ? (vehicleOf(w) ? <img src={vehicleOf(w)!.img} alt={whoName(w)} style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 6, verticalAlign: 'middle', marginRight: 4 }} /> : '🚗') : 'หัวหน้า'} <b>{whoName(w)}</b>{!byVehicle && teamOf(w).length ? <small className="muted"> (ทีม: {teamOf(w).join(', ')})</small> : null} · <b>{km(tot)}</b> · ⛽ {baht(tot / 1000 * rateOf(w))} <small className="muted">({rateOf(w)} บ./กม.)</small>{byVehicle && <> <button type="button" className="mini" onClick={() => setRateSheet(true)} aria-label={`ตั้งค่าน้ำมัน ${whoName(w)}`}>⚙️ ตั้งอัตรา</button></>}</div> })}</div>}
+          {multi && <div className="small" style={{ margin: '4px 0' }} aria-label="สรุปแต่ละสาย">{whoList.map((w, i) => { const tot = calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + c.total : x), 0); return <div key={w} style={{ color: '#222' }}><b style={{ color: LINE_COL[i % LINE_COL.length] }}>━━ สายที่ {i + 1}</b> · {byVehicle ? (vehicleOf(w) ? <img src={vehicleOf(w)!.img} alt={whoName(w)} style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 6, verticalAlign: 'middle', marginRight: 4 }} /> : '🚗') : 'หัวหน้า'} <b>{whoName(w)}</b>{!byVehicle && teamOf(w).length ? <small className="muted"> (ทีม: {teamOf(w).join(', ')})</small> : null} · <b>{km(tot)}</b> · ⛽ {baht(tot / 1000 * rateOf(w))} <small className="muted">({rateOf(w)} บ./กม.)</small>{byVehicle && <> {adminEdit && <button type="button" className="mini" onClick={() => setRateSheet(true)} aria-label={`ตั้งค่าน้ำมัน ${whoName(w)}`}>⚙️ ตั้งอัตรา</button>}</>}</div> })}</div>}
           <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
           <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1e9e4a', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ fontWeight: 700 }}>● จุดเยี่ยม (เลขตามลำดับ · สีเดียวกับเส้นของสาย)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
@@ -468,19 +471,16 @@ export function VisitLab({ step }: { step?: string }) {
  * เห็นและเข้าได้เฉพาะแอดมินระหว่างทดสอบ — พอใจแล้วค่อยย้ายไปแทนแท็บ 3
  */
 export function VisitHub({ step }: { step?: string }) {
-  const ok = useIsAdminZone()
-  if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
+  const ok = useCanViewVisits()
+  if (!ok) return <p className="empty">ไม่มีสิทธิ์ดูงาน/การเยี่ยม</p>
   const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : step === '5' ? 5 : step === '6' ? 6 : step === '7' ? 7 : 1
   const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน / เที่ยวพิเศษ']] as const
   return (
     <VisitNs.Provider value="">
-      <div className="page-head no-print"><h1>🆕 งาน/การเยี่ยม (ใหม่)</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
-      <div role="note" className="no-print" style={{ ...LIGHT, background: '#e8f5e9', border: '1.5px dashed #1e8e3e', borderRadius: 12, padding: '6px 10px', marginBottom: 8, fontSize: '0.9rem' }}>
-        ✅ <b>ใช้ข้อมูลจริง · เฉพาะแอดมิน (ระหว่างทดสอบ)</b> — สิ่งที่บันทึกที่นี่เข้าข้อมูลจริงและเห็นในแท็บ “งาน/การเยี่ยม” เดิมด้วย
-      </div>
+      <div className="page-head no-print"><h1>🗓️ งาน/การเยี่ยม</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
       <nav className="no-print" aria-label="ขั้นตอน (ใหม่)" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
         {steps.map(([k, ico, label]) => (
-          <Link key={k} to={`/meeting/4/new/${k}`} replace aria-current={String(n) === k ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '6px 2px', borderRadius: 12, textDecoration: 'none', border: `2px solid ${String(n) === k ? '#14264a' : '#d6dbe8'}`, background: String(n) === k ? '#14264a' : '#fff', color: String(n) === k ? '#fff' : '#14264a', fontWeight: 700, fontSize: 12, lineHeight: 1.15, textAlign: 'center' }}>
+          <Link key={k} to={`/meeting/4/3/${k}`} replace aria-current={String(n) === k ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '6px 2px', borderRadius: 12, textDecoration: 'none', border: `2px solid ${String(n) === k ? '#14264a' : '#d6dbe8'}`, background: String(n) === k ? '#14264a' : '#fff', color: String(n) === k ? '#fff' : '#14264a', fontWeight: 700, fontSize: 12, lineHeight: 1.15, textAlign: 'center' }}>
             <span style={{ fontSize: 20 }} aria-hidden="true">{ico}</span><span>{k}. {label}</span>
           </Link>))}
       </nav>
@@ -527,7 +527,8 @@ export function VehicleRateSheet({ onClose }: { onClose: () => void }) {
 
 /** รายงานค่าน้ำมันรายคัน: รายสัปดาห์ (ตัดยอดทุกสัปดาห์) · รายเดือน (แยกสัปดาห์) · รายปี (แยกเดือน) */
 export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
-  const ok = useIsAdminZone()
+  const ok = useCanViewVisits()
+  const adminEdit = useIsAdminZone()
   const visits = useVisits(true, ns)
   const fuelActs = useActivityLog(ns)
   const tl = useTripLogs(ns)
@@ -608,7 +609,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
         <span className="small"><b>{range.title}</b></span>
         <button type="button" className="mini" aria-label="ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
-      <button type="button" className="btn btn--block" style={{ marginBottom: 8 }} onClick={() => setRateSheet(true)}>⚙️ ตั้งค่าอัตราค่าน้ำมันรายคัน</button>
+      {adminEdit && <button type="button" className="btn btn--block" style={{ marginBottom: 8 }} onClick={() => setRateSheet(true)}>⚙️ ตั้งค่าอัตราค่าน้ำมันรายคัน</button>}
       {vids.length === 0 ? <p className="empty">ไม่มีการเช็คอินในช่วงนี้</p> : (
         <>
           <div style={{ border: '2px solid #d6dbe8', borderRadius: 12, padding: 10, ...LIGHT, background: '#fff' }}>
@@ -632,7 +633,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
               </tbody>
             </table>
           </div>
-          {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 การเดินทางในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}{x.stops?.length ? ` · 🛣️ แวะ ${x.stops.map((q) => q.name).join(', ')}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}</small></span><button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button></div>)}</div>}
+          {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 การเดินทางในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}{x.stops?.length ? ` · 🛣️ แวะ ${x.stops.map((q) => q.name).join(', ')}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}</small></span>{adminEdit && <button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}</div>)}</div>}
           <p className="muted small">คำนวณจากระยะ คริสตจักร → จุดเช็คอิน → กลับ ตามถนนจริง (เส้นตรงถ้าคำนวณไม่ได้) เป็นค่าประมาณ ไม่ใช่ค่าน้ำมันที่จ่ายจริง</p>
         </>
       )}
@@ -804,6 +805,7 @@ export function TripLogButton({ ns = '' }: { ns?: string }) {
 
 /** หน้า “เดินทาง”: บันทึกการเดินทาง (ไปทำอะไร · รถคันไหน · ไปที่ไหน) + รายงานต่อรถ: ใช้น้ำมันกี่กม./กี่บาท และใครต้องได้เงินคืน */
 export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
+  const adminEdit = useIsAdminZone()
   const tl = useTripLogs(ns)
   const st = useSettings()
   const base = typeof st.settings.fuelPerKm === 'number' ? st.settings.fuelPerKm : 3.5
@@ -829,7 +831,7 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
   return (
     <section aria-label="เดินทาง">
       {rateSheet && <VehicleRateSheet onClose={() => setRateSheet(false)} />}
-      <TripLogButton ns={ns} />
+      {adminEdit && <TripLogButton ns={ns} />}
       {editTrip && <TripForm ns={ns} initial={editTrip} onClose={() => setEditTrip(null)} />}
       <div className="seg seg--3 no-print" role="tablist" aria-label="ช่วงเวลา" style={{ marginBottom: 6 }}>
         {([['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'รายปี']] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={mode === k} className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>{l}</button>)}
@@ -861,13 +863,13 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
               <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #eee' }}>
                 <img src={vehicleOf(x.vehicle)?.img} alt="" style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 5, border: `2px solid ${inkOf(vehicleOf(x.vehicle)?.color ?? '#999')}` }} />
                 {x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={44} /> : null}<span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
-                <button type="button" className="mini" aria-label={`แก้ ${x.title}`} onClick={() => setEditTrip(x)}>✎</button>
-                <button type="button" className="mini" aria-label={`ลบ ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>
+                {adminEdit && <button type="button" className="mini" aria-label={`แก้ ${x.title}`} onClick={() => setEditTrip(x)}>✎</button>}
+                {adminEdit && <button type="button" className="mini" aria-label={`ลบ ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}
               </div>))}
           </div>
         </>
       )}
-      <button type="button" className="btn btn--block no-print" style={{ marginTop: 8 }} onClick={() => setRateSheet(true)}>⚙️ ตั้งอัตราค่าน้ำมัน / เจ้าของรถ</button>
+      {adminEdit && <button type="button" className="btn btn--block no-print" style={{ marginTop: 8 }} onClick={() => setRateSheet(true)}>⚙️ ตั้งอัตราค่าน้ำมัน / เจ้าของรถ</button>}
       <p className="muted small">ระยะทางตามที่บันทึก × อัตราของรถคันนั้น เป็นค่าประมาณสำหรับจ่ายคืน</p>
     </section>
   )

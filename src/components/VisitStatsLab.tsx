@@ -135,7 +135,7 @@ export default function VisitStatsLab() {
   )
   return (
     <section aria-label="สถิติงานเยี่ยม">
-      <div className="page-head no-print"><h1>{ns ? '🧪 ' : '🆕 '}📈 สถิติงานเยี่ยม{ns ? ' (ทดลอง)' : ''}</h1><Link to={ns ? '/meeting/4/lab/3' : '/meeting/4/new/3'} className="mini">‹ รายงาน{ns ? ' (ทดลอง)' : ''}</Link></div>
+      <div className="page-head no-print"><h1>{ns ? '🧪 ' : '🆕 '}📈 สถิติงานเยี่ยม{ns ? ' (ทดลอง)' : ''}</h1><Link to={ns ? '/meeting/4/lab/3' : '/meeting/4/3/3'} className="mini">‹ รายงาน{ns ? ' (ทดลอง)' : ''}</Link></div>
       <div className="seg seg--2 no-print" role="tablist" aria-label="ช่วงเวลา" style={{ marginBottom: 6 }}>
         <button type="button" role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>รายเดือน</button>
         <button type="button" role="tab" aria-selected={mode === 'year'} className={mode === 'year' ? 'on' : ''} onClick={() => setMode('year')}>รายปี</button>

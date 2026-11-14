@@ -9,11 +9,8 @@ import { APP_CREDIT } from '../lib/credit'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
-import VisitReports from '../components/VisitReports'
-import { AdminZone, MemberHomesMap, useIsAdminZone, VisitHub, VisitLab, VisitRoute } from '../components/AdminVisitTools'
+import { AdminZone, MemberHomesMap, VisitHub, VisitLab } from '../components/AdminVisitTools'
 import SchoolTimetable from '../components/SchoolTimetable'
-import VisitStats from '../components/VisitStats'
-import { VisitGroupsAuto } from '../components/VisitGroups'
 import { useVisitPlans, useVisits } from '../lib/data'
 import { todayISO } from '../lib/money'
 import AnnualPlan from '../components/AnnualPlan'
@@ -82,7 +79,7 @@ const NAMED_ICONS: Record<string, string> = { 'งาน/การเยี่�
 /** ชื่อแท็บของแต่ละงาน (ที่ยังไม่มีข้อมูล) — งานเลขา: การประชุม · งานอภิบาล: สมาชิก / ตารางเยี่ยม */
 const WORK_LABELS: Record<number, string[]> = {
   1: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'สร้างเอกสาร', 'คลังเอกสาร', 'แผนประจำปี'],
-  4: ['รวมสมาชิก', 'บ้านสมาชิก', 'งาน/การเยี่ยม', 'งาน/การเยี่ยม (ใหม่)', 'แท็บ 5', 'แท็บ 6'],
+  4: ['รวมสมาชิก', 'บ้านสมาชิก', 'งาน/การเยี่ยม', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   8: ['รวมสมาชิก', 'ตารางงานรวี', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   9: ['รวมสมาชิก', 'แท็บ 2', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
   14: ['รวมสมาชิก', 'ตารางถวาย', 'แท็บ 3', 'แท็บ 4', 'แท็บ 5', 'แท็บ 6'],
@@ -96,14 +93,13 @@ const TILE_TONES = ['own', 'fund', 'total', 'indebt', 'debt', 'land'] as const
 
 /** หน้าหลักของงาน: ปุ่มตารางงาน + ช่องแท็บ (ลิงก์ไปหน้าเต็มของแต่ละแท็บ ไม่มีเมนูรกบนหน้าลึก) */
 function WorkMenu({ n, name }: { n: number; name: string }) {
-  const adminZone = useIsAdminZone()
   return (
     <>
       <WorkHead n={n} name={name} />
       <HealthButton n={n} />
       <CalToggle n={n} />
       <nav className="balance-tiles tiletabs no-print" aria-label={`หมวด${name}`}>
-        {labelsOf(n).map((l, i) => (n === 4 && i === 3 && !adminZone ? null : (
+        {labelsOf(n).map((l, i) => ((
           <Link key={l} to={`/meeting/${n}/${i + 1}`} className={`btile btile--${TILE_TONES[i % TILE_TONES.length]}`}>
             <small aria-hidden="true">{iconOf(l, i)}</small><b>{l}</b>
           </Link>
@@ -150,10 +146,6 @@ function HomesGate() {
   const role = useRole()
   return canRole(role, 'detail') || canWork(4, 'view') ? <MemberHomesMap embedded /> : <p className="empty">ไม่มีสิทธิ์ดูแผนที่บ้านสมาชิก</p>
 }
-function StatsGate() {
-  const role = useRole()
-  return canRole(role, 'detail') || canWork(4, 'view') ? <VisitStats /> : <p className="empty">ไม่มีสิทธิ์ดูสถิติงานเยี่ยม</p>
-}
 function PastoralBar({ active }: { active: PastoralStep }) {
   const done = useVisits(true).list.filter((v) => v.date === todayISO() && !v.absent && !v.memberId.startsWith('place:')).length // บันทึกเยี่ยมแล้ว (วันนี้) → ป้ายเขียวที่ขั้นรายงาน
   const n = useVisitPlans().of(todayISO()).items.length // จำนวนคนในตะกร้า (ตัวเลขเดียวกัน) ขึ้นที่ขั้นจัดกลุ่มและขั้นบันทึกทุกหน้า
@@ -167,17 +159,6 @@ function PastoralBar({ active }: { active: PastoralStep }) {
         </Link>
       ))}
     </nav>
-  )
-}
-/** หน้าจัดกลุ่ม / บันทึก / รายงาน (ไม่อยู่ในเมนูหน้าแรกของงาน เข้าจากแถบขั้นตอนในหน้าวางแผนเยี่ยม) */
-function PastoralSub({ name, which }: { name: string; which: 'group' | 'record' | 'report' }) {
-  const p = PASTORAL_PAGES.find((x) => x.id === which)!
-  return (
-    <>
-      <div className="page-head no-print"><h1>{p.icon} {p.title}</h1>{(which === 'report' || which === 'record') && <Link to="/meeting/4/stats" className="mini" aria-label="สถิติงานเยี่ยม">📈 สถิติ</Link>}<Link to="/meeting/4" className="mini">‹ {name}</Link></div>
-      <PastoralBar active={which} />
-      {which === 'group' ? <VisitGroupsAuto /> : which === 'record' ? <TimetableGate mode="record" /> : <VisitReports />}
-    </>
   )
 }
 
@@ -258,12 +239,10 @@ function MeetingRoom() {
   if (tab?.n === 3 && (step === 'rec' || step === 'dash' || step === 'tab3')) return <Home tab={step} onTab={setStep} /> // หน้า “บันทึก”: ไม่แสดงหัวงาน/ตารางงาน — เฉพาะแผ่นรับ-จ่าย
   if (tab?.n === 3) return <><WorkHead n={tab.n} name={tab.name} back={step ? () => setStep(null) : undefined} extra={step ? undefined : <Link to="/meeting/3/members" className="memtile no-print" aria-label="รวมสมาชิก"><span aria-hidden="true">👥</span> รวมสมาชิก <small>ทะเบียนสมาชิกทั้งหมด</small></Link>} /><CalToggle n={3} /><Home tab={step} onTab={setStep} /></>
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
-  if (tab?.n === 4 && k === 'route') return <VisitRoute />
-  if (tab?.n === 4 && k === 'stats') return <StatsGate />
+  if (tab?.n === 4 && (k === 'route' || k === 'stats' || k === 'record' || k === 'report' || k === 'group')) return <VisitHub step={{ group: '1', record: '2', report: '3', stats: '4', route: '5' }[k]} />
   if (tab?.n === 4 && k === 'lab') return <VisitLab step={s} />
-  if (tab?.n === 4 && (k === 'new' || k === '4')) return <VisitHub step={s} />
+  if (tab?.n === 4 && (k === 'new' || k === '3')) return <VisitHub step={s} />
   if (tab?.n === 4 && k === 'homes') return <HomesGate />
-  if (tab?.n === 4 && (k === 'group' || k === 'record' || k === 'report')) return <PastoralSub name={tab.name} which={k} />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4
   if (tab && k) return <WorkPage n={tab.n} name={tab.name} k={tab.n === 1 && k === '1' && s !== undefined ? 4 : Number(k)} s={s === undefined ? undefined : Number(s)} raw={s} />
   if (tab) return <WorkMenu n={tab.n} name={tab.name} />
