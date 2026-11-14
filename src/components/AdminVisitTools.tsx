@@ -474,7 +474,7 @@ export function VisitHub({ step }: { step?: string }) {
   const ok = useCanViewVisits()
   if (!ok) return <p className="empty">ไม่มีสิทธิ์ดูงาน/การเยี่ยม</p>
   const n = step === '2' ? 2 : step === '3' ? 3 : step === '4' ? 4 : step === '5' ? 5 : step === '6' ? 6 : step === '7' ? 7 : 1
-  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน / เที่ยวพิเศษ']] as const
+  const steps = [['1', '📅', 'วางแผน'], ['2', '📍', 'บันทึก/เช็คอิน'], ['3', '📊', 'รายงาน'], ['4', '📈', 'สถิติ'], ['5', '🧭', 'เส้นทางรถ'], ['6', '⛽', 'ค่าน้ำมัน']] as const
   return (
     <VisitNs.Provider value="">
       <div className="page-head no-print"><h1>🗓️ งาน/การเยี่ยม</h1><Link to="/meeting/4" className="mini">‹ งานอภิบาล</Link></div>
