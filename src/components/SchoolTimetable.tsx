@@ -1,16 +1,18 @@
 import { useMemo, useRef, useState } from 'react'
+import MemberAvatar from './MemberAvatar'
 import MultiPick from './MultiPick'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import { LIGHT } from '../lib/lightBox'
 import { getMe } from '../lib/access'
-import { useSchoolDays, useSchoolTeachers, useSettings } from '../lib/data'
+import { useChurchMembers, useSchoolDays, useSchoolTeachers, useSettings } from '../lib/data'
+import { isLive } from '../lib/pastoral'
 import { useRole } from '../lib/members'
 import { addDays, be, monthName, newId, todayISO } from '../lib/money'
 import { copyPlan, schoolWeekDays, sortedItems, weekSummary } from '../lib/schoolTimetable'
 import { DAY_NAMES, sundayOf } from '../lib/visits'
-import type { SchoolDay, SchoolItem } from '../lib/types'
+import type { ChurchMember, SchoolDay, SchoolItem } from '../lib/types'
 
 type Step = 'plan' | 'record' | 'report'
 const STEPS: { id: Step; icon: string; label: string }[] = [{ id: 'plan', icon: '📅', label: 'วางแผน' }, { id: 'record', icon: '📝', label: 'บันทึก' }, { id: 'report', icon: '📊', label: 'รายงาน' }]
@@ -30,6 +32,7 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
   const days = schoolWeekDays(sunday)
   const store = useSchoolDays()
   const teachers = useSchoolTeachers()
+  const people = useChurchMembers()
   const isAdmin = useRole() === 'admin'
   const me = getMe()?.name ?? ''
   const church = useSettings().settings.churchName.split(' ')[0]
@@ -120,7 +123,7 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
         </>
       )}
 
-      {edit && <ItemSheet date={edit.date} item={edit.item} roster={roster} canManageRoster={canEdit}
+      {edit && <ItemSheet date={edit.date} item={edit.item} roster={roster} members={people.items.filter((m) => !m.deleted && isLive(m))} canManageRoster={canEdit}
         onAddTeacher={(n) => { if (!teachers.items.some((x) => !x.deleted && x.name === n)) teachers.put([{ id: newId('tc'), name: n, updated: 0 }]) }}
         onDropTeacher={(n) => { for (const x of teachers.items.filter((y) => y.name === n)) teachers.remove(x.id) }}
         onClose={() => setEdit(null)}
@@ -130,10 +133,12 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
 }
 
 /** ฟอร์มเพิ่ม/แก้รายการสอนหรืองาน: เวลา · ชั้น/วิชา/งาน · ครูผู้รับผิดชอบ (เลือกหลายคน เพิ่มชื่อใหม่ได้) */
-function ItemSheet({ date, item, roster, canManageRoster, onAddTeacher, onDropTeacher, onClose, onSave }: { date: string; item: SchoolItem | null; roster: string[]; canManageRoster: boolean; onAddTeacher: (n: string) => void; onDropTeacher: (n: string) => void; onClose: () => void; onSave: (it: SchoolItem) => void }) {
+function ItemSheet({ date, item, roster, members, canManageRoster, onAddTeacher, onDropTeacher, onClose, onSave }: { date: string; item: SchoolItem | null; roster: string[]; /** สมาชิกในทะเบียน (ใช้ค้นหาเลือกเป็นครู) */ members: ChurchMember[]; canManageRoster: boolean; onAddTeacher: (n: string) => void; onDropTeacher: (n: string) => void; onClose: () => void; onSave: (it: SchoolItem) => void }) {
   const [time, setTime] = useState(item?.time ?? '')
   const [title, setTitle] = useState(item?.title ?? '')
   const [picked, setPicked] = useState<string[]>(item?.teachers ?? [])
+  const [q, setQ] = useState('')
+  const found = useMemo(() => { const t = q.trim().toLowerCase(); return t ? members.filter((m) => `${m.name} ${m.nick ?? ''}`.toLowerCase().includes(t)).slice(0, 8) : [] }, [q, members])
   const [err, setErr] = useState('')
   const go = () => { if (!title.trim()) return setErr('ใส่ชื่อรายการ เช่น ชั้นเด็กเล็ก · เตรียมสื่อการสอน'); onSave({ ...(item ?? {}), id: item?.id ?? newId('sc'), time: time.trim(), title: title.trim(), teachers: picked }) }
   return (
@@ -143,6 +148,16 @@ function ItemSheet({ date, item, roster, canManageRoster, onAddTeacher, onDropTe
       <div className="field"><label htmlFor="sc-by">👩‍🏫 ครูผู้รับผิดชอบ (เลือกได้หลายคน)</label>
         <MultiPick id="sc-by" title="ครูผู้รับผิดชอบ" options={[...new Set([...roster, ...picked])].map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกครู —"
           {...(canManageRoster ? { onAdd: (n: string) => { const v = n.trim().replace(/,/g, ' '); if (!v) return; onAddTeacher(v); setPicked((xs) => (xs.includes(v) ? xs : [...xs, v])) }, onRemove: (n: string) => { onDropTeacher(n); setPicked((xs) => xs.filter((x) => x !== n)) }, addHint: 'พิมพ์ชื่อครูใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
+      <div className="field"><label htmlFor="sc-q">🔎 ค้นหาครูจากทะเบียนสมาชิก (ชื่อ / ชื่อเล่น)</label>
+        <input id="sc-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="พิมพ์ชื่อแล้วกดเลือก" />
+        {q.trim() && found.length === 0 && <p className="muted small" style={{ margin: '4px 0 0' }}>ไม่พบในทะเบียน — เพิ่มชื่อเองได้ในช่อง “เลือกครู”</p>}
+        {found.map((m) => { const nm = m.name.replace(/^place:/, ''), on = picked.includes(nm); return (
+          <div key={m.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}>
+            <MemberAvatar path={m.photoPath} name={nm} size={40} member={m} />
+            <span style={{ flex: 1, minWidth: 0 }}><b>{nm}</b>{m.nick ? ` (${m.nick})` : ''}</span>
+            <button type="button" className={`btn ${on ? '' : 'btn--gold'}`} onClick={() => setPicked((xs) => (on ? xs.filter((x) => x !== nm) : [...xs, nm]))}>{on ? '✓ เลือกแล้ว (กดยกเลิก)' : '＋ เลือก'}</button>
+          </div>) })}
+      </div>
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" onClick={go}>✓ บันทึก</button>
     </Sheet>
