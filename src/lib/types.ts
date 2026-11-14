@@ -563,8 +563,12 @@ export interface TripLog extends SharedItem { date: string; vehicle: string; tit
 export interface ActivityLog extends SharedItem { date: string; slot: string; text: string; by: string; at: number; /** รูปถ่ายยืนยันว่าทำกิจกรรมแล้ว */ photos?: string[]; /** พิกัดที่ถ่ายรูป (เช็คอิน) */ checkin?: { lat: number; lng: number; acc?: number }; /** ยานพาหนะที่ใช้ไปทำกิจกรรม (แอดมินกำหนด · ใช้แยกสี/ค่าน้ำมันในรายงานเส้นทางแท็บทดลอง) */ vehicle?: string }
 
 /** ตารางงานรวี: รายการสอน/งานของวันหนึ่ง (อังคาร–อาทิตย์) พร้อมผู้รับผิดชอบ และบันทึกระหว่างวัน */
-export interface SchoolItem { id: string; /** เวลา เช่น 09:00-10:00 */ time: string; /** ชั้น/วิชา/งาน */ title: string; /** ครูผู้รับผิดชอบ (หลายคนได้) */ teachers: string[]; done?: { at: number; by: string }; /** หมายเหตุของรายการ (บันทึกตอนทำ) */ note?: string }
+export interface SchoolItem { id: string; /** หน้าที่ตามแม่แบบ: อาจารย์ · พี่เลี้ยงประจำ · ครูหมุนเวียนที่ลงสอนสัปดาห์นั้น */ role?: 'lead' | 'helpers' | 'duty'; /** เวลา เช่น 09:00-10:00 */ time: string; /** ชั้น/วิชา/งาน */ title: string; /** ครูผู้รับผิดชอบ (หลายคนได้) */ teachers: string[]; done?: { at: number; by: string }; /** หมายเหตุของรายการ (บันทึกตอนทำ) */ note?: string }
 export interface SchoolLogEntry { id: string; at: number; by: string; text: string }
-export interface SchoolDay extends SharedItem { date: string; items: SchoolItem[]; logs: SchoolLogEntry[] }
+export interface SchoolDay extends SharedItem { date: string; items: SchoolItem[]; logs: SchoolLogEntry[]; /** วันอาทิตย์: ครูหมุนเวียนที่ลงสอนสัปดาห์นี้ (ล็อกไว้ ไม่เปลี่ยนตามการหมุนในภายหลัง) */ duty?: string[] }
+/** แม่แบบรายการวันอาทิตย์ */
+export interface SchoolTpl { id: string; time: string; title: string; role: 'lead' | 'helpers' | 'duty' | 'none' }
+/** ตั้งค่างานรวี (รายการเดียว id = cfg): ทีมครู + การหมุนเวียน + แม่แบบวันอาทิตย์ */
+export interface SchoolCfg extends SharedItem { /** อาจารย์ฝ่ายอภิบาล (ประจำ) */ lead: string[]; /** ครูพี่เลี้ยงประจำ (เต้น/อยู่ร่วมกัน/กิจกรรม) */ helpers: string[]; /** ครูหมุนเวียน เรียงตามลำดับการหมุน */ pool: string[]; /** ลงสอนกี่คนต่อสัปดาห์ */ perWeek: number; /** วันอาทิตย์ที่เริ่มหมุนกลุ่มแรก */ anchor: string; tpl: SchoolTpl[] }
 /** รายชื่อครูงานรวีที่เพิ่มไว้เลือกซ้ำ */
 export interface SchoolTeacher extends SharedItem { name: string }

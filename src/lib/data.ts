@@ -15,10 +15,11 @@ const writePlan4 = () => canPlan4() || !blockedEdit('detail')
 const writeWork4 = writePlan4
 const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || (isRegistryHelper() && registryCanSign()) || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
+import { normCfg } from './schoolTimetable'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -137,6 +138,11 @@ const writeWork8 = () => canWork(8, 'calendar') || !blockedEdit('detail')
 export function useSchoolDays() {
   const s = useSharedStore<SchoolDay>({ localKey: k('school-days'), file: 'school-days.json', label: 'ตารางงานรวี', writeCheck: writeWork8, pollMs: 15_000 })
   return { ...s, of: (date: string): SchoolDay => s.items.find((x) => x.id === `sch-${date}` && !x.deleted) ?? { id: `sch-${date}`, date, items: [], logs: [], updated: 0 } }
+}
+/** ตั้งค่างานรวี (ทีมครู การหมุนเวียน แม่แบบวันอาทิตย์) */
+export function useSchoolCfg() {
+  const s = useSharedStore<SchoolCfg>({ localKey: k('school-cfg'), file: 'school-cfg.json', label: 'ตั้งค่างานรวี', writeCheck: writeWork8 })
+  return { ...s, cfg: normCfg(s.items.find((x) => x.id === 'cfg' && !x.deleted)) }
 }
 /** รายชื่อครูงานรวี */
 export function useSchoolTeachers() {
