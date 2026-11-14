@@ -118,6 +118,7 @@ function AdminVisitEdit({ v, onSave, onClose }: { v: Visit; onSave: (v: Visit, a
 
 /** หน้าต่างแก้ช่องหนึ่ง: เลือกคน (จากรายชื่อขาดนมัสการ กด ＋) · สถานที่/โครงการ (ไม่ผูกรายชื่อ) · หมายเหตุ */
 function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }: { date: string; slot: Slot; doc: PlanDoc; onChange: (d: PlanDoc) => void; onClose: () => void; /** หน้า “บันทึก”: เห็นรายชื่อที่วางแผนไว้และบันทึกเยี่ยมได้ แก้แผนไม่ได้ */ recordOnly?: boolean; /** หน้า “วางแผน”: เป็นแค่ข้อความ ไม่มีปุ่มบันทึกเยี่ยม/แผนที่ */ planOnly?: boolean }) {
+  const adminHere = useRole() === 'admin'
   const ns = useVisitNs()
   const people = useChurchMembers()
   const y = new Date().getFullYear()
@@ -135,7 +136,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   const done = (id: string) => visits.list.find((v) => v.date === date && v.memberId === id)
   const mine = doc.items.filter((x) => (x.slot ?? 'บ่าย') === slot)
   const places = doc.places?.[slot] ?? []
-  const toggle = (m: { id: string; name: string }) => { if (!planOnly) tick(m.id, !mine.some((x) => x.id === m.id)); onChange(mine.some((x) => x.id === m.id) ? removeItem(doc, m.id) : doc.items.some((x) => x.id === m.id) ? setSlot(doc, m.id, slot) : setSlot(addItem(doc, m), m.id, slot)) }
+  const toggle = (m: { id: string; name: string }) => { if (mine.some((x) => x.id === m.id) && done(m.id)) { if (!adminHere) { window.alert(`${m.name} เยี่ยมและบันทึกแล้ว — เอาออกจากแผนไม่ได้ (ให้แอดมินดำเนินการหากต้องแก้)`); return } if (!window.confirm(`${m.name} เยี่ยมและบันทึกแล้ว\nถ้าเอาออกจากแผน ชื่อจะหายจากตารางวางแผน/บันทึก (รายงานการเยี่ยมยังอยู่)\nต้องการเอาออกหรือไม่?`)) return } if (!planOnly) tick(m.id, !mine.some((x) => x.id === m.id)); onChange(mine.some((x) => x.id === m.id) ? removeItem(doc, m.id) : doc.items.some((x) => x.id === m.id) ? setSlot(doc, m.id, slot) : setSlot(addItem(doc, m), m.id, slot)) }
   const pend = [...mine.map((x) => ({ id: x.id, name: x.name })), ...places.map((p) => ({ id: `place:${p}`, name: p }))].filter((x) => ticked.includes(x.id) && !done(x.id))
   const [shareMsg, setShareMsg] = useState('')
   const shareDone = async (v: Visit) => { // แชร์รายงาน: เยี่ยมที่ไหน/ใคร + รูป (รวมคนที่เช็คอินพร้อมกัน)
@@ -224,10 +225,10 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
           </div>)
       })()}
       {mine.length > 0 && <b className="small">{planOnly ? '👥 คนที่จะไปเยี่ยม' : '📍 คนที่จะบันทึกและเช็คอินเยี่ยม'} ({mine.length})</b>}
-      {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${x.name}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
+      {mine.length > 0 && <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{mine.map((x) => { const v = done(x.id); return <li key={x.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กเยี่ยม ${x.name}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(x.id)} disabled={!!v} onChange={(e) => tick(x.id, e.target.checked)} />}<span>{x.name}{v ? (v.absent ? ' ✗ ไม่พบ' : ' ✓') : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${x.name}`} onClick={() => setForm({ entry: v, member: { id: x.id, name: x.name } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${x.name}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && (!v || adminHere) && <button type="button" className="mini" aria-label={`เอา ${x.name} ออก`} onClick={() => { if (v && !window.confirm(`${x.name} เยี่ยมและบันทึกแล้ว\nถ้าเอาออกจากแผน ชื่อจะหายจากตารางวางแผน/บันทึก (รายงานการเยี่ยมยังอยู่)\nต้องการเอาออกหรือไม่?`)) return; tick(x.id, false); onChange(removeItem(doc, x.id)) }}>✕</button>}</li> })}</ul>}
       {!recordOnly && <AbsentList hideLabel {...(planOnly ? { att } : { hideStatus: true })} members={people.items} stats={stats} today={today} label="ค้นหาสมาชิก" selectedIds={doc.items.map((x) => x.id)} onPick={toggle} />}
       <b className="small">📍 สถานที่ / โครงการ{recordOnly ? '' : ' (ไม่ใส่ชื่อคน)'}</b>
-      <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กไปแล้ว ${p}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(`place:${p}`)} disabled={!!v} onChange={(e) => tick(`place:${p}`, e.target.checked)} />}<span>📍 {p}{v ? ' ✓' : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${p}`} onClick={() => setForm({ entry: v, member: { id: `place:${p}`, name: p } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${p}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => { tick(`place:${p}`, false); onChange(removePlace(doc, slot, i)) }}>✕</button>}</li> })}</ul>
+      <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>{places.map((p, i) => { const v = done(`place:${p}`); return <li key={`${p}-${i}`} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>{!planOnly && <input type="checkbox" aria-label={`ติ๊กไปแล้ว ${p}`} style={{ width: 22, height: 22 }} checked={!!v || ticked.includes(`place:${p}`)} disabled={!!v} onChange={(e) => tick(`place:${p}`, e.target.checked)} />}<span>📍 {p}{v ? ' ✓' : ''}</span> {!planOnly && v && <button type="button" className="mini" aria-label={`แก้การเยี่ยม ${p}`} onClick={() => setForm({ entry: v, member: { id: `place:${p}`, name: p } })}>✎ แก้</button>}{!planOnly && v && <button type="button" className="mini" aria-label={`แชร์รายงาน ${p}`} title="แชร์เข้ากลุ่ม" onClick={() => void shareDone(v)}>📤</button>} {!recordOnly && (!v || adminHere) && <button type="button" className="mini" aria-label={`ลบ ${p}`} onClick={() => { if (v && !window.confirm(`“${p}” บันทึกเยี่ยมแล้ว\nถ้าเอาออกจากแผน จะหายจากตารางวางแผน/บันทึก (รายงานการเยี่ยมยังอยู่)\nต้องการเอาออกหรือไม่?`)) return; tick(`place:${p}`, false); onChange(removePlace(doc, slot, i)) }}>✕</button>}</li> })}</ul>
       {!recordOnly && (
       <div className="row" style={{ gap: 6 }}>
         <input className="input grow" aria-label="สถานที่หรือโครงการ" placeholder="เช่น โครงการโคโค่ · ร้านพี่ตาล" value={place} onChange={(e) => setPlace(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && place.trim()) { onChange(addPlace(doc, slot, place)); setPlace('') } }} />
@@ -243,7 +244,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
           preset={{ ...(form.member ? { member: form.member } : {}), ...(form.entry ? {} : { place: form.place ?? '' }) }}
           photoShared={(p) => visits.list.some((v) => v.id !== form.entry?.id && v.photos?.includes(p))}
           onClose={() => setForm(null)} onSave={(v) => { visits.put([v]); pinHomes([v]); setForm(null) }}
-          onDelete={form.entry ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
+          onDelete={form.entry && adminHere ? () => { if (confirm(`ลบการเยี่ยม ${form.entry!.memberName}?\n⚠️ มีผลกับรายงาน: จะหายจากรายงาน สถิติ และค่าน้ำมัน แน่ใจหรือไม่?`)) { visits.remove(form.entry!.id); setForm(null) } } : undefined} />
       )}
     </Sheet>
   )
@@ -375,7 +376,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
         const pd = plans.of(del.d)
         const vs = visits.list.filter((v) => v.date === del.d && slotOfVisit(v, pd) === del.slot)
         const cancel = (v: Visit) => {
-          if (!confirm(`ยกเลิกการบันทึกเยี่ยม ${v.memberName}?\n(ลบออกจากรายงานและลบรูปของรายการนี้)`)) return
+          if (!confirm(`ยกเลิกการบันทึกเยี่ยม ${v.memberName}?\n⚠️ มีผลกับรายงาน: การเยี่ยมนี้จะหายจากรายงาน สถิติ และค่าน้ำมัน พร้อมลบรูปของรายการนี้\nแน่ใจหรือไม่?`)) return
           visits.remove(v.id)
           ;(v.photos ?? []).filter((ph) => !visits.list.some((x) => x.id !== v.id && x.photos?.includes(ph))).forEach((ph) => void removeMemberPhotoFile(ph))
         }
