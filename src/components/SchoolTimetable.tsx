@@ -83,6 +83,7 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
     <div className="card" style={{ ...LIGHT, background: '#f3f7ff', border: '2px solid #1a56db' }}>
       <div className="row row--between"><b>👥 ทีมครูวันอาทิตย์นี้</b>{canEdit && <span className="row" style={{ gap: 6 }}><button type="button" className="mini" onClick={() => setSheet('duty')}>✎ แก้ทีมสัปดาห์นี้</button><button type="button" className="mini" onClick={() => setSheet('cfg')}>⚙ ตั้งค่า</button></span>}</div>
       <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+        <div><small className="muted">👑 ผู้ดูแลงานรวี (ฝ่ายธรรมกิจ)</small><br /><Chips names={cfg.overseers ?? []} people={people} empty="ยังไม่ตั้ง — กด ⚙ ตั้งค่า (ต้องมีอย่างน้อย 1 คน)" /></div>
         <div><small className="muted">อาจารย์ฝ่ายอภิบาล (ประจำ)</small><br /><Chips names={cfg.lead} people={people} empty="ยังไม่ตั้ง — กด ⚙ ตั้งค่า" /></div>
         <div><small className="muted">ครูพี่เลี้ยงประจำ (เต้น · อยู่ร่วมกัน · กิจกรรม)</small><br /><Chips names={cfg.helpers} people={people} empty="ยังไม่ตั้ง" /></div>
         <div><small className="muted">ครูหมุนเวียนที่ลงสอนสัปดาห์นี้{sunDoc.duty ? '' : ' (ระบบเสนอตามลำดับหมุน)'}</small><br /><Chips names={duty} people={people} empty="ยังไม่ตั้งรายชื่อครูหมุนเวียน" /></div>
@@ -152,6 +153,7 @@ export default function SchoolTimetable({ canEdit }: { canEdit: boolean }) {
                 <div style={{ fontSize: 14 }}>ทำแล้ว {sum.done}/{sum.items} รายการ</div>
               </div>
               <div style={{ border: '1.5px solid #a8924a', borderRadius: 8, padding: 8, marginTop: 8, fontSize: 14 }}>
+                <div><b>ผู้ดูแลงานรวี:</b> {(cfg.overseers ?? []).join(', ') || '—'}</div>
                 <div><b>อาจารย์:</b> {cfg.lead.join(', ') || '—'} &nbsp;|&nbsp; <b>พี่เลี้ยง:</b> {cfg.helpers.join(', ') || '—'}</div>
                 <div><b>ครูลงสอนสัปดาห์นี้:</b> {duty.join(', ') || '—'}{rest.length ? <> &nbsp;|&nbsp; <b>ได้นมัสการ:</b> {rest.join(', ')}</> : null}</div>
               </div>
@@ -213,6 +215,8 @@ function DutySheet({ people, pool, value, onClose, onSave }: { people: People; p
 
 /** ตั้งค่า: อาจารย์ · พี่เลี้ยง · ครูหมุนเวียน + จำนวนลงสอนต่อสัปดาห์ + แม่แบบรายการวันอาทิตย์ */
 function CfgSheet({ cfg, sunday, people, onClose, onSave }: { cfg: SchoolCfg; sunday: string; people: People; onClose: () => void; onSave: (c: SchoolCfg) => void }) {
+  const [over, setOver] = useState(cfg.overseers ?? [])
+  const [err, setErr] = useState('')
   const [lead, setLead] = useState(cfg.lead)
   const [helpers, setHelpers] = useState(cfg.helpers)
   const [pool, setPool] = useState(cfg.pool)
@@ -226,6 +230,7 @@ function CfgSheet({ cfg, sunday, people, onClose, onSave }: { cfg: SchoolCfg; su
   const move = (i: number, d: number) => setTpl((xs) => { const j = i + d; if (j < 0 || j >= xs.length) return xs; const c = [...xs]; [c[i], c[j]] = [c[j], c[i]]; return c })
   return (
     <Sheet title="⚙ ตั้งค่างานรวีวันอาทิตย์" onClose={onClose}>
+      <div className="field"><label htmlFor="cf-over">👑 ผู้ดูแลงานรวี (ฝ่ายธรรมกิจ) — อย่างน้อย 1 คน · ควบคุมดูแลและตรวจสอบได้ทั้งหมด</label>{pick('cf-over', 'ผู้ดูแลงานรวี (ธรรมกิจ)', over, setOver)}</div>
       <div className="field"><label htmlFor="cf-lead">🎓 อาจารย์ฝ่ายอภิบาล (ประจำทุกสัปดาห์)</label>{pick('cf-lead', 'อาจารย์ฝ่ายอภิบาล', lead, setLead)}</div>
       <div className="field"><label htmlFor="cf-help">🤝 ครูพี่เลี้ยงประจำ (เต้น · อยู่ร่วมกัน · กิจกรรม)</label>{pick('cf-help', 'ครูพี่เลี้ยง', helpers, setHelpers)}</div>
       <div className="field"><label htmlFor="cf-pool">🔄 ครูหมุนเวียน (ลำดับที่เลือก = ลำดับการหมุน)</label>{pick('cf-pool', 'ครูหมุนเวียน', pool, setPool)}</div>
@@ -253,7 +258,8 @@ function CfgSheet({ cfg, sunday, people, onClose, onSave }: { cfg: SchoolCfg; su
         <button type="button" className="btn" onClick={() => setTpl([...tpl, { id: newId('tp'), time: '', title: '', role: 'none' }])}>＋ เพิ่มรายการแม่แบบ</button>
       </div>
       <p className="muted small" style={{ margin: 0 }}>แม่แบบใช้กับวันอาทิตย์ที่ยังไม่เคยบันทึก — สัปดาห์ที่บันทึกไปแล้วไม่เปลี่ยน</p>
-      <button type="button" className="btn btn--gold btn--block" onClick={() => onSave({ ...cfg, lead, helpers, pool, perWeek: k, anchor: anchor || sunday, tpl: tpl.filter((t) => t.title.trim()).map((t) => ({ ...t, title: t.title.trim(), time: t.time.trim() })) })}>✓ บันทึกการตั้งค่า</button>
+      {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
+      <button type="button" className="btn btn--gold btn--block" onClick={() => { if (!over.length) return setErr('ต้องเลือกผู้ดูแลงานรวี (ฝ่ายธรรมกิจ) อย่างน้อย 1 คน'); onSave({ ...cfg, overseers: over, lead, helpers, pool, perWeek: k, anchor: anchor || sunday, tpl: tpl.filter((t) => t.title.trim()).map((t) => ({ ...t, title: t.title.trim(), time: t.time.trim() })) }) }}>✓ บันทึกการตั้งค่า</button>
     </Sheet>
   )
 }
