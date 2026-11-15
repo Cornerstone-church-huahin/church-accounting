@@ -1,3 +1,4 @@
+import { THEME_LABEL, getTheme, nextTheme, setTheme, type ThemePref } from '../lib/theme'
 import { AppCredit } from './Credit'
 import { MEETING_TABS } from '../lib/workTabs'
 import { Navigate, NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -60,6 +61,7 @@ export default function AppShell() {
   const [year, setYearState] = useState(initialYear)
   const setYear = (y: number) => { setYearState(y); saveYear(y) }
   const [roToast, setRoToast] = useState(false)
+  const [theme, setThemePref] = useState<ThemePref>(getTheme)
   const full = can(role, 'detail')
   // ผู้ใช้ทั่วไปที่แอดมินยังไม่ได้กำหนดห้องงาน/ตำแหน่งให้: ยังไม่เห็นอะไร (สิทธิ์ทั้งหมดมาจากห้องงาน × ตำแหน่ง)
   const noRights = role === 'viewer' && !!getSync() && myWorks().length === 0 && pathname !== '/join'
@@ -118,6 +120,7 @@ export default function AppShell() {
           )}
           <SyncButton />
           <span className="grow" />
+          <button type="button" className="topbar__go" aria-label={`รูปแบบหน้าจอ: ${THEME_LABEL[theme].text} (แตะเพื่อสลับ สว่าง/มืด/ตามเครื่อง)`} title={`หน้าจอ: ${THEME_LABEL[theme].text} — แตะเพื่อสลับ`} onClick={() => { const n = nextTheme(theme); setThemePref(n); setTheme(n) }} style={{ fontSize: '1.25rem' }}><span aria-hidden="true">{THEME_LABEL[theme].icon}</span></button>
           <label className="sr-only" htmlFor="year-sel">ปีบัญชี</label>
           <select id="year-sel" className="topbar__year" value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {[...years].sort((a, b) => b - a).map((y) => <option key={y} value={y}>ปี {be(y)}</option>)}
