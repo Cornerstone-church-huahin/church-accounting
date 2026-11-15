@@ -17,6 +17,7 @@ import VisitorPick from './VisitorPick'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import Sheet from './Sheet'
 import ActivityChecklist from './ActivityChecklist'
+import FitBox from './FitBox'
 import ActivityPlanEditor from './ActivityPlanEditor'
 import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitPlans, useVisits, useWorkTeams } from '../lib/data'
 import { addDays, be, monthName, todayISO } from '../lib/money'
@@ -308,6 +309,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
         <button type="button" className="mini" aria-label="สัปดาห์ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
       <ScaledPage ref={ref}>
+        <FitBox key={`${mode}|${days.map((d) => { const pd = plans.of(d); return pd.items.length + (pd.dayText?.length ?? 0) + JSON.stringify(pd.slotNotes ?? {}).length + JSON.stringify(pd.places ?? {}).length }).join('.')}|${visits.list.length}|${acts.list.length}`}>
         <div style={{ ...keep, display: 'flex', flexDirection: 'column', height: '100%', color: '#111' }}>
           <div style={{ ...keep, ...(P ? { background: '#fff', color: NAVY, border: '2px solid #c3cbdb', borderBottom: `5px solid #c3cbdb` } : R ? { background: `linear-gradient(100deg, ${NAVY}, #274a8a 55%, #1a3566)`, color: '#fff', border: `2px solid ${GOLD}`, borderBottom: `6px solid ${GOLD}`, boxShadow: '0 3px 10px rgba(20,38,74,.35)' } : { background: 'linear-gradient(100deg, #0f5f56, #1f8a7a)', color: '#fff', borderBottom: '5px solid #7fd1c1' }), borderRadius: 14, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <span style={{ fontSize: 40 }} aria-hidden="true">🏠</span>
@@ -361,6 +363,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
           <div style={{ ...keep, marginTop: 8, border: `2px solid ${GOLD}`, ...LIGHT, background: '#fff8e6', borderRadius: 12, padding: '6px 14px', textAlign: 'center', fontSize: 19, fontWeight: 700, color: NAVY, cursor: canEdit ? 'pointer' : undefined }} onClick={() => { if (!canEdit) return; const v = window.prompt('ข้อพระคัมภีร์ท้ายตาราง (ว่าง = ใช้ข้อความตั้งต้น)', verse); if (v !== null) plans.saveVerse(monday, v) }} aria-label="ข้อพระคัมภีร์">✝ {verse}</div>
           <div style={{ fontSize: 13.5, marginTop: 3, color: '#555', textAlign: 'center' }}>{report ? '📍 หมุดเขียว = เช็คอินแล้ว / Checked in' : '✓ = ไปเยี่ยมและบันทึกแล้ว / Visited'} · 📍 = สถานที่/โครงการ / Place or project · 📝 = หมายเหตุ / Note</div>
         </div>
+        </FitBox>
       </ScaledPage>
       <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${TITLE[mode].file}-${monday}.pdf`} title={`${TITLE[mode].short} ${range}`} label={TITLE[mode].short} />
       {edit && doc && edit.slot === 'day' && (
