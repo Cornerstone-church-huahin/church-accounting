@@ -13,7 +13,7 @@ import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
 import VisitTimetableLab from './VisitTimetableLab'
 import VisitStatsLab from './VisitStatsLab'
 import { VisitNs } from '../lib/labNs'
-import { useActivityLog, useTripLogs, useVisitPlans } from '../lib/data'
+import { useActivityLog, useLiveActs, useTripLogs, useVisitPlans } from '../lib/data'
 import { getMe } from '../lib/access'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
@@ -148,12 +148,12 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const [pickDay, setPickDay] = useState<string | null>(null)
   const [cfg, setCfg] = useState(false)
-  const actDays = useActivityLog(ns)
+  const actDays = useLiveActs(ns)
   const checkDays = useMemo(() => new Set([...visits.list.filter((v) => v.checkin && days.includes(v.date)).map((v) => v.date), ...actDays.list.filter((a) => a.checkin && days.includes(a.date)).map((a) => a.date)]), [visits.list, actDays.list, sunday]) // eslint-disable-line react-hooks/exhaustive-deps
   const date = pickDay && days.includes(pickDay) ? pickDay : days.includes(todayISO()) ? todayISO() : days.find((d) => checkDays.has(d)) ?? days[0]
   const range = (() => { const [ya, ma, da] = days[0].split('-').map(Number), [yb, mb, db] = days[days.length - 1].split('-').map(Number); return ya === yb && ma === mb ? `${da}-${db} ${monthName(ma)} ${be(ya)}` : `${da} ${monthName(ma)} ${be(ya)} – ${db} ${monthName(mb)} ${be(yb)}` })()
   const tlogs = useTripLogs(ns)
-  const actLog = useActivityLog(ns)
+  const actLog = useLiveActs(ns)
   const trips = useMemo(() => {
     const byAt = new Map<number, { at: number; lat: number; lng: number; kind?: 'home' | 'work' | 'place'; sim?: boolean; who: string; team: string[]; names: string[] }>()
     for (const v of visits.list) {
@@ -531,7 +531,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
   const ok = useCanViewVisits()
   const adminEdit = useIsAdminZone()
   const visits = useVisits(true, ns)
-  const fuelActs = useActivityLog(ns)
+  const fuelActs = useLiveActs(ns)
   const tl = useTripLogs(ns)
   const st = useSettings()
   const base = typeof st.settings.fuelPerKm === 'number' ? st.settings.fuelPerKm : 3.5

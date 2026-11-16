@@ -83,3 +83,15 @@ describe('สถานที่/โครงการ และข้อคว�
     expect(_pd({ items: [], v: 2, places: { ค่ำ: ['x'] }, dayText: 'y' } as never).places?.ค่ำ).toEqual(['x'])
   })
 })
+
+import { renameDoersIn, renameVisitorIn } from './visits'
+describe('เปลี่ยนชื่อย้อนหลัง', () => {
+  it('ผู้ออกเยี่ยม: เปลี่ยนและรวมชื่อซ้ำ', () => {
+    expect(renameVisitorIn('คศ.พิชิต เผ่าดี, อ.ดารา', 'คศ.พิชิต เผ่าดี', 'อ.พิชิต เผ่าดี')).toBe('อ.พิชิต เผ่าดี, อ.ดารา')
+    expect(renameVisitorIn('ก, ข', 'ก', 'ข')).toBe('ข')
+  })
+  it('ผู้ไปทำกิจกรรม', () => {
+    expect(renameDoersIn(['คศ.กฤต', 'คุณภาณี'], 'คศ.กฤต', 'กฤต')).toEqual(['กฤต', 'คุณภาณี'])
+    expect(renameDoersIn(['ก', 'ข'], 'ก', 'ข')).toEqual(['ข'])
+  })
+})

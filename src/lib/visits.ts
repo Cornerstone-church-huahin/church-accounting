@@ -55,3 +55,8 @@ export const metVisits = (visits: Visit[]) => visits.filter((v) => !v.deleted &&
 export const notMetVisits = (visits: Visit[]) => visits.filter((v) => !v.deleted && v.absent)
 /** จำนวนครั้งที่สมาชิกคนนี้ “ถูกเยี่ยม” (พบตัว) */
 export const timesVisited = (visits: Visit[], memberId: string) => metVisits(visits).filter((v) => v.memberId === memberId).length
+
+/** เปลี่ยนชื่อในรายชื่อผู้ออกเยี่ยมของรายการเดียว (ข้อความคั่นด้วยจุลภาค) · ชื่อซ้ำหลังเปลี่ยนรวมเป็นชื่อเดียว */
+export const renameVisitorIn = (visitor: string, oldN: string, newN: string): string => joinVisitors(splitVisitors(visitor).map((x) => (x === oldN ? newN : x)))
+/** เปลี่ยนชื่อในรายการผู้ไปทำกิจกรรม */
+export const renameDoersIn = (doers: string[], oldN: string, newN: string): string[] => [...new Set(doers.map((x) => (x === oldN ? newN : x)))]

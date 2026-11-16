@@ -4,9 +4,11 @@ import { Link } from 'react-router-dom'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import { slotOfVisit } from './VisitTimetableLab'
-import { useActivityLog, useSettings, useVisitPlans, useVisits } from '../lib/data'
+import Sheet from './Sheet'
+import { useRole } from '../lib/members'
+import { useActivityLog, useLiveActs, useSettings, useVisitPlans, useVisits } from '../lib/data'
 import { addDays, be, monthName, todayISO } from '../lib/money'
-import { splitVisitors, sundayOf, tripsOf } from '../lib/visits'
+import { renameDoersIn, renameVisitorIn, splitVisitors, sundayOf, tripsOf } from '../lib/visits'
 import { paginate } from '../lib/paginate'
 
 const NAVY = '#14264a', GOLD = '#c99a14'
@@ -93,7 +95,7 @@ export default function VisitStatsLab() {
   const ref = useRef<HTMLDivElement>(null)
   const extra = useRef<(HTMLDivElement | null)[]>([])
   const visits = useVisits(true, ns)
-  const acts = useActivityLog(ns)
+  const acts = useLiveActs(ns)
   const plans = useVisitPlans(ns)
   const church = useSettings().settings.churchName || 'คริสตจักรศิลาเอก'
   const today = todayISO()
@@ -105,6 +107,8 @@ export default function VisitStatsLab() {
     const t = y * 12 + (m - 1) + n
     setY(Math.floor(t / 12)); setM((t % 12) + 1)
   }
+  const isAdmin = useRole() === 'admin'
+  const [mergeOpen, setMergeOpen] = useState(false)
   const [trend, setTrend] = useState<'week' | 'month' | 'year'>('week') // กราฟเส้น: 12 สัปดาห์ · 12 เดือน · 5 ปี
   const prefix = mode === 'year' ? `${y}-` : `${y}-${String(m).padStart(2, '0')}-`
   const title = mode === 'year' ? `ปี ${be(y)}` : `${monthName(m)} ${be(y)}`
@@ -187,6 +191,8 @@ export default function VisitStatsLab() {
         <span className="small"><b>{title}</b></span>
         <button type="button" className="mini" aria-label="ถัดไป" onClick={() => shift(1)}>›</button>
       </div>
+      {isAdmin && <button type="button" className="btn btn--block no-print" style={{ marginBottom: 6 }} onClick={() => setMergeOpen(true)}>✎ แก้/รวมชื่อย้อนหลัง (ชื่อซ้ำคนเดียวกัน)</button>}
+      {mergeOpen && <MergeNames onClose={() => setMergeOpen(false)} />}
       <div className="seg seg--3 no-print" role="tablist" aria-label="กราฟเส้นแนวโน้ม" style={{ marginBottom: 6 }}>
         {([['week', '📈 กราฟ 12 สัปดาห์'], ['month', '12 เดือน'], ['year', '5 ปี']] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={trend === k} className={trend === k ? 'on' : ''} onClick={() => setTrend(k)}>{l}</button>)}
       </div>
@@ -240,5 +246,45 @@ export default function VisitStatsLab() {
       ))}
       <PdfTools compact mode="full" els={() => [ref.current, ...extra.current.slice(0, pages.length)].filter((x): x is HTMLDivElement => !!x)} file={`สถิติงานเยี่ยม-${mode === 'year' ? y : `${y}-${String(m).padStart(2, '0')}`}.pdf`} title={`สถิติงานเยี่ยม ${title}`} label="สถิติงานเยี่ยม" />
     </section>
+  )
+}
+
+/** แก้/รวมชื่อย้อนหลัง: เลือกชื่อเดิม → พิมพ์หรือเลือกชื่อใหม่ → เปลี่ยนในการเยี่ยม (ผู้ออกเยี่ยม) และกิจกรรม (ผู้ไปทำ) ทั้งหมดของชุดข้อมูลนี้ */
+function MergeNames({ onClose }: { onClose: () => void }) {
+  const ns = useVisitNs()
+  const visits = useVisits(true, ns)
+  const acts = useActivityLog(ns)
+  const counts = useMemo(() => {
+    const m = new Map<string, { v: number; a: number }>()
+    for (const v of visits.list) for (const n of splitVisitors(v.visitor ?? '')) m.set(n, { v: (m.get(n)?.v ?? 0) + 1, a: m.get(n)?.a ?? 0 })
+    for (const a of acts.list) for (const n of a.doers ?? []) m.set(n, { v: m.get(n)?.v ?? 0, a: (m.get(n)?.a ?? 0) + 1 })
+    return [...m].map(([name, c]) => ({ name, ...c })).sort((x, y) => x.name.localeCompare(y.name, 'th'))
+  }, [visits.list, acts.list])
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [msg, setMsg] = useState('')
+  const go = () => {
+    const nn = to.trim().replace(/,/g, ' ')
+    if (!from || !nn || nn === from) return setMsg('เลือกชื่อเดิม และใส่ชื่อใหม่ที่ต่างจากเดิม')
+    const vs = visits.list.filter((v) => splitVisitors(v.visitor ?? '').includes(from)), as = acts.list.filter((a) => a.doers?.includes(from))
+    if (!window.confirm(`เปลี่ยน “${from}” เป็น “${nn}”\nการเยี่ยม ${vs.length} รายการ · กิจกรรม ${as.length} รายการ\nแน่ใจหรือไม่?`)) return
+    if (vs.length) visits.put(vs.map((v) => ({ ...v, visitor: renameVisitorIn(v.visitor ?? '', from, nn), updated: 0 })))
+    if (as.length) acts.put(as.map((a) => ({ ...a, doers: renameDoersIn(a.doers ?? [], from, nn), updated: 0 })))
+    setMsg(`เปลี่ยนแล้ว: การเยี่ยม ${vs.length} · กิจกรรม ${as.length}`); setFrom(''); setTo('')
+  }
+  return (
+    <Sheet title="✎ แก้/รวมชื่อย้อนหลัง" onClose={onClose}>
+      <p className="muted small" style={{ margin: 0 }}>ใช้เมื่อคนเดียวกันมีหลายชื่อในสถิติ (เช่น “คศ.พิชิต เผ่าดี” กับ “อ.พิชิต เผ่าดี”) — เลือกชื่อเดิม แล้วใส่ชื่อที่ต้องการ ระบบเปลี่ยนในการเยี่ยมและกิจกรรมที่บันทึกไว้ทั้งหมด</p>
+      <div className="field"><label htmlFor="mg-f">ชื่อเดิม (เลือก)</label>
+        <select id="mg-f" className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
+          <option value="">— เลือกชื่อ —</option>
+          {counts.map((c) => <option key={c.name} value={c.name}>{c.name} (เยี่ยม {c.v} · กิจกรรม {c.a})</option>)}
+        </select></div>
+      <div className="field"><label htmlFor="mg-t">ชื่อใหม่ (พิมพ์ หรือเลือกชื่อที่มีอยู่)</label>
+        <input id="mg-t" className="input" list="mg-names" value={to} onChange={(e) => setTo(e.target.value)} placeholder="เช่น อ.พิชิต เผ่าดี" />
+        <datalist id="mg-names">{counts.filter((c) => c.name !== from).map((c) => <option key={c.name} value={c.name} />)}</datalist></div>
+      {msg && <p className="small" role="status" style={{ margin: 0 }}>{msg}</p>}
+      <button type="button" className="btn btn--gold btn--block" onClick={go}>✓ เปลี่ยนชื่อย้อนหลัง</button>
+    </Sheet>
   )
 }

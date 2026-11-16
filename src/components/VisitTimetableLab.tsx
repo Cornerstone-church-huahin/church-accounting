@@ -174,7 +174,15 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
   }
   const noteRef = useRef<string | null>(null) // ข้อความหมายเหตุที่พิมพ์ค้างอยู่ — บันทึกตอนกด “บันทึก” หรือปิด
   // บันทึกจุดนี้แล้ว: ชื่อสถานที่ย้ายไปอยู่กับรายการที่บันทึก และล้างช่องหมายเหตุ/สถานที่ของช่อง ให้คนที่เหลือที่ย้ายไปที่ใหม่พิมพ์ใหม่ (เช่น โคโค่ หัวหิน)
-  const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) onChange(setSlotNote(doc, slot, noteRef.current)); onClose() }
+  const actStore = useActivityLog(ns)
+  /** เอารายการกิจกรรมออกจากแผน: ถ้ามีการบันทึกทำแล้วไว้ ถามว่าจะลบการบันทึก (รูป เส้นทาง ค่าน้ำมัน) ด้วยไหม — ไม่ลบ = ไม่นับในรายงานอยู่ดี */
+  const commitNote = (t: string) => {
+    const keep = activityLines(t), gone = activityLines(doc.slotNotes?.[slot]).filter((l) => !keep.includes(l))
+    const recs = actStore.list.filter((a) => a.date === date && a.slot === slot && gone.includes(a.text))
+    if (recs.length && window.confirm(`กิจกรรมที่เอาออกจากแผน มีการบันทึกทำแล้ว ${recs.length} รายการ\n“${recs.map((r) => r.text).join('” “')}”\nลบการบันทึก (รูป เส้นทาง ค่าน้ำมัน) ด้วยหรือไม่?\n\nตกลง = ลบการบันทึกด้วย · ยกเลิก = เก็บไว้ (ไม่นับในรายงานจนกว่าจะใส่รายการกลับ)`)) recs.forEach((r) => { (r.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); actStore.remove(r.id) })
+    onChange(setSlotNote(doc, slot, t))
+  }
+  const finish = () => { if (noteRef.current !== null && noteRef.current !== (doc.slotNotes?.[slot] ?? '')) commitNote(noteRef.current); onClose() }
   return (
     <Sheet title={`${dayName(date)} ${dmy(date)} · ภาค${slot}`} onClose={finish}>
       {kind === null && (
@@ -191,7 +199,7 @@ function CellEditor({ date, slot, doc, onChange, onClose, recordOnly, planOnly }
       {kind === 'act' && (
         <>
       {planOnly
-        ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; onChange(setSlotNote(doc, slot, t)) }} />
+        ? <ActivityPlanEditor key={`${date}-${slot}`} value={doc.slotNotes?.[slot]} onDraft={(t) => { noteRef.current = t }} onCommit={(t) => { noteRef.current = null; commitNote(t) }} />
         : <div className="field"><b className="small">📋 กิจกรรมช่วงนี้ — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={date} slot={slot} text={doc.slotNotes?.[slot]} onAdd={(t) => onChange(setSlotNote(doc, slot, [doc.slotNotes?.[slot], t].filter(Boolean).join('\n')))} /></div>}
         </>
       )}
@@ -371,7 +379,7 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
         <Sheet title={`${dayName(edit.d)} ${dmy(edit.d)} · กิจกรรมช่วงเช้า`} onClose={() => setEdit(null)}>
           {mode === 'plan'
             ? <div className="field"><label htmlFor="vt-day">พิมพ์ว่าช่วงเช้าทำอะไร (บรรทัดละกิจกรรม เช่น กลุ่มอธิษฐาน · ศึกษาพระคัมภีร์ 09.00-10.00 น.)</label>
-              <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => save(edit.d, setDayText(doc, e.target.value))} /></div>
+              <textarea id="vt-day" className="input" rows={4} defaultValue={doc.dayText ?? ''} onBlur={(e) => { const keep = activityLines(e.target.value), gone = activityLines(doc.dayText).filter((l) => !keep.includes(l)); const recs = acts.list.filter((a) => a.date === edit.d && a.slot === 'day' && gone.includes(a.text)); if (recs.length && window.confirm(`กิจกรรมที่เอาออก มีการบันทึกทำแล้ว ${recs.length} รายการ\nลบการบันทึก (รูป เส้นทาง ค่าน้ำมัน) ด้วยหรือไม่?\n\nตกลง = ลบ · ยกเลิก = เก็บไว้ (ไม่นับในรายงาน)`)) recs.forEach((r) => { (r.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); acts.remove(r.id) }); save(edit.d, setDayText(doc, e.target.value)) }} /></div>
             : <div className="field"><b className="small">📋 กิจกรรมช่วงเช้า — ติ๊กเมื่อทำแล้ว</b><ActivityChecklist ns={ns} vehicles date={edit.d} slot="day" text={doc.dayText} onAdd={(t) => save(edit.d, setDayText(doc, [doc.dayText, t].filter(Boolean).join('\n')))} /></div>}
           <button type="button" className="btn btn--gold" onClick={() => setEdit(null)}>เสร็จ</button>
         </Sheet>
