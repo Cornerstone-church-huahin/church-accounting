@@ -8,7 +8,8 @@ export interface PickOption { value: string; label: string; /** แสดงร�
  * ตัวเลือกหลายรายการแบบป๊อปอัพ: ปุ่มเดียวบรรทัดเดียว (ไม่กินพื้นที่) → แตะแล้วมีรายการให้ติ๊กได้หลายอัน → “เสร็จ”
  * onAdd = เพิ่มรายการใหม่ในป๊อปอัพ (เก็บถาวรโดยเจ้าของข้อมูล) · onRemove = โหมด “ลบ” แสดงปุ่ม ✕ ที่แต่ละรายการ
  */
-export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, onRename, addHint, allLabel, search }: {
+export default function MultiPick({ title, options, value, onChange, empty, id, onAdd, onRemove, onRename, addHint, allLabel, search, pending, onAddPending }: {
+  /** ที่เลือกไว้แต่ยังไม่อยู่ในรายชื่อถาวร (เช่น เลือกจากทะเบียน) — ปุ่ม “＋ เพิ่ม” กดเพิ่มเก็บเข้ารายชื่อได้เมื่อไม่ได้พิมพ์ชื่อใหม่ */ pending?: string[]; onAddPending?: (names: string[]) => void
   /** ช่องค้นหาในป๊อปอัพ: พิมพ์แล้วแสดงรายชื่อจาก pool (เช่น ทะเบียนสมาชิก) ให้ติ๊กได้เลย · ไม่พิมพ์ = แสดงเฉพาะ options และที่เลือกไว้ */ search?: { find: (q: string) => PickOption[]; placeholder?: string }
   /** แก้ไขชื่อรายการ (เก่า → ใหม่) */ onRename?: (oldName: string, newName: string) => void
   /** แถวแรกในป๊อปอัพ “ทุก…” (ติ๊กอยู่เมื่อยังไม่ได้เลือกรายการใด · แตะ = ล้างที่เลือกทั้งหมด) */ allLabel?: string; title: string; options: PickOption[]; value: string[]; onChange: (v: string[]) => void; empty: string; id?: string
@@ -27,7 +28,7 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
     return () => window.removeEventListener('keydown', on, true)
   }, [open])
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v])
-  const add = () => { const n = name.trim(); if (!n || !onAdd) return; onAdd(n); setName('') }
+  const add = () => { const n = name.trim(); if (!n) { if (pending?.length && onAddPending) onAddPending(pending); return } if (!onAdd) return; onAdd(n); setName('') }
   // รายการที่เลือกไว้แต่ไม่อยู่ในตัวเลือกแล้ว (เช่น บันทึกเก่า) ยังติ๊กให้เห็น
   const [q, setQ] = useState('')
   const term = q.trim().toLowerCase()
@@ -60,7 +61,7 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
             {onAdd && (
               <div className="pvadd2">
                 <input aria-label="เพิ่มชื่อใหม่" className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} placeholder={addHint ?? 'พิมพ์ชื่อใหม่'} />
-                <button type="button" className="btn btn--gold" disabled={!name.trim()} onClick={add}>＋ เพิ่ม</button>
+                <button type="button" className="btn btn--gold" disabled={!name.trim() && !(pending?.length && onAddPending)} onClick={add}>{!name.trim() && pending?.length && onAddPending ? `＋ เพิ่มที่เลือก (${pending.length})` : '＋ เพิ่ม'}</button>
               </div>
             )}
             <div className="row row--between">
