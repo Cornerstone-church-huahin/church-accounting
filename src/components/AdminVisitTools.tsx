@@ -1,3 +1,4 @@
+import { loadWeekAnchor, saveWeekAnchor } from '../lib/weekAnchor'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { LIGHT } from '../lib/lightBox'
 import { Link } from 'react-router-dom'
@@ -140,8 +141,8 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   const rateOf = (w: string) => (byVehicle ? vehicleRate(st.settings.vehicleFuel, w, rate) : rate)
   const [rateSheet, setRateSheet] = useState(false)
   // สัปดาห์: ใช้ตัวเลือกเดียวกับตารางเยี่ยม (จำสัปดาห์ร่วมกัน) · เลือกวันในสัปดาห์ด้วยปุ่มวัน
-  const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : todayISO() } catch { return todayISO() } })
-  const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
+  const [anchor, setAnchorRaw] = useState(() => loadWeekAnchor(todayISO()))
+  const setAnchor = (d: string) => { setAnchorRaw(d); saveWeekAnchor(d, todayISO()) }
   const sunday = sundayOf(addDays(anchor, -1)) // วันอาทิตย์ตรงกับสัปดาห์ที่จบด้วยวันนั้น
   const days = [addDays(sunday, 1), ...weekDays(sunday).filter((d) => dayKind(d) === 'visit'), addDays(sunday, 7)] // จันทร์–อาทิตย์
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))

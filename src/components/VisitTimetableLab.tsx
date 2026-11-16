@@ -1,3 +1,4 @@
+import { loadWeekAnchor, saveWeekAnchor } from '../lib/weekAnchor'
 import { useVisitNs } from '../lib/labNs'
 import { useMemo, useRef, useState } from 'react'
 import { LIGHT } from '../lib/lightBox'
@@ -270,8 +271,8 @@ export default function VisitTimetableLab({ mode = 'plan' }: { mode?: 'plan' | '
   const visits = useVisits(true, ns)
   const today = todayISO()
   // สัปดาห์ที่เปิดดู: ใช้ร่วมกันทั้ง วางแผน/บันทึก/รายงาน (เลื่อนไปสัปดาห์ก่อน/ถัดไปได้อิสระ)
-  const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : today } catch { return today } })
-  const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
+  const [anchor, setAnchorRaw] = useState(() => loadWeekAnchor(today))
+  const setAnchor = (d: string) => { setAnchorRaw(d); saveWeekAnchor(d, today) }
   const sunday = sundayOf(addDays(anchor, -1)) // ถ้าเปิดตรงวันอาทิตย์ ให้อยู่ในสัปดาห์ที่จบด้วยวันอาทิตย์นั้น
   const days = [addDays(sunday, 1), ...weekDays(sunday).filter((d) => dayKind(d) === 'visit'), addDays(sunday, 7)] // จันทร์–อาทิตย์ (วันจันทร์และวันอาทิตย์ก็มีการเยี่ยม/ใช้รถได้)
   const ref = useRef<HTMLDivElement>(null)
