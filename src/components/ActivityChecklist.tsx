@@ -73,13 +73,13 @@ export default function ActivityChecklist({ date, slot, text, ns = '', onAdd, ve
       {busy && <p className="muted small" role="status" style={{ margin: '4px 0 0' }}>กำลังแนบรูป…</p>}
       {err && <p className="error small" role="alert" style={{ margin: '4px 0 0' }}>{err}</p>}
       {form && <ActivityForm line={form} vehicles={vehicles} onClose={() => setForm(null)} onSave={(r) => saveForm(form, r)} />}
-      {fix && <FixSheet rec={fix} vehicles={vehicles} onClose={() => setFix(null)} onSave={(next) => { if (acts.put([next])) setFix(null) }} />}
+      {fix && <FixSheet rec={fix} vehicles={vehicles} onClose={() => setFix(null)} onSave={(next) => { if (acts.put([next])) setFix(null) }} onDelete={() => { if (!window.confirm(`ลบการบันทึกกิจกรรม “${fix.text}” ?\n⚠️ มีผลกับรายงาน: จะหายจากรายงานเส้นทาง สถิติ และค่าน้ำมัน พร้อมลบรูปของรายการนี้\n(กิจกรรมยังอยู่ในแผน ติ๊กบันทึกใหม่ได้)`)) return; (fix.photos ?? []).forEach((p) => void removeMemberPhotoFile(p)); acts.remove(fix.id); setFix(null) }} />}
     </>
   )
 }
 
 /** แอดมินแก้กิจกรรมที่ทำแล้ว: รูป · พิกัดเช็คอิน (มีผลกับเส้นทาง/ระยะ/ค่าน้ำมันในรายงานเส้นทาง) · รถที่ใช้ (แท็บทดลอง) */
-function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicles: boolean; onClose: () => void; onSave: (a: ActivityLog) => void }) {
+function FixSheet({ rec, vehicles, onClose, onSave, onDelete }: { rec: ActivityLog; vehicles: boolean; onClose: () => void; onSave: (a: ActivityLog) => void; onDelete: () => void }) {
   const [photos, setPhotos] = useState<string[]>(rec.photos ?? [])
   const [coord, setCoord] = useState(rec.checkin ? formatCoord(rec.checkin) : '')
   const [vehicle, setVehicle] = useState(actVehicle(rec))
@@ -142,6 +142,7 @@ function FixSheet({ rec, vehicles, onClose, onSave }: { rec: ActivityLog; vehicl
       {busy && <p className="muted small" role="status" style={{ margin: 0 }}>กำลังทำงาน…</p>}
       {err && <p className="error small" role="alert" style={{ margin: 0 }}>{err}</p>}
       <button type="button" className="btn btn--gold btn--block" disabled={busy} onClick={save}>✓ บันทึกการแก้ไข</button>
+      <button type="button" className="btn btn--danger btn--block" disabled={busy} aria-label={`ลบการบันทึกกิจกรรม ${rec.text}`} onClick={onDelete}>🗑 ลบการบันทึกกิจกรรมนี้ (กรณีบันทึกผิดพลาด)</button>
       {cam && <VisitCamera who={rec.text} onShot={(s) => void addShot(s)} onClose={() => setCam(false)} />}
     </Sheet>
   )
