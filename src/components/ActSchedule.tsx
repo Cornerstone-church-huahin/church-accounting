@@ -5,7 +5,7 @@ import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
 import VisitorPick from './VisitorPick'
 import { useActTables, useSettings } from '../lib/data'
-import { dateRowsFor, fitRows, moveAt, newRow, newTable } from '../lib/actTables'
+import { DAILY_COLS, addNextDay, dateRowsFor, fitRows, moveAt, newRow, newTable } from '../lib/actTables'
 import { newId } from '../lib/money'
 import type { ActTable, FundActivity } from '../lib/types'
 
@@ -103,6 +103,8 @@ function EditSheet({ t, act, onClose, onSave }: { t: ActTable; act: FundActivity
   const [cols, setCols] = useState(t.cols)
   const [rows, setRows] = useState(t.rows)
   const [err, setErr] = useState('')
+  const [from, setFrom] = useState(act.date)
+  const [to, setTo] = useState(act.endDate && act.endDate >= act.date ? act.endDate : act.date)
   const save = () => { if (!title.trim()) return setErr('ใส่ชื่อตาราง'); if (!cols.length) return setErr('ต้องมีอย่างน้อย 1 คอลัมน์'); onSave({ ...t, title: title.trim(), cols: cols.map((c) => c.trim() || '—'), rows: fitRows(rows, cols.length) }) }
   const setCol = (i: number, v: string) => setCols(cols.map((c, j) => (j === i ? v : c)))
   const moveCol = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= cols.length) return; setCols(moveAt(cols, i, d)); setRows(rows.map((r) => ({ ...r, cells: moveAt(fitRows([r], cols.length)[0].cells, i, d) }))) }
@@ -110,7 +112,7 @@ function EditSheet({ t, act, onClose, onSave }: { t: ActTable; act: FundActivity
   return (
     <Sheet title="✎ แก้ตาราง" onClose={onClose}>
       <div className="field"><label htmlFor="et-t">ชื่อตาราง</label><input id="et-t" className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-      <div className="field"><label>คอลัมน์ (หัวตาราง)</label>
+      <div className="field"><label>คอลัมน์ (หัวตาราง){t.kind === 'daily' ? ' — คอลัมน์คือ “ช่วงเวลา” (เช้า/บ่าย/ค่ำ) ไม่ใช่วันที่ · วันที่อยู่ที่ “แถว” ด้านล่าง' : ''}</label>
         {cols.map((c, i) => (
           <div key={i} className="row" style={{ gap: 6, marginBottom: 4 }}>
             <input className="input grow" aria-label={`คอลัมน์ ${i + 1}`} value={c} onChange={(e) => setCol(i, e.target.value)} />
@@ -118,12 +120,23 @@ function EditSheet({ t, act, onClose, onSave }: { t: ActTable; act: FundActivity
             <button type="button" className="mini" aria-label="เลื่อนขวา" onClick={() => moveCol(i, 1)}>▼</button>
             <button type="button" className="mini" aria-label="ลบคอลัมน์" onClick={() => delCol(i)}>✕</button>
           </div>))}
+        {t.kind === 'daily' && <button type="button" className="btn" style={{ marginRight: 6 }} onClick={() => { if (confirm('คืนคอลัมน์เป็น วัน/วันที่ · ช่วงเช้า · ช่วงบ่าย · ช่วงค่ำ ? (ข้อความช่องที่เกินจะถูกตัด)')) { setCols(DAILY_COLS); setRows(fitRows(rows, DAILY_COLS.length)) } }}>↺ คืนคอลัมน์ เช้า/บ่าย/ค่ำ</button>}
         <button type="button" className="btn" onClick={() => { setCols([...cols, `หัวข้อ ${cols.length + 1}`]); setRows(rows.map((r) => ({ ...r, cells: [...fitRows([r], cols.length)[0].cells, ''] }))) }}>＋ เพิ่มคอลัมน์</button></div>
       <div className="field"><label>แถว ({rows.length})</label>
-        {t.kind === 'daily' && <button type="button" className="btn" style={{ marginBottom: 6 }} onClick={() => { if (confirm('สร้างแถววันที่ใหม่จากวันเริ่ม–วันจบของกิจกรรม? (ข้อความในช่องที่ตรงลำดับยังอยู่)')) setRows(dateRowsFor(act, rows, cols.length)) }}>📅 สร้างแถววันที่จากกิจกรรม</button>}
+        {t.kind === 'daily' && (
+          <div style={{ border: '1.5px solid #d6dbe8', borderRadius: 10, padding: 8, marginBottom: 8 }}>
+            <b className="small">📅 วันที่ในตาราง</b>
+            <div className="row" style={{ gap: 6, marginTop: 4, alignItems: 'end' }}>
+              <div className="field grow"><label htmlFor="et-f" className="small">ตั้งแต่วันที่</label><input id="et-f" type="date" className="input" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} /></div>
+              <div className="field grow"><label htmlFor="et-to" className="small">ถึงวันที่</label><input id="et-to" type="date" className="input" value={to} onChange={(e) => e.target.value && setTo(e.target.value)} /></div>
+            </div>
+            <button type="button" className="btn btn--block" style={{ marginTop: 6 }} onClick={() => { if (to < from) return setErr('วันสุดท้ายต้องไม่ก่อนวันเริ่ม'); setErr(''); setRows(dateRowsFor(act, rows, cols.length, from, to)) }}>📅 สร้างแถววันที่ตามช่วงนี้ (เช่น 21–25)</button>
+            <button type="button" className="btn btn--block" style={{ marginTop: 6 }} onClick={() => setRows(addNextDay(act, rows, cols.length))}>＋ เพิ่มวันถัดไป</button>
+          </div>)}
         {rows.map((r, i) => (
           <div key={r.id} className="row" style={{ gap: 6, marginBottom: 4, alignItems: 'center' }}>
-            <span className="grow small" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {r.cells[0] || '(ว่าง)'}</span>
+            <span className="small" style={{ width: 22 }}>{i + 1}.</span>
+            <input className="input grow" aria-label={`ชื่อแถว ${i + 1}`} placeholder="ป้ายแถว เช่น พ. 23" value={r.cells[0] ?? ''} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, cells: x.cells.map((c, k) => (k === 0 ? e.target.value : c)) } : x)))} />
             <button type="button" className="mini" aria-label="เลื่อนขึ้น" onClick={() => setRows(moveAt(rows, i, -1))}>▲</button>
             <button type="button" className="mini" aria-label="เลื่อนลง" onClick={() => setRows(moveAt(rows, i, 1))}>▼</button>
             <button type="button" className="mini" aria-label="ลบแถว" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>

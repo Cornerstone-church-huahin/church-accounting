@@ -24,7 +24,7 @@ export const moveAt = <T,>(xs: T[], i: number, d: number): T[] => { const j = i 
 export function newTable(kind: ActTable['kind'], act: FundActivity, order: number, id: string): ActTable {
   if (kind === 'daily') {
     const cols = ['วัน / วันที่', 'ช่วงเช้า', 'ช่วงบ่าย', 'ช่วงค่ำ']
-    const rows = datesBetween(act.date, act.endDate, 14).map((d) => ({ id: rid(), cells: [dayLabel(d), '', '', ''] }))
+    const rows = datesBetween(act.date, act.endDate, 14).map((d) => ({ id: rid(), date: d, cells: [dayLabel(d), '', '', ''] }))
     return { id, updated: 0, actId: act.id, title: `กำหนดการรายวัน · ${act.name}`, kind, order, cols, rows: rows.length ? rows : [emptyRow(4)] }
   }
   if (kind === 'stage') {
@@ -37,7 +37,15 @@ export function newTable(kind: ActTable['kind'], act: FundActivity, order: numbe
 export const newRow = (cols: number): ActTableRow => emptyRow(cols)
 
 /** แทนค่าคอลัมน์แรกของตาราง daily ด้วยวันที่ของกิจกรรม (ที่เหลือคงเดิมตามลำดับ) */
-export function dateRowsFor(act: FundActivity, rows: ActTableRow[], cols: number): ActTableRow[] {
-  const ds = datesBetween(act.date, act.endDate, 31)
-  return ds.map((d, i) => { const old = rows[i]; const cells = old ? [...old.cells] : Array.from({ length: cols }, () => ''); cells[0] = dayLabel(d); return { id: old?.id ?? rid(), cells } })
+export function dateRowsFor(act: FundActivity, rows: ActTableRow[], cols: number, from?: string, to?: string): ActTableRow[] {
+  const ds = datesBetween(from || act.date, from ? to : act.endDate, 31)
+  return ds.map((d, i) => { const old = rows[i]; const cells = old ? [...old.cells] : Array.from({ length: cols }, () => ''); cells[0] = dayLabel(d); return { id: old?.id ?? rid(), date: d, cells } })
 }
+/** เพิ่มแถววันถัดไปต่อจากแถวสุดท้ายที่มีวันที่ (ไม่มี = วันเริ่มของกิจกรรม) */
+export function addNextDay(act: FundActivity, rows: ActTableRow[], cols: number): ActTableRow[] {
+  const last = [...rows].reverse().find((r) => r.date)?.date
+  const d = last ? addDays(last, 1) : act.date
+  const cells = Array.from({ length: cols }, () => ''); cells[0] = dayLabel(d)
+  return [...rows, { id: rid(), date: d, cells }]
+}
+export const DAILY_COLS = ['วัน / วันที่', 'ช่วงเช้า', 'ช่วงบ่าย', 'ช่วงค่ำ']
