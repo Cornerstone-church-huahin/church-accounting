@@ -574,5 +574,5 @@ export interface SchoolCfg extends SharedItem { /** ผู้ดูแลงา�
 export interface SchoolTeacher extends SharedItem { name: string }
 
 /** ตารางกำหนดการของกิจกรรม (เช่น วันคริสต์มาส วันขอบคุณพระเจ้า): กิจกรรมหนึ่งมีได้หลายตาราง */
-export interface ActTableRow { id: string; cells: string[] }
+export interface ActTableRow { id: string; cells: string[]; /** วันที่ของแถว (ตารางรายวัน) ใช้ต่อวันถัดไป */ date?: string }
 export interface ActTable extends SharedItem { actId: string; title: string; kind: 'daily' | 'stage' | 'free'; order: number; cols: string[]; rows: ActTableRow[] }
