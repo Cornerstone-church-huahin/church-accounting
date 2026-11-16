@@ -17,6 +17,7 @@ import { activeSubs, addSub, removeSub, subAccount, subSummary } from '../lib/fu
 import { actAccount, actSubIds, activityMoney, addActivity, autoActivities, lockedSubIds, sortedActs } from '../lib/fundActs'
 import { ActEvaluation, ActHeader, ActivityCards, ActProgress, AddActivity } from '../components/FundActivities'
 import ActReportPages, { type ActReportKind } from '../components/ActReport'
+import ActSchedule from '../components/ActSchedule'
 import InviteActButton from '../components/InviteActButton'
 import Pay from './Pay'
 import Receive from './Receive'
@@ -52,7 +53,7 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
   const [actId, setActId] = useState<string | null>(null) // โหมดกิจกรรม: กิจกรรมที่เปิดอยู่ (null = หน้าการ์ดกิจกรรม)
   const [report, setReport] = useState<ActReportKind | null>(null)
   const repRef = useRef<HTMLDivElement[]>([])
-  const [actTab, setActTab] = useState<'acct' | 'prog' | 'eval'>('acct')
+  const [actTab, setActTab] = useState<'acct' | 'prog' | 'eval' | 'sched'>('acct')
   const f = rows.find((r) => r.id === id)
   // "กองทุนกิจกรรม": เปิดโหมดกิจกรรมให้เองครั้งแรกที่แอดมินเข้า (หมวดที่ชื่อเป็นกิจกรรมกลายเป็นการ์ดกิจกรรม) — ไม่มีหน้าถามเพิ่ม
   useEffect(() => {
@@ -196,12 +197,14 @@ export default function FundDetailPage({ forceId }: { forceId?: string } = {}) {
         setActId(null)
       } : undefined} />}
       {act && (
-        <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="หมวดงานของกิจกรรม" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <div className="home-tabs home-tabs--mini no-print" role="tablist" aria-label="หมวดงานของกิจกรรม" style={{ margin: '6px 0', gridTemplateColumns: 'repeat(4, 1fr)' }}>
           <button type="button" role="tab" aria-selected={actTab === 'acct'} className={`home-tab home-tab--in${actTab === 'acct' ? ' on' : ''}`} onClick={() => setActTab('acct')}><i className="hn">1</i><span>📒 ระบบบัญชี</span></button>
           <button type="button" role="tab" aria-selected={actTab === 'prog'} className={`home-tab home-tab--sum${actTab === 'prog' ? ' on' : ''}`} onClick={() => setActTab('prog')}><i className="hn">2</i><span>🎯 ความคืบหน้า</span></button>
           <button type="button" role="tab" aria-selected={actTab === 'eval'} className={`home-tab home-tab--out${actTab === 'eval' ? ' on' : ''}`} onClick={() => setActTab('eval')}><i className="hn">3</i><span>⭐ ประเมินผล</span></button>
+          <button type="button" role="tab" aria-selected={actTab === 'sched'} className={`home-tab home-tab--sum${actTab === 'sched' ? ' on' : ''}`} onClick={() => setActTab('sched')}><i className="hn">4</i><span>📅 ตาราง</span></button>
         </div>
       )}
+      {act && actTab === 'sched' && <ActSchedule act={act} canEdit={canManage || keeper} />}
       {act && actTab === 'prog' && <ActProgress act={act} canManage={canManage} locked={!!act.closed}
         onSave={(patch) => { if (!patch.name) return 'พิมพ์ชื่อกิจกรรม'; if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.date ?? '')) return 'เลือกวันที่เริ่มกิจกรรม'; if (patch.endDate && patch.endDate < (patch.date ?? '')) return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มกิจกรรม'; patchAct(act.id, patch); return null }}
         onReport={() => setReport('prog')} onGoals={(goals) => patchAct(act.id, { goals })} />}
