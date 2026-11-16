@@ -572,3 +572,7 @@ export interface SchoolTpl { id: string; time: string; title: string; role: 'lea
 export interface SchoolCfg extends SharedItem { /** ผู้ดูแลงานรวี (ฝ่ายธรรมกิจ) อย่างน้อย 1 คน — ควบคุมดูแลและตรวจสอบทั้งหมด */ overseers?: string[]; /** อาจารย์ฝ่ายอภิบาล (ประจำ) */ lead: string[]; /** ครูพี่เลี้ยงประจำ (เต้น/อยู่ร่วมกัน/กิจกรรม) */ helpers: string[]; /** ครูหมุนเวียน เรียงตามลำดับการหมุน */ pool: string[]; /** ลงสอนกี่คนต่อสัปดาห์ */ perWeek: number; /** วันอาทิตย์ที่เริ่มหมุนกลุ่มแรก */ anchor: string; tpl: SchoolTpl[] }
 /** รายชื่อครูงานรวีที่เพิ่มไว้เลือกซ้ำ */
 export interface SchoolTeacher extends SharedItem { name: string }
+
+/** ตารางกำหนดการของกิจกรรม (เช่น วันคริสต์มาส วันขอบคุณพระเจ้า): กิจกรรมหนึ่งมีได้หลายตาราง */
+export interface ActTableRow { id: string; cells: string[] }
+export interface ActTable extends SharedItem { actId: string; title: string; kind: 'daily' | 'stage' | 'free'; order: number; cols: string[]; rows: ActTableRow[] }
