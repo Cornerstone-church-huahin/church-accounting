@@ -1,3 +1,4 @@
+import { loadWeekAnchor, saveWeekAnchor } from '../lib/weekAnchor'
 import { useMemo, useRef, useState } from 'react'
 import { LIGHT } from '../lib/lightBox'
 import AbsentList from './AbsentList'
@@ -228,10 +229,10 @@ export default function VisitTimetable({ mode = 'plan' }: { mode?: 'plan' | 'rec
   const church = settings.churchName.split(' ')[0]
   const plans = useVisitPlans()
   const visits = useVisits(true)
-  const today = todayISO()
+  // (สัปดาห์ที่จำไว้ ใช้ loadWeekAnchor)
   // สัปดาห์ที่เปิดดู: ใช้ร่วมกันทั้ง วางแผน/บันทึก/รายงาน (เลื่อนไปสัปดาห์ก่อน/ถัดไปได้อิสระ)
-  const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : today } catch { return today } })
-  const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
+  const [anchor, setAnchorRaw] = useState(() => loadWeekAnchor(todayISO()))
+  const setAnchor = (d: string) => { setAnchorRaw(d); saveWeekAnchor(d, todayISO()) }
   const sunday = sundayOf(anchor)
   const days = weekDays(sunday).filter((d) => dayKind(d) === 'visit')
   const ref = useRef<HTMLDivElement>(null)
