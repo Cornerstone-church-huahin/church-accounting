@@ -7,6 +7,7 @@ import MemberAvatar from './MemberAvatar'
 import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { canRole, canWork, isWorkStaffOnly } from '../lib/access'
+import { applyBackup, buildBackup, parseBackup } from '../lib/coordBackup'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
 import type { TripLog } from '../lib/types'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
@@ -292,6 +293,9 @@ function NavButtons({ m, onGo }: { m: HomeRow; onGo: (kind: 'home' | 'work' | 'p
 export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
   const ok = true // เปิดให้ทีมอภิบาล (สิทธิ์ตรวจที่หน้าเรียกใช้)
   const people = useChurchMembers()
+  const isAdminHere = useRole() === 'admin'
+  const [bkMsg, setBkMsg] = useState('')
+  const [bkText, setBkText] = useState('')
   const st = useSettings()
   const churchPt = typeof st.settings.churchLat === 'number' && typeof st.settings.churchLng === 'number' ? { lat: st.settings.churchLat, lng: st.settings.churchLng } : null // พิกัดคริสตจักรที่ตั้งไว้แล้ว = จุดศูนย์กลางของแผนที่
   const [q, setQ] = useState('')
@@ -400,6 +404,34 @@ export function MemberHomesMap({ embedded = false }: { embedded?: boolean }) {
         )}
       </div>
       <p className="muted small" style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 มีพิกัดบ้านแล้ว <b>{homeCount}</b> จาก {people.items.length} คน · เข้าเองเมื่อเช็คอิน</p>
+      {isAdminHere && (
+        <details className="no-print" style={{ margin: '6px 0' }}>
+          <summary><b>💾 สำรอง / กู้พิกัดสมาชิก (แอดมิน)</b></summary>
+          <p className="muted small" style={{ margin: '4px 0' }}>สำรองเก็บเฉพาะพิกัด (บ้าน · ที่ทำงาน · สถานที่นัดพบ) ไม่รวมข้อมูลส่วนตัวอื่น · กู้เติมเฉพาะคนที่ยังไม่มีพิกัด ไม่ทับของเดิม</p>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" className="btn" onClick={() => {
+              const b = buildBackup(people.items)
+              if (!b.rows.length) return setBkMsg('ยังไม่มีสมาชิกที่มีพิกัดให้สำรอง')
+              const txt = JSON.stringify(b)
+              try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' })); a.download = `พิกัดสมาชิก-${todayISO()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000) } catch { /* ใช้ปุ่มคัดลอกแทน */ }
+              setBkMsg(`สำรองแล้ว ${b.rows.length} คน (ดาวน์โหลดไฟล์ — ถ้าไม่ได้ไฟล์ ใช้ปุ่มคัดลอกข้อความ)`)
+            }}>💾 ดาวน์โหลดไฟล์สำรอง</button>
+            <button type="button" className="btn" onClick={async () => { const b = buildBackup(people.items); try { await navigator.clipboard.writeText(JSON.stringify(b)); setBkMsg(`คัดลอกข้อความสำรอง ${b.rows.length} คนแล้ว — วางเก็บไว้ในไลน์/โน้ต`) } catch { setBkMsg('คัดลอกไม่ได้ — ใช้ปุ่มดาวน์โหลด') } }}>📋 คัดลอกข้อความสำรอง</button>
+          </div>
+          <div className="field" style={{ marginTop: 8 }}><label htmlFor="bk-f">📥 กู้พิกัด: เลือกไฟล์สำรอง</label>
+            <input id="bk-f" type="file" accept=".json,.txt,application/json,text/plain" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void f.text().then(setBkText) }} /></div>
+          <div className="field"><label htmlFor="bk-t">หรือวางข้อความสำรอง</label><textarea id="bk-t" className="input" rows={3} value={bkText} onChange={(e) => setBkText(e.target.value)} placeholder='{"kind":"member-coords", ...}' /></div>
+          <button type="button" className="btn btn--gold" disabled={!bkText.trim()} onClick={() => {
+            const b = parseBackup(bkText.trim())
+            if (!b) return setBkMsg('อ่านไฟล์สำรองไม่ได้ — ต้องเป็นไฟล์ที่สำรองจากแอปนี้')
+            const r = applyBackup(people.items, b)
+            if (!r.updates.length) return setBkMsg(`ไม่มีอะไรต้องกู้ (จับคู่ได้ ${r.matched} คน · พิกัดครบอยู่แล้ว${r.unmatched.length ? ` · จับคู่ไม่ได้ ${r.unmatched.length} คน` : ''})`)
+            if (!window.confirm(`กู้พิกัดให้สมาชิก ${r.updates.length} คน (เติม ${r.filled} จุด)\nไม่ทับพิกัดที่มีอยู่แล้ว${r.unmatched.length ? `\nจับคู่ไม่ได้ ${r.unmatched.length} คน: ${r.unmatched.slice(0, 5).join(', ')}` : ''}\nยืนยันหรือไม่?`)) return
+            setBkMsg(people.put(r.updates.map((m) => ({ ...m, updated: 0 }))) ? `กู้แล้ว ${r.updates.length} คน (เติม ${r.filled} จุด)${r.unmatched.length ? ` · จับคู่ไม่ได้ ${r.unmatched.length}` : ''}` : 'บันทึกไม่ได้ (สิทธิ์ไม่พอ)')
+            setBkText('')
+          }}>✓ กู้พิกัดจากข้อมูลสำรอง</button>
+          {bkMsg && <p className="small" role="status" style={{ margin: '6px 0 0' }}>{bkMsg}</p>}
+        </details>)}
       <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }} aria-label="รายชื่อสมาชิกทั้งหมด">
         {rows.map((m) => {
           const on = !!q.trim() && target?.id === m.id
