@@ -15,6 +15,7 @@ const writePlan4 = () => canPlan4() || !blockedEdit('detail')
 const writeWork4 = writePlan4
 const writeWork4Reg = () => canWork(4, 'edit') || myWorkLevel(4) === 'helper' || (isRegistryHelper() && registryCanSign()) || !blocked('worship') // งานอภิบาล: ทะเบียนสมาชิก (พิกัดบ้านจากการเช็คอินเยี่ยม)
 import { mergeItems } from './sync'
+import { isActPlanned } from './activityLines'
 import { normCfg } from './schoolTimetable'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
@@ -138,6 +139,12 @@ const writeWork8 = () => canWork(8, 'calendar') || !blockedEdit('detail')
 export function useSchoolDays() {
   const s = useSharedStore<SchoolDay>({ localKey: k('school-days'), file: 'school-days.json', label: 'ตารางงานรวี', writeCheck: writeWork8, pollMs: 15_000 })
   return { ...s, of: (date: string): SchoolDay => s.items.find((x) => x.id === `sch-${date}` && !x.deleted) ?? { id: `sch-${date}`, date, items: [], logs: [], updated: 0 } }
+}
+/** กิจกรรมที่บันทึกแล้วและยังอยู่ในแผน — ใช้ในรายงาน/เส้นทาง/ค่าน้ำมัน/สถิติ (รายการที่ถูกลบออกจากแผนไม่ถูกนับ) */
+export function useLiveActs(ns = '') {
+  const acts = useActivityLog(ns)
+  const plans = useVisitPlans(ns)
+  return { ...acts, list: acts.list.filter((a) => isActPlanned(a, plans.of(a.date))) }
 }
 /** ตั้งค่างานรวี (ทีมครู การหมุนเวียน แม่แบบวันอาทิตย์) */
 export function useSchoolCfg() {

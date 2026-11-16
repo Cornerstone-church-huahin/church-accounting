@@ -12,7 +12,7 @@ import { VEHICLES, inkOf } from '../lib/vehicles'
 import NoCarToggle from './NoCarToggle'
 import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
-import { useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
+import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
 import { visitStats } from '../lib/pastoral'
 import { addDays, fmtDate, newId, todayISO } from '../lib/money'
@@ -22,7 +22,7 @@ import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import { toAttendance } from '../lib/registry'
-import { DAY_NAMES, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, visitorRoster } from '../lib/visits'
+import { DAY_NAMES, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, renameDoersIn, visitorRoster } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
@@ -165,6 +165,7 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
   }
   // แก้ชื่อผู้ออกเยี่ยม: ชื่อที่เพิ่มเอง = เปลี่ยนชื่อตรงๆ · ชื่อจากทีมงาน = ซ่อนชื่อเดิมแล้วเพิ่มชื่อใหม่ · และแก้ในบันทึกเยี่ยมเก่าทุกรายการให้ตรงกัน
   const allVisits = useVisits(true)
+  const allActs = useActivityLog()
   const renameName = (oldN: string, raw: string) => {
     const n = raw.trim().replace(/,/g, ' ')
     if (!n || n === oldN) return
@@ -174,6 +175,8 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
     if (ups.length) names.put(ups)
     const old = allVisits.list.filter((v) => splitVisitors(v.visitor ?? '').includes(oldN))
     if (old.length) allVisits.put(old.map((v) => ({ ...v, visitor: joinVisitors(splitVisitors(v.visitor ?? '').map((x) => (x === oldN ? n : x))) })))
+    const oldActs = allActs.list.filter((a) => a.doers?.includes(oldN)) // ผู้ไปทำกิจกรรมก็เปลี่ยนตามด้วย
+    if (oldActs.length) allActs.put(oldActs.map((a) => ({ ...a, doers: renameDoersIn(a.doers ?? [], oldN, n), updated: 0 })))
     setPicked((xs) => xs.map((x) => (x === oldN ? n : x)))
   }
   const dropName = (n: string) => {
