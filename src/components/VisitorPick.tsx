@@ -32,6 +32,7 @@ export default function VisitorPick({ id, title, value, onChange, empty }: { id:
   return (
     <MultiPick id={id} title={title} options={[...new Set([...roster, ...value])].map(people.optOf)} value={value} onChange={onChange} empty={empty ?? '— เลือก —'}
       search={{ find: people.find, placeholder: '🔎 ค้นจากทะเบียน: ชื่อจริง / นามสกุล / ชื่อเล่น / ญาติ' }}
+      pending={value.filter((v) => !roster.includes(v))} onAddPending={(ns) => { for (const n of ns) { const hid = names.items.find((x) => x.hide && x.name === n); if (hid) names.remove(hid.id); if (!names.items.some((x) => !x.hide && x.name === n)) names.put([{ id: newId('vn'), name: n, updated: 0 }]) } }}
       onAdd={addName} onRemove={dropName} addHint="พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)" />
   )
 }
