@@ -143,7 +143,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
   const [anchor, setAnchorRaw] = useState(() => { try { const v = localStorage.getItem('acct.visittable.week'); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : todayISO() } catch { return todayISO() } })
   const setAnchor = (d: string) => { setAnchorRaw(d); try { localStorage.setItem('acct.visittable.week', d) } catch { /* ignore */ } }
   const sunday = sundayOf(addDays(anchor, -1)) // วันอาทิตย์ตรงกับสัปดาห์ที่จบด้วยวันนั้น
-  const days = [...weekDays(sunday).filter((d) => dayKind(d) === 'visit'), addDays(sunday, 7)] // รวมวันอาทิตย์ถัดมา
+  const days = [addDays(sunday, 1), ...weekDays(sunday).filter((d) => dayKind(d) === 'visit'), addDays(sunday, 7)] // จันทร์–อาทิตย์
   const shift = (n: number) => setAnchor(addDays(sunday, n * 7 + 3))
   const [pickDay, setPickDay] = useState<string | null>(null)
   const [cfg, setCfg] = useState(false)
