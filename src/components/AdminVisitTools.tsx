@@ -20,7 +20,7 @@ import { useActivityLog, useLiveActs, useTripLogs, useVisitPlans } from '../lib/
 import { getMe } from '../lib/access'
 import { MAX_VISIT_PHOTOS, uploadVisitPhoto } from '../lib/visitPhoto'
 import { removeMemberPhotoFile } from '../lib/memberPhoto'
-import { NO_CAR, actVehicle, VEHICLES, inkOf, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
+import { NO_CAR, actVehicle, fuelBaht, VEHICLES, inkOf, vehicleOf, vehicleOwner, vehicleRate } from '../lib/vehicles'
 import { DAY_NAMES, dayKind, splitVisitors, sundayOf, weekDays } from '../lib/visits'
 import type { ChurchMember } from '../lib/types'
 
@@ -66,7 +66,7 @@ const Back = ({ title }: { title: string }) => <div className="page-head page-he
 const km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} กม.` : `${m} ม.`)
 const hhmm = (at: number) => new Date(at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.'
 
-const baht = (n: number) => `${n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`
+const bahtI = (n: number) => `${n.toLocaleString('th-TH')} บาท`
 const mins = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)} ชม. ${Math.round((s % 3600) / 60)} น.` : `${Math.max(1, Math.round(s / 60))} น.`)
 const GAP_MS = 3 * 3600 * 1000 // จุดเช็คอินห่างกันเกิน 3 ชม. = คนละรอบ (กลับคริสตจักรแล้วออกใหม่)
 
@@ -214,8 +214,8 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
       </Sheet>}
       {trips.length === 0 ? <p className="empty">วันที่ {fmtDate(date)} ไม่มีการเช็คอิน</p> : (
         <>
-          <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{baht(calcs.reduce((x, c, ci) => x + c.total / 1000 * rateOf(trips[ci][0].who), 0))}</b> <small className="muted">({roadNote})</small></p>
-          {multi && <div className="small" style={{ margin: '4px 0' }} aria-label="สรุปแต่ละสาย">{whoList.map((w, i) => { const tot = calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + c.total : x), 0); return <div key={w} style={{ color: '#222' }}><b style={{ color: LINE_COL[i % LINE_COL.length] }}>━━ สายที่ {i + 1}</b> · {byVehicle ? (vehicleOf(w) ? <img src={vehicleOf(w)!.img} alt={whoName(w)} style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 6, verticalAlign: 'middle', marginRight: 4 }} /> : '🚗') : 'หัวหน้า'} <b>{whoName(w)}</b>{!byVehicle && teamOf(w).length ? <small className="muted"> (ทีม: {teamOf(w).join(', ')})</small> : null} · <b>{km(tot)}</b> · ⛽ {baht(tot / 1000 * rateOf(w))} <small className="muted">({rateOf(w)} บ./กม.)</small>{byVehicle && <> {adminEdit && <button type="button" className="mini" onClick={() => setRateSheet(true)} aria-label={`ตั้งค่าน้ำมัน ${whoName(w)}`}>⚙️ ตั้งอัตรา</button>}</>}</div> })}</div>}
+          <p><b>{trips.length} รอบ · {all.length} จุด</b> · ระยะรวม{church ? 'ไป-กลับ' : ' (ยังไม่นับคริสตจักร)'} <b>{km(grand)}</b> · ⛽ ค่าน้ำมันประมาณ <b>{bahtI(calcs.reduce((x, c, ci) => x + fuelBaht(c.total, rateOf(trips[ci][0].who)), 0))}</b> <small className="muted">({roadNote})</small></p>
+          {multi && <div className="small" style={{ margin: '4px 0' }} aria-label="สรุปแต่ละสาย">{whoList.map((w, i) => { const tot = calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + c.total : x), 0); return <div key={w} style={{ color: '#222' }}><b style={{ color: LINE_COL[i % LINE_COL.length] }}>━━ สายที่ {i + 1}</b> · {byVehicle ? (vehicleOf(w) ? <img src={vehicleOf(w)!.img} alt={whoName(w)} style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 6, verticalAlign: 'middle', marginRight: 4 }} /> : '🚗') : 'หัวหน้า'} <b>{whoName(w)}</b>{!byVehicle && teamOf(w).length ? <small className="muted"> (ทีม: {teamOf(w).join(', ')})</small> : null} · <b>{km(tot)}</b> · ⛽ {bahtI(calcs.reduce((x, c, ci) => (lineOf(trips[ci]) === i ? x + fuelBaht(c.total, rateOf(w)) : x), 0))} <small className="muted">({rateOf(w)} บ./กม.)</small>{byVehicle && <> {adminEdit && <button type="button" className="mini" onClick={() => setRateSheet(true)} aria-label={`ตั้งค่าน้ำมัน ${whoName(w)}`}>⚙️ ตั้งอัตรา</button>}</>}</div> })}</div>}
           <Suspense fallback={<p className="muted small">กำลังโหลดแผนที่…</p>}><LeafletMap pins={pins} line={line} height={340} label="เส้นทางการเยี่ยม" /></Suspense>
           <p className="small" style={{ margin: '4px 0' }}><span style={{ color: '#1e9e4a', fontWeight: 700 }}>● ⛪ คริสตจักร</span> · <span style={{ fontWeight: 700 }}>● จุดเยี่ยม (เลขตามลำดับ · สีเดียวกับเส้นของสาย)</span> · <span style={{ color: '#1a73e8', fontWeight: 700 }}>━ เส้นทาง</span></p>
           {trips.map((t, ti) => {
@@ -223,7 +223,7 @@ export function VisitRoute({ ns = '', byVehicle = false, embedded = false }: { /
             const off = church ? 0 : 1
             return (
               <section key={t[0].at} style={{ marginTop: 10, border: '1px solid #ddd', borderRadius: 12, padding: 10 }}>
-                {multi && <b style={{ color: inkOf(LINE_COL[lineOf(t) % LINE_COL.length]) }}>━ {byVehicle ? '🚗' : `สายที่ ${lineOf(t) + 1}`} <small style={{ color: '#555', fontWeight: 600 }}>({byVehicle ? whoName(t[0].who) : `หัวหน้า ${t[0].who || 'ไม่ระบุ'}`})</small> · </b>}<b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{baht(total / 1000 * rateOf(t[0].who))}</b>
+                {multi && <b style={{ color: inkOf(LINE_COL[lineOf(t) % LINE_COL.length]) }}>━ {byVehicle ? '🚗' : `สายที่ ${lineOf(t) + 1}`} <small style={{ color: '#555', fontWeight: 600 }}>({byVehicle ? whoName(t[0].who) : `หัวหน้า ${t[0].who || 'ไม่ระบุ'}`})</small> · </b>}<b>รอบที่ {ti + 1}</b> · {hhmm(t[0].at)} – {hhmm(t[t.length - 1].at)} · <b>{km(total)}</b>{church ? ' (ไป-กลับ)' : ''} · ⛽ <b>{bahtI(fuelBaht(total, rateOf(t[0].who)))}</b>
                 <ol style={{ margin: '6px 0 0', paddingLeft: '1.3rem' }}>
                   {church && <li>⛪ คริสตจักร (ออกเดินทาง)</li>}
                   {t.map((s, i) => (
@@ -563,25 +563,24 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
   const road = useRoadLegs(pairs)
   if (!ok) return <p className="empty">เฉพาะแอดมิน</p>
   const meters = (t: { pts: Coord[] }) => { const c = chain(t.pts); return c.slice(1).reduce((a, p, i) => a + (road(c[i], p)?.m ?? distanceM(c[i], p)), 0) }
-  type Row = { key: string; label: string; m: Record<string, number> }
+  const rate = (id: string) => vehicleRate(st.settings.vehicleFuel, id, base)
+  type Row = { key: string; label: string; m: Record<string, number>; /** ค่าน้ำมัน (บาทเต็ม ปัดต่อรอบ) */ b: Record<string, number> }
   const bucketKey = (date: string) => (mode === 'year' ? date.slice(0, 7) : mode === 'month' ? sundayOf(date) : date)
   const bucketLabel = (k: string) => (mode === 'year' ? `${monthName(Number(k.slice(5)))}` : mode === 'month' ? `สัปดาห์ ${k.slice(8)}/${k.slice(5, 7)}` : `${DAY_NAMES[new Date(k + 'T00:00:00Z').getUTCDay()]} ${Number(k.slice(8))}`)
   const rows = new Map<string, Row>()
-  for (const t of trips) { const k = bucketKey(t.date); const r = rows.get(k) ?? { key: k, label: bucketLabel(k), m: {} }; r.m[t.vehicle] = (r.m[t.vehicle] ?? 0) + meters(t); rows.set(k, r) }
+  for (const t of trips) { const k = bucketKey(t.date); const r = rows.get(k) ?? { key: k, label: bucketLabel(k), m: {}, b: {} }; const mt = meters(t); r.m[t.vehicle] = (r.m[t.vehicle] ?? 0) + mt; r.b[t.vehicle] = (r.b[t.vehicle] ?? 0) + fuelBaht(mt, rate(t.vehicle)); rows.set(k, r) }
   const tripsIn = tl.list.filter((x) => x.date >= range.from && x.date <= range.to)
-  for (const x of tripsIn) { const k = bucketKey(x.date); const r = rows.get(k) ?? { key: k, label: bucketLabel(k), m: {} }; r.m[x.vehicle] = (r.m[x.vehicle] ?? 0) + x.km * 1000; rows.set(k, r) }
+  for (const x of tripsIn) { const k = bucketKey(x.date); const r = rows.get(k) ?? { key: k, label: bucketLabel(k), m: {}, b: {} }; r.m[x.vehicle] = (r.m[x.vehicle] ?? 0) + x.km * 1000; r.b[x.vehicle] = (r.b[x.vehicle] ?? 0) + fuelBaht(x.km * 1000, rate(x.vehicle)); rows.set(k, r) }
   const tripM = (id: string) => tripsIn.filter((x) => x.vehicle === id).reduce((a, x) => a + x.km * 1000, 0)
   const list = [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
   const vids = [...VEHICLES.map((v) => v.id), ''].filter((id) => trips.some((t) => t.vehicle === id) || tripsIn.some((x) => x.vehicle === id))
-  const rate = (id: string) => vehicleRate(st.settings.vehicleFuel, id, base)
   const totM = (id: string) => list.reduce((a, r) => a + (r.m[id] ?? 0), 0)
   // ยอดที่ใช้จ่ายจริง = ชุดเดียวกับบัญชี (ปัดเป็นบาทเต็มต่อเจ้าของรถ/สัปดาห์/เดือน) · รถคริสตจักร/ไม่ระบุรถ ปัดเป็นบาทเต็ม
   const feeRows = fuelExpenses(fuelCharges({ trips: trips.map((t) => ({ date: t.date, vehicle: t.vehicle, meters: meters(t) })), tripLogs: tripsIn, settings: st.settings }))
   const ownerName = (id: string) => vehicleOwner(st.settings.vehicleOwner, id).name?.trim() || vehicleOf(id)?.name || id
   const personal = (id: string) => !!id && vehicleOwner(st.settings.vehicleOwner, id).kind !== 'church'
-  const pay = (id: string) => (personal(id) ? feeRows.filter((r) => r.biller === ownerName(id)).reduce((a, r) => a + r.amount, 0) / 100 : Math.round(totM(id) / 1000 * rate(id)))
+  const pay = (id: string) => (personal(id) ? feeRows.filter((r) => r.biller === ownerName(id)).reduce((a, r) => a + r.amount, 0) / 100 : list.reduce((a, r) => a + (r.b[id] ?? 0), 0))
   const grand = vids.reduce((a, id) => a + pay(id), 0)
-  const bahtInt = (n: number) => `${n.toLocaleString('th-TH')} บาท`
   const name = (id: string) => vehicleOf(id)?.name ?? 'ไม่ระบุรถ'
   return (
     <section aria-label="รายงานค่าน้ำมันรายคัน">
@@ -603,24 +602,24 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
               <div key={id || 'none'} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
                 {vehicleOf(id) ? <img src={vehicleOf(id)!.img} alt={name(id)} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${inkOf(vehicleOf(id)!.color)}` }} /> : <span aria-hidden="true">🚗</span>}
                 <span style={{ flex: 1, minWidth: 0 }}><b>{name(id)}</b> <small style={{ fontWeight: 700, color: vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '#1a73e8' : '#c2185b' }}>{vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '🏛 รถคริสตจักร' : `👤 รถส่วนตัว${vehicleOwner(st.settings.vehicleOwner, id).name ? ` · ${vehicleOwner(st.settings.vehicleOwner, id).name}` : ''}`}</small><br /><small className="muted">{km(Math.round(totM(id)))} × {rate(id)} บ./กม.{tripM(id) > 0 ? ` (เยี่ยม ${km(Math.round(totM(id) - tripM(id)))} + เดินทาง ${km(Math.round(tripM(id)))})` : ''}</small></span>
-                <b style={{ fontSize: '1.1rem' }}>{bahtInt(pay(id))}</b>
+                <b style={{ fontSize: '1.1rem' }}>{bahtI(pay(id))}</b>
               </div>))}
-            <div className="row row--between" style={{ paddingTop: 6 }}><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{bahtInt(vids.filter((id) => !personal(id)).reduce((a, id) => a + pay(id), 0))}</b></div>
-            <div className="row row--between"><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{bahtInt(vids.filter((id) => personal(id)).reduce((a, id) => a + pay(id), 0))}</b></div>
-            <div className="row row--between" style={{ paddingTop: 6 }}><b>รวมทั้งหมด</b><b style={{ fontSize: '1.2rem' }}>{bahtInt(grand)}</b></div>
+            <div className="row row--between" style={{ paddingTop: 6 }}><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{bahtI(vids.filter((id) => !personal(id)).reduce((a, id) => a + pay(id), 0))}</b></div>
+            <div className="row row--between"><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{bahtI(vids.filter((id) => personal(id)).reduce((a, id) => a + pay(id), 0))}</b></div>
+            <div className="row row--between" style={{ paddingTop: 6 }}><b>รวมทั้งหมด</b><b style={{ fontSize: '1.2rem' }}>{bahtI(grand)}</b></div>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 8 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', ...LIGHT, background: '#fff', fontSize: 14 }} aria-label="ตารางค่าน้ำมันแยกตามช่วง">
               <thead><tr><th style={{ textAlign: 'left', padding: 6, borderBottom: '2px solid #cfd6e4' }}>{mode === 'year' ? 'เดือน' : mode === 'month' ? 'สัปดาห์ (ตัดยอด)' : 'วัน'}</th>{vids.map((id) => <th key={id || 'n'} style={{ padding: 6, borderBottom: `3px solid ${vehicleOf(id)?.color ?? '#999'}` }}>{name(id).replace('รถ', '')}</th>)}</tr></thead>
               <tbody>
-                {list.map((r) => <tr key={r.key}><td style={{ padding: 6, borderBottom: '1px solid #eee' }}>{r.label}</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', borderBottom: '1px solid #eee' }}>{r.m[id] ? <>{km(Math.round(r.m[id]))}<br /><b>{baht(r.m[id] / 1000 * rate(id))}</b></> : '—'}</td>)}</tr>)}
-                <tr><td style={{ padding: 6, fontWeight: 800 }}>รวม</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', fontWeight: 800 }}>{bahtInt(pay(id))}</td>)}</tr>
+                {list.map((r) => <tr key={r.key}><td style={{ padding: 6, borderBottom: '1px solid #eee' }}>{r.label}</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', borderBottom: '1px solid #eee' }}>{r.m[id] ? <>{km(Math.round(r.m[id]))}<br /><b>{bahtI(r.b[id] ?? 0)}</b></> : '—'}</td>)}</tr>)}
+                <tr><td style={{ padding: 6, fontWeight: 800 }}>รวม</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', fontWeight: 800 }}>{bahtI(pay(id))}</td>)}</tr>
               </tbody>
             </table>
           </div>
-          {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 การเดินทางในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}{x.stops?.length ? ` · 🛣️ แวะ ${x.stops.map((q) => q.name).join(', ')}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}</small></span>{adminEdit && <button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}</div>)}</div>}
+          {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 การเดินทางในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}{x.stops?.length ? ` · 🛣️ แวะ ${x.stops.map((q) => q.name).join(', ')}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}ไป-กลับ · {bahtI(fuelBaht(x.km * 1000, rate(x.vehicle)))}</small></span>{adminEdit && <button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}</div>)}</div>}
           <p className="muted small">คำนวณจากระยะ คริสตจักร → จุดเช็คอิน → กลับ ตามถนนจริง (เส้นตรงถ้าคำนวณไม่ได้) เป็นค่าประมาณ ไม่ใช่ค่าน้ำมันที่จ่ายจริง</p>
-          <p className="muted small">⛽ ยอดสรุปและยอดรวมในตารางปัดเป็นบาทเต็มตามที่บัญชีใช้จ่ายจริง (ตัวเลขรายวันในตารางเป็นรายละเอียดการคำนวณ จึงอาจต่างจากยอดรวมไม่เกิน 1 บาท/คน) · ค่าน้ำมันของรถส่วนตัวนี้เข้า “รายจ่าย” และ “ต้องเบิก” ของการเงินให้อัตโนมัติ (ปัดเป็นบาทเต็ม แยกตามเจ้าของรถ สัปดาห์ละหนึ่งแถว) · รถคริสตจักรไม่นับ · เหรัญญิกกด “จ่ายแล้ว” ในหน้าจ่ายเมื่อจ่ายคืนเจ้าของรถ</p>
+          <p className="muted small">⛽ ค่าน้ำมันปัดเป็นบาทเต็มต่อรอบเดินทางตั้งแต่ต้นทาง ยอดทุกหน้าและบัญชีรวมจากตัวเลขเดียวกัน · ค่าน้ำมันของรถส่วนตัวนี้เข้า “รายจ่าย” และ “ต้องเบิก” ของการเงินให้อัตโนมัติ (ปัดเป็นบาทเต็ม แยกตามเจ้าของรถ สัปดาห์ละหนึ่งแถว) · รถคริสตจักรไม่นับ · เหรัญญิกกด “จ่ายแล้ว” ในหน้าจ่ายเมื่อจ่ายคืนเจ้าของรถ</p>
         </>
       )}
     </section>
@@ -736,7 +735,7 @@ export function TripForm({ ns = '', initial, onClose }: { ns?: string; initial?:
         <button type="button" className="mini" style={{ marginTop: 4 }} disabled={busy} onClick={() => { const c = parseCoords(destTxt); if (c) void apply(c); else setErr('อ่านพิกัดไม่ได้') }}>🔄 คำนวณระยะใหม่จากพิกัดนี้</button></div>}
       <div className="field"><label htmlFor="tl-k">ระยะทางรวมที่นับค่าน้ำมัน (กม.){admin ? ' — แอดมินแก้เองได้' : ''}</label>
         <input id="tl-k" className="input" inputMode="decimal" value={kmTxt} readOnly={!admin} onChange={(e) => setKmTxt(e.target.value)} placeholder={admin ? 'เช่น 560' : 'ระบบคำนวณให้หลังเช็คอิน'} />
-        {vehicle && Number.isFinite(kmNum) && kmNum > 0 && <span className="small" role="status">⛽ ประมาณ <b>{baht(kmNum * rate)}</b> ({rate} บ./กม. · {vehicleOf(vehicle)?.name})</span>}</div>
+        {vehicle && Number.isFinite(kmNum) && kmNum > 0 && <span className="small" role="status">⛽ ประมาณ <b>{bahtI(fuelBaht(kmNum * 1000, rate))}</b> ({rate} บ./กม. · {vehicleOf(vehicle)?.name})</span>}</div>
       <div className="field"><label>🛣️ จุดแวะระหว่างทาง (ไม่บังคับ · ไม่กดก็ได้)</label>
         {stops.map((x, i) => (
           <div key={x.at} style={{ marginBottom: 6 }}>
@@ -813,6 +812,7 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
   const vids = VEHICLES.map((v) => v.id).filter((id) => list.some((x) => x.vehicle === id))
   const rate = (id: string) => vehicleRate(st.settings.vehicleFuel, id, base)
   const sum = (id: string) => list.filter((x) => x.vehicle === id).reduce((a, x) => a + x.km, 0)
+  const sumB = (id: string) => list.filter((x) => x.vehicle === id).reduce((a, x) => a + fuelBaht(x.km * 1000, rate(id)), 0)
   const own = (id: string) => vehicleOwner(st.settings.vehicleOwner, id)
   return (
     <section aria-label="เดินทาง">
@@ -832,23 +832,23 @@ export function VehicleTripsPage({ ns = '' }: { ns?: string }) {
           <div style={{ ...LIGHT, background: '#fff', border: '2px solid #d6dbe8', borderRadius: 12, padding: 10 }}>
             <b>⛽ ใช้น้ำมันเท่าไหร่ · ใครได้เงินคืน ({range.title})</b>
             {vids.map((id) => {
-              const o = own(id), tot = sum(id) * rate(id)
+              const o = own(id), tot = sumB(id)
               return (
                 <div key={id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
                   <img src={vehicleOf(id)!.img} alt={vehicleOf(id)!.name} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${inkOf(vehicleOf(id)!.color)}` }} />
                   <span style={{ flex: 1, minWidth: 0 }}><b>{vehicleOf(id)!.name}</b><br /><small className="muted">{km(Math.round(sum(id) * 1000))} × {rate(id)} บ./กม.</small><br /><small style={{ fontWeight: 700, color: o.kind === 'church' ? '#1a73e8' : '#c2185b' }}>{o.kind === 'church' ? '🏛 รถคริสตจักร — คริสตจักรจ่ายค่าน้ำมันเอง' : `👤 จ่ายคืนเจ้าของรถ${o.name ? `: ${o.name}` : ''}`}</small></span>
-                  <b style={{ fontSize: '1.1rem' }}>{baht(tot)}</b>
+                  <b style={{ fontSize: '1.1rem' }}>{bahtI(tot)}</b>
                 </div>)
             })}
-            <div className="row row--between" style={{ paddingTop: 6 }}><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{baht(vids.filter((id) => own(id).kind !== 'church').reduce((a, id) => a + sum(id) * rate(id), 0))}</b></div>
-            <div className="row row--between"><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{baht(vids.filter((id) => own(id).kind === 'church').reduce((a, id) => a + sum(id) * rate(id), 0))}</b></div>
+            <div className="row row--between" style={{ paddingTop: 6 }}><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{bahtI(vids.filter((id) => own(id).kind !== 'church').reduce((a, id) => a + sumB(id), 0))}</b></div>
+            <div className="row row--between"><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{bahtI(vids.filter((id) => own(id).kind === 'church').reduce((a, id) => a + sumB(id), 0))}</b></div>
           </div>
           <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}>
             <b>🚗 รายการเดินทาง</b>
             {list.map((x) => (
               <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #eee' }}>
                 <img src={vehicleOf(x.vehicle)?.img} alt="" style={{ width: 44, height: 28, objectFit: 'cover', borderRadius: 5, border: `2px solid ${inkOf(vehicleOf(x.vehicle)?.color ?? '#999')}` }} />
-                {x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={44} /> : null}<span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
+                {x.photos?.[0] ? <MemberAvatar path={x.photos[0]} name="📷" size={44} /> : null}<span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}<br /><small className="muted">{vehicleOf(x.vehicle)?.name} · {km(Math.round(x.km * 1000))}ไป-กลับ · {bahtI(fuelBaht(x.km * 1000, rate(x.vehicle)))}{x.by ? ` · บันทึกโดย ${x.by}` : ''}</small></span>
                 {adminEdit && <button type="button" className="mini" aria-label={`แก้ ${x.title}`} onClick={() => setEditTrip(x)}>✎</button>}
                 {adminEdit && <button type="button" className="mini" aria-label={`ลบ ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}
               </div>))}

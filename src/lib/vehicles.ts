@@ -10,6 +10,8 @@ export const VEHICLES: Vehicle[] = [
 /** อัตราค่าน้ำมัน (บาท/กม.) ของรถคันนั้น: ตั้งรายคัน → ใช้ค่านั้น ไม่ตั้ง → ใช้ค่ากลาง */
 export const vehicleRate = (map: Record<string, number> | undefined, id: string, fallback: number): number => (typeof map?.[id] === 'number' && map[id] >= 0 ? map[id] : fallback)
 /** เจ้าของรถ: ค่าเริ่มต้น รถตู้ = ของคริสตจักร · คันอื่น = รถส่วนตัว (ตั้งเปลี่ยนได้) */
+/** ค่าน้ำมันของ 1 รอบ/1 เที่ยว ปัดเป็นบาทเต็มตั้งแต่ต้นทาง — ทุกหน้าและบัญชีรวมจากตัวเลขที่ปัดแล้วนี้ */
+export const fuelBaht = (meters: number, ratePerKm: number): number => Math.round((meters / 1000) * ratePerKm)
 export const vehicleOwner = (map: Record<string, { kind: 'church' | 'personal'; name?: string }> | undefined, id: string): { kind: 'church' | 'personal'; name?: string } => map?.[id] ?? { kind: id === 'van' ? 'church' : 'personal' }
 /** สีสำหรับตัวหนังสือ/ขอบบนพื้นขาว (สีขาวมองไม่เห็น จึงใช้เทาน้ำเงินแทน) */
 export const inkOf = (c: string): string => (c.toLowerCase() === '#ffffff' ? '#7b8aa8' : c)
