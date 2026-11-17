@@ -48,7 +48,8 @@ const CH: Record<Channel, { n: number; title: string; dateLabel: string; whoLabe
   bill: { n: 2, title: 'วางบิล', dateLabel: 'วันที่ในบิล', whoLabel: 'ผู้ออกบิล/ร้านค้า', add: '＋ วางบิล', hint: 'บิลที่ได้รับแต่ยังไม่จ่าย (เช่น ค่าไฟ ค่าน้ำ) แนบรูปบิลได้ — กด “จ่ายแล้ว” เมื่อจ่าย (ยอดนับเป็นรายจ่ายทันที ช่อง “ค้างจ่าย” จนกว่าจะจ่าย)', openLabel: 'ค้างจ่าย', doneLabel: '✓ จ่ายแล้ว' },
   advance: { n: 3, title: 'สำรองจ่าย', dateLabel: 'วันที่สำรองจ่าย', whoLabel: 'ผู้สำรองจ่าย', add: '＋ สำรองจ่าย', hint: 'ผู้รับใช้ออกเงินส่วนตัวไปก่อน แนบใบเสร็จได้ — กด “คืนเงินแล้ว” เมื่อคริสตจักรคืนเงิน (ยอดนับเป็นรายจ่ายทันที ช่อง “ค้างจ่าย” จนกว่าจะคืน)', openLabel: 'รอคืนเงิน', doneLabel: '✓ คืนเงินแล้ว' },
 }
-const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidDate ?? x.date))
+/** วันที่ของรายการในใบ: บันทึกมือ = วันที่จ่าย · บิล/สำรองจ่าย = วันที่จ่ายจริง · ค่าน้ำมันอัตโนมัติ = วันที่เดินทาง เสมอ (ไม่ย้ายตามวันที่จ่ายคืน) */
+const effDate = (x: ExpenseEntry) => (x.channel === 'manual' || x.derived === 'fuel' ? x.date : (x.paidDate ?? x.date))
 const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b) ? 1 : effDate(a) > effDate(b) ? -1 : b.updated - a.updated)
 
 /** โหมด "จ่าย": 1 บันทึกด้วยมือ · 2 วางบิล · 3 สำรองจ่าย · 4 รวมจ่าย (หักลบกับรายรับในแท็บสรุป) */

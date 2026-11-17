@@ -10,7 +10,8 @@ import type { FundDeposit, ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType, Lo
 
 export interface WithdrawItem { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number; /** ค่าน้ำมันรถส่วนตัวที่ระบบคำนวณ */ fuel?: boolean; /** รหัสรายการรายจ่าย (ใช้กด จ่ายแล้ว/ยกเลิก) · ให้ยืม = ไม่มี */ id?: string; /** จ่ายแล้ว (ติ๊กถูก) */ done?: boolean; /** วันที่จ่าย */ paidDate?: string }
 export interface WithdrawFund { name: string; amount: number }
-const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidDate ?? x.date))
+/** วันที่ของรายการในใบ: บันทึกมือ = วันที่จ่าย · บิล/สำรองจ่าย = วันที่จ่ายจริง · ค่าน้ำมันอัตโนมัติ = วันที่เดินทาง เสมอ (ไม่ย้ายตามวันที่จ่ายคืน) */
+const effDate = (x: ExpenseEntry) => (x.channel === 'manual' || x.derived === 'fuel' ? x.date : (x.paidDate ?? x.date))
 
 /**
  * ต้องเบิกประจำสัปดาห์ (ชุดเดียวกับช่อง "หมายเหตุ · ต้องเบิก" ในใบเบิก-จ่าย): เงินหมุนเวียน = บิลที่วางไว้/สำรองจ่ายที่ยังรอจ่าย + รายการที่ระบุผู้รับ + เงินที่ให้กองทุนยืม ·
