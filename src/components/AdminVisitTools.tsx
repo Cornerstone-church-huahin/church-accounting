@@ -9,6 +9,7 @@ import { useRole } from '../lib/members'
 import { canRole, canWork, isWorkStaffOnly } from '../lib/access'
 import { applyBackup, buildBackup, parseBackup } from '../lib/coordBackup'
 import { fetchRoad, useRoadLegs } from '../lib/road'
+import { buildTrips, fuelCharges, fuelExpenses } from '../lib/fuelCharges'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
 import type { TripLog } from '../lib/types'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
@@ -556,31 +557,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
     setAnchor(`${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}-15`)
   }
   // รอบ = (วัน, รถ): จุดเช็คอินเรียงเวลา แยกรอบเมื่อห่าง > 3 ชม. · คริสตจักร → จุด → กลับ
-  const trips = useMemo(() => {
-    const byKey = new Map<string, Map<number, Coord>>()
-    for (const v of visits.list) {
-      if (!v.checkin || v.date < range.from || v.date > range.to || v.vehicle === NO_CAR) continue
-      const key = `${v.date}|${v.vehicle ?? ''}`
-      const m = byKey.get(key) ?? new Map<number, Coord>()
-      m.set(v.checkin.at, { lat: v.checkin.lat, lng: v.checkin.lng }); byKey.set(key, m)
-    }
-    // กิจกรรมที่ทำแล้วและเช็คอิน (ถ่ายรูป) นับเป็นจุดเดียวกับการเยี่ยม — รถเดียวกันวันเดียวกันต่อเป็นเส้นเดียว
-    for (const a of fuelActs.list) {
-      if (!a.checkin || actVehicle(a) === NO_CAR || a.date < range.from || a.date > range.to) continue
-      const key = `${a.date}|${a.vehicle ?? ''}`
-      const m = byKey.get(key) ?? new Map<number, Coord>()
-      m.set(a.at, { lat: a.checkin.lat, lng: a.checkin.lng }); byKey.set(key, m)
-    }
-    const out: { date: string; vehicle: string; pts: Coord[] }[] = []
-    for (const [key, m] of byKey) {
-      const [date, vehicle] = key.split('|')
-      const stops = [...m.entries()].sort((a, b) => a[0] - b[0])
-      let cur: [number, Coord][] = []
-      for (const s of stops) { if (cur.length && s[0] - cur[cur.length - 1][0] > GAP_MS) { out.push({ date, vehicle, pts: cur.map((x) => x[1]) }); cur = [] } cur.push(s) }
-      if (cur.length) out.push({ date, vehicle, pts: cur.map((x) => x[1]) })
-    }
-    return out
-  }, [visits.list, fuelActs.list, range])
+  const trips = useMemo(() => buildTrips(visits.list, fuelActs.list, range.from, range.to), [visits.list, fuelActs.list, range])
   const chain = (pts: Coord[]) => (church ? [church, ...pts, church] : pts)
   const pairs = trips.slice(0, 120).flatMap((t) => { const c = chain(t.pts); return c.slice(1).map((p, i) => [c[i], p] as [Coord, Coord]) })
   const road = useRoadLegs(pairs)
@@ -598,7 +575,13 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
   const vids = [...VEHICLES.map((v) => v.id), ''].filter((id) => trips.some((t) => t.vehicle === id) || tripsIn.some((x) => x.vehicle === id))
   const rate = (id: string) => vehicleRate(st.settings.vehicleFuel, id, base)
   const totM = (id: string) => list.reduce((a, r) => a + (r.m[id] ?? 0), 0)
-  const grand = vids.reduce((a, id) => a + totM(id) / 1000 * rate(id), 0)
+  // ยอดที่ใช้จ่ายจริง = ชุดเดียวกับบัญชี (ปัดเป็นบาทเต็มต่อเจ้าของรถ/สัปดาห์/เดือน) · รถคริสตจักร/ไม่ระบุรถ ปัดเป็นบาทเต็ม
+  const feeRows = fuelExpenses(fuelCharges({ trips: trips.map((t) => ({ date: t.date, vehicle: t.vehicle, meters: meters(t) })), tripLogs: tripsIn, settings: st.settings }))
+  const ownerName = (id: string) => vehicleOwner(st.settings.vehicleOwner, id).name?.trim() || vehicleOf(id)?.name || id
+  const personal = (id: string) => !!id && vehicleOwner(st.settings.vehicleOwner, id).kind !== 'church'
+  const pay = (id: string) => (personal(id) ? feeRows.filter((r) => r.biller === ownerName(id)).reduce((a, r) => a + r.amount, 0) / 100 : Math.round(totM(id) / 1000 * rate(id)))
+  const grand = vids.reduce((a, id) => a + pay(id), 0)
+  const bahtInt = (n: number) => `${n.toLocaleString('th-TH')} บาท`
   const name = (id: string) => vehicleOf(id)?.name ?? 'ไม่ระบุรถ'
   return (
     <section aria-label="รายงานค่าน้ำมันรายคัน">
@@ -620,24 +603,24 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
               <div key={id || 'none'} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
                 {vehicleOf(id) ? <img src={vehicleOf(id)!.img} alt={name(id)} style={{ width: 52, height: 34, objectFit: 'cover', borderRadius: 6, border: `3px solid ${inkOf(vehicleOf(id)!.color)}` }} /> : <span aria-hidden="true">🚗</span>}
                 <span style={{ flex: 1, minWidth: 0 }}><b>{name(id)}</b> <small style={{ fontWeight: 700, color: vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '#1a73e8' : '#c2185b' }}>{vehicleOwner(st.settings.vehicleOwner, id).kind === 'church' ? '🏛 รถคริสตจักร' : `👤 รถส่วนตัว${vehicleOwner(st.settings.vehicleOwner, id).name ? ` · ${vehicleOwner(st.settings.vehicleOwner, id).name}` : ''}`}</small><br /><small className="muted">{km(Math.round(totM(id)))} × {rate(id)} บ./กม.{tripM(id) > 0 ? ` (เยี่ยม ${km(Math.round(totM(id) - tripM(id)))} + เดินทาง ${km(Math.round(tripM(id)))})` : ''}</small></span>
-                <b style={{ fontSize: '1.1rem' }}>{baht(totM(id) / 1000 * rate(id))}</b>
+                <b style={{ fontSize: '1.1rem' }}>{bahtInt(pay(id))}</b>
               </div>))}
-            <div className="row row--between" style={{ paddingTop: 6 }}><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{baht(vids.filter((id) => vehicleOwner(st.settings.vehicleOwner, id).kind === 'church').reduce((a, id) => a + totM(id) / 1000 * rate(id), 0))}</b></div>
-            <div className="row row--between"><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{baht(vids.filter((id) => vehicleOwner(st.settings.vehicleOwner, id).kind !== 'church').reduce((a, id) => a + totM(id) / 1000 * rate(id), 0))}</b></div>
-            <div className="row row--between" style={{ paddingTop: 6 }}><b>รวมทั้งหมด</b><b style={{ fontSize: '1.2rem' }}>{baht(grand)}</b></div>
+            <div className="row row--between" style={{ paddingTop: 6 }}><span>🏛 คริสตจักรจ่ายเอง (รถคริสตจักร)</span><b>{bahtInt(vids.filter((id) => !personal(id)).reduce((a, id) => a + pay(id), 0))}</b></div>
+            <div className="row row--between"><span>👤 ต้องจ่ายคืนเจ้าของรถส่วนตัว</span><b style={{ color: '#c2185b' }}>{bahtInt(vids.filter((id) => personal(id)).reduce((a, id) => a + pay(id), 0))}</b></div>
+            <div className="row row--between" style={{ paddingTop: 6 }}><b>รวมทั้งหมด</b><b style={{ fontSize: '1.2rem' }}>{bahtInt(grand)}</b></div>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 8 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', ...LIGHT, background: '#fff', fontSize: 14 }} aria-label="ตารางค่าน้ำมันแยกตามช่วง">
               <thead><tr><th style={{ textAlign: 'left', padding: 6, borderBottom: '2px solid #cfd6e4' }}>{mode === 'year' ? 'เดือน' : mode === 'month' ? 'สัปดาห์ (ตัดยอด)' : 'วัน'}</th>{vids.map((id) => <th key={id || 'n'} style={{ padding: 6, borderBottom: `3px solid ${vehicleOf(id)?.color ?? '#999'}` }}>{name(id).replace('รถ', '')}</th>)}</tr></thead>
               <tbody>
                 {list.map((r) => <tr key={r.key}><td style={{ padding: 6, borderBottom: '1px solid #eee' }}>{r.label}</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', borderBottom: '1px solid #eee' }}>{r.m[id] ? <>{km(Math.round(r.m[id]))}<br /><b>{baht(r.m[id] / 1000 * rate(id))}</b></> : '—'}</td>)}</tr>)}
-                <tr><td style={{ padding: 6, fontWeight: 800 }}>รวม</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', fontWeight: 800 }}>{baht(totM(id) / 1000 * rate(id))}</td>)}</tr>
+                <tr><td style={{ padding: 6, fontWeight: 800 }}>รวม</td>{vids.map((id) => <td key={id || 'n'} style={{ padding: 6, textAlign: 'right', fontWeight: 800 }}>{bahtInt(pay(id))}</td>)}</tr>
               </tbody>
             </table>
           </div>
           {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 การเดินทางในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}{x.stops?.length ? ` · 🛣️ แวะ ${x.stops.map((q) => q.name).join(', ')}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}</small></span>{adminEdit && <button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}</div>)}</div>}
           <p className="muted small">คำนวณจากระยะ คริสตจักร → จุดเช็คอิน → กลับ ตามถนนจริง (เส้นตรงถ้าคำนวณไม่ได้) เป็นค่าประมาณ ไม่ใช่ค่าน้ำมันที่จ่ายจริง</p>
-          <p className="muted small">⛽ ค่าน้ำมันของรถส่วนตัวนี้เข้า “รายจ่าย” และ “ต้องเบิก” ของการเงินให้อัตโนมัติ (ปัดเป็นบาทเต็ม แยกตามเจ้าของรถ สัปดาห์ละหนึ่งแถว) · รถคริสตจักรไม่นับ · เหรัญญิกกด “จ่ายแล้ว” ในหน้าจ่ายเมื่อจ่ายคืนเจ้าของรถ</p>
+          <p className="muted small">⛽ ยอดสรุปและยอดรวมในตารางปัดเป็นบาทเต็มตามที่บัญชีใช้จ่ายจริง (ตัวเลขรายวันในตารางเป็นรายละเอียดการคำนวณ จึงอาจต่างจากยอดรวมไม่เกิน 1 บาท/คน) · ค่าน้ำมันของรถส่วนตัวนี้เข้า “รายจ่าย” และ “ต้องเบิก” ของการเงินให้อัตโนมัติ (ปัดเป็นบาทเต็ม แยกตามเจ้าของรถ สัปดาห์ละหนึ่งแถว) · รถคริสตจักรไม่นับ · เหรัญญิกกด “จ่ายแล้ว” ในหน้าจ่ายเมื่อจ่ายคืนเจ้าของรถ</p>
         </>
       )}
     </section>
