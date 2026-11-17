@@ -8,7 +8,7 @@ import { computeLedger, rangeOf } from './weekLedger'
 import { useFuelExpenses } from './useFuelExpenses'
 import type { FundDeposit, ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType, Loan, PassbookLine, Round } from './types'
 
-export interface WithdrawItem { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number }
+export interface WithdrawItem { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number; /** ค่าน้ำมันรถส่วนตัวที่ระบบคำนวณ */ fuel?: boolean }
 export interface WithdrawFund { name: string; amount: number }
 const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidDate ?? x.date))
 
@@ -23,7 +23,7 @@ export function computeWeekWithdraw(a: WithdrawInput, year: number, sunday: stri
   const nm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : a.types.find((t) => t.id === id)?.name ?? 'กองทุน')
   const week = a.expenses.filter((x) => !x.deleted && !x.fundId && sheetSunday(effDate(x)) === sunday)
   const circ: WithdrawItem[] = [
-    ...week.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel as WithdrawItem['kind'], amount: x.amount })),
+    ...week.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel as WithdrawItem['kind'], amount: x.amount, ...(x.derived === 'fuel' ? { fuel: true } : {}) })),
     ...ownLoanLines(a.loans, nm, range.from, range.to),
   ]
   const wf = computeLedger({ range, income: a.income.filter((x) => !isFundZone(x)), rounds: a.rounds, vouchers: [], lines: [], funds: [], entries: [], types: a.types, cats: a.cats, expenses: [], passbook: a.passbook, withFunds: true }).fundRows
