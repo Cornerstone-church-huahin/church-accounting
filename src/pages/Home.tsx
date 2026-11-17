@@ -22,7 +22,7 @@ type Tab = HomeTab
 const STEPS: { k: Exclude<Tab, null>; n: number; icon: string; name: string; /** ชื่อสั้นในแถบเมนูตอนเปิดเต็มจอ */ short: string; sub: string }[] = [
   { k: 'in', n: 1, icon: '💚', name: 'รับ', short: 'รับ', sub: 'ใบบันทึกการถวาย' },
   { k: 'out', n: 2, icon: '🔴', name: 'จ่าย', short: 'จ่าย', sub: 'ใบเบิก-จ่ายเงินสด' },
-  { k: 'wd', n: 3, icon: '📋', name: 'เตรียมเบิก', short: 'เบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
+  { k: 'wd', n: 3, icon: '📋', name: 'ต้องเบิก', short: 'เบิก', sub: 'ต้องเบิกประจำสัปดาห์' },
   { k: 'adj', n: 4, icon: '🏦', name: 'ปรับ', short: 'ปรับ', sub: 'ตรวจกับสมุดบัญชี' },
   { k: 'sum', n: 5, icon: '📊', name: 'สรุป', short: 'สรุป', sub: 'สรุปและรายงาน' },
   { k: 'dep', n: 6, icon: '🧺', name: 'เตรียมนำฝาก', short: 'ฝาก', sub: 'นำเข้าบัญชีกองทุน' },
@@ -77,7 +77,7 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
             </div>
           )}
           <p className="home-label home-label--steps no-print">ขั้นตอนทำบัญชีประจำสัปดาห์ <span>(แตะเพื่อเปิดเต็มจอ)</span></p>
-          <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
+          <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป ต้องเบิก เตรียมนำฝาก">
             {/* บันทึกเป็นอันดับ 1 · ขั้นตอน ปรับ/เตรียมเบิก/สรุป/ฝาก · แดชบอร์ด · แท็บ 3 · แล้วตามด้วย รับ และ จ่าย (ทุกช่องขนาดเท่ากัน) */}
             <button type="button" className="stepbtn exttab exttab--rec" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว"><span className="stepbtn__top"><span>{REC.icon} {REC.name}</span></span><small>รับ + จ่าย + ติดบอร์ด</small></button>
             {(['adj', 'wd', 'sum', 'dep'] as const).map((k) => stepBtn(k))}
@@ -90,7 +90,7 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
       {full && tab !== 'rec' && tab !== 'dash' && tab !== 'tab3' && (
         <div className="fullbar no-print">
           <button type="button" className="fullbar__back" onClick={() => setTab(null)} aria-label="กลับหน้าแรก" title="กลับหน้าแรก">‹ 🏠</button>
-          <div className="home-tabs home-tabs--mini" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป เตรียมเบิก เตรียมนำฝาก">
+          <div className="home-tabs home-tabs--mini" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป ต้องเบิก เตรียมนำฝาก">
             <button type="button" role="tab" aria-selected={false} className="home-tab home-tab--rec" onClick={() => setTab('rec')} title={REC.name}><span>{REC.icon} {REC.short}</span></button>
             {STEPS.map((x) => <button key={x.k} type="button" role="tab" aria-selected={tab === x.k} className={`home-tab home-tab--${x.k}${tab === x.k ? ' on' : ''}`} onClick={() => setTab(x.k)} title={x.name}><span>{x.icon} {x.short}</span></button>)}
           </div>
