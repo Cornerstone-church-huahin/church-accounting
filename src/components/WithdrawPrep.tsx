@@ -44,15 +44,21 @@ export default function WithdrawPrep({ year }: { year: number }) {
     setMsg(ok ? (paid ? `✓ บันทึกว่าจ่ายแล้ว: ${it.person ? `${it.person} — ` : ''}${it.desc}` : `↩ ยกเลิกแล้ว: ${it.desc} กลับเป็นรอจ่าย`) : 'บันทึกไม่ได้ (ไม่มีสิทธิ์จ่ายเงิน)')
   }
   const copy = async () => {
-    const lines = [`ต้องเบิกประจำสัปดาห์ ${weekRange(sunday)}`, `■ เงินหมุนเวียน (ยังไม่จ่าย) ${fmtBaht(w.totalC)} บาท`, ...rows.flatMap((r, i) => [`  ${r.item.done ? '✅' : '⏳'} ${r.item.person ? `${r.item.person} — ` : ''}${r.item.desc} ${fmtBaht(r.item.amount)}`, ...(r.multi && rows[i + 1]?.g !== r.g ? [`    = รวม ${r.item.person} ${fmtBaht(r.total)}`] : [])]), ...(w.fund.length ? [`▲ เงินกองทุน (เตรียมนำฝาก) ${fmtBaht(w.totalF)} บาท`, ...w.fund.map((x) => `  - ${x.name} ${fmtBaht(x.amount)}`)] : []), `รวมต้องเบิก (ยังไม่จ่าย) ${fmtBaht(w.total)} บาท${w.totalPaid > 0 ? ` · จ่ายแล้ว ${fmtBaht(w.totalPaid)} บาท` : ''}`]
+    const lines = [`ฝาก/เบิกประจำสัปดาห์ ${weekRange(sunday)}`, `💚 ต้องฝาก ${fmtBaht(w.depositTotal)} บาท (หมุนเวียน ${fmtBaht(w.depositCirc)} + กองทุน ${fmtBaht(w.depositFund)})`, `📋 ต้องเบิก`, `■ เงินหมุนเวียน (ยังไม่จ่าย) ${fmtBaht(w.totalC)} บาท`, ...rows.flatMap((r, i) => [`  ${r.item.done ? '✅' : '⏳'} ${r.item.person ? `${r.item.person} — ` : ''}${r.item.desc} ${fmtBaht(r.item.amount)}`, ...(r.multi && rows[i + 1]?.g !== r.g ? [`    = รวม ${r.item.person} ${fmtBaht(r.total)}`] : [])]), ...(w.fund.length ? [`▲ เงินกองทุน (เตรียมนำฝาก) ${fmtBaht(w.totalF)} บาท`, ...w.fund.map((x) => `  - ${x.name} ${fmtBaht(x.amount)}`)] : []), `รวมต้องเบิก (ยังไม่จ่าย) ${fmtBaht(w.total)} บาท${w.totalPaid > 0 ? ` · จ่ายแล้ว ${fmtBaht(w.totalPaid)} บาท` : ''}`]
     try { await navigator.clipboard.writeText(lines.join('\n')); setMsg('คัดลอกแล้ว — นำไปวางใน LINE ได้เลย') } catch { setMsg('คัดลอกไม่สำเร็จ') }
   }
   const nDone = done.length, nAll = circ.filter((x) => x.kind !== 'loan').length + nDone
   return (
     <div aria-label="ต้องเบิกประจำสัปดาห์">
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
+      <div className="prep__hero" role="status" aria-label="ต้องฝาก" style={{ background: '#1f6b4a' }}>
+        <span>💚 ต้องฝากสัปดาห์นี้ (เงินสดรายรับ)</span>
+        <b className="num">{fmtBaht(w.depositTotal)} <small>บาท</small></b>
+        <div className="prep__split"><span className="prep__chip prep__chip--circ">■ หมุนเวียน {fmtBaht(w.depositCirc)}</span><span className="prep__chip prep__chip--fund">▲ กองทุน {fmtBaht(w.depositFund)}</span></div>
+        <span className="small">เงินโอนเข้าบัญชีแล้ว ไม่ต้องฝาก</span>
+      </div>
       <div className="prep__hero" role="status" aria-label="รวมต้องเบิก">
-        <span>ยังต้องเบิกสัปดาห์นี้ (ยังไม่จ่าย)</span>
+        <span>📋 ยังต้องเบิกสัปดาห์นี้ (ยังไม่จ่าย)</span>
         <b className="num">{fmtBaht(w.total)} <small>บาท</small></b>
         <div className="prep__split"><span className="prep__chip prep__chip--circ">■ หมุนเวียน {fmtBaht(w.totalC)}</span><span className="prep__chip prep__chip--fund">▲ กองทุน {fmtBaht(w.totalF)}</span>{w.totalPaid > 0 && <span className="prep__chip" style={{ background: '#dff3e6', color: '#1b6b3a' }}>✅ จ่ายแล้ว {fmtBaht(w.totalPaid)}</span>}</div>
         {nAll > 0 && <span className="small">จ่ายแล้ว {nDone} จาก {nAll} รายการ</span>}

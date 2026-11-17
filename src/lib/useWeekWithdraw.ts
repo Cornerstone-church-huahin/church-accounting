@@ -31,13 +31,16 @@ export function computeWeekWithdraw(a: WithdrawInput, year: number, sunday: stri
   ]
   /** จ่ายแล้วของสัปดาห์นี้: บิล/สำรองจ่ายที่จ่ายในสัปดาห์นี้ + รายการบันทึกมือที่จ่ายคืนผู้วางบิลแล้ว (แสดงติ๊กถูก ไม่นับในยอดต้องเบิก) */
   const paid: WithdrawItem[] = week.filter((x) => (x.channel !== 'manual' && x.status === 'paid') || (isManualDue(x) && !!x.reimbursed)).map((x) => item(x, true))
-  const wf = computeLedger({ range, income: a.income.filter((x) => !isFundZone(x)), rounds: a.rounds, vouchers: [], lines: [], funds: [], entries: [], types: a.types, cats: a.cats, expenses: [], passbook: a.passbook, withFunds: true }).fundRows
+  const led = computeLedger({ range, income: a.income.filter((x) => !isFundZone(x)), rounds: a.rounds, vouchers: [], lines: [], funds: [], entries: [], types: a.types, cats: a.cats, expenses: [], passbook: a.passbook, withFunds: true })
+  const wf = led.fundRows
+  /** ต้องฝาก = เงินสดรายรับของสัปดาห์ (ยอด "เงินสด" รวมท้ายใบบันทึกการถวาย) · เงินโอนเข้าบัญชีอยู่แล้ว ไม่ต้องฝาก */
+  const dep = { circ: led.incRows.reduce((s, r) => s + r.cash.amt, 0) - led.fundRows.reduce((s, r) => s + r.cash.amt, 0), fund: led.fundIn.cash }
   const fund: WithdrawFund[] = [
     ...wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt })).filter((f) => f.amount > 0),
     ...withdrawnInWeek(a.fundWd ?? [], sunday, (id) => a.types.find((t) => t.id === id)?.name ?? 'กองทุน'),
   ]
   const sum = (xs: { amount: number }[]) => xs.reduce((s, x) => s + x.amount, 0)
-  return { circ, paid, fund, totalC: sum(circ), totalPaid: sum(paid), totalF: sum(fund), total: sum(circ) + sum(fund) }
+  return { depositCirc: dep.circ, depositFund: dep.fund, depositTotal: dep.circ + dep.fund, circ, paid, fund, totalC: sum(circ), totalPaid: sum(paid), totalF: sum(fund), total: sum(circ) + sum(fund) }
 }
 
 export function useWeekWithdraw(year: number, sunday: string) {
