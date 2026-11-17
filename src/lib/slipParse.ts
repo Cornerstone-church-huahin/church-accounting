@@ -73,9 +73,12 @@ export function parseSlipAmount(raw: string): number | undefined {
 export function parseSlipText(raw: string, today = new Date()): SlipRead {
   const text = norm(raw)
   const out: SlipRead = {}
-  const dt = parseSlipDate(text, today)
+  // วันที่/เวลา: เอาจากในการ์ดสลิป (ใต้หัว “โอนเงินสำเร็จ”) เป็นหลัก — รูปแคปหน้าจอมีเวลาสถานะมือถือและเวลาข้อความในแชตอยู่เหนือสลิป ซึ่งไม่ใช่เวลาโอน
+  const anchor = text.search(/โอนเงิน.{0,4}ส.{1,3}เร.{0,2}จ|ทำรายการสำเร็จ|โอนเงินแล้ว/)
+  const inCard = anchor >= 0 ? parseSlipDate(text.slice(anchor), today) : {}
+  const dt = inCard.date ? inCard : parseSlipDate(text, today)
   if (dt.date) out.date = dt.date
-  if (dt.time) out.time = dt.time
+  if (inCard.date ? inCard.time : dt.time) out.time = (inCard.date ? inCard.time : dt.time) as string
   const amt = parseSlipAmount(text)
   if (amt && amt > 0) out.amount = amt
   const lab = /(?:เลขที.{0,2}รายการ|รหัสอ้างอิง|หมายเลขอ้างอิง|เลขอ้างอิง|ref(?:erence)?\b)/i.exec(text)
