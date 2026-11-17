@@ -3,6 +3,7 @@ import { directOut, paidItems, type Period } from './ledger'
 import { fmtDate, inRange } from './money'
 import { BANK_UNKNOWN_LABEL, BANK_UNKNOWN_OUT_LABEL, lineDate, typeFromNote, unknownBankIn, unknownBankOut } from './passbook'
 import { isFundType } from './funds'
+import { FUEL_CAT, FUEL_LABEL } from './fuelCharges'
 import { UNKNOWN_INCOME_LABEL, UNSORTED, type PassbookLine, type BudgetEntry, type ExpenseCat, type ExpenseEntry, type BudgetLine, type IncomeEntry, type IncomeType, type Round, type Voucher } from './types'
 
 export interface LSrc { n: number; amt: number }
@@ -66,6 +67,7 @@ export function computeLedger(a: {
   const UNCAT = '__uncat'
   // รายจ่ายแต่ละรายการ → แถวของหมวดหลัก (ถ้ามีหมวดรายจ่าย) หรือหมวดงบ (แบบเดิม)
   const rowFor = (catId: string | undefined, lineId: string) => {
+    if (catId === FUEL_CAT) return oat(FUEL_CAT, FUEL_LABEL) // ค่าน้ำมันรถส่วนตัวที่ระบบคำนวณ
     if (groups.length > 0) {
       const g = catId ? cats.find((c) => c.id === catId)?.group : undefined
       const grp = g ? groups.find((x) => x.id === g) : undefined
@@ -87,7 +89,7 @@ export function computeLedger(a: {
   const hasAmt = (r: LRow) => r.cash.amt > 0 || r.transfer.amt > 0 || (r.pending?.amt ?? 0) > 0
   // รายจ่ายแสดงเฉพาะหมวดที่เกิดรายการจริง เรียงตามลำดับหมวดหลัก (ยังไม่ระบุหมวดไว้ท้าย)
   const outRows0 = groups.length > 0
-    ? [...groups.map((g) => o.get(g.id)).filter((r): r is LRow => !!r && hasAmt(r)), ...(o.get(UNCAT) && hasAmt(o.get(UNCAT)!) ? [o.get(UNCAT)!] : [])]
+    ? [...groups.map((g) => o.get(g.id)).filter((r): r is LRow => !!r && hasAmt(r)), ...(o.get(FUEL_CAT) && hasAmt(o.get(FUEL_CAT)!) ? [o.get(FUEL_CAT)!] : []), ...(o.get(UNCAT) && hasAmt(o.get(UNCAT)!) ? [o.get(UNCAT)!] : [])]
     : outAll.sort((x, y) => y.cash.amt + y.transfer.amt + (y.pending?.amt ?? 0) - x.cash.amt - x.transfer.amt - (x.pending?.amt ?? 0))
 
 

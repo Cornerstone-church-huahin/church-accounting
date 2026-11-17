@@ -1,5 +1,6 @@
 import { circulatingOnly, computeBalances } from './balances'
 import { isCompensation } from './maskPay'
+import { FUEL_DESC } from './fuelCharges'
 import { be, daysInMonth, monthName, todayISO } from './money'
 import { summarizeLoans } from './loans'
 import { fundsOf, fundTable, monthRange, monthWeeks, periodReport, yearMonths, type FundRow, type PeriodReport, type Range, type ReportInput } from './report'
@@ -24,6 +25,9 @@ export interface PeriodData {
   /** ค่าตอบแทน/สวัสดิการ (เงินเดือน ฯลฯ) รวมรายบุคคล — ฉบับที่ประชุมเท่านั้นที่แสดงรายคน */
   comp: { name: string; amount: number }[]
   compTotal: number
+  /** ค่าน้ำมันรถส่วนตัว (ระบบคำนวณ) แยกเจ้าของรถ — ฉบับมีชื่อเท่านั้นที่แสดงรายคน · ฉบับประกาศรวมเป็นบรรทัดเดียวในหมวดรายจ่าย */
+  fuel: { name: string; amount: number }[]
+  fuelTotal: number
   funds: FundRow[]
   pairs: PeriodBarPair[]
   /** เงินหมุนเวียนคงเหลือ ณ สิ้นแต่ละเดือนของปี (ถึงเดือนปัจจุบัน) */
@@ -43,6 +47,8 @@ export function buildPeriod(kind: 'month' | 'year', year: number, month: number,
   const lines = r.outLines.filter((x) => x.status !== 'advance')
   const comp = new Map<string, number>()
   for (const x of lines) if (isCompensation(x)) { const k = (x.by || x.desc).trim(); comp.set(k, (comp.get(k) ?? 0) + x.amount) }
+  const fuel = new Map<string, number>()
+  for (const x of lines) if (x.desc === FUEL_DESC) { const k = (x.by || '').trim() || 'ไม่ระบุเจ้าของรถ'; fuel.set(k, (fuel.get(k) ?? 0) + x.amount) }
   const funds = fundTable(fundsOf(a), range, a.opening)
   const curM = year === Number(today.slice(0, 4)) ? Number(today.slice(5, 7)) : year < Number(today.slice(0, 4)) ? 12 : 0
   const trend = Array.from({ length: curM }, (_, i) => {
@@ -71,6 +77,8 @@ export function buildPeriod(kind: 'month' | 'year', year: number, month: number,
     catRows: [...r.catBars, ...(r.advance > 0 ? [{ key: 'adv', label: 'เงินสำรองจ่ายรอคืน', amount: r.advance }] : [])].map((x) => ({ label: x.label, amount: x.amount, pct: pct(x.amount, r.inTotal) })),
     comp: [...comp.entries()].map(([name, amount]) => ({ name, amount })).sort((p, q) => q.amount - p.amount),
     compTotal: [...comp.values()].reduce((s, v) => s + v, 0),
+    fuel: [...fuel.entries()].map(([name, amount]) => ({ name, amount })).sort((p, q) => q.amount - p.amount),
+    fuelTotal: [...fuel.values()].reduce((s, v) => s + v, 0),
     tiles: { own: circulatingOnly(b, loans), fund: b.fundTotal, total: b.total, inDebt: ls.fromFunds, outDebt: ls.external },
   }
 }

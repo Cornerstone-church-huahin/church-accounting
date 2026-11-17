@@ -20,7 +20,7 @@ import { normCfg } from './schoolTimetable'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { YearPlanRow, ActTable, SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { FuelPaid, YearPlanRow, ActTable, SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -156,6 +156,8 @@ export function useActTables() {
   const s = useSharedStore<ActTable>({ localKey: k('act-tables'), file: 'act-tables.json', label: 'ตารางกำหนดการกิจกรรม', writeCheck: () => !blockedEdit('income'), pollMs: 20_000 })
   return { ...s, of: (actId: string) => s.items.filter((x) => !x.deleted && x.actId === actId).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id)) }
 }
+/** บันทึกจ่ายคืนค่าน้ำมันอัตโนมัติ (id = fuel:เจ้าของรถ:สัปดาห์:เดือน) — ผู้มีสิทธิ์จ่ายเงินบันทึกได้ */
+export const useFuelPaid = () => useSharedStore<FuelPaid>({ localKey: k('fuel-paid'), file: 'fuel-paid.json', label: 'จ่ายคืนค่าน้ำมัน', write: 'voucherPay' })
 /** แผนงานประจำปี (ตารางนิมิตประจำปี) — แก้ได้เฉพาะแอดมิน */
 export function useYearPlan() {
   return useSharedStore<YearPlanRow>({ localKey: k('year-plan'), file: 'year-plan.json', label: 'แผนงานประจำปี', writeCheck: () => !blockedEdit('income'), pollMs: 20_000 })
