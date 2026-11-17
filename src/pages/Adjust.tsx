@@ -17,6 +17,7 @@ import { addDays, fmtBaht, fmtDate, newId, sheetSunday, sundaysOf, todayISO, wee
 import { adjReportText, adjOk, type AdjReport } from '../lib/adjustReport'
 import { shareText } from '../lib/serviceReport'
 import { fixKinds, chainGap, checkChain, classify, dedupeLines, lineWeek, matchBankIn, normalizeRows } from '../lib/passbook'
+import { applyScanRange, inScan, rangeOfWeeks, weekCounts } from '../lib/scanRange'
 import { UNKNOWN_INCOME_LABEL, type PassbookLine, type PassbookScan } from '../lib/types'
 
 interface Draft { date: string; code: string; desc: string; deposit: number | null; withdraw: number | null; balance: number | null }
@@ -48,6 +49,12 @@ export default function Adjust({ year }: { year: number }) {
   const sundays = useMemo(() => sundaysOf(year), [year])
   const [sunday, setSunday] = useState(() => { const s = sheetSunday(todayISO()); return sundays.includes(s) ? s : (sundays.filter((d) => d <= todayISO()).pop() ?? sundays[0]) })
   const from = addDays(sunday, -6)
+  /** ช่วงวันที่ที่จะอ่านจากรูป: สัปดาห์ที่เลือก (อัตโนมัติ) · หลายสัปดาห์ · กำหนดเอง */
+  const [mode, setMode] = useState<'week' | 'weeks' | 'custom'>('week')
+  const [wkA, setWkA] = useState(''), [wkB, setWkB] = useState('')
+  const [cFrom, setCFrom] = useState(''), [cTo, setCTo] = useState('')
+  const [pool, setPool] = useState<Draft[]>([]) // บรรทัดที่อ่านได้จากรูปทั้งหมด (รวมนอกช่วง) ไว้เปลี่ยนช่วงแล้วไม่ต้องสแกนใหม่
+  const scan = mode === 'weeks' && wkA && wkB ? rangeOfWeeks(wkA, wkB) : mode === 'custom' && cFrom && cTo ? (cFrom <= cTo ? { from: cFrom, to: cTo } : { from: cTo, to: cFrom }) : { from, to: sunday }
   const [shots, setShots] = useState<{ path: string; name: string }[]>(() => loadDraft(year, sunday)?.shots ?? []) // รูปที่อัปโหลดแล้ว รอกดบันทึก
   const [drafts, setDrafts] = useState<Draft[] | null>(() => loadDraft(year, sunday)?.drafts ?? null)
   const [jump, setJump] = useState(false)
@@ -59,7 +66,7 @@ export default function Adjust({ year }: { year: number }) {
   useEffect(() => { storeDraft(year, sunday, drafts, shots) }, [year, sunday, drafts, shots])
   /** เปลี่ยนสัปดาห์: โหลดแบบร่างของสัปดาห์นั้นกลับมา (ถ้ามี) */
   useEffect(() => { if (jump) { document.getElementById('adj-lines')?.scrollIntoView({ block: 'start' }); setJump(false) } }, [jump, sunday])
-  const gotoWeek = (sd: string) => { const d = loadDraft(year, sd); setSunday(sd); setDrafts(d?.drafts ?? null); setShots(d?.shots ?? []); setMsg(d ? 'มีแบบร่างที่ยังไม่ได้บันทึกของสัปดาห์นี้ — ตรวจแล้วกดบันทึก' : '') }
+  const gotoWeek = (sd: string) => { setPool([]); setMode('week'); const d = loadDraft(year, sd); setSunday(sd); setDrafts(d?.drafts ?? null); setShots(d?.shots ?? []); setMsg(d ? 'มีแบบร่างที่ยังไม่ได้บันทึกของสัปดาห์นี้ — ตรวจแล้วกดบันทึก' : '') }
   const typeName = (id: string) => types.list.find((t) => t.id === id)?.name ?? 'ไม่ระบุประเภท'
 
   const weekLines = useMemo(() => fixKinds(pb.items).filter((l) => lineWeek(l) === sunday).sort((a, b) => a.date.localeCompare(b.date) || a.updated - b.updated), [pb.items, sunday])
@@ -84,6 +91,16 @@ export default function Adjust({ year }: { year: number }) {
       setShots((xs) => [...xs, { path, name: f.name || `passbook.${ext}` }])
     } catch { /* ข้ามเงียบ ๆ */ }
   }
+  /** เปลี่ยนช่วงวันที่: ปรับแบบร่างตามช่วงใหม่จากบรรทัดที่อ่านไว้แล้ว (ไม่ต้องสแกนซ้ำ) */
+  const reRange = (r: { from: string; to: string }) => { if (drafts || pool.length) { const d = applyScanRange(drafts ?? [], pool, r.from, r.to, sameRow); setDrafts(d.length ? d : null); setMsg(`ใช้ช่วง ${fmtDate(r.from)}–${fmtDate(r.to)} · ${d.length} บรรทัด`) } }
+  const setWeekMode = () => { setMode('week'); reRange({ from, to: sunday }) }
+  const setWeeksMode = () => { const a = wkA || sunday, b = wkB || sunday; setWkA(a); setWkB(b); setMode('weeks'); reRange(rangeOfWeeks(a, b)) }
+  const setCustomMode = () => { const a = cFrom || from, b = cTo || sunday; setCFrom(a); setCTo(b); setMode('custom'); reRange(a <= b ? { from: a, to: b } : { from: b, to: a }) }
+  const pickWeeks = (a: string, b: string) => { setWkA(a); setWkB(b); reRange(rangeOfWeeks(a, b)) }
+  const pickCustom = (a: string, b: string) => { setCFrom(a); setCTo(b); if (a && b) reRange(a <= b ? { from: a, to: b } : { from: b, to: a }) }
+  const useWeek = (sd: string) => { setMode('custom'); setCFrom(addDays(sd, -6)); setCTo(sd); reRange({ from: addDays(sd, -6), to: sd }) }
+  const wc = weekCounts(pool.map((x) => x.date))
+  const nodateN = pool.filter((x) => !/^\d{4}-\d{2}-\d{2}$/.test(x.date)).length
   /** อ่านทุกรูปที่เลือก (ทีละรูป) แล้วต่อเป็นรายการเดียว · รูปที่ซ้อนกันข้ามหน้าจะตัดบรรทัดซ้ำให้ */
   const readAll = async (files: File[]) => {
     const t = ++token.current
@@ -91,7 +108,8 @@ export default function Adjust({ year }: { year: number }) {
     try {
       if (!(await ensureGemini()).key) { setMsg('ยังไม่ได้ใส่รหัส Gemini — ให้แอดมินใส่ที่ ตั้งค่า › ตัวอ่านใบถวาย (Gemini)'); setBusy(''); return }
       let acc: Draft[] = drafts ? [...drafts] : []
-      let outside = 0, empty = 0
+      let outside = 0, empty = 0, nodate = 0
+      let all = [...pool]
       for (let i = 0; i < files.length; i++) {
         setBusy(`กำลังอ่านรูป ${i + 1}/${files.length}…`)
         const r = await readPassbook(files[i])
@@ -100,13 +118,15 @@ export default function Adjust({ year }: { year: number }) {
         const rows = normalizeRows(r.rows).map((x) => ({ date: x.date ?? '', code: x.code ?? '', desc: x.desc ?? '', deposit: x.deposit ?? null, withdraw: x.withdraw ?? null, balance: x.balance ?? null }))
         if (rows.length === 0) empty++
         for (const d of rows) {
-          if (d.date && (d.date < from || d.date > sunday)) { outside++; continue }
+          if (!all.some((x) => sameRow(x, d))) all = [...all, d]
+          if (!d.date) nodate++
+          if (!inScan(d.date, scan.from, scan.to)) { outside++; continue }
           if (acc.some((x) => sameRow(x, d))) continue // ซ้ำกับรูปก่อนหน้า
           acc = [...acc, d]
         }
       }
-      setDrafts(acc)
-      setMsg([`อ่านได้ ${acc.length} บรรทัดในสัปดาห์นี้`, outside ? `ข้าม ${outside} บรรทัดที่อยู่นอกช่วง ${fmtDate(from)}–${fmtDate(sunday)}` : '', empty ? `${empty} รูปอ่านไม่เจอรายการ (ถ่ายให้เห็นทั้งหน้า ไม่เอียง)` : ''].filter(Boolean).join(' · '))
+      setPool(all); setDrafts(acc)
+      setMsg([`อ่านได้ ${acc.length} บรรทัดในช่วง ${fmtDate(scan.from)}–${fmtDate(scan.to)}`, outside ? `ข้าม ${outside} บรรทัดที่อยู่นอกช่วง (เปลี่ยนช่วงด้านบนได้โดยไม่ต้องสแกนใหม่)` : '', nodate ? `${nodate} บรรทัดอ่านวันที่ไม่ออก — ใส่วันที่เองในแบบร่าง` : '', empty ? `${empty} รูปอ่านไม่เจอรายการ (ถ่ายให้เห็นทั้งหน้า ไม่เอียง)` : ''].filter(Boolean).join(' · '))
     } catch (e) { if (t === token.current) setMsg(e instanceof Error ? e.message : 'อ่านรูปไม่สำเร็จ') }
     if (t === token.current) setBusy('')
   }
@@ -125,7 +145,7 @@ export default function Adjust({ year }: { year: number }) {
     if (add.length && !pb.put(add)) return setMsg('สิทธิ์ของท่านบันทึกไม่ได้')
     if (shots.length) scans.put(shots.map((x) => ({ id: newId('ps'), updated: 0, week: sunday, path: x.path, name: x.name })))
     setShots([])
-    setDrafts(null); setMsg(add.length ? `บันทึก ${add.length} บรรทัดแล้ว — ดูผลจับคู่ด้านล่าง` : 'ทุกบรรทัดมีอยู่แล้ว ไม่ได้บันทึกซ้ำ')
+    setPool([]); setDrafts(null); setMsg(add.length ? `บันทึก ${add.length} บรรทัดแล้ว — ดูผลจับคู่ด้านล่าง` : 'ทุกบรรทัดมีอยู่แล้ว ไม่ได้บันทึกซ้ำ')
   }
   const clearWeek = () => {
     if (weekLines.length === 0 || !window.confirm(`ลบรายการสมุดของสัปดาห์นี้ ${weekLines.length} บรรทัด เพื่อสแกนใหม่?`)) return
@@ -166,11 +186,39 @@ export default function Adjust({ year }: { year: number }) {
   return (
     <div className="stack">
       <WeekBar sunday={sunday} sundays={sundays} onChange={gotoWeek} />
-      <p className="muted small">เลือกสัปดาห์ แล้วแนบรูปสมุดบัญชีที่ปิดหัวท้ายให้เหลือเฉพาะวันที่ {fmtDate(from)} – {fmtDate(sunday)} (ถ่ายหลายรูปได้ ระบบนับเป็นการสแกนครั้งเดียว)</p>
+      <p className="muted small">เลือกสัปดาห์ แล้วแนบรูปสมุดบัญชี — ไม่ต้องปิดหัวท้าย ระบบอ่านเฉพาะวันที่ในช่วงที่ตั้งไว้ด้านล่าง (ถ่ายหลายรูปได้ ระบบนับเป็นการสแกนครั้งเดียว)</p>
 
       {canWrite && (
         <section className="card no-print">
           <h2>📷 สแกนสมุดบัญชี</h2>
+          <div className="stack" style={{ gap: 6, marginBottom: 8 }} aria-label="ช่วงวันที่ที่จะอ่านจากรูป">
+            <b className="small">📅 ช่วงวันที่ที่จะอ่านจากรูป</b>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {([['week', 'สัปดาห์นี้ (อัตโนมัติ)', setWeekMode], ['weeks', 'หลายสัปดาห์', setWeeksMode], ['custom', 'กำหนดเอง', setCustomMode]] as const).map(([k, label, fn]) => <button key={k} type="button" className={`mini${mode === k ? ' mini--on' : ''}`} aria-pressed={mode === k} style={mode === k ? { background: '#1a2b4c', color: '#fff' } : undefined} onClick={fn}>{label}</button>)}
+            </div>
+            {mode === 'weeks' && (
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="small">จาก</span>
+                <select className="input" aria-label="จากสัปดาห์" value={wkA} onChange={(e) => pickWeeks(e.target.value, wkB || e.target.value)}>{sundays.map((d) => <option key={d} value={d}>{weekRange(d)}</option>)}</select>
+                <span className="small">ถึง</span>
+                <select className="input" aria-label="ถึงสัปดาห์" value={wkB} onChange={(e) => pickWeeks(wkA || e.target.value, e.target.value)}>{sundays.map((d) => <option key={d} value={d}>{weekRange(d)}</option>)}</select>
+              </div>
+            )}
+            {mode === 'custom' && (
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="small">ตั้งแต่</span><input className="input" type="date" aria-label="ตั้งแต่วันที่" value={cFrom} onChange={(e) => pickCustom(e.target.value, cTo)} />
+                <span className="small">ถึง</span><input className="input" type="date" aria-label="ถึงวันที่" value={cTo} onChange={(e) => pickCustom(cFrom, e.target.value)} />
+              </div>
+            )}
+            <span className="small">จะอ่านและคำนวณเฉพาะวันที่ <b>{fmtDate(scan.from)} – {fmtDate(scan.to)}</b> · บรรทัดนอกช่วงจะข้าม</span>
+            {wc.length > 0 && (
+              <div className="small" role="group" aria-label="ช่วงที่พบในรูป">
+                พบในรูป: {wc.map((w) => <button key={w.sunday} type="button" className="mini" style={{ margin: '2px 4px 2px 0' }} onClick={() => useWeek(w.sunday)}>{weekRange(w.sunday)} · {w.n} บรรทัด</button>)}
+                {nodateN > 0 && <span> · อ่านวันที่ไม่ออก {nodateN} บรรทัด (ขึ้นให้ตรวจเอง)</span>}
+                <br /><span className="muted">กดสัปดาห์ที่พบเพื่อใช้ช่วงนั้น — เปลี่ยนช่วงได้ไม่ต้องสแกนซ้ำ</span>
+              </div>
+            )}
+          </div>
           <div className="capbar__row">
             <label className="act-btn"><span className="act-btn__ico" aria-hidden="true">📎</span><span>แนบรูป (เลือกได้หลายรูป)</span>
               <input type="file" accept="image/*" multiple aria-label="แนบรูปสมุดบัญชี" style={{ display: 'none' }} disabled={!!busy} onChange={pick} /></label>
