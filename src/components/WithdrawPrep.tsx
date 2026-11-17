@@ -72,7 +72,7 @@ export default function WithdrawPrep({ year }: { year: number }) {
             {rows.map((r, i) => {
               const it = r.item
               const [bg, bar] = r.multi ? TONES[r.g % TONES.length] : ['', '']
-              const st: React.CSSProperties = it.done ? { background: DONE_BG } : r.multi ? { background: bg } : {}
+              const st: React.CSSProperties = it.done ? { background: DONE_BG } : r.multi ? { background: bg } : { background: '#fff' }
               const canMark = canPay && !!it.id && it.kind !== 'loan'
               return (
                 <tr key={i} style={st} data-done={it.done ? '1' : undefined}>
