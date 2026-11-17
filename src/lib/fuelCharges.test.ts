@@ -81,3 +81,21 @@ describe('ต้องเบิก: จ่ายแล้ว', () => {
     expect(w.paid.every((x) => x.done)).toBe(true)
   })
 })
+
+import { daysText } from './fuelCharges'
+describe('วันที่ค่าน้ำมัน', () => {
+  it('daysText ย่อวันที่ต่อเนื่อง', () => {
+    expect(daysText(['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'])).toBe('10–13 พ.ย.')
+    expect(daysText(['2026-11-16', '2026-11-17'])).toBe('16, 17 พ.ย.')
+    expect(daysText(['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-15'])).toBe('10–12, 15 พ.ย.')
+  })
+  it('รายการอัตโนมัติมีวันที่เดินทางในชื่อ และอยู่ในสัปดาห์เดินทางแม้จ่ายคืนในสัปดาห์ถัดไป', () => {
+    const ex = fuelExpenses(fuelCharges({ trips: [{ date: '2026-11-10', vehicle: 'jazz', meters: 27700 }, { date: '2026-11-13', vehicle: 'jazz', meters: 103600 }], tripLogs: [], settings: S }))
+    expect(ex[0].desc).toBe('ค่าน้ำมัน อ.ดารา (10, 13 พ.ย.)')
+    const paid = { ...ex[0], status: 'paid' as const, paidDate: '2026-11-17' }
+    const base = { income: [], rounds: [], passbook: [], types: [], cats: [], loans: [] }
+    const w1 = computeWeekWithdraw({ ...base, expenses: [paid] }, 2026, '2026-11-15')
+    const w2 = computeWeekWithdraw({ ...base, expenses: [paid] }, 2026, '2026-11-22')
+    expect(w1.paid).toHaveLength(1); expect(w2.paid).toHaveLength(0)
+  })
+})

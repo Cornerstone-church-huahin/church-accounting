@@ -13,7 +13,8 @@ import { useBalances } from '../lib/useBalances'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import type { ExpenseEntry, IncomeEntry } from '../lib/types'
 
-const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidDate ?? x.date))
+/** วันที่ของรายการในใบ: บันทึกมือ = วันที่จ่าย · บิล/สำรองจ่าย = วันที่จ่ายจริง · ค่าน้ำมันอัตโนมัติ = วันที่เดินทาง เสมอ (ไม่ย้ายตามวันที่จ่ายคืน) */
+const effDate = (x: ExpenseEntry) => (x.channel === 'manual' || x.derived === 'fuel' ? x.date : (x.paidDate ?? x.date))
 const kindManual = (x: IncomeEntry) => !x.roundId && !x.unknown && !(x.source === 'slip' || (!x.source && (x.slip || x.method === 'transfer')))
 const sheetOf = (x: ExpenseEntry): ExpenseEntry => x.channel === 'manual' ? x : { ...x, date: effDate(x), biller: x.biller || (x.channel === 'advance' ? x.who : undefined), who: x.channel === 'bill' ? x.who : undefined, requester: [x.channel === 'bill' ? 'วางบิล' : 'สำรองจ่าย', x.status === 'open' ? 'รอจ่าย' : ''].filter(Boolean).join(' · ') }
 const toDataUrl = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(b) })
