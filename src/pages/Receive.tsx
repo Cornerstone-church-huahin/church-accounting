@@ -13,7 +13,7 @@ import Sheet from '../components/Sheet'
 import { deleteFile, getSync, listDir, putBinary } from '../lib/sync'
 import { compressImage } from '../lib/image'
 import { cacheImage } from '../lib/imageCache'
-import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
+import { addDays, fmtBaht, fmtDate, fmtDateLong, sheetSunday, sundaysOf, todayISO, weekRange, yearOf } from '../lib/money'
 import { UNKNOWN_INCOME_LABEL, UNSORTED, type IncomeEntry, type SheetFile } from '../lib/types'
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
@@ -64,6 +64,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const [viewAtt, setViewAtt] = useState<IncomeEntry | null>(null)
   const [form, setForm] = useState<{ entry: IncomeEntry | null; preset: 'manual' | 'slip' } | null>(null)
   const [maskFor, setMaskFor] = useState<IncomeEntry | null>(null)
+  const [slipList, setSlipList] = useState(false)
   const canWrite = can(role, 'income')
 
   const paperRef = useRef<HTMLDivElement>(null)
@@ -196,6 +197,19 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
         {!fid && !compact && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />}
       </div>
+      {compact && canWrite && !fid && (
+        <div className="no-print" style={{ margin: '8px 0' }}>
+          <CaptureBar noun="สลิป" onFile={setSlipFile} extra={<button type="button" className="act-btn" onClick={() => setSlipList(true)} aria-label="แชร์สลิปปิดชื่อ"><span className="act-btn__ico" aria-hidden="true">🔒</span><span>แชร์สลิป (ปิดชื่อ){slips.filter((x) => x.slip).length ? ` · ${slips.filter((x) => x.slip).length}` : ''}</span></button>} />
+        </div>)}
+      {slipList && (
+        <Sheet title={`🔒 แชร์สลิปปิดชื่อ · สัปดาห์ ${weekRange(sunday)}`} onClose={() => setSlipList(false)}>
+          {slips.filter((x) => x.slip).length === 0 ? <p className="muted">สัปดาห์นี้ยังไม่มีสลิปที่แนบรูปไว้ — กด “📷 ถ่ายรูปสลิป” หรือ “📎 แนบสลิป” เพื่อสแกนก่อน</p> : (
+            <ul className="list">{slips.filter((x) => x.slip).map((x) => (
+              <li key={x.id} style={{ display: 'block', padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', gap: 8 }}><span className="grow"><b>{typeName(x.typeId)}</b>{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}{donorOf(x.donorId) ? <span className="small" style={{ color: '#1a56db' }}> · 👤 {donorOf(x.donorId)}</span> : null}<br /><span className="small muted">{fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}</span></span><b className="num">{fmtBaht(x.amount)}</b></div>
+                <button type="button" className="btn" style={{ marginTop: 4, padding: '4px 10px' }} onClick={() => { setSlipList(false); setMaskFor(x) }}>🔒 ดู/แชร์สลิป (ปิดชื่อ)</button>
+              </li>))}</ul>)}
+        </Sheet>)}
       {scanFiles && <IncomeScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} types={scopeTypes} existing={inc.items} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = putInc(es); if (ok) goWeek(es[0].date); return ok }} />}
       {viewAtt && <AttachViewer title={`${viewAtt.note || fmtDate(viewAtt.date)} · ${fmtBaht(viewAtt.amount)} บาท`} files={[...(viewAtt.slip ? [viewAtt.slip] : []), ...(viewAtt.photos ?? [])]} onClose={() => setViewAtt(null)} />}
       {rowEdit && <IncomeRowEditor subs={fund?.pickSubs ?? fund?.subs} acts={fund?.acts} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} onUpload={canWrite ? uploadPic : undefined} onDropPhoto={(p) => void dropFile(p)} onManage={incomeOps} noteMode={!!fid} entry={rowEdit.entry} types={scopeTypes} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()} onClose={() => setRowEdit(null)} onDelete={delEntry}

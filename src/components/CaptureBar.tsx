@@ -9,11 +9,13 @@ interface Props {
   /** ดาวน์โหลดไฟล์ใบเปล่าที่เก็บไว้กับแอป (ปุ่มแรก) */
   fileDownload?: { href: string; filename: string; label?: string }
   busy?: boolean
+  /** ปุ่มเพิ่มต่อท้ายแถวไอคอน */
+  extra?: ReactNode
   children?: ReactNode
 }
 
 /** แถวไอคอน 3 ปุ่มรูปแบบเดียวกัน: ⬇️ ดาวน์โหลด · 📎 แนบไฟล์ · 📷 ถ่ายรูป */
-export default function CaptureBar({ noun, onFile, downloads, fileDownload, busy, children }: Props) {
+export default function CaptureBar({ noun, onFile, downloads, fileDownload, busy, extra, children }: Props) {
   const [menu, setMenu] = useState(false)
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f) }
   return (
@@ -37,6 +39,7 @@ export default function CaptureBar({ noun, onFile, downloads, fileDownload, busy
           <span className="act-btn__ico" aria-hidden="true">📷</span><span>ถ่ายรูป{noun}</span>
           <input type="file" accept="image/*" capture="environment" aria-label={`ถ่ายรูป${noun}`} style={{ display: 'none' }} onChange={pick} />
         </label>
+        {extra}
       </div>
       {menu && downloads && (
         <div className="capbar__menu">
