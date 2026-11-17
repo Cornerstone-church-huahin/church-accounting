@@ -9,6 +9,7 @@ import { APP_CREDIT } from '../lib/credit'
 import MeetingCenter from './MeetingCenter'
 import PastoralMembers from '../components/PastoralMembers'
 import VisitTimetable from '../components/VisitTimetable'
+import YearPlan from '../components/YearPlan'
 import { AdminZone, MemberHomesMap, VisitHub, VisitLab } from '../components/AdminVisitTools'
 import SchoolTimetable from '../components/SchoolTimetable'
 import { useVisitPlans, useVisits } from '../lib/data'
@@ -241,6 +242,7 @@ function MeetingRoom() {
   if (tab?.n === 2) return isRegistryHelper() ? <Members registry /> : <><WorkHead n={tab.n} name={tab.name} /><RegistryBody /></>
   if (tab?.n === 4 && (k === 'route' || k === 'stats' || k === 'record' || k === 'report' || k === 'group')) return <VisitHub step={{ group: '1', record: '2', report: '3', stats: '4', route: '5' }[k]} />
   if (tab?.n === 4 && k === 'lab') return <VisitLab step={s} />
+  if (tab?.n === 4 && k === 'year') return <YearPlan />
   if (tab?.n === 4 && (k === 'new' || k === '3')) return <VisitHub step={s} />
   if (tab?.n === 4 && k === 'homes') return <HomesGate />
   // ลิงก์เก่า /meeting/1/1/… (หนังสือที่แชร์ไปแล้ว) ย้ายมาช่อง 4

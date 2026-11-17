@@ -46,7 +46,8 @@ export function AdminZone() {
         {TOOLS.map((t, i) => (
           <Link key={t.to} to={t.to} className={`btile btile--${(['own', 'fund', 'total'] as const)[i]}`}><small aria-hidden="true">{t.icon}</small><b>{t.label}</b></Link>
         ))}
-        {[4, 5, 6].map((n) => (
+        <Link to="/meeting/4/year" className="btile btile--indebt"><small aria-hidden="true">🗓️</small><b>แผนงานประจำปี</b></Link>
+        {[5, 6].map((n) => (
           <span key={n} className="btile btile--indebt" style={{ opacity: 0.45 }} aria-disabled="true"><small aria-hidden="true">➕</small><b>ช่อง {n} (ว่าง)</b></span>
         ))}
       </nav>

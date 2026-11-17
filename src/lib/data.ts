@@ -20,7 +20,7 @@ import { normCfg } from './schoolTimetable'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { ActTable, SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { YearPlanRow, ActTable, SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -155,6 +155,10 @@ export function useSchoolCfg() {
 export function useActTables() {
   const s = useSharedStore<ActTable>({ localKey: k('act-tables'), file: 'act-tables.json', label: 'ตารางกำหนดการกิจกรรม', writeCheck: () => !blockedEdit('income'), pollMs: 20_000 })
   return { ...s, of: (actId: string) => s.items.filter((x) => !x.deleted && x.actId === actId).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id)) }
+}
+/** แผนงานประจำปี (ตารางนิมิตประจำปี) — แก้ได้เฉพาะแอดมิน */
+export function useYearPlan() {
+  return useSharedStore<YearPlanRow>({ localKey: k('year-plan'), file: 'year-plan.json', label: 'แผนงานประจำปี', writeCheck: () => !blockedEdit('income'), pollMs: 20_000 })
 }
 /** รายชื่อครูงานรวี */
 export function useSchoolTeachers() {
