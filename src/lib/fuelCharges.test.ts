@@ -25,6 +25,11 @@ describe('fuelCharges', () => {
     expect(k.status).toBe('open'); expect(k.channel).toBe('bill')
     expect(ex.find((e) => e.biller === 'อ.ดารา')!.amount).toBe(1000) // 4กม.×2.5=10บาท
   })
+  it('ปัดเป็นบาทเต็มต่อรอบตั้งแต่ต้นทาง แล้วบัญชีรวมจากยอดที่ปัดแล้ว', () => {
+    const ch = fuelCharges({ trips: [{ date: '2026-11-10', vehicle: 'suv', meters: 10200 }, { date: '2026-11-11', vehicle: 'suv', meters: 10200 }], tripLogs: [], settings: S })
+    expect(ch.map((c) => c.amount)).toEqual([3600, 3600]) // 35.7→36 ต่อรอบ
+    expect(fuelExpenses(ch)[0].amount).toBe(7200)
+  })
   it('สัปดาห์คร่อมเดือนแยกแถวตามเดือน · จ่ายคืนแล้วเป็น paid', () => {
     const ch = fuelCharges({ trips: [{ date: '2026-11-30', vehicle: 'suv', meters: 10000 }, { date: '2026-12-01', vehicle: 'suv', meters: 10000 }], tripLogs: [], settings: S })
     const ex = fuelExpenses(ch, { [fuelExpenses(ch)[0].id]: '2026-12-02' })

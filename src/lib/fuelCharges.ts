@@ -1,6 +1,6 @@
 import { distanceM, type Coord } from './geo'
 import { sheetSunday } from './money'
-import { NO_CAR, actVehicle, vehicleOf, vehicleOwner, vehicleRate } from './vehicles'
+import { NO_CAR, actVehicle, fuelBaht, vehicleOf, vehicleOwner, vehicleRate } from './vehicles'
 import type { ActivityLog, ExpenseEntry, Settings, TripLog, Visit } from './types'
 
 /** หมวด/ข้อความของรายจ่ายค่าน้ำมันที่ระบบสร้างให้อัตโนมัติ (จ่ายคืนเจ้าของรถส่วนตัวตามระยะจริง) */
@@ -46,7 +46,7 @@ export function tripMeters(pts: Coord[], church: Coord | null, road: (a: Coord, 
   return c.slice(1).reduce((a, p, i) => a + (road(c[i], p)?.m ?? distanceM(c[i], p)), 0)
 }
 
-export interface FuelCharge { date: string; vehicle: string; owner: string; meters: number; /** สตางค์ (ยังไม่ปัด) */ amount: number }
+export interface FuelCharge { date: string; vehicle: string; owner: string; meters: number; /** สตางค์ (ปัดเป็นบาทเต็มต่อรอบแล้ว) */ amount: number }
 
 /** ค่าน้ำมันที่ต้องจ่ายคืนเจ้าของรถส่วนตัว (รถคริสตจักรและรถที่ไม่ระบุคัน ไม่นับ) */
 export function fuelCharges(a: { trips: { date: string; vehicle: string; meters: number }[]; tripLogs: Pick<TripLog, 'date' | 'vehicle' | 'km' | 'deleted'>[]; settings: Pick<Settings, 'vehicleFuel' | 'vehicleOwner' | 'fuelPerKm'> }): FuelCharge[] {
@@ -57,7 +57,7 @@ export function fuelCharges(a: { trips: { date: string; vehicle: string; meters:
     const o = vehicleOwner(a.settings.vehicleOwner, vehicle)
     if (o.kind === 'church') return
     const owner = o.name?.trim() || vehicleOf(vehicle)?.name || vehicle
-    out.push({ date, vehicle, owner, meters, amount: (meters / 1000) * vehicleRate(a.settings.vehicleFuel, vehicle, base) * 100 })
+    out.push({ date, vehicle, owner, meters, amount: fuelBaht(meters, vehicleRate(a.settings.vehicleFuel, vehicle, base)) * 100 })
   }
   for (const t of a.trips) add(t.date, t.vehicle, t.meters)
   for (const x of a.tripLogs) if (!x.deleted) add(x.date, x.vehicle, x.km * 1000)
