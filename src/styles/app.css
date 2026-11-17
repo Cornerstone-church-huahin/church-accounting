@@ -983,9 +983,10 @@ button.hbars__r.on { background: rgba(31, 63, 143, 0.1); }
 .prep__chip--circ { color: #1a2b4c; } .prep__chip--fund { color: #8a5a00; }
 .prep__zone { border-radius: 10px; padding: 0 8px 8px; margin: 10px 0; }
 .prep__zone h3 { margin: 0 -8px 6px; padding: 6px 10px; color: #fff; font-size: 1rem; display: flex; justify-content: space-between; gap: 8px; border-radius: 8px 8px 0 0; }
-.prep__zone--circ { border: 3px solid #1a2b4c; background: #f4f7fd; } .prep__zone--circ h3 { background: #1a2b4c; }
-.prep__zone--fund { border: 3px dashed #b8860b; background: #fff8e6; } .prep__zone--fund h3 { background: #b8860b; }
+.prep__zone--circ { border: 3px solid #1a2b4c; background: #cfdcf2; } .prep__zone--circ h3 { background: #1a2b4c; }
+.prep__zone--fund { border: 3px dashed #b8860b; background: #f6e3b0; } .prep__zone--fund h3 { background: #b8860b; }
 .prep__tbl { width: 100%; font-size: .9rem; } .prep__tbl td, .prep__tbl th { padding: 4px 6px; white-space: normal; }
+.prep__tbl tbody td { background: inherit; }
 .prep__wait { color: #8a5a00; font-weight: 700; }
 
 /* ปุ่มขั้นตอนหน้าแรก 6 ปุ่ม: ขนาดเท่ากันทุกปุ่ม ชื่ออยู่บรรทัดเดียว */
