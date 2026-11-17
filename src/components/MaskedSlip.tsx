@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import ImageTools from './ImageTools'
 import Sheet from './Sheet'
 import { loadAttachment } from '../lib/imageExport'
-import { readSlipLines } from '../lib/slipOcr'
+import { detectCard, detectQr, readSlipLines } from '../lib/slipOcr'
 import { maskLabel, slipLayout, type Box } from '../lib/slipMask'
 import { renderMaskedSlip, type MaskBoxes } from '../lib/slipMaskRender'
 
@@ -32,9 +32,9 @@ export default function MaskedSlip({ slip, memberNo, typeName, onClose }: { slip
         if (dead) return
         u = URL.createObjectURL(b); setBlob(b); setUrl(u)
         setMsg('กำลังหาตำแหน่งชื่อและคิวอาร์ (ครั้งแรกอาจนานขึ้นเล็กน้อย)…')
-        const { lines, W, H } = await readSlipLines(b)
+        const [{ lines, W, H }, qr, card] = await Promise.all([readSlipLines(b), detectQr(b).catch(() => null), detectCard(b).catch(() => null)])
         if (dead) return
-        const lay = slipLayout(lines, W, H)
+        const lay = slipLayout(lines, W, H, qr, card)
         setDim({ W, H }); setFound(lay.found)
         setBoxes({ crop: lay.crop, name: lay.name, qr: lay.qr })
         setMsg(lay.found ? 'ตรวจกรอบชื่อและคิวอาร์ให้ตรงตำแหน่ง ลากกรอบเพื่อย้าย ลากจุดมุมเพื่อปรับขนาด' : 'ระบบหาตำแหน่งชื่อไม่เจอ — กด “＋ เพิ่มกรอบ” แล้วลากไปทับชื่อและคิวอาร์เอง')

@@ -27,12 +27,15 @@ export async function renderMaskedSlip(blob: Blob, b: MaskBoxes, label: string):
     const fs = Math.max(16, Math.round(n.h * 0.62))
     ctx.font = `700 ${fs}px sans-serif`
     const pad = Math.round(fs * 0.5)
-    const w = Math.max(n.w, Math.ceil(ctx.measureText(label).width) + pad * 2), h = Math.max(n.h, Math.round(fs * 1.5))
+    const tw = Math.ceil(ctx.measureText(label).width) + pad * 2
+    // ป้ายต้องไม่ล้นขอบรูป (ชื่อชิดขวา เช่น ไทยพาณิชย์ ป้ายยาวกว่าชื่อ) และต้องครอบพื้นที่ชื่อเดิมทั้งหมด
+    const x = Math.max(0, Math.min(n.x, cw - 6 - Math.max(n.w, tw)))
+    const w = Math.max(n.w + (n.x - x), tw), h = Math.max(n.h, Math.round(fs * 1.5))
     ctx.fillStyle = '#c026d3'
     const r = Math.min(14, h / 3)
-    ctx.beginPath(); ctx.moveTo(n.x + r, n.y); ctx.arcTo(n.x + w, n.y, n.x + w, n.y + h, r); ctx.arcTo(n.x + w, n.y + h, n.x, n.y + h, r); ctx.arcTo(n.x, n.y + h, n.x, n.y, r); ctx.arcTo(n.x, n.y, n.x + w, n.y, r); ctx.closePath(); ctx.fill()
+    ctx.beginPath(); ctx.moveTo(x + r, n.y); ctx.arcTo(x + w, n.y, x + w, n.y + h, r); ctx.arcTo(x + w, n.y + h, x, n.y + h, r); ctx.arcTo(x, n.y + h, x, n.y, r); ctx.arcTo(x, n.y, x + w, n.y, r); ctx.closePath(); ctx.fill()
     ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-    ctx.fillText(label, n.x + pad, n.y + h / 2)
+    ctx.fillText(label, x + pad, n.y + h / 2)
   }
   return new Promise((res, rej) => c.toBlob((x) => (x ? res(x) : rej(new Error('สร้างรูปไม่สำเร็จ'))), 'image/png'))
 }

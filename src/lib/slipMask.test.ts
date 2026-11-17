@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { maskLabel, parseMemberCode, slipLayout, type OcrLine, type OcrWord } from './slipMask'
+import { REAL_SLIPS } from './slipMask.fixtures'
 
 describe('parseMemberCode', () => {
   it('อ่านรหัสจากหัวแชต', () => {
@@ -89,4 +90,21 @@ describe('slipLayout กับผล OCR ของจริง (แคปหน�
   it('ตัดขอบสลิปไม่รวมหัวแชตด้านบน', () => {
     expect(r.crop.y).toBeGreaterThan(300); expect(r.crop.y).toBeLessThan(504); expect(r.crop.y + r.crop.h).toBeGreaterThan(1807)
   })
+})
+
+// สลิปจริงที่ผู้บันทึกส่งมา 6 ใบ (แคปจากหน้าดูรูป LINE): กรุงไทย · ไทยพาณิชย์ ×3 · กรุงศรี · กรุงเทพ — ตรวจรหัสสมาชิกจากหัวแชตและกรอบชื่อ
+const CODES: Record<string, string> = { r1: '1348', r2: '1363', r3: '1323', r4: '1380', r5: '1383', r6: '1392' }
+describe('สลิปจริงจากแชต LINE (ธนาคารต่าง ๆ)', () => {
+  for (const [k, v] of Object.entries(REAL_SLIPS)) {
+    it(`${k}: รหัสสมาชิก ${CODES[k]} และกรอบชื่อตรงตำแหน่ง`, () => {
+      expect(parseMemberCode(v.lines.map((l: OcrLine) => l.text).join('\n'))).toBe(CODES[k])
+      const qrIn = v.expect.qr ? { x: v.expect.qr[0], y: v.expect.qr[1], w: v.expect.qr[2], h: v.expect.qr[3] } : null
+      const lay = slipLayout(v.lines as OcrLine[], v.W, v.H, qrIn)
+      expect(lay.found).toBe(true)
+      const e = v.expect.name as number[]
+      expect(lay.name).not.toBeNull()
+      for (const [a, i] of [['x', 0], ['y', 1], ['w', 2], ['h', 3]] as const) expect(Math.abs((lay.name as unknown as Record<string, number>)[a] - e[i])).toBeLessThanOrEqual(12)
+      if (qrIn) expect(lay.qr!.x).toBeLessThanOrEqual(qrIn.x); else expect(lay.qr).toBeNull()
+    })
+  }
 })

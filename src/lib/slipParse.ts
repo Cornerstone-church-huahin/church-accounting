@@ -15,6 +15,28 @@ const MONTHS: Record<string, number> = {
 }
 const key = (s: string) => s.replace(/[\s.]/g, '').toLowerCase()
 const MONTH_BY_KEY = new Map(Object.entries(MONTHS).map(([k, v]) => [key(k), v]))
+/** ตัดสระ/วรรณยุกต์ที่ OCR เติมเกินมา (เช่น ก.ุย. → ก.ย.) */
+const stripMarks = (s: string) => s.replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '')
+const editDist1 = (a: string, b: string) => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++; return d <= 1 }
+const SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+/** เดือนจากข้อความที่ OCR อ่านเพี้ยน: ตรงเป๊ะ → ตัดวรรณยุกต์ → ผิด 1 ตัวอักษรและมีตัวเดียวที่ตรงกับ “รหัสอ้างอิงที่ขึ้นต้นด้วยปีเดือนวัน” (เช่น SCB 20260927…) */
+function monthOf(tok: string, y: number, d: number, text: string): number | undefined {
+  const k = key(tok)
+  const exact = MONTH_BY_KEY.get(k) ?? MONTH_BY_KEY.get(key(stripMarks(tok)))
+  if (exact) return exact
+  const s = key(stripMarks(tok))
+  const cands = SHORT_MONTHS.map((m, i) => [key(m), i + 1] as const).filter(([m]) => editDist1(m, s)).map(([, i]) => i)
+  const ref = cands.filter((m) => text.includes(`${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`))
+  return ref.length === 1 ? ref[0] : cands.length === 1 ? cands[0] : undefined
+}
+/** ปีที่ OCR อ่านเกินมา 1 หลัก (25609 → 2569): เลือกปี พ.ศ. ที่ใกล้ปัจจุบันที่สุด */
+function fixYear(tok: string, today: Date): number {
+  const n = Number(tok)
+  if (tok.length !== 5) return n
+  const be = today.getFullYear() + 543
+  const cands = [...tok].map((_, i) => Number(tok.slice(0, i) + tok.slice(i + 1))).filter((v) => v <= be + 1 && v >= be - 3)
+  return cands.length ? cands.sort((a, b) => Math.abs(a - be) - Math.abs(b - be))[0] : n
+}
 const norm = (s: string) => s.normalize('NFC').replace(/ํา/g, 'ำ').replace(/[\u200b\u200c]/g, '')
 
 function toCE(y: number): number {
@@ -26,14 +48,21 @@ const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '
 export function parseSlipDate(raw: string, today = new Date()): { date?: string; time?: string } {
   const text = norm(raw)
   let date: string | undefined
-  for (const m of text.matchAll(/(\d{1,2})\s*([ก-๙A-Za-z][ก-๙A-Za-z.]{1,10}\.?)\s*(\d{2,4})/g)) {
-    const mo = MONTH_BY_KEY.get(key(m[2]))
-    if (!mo) continue
-    const d = Number(m[1]), y = toCE(Number(m[3]))
-    const t = new Date(y, mo - 1, d)
-    const ok = t.getFullYear() === y && t.getMonth() === mo - 1 && t.getDate() === d
-    const diff = (t.getTime() - today.getTime()) / 86400000
-    if (ok && diff < 3 && diff > -800) { date = iso(y, mo, d); break }
+  let at = -1 // ตำแหน่งที่พบวันที่ — เวลาต้องอยู่ถัดจากวันที่เดียวกัน (ไม่ใช่เวลาสถานะมือถือที่อยู่บนสุดของภาพ)
+  // ปีสลิปเป็น พ.ศ. (2569 / 69) · เวลาข้อความในแชต LINE เป็น ค.ศ. (2026) จึงลองแบบ พ.ศ. ก่อน
+  for (const beOnly of [true, false]) {
+    for (const m of text.matchAll(/(\d{1,2})\s*([ก-๙A-Za-z][ก-๙A-Za-z.]{1,10}\.?)\s*(\d{2,5})/g)) {
+      const yr = fixYear(m[3], today)
+      if (beOnly && !(yr >= 2400 || yr < 100)) continue
+      const d = Number(m[1]), y = toCE(yr)
+      const mo = monthOf(m[2], y, d, text)
+      if (!mo) continue
+      const t = new Date(y, mo - 1, d)
+      const ok = t.getFullYear() === y && t.getMonth() === mo - 1 && t.getDate() === d
+      const diff = (t.getTime() - today.getTime()) / 86400000
+      if (ok && diff < 3 && diff > -800) { date = iso(y, mo, d); at = m.index ?? -1; break }
+    }
+    if (date) break
   }
   if (!date) {
     const n = /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/.exec(text)
@@ -43,7 +72,8 @@ export function parseSlipDate(raw: string, today = new Date()): { date?: string;
       if (mo >= 1 && mo <= 12 && t.getDate() === d) date = iso(y, mo, d)
     }
   }
-  const tm = /(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?\s*(?:น\.?|น)/.exec(text) ?? /\b([01]?\d|2[0-3]):([0-5]\d)\b/.exec(text)
+  const near = at >= 0 ? text.slice(at, at + 70) : ''
+  const tm = /(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?\s*(?:น\.?|น)/.exec(near) ?? /\b([01]?\d|2[0-3]):([0-5]\d)\b/.exec(near) ?? /(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?\s*(?:น\.?|น)/.exec(text) ?? /\b([01]?\d|2[0-3]):([0-5]\d)\b/.exec(text)
   const time = tm ? `${String(Number(tm[1])).padStart(2, '0')}:${tm[2]}` : undefined
   return { date, time }
 }
@@ -67,6 +97,8 @@ export function parseSlipAmount(raw: string): number | undefined {
     if (cand.length) return cand[0]
   }
   for (const l of lines) { if (/ธรรมเนียม|fee|ยอดคงเหลือ|balance/i.test(l)) continue; if (/บาท|baht|thb/i.test(l)) grab(l) }
+  // ไม่เจอคำว่า จำนวน/บาท (OCR อ่านเพี้ยน เช่น “THB” → “โห8”): ใช้ตัวเลขทศนิยม 2 ตำแหน่งที่มากที่สุดในข้อความ ไม่รวมค่าธรรมเนียม รหัสอ้างอิง และเวลา (11.08 น.)
+  if (!cand.length) for (const l of lines) { if (/ธรรม|เนียม|fee|คงเหลือ|balance|รหัส|อ้างอิง|เลขที่/i.test(l) || /\d{1,2}[.:]\d{2}\s*น/.test(l)) continue; grab(l) }
   return cand.length ? Math.max(...cand) : undefined
 }
 
@@ -74,7 +106,7 @@ export function parseSlipText(raw: string, today = new Date()): SlipRead {
   const text = norm(raw)
   const out: SlipRead = {}
   // วันที่/เวลา: เอาจากในการ์ดสลิป (ใต้หัว “โอนเงินสำเร็จ”) เป็นหลัก — รูปแคปหน้าจอมีเวลาสถานะมือถือและเวลาข้อความในแชตอยู่เหนือสลิป ซึ่งไม่ใช่เวลาโอน
-  const anchor = text.search(/โอนเงิน.{0,4}ส.{1,3}เร.{0,2}จ|ทำรายการสำเร็จ|โอนเงินแล้ว/)
+  const anchor = text.search(/(?:โอนเงิน|รายการ|ทำรายการ).{0,4}ส.{1,3}เร|โอนเงินแล้ว/)
   const inCard = anchor >= 0 ? parseSlipDate(text.slice(anchor), today) : {}
   const dt = inCard.date ? inCard : parseSlipDate(text, today)
   if (dt.date) out.date = dt.date

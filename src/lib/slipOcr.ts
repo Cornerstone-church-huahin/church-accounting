@@ -1,6 +1,7 @@
 import { readWithRotations } from './image'
 import { mergeSlipReads, parseSlipText, type SlipRead } from './slipParse'
-import { parseMemberCode, type OcrLine } from './slipMask'
+import { parseMemberCode, type Box, type OcrLine } from './slipMask'
+import { findCardBox, findQrBox } from './qrFind'
 
 /**
  * อ่านสลิปโอนเงินในเครื่อง (Tesseract OCR ที่ฝังมากับแอป ไม่ส่งรูปออกไปที่ใด)
@@ -99,6 +100,36 @@ async function readHeaderCode(file: Blob): Promise<string | undefined> {
   const worker = await getWorker()
   const { data } = await worker.recognize(c)
   return parseMemberCode(data.text)
+}
+
+/** หาคิวอาร์จากพิกเซล (ไม่พึ่ง OCR) · คืนกรอบเป็นพิกเซลของรูปเดิม */
+export async function detectQr(blob: Blob): Promise<Box | null> {
+  const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' })
+  const sc = Math.min(1, 700 / bmp.width)
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * sc)); c.height = Math.max(1, Math.round(bmp.height * sc))
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  if (!ctx) { bmp.close(); return null }
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close()
+  const d = ctx.getImageData(0, 0, c.width, c.height).data
+  const g = new Uint8ClampedArray(c.width * c.height)
+  for (let i = 0; i < g.length; i++) g[i] = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2])
+  const q = findQrBox(g, c.width, c.height)
+  return q ? { x: q.x / sc, y: q.y / sc, w: q.w / sc, h: q.h / sc } : null
+}
+
+/** ขอบการ์ดสลิปในภาพแคปหน้าจอแชต (ใช้ตัดหัวแชต/ช่องพิมพ์ออก) */
+export async function detectCard(blob: Blob): Promise<Box | null> {
+  const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' })
+  const sc = Math.min(1, 500 / bmp.width)
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * sc)); c.height = Math.max(1, Math.round(bmp.height * sc))
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  if (!ctx) { bmp.close(); return null }
+  ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close()
+  const d = ctx.getImageData(0, 0, c.width, c.height).data
+  const g = new Uint8ClampedArray(c.width * c.height)
+  for (let i = 0; i < g.length; i++) g[i] = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2])
+  const b = findCardBox(g, c.width, c.height)
+  return b ? { x: b.x / sc, y: b.y / sc, w: b.w / sc, h: b.h / sc } : null
 }
 
 /** อ่านข้อความทีละบรรทัดพร้อมตำแหน่ง (พิกเซลของรูปเดิม) — ใช้หาตำแหน่งชื่อ/คิวอาร์เพื่อปิดก่อนแชร์ */
