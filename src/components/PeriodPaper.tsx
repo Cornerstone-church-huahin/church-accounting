@@ -25,7 +25,7 @@ export default function PeriodPaper({ church, d, variant, pagesRef, tools }: { c
   const sub = `${d.label} · ระหว่างวันที่ ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
   const topCat = d.catRows[0]
   const fundRows = d.funds.filter((f) => f.moneyIn || f.moneyOut || f.transfer || (f.end ?? 0))
-  const fundSig = `${d.catRows.length}:${d.incRows.length}:${d.comp.length}:${fundRows.length}:${d.r.follow.length}`
+  const fundSig = `${d.catRows.length}:${d.incRows.length}:${d.comp.length}:${d.fuel.length}:${fundRows.length}:${d.r.follow.length}`
   pagesRef.current = []
   const zoneHead = (txt: string, bg: string) => <div className="zone__head" style={{ background: bg }}>{txt}</div>
   return (
@@ -70,6 +70,17 @@ export default function PeriodPaper({ church, d, variant, pagesRef, tools }: { c
                   </table>
                 </>
               ) : <div style={{ fontSize: 13, margin: '6px 0 0' }}>ในรายจ่ายข้างต้น <b>สวัสดิการผู้รับใช้ (ยอดรวม) {m(d.compTotal)} บาท</b>{incTotal > 0 ? ` (${Math.round((d.compTotal / incTotal) * 1000) / 10}% ของรายรับ)` : ''}</div>)}
+              {named && d.fuelTotal > 0 && (
+                <>
+                  <div style={{ fontWeight: 800, fontSize: 15, margin: '8px 0 2px' }}>ค่าน้ำมันเดินทาง/เยี่ยมสมาชิก (จ่ายคืนเจ้าของรถ · ภายในคณะทำงาน)</div>
+                  <table className="sheetpaper sheetpaper--full tkind-out" aria-label="ค่าน้ำมันรายเจ้าของรถ">
+                    <colgroup><col style={{ width: '7%' }} /><col style={{ width: '71%' }} /><col style={{ width: '22%' }} /></colgroup>
+                    <thead><tr><th style={th}>ที่</th><th style={th}>เจ้าของรถ</th><th style={th}>จำนวนเงิน</th></tr></thead>
+                    <tbody>{d.fuel.map((c, i) => <tr key={i}><td style={{ textAlign: 'center' }}>{i + 1}</td><td data-c="x"><span className="pname">{c.name}</span></td><td className="num"><b>{m(c.amount)}</b></td></tr>)}</tbody>
+                    <tfoot><tr><td colSpan={2}>รวมค่าน้ำมัน</td><td className="num">{m(d.fuelTotal)}</td></tr></tfoot>
+                  </table>
+                </>
+              )}
             </div>
             <div style={{ border: '2px solid #1a2b4c', borderRadius: 6, background: '#f4f7fd', padding: '8px 12px', marginTop: 8, fontSize: 15, display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 16px' }}>
               <span>รวมรายรับเงินหมุนเวียน</span><span className="num">{m(incTotal)}</span>

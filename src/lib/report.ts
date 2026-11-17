@@ -37,6 +37,7 @@ export interface PeriodReport {
   follow: FollowUp[]
 }
 
+import { FUEL_CAT, FUEL_LABEL } from './fuelCharges'
 const isoInRange = (d: string, r: Range) => inRange(d, r.from, r.to)
 const sum = (xs: { amount: number }[]) => xs.reduce((s, x) => s + x.amount, 0)
 const baht = (x: number) => `${fmtBaht(x, { dec: x % 100 !== 0 })} บาท`
@@ -45,6 +46,7 @@ const baht = (x: number) => `${fmtBaht(x, { dec: x % 100 !== 0 })} บาท`
 function catResolver(cats: ExpenseCat[]) {
   const groups = cats.filter((c) => c.kind === 'group' && c.active)
   return (catId?: string): { key: string; label: string } => {
+    if (catId === FUEL_CAT) return { key: FUEL_CAT, label: FUEL_LABEL }
     if (groups.length === 0) return { key: UNCAT_KEY, label: 'ยังไม่ระบุหมวด' }
     const g = catId ? cats.find((c) => c.id === catId)?.group : undefined
     const grp = g ? groups.find((x) => x.id === g) : undefined

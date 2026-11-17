@@ -1,5 +1,5 @@
 import { loadWeekAnchor, saveWeekAnchor } from '../lib/weekAnchor'
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGHT } from '../lib/lightBox'
 import { Link } from 'react-router-dom'
 import Sheet from './Sheet'
@@ -8,6 +8,7 @@ import { useChurchMembers, useSettings, useVisits } from '../lib/data'
 import { useRole } from '../lib/members'
 import { canRole, canWork, isWorkStaffOnly } from '../lib/access'
 import { applyBackup, buildBackup, parseBackup } from '../lib/coordBackup'
+import { fetchRoad, useRoadLegs } from '../lib/road'
 import { distanceM, formatCoord, hasCoord, mapsLink, parseCoords, type Coord } from '../lib/geo'
 import type { TripLog } from '../lib/types'
 import { addDays, be, fmtDate, monthName, todayISO } from '../lib/money'
@@ -64,39 +65,6 @@ const Back = ({ title }: { title: string }) => <div className="page-head page-he
 const km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} กม.` : `${m} ม.`)
 const hhmm = (at: number) => new Date(at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.'
 
-// ---- ระยะตามถนนจริง: OSRM (OpenStreetMap routing · ฟรี ไม่ต้องใช้คีย์) · ล้มเหลว/ออฟไลน์ = ใช้เส้นตรงแทน ----
-interface Road { m: number; s: number; g: Coord[] }
-const roadCache = new Map<string, Road>()
-const keyOf = (a: Coord, b: Coord) => `${a.lat},${a.lng}>${b.lat},${b.lng}`
-async function fetchRoad(a: Coord, b: Coord): Promise<Road | null> {
-  try {
-    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`)
-    if (!r.ok) return null
-    const j = await r.json() as { routes?: { distance: number; duration: number; geometry: { coordinates: [number, number][] } }[] }
-    const x = j.routes?.[0]
-    return x ? { m: Math.round(x.distance), s: Math.round(x.duration), g: x.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })) } : null
-  } catch { return null }
-}
-function useRoadLegs(pairs: [Coord, Coord][]) {
-  const [, bump] = useState(0)
-  const sig = pairs.map(([a, b]) => keyOf(a, b)).join('|')
-  useEffect(() => {
-    let dead = false
-    void (async () => {
-      let changed = false
-      await Promise.all(pairs.map(async ([a, b]) => {
-        const k = keyOf(a, b)
-        if (roadCache.has(k)) return
-        if (a.lat === b.lat && a.lng === b.lng) { roadCache.set(k, { m: 0, s: 0, g: [a, b] }); changed = true; return }
-        const r = await fetchRoad(a, b)
-        if (r) { roadCache.set(k, r); changed = true }
-      }))
-      if (changed && !dead) bump((n) => n + 1)
-    })()
-    return () => { dead = true }
-  }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
-  return (a: Coord, b: Coord) => roadCache.get(keyOf(a, b))
-}
 const baht = (n: number) => `${n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`
 const mins = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)} ชม. ${Math.round((s % 3600) / 60)} น.` : `${Math.max(1, Math.round(s / 60))} น.`)
 const GAP_MS = 3 * 3600 * 1000 // จุดเช็คอินห่างกันเกิน 3 ชม. = คนละรอบ (กลับคริสตจักรแล้วออกใหม่)
@@ -669,6 +637,7 @@ export function VehicleFuelReport({ ns = '' }: { ns?: string }) {
           </div>
           {tripsIn.length > 0 && <div style={{ ...LIGHT, background: '#fff', border: '1.5px solid #d6dbe8', borderRadius: 12, padding: 8, marginTop: 8 }}><b>🚗 การเดินทางในช่วงนี้</b>{tripsIn.map((x) => <div key={x.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #eee' }}><span style={{ flex: 1, minWidth: 0 }}>{Number(x.date.slice(8))}/{x.date.slice(5, 7)} · <b>{x.title}</b>{x.place ? ` · 📍 ${x.place}` : ''}{x.stops?.length ? ` · 🛣️ แวะ ${x.stops.map((q) => q.name).join(', ')}` : ''} <small className="muted">· {name(x.vehicle)} · {km(Math.round(x.km * 1000))}ไป-กลับ · {baht(x.km * rate(x.vehicle))}</small></span>{adminEdit && <button type="button" className="mini" aria-label={`ลบเที่ยว ${x.title}`} onClick={() => { if (window.confirm(`ลบการเดินทาง “${x.title}”?`)) tl.remove(x.id) }}>🗑</button>}</div>)}</div>}
           <p className="muted small">คำนวณจากระยะ คริสตจักร → จุดเช็คอิน → กลับ ตามถนนจริง (เส้นตรงถ้าคำนวณไม่ได้) เป็นค่าประมาณ ไม่ใช่ค่าน้ำมันที่จ่ายจริง</p>
+          <p className="muted small">⛽ ค่าน้ำมันของรถส่วนตัวนี้เข้า “รายจ่าย” และ “ต้องเบิก” ของการเงินให้อัตโนมัติ (ปัดเป็นบาทเต็ม แยกตามเจ้าของรถ สัปดาห์ละหนึ่งแถว) · รถคริสตจักรไม่นับ · เหรัญญิกกด “จ่ายแล้ว” ในหน้าจ่ายเมื่อจ่ายคืนเจ้าของรถ</p>
         </>
       )}
     </section>

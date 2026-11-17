@@ -220,6 +220,8 @@ export interface ExpenseCat extends SharedItem {
 export interface Person extends SharedItem { name: string }
 
 export interface ExpenseEntry extends SharedItem {
+  /** ระบบคำนวณให้อัตโนมัติ (ค่าน้ำมันรถส่วนตัว) — แก้/ลบที่รายการนี้ไม่ได้ ต้องแก้ที่รายการเดินทางต้นทาง */
+  derived?: 'fuel'
   /** หมวดย่อยของกองทุน (เฉพาะรายจ่ายที่จ่ายจากกองทุน) */
   subId?: string
   /** ผู้วางบิล / ผู้สำรองจ่าย (ชื่อจากรายชื่อที่ตั้งไว้) — แสดงเป็นคอลัมน์หลังหมายเหตุในใบเบิก-จ่าย */
@@ -579,3 +581,6 @@ export interface ActTable extends SharedItem { actId: string; title: string; kin
 
 /** แผนงานประจำปี (ตารางเหมือนป้ายนิมิตประจำปี): แถววันอาทิตย์สร้างอัตโนมัติ เก็บเฉพาะแถวที่แก้/เพิ่ม · id yp-head-<ปี> = หัวตาราง (text=ชื่อ owner=คำบรรยาย) */
 export interface YearPlanRow extends SharedItem { year: number; date: string; seq: number; text?: string; owner?: string; budget?: string; done?: boolean; /** ข้อความแทนชื่อวัน เช่น “เสาร์ - จันทร์” */ dayText?: string; /** ข้อความแทนวันที่ เช่น “05 - 07” */ dateText?: string }
+
+/** บันทึกว่าจ่ายคืนค่าน้ำมันรายการอัตโนมัติ (id = รหัสรายการ fuel:...) แล้วเมื่อวันที่ */
+export interface FuelPaid extends SharedItem { paidDate: string }

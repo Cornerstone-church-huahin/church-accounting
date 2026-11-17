@@ -5,6 +5,7 @@ import { sheetSunday } from './money'
 import { withdrawnInWeek } from './fundPending'
 import { ownLoanLines } from './weekLoans'
 import { computeLedger, rangeOf } from './weekLedger'
+import { useFuelExpenses } from './useFuelExpenses'
 import type { FundDeposit, ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType, Loan, PassbookLine, Round } from './types'
 
 export interface WithdrawItem { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number }
@@ -35,7 +36,7 @@ export function computeWeekWithdraw(a: WithdrawInput, year: number, sunday: stri
 }
 
 export function useWeekWithdraw(year: number, sunday: string) {
-  const exp = useExpenses(year), income = useIncome(year), rounds = useRounds(year), passbook = usePassbook(year)
+  const exp = useExpenses(year), fuel = useFuelExpenses(year), income = useIncome(year), rounds = useRounds(year), passbook = usePassbook(year)
   const types = useIncomeTypes(), cats = useExpenseCats(), loans = useLoans(), fwd = useFundDeposits()
-  return useMemo(() => computeWeekWithdraw({ expenses: exp.items, income: income.items, rounds: rounds.items, passbook: passbook.items, types: types.list, cats: cats.list, loans: loans.items, fundWd: fwd.items }, year, sunday), [fwd.items, exp.items, income.items, rounds.items, passbook.items, types.list, cats.list, loans.items, year, sunday])
+  return useMemo(() => computeWeekWithdraw({ expenses: [...exp.items, ...fuel], income: income.items, rounds: rounds.items, passbook: passbook.items, types: types.list, cats: cats.list, loans: loans.items, fundWd: fwd.items }, year, sunday), [fwd.items, exp.items, fuel, income.items, rounds.items, passbook.items, types.list, cats.list, loans.items, year, sunday])
 }

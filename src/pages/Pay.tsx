@@ -15,7 +15,8 @@ import ManualExpense from '../components/ManualExpense'
 import StoredImage, { LocalImage } from '../components/StoredImage'
 import { can, canSeeBalances } from '../lib/access'
 import { maskExpenses, maskPending } from '../lib/maskPay'
-import { useFundDeposits, usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFunds, useLoans, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
+import { useFuelExpenses } from '../lib/useFuelExpenses'
+import { useFundDeposits, usePassbook, useBudgetEntries, useBudgetLines, useExpenseCats, useExpenses, useFuelPaid, useFunds, useLoans, useIncomeTypes, useIncome, useRounds, useSettings, useVouchers } from '../lib/data'
 import { ensureGemini, getGemini, readBill } from '../lib/gemini'
 import { compressImage } from '../lib/image'
 import { readSlip } from '../lib/slipOcr'
@@ -54,13 +55,20 @@ const byDateDesc = (a: ExpenseEntry, b: ExpenseEntry) => (effDate(a) < effDate(b
 export default function Pay({ year, fund, view, weekCtl, hideWeekBar, compact, fourTools }: { /** แถบไอคอนเล็ก 4 ปุ่มใต้ใบ (หน้ากองทุน) */ fourTools?: boolean; year: number; /** หน้า “บันทึก”: แสดงเฉพาะแผ่นใบ + แถบเครื่องมือเล็ก (ไม่มีสแกน รายการใต้ใบ ช่องบันทึก 1–4) */ compact?: boolean; /** หน้า “บันทึก” (รับ+จ่ายในหน้าเดียว): ใช้สัปดาห์ร่วมกัน + ซ่อนแถบสัปดาห์ของตัวเอง */ weekCtl?: { sunday: string; set: (s: string) => void }; hideWeekBar?: boolean; /** ดูอย่างเดียว: แสดงเฉพาะใบเบิก-จ่ายเงินสดรายสัปดาห์ (ย้อนดูได้) ไม่มีปุ่มแก้ไข/โหมดอื่น */ view?: boolean; /** หน้ากองทุน: จ่ายของกองทุนนี้เท่านั้น (แยกจากบัญชีหมุนเวียนโดยสิ้นเชิง) — balance = ยอดคงเหลือกองทุน */ fund?: FundScope }) {
   const role = useRole()
   const expRaw = useExpenses(year)
+  const fuelItems = useFuelExpenses(year) // ค่าน้ำมันรถส่วนตัวที่ระบบคำนวณให้ (ค้างจ่าย/รอคืนเงิน) — แก้ไม่ได้ ทำได้แค่กดจ่ายคืนแล้ว
+  const fuelPaid = useFuelPaid()
   const subsOn = !!fund?.subs?.length
   const fcat = subsOn ? fund?.sub ?? 'all' : 'all'
   const inSub = (x: { subId?: string }) => fcat === 'all' || (x.subId ?? '') === fcat
   /** รายจ่ายของกองทุนที่มีหมวด: ใหม่ต้องมีหมวด (ติดหมวดที่เลือกอยู่) · จ่ายเกินยอดหมวดต้องยืนยัน */
   const exp = {
     ...expRaw,
-    put: (xs: ExpenseEntry[]) => {
+    items: [...expRaw.items, ...fuelItems],
+    remove: (id: string) => { if (id.startsWith('fuel:')) { alert('รายการค่าน้ำมันอัตโนมัติลบ/แก้ตรงนี้ไม่ได้ — ปรับที่รายการเดินทาง/เช็คอินต้นทาง'); return false } return expRaw.remove(id) },
+    put: (xs0: ExpenseEntry[]) => {
+      const dv = xs0.filter((x) => x.derived === 'fuel')
+      const xs = xs0.filter((x) => x.derived !== 'fuel')
+      if (dv.length) { const ok = fuelPaid.put(dv.map((x) => ({ id: x.id, paidDate: x.paidDate ?? '', deleted: !(x.status === 'paid' && x.paidDate), updated: 0 }))); if (xs.length === 0) return ok }
       if (!subsOn || !fund) return expRaw.put(xs)
       if (xs.some((x) => x.subId && fund.lockedSubs?.includes(x.subId))) { alert('กิจกรรมนี้ปิดแล้ว — บันทึกหรือแก้รายการไม่ได้ (เปิดกิจกรรมอีกครั้งก่อน)'); return false }
       const out: ExpenseEntry[] = []
@@ -192,8 +200,8 @@ export default function Pay({ year, fund, view, weekCtl, hideWeekBar, compact, f
       {canWrite && (
         <span className="row" style={{ gap: 8, marginTop: 6 }}>
           {x.channel !== 'manual' && x.status === 'open' && <button type="button" className="mini" onClick={() => setPayFor(x)}>{CH[x.channel].doneLabel}</button>}
-          <button type="button" className="mini" onClick={() => setForm({ entry: x, channel: x.channel })}>✎ แก้ไข</button>
-          <button type="button" className="mini" onClick={() => del(x)}>🗑️ ลบ</button>
+          {x.derived ? <span className="small muted">⛽ ระบบคำนวณจากการเดินทาง (แก้ที่ต้นทาง)</span> : <><button type="button" className="mini" onClick={() => setForm({ entry: x, channel: x.channel })}>✎ แก้ไข</button>
+          <button type="button" className="mini" onClick={() => del(x)}>🗑️ ลบ</button></>}
         </span>
       )}
     </li>
@@ -248,10 +256,10 @@ export default function Pay({ year, fund, view, weekCtl, hideWeekBar, compact, f
     <>
       {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
       <div className="no-print">
-        <VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} entries={[...weekAll.map(sheetOf), ...(fund && (fcat === 'all' || fcat === '') ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} withShare={compact} fourTools={fourTools} onScan={canWrite && !fid && !compact ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
+        <VoucherPaper church={settings.churchName.split(' ')[0]} fundRows={fundRowsE} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} entries={[...weekAll.map(sheetOf), ...(fund && (fcat === 'all' || fcat === '') ? loanExpenseRows(fund).filter((x) => sheetSunday(x.date) === sunday) : [])]} sunday={sunday} summary={weekSummary} withShare={compact} fourTools={fourTools} onScan={canWrite && !fid && !compact ? setScanFiles : undefined} onFileClick={(x) => x.file && setViewer({ id: x.id, path: x.file.path, name: x.file.name, title: [x.desc, x.biller || x.who].filter(Boolean).join(' · ') })} onRowClick={canWrite ? (x) => { if (x && /^(fx:|l[nrbq]:)/.test(x.id)) return; const o = x && all.find((e) => e.id === x.id); if (o?.derived) { if (o.status === 'open') setPayFor(o); return } if (o && o.channel !== 'manual') setForm({ entry: o, channel: o.channel }); else setRowEdit({ entry: o ?? null }) } : undefined} />
         {canWrite && !fid && !compact && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
         {!fid && !compact && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekAll.map(sheetOf).map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: x.desc || catName(x.catId), sub: [x.requester || x.note, x.biller ? `ผู้วางบิล ${x.biller}` : '', x.who ? `ผู้รับเงิน ${x.who}` : '', x.file ? '📎' : ''].filter(Boolean).join(' · '), amount: x.amount }))}
-          onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x) del(x) }} />}
+          onEdit={(id) => { const x = all.find((e) => e.id === id); if (!x || x.derived) return; if (x.channel === 'manual') setRowEdit({ entry: x }); else setForm({ entry: x, channel: x.channel }) }} onDelete={(id) => { const x = all.find((e) => e.id === id); if (x && !x.derived) del(x) }} />}
       </div>
       {viewer && <ImageViewer path={viewer.path} name={viewer.name} title={viewer.title} onClose={() => setViewer(null)}
         {...(canWrite && all.some((e) => e.id === viewer.id) ? {
