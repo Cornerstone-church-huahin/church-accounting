@@ -26,8 +26,10 @@ import { IncomeScan } from '../components/PaperScan'
 import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
 import { downloadBlankSheet } from '../lib/blankSheet'
-import { readDonorHints, readSlip } from '../lib/slipOcr'
+import { readSlip, readSlipVisual } from '../lib/slipOcr'
 import MaskedSlip from '../components/MaskedSlip'
+import { storeMaskedSlip } from '../lib/slipStore'
+import type { MaskBoxes } from '../lib/slipMaskRender'
 import { loanIncomeRows, type FundScope } from '../lib/fundScope'
 import { isFundZone } from '../lib/funds'
 
@@ -133,7 +135,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   }
   const delEntry = (x: IncomeEntry) => {
     if (!confirm(`ลบรายการ ${fmtBaht(x.amount)} (${fmtDate(x.date)}) พร้อมรูปสลิปที่แนบ?`)) return
-    if (inc.remove(x.id)) { void dropFile(x.slip?.path); for (const p of x.photos ?? []) void dropFile(p.path) }
+    if (inc.remove(x.id)) { void dropFile(x.slip?.path); void dropFile(x.slipMasked?.path); for (const p of x.photos ?? []) void dropFile(p.path) }
   }
   const delFile = (f: SheetFile) => {
     const rd = rounds.items.find((r) => r.sheetFileId === f.id)
@@ -153,7 +155,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
     <li key={x.id} style={{ display: 'block', padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span className="grow"><b>{typeName(x.typeId)}</b>{x.note ? <span className="small muted"> · {x.note}</span> : null}{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}{canWrite && donorOf(x.donorId) ? <span className="small" style={{ color: '#1a56db' }}> · 👤 {donorOf(x.donorId)}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
+        <span className="grow"><b>{typeName(x.typeId)}</b>{x.note ? <span className="small muted"> · {x.note}</span> : null}{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}{canWrite && donorOf(x.donorId) ? <span className="small" style={{ color: '#1a56db' }}> · 👤 {donorOf(x.donorId)}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.slipMasked ? ' · 🔒รูปแชร์พร้อม' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
       </div>
       {x.slip && <button type="button" className="btn" style={{ marginTop: 6, padding: '4px 10px' }} onClick={() => setMaskFor(x)} aria-label={`แชร์สลิปปิดชื่อ ${typeName(x.typeId)} ${fmtBaht(x.amount)}`}>🔒 ดู/แชร์สลิป (ปิดชื่อ)</button>}
@@ -305,7 +307,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
 
       {attach && attach !== 'new' && <SheetFlow year={year} sunday={sunday} existing={attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
       {newSheetFile && <SheetFlow year={year} sunday={sunday} existing={null} initialFile={newSheetFile} onClose={() => setNewSheetFile(null)} onSaved={goWeek} />}
-      {maskFor?.slip && <MaskedSlip slip={maskFor.slip} memberNo={maskFor.memberNo} typeName={maskFor.typeId === UNSORTED ? '' : typeName(maskFor.typeId)} onClose={() => setMaskFor(null)} />}
+      {maskFor?.slip && <MaskedSlip key={maskFor.slipMasked?.path ?? 'new'} slip={maskFor.slip} masked={maskFor.slipMasked} savedBoxes={maskFor.maskBoxes as MaskBoxes | undefined} onStore={async (blob, boxes) => { const e = maskFor; const m = await storeMaskedSlip(blob, year); const rr = (b: { x: number; y: number; w: number; h: number }) => ({ x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) }); const nb = { crop: rr(boxes.crop), name: boxes.name ? rr(boxes.name) : null, qr: boxes.qr ? rr(boxes.qr) : null }; if (!inc.put([{ ...e, slipMasked: m, maskBoxes: nb, updated: 0 }])) throw new Error('บันทึกไม่ได้ (สิทธิ์ไม่พอ)'); if (e.slipMasked) void dropFile(e.slipMasked.path); setMaskFor({ ...e, slipMasked: m, maskBoxes: nb }) }} memberNo={maskFor.memberNo} typeName={maskFor.typeId === UNSORTED ? '' : typeName(maskFor.typeId)} onClose={() => setMaskFor(null)} />}
       {slipFile && <SlipFlow year={year} inc={inc} initialFile={slipFile} onClose={() => setSlipFile(null)} onSaved={goWeek} />}
       {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} onSaved={goWeek} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>
@@ -328,11 +330,12 @@ function SlipFlow({ year, inc, initialFile, onClose, onSaved }: { year: number; 
     const hit = memo ? types.list.find((t) => t.active && memo.includes(t.name.split(' ')[0])) : undefined
     const missing = r ? [!r.date && 'วันที่', !r.amount && 'ยอดเงิน'].filter(Boolean) : []
     const warn = r && missing.length ? `อ่าน${missing.join('และ')}ไม่ได้ — กรุณากรอกเอง` : ''
-    let hint: Awaited<ReturnType<typeof readDonorHints>> = {}
-    try { hint = await readDonorHints(file) } catch { /* ผู้บันทึกเลือกผู้ถวายเอง */ }
+    let hint: Awaited<ReturnType<typeof readSlipVisual>>['hint'] = {}
+    let boxes: Awaited<ReturnType<typeof readSlipVisual>>['boxes'] = null
+    try { const v = await readSlipVisual(file); hint = v.hint; boxes = v.boxes } catch { /* ผู้บันทึกเลือกผู้ถวายเอง */ }
     if (!hint.code && r?.code) hint = { ...hint, code: r.code }
     if (warn) setMsg(warn)
-    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo, memberNo: hint.code ?? r?.code, hint })
+    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo, memberNo: hint.code ?? r?.code, hint, boxes })
     setStage('confirm')
   }
   useEffect(() => { if (initialFile) void choose(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps

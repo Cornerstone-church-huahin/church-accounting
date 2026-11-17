@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ImageTools from './ImageTools'
 import Sheet from './Sheet'
+import StoredImage from './StoredImage'
 import { loadAttachment } from '../lib/imageExport'
 import { detectCard, detectQr, readSlipLines } from '../lib/slipOcr'
 import { maskLabel, slipLayout, type Box } from '../lib/slipMask'
@@ -10,7 +11,8 @@ type Key = 'crop' | 'name' | 'qr'
 const COL: Record<Key, { c: string; t: string }> = { crop: { c: '#1a56db', t: '✂️ ขอบสลิป' }, name: { c: '#c026d3', t: '👤 ปิดชื่อ' }, qr: { c: '#6b7280', t: '▦ ปิดคิวอาร์' } }
 
 /** แชร์สลิปแบบปิดชื่อ: ระบบหาตำแหน่งชื่อ/คิวอาร์/ขอบสลิปให้ ผู้บันทึกลากปรับได้ → ได้รูปใหม่ที่ถูกปิดจริง พร้อมดาวน์โหลด/แชร์/พิมพ์ */
-export default function MaskedSlip({ slip, memberNo, typeName, onClose }: { slip: { path: string; name: string }; memberNo?: string; typeName: string; onClose: () => void }) {
+export default function MaskedSlip({ slip, memberNo, typeName, masked, savedBoxes, onStore, onClose }: { slip: { path: string; name: string }; memberNo?: string; typeName: string; /** รูปปิดชื่อที่ระบบสร้างไว้แล้วตอนบันทึก */ masked?: { path: string; name: string }; /** กรอบที่ใช้ตอนสร้าง (ปรับแก้ต่อได้โดยไม่ต้องอ่านใหม่) */ savedBoxes?: MaskBoxes; /** เก็บรูปที่ปิดชื่อนี้เข้าระบบ (แทนของเดิม) */ onStore?: (blob: Blob, boxes: MaskBoxes) => Promise<void>; onClose: () => void }) {
+  const [editing, setEditing] = useState(!masked)
   const [blob, setBlob] = useState<Blob | null>(null)
   const [url, setUrl] = useState('')
   const [dim, setDim] = useState<{ W: number; H: number } | null>(null)
@@ -25,12 +27,17 @@ export default function MaskedSlip({ slip, memberNo, typeName, onClose }: { slip
   const drag = useRef<{ k: Key; mode: 'move' | 'size'; sx: number; sy: number; b: Box; scale: number } | null>(null)
 
   useEffect(() => {
+    if (!editing) return
     let dead = false, u = ''
     void (async () => {
       try {
         const b = await loadAttachment(slip.path)
         if (dead) return
         u = URL.createObjectURL(b); setBlob(b); setUrl(u)
+        if (savedBoxes) { // ใช้กรอบที่เคยสร้างไว้ ไม่ต้องอ่านใหม่
+          const bmp = await createImageBitmap(b, { imageOrientation: 'from-image' }); setDim({ W: bmp.width, H: bmp.height }); bmp.close()
+          setBoxes(savedBoxes); setFound(true); setMsg('ปรับกรอบให้ตรง แล้วกด “บันทึกรูปนี้ไว้ในระบบ” เพื่อแทนรูปเดิม'); return
+        }
         setMsg('กำลังหาตำแหน่งชื่อและคิวอาร์ (ครั้งแรกอาจนานขึ้นเล็กน้อย)…')
         const [{ lines, W, H }, qr, card] = await Promise.all([readSlipLines(b), detectQr(b).catch(() => null), detectCard(b).catch(() => null)])
         if (dead) return
@@ -41,9 +48,11 @@ export default function MaskedSlip({ slip, memberNo, typeName, onClose }: { slip
       } catch (e) { if (!dead) setMsg(e instanceof Error ? e.message : 'เปิดรูปสลิปไม่ได้') }
     })()
     return () => { dead = true; if (u) URL.revokeObjectURL(u) }
-  }, [slip.path])
+  }, [slip.path, editing]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { if (prev) URL.revokeObjectURL(prev) }, [prev])
 
+  const [saving, setSaving] = useState(false)
+  const store = async () => { if (!onStore || !boxes) return; setSaving(true); try { await onStore(await render(), boxes); setMsg('✓ เก็บรูปที่ปิดชื่อไว้ในระบบแล้ว'); setEditing(false) } catch (e) { setMsg(e instanceof Error ? e.message : 'เก็บรูปไม่สำเร็จ') } finally { setSaving(false) } }
   const upd = (k: Key, fn: (b: Box) => Box) => setBoxes((s) => (s && s[k] ? { ...s, [k]: fn(s[k] as Box) } : s))
   const add = (k: 'name' | 'qr') => dim && setBoxes((s) => s && ({ ...s, [k]: k === 'name' ? { x: dim.W * 0.25, y: dim.H * 0.3, w: dim.W * 0.4, h: dim.H * 0.03 } : { x: dim.W * 0.6, y: dim.H * 0.6, w: dim.W * 0.25, h: dim.W * 0.25 } }))
   const down = (e: React.PointerEvent, k: Key, mode: 'move' | 'size') => {
@@ -64,6 +73,15 @@ export default function MaskedSlip({ slip, memberNo, typeName, onClose }: { slip
   const preview = async () => { try { const b = await render(); setPrev(URL.createObjectURL(b)) } catch (e) { setMsg(e instanceof Error ? e.message : 'สร้างตัวอย่างไม่ได้') } }
   const pct = (b: Box) => dim ? { left: `${(b.x / dim.W) * 100}%`, top: `${(b.y / dim.H) * 100}%`, width: `${(b.w / dim.W) * 100}%`, height: `${(b.h / dim.H) * 100}%` } : {}
 
+  if (!editing && masked) return (
+    <Sheet title="🔒 สลิปปิดชื่อ (พร้อมแชร์)" onClose={onClose}>
+      <p className="small" style={{ margin: 0 }}>✓ ระบบสร้างและเก็บรูปที่ปิดชื่อผู้โอนและคิวอาร์ไว้ให้แล้ว · รูปต้นฉบับเก็บไว้ภายใน ไม่ถูกแชร์</p>
+      <StoredImage path={masked.path} alt="สลิปที่ปิดชื่อแล้ว" />
+      <ImageTools files={[masked]} title={`สลิป ${memberNo ?? ''}`} base={`สลิป-สมาชิก-${memberNo || 'x'}`} />
+      {msg && !msg.startsWith('กำลัง') && <p className="small" role="status" style={{ margin: 0 }}>{msg}</p>}
+      <button type="button" className="btn btn--block" onClick={() => setEditing(true)}>✏️ ปรับกรอบ / สร้างรูปใหม่</button>
+    </Sheet>
+  )
   return (
     <Sheet title="🔒 แชร์สลิป (ปิดชื่อผู้โอน)" onClose={onClose}>
       <p className="muted small" style={{ margin: 0 }} role="status">{msg}</p>
@@ -88,6 +106,7 @@ export default function MaskedSlip({ slip, memberNo, typeName, onClose }: { slip
           <button type="button" className="btn btn--block" onClick={() => void preview()}>👁 ดูตัวอย่างรูปที่จะแชร์</button>
           {prev && <img src={prev} alt="ตัวอย่างสลิปที่ปิดชื่อแล้ว" style={{ width: '100%', borderRadius: 8, border: '2px solid #c026d3' }} />}
           <p className="small" style={{ margin: 0 }}>⚠ ตรวจตัวอย่างอีกครั้งว่าไม่เห็นชื่อจริงและคิวอาร์ก่อนส่ง · รูปที่ได้เป็นไฟล์ใหม่ ต้นฉบับยังเก็บไว้ในระบบเหมือนเดิม</p>
+          {onStore && <button type="button" className="btn btn--gold btn--block" disabled={saving} onClick={() => void store()}>{saving ? 'กำลังเก็บรูป…' : '💾 บันทึกรูปที่ปิดชื่อนี้ไว้ในระบบ (ใช้แชร์)'}</button>}
           <ImageTools load={async () => [await render()]} title={`สลิป ${label}`} base={`สลิป-สมาชิก-${code || 'x'}`} />
         </>
       )}
