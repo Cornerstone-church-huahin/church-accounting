@@ -140,6 +140,8 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
   const split = !scope && (!!blank || types.some((t) => t.fund))
   const pages = chunk(all, ROWS).map((rows, gi, arr) => ({ rows, gi, gn: arr.length }))
   const name = (id: string) => types.find((t) => t.id === id)?.name ?? (id === '' ? UNKNOWN_INCOME_LABEL : '(รายการที่ถูกลบ)')
+  /** ชื่อแถวในใบ: ประเภทถวาย + รหัสสมาชิก (เฉพาะเลขรหัส — ไม่ใส่ชื่อบุคคลที่อาจพิมพ์ไว้ในช่องผู้ถวาย) */
+  const label = (x: IncomeEntry) => name(x.typeId) + (x.memberNo && /^\d{2,6}$/.test(x.memberNo.trim()) ? ` ${x.memberNo.trim()}` : '')
   const sum = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + x.amount, 0)
   const cnt = (xs: IncomeEntry[], k: 'cash' | 'transfer') => xs.filter((x) => x.method === k).reduce((s, x) => s + (x.count ?? 1), 0)
   const heading = blank ? BLANK_HEADING : (scope ? `${scope} · ` : '') + (sunday ? weekHeading(sunday) : 'รวมทุกสัปดาห์')
@@ -162,7 +164,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
                   <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                     <td style={{ fontSize: 11 }}>{x ? fmtDate(x.date) : ''}</td>
                     <td>{k * per + i + 1}.</td>
-                    <td>{x ? (scope ? name(x.typeId) : x.note || name(x.typeId)) : ''}</td>
+                    <td>{x ? (scope ? name(x.typeId) : (x.source === 'slip' ? label(x) : x.note || label(x))) : ''}</td>
                     <td className="num">{x && x.method === 'cash' ? x.count ?? 1 : ''}</td>
                     <td className="num">{x && x.method === 'cash' ? m(x.amount) : ''}</td>
                     <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
@@ -215,7 +217,7 @@ export function IncomeSheetPaper({ church, entries, types, sunday, onRowClick, o
                     <tr key={i} className={onRowClick ? 'sheetrow' : undefined} onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(x ?? null) } : undefined}>
                       <td>{x ? fmtDate(x.date) : ''}</td>
                       <td>{gi * ROWS + i + 1}.</td>
-                      <td>{x ? (scope ? name(x.typeId) + (x.note ? ` · ${x.note}` : '') : x.note || name(x.typeId)) : ''}</td>
+                      <td>{x ? (scope ? name(x.typeId) + (x.note ? ` · ${x.note}` : '') : (x.source === 'slip' ? label(x) : x.note || label(x))) : ''}</td>
                       <td className="num">{x && x.method === 'cash' ? x.count ?? 1 : ''}</td>
                       <td className="num">{x && x.method === 'cash' ? m(x.amount) : ''}</td>
                       <td className="num">{x && x.method === 'transfer' ? x.count ?? 1 : ''}</td>
