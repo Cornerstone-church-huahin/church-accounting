@@ -94,7 +94,7 @@ function IncomeList({ year }: { year: number }) {
 }
 
 /** ค่าที่ระบบอ่านจากสลิปมาใส่ให้ล่วงหน้า (ผู้ใช้ตรวจแล้วกดยืนยัน) */
-export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; file: File }
+export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; /** รหัสสมาชิกที่อ่านจากหัวแชต */ memberNo?: string; file: File }
 
 export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init, onSaved }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
@@ -103,7 +103,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   const [date, setDate] = useState(entry?.date ?? init?.date ?? defaultDate ?? (yearOf(todayISO()) === year ? todayISO() : `${year}-01-01`))
   const [typeId, setTypeId] = useState(entry ? entry.typeId : init?.typeId ?? (preset === 'slip' ? UNSORTED : (active[0]?.id ?? '')))
   const [time, setTime] = useState(entry?.time ?? init?.time ?? '')
-  const [memberNo, setMemberNo] = useState(entry?.memberNo ?? '')
+  const [memberNo, setMemberNo] = useState(entry?.memberNo ?? init?.memberNo ?? '')
   const [slipFile, setSlipFile] = useState<File | null>(init?.file ?? null)
   const [busy, setBusy] = useState(false)
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? init?.amount ?? null)
