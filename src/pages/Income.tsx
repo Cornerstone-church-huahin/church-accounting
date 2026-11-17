@@ -6,6 +6,9 @@ import Sheet from '../components/Sheet'
 import { can } from '../lib/access'
 import { useAccounts, useChurchMembers, useIncome, useIncomeTypes, usePassbook } from '../lib/data'
 import DonorField from '../components/DonorField'
+import { maskLabel } from '../lib/slipMask'
+import { renderMaskedSlip, type MaskBoxes } from '../lib/slipMaskRender'
+import { storeMaskedSlip } from '../lib/slipStore'
 import { matchDonor, type DonorHint } from '../lib/donorMatch'
 import { BANK_UNKNOWN_LABEL, lineDate, unknownBankIn, unseenTransfers } from '../lib/passbook'
 import { useRole } from '../lib/members'
@@ -96,7 +99,7 @@ function IncomeList({ year }: { year: number }) {
 }
 
 /** ค่าที่ระบบอ่านจากสลิปมาใส่ให้ล่วงหน้า (ผู้ใช้ตรวจแล้วกดยืนยัน) */
-export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; /** รหัสสมาชิกที่อ่านจากหัวแชต */ memberNo?: string; /** ข้อมูลอ่านจากสลิป/หัวแชตสำหรับจับคู่ผู้ถวายกับทะเบียน */ hint?: DonorHint; file: File }
+export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; /** รหัสสมาชิกที่อ่านจากหัวแชต */ memberNo?: string; /** ข้อมูลอ่านจากสลิป/หัวแชตสำหรับจับคู่ผู้ถวายกับทะเบียน */ hint?: DonorHint; /** กรอบปิดชื่อ/คิวอาร์ที่ระบบหาให้ (ใช้สร้างรูปแชร์ตอนบันทึก) */ boxes?: MaskBoxes | null; file: File }
 
 export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init, onSaved }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
@@ -132,6 +135,9 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
     const donor = people.items.find((m) => m.id === donorId && !m.deleted)
     const donorCode = (donor?.code ?? '').trim() || hint.code || ''
     let slip = entry?.slip
+    let slipMasked = entry?.slipMasked
+    let maskBoxes = entry?.maskBoxes
+    let maskFail = ''
     if (slipFile && method === 'transfer') {
       const cfg = getSync()
       if (!cfg) return setErr('ต้องเชื่อมต่อออนไลน์ก่อนจึงแนบรูปสลิปได้ (รูปเก็บใน repo ข้อมูล)')
@@ -141,11 +147,22 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
         const path = `attachments/${year}/slip-${Date.now().toString(36)}.${ext}`
         await putBinary(cfg, path, data, 'สลิปโอน')
         slip = { path, name: slipFile.name }
+        // รูปปิดชื่อ/คิวอาร์ไว้แชร์: สร้างและอัปโหลดให้พร้อมกันตอนบันทึก (ถ้าทำไม่ได้ ไม่ขัดการบันทึก — ไปสร้างทีหลังจากปุ่ม “ดู/แชร์สลิป”)
+        if (init?.boxes) {
+          try {
+            const tn = typeId === UNSORTED ? '' : types.byId(typeId)?.name ?? ''
+            const blob = await renderMaskedSlip(slipFile, init.boxes, maskLabel(memberNo.trim() || donorCode, tn))
+            slipMasked = await storeMaskedSlip(blob, year)
+            const r = (b: { x: number; y: number; w: number; h: number }) => ({ x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })
+            maskBoxes = { crop: r(init.boxes.crop), name: init.boxes.name ? r(init.boxes.name) : null, qr: init.boxes.qr ? r(init.boxes.qr) : null }
+          } catch (e2) { maskFail = e2 instanceof Error ? e2.message : 'สร้างรูปปิดชื่อไม่สำเร็จ' }
+        }
       } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบสลิปไม่สำเร็จ') }
       setBusy(false)
     }
-    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() || donorCode ? { memberNo: memberNo.trim() || donorCode } : {}), ...(donorId ? { donorId } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), ...(time ? { time } : {}), ...(entry?.count ? { count: entry.count } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
+    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() || donorCode ? { memberNo: memberNo.trim() || donorCode } : {}), ...(donorId ? { donorId } : {}), ...(slip ? { slip } : {}), ...(slipMasked ? { slipMasked } : {}), ...(maskBoxes ? { maskBoxes } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), ...(time ? { time } : {}), ...(entry?.count ? { count: entry.count } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
     if (ok && donor && remember && hint.code && (donor.code ?? '').trim() !== hint.code) people.put([{ ...donor, code: hint.code, updated: 0 }]) // จำรหัสไว้กับสมาชิก — ครั้งหน้าจับคู่อัตโนมัติ (ไม่มีสิทธิ์แก้ทะเบียน = ข้ามเงียบ ๆ)
+    if (ok && maskFail) alert(`บันทึกแล้ว แต่สร้างรูปสลิปที่ปิดชื่อไม่สำเร็จ (${maskFail}) — เปิดปุ่ม “🔒 ดู/แชร์สลิป” เพื่อสร้างใหม่ได้`)
     if (ok) { onSaved?.(date); onClose() }
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด

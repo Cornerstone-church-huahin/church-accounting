@@ -2,6 +2,7 @@ import { readWithRotations } from './image'
 import { mergeSlipReads, parseSlipText, type SlipRead } from './slipParse'
 import { parseMemberCode, slipLayout, type Box, type OcrLine } from './slipMask'
 import { parseContact, type DonorHint } from './donorMatch'
+import type { MaskBoxes } from './slipMaskRender'
 import { findCardBox, findQrBox } from './qrFind'
 
 /**
@@ -104,13 +105,23 @@ async function readHeaderText(file: Blob): Promise<string> {
 }
 async function readHeaderCode(file: Blob): Promise<string | undefined> { return parseMemberCode(await readHeaderText(file)) }
 
-/** ข้อมูลสำหรับจับคู่ผู้ถวายกับทะเบียน: รหัส + ชื่อผู้ติดต่อจากหัวแชต + ชื่อผู้โอนบนสลิป */
-export async function readDonorHints(file: Blob): Promise<DonorHint> {
-  const out: DonorHint = {}
-  try { const c = parseContact(await readHeaderText(file)); if (c.code) out.code = c.code; if (c.name) out.contactName = c.name } catch { /* ไม่มีหัวแชต */ }
-  try { const { lines, W, H } = await readSlipLines(file); const lay = slipLayout(lines, W, H); if (lay.nameText) out.senderName = lay.nameText } catch { /* อ่านชื่อบนสลิปไม่ได้ */ }
-  return out
+/**
+ * อ่านภาพสลิปครั้งเดียวได้ทั้ง (1) ข้อมูลจับคู่ผู้ถวายกับทะเบียน: รหัส + ชื่อผู้ติดต่อจากหัวแชต + ชื่อผู้โอนบนสลิป
+ * และ (2) กรอบสำหรับปิดชื่อ/คิวอาร์/ตัดขอบ (ใช้สร้างรูปแชร์อัตโนมัติตอนบันทึก)
+ */
+export async function readSlipVisual(file: Blob): Promise<{ hint: DonorHint; boxes: MaskBoxes | null }> {
+  const hint: DonorHint = {}
+  try { const c = parseContact(await readHeaderText(file)); if (c.code) hint.code = c.code; if (c.name) hint.contactName = c.name } catch { /* ไม่มีหัวแชต */ }
+  let boxes: MaskBoxes | null = null
+  try {
+    const [{ lines, W, H }, qr, card] = await Promise.all([readSlipLines(file), detectQr(file).catch(() => null), detectCard(file).catch(() => null)])
+    const lay = slipLayout(lines, W, H, qr, card)
+    if (lay.nameText) hint.senderName = lay.nameText
+    if (lay.found) boxes = { crop: lay.crop, name: lay.name, qr: lay.qr }
+  } catch { /* อ่านชื่อ/ตำแหน่งบนสลิปไม่ได้ — ผู้บันทึกปรับกรอบเอง */ }
+  return { hint, boxes }
 }
+export async function readDonorHints(file: Blob): Promise<DonorHint> { return (await readSlipVisual(file)).hint }
 
 /** หาคิวอาร์จากพิกเซล (ไม่พึ่ง OCR) · คืนกรอบเป็นพิกเซลของรูปเดิม */
 export async function detectQr(blob: Blob): Promise<Box | null> {

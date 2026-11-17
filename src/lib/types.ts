@@ -96,6 +96,10 @@ export interface IncomeEntry extends SharedItem {
   donorId?: string
   /** รูปสลิปโอน (ในโฟลเดอร์ attachments ของ repo ข้อมูล) */
   slip?: { path: string; name: string }
+  /** รูปสลิปที่ปิดชื่อผู้โอนและคิวอาร์แล้ว (สร้างให้ตอนบันทึก) — ไว้แชร์ได้ ต้นฉบับ slip เก็บไว้ภายใน */
+  slipMasked?: { path: string; name: string }
+  /** กรอบที่ใช้ปิดชื่อ/คิวอาร์/ตัดขอบ (พิกเซลของรูปต้นฉบับ) — เปิดปรับแก้ภายหลังได้ */
+  maskBoxes?: { crop: { x: number; y: number; w: number; h: number }; name: { x: number; y: number; w: number; h: number } | null; qr: { x: number; y: number; w: number; h: number } | null }
   /** หมวดย่อยของกองทุน (ว่าง = ส่วนกลาง ยังไม่ระบุหมวด) */
   subId?: string
   /** บันทึกจากหน้ากองทุน: เป็นของโซนกองทุนล้วน ไม่ผ่านบัญชีหมุนเวียน → ไม่ขึ้นในใบ/สรุป/แฟ้มรายสัปดาห์ของบัญชีหมุนเวียน */
