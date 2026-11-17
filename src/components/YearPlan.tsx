@@ -75,16 +75,17 @@ export default function YearPlan() {
             </ScaledPage>
           </div>)
       })}
-      <div className="no-print" style={{ margin: '14px 0 6px', padding: '10px 12px', borderRadius: 12, background: GOLD_T, border: `2px solid ${GOLD_D}`, color: NAVY }}>
+      <div className="board-zone" style={{ marginTop: 22, padding: '10px 8px 12px', borderRadius: 18, background: '#d6e4f4', border: `3px solid ${NAVY}` }}>
+      <div className="no-print" style={{ margin: '0 0 8px', padding: '10px 12px', borderRadius: 12, background: NAVY, color: '#fff' }}>
         <b>📌 แผ่นสำหรับติดบอร์ด (A4 แผ่นเดียว)</b>
-        <p className="muted small" style={{ margin: '2px 0 0' }}>สรุปรายการที่กรอกไว้ด้านบนทั้งปี ม.ค. – ธ.ค. ไว้ในแผ่นเดียว (แสดงเฉพาะแถวที่มีข้อมูล) · กรอก/แก้ที่ตารางด้านบน แผ่นนี้จะเปลี่ยนตามเอง · พิมพ์ หรือ PDF ไปติดบอร์ดได้เลย</p>
+        <p className="small" style={{ margin: '2px 0 0', color: '#e6ecf8' }}>สรุปรายการที่กรอกไว้ด้านบนทั้งปี ม.ค. – ธ.ค. ไว้ในแผ่นเดียว (แสดงเฉพาะแถวที่มีข้อมูล) · กรอก/แก้ที่ตารางด้านบน แผ่นนี้จะเปลี่ยนตามเอง · พิมพ์ หรือ PDF ไปติดบอร์ดได้เลย</p>
       </div>
       {(
         <div>
           <PdfTools compact mode="full" els={() => (boardRef.current ? [boardRef.current] : [])} file={`แผนงานประจำปี-${year + 543}-ติดบอร์ด.pdf`} title={title} label="แผนงานประจำปี แผ่นติดบอร์ด" />
           <ScaledPage ref={boardRef} noCredit>
             <FitBox key={`${posterRows.length}|${posterRows.reduce((n, r) => n + r.text.length + r.owner.length, 0)}`}>
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#111', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#111', background: '#eef4fb', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
                 <div style={{ textAlign: 'center', background: GOLD, border: `2px solid ${GOLD_D}`, borderBottom: `5px solid ${GOLD_D}`, borderRadius: 10, padding: '6px 8px', color: NAVY }}>
                   <div style={{ fontSize: 13 }}>{church}</div>
                   <div style={{ fontSize: 26, fontWeight: 800 }}>{'<<<'} {title} {'>>>'}</div>
@@ -98,6 +99,7 @@ export default function YearPlan() {
             </FitBox>
           </ScaledPage>
         </div>)}
+      </div>
       {edit && (
         <RowSheet key={edit.line.id} line={edit.line} focus={edit.focus} onClose={() => setEdit(null)}
           onSave={(p) => { if (save(edit.line, p)) setEdit(null) }}
