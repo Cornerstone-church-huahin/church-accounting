@@ -2,12 +2,14 @@ import type { MutableRefObject } from 'react'
 import { FitBox } from './NoticePaper'
 import { FundBars, HBarRows, PairedBars, TrendLine } from './PeriodCharts'
 import { PaperHead } from './PaperSheets'
+import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import type { PeriodData } from '../lib/periodData'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
 
 const m = (x: number) => fmtBaht(x, { dec: x % 100 !== 0 })
 const th: React.CSSProperties = { fontSize: 13 }
+export interface PaperTools { canExport: boolean; /** ชื่อไฟล์ฐาน (ไม่รวมนามสกุล) */ file: string; title: string }
 type Variant = 'evidence' | 'report' | 'public'
 const kindWord = (k: 'month' | 'year') => (k === 'month' ? 'ประจำเดือน' : 'ประจำปี')
 
@@ -15,7 +17,7 @@ const kindWord = (k: 'month' | 'year') => (k === 'month' ? 'ประจำเ�
  * ใบสรุปรายเดือน/รายปี 2 แผ่น: (1) ตารางสรุปสองโซนสี (2) กราฟประกอบ — ติดประกาศคู่กัน
  * evidence/report = ฉบับมีชื่อ (ค่าตอบแทนรายบุคคล · ภายในคณะทำงาน) · public = ปิดชื่อ ค่าตอบแทนรวมเป็นยอดเดียว
  */
-export default function PeriodPaper({ church, d, variant, pagesRef }: { church: string; d: PeriodData; variant: Variant; pagesRef: MutableRefObject<HTMLDivElement[]> }) {
+export default function PeriodPaper({ church, d, variant, pagesRef, tools }: { church: string; d: PeriodData; variant: Variant; pagesRef: MutableRefObject<HTMLDivElement[]>; tools?: PaperTools }) {
   const named = variant !== 'public', meeting = variant === 'report'
   const incTotal = d.r.inTotal, outTotal = d.r.outTotal, net = incTotal - outTotal
   const incomplete = d.complete.have < d.complete.total && d.range.to < todayISO()
@@ -28,6 +30,7 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
   const zoneHead = (txt: string, bg: string) => <div className="zone__head" style={{ background: bg }}>{txt}</div>
   return (
     <div>
+      {tools?.canExport && <PdfTools compact mode="full" els={() => (pagesRef.current[0] ? [pagesRef.current[0]] : [])} file={`${tools.file}-แผ่น1-ตาราง.pdf`} title={`${tools.title} (ตาราง)`} label={`${tools.title} แผ่นตาราง`} />}
       <ScaledPage ref={(el) => { if (el) pagesRef.current[0] = el }}>
         <div data-keep={named ? '1' : undefined} style={{ display: 'contents' }}>
           <PaperHead church={church} title={title} sub={sub} />
@@ -89,6 +92,7 @@ export default function PeriodPaper({ church, d, variant, pagesRef }: { church: 
           {meeting && <div style={{ display: 'flex', gap: 14, fontSize: 12, marginTop: 6 }}>{['เหรัญญิก (ผู้จัดทำ)', 'ผู้ตรวจสอบ', 'ประธาน'].map((r) => <div key={r} style={{ flex: 1, border: '1px solid #1a2b4c', padding: 5 }}><b>{r}</b><br />ลงชื่อ.......................................<br />วันที่........../........../..........</div>)}</div>}
         </div>
       </ScaledPage>
+      {tools?.canExport && <PdfTools compact mode="full" els={() => (pagesRef.current[1] ? [pagesRef.current[1]] : [])} file={`${tools.file}-แผ่น2-กราฟ.pdf`} title={`${tools.title} (กราฟ)`} label={`${tools.title} แผ่นกราฟ`} />}
       <ScaledPage ref={(el) => { if (el) pagesRef.current[1] = el }}>
         <div data-keep={named ? '1' : undefined} style={{ display: 'contents' }}>
           <PaperHead church={church} title={`กราฟสรุป${kindWord(d.kind)}`} sub={sub} />
