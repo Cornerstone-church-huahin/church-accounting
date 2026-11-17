@@ -27,6 +27,7 @@ import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
 import { downloadBlankSheet } from '../lib/blankSheet'
 import { readSlip } from '../lib/slipOcr'
+import MaskedSlip from '../components/MaskedSlip'
 import { loanIncomeRows, type FundScope } from '../lib/fundScope'
 import { isFundZone } from '../lib/funds'
 
@@ -62,6 +63,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const [rowEdit, setRowEdit] = useState<{ entry: IncomeEntry | null } | null>(null)
   const [viewAtt, setViewAtt] = useState<IncomeEntry | null>(null)
   const [form, setForm] = useState<{ entry: IncomeEntry | null; preset: 'manual' | 'slip' } | null>(null)
+  const [maskFor, setMaskFor] = useState<IncomeEntry | null>(null)
   const canWrite = can(role, 'income')
 
   const paperRef = useRef<HTMLDivElement>(null)
@@ -151,6 +153,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
         <span className="grow"><b>{typeName(x.typeId)}</b>{x.note ? <span className="small muted"> · {x.note}</span> : null}{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
       </div>
+      {x.slip && <button type="button" className="btn" style={{ marginTop: 6, padding: '4px 10px' }} onClick={() => setMaskFor(x)} aria-label={`แชร์สลิปปิดชื่อ ${typeName(x.typeId)} ${fmtBaht(x.amount)}`}>🔒 ดู/แชร์สลิป (ปิดชื่อ)</button>}
       {actions(() => setForm({ entry: x, preset }), () => delEntry(x))}
     </li>
   )
@@ -286,6 +289,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
 
       {attach && attach !== 'new' && <SheetFlow year={year} sunday={sunday} existing={attach} onClose={() => setAttach(null)} onSaved={goWeek} />}
       {newSheetFile && <SheetFlow year={year} sunday={sunday} existing={null} initialFile={newSheetFile} onClose={() => setNewSheetFile(null)} onSaved={goWeek} />}
+      {maskFor?.slip && <MaskedSlip slip={maskFor.slip} memberNo={maskFor.memberNo} typeName={maskFor.typeId === UNSORTED ? '' : typeName(maskFor.typeId)} onClose={() => setMaskFor(null)} />}
       {slipFile && <SlipFlow year={year} inc={inc} initialFile={slipFile} onClose={() => setSlipFile(null)} onSaved={goWeek} />}
       {form && <IncomeForm year={year} entry={form.entry} preset={form.preset} onSaved={goWeek} defaultDate={yearOf(todayISO()) === year ? todayISO() : undefined} onClose={() => setForm(null)} inc={inc} />}
     </>
@@ -308,7 +312,7 @@ function SlipFlow({ year, inc, initialFile, onClose, onSaved }: { year: number; 
     const hit = memo ? types.list.find((t) => t.active && memo.includes(t.name.split(' ')[0])) : undefined
     const missing = r ? [!r.date && 'วันที่', !r.amount && 'ยอดเงิน'].filter(Boolean) : []
     if (r && missing.length) setMsg(`อ่าน${missing.join('และ')}ไม่ได้ — กรุณากรอกเอง`)
-    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo })
+    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo, memberNo: r?.code })
     setStage('confirm')
   }
   useEffect(() => { if (initialFile) void choose(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps

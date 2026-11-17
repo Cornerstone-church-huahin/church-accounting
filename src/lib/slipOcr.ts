@@ -1,5 +1,6 @@
 import { readWithRotations } from './image'
 import { mergeSlipReads, parseSlipText, type SlipRead } from './slipParse'
+import { parseMemberCode, type OcrLine } from './slipMask'
 
 /**
  * อ่านสลิปโอนเงินในเครื่อง (Tesseract OCR ที่ฝังมากับแอป ไม่ส่งรูปออกไปที่ใด)
@@ -72,12 +73,47 @@ async function variants(file: File): Promise<HTMLCanvasElement[]> {
   return [A, put(bin, mk())]
 }
 
-export interface SlipResult extends SlipRead { texts: string[] }
+export interface SlipResult extends SlipRead { texts: string[]; /** รหัสสมาชิกที่อ่านจากหัวแชต (ถ้ามี) */ code?: string }
 
 /** อ่านสลิป 1 ใบ — โยน error ถ้าตัวอ่านโหลดไม่ได้ (เช่น ไฟล์ OCR ไม่อยู่ในแอป) */
 export async function readSlip(file: File, onProgress?: (p: number) => void): Promise<SlipResult> {
   // รูปมาตะแคง/แนวนอน/กลับหัว: ถ้าอ่านวันที่และยอดไม่ได้เลย ลองหมุนแล้วอ่านใหม่
-  return readWithRotations(file, (f) => readSlipOnce(f, onProgress), (r) => !r.amount && !r.date)
+  const r = await readWithRotations(file, (f) => readSlipOnce(f, onProgress), (r) => !r.amount && !r.date)
+  let code = parseMemberCode(r.texts.join('\n'))
+  if (!code) { try { code = await readHeaderCode(file) } catch { /* อ่านหัวแชตไม่ได้ = ผู้บันทึกกรอกเลขเอง */ } }
+  return code ? { ...r, code } : r
+}
+
+/** หัวแชตด้านบนของภาพจอ (ตัวอักษรขาวบนพื้นเข้ม): ตัดส่วนบน กลับสีถ้ามืด ขยาย แล้วอ่านหารหัสสมาชิก */
+async function readHeaderCode(file: Blob): Promise<string | undefined> {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  const hh = Math.max(120, Math.round(bmp.height * 0.2))
+  const sc = Math.min(2.5, 1400 / bmp.width)
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(Math.min(hh, bmp.height) * sc)
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  if (!ctx) { bmp.close(); return undefined }
+  ctx.drawImage(bmp, 0, 0, bmp.width, Math.min(hh, bmp.height), 0, 0, c.width, c.height); bmp.close()
+  const img = ctx.getImageData(0, 0, c.width, c.height)
+  let sum = 0; for (let i = 0; i < img.data.length; i += 4) sum += 0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2]
+  if (sum / (img.data.length / 4) < 128) { for (let i = 0; i < img.data.length; i += 4) { img.data[i] = 255 - img.data[i]; img.data[i + 1] = 255 - img.data[i + 1]; img.data[i + 2] = 255 - img.data[i + 2] } ctx.putImageData(img, 0, 0) }
+  const worker = await getWorker()
+  const { data } = await worker.recognize(c)
+  return parseMemberCode(data.text)
+}
+
+/** อ่านข้อความทีละบรรทัดพร้อมตำแหน่ง (พิกเซลของรูปเดิม) — ใช้หาตำแหน่งชื่อ/คิวอาร์เพื่อปิดก่อนแชร์ */
+export async function readSlipLines(blob: Blob): Promise<{ lines: OcrLine[]; W: number; H: number }> {
+  const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' })
+  const W = bmp.width, H = bmp.height
+  const sc = Math.min(2.2, Math.max(1, 1500 / W), 3200 / Math.max(W, H))
+  const c = document.createElement('canvas'); c.width = Math.round(W * sc); c.height = Math.round(H * sc)
+  const ctx = c.getContext('2d')
+  if (!ctx) { bmp.close(); throw new Error('ปรับภาพไม่ได้บนเครื่องนี้') }
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close()
+  const worker = await getWorker()
+  const { data } = await worker.recognize(c, {}, { blocks: true })
+  const lines: OcrLine[] = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines)).map((l) => ({ text: l.text.trim(), x0: l.bbox.x0 / sc, y0: l.bbox.y0 / sc, x1: l.bbox.x1 / sc, y1: l.bbox.y1 / sc, words: l.words.map((w) => ({ t: w.text, x0: w.bbox.x0 / sc, y0: w.bbox.y0 / sc, x1: w.bbox.x1 / sc, y1: w.bbox.y1 / sc })) }))
+  return { lines, W, H }
 }
 
 async function readSlipOnce(file: File, onProgress?: (p: number) => void): Promise<SlipResult> {
