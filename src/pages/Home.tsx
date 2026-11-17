@@ -80,7 +80,7 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
           <div className="stepgrid no-print" role="tablist" aria-label="ขั้นตอน: รับ จ่าย ปรับ สรุป ต้องเบิก เตรียมนำฝาก">
             {/* บันทึกเป็นอันดับ 1 · ขั้นตอน ปรับ/เตรียมเบิก/สรุป/ฝาก · แดชบอร์ด · แท็บ 3 · แล้วตามด้วย รับ และ จ่าย (ทุกช่องขนาดเท่ากัน) */}
             <button type="button" className="stepbtn exttab exttab--rec" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว"><span className="stepbtn__top"><span>{REC.icon} {REC.name}</span></span><small>รับ + จ่าย + ติดบอร์ด</small></button>
-            {(['adj', 'wd', 'sum', 'dep'] as const).map((k) => stepBtn(k))}
+            {(['wd', 'adj', 'sum', 'dep'] as const).map((k) => stepBtn(k))}
             <button type="button" className="stepbtn exttab exttab--dash" onClick={() => setTab('dash')} aria-label="แดชบอร์ด"><span className="stepbtn__top"><span>📈 แดชบอร์ด</span></span><small>ภาพรวมเงิน</small></button>
             <button type="button" className="stepbtn exttab exttab--3" onClick={() => setTab('tab3')} aria-label="แท็บ 3"><span className="stepbtn__top"><span>📌 แท็บ 3</span></span><small>ว่างไว้ก่อน</small></button>
             {(['in', 'out'] as const).map((k) => stepBtn(k))}
