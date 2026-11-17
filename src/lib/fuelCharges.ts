@@ -5,10 +5,11 @@ import type { ActivityLog, ExpenseEntry, Settings, TripLog, Visit } from './type
 
 /** หมวด/ข้อความของรายจ่ายค่าน้ำมันที่ระบบสร้างให้อัตโนมัติ (จ่ายคืนเจ้าของรถส่วนตัวตามระยะจริง) */
 export const FUEL_CAT = '__fuel'
-export const FUEL_DESC = 'ค่าน้ำมันเดินทาง/เยี่ยมสมาชิก'
+/** ข้อความรายการของเจ้าของรถแต่ละคน เช่น “ค่าน้ำมัน อ.พิชิต” */
+export const fuelDesc = (owner: string): string => `ค่าน้ำมัน ${owner}`
 export const FUEL_LABEL = 'ค่าน้ำมัน กิจกรรมและเยี่ยมสมาชิก'
-/** รายการอัตโนมัติ = รหัสขึ้นต้น fuel: */
-export const isFuelAuto = (x: { id?: string; key?: string; desc?: string }): boolean => !!(x.id?.startsWith('fuel:') || x.key?.startsWith('e:fuel:') || x.desc === FUEL_DESC)
+/** รายการอัตโนมัติ: รหัส fuel:… (ใบสรุปใช้ key e:fuel:…) หรือแถว “ต้องเบิก” ที่ระบุ fuel */
+export const isFuelAuto = (x: { id?: string; key?: string; derived?: string; fuel?: boolean }): boolean => !!(x.derived === 'fuel' || x.fuel || x.id?.startsWith('fuel:') || x.key?.startsWith('e:fuel:'))
 
 /** จุดเช็คอินห่างกันเกิน 3 ชม. = คนละรอบ (กลับคริสตจักรแล้วออกใหม่) */
 export const GAP_MS = 3 * 3600 * 1000
@@ -80,7 +81,7 @@ export function fuelExpenses(charges: FuelCharge[], paid: Record<string, string>
     const amount = Math.round(x.amount / 100) * 100
     if (amount <= 0) continue
     const pd = paid[id]
-    out.push({ id, updated: 1, channel: 'bill', date: x.last, amount, desc: FUEL_DESC, catId: FUEL_CAT, biller: x.owner, who: x.owner, derived: 'fuel' as const, status: pd ? 'paid' : 'open', ...(pd ? { paidDate: pd, method: 'cash' as const } : {}) })
+    out.push({ id, updated: 1, channel: 'bill', date: x.last, amount, desc: fuelDesc(x.owner), catId: FUEL_CAT, biller: x.owner, who: x.owner, derived: 'fuel' as const, status: pd ? 'paid' : 'open', ...(pd ? { paidDate: pd, method: 'cash' as const } : {}) })
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
 }

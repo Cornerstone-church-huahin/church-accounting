@@ -1,7 +1,7 @@
-import { FUEL_DESC, FUEL_LABEL } from './fuelCharges'
+import { FUEL_LABEL, isFuelAuto } from './fuelCharges'
 import type { ExpenseEntry } from './types'
 
-const isFuelRow = (e: { desc?: string }) => e.desc === FUEL_DESC
+const isFuelRow = (e: { id?: string; key?: string; derived?: string; fuel?: boolean }) => isFuelAuto(e)
 
 /** รายการค่าตอบแทนผู้รับใช้ (เงินเดือน/สวัสดิการ/ค่าตอบแทน) — ผู้นำงานเห็นเป็นยอดรวม ไม่เห็นรายคน */
 export const isCompensation = (e: { desc?: string; note?: string }) => /เงินเดือน|สวัสดิการ|ค่าตอบแทน/.test(`${e.desc ?? ''} ${e.note ?? ''}`)
@@ -22,7 +22,7 @@ export function maskExpenses(entries: ExpenseEntry[]): ExpenseEntry[] {
 }
 
 /** รายการ "ต้องเบิก" ใต้ใบ: ค่าตอบแทนรวมเป็นแถวเดียวไม่ระบุชื่อ */
-export function maskPending<T extends { desc: string; person: string; kind: string; amount: number }>(items0: T[]): T[] {
+export function maskPending<T extends { desc: string; person: string; kind: string; amount: number; fuel?: boolean }>(items0: T[]): T[] {
   const fuel = items0.filter(isFuelRow)
   const items: T[] = fuel.length ? [...items0.filter((x) => !isFuelRow(x)), { ...fuel[0], desc: FUEL_LABEL, person: '', amount: fuel.reduce((s, x) => s + x.amount, 0) }] : items0
   const comp = items.filter((x) => x.kind !== 'loan' && isCompensation(x))

@@ -1,6 +1,6 @@
 import { circulatingOnly, computeBalances } from './balances'
 import { isCompensation } from './maskPay'
-import { FUEL_DESC } from './fuelCharges'
+import { isFuelAuto } from './fuelCharges'
 import { be, daysInMonth, monthName, todayISO } from './money'
 import { summarizeLoans } from './loans'
 import { fundsOf, fundTable, monthRange, monthWeeks, periodReport, yearMonths, type FundRow, type PeriodReport, type Range, type ReportInput } from './report'
@@ -48,7 +48,7 @@ export function buildPeriod(kind: 'month' | 'year', year: number, month: number,
   const comp = new Map<string, number>()
   for (const x of lines) if (isCompensation(x)) { const k = (x.by || x.desc).trim(); comp.set(k, (comp.get(k) ?? 0) + x.amount) }
   const fuel = new Map<string, number>()
-  for (const x of lines) if (x.desc === FUEL_DESC) { const k = (x.by || '').trim() || 'ไม่ระบุเจ้าของรถ'; fuel.set(k, (fuel.get(k) ?? 0) + x.amount) }
+  for (const x of lines) if (isFuelAuto(x)) { const k = (x.by || '').trim() || 'ไม่ระบุเจ้าของรถ'; fuel.set(k, (fuel.get(k) ?? 0) + x.amount) }
   const funds = fundTable(fundsOf(a), range, a.opening)
   const curM = year === Number(today.slice(0, 4)) ? Number(today.slice(5, 7)) : year < Number(today.slice(0, 4)) ? 12 : 0
   const trend = Array.from({ length: curM }, (_, i) => {

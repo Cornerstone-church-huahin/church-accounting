@@ -34,11 +34,11 @@ describe('fuelCharges', () => {
 })
 
 import { maskExpenses, maskNoticeOut, maskPending } from './maskPay'
-import { FUEL_DESC, FUEL_LABEL } from './fuelCharges'
+import { FUEL_LABEL, fuelDesc } from './fuelCharges'
 describe('ใบประกาศ: ค่าน้ำมันรวมเป็นบรรทัดเดียว ไม่มีชื่อ', () => {
   const out = [
-    { key: 'e:fuel:a', date: '2026-11-10', desc: FUEL_DESC, amount: 5000, by: 'อ.กฤต' },
-    { key: 'e:fuel:b', date: '2026-11-11', desc: FUEL_DESC, amount: 3000, by: 'อ.ดารา' },
+    { key: 'e:fuel:a', date: '2026-11-10', desc: fuelDesc('อ.กฤต'), amount: 5000, by: 'อ.กฤต' },
+    { key: 'e:fuel:b', date: '2026-11-11', desc: fuelDesc('อ.ดารา'), amount: 3000, by: 'อ.ดารา' },
     { key: 'e:x', date: '2026-11-12', desc: 'ค่าอาหาร', amount: 100, by: 'อ.สายฝน' },
   ]
   it('maskNoticeOut', () => {
@@ -48,11 +48,12 @@ describe('ใบประกาศ: ค่าน้ำมันรวมเป�
     expect(f.amount).toBe(8000); expect(f.by).toBeUndefined()
   })
   it('maskPending', () => {
-    const m = maskPending([{ desc: FUEL_DESC, person: 'อ.กฤต', kind: 'bill', amount: 5000 }, { desc: FUEL_DESC, person: 'อ.ดารา', kind: 'bill', amount: 3000 }])
-    expect(m).toEqual([{ desc: FUEL_LABEL, person: '', kind: 'bill', amount: 8000 }])
+    const m = maskPending([{ desc: fuelDesc('อ.กฤต'), person: 'อ.กฤต', kind: 'bill', amount: 5000, fuel: true }, { desc: fuelDesc('อ.ดารา'), person: 'อ.ดารา', kind: 'bill', amount: 3000, fuel: true }, { desc: 'ค่าน้ำมัน อ.พิชิต', person: 'อ.พิชิต', kind: 'bill', amount: 700 }])
+    expect(m.find((x) => x.desc === FUEL_LABEL)!.amount).toBe(8000)
+    expect(m.find((x) => x.desc === 'ค่าน้ำมัน อ.พิชิต')).toBeTruthy() // รายการกรอกมือไม่ถูกรวม
   })
   it('maskExpenses', () => {
-    const e = (id: string, amount: number) => ({ id, updated: 1, channel: 'bill' as const, date: '2026-11-10', amount, desc: FUEL_DESC, status: 'open' as const })
+    const e = (id: string, amount: number) => ({ id, updated: 1, channel: 'bill' as const, date: '2026-11-10', amount, desc: fuelDesc('อ.กฤต'), status: 'open' as const })
     const m = maskExpenses([e('fuel:a', 5000), e('fuel:b', 3000)])
     expect(m).toHaveLength(1); expect(m[0].amount).toBe(8000); expect(m[0].desc).toBe(FUEL_LABEL)
   })
