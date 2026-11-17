@@ -8,7 +8,7 @@ import { computeLedger, rangeOf } from './weekLedger'
 import { useFuelExpenses } from './useFuelExpenses'
 import type { FundDeposit, ExpenseCat, ExpenseEntry, IncomeEntry, IncomeType, Loan, PassbookLine, Round } from './types'
 
-export interface WithdrawItem { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number; /** ค่าน้ำมันรถส่วนตัวที่ระบบคำนวณ */ fuel?: boolean }
+export interface WithdrawItem { desc: string; person: string; kind: 'bill' | 'advance' | 'manual' | 'loan'; amount: number; /** ค่าน้ำมันรถส่วนตัวที่ระบบคำนวณ */ fuel?: boolean; /** รหัสรายการรายจ่าย (ใช้กด จ่ายแล้ว/ยกเลิก) · ให้ยืม = ไม่มี */ id?: string; /** จ่ายแล้ว (ติ๊กถูก) */ done?: boolean; /** วันที่จ่าย */ paidDate?: string }
 export interface WithdrawFund { name: string; amount: number }
 const effDate = (x: ExpenseEntry) => (x.channel === 'manual' ? x.date : (x.paidDate ?? x.date))
 
@@ -22,17 +22,21 @@ export function computeWeekWithdraw(a: WithdrawInput, year: number, sunday: stri
   const range = rangeOf('week', year, { sunday })
   const nm = (id?: string) => (id === 'own' ? 'เงินหมุนเวียน' : a.types.find((t) => t.id === id)?.name ?? 'กองทุน')
   const week = a.expenses.filter((x) => !x.deleted && !x.fundId && sheetSunday(effDate(x)) === sunday)
+  const item = (x: ExpenseEntry, done: boolean): WithdrawItem => ({ id: x.id, desc: x.desc, person: x.biller || x.who || '', kind: x.channel as WithdrawItem['kind'], amount: x.amount, ...(x.derived === 'fuel' ? { fuel: true } : {}), ...(done ? { done: true, paidDate: x.channel === 'manual' ? x.reimbursed : x.paidDate } : {}) })
+  const isManualDue = (x: ExpenseEntry) => x.channel === 'manual' && !!x.biller
   const circ: WithdrawItem[] = [
-    ...week.filter((x) => x.status === 'open' || (x.channel === 'manual' && x.biller)).map((x) => ({ desc: x.desc, person: x.biller || x.who || '', kind: x.channel as WithdrawItem['kind'], amount: x.amount, ...(x.derived === 'fuel' ? { fuel: true } : {}) })),
+    ...week.filter((x) => (x.status === 'open' || isManualDue(x)) && !(isManualDue(x) && x.reimbursed)).map((x) => item(x, false)),
     ...ownLoanLines(a.loans, nm, range.from, range.to),
   ]
+  /** จ่ายแล้วของสัปดาห์นี้: บิล/สำรองจ่ายที่จ่ายในสัปดาห์นี้ + รายการบันทึกมือที่จ่ายคืนผู้วางบิลแล้ว (แสดงติ๊กถูก ไม่นับในยอดต้องเบิก) */
+  const paid: WithdrawItem[] = week.filter((x) => (x.channel !== 'manual' && x.status === 'paid') || (isManualDue(x) && !!x.reimbursed)).map((x) => item(x, true))
   const wf = computeLedger({ range, income: a.income.filter((x) => !isFundZone(x)), rounds: a.rounds, vouchers: [], lines: [], funds: [], entries: [], types: a.types, cats: a.cats, expenses: [], passbook: a.passbook, withFunds: true }).fundRows
   const fund: WithdrawFund[] = [
     ...wf.map((r) => ({ name: r.label, amount: r.cash.amt + r.transfer.amt })).filter((f) => f.amount > 0),
     ...withdrawnInWeek(a.fundWd ?? [], sunday, (id) => a.types.find((t) => t.id === id)?.name ?? 'กองทุน'),
   ]
   const sum = (xs: { amount: number }[]) => xs.reduce((s, x) => s + x.amount, 0)
-  return { circ, fund, totalC: sum(circ), totalF: sum(fund), total: sum(circ) + sum(fund) }
+  return { circ, paid, fund, totalC: sum(circ), totalPaid: sum(paid), totalF: sum(fund), total: sum(circ) + sum(fund) }
 }
 
 export function useWeekWithdraw(year: number, sunday: string) {

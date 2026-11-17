@@ -385,7 +385,7 @@ function ExpenseForm({ year, fundId, entry, channel, exp, onClose, init }: { yea
     const rec: ExpenseEntry = {
       id: entry?.id ?? newId('ex'), channel, date, amount, desc: name, status, method, ...((fundId ?? entry?.fundId) ? { fundId: fundId ?? entry?.fundId } : {}),
       ...(catId ? { catId } : {}), ...(who.trim() ? { who: who.trim() } : {}), ...(biller ? { biller } : {}), ...(due && channel === 'bill' ? { due } : {}),
-      ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), ...(entry?.requester ? { requester: entry.requester } : {}), updated: 0,
+      ...(status === 'paid' ? { paidDate: channel === 'manual' ? date : paidDate } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(ref.trim() ? { ref: ref.trim() } : {}), ...(f ? { file: f } : {}), ...(entry?.requester ? { requester: entry.requester } : {}), ...(entry?.reimbursed ? { reimbursed: entry.reimbursed } : {}), updated: 0,
     }
     if (exp.put([rec])) onClose()
   }
