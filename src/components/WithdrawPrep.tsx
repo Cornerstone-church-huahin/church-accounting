@@ -11,7 +11,7 @@ import { useWeekWithdraw } from '../lib/useWeekWithdraw'
 const TONES = [['#e7f0ff', '#2f6fdd'], ['#fff0dc', '#e08a1e'], ['#e6f6ea', '#2e9d52'], ['#f5e8fb', '#9b4fc7'], ['#fde8e8', '#d64545'], ['#e3f5f7', '#1a98a8']]
 const KIND: Record<string, string> = { bill: 'วางบิล', advance: 'สำรองจ่าย', manual: 'รอจ่าย', loan: 'ให้ยืม' }
 
-/** "เตรียมเบิก": ต้องเบิกเงินเท่าไรในสัปดาห์นี้ — แยกเงินหมุนเวียน / เงินกองทุน (เก็บไว้เตรียมนำฝาก) ชุดข้อมูลเดียวกับช่อง หมายเหตุ·ต้องเบิก ในใบเบิก-จ่าย */
+/** "ต้องเบิก": ต้องเบิกเงินเท่าไรในสัปดาห์นี้ — แยกเงินหมุนเวียน / เงินกองทุน (เก็บไว้เตรียมนำฝาก) ชุดข้อมูลเดียวกับช่อง หมายเหตุ·ต้องเบิก ในใบเบิก-จ่าย */
 export default function WithdrawPrep({ year }: { year: number }) {
   const role = useRole()
   const sundays = useMemo(() => sundaysOf(year), [year])
@@ -25,7 +25,7 @@ export default function WithdrawPrep({ year }: { year: number }) {
     try { await navigator.clipboard.writeText(lines.join('\n')); setMsg('คัดลอกแล้ว — นำไปวางใน LINE ได้เลย') } catch { setMsg('คัดลอกไม่สำเร็จ') }
   }
   return (
-    <div aria-label="เตรียมเบิกประจำสัปดาห์">
+    <div aria-label="ต้องเบิกประจำสัปดาห์">
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       <div className="prep__hero" role="status" aria-label="รวมต้องเบิก">
         <span>รวมต้องเบิกสัปดาห์นี้</span>
@@ -34,7 +34,9 @@ export default function WithdrawPrep({ year }: { year: number }) {
       </div>
       <section className="prep__zone prep__zone--circ" aria-label="ต้องเบิก เงินหมุนเวียน">
         <h3>■ เงินหมุนเวียน <span className="num">รวม {fmtBaht(w.totalC)}</span></h3>
-        <table className="sheetpaper prep__tbl"><thead><tr><th>ที่</th><th>รายการ</th><th>ประเภท</th><th>จำนวนเงิน</th><th>รวมต่อคน</th></tr></thead>
+        <table className="sheetpaper prep__tbl" style={{ tableLayout: 'fixed', width: '100%' }}>
+          <colgroup><col style={{ width: '9%' }} /><col style={{ width: '38%' }} /><col style={{ width: '15%' }} /><col style={{ width: '19%' }} /><col style={{ width: '19%' }} /></colgroup>
+          <thead><tr><th>ที่</th><th>รายการ</th><th>ประเภท</th><th>จำนวนเงิน</th><th>รวมต่อคน</th></tr></thead>
           <tbody>
             {rows.map((r, i) => {
               const [bg, bar] = r.multi ? TONES[r.g % TONES.length] : ['', '']
