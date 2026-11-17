@@ -54,7 +54,7 @@ export default function YearPlan() {
         </span>
         {canEdit && <span className="row" style={{ gap: 6 }}><button type="button" className="mini" onClick={() => setHeadEdit(true)}>✎ แก้หัวตาราง</button>{hidden > 0 && <button type="button" className="mini" onClick={restore}>↺ คืนแถวที่ลบ ({hidden})</button>}</span>}
       </div>
-      <p className="muted small no-print" style={{ margin: '0 0 6px' }}>{canEdit ? 'แตะช่องไหนก็พิมพ์ได้เลย (ผูกกับวัน-เดือน-ปีไว้ให้แล้ว) · แตะ “วัน/วันที่” เพื่อเปลี่ยนวัน ติ๊กทำแล้ว (ขีดฆ่า) เพิ่มแถว หรือลบแถว' : 'ดูได้อย่างเดียว'}</p>
+      <p className="muted small no-print" style={{ margin: '0 0 6px' }}>{canEdit ? 'แตะช่องไหนก็พิมพ์ได้เลย (ผูกกับวัน-เดือน-ปีไว้ให้แล้ว) · แตะ “วัน/วันที่” เพื่อเปลี่ยนวัน ติ๊กทำแล้ว (เครื่องหมายถูกสีแดง) เพิ่มแถว หรือลบแถว' : 'ดูได้อย่างเดียว'}</p>
       {pages.map((rows, pi) => {
         return (
           <div key={pi} style={{ marginBottom: 10 }}>
@@ -109,6 +109,13 @@ export default function YearPlan() {
 }
 
 
+/** เครื่องหมายถูกสีแดงทับวันที่ (ทำแล้ว) — วันที่ยังอ่านได้ชัด */
+const Tick = () => (
+  <svg aria-label="ทำแล้ว" role="img" viewBox="0 0 24 24" style={{ position: 'absolute', left: '50%', top: '50%', width: 30, height: 30, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}>
+    <path d="M3 13.5 L9 19.5 L21.5 4" fill="none" stroke="#d11a2a" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 /** ตารางแผนงาน: fill = ยืดแถวเต็มหน้า (แผ่นกรอกข้อมูล) · ไม่ fill = แถวกระชับ (แผ่นติดบอร์ด) */
 function Grid({ rows, canEdit, onCell, fill }: { rows: PlanLine[]; canEdit: boolean; onCell: (l: PlanLine, f: Focus) => void; fill?: boolean }) {
   const spans = monthSpans(rows)
@@ -118,15 +125,15 @@ function Grid({ rows, canEdit, onCell, fill }: { rows: PlanLine[]; canEdit: bool
                     <thead><tr>{['วัน', 'วันที่', 'เดือน', 'รายละเอียด', 'ผู้รับผิดชอบ', 'งบประมาณ'].map((h) => <th key={h} style={{ border: `1.5px solid ${LINE}`, background: BLUE_T, color: NAVY, padding: '4px 2px', fontSize: 14 }}>{h}</th>)}</tr></thead>
                     <tbody>
                       {rows.map((l, ri) => {
-                        const td = (f: Focus, content: string, extra?: React.CSSProperties) => (
-                          <td onClick={() => canEdit && onCell(l, f)} aria-label={`${f} ${l.dateTxt} ${MONTH_TH[l.month]}`} style={{ border: `1px solid ${LINE}`, padding: '3px 5px', verticalAlign: 'middle', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', lineHeight: 1.25, ...extra }}>
+                        const td = (f: Focus, content: string, extra?: React.CSSProperties, tick?: boolean) => (
+                          <td onClick={() => canEdit && onCell(l, f)} aria-label={`${f} ${l.dateTxt} ${MONTH_TH[l.month]}`} style={{ border: `1px solid ${LINE}`, padding: '3px 5px', verticalAlign: 'middle', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', lineHeight: 1.25, position: 'relative', ...extra }}>
                             {content || (canEdit ? <span className="no-print" style={{ color: '#b3bbd6' }}>＋</span> : '')}
+                            {tick && <Tick />}
                           </td>)
-                        const strike: React.CSSProperties = l.done ? { textDecoration: 'line-through', textDecorationColor: DATE, textDecorationThickness: 2 } : {}
                         return (
                           <tr key={l.id}>
-                            {td('date', l.day, { textAlign: 'center', ...strike })}
-                            {td('date', l.dateTxt, { textAlign: 'center', fontWeight: 800, color: DATE, ...strike })}
+                            {td('date', l.day, { textAlign: 'center' })}
+                            {td('date', l.dateTxt, { textAlign: 'center', fontWeight: 800, color: DATE }, l.done)}
                             {spans[ri] > 0 && <td rowSpan={spans[ri]} style={{ border: `1.5px solid ${LINE}`, textAlign: 'center', background: GOLD_T, color: NAVY, fontWeight: 700, verticalAlign: 'middle' }}>{MONTH_TH[l.month]}</td>}
                             {td('text', l.text, { fontWeight: 600 })}
                             {td('owner', l.owner, { textAlign: 'center' })}
@@ -152,7 +159,7 @@ function RowSheet({ line, focus, onClose, onSave, onAdd, onDelete }: { line: Pla
       <div className="field"><label htmlFor="yp-t">รายละเอียด (หลายบรรทัดได้)</label><textarea id="yp-t" className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} autoFocus={f('text')} /></div>
       <div className="field"><label htmlFor="yp-o">ผู้รับผิดชอบ</label><input id="yp-o" className="input" value={owner} onChange={(e) => setOwner(e.target.value)} autoFocus={f('owner')} /></div>
       <div className="field"><label htmlFor="yp-b">งบประมาณ</label><input id="yp-b" className="input" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} autoFocus={f('budget')} placeholder="เช่น 2,000" /></div>
-      <label className="row" style={{ gap: 8, alignItems: 'center', margin: '4px 0 8px' }}><input type="checkbox" style={{ width: 24, height: 24 }} checked={done} onChange={(e) => setDone(e.target.checked)} /><span>✔ ทำแล้ว (ขีดฆ่าวัน/วันที่)</span></label>
+      <label className="row" style={{ gap: 8, alignItems: 'center', margin: '4px 0 8px' }}><input type="checkbox" style={{ width: 24, height: 24 }} checked={done} onChange={(e) => setDone(e.target.checked)} /><span>ทำแล้ว (ติ๊กถูกสีแดงทับวันที่)</span></label>
       <details open={f('date')} style={{ marginBottom: 8 }}>
         <summary><b>📅 เปลี่ยนวันที่ / ข้อความวัน</b></summary>
         <div className="field"><label htmlFor="yp-d">วันที่จริง (ใช้เรียงลำดับและเลือกเดือน)</label><input id="yp-d" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
