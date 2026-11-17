@@ -11,7 +11,7 @@ import { newId } from '../lib/money'
 import { MONTH_TH, buildRows, headId, monthSpans, sumBudget, type PlanLine } from '../lib/yearPlan'
 import type { YearPlanRow } from '../lib/types'
 
-const NAVY = '#1f2a6b', LINE = '#3b4a9a', GOLD = '#f1dc8a', PER = 20
+const NAVY = '#1a2b4c', LINE = '#8d9bbd', GOLD = '#f7eecb', GOLD_D = '#c99a14', BLUE_T = '#e6ebf5', GOLD_T = '#fbf3d8', DATE = '#2d4a8a', PER = 20
 type Focus = 'text' | 'owner' | 'budget' | 'date'
 
 /** ตารางแผนงานประจำปี (เหมือนป้าย “นิมิตประจำปี”): ทุกวันอาทิตย์ของปีมาให้แล้ว แตะช่องไหนก็พิมพ์ได้เลย · เพิ่ม/ลบ/แก้วันที่ได้ · พิมพ์/PDF A4 */
@@ -62,7 +62,7 @@ export default function YearPlan() {
             <ScaledPage ref={(el) => { if (el) pagesRef.current[pi] = el }}>
               <FitBox key={`${pi}|${rows.length}|${rows.reduce((n, r) => n + r.text.length + r.owner.length, 0)}`}>
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#111', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
-                  <div style={{ textAlign: 'center', background: GOLD, border: `2px solid ${LINE}`, padding: '6px 8px', color: NAVY, position: 'relative' }}>
+                  <div style={{ textAlign: 'center', background: GOLD, border: `2px solid ${GOLD_D}`, borderBottom: `5px solid ${GOLD_D}`, borderRadius: 10, padding: '6px 8px', color: NAVY, position: 'relative' }}>
                     <div style={{ fontSize: 13 }}>{church}</div>
                     <div style={{ fontSize: 24, fontWeight: 800 }}>{'<<<'} {title} {'>>>'}</div>
                     {sub && <div style={{ fontSize: 16, fontWeight: 700 }}>{sub}</div>}
@@ -75,7 +75,7 @@ export default function YearPlan() {
             </ScaledPage>
           </div>)
       })}
-      <div className="no-print" style={{ margin: '14px 0 6px', padding: '10px 12px', borderRadius: 12, background: '#fff3cd', border: '2px solid #e0b100' }}>
+      <div className="no-print" style={{ margin: '14px 0 6px', padding: '10px 12px', borderRadius: 12, background: GOLD_T, border: `2px solid ${GOLD_D}`, color: NAVY }}>
         <b>📌 แผ่นสำหรับติดบอร์ด (A4 แผ่นเดียว)</b>
         <p className="muted small" style={{ margin: '2px 0 0' }}>สรุปรายการที่กรอกไว้ด้านบนทั้งปี ม.ค. – ธ.ค. ไว้ในแผ่นเดียว (แสดงเฉพาะแถวที่มีข้อมูล) · กรอก/แก้ที่ตารางด้านบน แผ่นนี้จะเปลี่ยนตามเอง · พิมพ์ หรือ PDF ไปติดบอร์ดได้เลย</p>
       </div>
@@ -85,7 +85,7 @@ export default function YearPlan() {
           <ScaledPage ref={boardRef} noCredit>
             <FitBox key={`${posterRows.length}|${posterRows.reduce((n, r) => n + r.text.length + r.owner.length, 0)}`}>
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#111', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
-                <div style={{ textAlign: 'center', background: GOLD, border: `2px solid ${LINE}`, padding: '6px 8px', color: NAVY }}>
+                <div style={{ textAlign: 'center', background: GOLD, border: `2px solid ${GOLD_D}`, borderBottom: `5px solid ${GOLD_D}`, borderRadius: 10, padding: '6px 8px', color: NAVY }}>
                   <div style={{ fontSize: 13 }}>{church}</div>
                   <div style={{ fontSize: 26, fontWeight: 800 }}>{'<<<'} {title} {'>>>'}</div>
                   {sub && <div style={{ fontSize: 17, fontWeight: 700 }}>{sub}</div>}
@@ -115,19 +115,19 @@ function Grid({ rows, canEdit, onCell, fill }: { rows: PlanLine[]; canEdit: bool
   return (
                   <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', flex: fill ? 1 : undefined, fontSize: fill ? 13.5 : 14.5 }}>
                     <colgroup><col style={{ width: '10%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '40%' }} /><col style={{ width: '18%' }} /><col style={{ width: '13%' }} /></colgroup>
-                    <thead><tr>{['วัน', 'วันที่', 'เดือน', 'รายละเอียด', 'ผู้รับผิดชอบ', 'งบประมาณ'].map((h) => <th key={h} style={{ border: `1.5px solid ${LINE}`, background: '#dfe4f6', color: NAVY, padding: '4px 2px', fontSize: 14 }}>{h}</th>)}</tr></thead>
+                    <thead><tr>{['วัน', 'วันที่', 'เดือน', 'รายละเอียด', 'ผู้รับผิดชอบ', 'งบประมาณ'].map((h) => <th key={h} style={{ border: `1.5px solid ${LINE}`, background: BLUE_T, color: NAVY, padding: '4px 2px', fontSize: 14 }}>{h}</th>)}</tr></thead>
                     <tbody>
                       {rows.map((l, ri) => {
                         const td = (f: Focus, content: string, extra?: React.CSSProperties) => (
                           <td onClick={() => canEdit && onCell(l, f)} aria-label={`${f} ${l.dateTxt} ${MONTH_TH[l.month]}`} style={{ border: `1px solid ${LINE}`, padding: '3px 5px', verticalAlign: 'middle', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', lineHeight: 1.25, ...extra }}>
                             {content || (canEdit ? <span className="no-print" style={{ color: '#b3bbd6' }}>＋</span> : '')}
                           </td>)
-                        const strike: React.CSSProperties = l.done ? { textDecoration: 'line-through', textDecorationColor: '#1f4fd8', textDecorationThickness: 2 } : {}
+                        const strike: React.CSSProperties = l.done ? { textDecoration: 'line-through', textDecorationColor: DATE, textDecorationThickness: 2 } : {}
                         return (
                           <tr key={l.id}>
                             {td('date', l.day, { textAlign: 'center', ...strike })}
-                            {td('date', l.dateTxt, { textAlign: 'center', fontWeight: 800, color: '#1f4fd8', ...strike })}
-                            {spans[ri] > 0 && <td rowSpan={spans[ri]} style={{ border: `1.5px solid ${LINE}`, textAlign: 'center', background: '#fbf3d0', color: NAVY, fontWeight: 700, verticalAlign: 'middle' }}>{MONTH_TH[l.month]}</td>}
+                            {td('date', l.dateTxt, { textAlign: 'center', fontWeight: 800, color: DATE, ...strike })}
+                            {spans[ri] > 0 && <td rowSpan={spans[ri]} style={{ border: `1.5px solid ${LINE}`, textAlign: 'center', background: GOLD_T, color: NAVY, fontWeight: 700, verticalAlign: 'middle' }}>{MONTH_TH[l.month]}</td>}
                             {td('text', l.text, { fontWeight: 600 })}
                             {td('owner', l.owner, { textAlign: 'center' })}
                             {td('budget', l.budget, { textAlign: 'right', fontWeight: 600 })}
