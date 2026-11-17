@@ -106,7 +106,8 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
     remove: (id: string, nm: string) => { if (confirm(`ลบรายการ “${nm}” ออกจากรายการรับ?\n(รายการที่บันทึกไว้แล้วยังอยู่ แต่จะแสดงเป็น “ประเภทที่ถูกลบ”)`)) types.remove(id) },
   } : undefined
   const loanRows = useMemo(() => (fund && (fcat === 'all' || fcat === '') ? loanIncomeRows(fund).filter((x) => sheetSunday(x.date) === sunday) : []), [fund, sunday, fcat])
-  const weekManual = week.filter((x) => kindOf(x) === 'manual') // ใบบันทึกการถวายเป็นรายสัปดาห์ แสดงเฉพาะสัปดาห์ที่เลือก
+  // ใบบันทึกการถวายรายสัปดาห์: รายการบันทึกมือ + สลิปโอนที่สแกนเข้าระบบ (แสดงเป็น “ประเภท + รหัสสมาชิก” ไม่แสดงชื่อ)
+  const weekSheet = week.filter((x) => kindOf(x) === 'manual' || kindOf(x) === 'slip')
   const slips = lst.filter((x) => kindOf(x) === 'slip' || kindOf(x) === 'unknown')
   const lstFiles = allWeeks ? allFiles : weekFiles
   const otherWeeks = (k: 'manual' | 'slip' | 'sheet') => (k === 'sheet' ? allFiles.length - weekFiles.length : allEnt.filter((x) => sheetSunday(x.date) !== sunday && (k === 'manual' ? kindOf(x) === 'manual' : kindOf(x) === 'slip' || kindOf(x) === 'unknown')).length)
@@ -186,7 +187,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
     return (
       <>
         {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
-        <div className="no-print"><IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={weekManual} types={scopeTypes} sunday={sunday} noDownload={!fourTools} fourTools={fourTools} /></div>
+        <div className="no-print"><IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={weekSheet} types={scopeTypes} sunday={sunday} noDownload={!fourTools} fourTools={fourTools} /></div>
       </>
     )
   }
@@ -194,10 +195,10 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
     <>
       {!hideWeekBar && <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />}
       <div className="no-print">
-        <IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={[...weekManual, ...loanRows]} types={scopeTypes} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} sunday={sunday} withShare={compact} fourTools={fourTools} onScan={canWrite && !fid && !compact ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; setRowEdit({ entry: x }) } : undefined} />
+        <IncomeSheetPaper onFileClick={setViewAtt} church={settings.churchName.split(' ')[0]} entries={[...weekSheet, ...loanRows]} types={scopeTypes} scope={fund ? `${fund.name}${fund.subLabel ? ` · ${fund.subLabel}` : ''}` : undefined} sunday={sunday} withShare={compact} fourTools={fourTools} onScan={canWrite && !fid && !compact ? setScanFiles : undefined} onRowClick={canWrite ? (x) => { if (x?.id.startsWith('l')) return; if (x && kindOf(x) === 'slip') setForm({ entry: x, preset: 'slip' }); else setRowEdit({ entry: x }) } : undefined} />
         {canWrite && !fid && !compact && <p className="muted small sheethint">แตะแถวในใบเพื่อแก้ไข หรือแตะแถวว่างเพื่อเพิ่มรายการ · เปลี่ยนสัปดาห์ด้วยลูกศรด้านบน ใบจะเปลี่ยนตาม</p>}
-        {!fid && !compact && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekManual.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
-          onEdit={(id) => { const x = weekManual.find((e) => e.id === id); if (x) setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekManual.find((e) => e.id === id); if (x) delEntry(x) }} />}
+        {!fid && !compact && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekSheet.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
+          onEdit={(id) => { const x = weekSheet.find((e) => e.id === id); if (!x) return; if (kindOf(x) === 'slip') setForm({ entry: x, preset: 'slip' }); else setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekSheet.find((e) => e.id === id); if (x) delEntry(x) }} />}
       </div>
       {compact && canWrite && !fid && (
         <div className="no-print" style={{ margin: '8px 0' }}>
@@ -228,7 +229,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
         <section className="card no-print" role="tabpanel" aria-label="บันทึกด้วยมือ">
           <h2>1 · บันทึกด้วยมือ</h2>
           <p className="muted small">เลือกรายการตามรายชื่อในใบบันทึกการถวาย กรอกซอง/เงินสด/โอน แล้วกด “เพิ่มลงตาราง” — ผลขึ้นเป็นแผ่นใบบันทึกการถวายด้านล่าง พร้อมยอดรวม และรวมเข้าใบสรุปให้เอง</p>
-          <ManualIncome subs={fund?.pickSubs ?? fund?.subs} acts={fund?.acts} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} withNote={!!fid} types={scopeTypes} entries={weekManual} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
+          <ManualIncome subs={fund?.pickSubs ?? fund?.subs} acts={fund?.acts} subOps={fund?.subOps} subsOnly={fund?.subsOnly} defaultSub={fcat === 'all' ? (fund?.subs?.[0]?.id ?? '') : fcat} withNote={!!fid} types={scopeTypes} entries={weekSheet} canWrite={canWrite} defaultDate={(() => { const t = todayISO(); return sheetSunday(t) === sunday ? t : sunday })()}
             onManage={incomeOps}
             onAdd={(items) => { const ok = putInc(items); if (ok && items[0]) goWeek(items[0].date); return ok }} onEdit={(x) => (fid ? setRowEdit({ entry: x }) : setForm({ entry: x, preset: 'manual' }))} onDelete={delEntry} />
           {canWrite && !fid && <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setForm({ entry: null, preset: 'manual' })}>＋ บันทึกแบบละเอียด (เลขอ้างอิง เลขสมาชิก หมายเหตุ)</button>}
