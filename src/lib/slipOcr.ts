@@ -1,6 +1,7 @@
 import { readWithRotations } from './image'
 import { mergeSlipReads, parseSlipText, type SlipRead } from './slipParse'
-import { parseMemberCode, type Box, type OcrLine } from './slipMask'
+import { parseMemberCode, slipLayout, type Box, type OcrLine } from './slipMask'
+import { parseContact, type DonorHint } from './donorMatch'
 import { findCardBox, findQrBox } from './qrFind'
 
 /**
@@ -86,20 +87,29 @@ export async function readSlip(file: File, onProgress?: (p: number) => void): Pr
 }
 
 /** หัวแชตด้านบนของภาพจอ (ตัวอักษรขาวบนพื้นเข้ม): ตัดส่วนบน กลับสีถ้ามืด ขยาย แล้วอ่านหารหัสสมาชิก */
-async function readHeaderCode(file: Blob): Promise<string | undefined> {
+async function readHeaderText(file: Blob): Promise<string> {
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
   const hh = Math.max(120, Math.round(bmp.height * 0.2))
   const sc = Math.min(2.5, 1400 / bmp.width)
   const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(Math.min(hh, bmp.height) * sc)
   const ctx = c.getContext('2d', { willReadFrequently: true })
-  if (!ctx) { bmp.close(); return undefined }
+  if (!ctx) { bmp.close(); return '' }
   ctx.drawImage(bmp, 0, 0, bmp.width, Math.min(hh, bmp.height), 0, 0, c.width, c.height); bmp.close()
   const img = ctx.getImageData(0, 0, c.width, c.height)
   let sum = 0; for (let i = 0; i < img.data.length; i += 4) sum += 0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2]
   if (sum / (img.data.length / 4) < 128) { for (let i = 0; i < img.data.length; i += 4) { img.data[i] = 255 - img.data[i]; img.data[i + 1] = 255 - img.data[i + 1]; img.data[i + 2] = 255 - img.data[i + 2] } ctx.putImageData(img, 0, 0) }
   const worker = await getWorker()
   const { data } = await worker.recognize(c)
-  return parseMemberCode(data.text)
+  return data.text
+}
+async function readHeaderCode(file: Blob): Promise<string | undefined> { return parseMemberCode(await readHeaderText(file)) }
+
+/** ข้อมูลสำหรับจับคู่ผู้ถวายกับทะเบียน: รหัส + ชื่อผู้ติดต่อจากหัวแชต + ชื่อผู้โอนบนสลิป */
+export async function readDonorHints(file: Blob): Promise<DonorHint> {
+  const out: DonorHint = {}
+  try { const c = parseContact(await readHeaderText(file)); if (c.code) out.code = c.code; if (c.name) out.contactName = c.name } catch { /* ไม่มีหัวแชต */ }
+  try { const { lines, W, H } = await readSlipLines(file); const lay = slipLayout(lines, W, H); if (lay.nameText) out.senderName = lay.nameText } catch { /* อ่านชื่อบนสลิปไม่ได้ */ }
+  return out
 }
 
 /** หาคิวอาร์จากพิกเซล (ไม่พึ่ง OCR) · คืนกรอบเป็นพิกเซลของรูปเดิม */

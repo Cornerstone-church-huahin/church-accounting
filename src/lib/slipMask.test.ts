@@ -4,7 +4,7 @@ import { REAL_SLIPS } from './slipMask.fixtures'
 
 describe('parseMemberCode', () => {
   it('อ่านรหัสจากหัวแชต', () => {
-    expect(parseMemberCode('12:34 น.\n1333ปิ่ม รัชนี\n15 พ.ย. 2026 11:25 น.')).toBe('1333')
+    expect(parseMemberCode('12:34 น.\n1333ปิ่ม สมศรี\n15 พ.ย. 2026 11:25 น.')).toBe('1333')
     expect(parseMemberCode('1357 สมชาย ใจดี')).toBe('1357')
   })
   it('ไม่เอาวันที่/เวลา/ตัวเลขอื่น', () => {
@@ -17,10 +17,10 @@ describe('parseMemberCode', () => {
 const ln = (text: string, x0: number, y0: number, x1: number, y1: number): OcrLine => ({ text, x0, y0, x1, y1 })
 describe('slipLayout (สลิป K+ ในหน้าจอ 932×2000)', () => {
   const lines = [
-    ln('1333ปิ่ม รัชนี', 310, 160, 620, 210),
+    ln('1333ปิ่ม สมศรี', 310, 160, 620, 210),
     ln('โอนเงินสำเร็จ', 105, 440, 360, 490),
     ln('15 พ.ย. 69 11:24 น.', 105, 515, 420, 550),
-    ln('น.ส. รัชนี ช', 280, 625, 480, 665),
+    ln('น.ส. สมศรี ช', 280, 625, 480, 665),
     ln('ธ.กสิกรไทย', 280, 725, 440, 760),
     ln('xxx-x-x8686-x', 280, 780, 540, 815),
     ln('คริสตจักร ศิลาเอก', 280, 960, 570, 1005),
@@ -37,7 +37,7 @@ describe('slipLayout (สลิป K+ ในหน้าจอ 932×2000)', () =
   it('หาชื่อ คิวอาร์ และขอบสลิปได้', () => {
     expect(r.found).toBe(true)
     expect(r.name).not.toBeNull(); expect(r.qr).not.toBeNull()
-    // ชื่อ = บรรทัด "น.ส. รัชนี ช" (ไม่ใช่ธนาคาร/เลขบัญชี)
+    // ชื่อ = บรรทัด "น.ส. สมศรี ช" (ไม่ใช่ธนาคาร/เลขบัญชี)
     expect(r.name!.y).toBeLessThanOrEqual(625); expect(r.name!.y + r.name!.h).toBeGreaterThanOrEqual(665); expect(r.name!.y + r.name!.h).toBeLessThan(725)
     // คิวอาร์อยู่เหนือคำอธิบาย
     expect(r.qr!.y).toBeLessThan(1520); expect(r.qr!.x).toBeLessThanOrEqual(585)

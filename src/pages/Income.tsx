@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import NoAccess from '../components/NoAccess'
 import MoneyInput from '../components/MoneyInput'
 import Sheet from '../components/Sheet'
 import { can } from '../lib/access'
-import { useAccounts, useIncome, useIncomeTypes, usePassbook } from '../lib/data'
+import { useAccounts, useChurchMembers, useIncome, useIncomeTypes, usePassbook } from '../lib/data'
+import DonorField from '../components/DonorField'
+import { matchDonor, type DonorHint } from '../lib/donorMatch'
 import { BANK_UNKNOWN_LABEL, lineDate, unknownBankIn, unseenTransfers } from '../lib/passbook'
 import { useRole } from '../lib/members'
 import { fmtBaht, fmtDate, monthName, monthOf, newId, todayISO, yearOf } from '../lib/money'
@@ -94,7 +96,7 @@ function IncomeList({ year }: { year: number }) {
 }
 
 /** ค่าที่ระบบอ่านจากสลิปมาใส่ให้ล่วงหน้า (ผู้ใช้ตรวจแล้วกดยืนยัน) */
-export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; /** รหัสสมาชิกที่อ่านจากหัวแชต */ memberNo?: string; file: File }
+export interface SlipInit { date?: string; time?: string; amount?: number; ref?: string; note?: string; typeId?: string; /** รหัสสมาชิกที่อ่านจากหัวแชต */ memberNo?: string; /** ข้อมูลอ่านจากสลิป/หัวแชตสำหรับจับคู่ผู้ถวายกับทะเบียน */ hint?: DonorHint; file: File }
 
 export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, init, onSaved }: { year: number; entry: IncomeEntry | null; onClose: () => void; inc: ReturnType<typeof useIncome>; defaultDate?: string; preset?: 'manual' | 'slip'; init?: SlipInit; onSaved?: (date: string) => void }) {
   const types = useIncomeTypes()
@@ -104,6 +106,13 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
   const [typeId, setTypeId] = useState(entry ? entry.typeId : init?.typeId ?? (preset === 'slip' ? UNSORTED : (active[0]?.id ?? '')))
   const [time, setTime] = useState(entry?.time ?? init?.time ?? '')
   const [memberNo, setMemberNo] = useState(entry?.memberNo ?? init?.memberNo ?? '')
+  const people = useChurchMembers()
+  const hint: DonorHint = { ...(init?.hint ?? {}), ...(init?.memberNo && !init?.hint?.code ? { code: init.memberNo } : {}) }
+  const match = useMemo(() => (init ? matchDonor(people.items, hint) : null), [people.items, init]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [donorId, setDonorId] = useState(entry?.donorId ?? '')
+  const [donorAuto, setDonorAuto] = useState(false)
+  const [remember, setRemember] = useState(true)
+  useEffect(() => { if (!donorId && !donorAuto && match?.member) { setDonorId(match.member.id); setDonorAuto(true) } }, [match]) // eslint-disable-line react-hooks/exhaustive-deps
   const [slipFile, setSlipFile] = useState<File | null>(init?.file ?? null)
   const [busy, setBusy] = useState(false)
   const [amount, setAmount] = useState<number | null>(entry?.amount ?? init?.amount ?? null)
@@ -120,6 +129,8 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
       const dup = inc.items.find((x) => x.id !== entry?.id && x.method === 'transfer' && x.ref === ref.trim())
       if (dup && !confirm(`เลขอ้างอิง ${ref.trim()} ถูกบันทึกแล้วเมื่อ ${fmtDate(dup.date)} (${fmtBaht(dup.amount)}) — ซ้ำใช่ไหม? กด ตกลง เพื่อบันทึกต่อ`)) return
     }
+    const donor = people.items.find((m) => m.id === donorId && !m.deleted)
+    const donorCode = (donor?.code ?? '').trim() || hint.code || ''
     let slip = entry?.slip
     if (slipFile && method === 'transfer') {
       const cfg = getSync()
@@ -133,13 +144,15 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
       } catch (e) { setBusy(false); return setErr(e instanceof Error ? e.message : 'แนบสลิปไม่สำเร็จ') }
       setBusy(false)
     }
-    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() ? { memberNo: memberNo.trim() } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), ...(time ? { time } : {}), ...(entry?.count ? { count: entry.count } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
+    const ok = inc.put([{ id: entry?.id ?? newId('in'), date, typeId, amount, method, ...(method === 'transfer' ? { ref: ref.trim(), accountId, ...(memberNo.trim() || donorCode ? { memberNo: memberNo.trim() || donorCode } : {}), ...(donorId ? { donorId } : {}), ...(slip ? { slip } : {}) } : {}), ...(entry?.unknown && typeId === UNSORTED ? { unknown: true } : {}), ...(time ? { time } : {}), ...(entry?.count ? { count: entry.count } : {}), note: note.trim(), ...((entry?.source ?? preset) ? { source: entry?.source ?? preset } : {}), updated: 0 }])
+    if (ok && donor && remember && hint.code && (donor.code ?? '').trim() !== hint.code) people.put([{ ...donor, code: hint.code, updated: 0 }]) // จำรหัสไว้กับสมาชิก — ครั้งหน้าจับคู่อัตโนมัติ (ไม่มีสิทธิ์แก้ทะเบียน = ข้ามเงียบ ๆ)
     if (ok) { onSaved?.(date); onClose() }
   }
   // ฟอร์มสลิป: ระบบกรอกให้ครบแล้ว — ช่องที่คนต้องกรอกเอง (วัตถุประสงค์/เลขสมาชิก) อยู่ล่างสุด
   const slipLayout = preset === 'slip' || entry?.source === 'slip'
   const typeField = <div className="field"><label htmlFor="i-type">{slipLayout ? 'วัตถุประสงค์ (ถวายเพื่อ)' : 'รายการถวาย'}</label><select id="i-type" className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>{active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{method === 'transfer' && <option value={UNSORTED}>{UNKNOWN_INCOME_LABEL}</option>}</select></div>
-  const memField = <div className="field"><label htmlFor="i-mem">ชื่อผู้ถวาย หรือเลขที่สมาชิก (ไม่แสดงในรายงาน)</label><input id="i-mem" className="input" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
+  const donorField = slipLayout && method === 'transfer' && <DonorField members={people.items} value={donorId} onChange={(id) => { setDonorId(id); setDonorAuto(false) }} hint={hint} match={match} remember={remember} onRemember={setRemember} />
+  const memField = <div className="field"><label htmlFor="i-mem">{slipLayout ? 'พิมพ์ชื่อ/เลขเอง (กรณีไม่อยู่ในทะเบียน)' : 'ชื่อผู้ถวาย หรือเลขที่สมาชิก'} (ไม่แสดงในรายงาน)</label><input id="i-mem" className="input" value={memberNo} onChange={(e) => setMemberNo(e.target.value)} /></div>
   return (
     <Sheet title={entry ? 'แก้ไขรายรับ' : init ? 'ตรวจและยืนยันสลิป' : 'บันทึกรายรับ'} onClose={onClose}>
       {init && <SlipThumb file={init.file} />}
@@ -165,6 +178,7 @@ export function IncomeForm({ year, entry, onClose, inc, defaultDate, preset, ini
       )}
       {!slipLayout && <div className="field"><label htmlFor="i-note">หมายเหตุ (ไม่ต้องใส่ชื่อผู้ถวาย)</label><input id="i-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>}
       {slipLayout && typeField}
+      {donorField}
       {slipLayout && method === 'transfer' && memField}
       {err && <p className="err" role="alert">{err}</p>}
       <div className="row">
