@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { can } from '../lib/access'
-import { usePassbook, useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
+import { useChurchMembers, usePassbook, useIncome, useIncomeTypes, useRounds, useSettings, useSheetFiles } from '../lib/data'
 import { roundTotal } from '../lib/ledger'
 import { computeLedger, rangeOf } from '../lib/weekLedger'
 import LedgerTable from '../components/LedgerTable'
@@ -26,7 +26,7 @@ import { IncomeScan } from '../components/PaperScan'
 import ManualIncome from '../components/ManualIncome'
 import { downloadPdf } from '../lib/pdf'
 import { downloadBlankSheet } from '../lib/blankSheet'
-import { readSlip } from '../lib/slipOcr'
+import { readDonorHints, readSlip } from '../lib/slipOcr'
 import MaskedSlip from '../components/MaskedSlip'
 import { loanIncomeRows, type FundScope } from '../lib/fundScope'
 import { isFundZone } from '../lib/funds'
@@ -108,6 +108,8 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const lstFiles = allWeeks ? allFiles : weekFiles
   const otherWeeks = (k: 'manual' | 'slip' | 'sheet') => (k === 'sheet' ? allFiles.length - weekFiles.length : allEnt.filter((x) => sheetSunday(x.date) !== sunday && (k === 'manual' ? kindOf(x) === 'manual' : kindOf(x) === 'slip' || kindOf(x) === 'unknown')).length)
   const sum = (xs: IncomeEntry[]) => xs.reduce((s, x) => s + x.amount, 0)
+  const churchMembers = useChurchMembers().items
+  const donorOf = (id?: string) => { const m = id ? churchMembers.find((x) => x.id === id && !x.deleted) : undefined; return m ? m.name.replace(/^place:/, '') : '' }
   const typeName = (id: string) => (id === UNSORTED ? UNKNOWN_INCOME_LABEL : types.byId(id)?.name ?? '(รายการที่ถูกลบ)')
   /** ลบรูปที่แนบออกจาก repo ข้อมูลด้วย (ถ้าทำไม่ได้ ไม่เป็นไร — รายการถูกลบแล้ว) */
   const dropFile = async (path?: string) => {
@@ -150,7 +152,7 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const row = (x: IncomeEntry, preset: 'manual' | 'slip') => (
     <li key={x.id} style={{ display: 'block', padding: '0.4rem 0', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span className="grow"><b>{typeName(x.typeId)}</b>{x.note ? <span className="small muted"> · {x.note}</span> : null}{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
+        <span className="grow"><b>{typeName(x.typeId)}</b>{x.note ? <span className="small muted"> · {x.note}</span> : null}{x.memberNo ? <span className="small muted"> · {x.memberNo}</span> : null}{canWrite && donorOf(x.donorId) ? <span className="small" style={{ color: '#1a56db' }}> · 👤 {donorOf(x.donorId)}</span> : null}<br /><span className="small muted">บันทึกวันที่ {fmtDate(x.date)}{x.time ? ` ${x.time} น.` : ''}{allWeeks ? ` · ใบวันที่ ${fmtDate(sheetSunday(x.date))}` : ''}{x.ref ? ` · อ้างอิง ${x.ref}` : ''}{x.slip ? ' · 📎สลิป' : ''}{x.note && x.source !== 'slip' ? ` · ${x.note}` : ''}</span></span>
         <b className="num">{fmtBaht(x.amount)}</b>
       </div>
       {x.slip && <button type="button" className="btn" style={{ marginTop: 6, padding: '4px 10px' }} onClick={() => setMaskFor(x)} aria-label={`แชร์สลิปปิดชื่อ ${typeName(x.typeId)} ${fmtBaht(x.amount)}`}>🔒 ดู/แชร์สลิป (ปิดชื่อ)</button>}
@@ -311,8 +313,12 @@ function SlipFlow({ year, inc, initialFile, onClose, onSaved }: { year: number; 
     const memo = r?.memo ?? ''
     const hit = memo ? types.list.find((t) => t.active && memo.includes(t.name.split(' ')[0])) : undefined
     const missing = r ? [!r.date && 'วันที่', !r.amount && 'ยอดเงิน'].filter(Boolean) : []
-    if (r && missing.length) setMsg(`อ่าน${missing.join('และ')}ไม่ได้ — กรุณากรอกเอง`)
-    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo, memberNo: r?.code })
+    const warn = r && missing.length ? `อ่าน${missing.join('และ')}ไม่ได้ — กรุณากรอกเอง` : ''
+    let hint: Awaited<ReturnType<typeof readDonorHints>> = {}
+    try { hint = await readDonorHints(file) } catch { /* ผู้บันทึกเลือกผู้ถวายเอง */ }
+    if (!hint.code && r?.code) hint = { ...hint, code: r.code }
+    if (warn) setMsg(warn)
+    setInit({ file, date: r?.date, amount: r?.amount, ref: r?.ref, typeId: hit?.id, time: r?.time, note: memo, memberNo: hint.code ?? r?.code, hint })
     setStage('confirm')
   }
   useEffect(() => { if (initialFile) void choose(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -334,7 +340,7 @@ function SlipFlow({ year, inc, initialFile, onClose, onSaved }: { year: number; 
         </>
       ) : (
         <div role="status" aria-live="polite">
-          <p><b>กำลังอ่านสลิป…</b></p>
+          <p><b>กำลังอ่านสลิปและชื่อผู้ถวาย…</b></p>
           <progress value={pct} max={1} style={{ width: '100%' }} />
           <p className="muted small">ครั้งแรกอาจนานขึ้นเล็กน้อยเพราะต้องโหลดตัวอ่านภาษาไทย</p>
         </div>

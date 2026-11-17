@@ -1,7 +1,7 @@
 /** ปิดชื่อ/คิวอาร์ในรูปสลิปก่อนแชร์: อ่านรหัสสมาชิกจากหัวแชต + หาตำแหน่งกรอบชื่อ/คิวอาร์/ขอบสลิปจากข้อความที่ OCR อ่านได้ */
 export interface Box { x: number; y: number; w: number; h: number }
 export interface OcrLine { text: string; x0: number; y0: number; x1: number; y1: number; words?: OcrWord[] }
-export interface MaskLayout { crop: Box; name: Box | null; qr: Box | null; found: boolean }
+export interface MaskLayout { crop: Box; name: Box | null; qr: Box | null; found: boolean; /** ข้อความชื่อผู้โอนที่อ่านได้ (ใช้จับคู่กับทะเบียนสมาชิก · ภาษาอังกฤษ OCR ไทยอ่านไม่ได้จะว่าง/เพี้ยน) */ nameText?: string }
 
 const THAI_MONTH = /^\s*(?:ม\.ค|ก\.พ|มี\.ค|เม\.ย|พ\.ค|มิ\.ย|ก\.ค|ส\.ค|ก\.ย|ต\.ค|พ\.ย|ธ\.ค|ม\.|ก\.|พ\.)/
 
@@ -30,6 +30,12 @@ const unionBox = (bs: { x0: number; y0: number; x1: number; y1: number }[]): Box
 const grow = (b: Box, px: number, py: number, W: number, H: number): Box => { const x = Math.max(0, b.x - px), y = Math.max(0, b.y - py); return { x, y, w: Math.min(W, b.x + b.w + px) - x, h: Math.min(H, b.y + b.h + py) - y } }
 const wordsOf = (l: OcrLine): OcrWord[] => (l.words?.length ? l.words : [{ t: l.text, x0: l.x0, y0: l.y0, x1: l.x1, y1: l.y1 }])
 /** เศษสัญลักษณ์/โลโก้ที่ OCR อ่านเป็นตัวอักษรเดี่ยว (@ | % ฯลฯ) ไม่นับเป็นคำของชื่อ */
+/** ต่อคำที่ OCR แตกเป็นพยางค์ให้เป็นข้อความ: เว้นวรรคเมื่อช่องว่างระหว่างคำกว้างกว่าครึ่งความสูงตัวอักษร */
+function joinWords(ws: OcrWord[]): string {
+  const s = [...ws].sort((a, b) => a.x0 - b.x0)
+  const h = Math.max(1, ...s.map((w) => w.y1 - w.y0)) * 0.5
+  return s.reduce((acc, w, i) => acc + (i > 0 && w.x0 - s[i - 1].x1 > h ? ' ' : '') + w.t, '').replace(/\s+/g, ' ').trim()
+}
 const isJunkWord = (w: OcrWord) => { const t = w.t.replace(/\s+/g, ''); return t.length === 0 || (t.length <= 1 && !/[ก-ฮA-Za-z]/.test(t)) }
 
 /** กรอบของ “เฉพาะตัวอักษรที่ตรงกับรูปแบบ” ในบรรทัด (บรรทัดจาก OCR มักรวมโลโก้/สัญลักษณ์ปนมา ทำให้กรอบบรรทัดกว้าง/สูงเกินจริง จึงใช้กรอบของคำ) */
@@ -96,7 +102,9 @@ export function slipLayout(lines: OcrLine[], W: number, H: number, qrFound?: Box
     if (cand.length) { nameLine = cand[0]; nameWords = wordsOf(cand[0]).filter((w) => w.x0 >= t.x - 6 && !isJunkWord(w)) }
   }
   let name: Box | null = null
+  let nameText = ''
   if (nameWords.length && nameLine) {
+    nameText = joinWords(nameWords)
     let nb = unionBox(nameWords)
     // ขวาสุด: ใช้ขอบบรรทัดถ้าไม่ไกลเกินจริง (OCR อาจทิ้งตัวอักษรท้ายชื่อเป็นเศษ แต่ขอบบรรทัดครอบถึงแล้ว)
     if (nameLine !== fromLine && nameLine.x1 > nb.x + nb.w && nameLine.x1 - (nb.x + nb.w) < W * 0.08) nb = { ...nb, w: nameLine.x1 - nb.x }
@@ -136,7 +144,7 @@ export function slipLayout(lines: OcrLine[], W: number, H: number, qrFound?: Box
     const right = Math.min(W, cap ? cap.x + cap.w + Math.round(W * 0.057) : W)
     crop = { x: left, y: top, w: Math.max(40, right - left), h: Math.max(40, bottom - top) }
   }
-  return { crop, name, qr, found: !!(t || name || qr) }
+  return { crop, name, qr, found: !!(t || name || qr), nameText }
 }
 
 /** ข้อความบนป้ายที่วางทับชื่อ เช่น “สมาชิก 1333 ถวายประจำสัปดาห์” */

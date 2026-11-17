@@ -92,6 +92,8 @@ export interface IncomeEntry extends SharedItem {
   unknown?: boolean
   /** เลขสมาชิกผู้ถวาย (ไม่ใช้ชื่อ) — ไม่แสดงในรายงาน */
   memberNo?: string
+  /** ผู้ถวายจากทะเบียนสมาชิก (id) — ใช้ภายในเพื่อประเมิน/ติดตาม ไม่แสดงในรายงานและใบประกาศ */
+  donorId?: string
   /** รูปสลิปโอน (ในโฟลเดอร์ attachments ของ repo ข้อมูล) */
   slip?: { path: string; name: string }
   /** หมวดย่อยของกองทุน (ว่าง = ส่วนกลาง ยังไม่ระบุหมวด) */
