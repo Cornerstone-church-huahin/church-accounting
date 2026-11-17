@@ -11,7 +11,7 @@ import { newId } from '../lib/money'
 import { MONTH_TH, buildRows, headId, monthSpans, sumBudget, type PlanLine } from '../lib/yearPlan'
 import type { YearPlanRow } from '../lib/types'
 
-const NAVY = '#1a2b4c', LINE = '#8d9bbd', GOLD = '#f7eecb', GOLD_D = '#c99a14', BLUE_T = '#e6ebf5', GOLD_T = '#fbf3d8', DATE = '#2d4a8a', PER = 20
+const NAVY = '#1a2b4c', LINE = '#8d9bbd', GOLD = '#dcecfb', GOLD_D = '#c99a14', BLUE_T = '#c9def5', GOLD_T = '#e6f1fc', DATE = '#2d4a8a', PER = 20
 type Focus = 'text' | 'owner' | 'budget' | 'date'
 
 /** ตารางแผนงานประจำปี (เหมือนป้าย “นิมิตประจำปี”): ทุกวันอาทิตย์ของปีมาให้แล้ว แตะช่องไหนก็พิมพ์ได้เลย · เพิ่ม/ลบ/แก้วันที่ได้ · พิมพ์/PDF A4 */
