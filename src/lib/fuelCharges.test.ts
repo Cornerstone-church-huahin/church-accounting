@@ -63,3 +63,21 @@ describe('ใบประกาศ: ค่าน้ำมันรวมเป�
     expect(m).toHaveLength(1); expect(m[0].amount).toBe(8000); expect(m[0].desc).toBe(FUEL_LABEL)
   })
 })
+
+import { computeWeekWithdraw } from './useWeekWithdraw'
+describe('ต้องเบิก: จ่ายแล้ว', () => {
+  const base = { income: [], rounds: [], passbook: [], types: [], cats: [], loans: [] }
+  const e = (id: string, o: object) => ({ id, updated: 1, channel: 'manual' as const, date: '2026-11-10', amount: 50000, desc: id, status: 'paid' as const, ...o })
+  it('บันทึกมือที่จ่ายคืนแล้ว/บิลที่จ่ายแล้ว ออกจากยอดคงค้างและไปอยู่รายการจ่ายแล้ว', () => {
+    const w = computeWeekWithdraw({ ...base, expenses: [
+      e('a', { biller: 'อ.ดารา' }),
+      e('b', { biller: 'อ.ดารา', reimbursed: '2026-11-12' }),
+      e('c', { channel: 'bill', status: 'open', who: 'ร้าน', amount: 20000 }),
+      e('d', { channel: 'bill', status: 'paid', paidDate: '2026-11-11', amount: 30000 }),
+    ] }, 2026, '2026-11-15')
+    expect(w.circ.map((x) => x.id).sort()).toEqual(['a', 'c'])
+    expect(w.paid.map((x) => x.id).sort()).toEqual(['b', 'd'])
+    expect(w.totalC).toBe(70000); expect(w.totalPaid).toBe(80000)
+    expect(w.paid.every((x) => x.done)).toBe(true)
+  })
+})
