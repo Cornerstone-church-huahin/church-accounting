@@ -23,12 +23,15 @@ export default function YearPlan() {
   const [edit, setEdit] = useState<{ line: PlanLine; focus: Focus } | null>(null)
   const [headEdit, setHeadEdit] = useState(false)
   const pagesRef = useRef<HTMLDivElement[]>([])
+  const boardRef = useRef<HTMLDivElement>(null)
   pagesRef.current = []
   const lines = useMemo(() => buildRows(year, store.items), [year, store.items])
   const head = store.items.find((x) => x.id === headId(year) && !x.deleted)
   const title = head?.text || `นิมิตปี ${year}`
   const sub = head?.owner ?? '“ก้าวต่อไปในนิมิต สู่ปีแห่งความบริบูรณ์”'
   const pages = paginate(lines, PER)
+  const [view, setView] = useState<'fill' | 'board'>('fill')
+  const posterRows = useMemo(() => lines.filter((l) => l.text || l.owner || l.budget), [lines])
   const hidden = store.items.filter((x) => x.deleted && x.id.startsWith(`yp-${year}-`)).length
   const total = sumBudget(lines.map((l) => l.budget))
 
@@ -52,9 +55,12 @@ export default function YearPlan() {
         </span>
         {canEdit && <span className="row" style={{ gap: 6 }}><button type="button" className="mini" onClick={() => setHeadEdit(true)}>✎ แก้หัวตาราง</button>{hidden > 0 && <button type="button" className="mini" onClick={restore}>↺ คืนแถวที่ลบ ({hidden})</button>}</span>}
       </div>
+      <div className="row no-print" role="tablist" aria-label="มุมมอง" style={{ gap: 6, marginBottom: 8 }}>
+        {([['fill', '✏️ กรอกข้อมูล'], ['board', '📌 แผ่นติดบอร์ด (A4 แผ่นเดียว)']] as const).map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={view === k} className={`btn grow${view === k ? ' btn--gold' : ''}`} onClick={() => setView(k)}>{l}</button>))}
+      </div>
       <p className="muted small no-print" style={{ margin: '0 0 6px' }}>{canEdit ? 'แตะช่องไหนก็พิมพ์ได้เลย · แตะ “วัน/วันที่” เพื่อเปลี่ยนวัน ติ๊กทำแล้ว (ขีดฆ่า) เพิ่มแถว หรือลบแถว' : 'ดูได้อย่างเดียว'}</p>
-      {pages.map((rows, pi) => {
-        const spans = monthSpans(rows)
+      {view === 'fill' && pages.map((rows, pi) => {
         return (
           <div key={pi} style={{ marginBottom: 10 }}>
             <PdfTools compact mode="full" els={() => (pagesRef.current[pi] ? [pagesRef.current[pi]] : [])} file={`แผนงานประจำปี-${year + 543}${pages.length > 1 ? `-หน้า${pi + 1}` : ''}.pdf`} title={`${title} หน้า ${pi + 1}`} label={`แผนงานประจำปี หน้า ${pi + 1}`} />
@@ -67,13 +73,55 @@ export default function YearPlan() {
                     {sub && <div style={{ fontSize: 16, fontWeight: 700 }}>{sub}</div>}
                     <span style={{ position: 'absolute', right: 8, top: 6, fontSize: 12, fontWeight: 700 }}>หน้าที่ {pi + 1}</span>
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', flex: 1, fontSize: 13.5 }}>
+                  <Grid rows={rows} canEdit={canEdit} onCell={(l, f) => setEdit({ line: l, focus: f })} fill />
+                  {pi === pages.length - 1 && total > 0 && <div style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 800, color: NAVY, border: `1.5px solid ${LINE}`, borderTop: 0 }}>รวมงบประมาณ {total.toLocaleString('th-TH')} บาท</div>}
+                </div>
+              </FitBox>
+            </ScaledPage>
+          </div>)
+      })}
+      {view === 'board' && (
+        <div>
+          <p className="muted small no-print" style={{ margin: '0 0 6px' }}>รวมรายการที่กรอกแล้วทั้งปี ม.ค. – ธ.ค. ไว้ในกระดาษ A4 แผ่นเดียว (แสดงเฉพาะแถวที่มีข้อมูล) · พิมพ์/PDF ไปติดบอร์ดได้เลย</p>
+          <PdfTools compact mode="full" els={() => (boardRef.current ? [boardRef.current] : [])} file={`แผนงานประจำปี-${year + 543}-ติดบอร์ด.pdf`} title={title} label="แผนงานประจำปี แผ่นติดบอร์ด" />
+          <ScaledPage ref={boardRef} noCredit>
+            <FitBox key={`${posterRows.length}|${posterRows.reduce((n, r) => n + r.text.length + r.owner.length, 0)}`}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#111', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+                <div style={{ textAlign: 'center', background: GOLD, border: `2px solid ${LINE}`, padding: '6px 8px', color: NAVY }}>
+                  <div style={{ fontSize: 13 }}>{church}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800 }}>{'<<<'} {title} {'>>>'}</div>
+                  {sub && <div style={{ fontSize: 17, fontWeight: 700 }}>{sub}</div>}
+                </div>
+                {posterRows.length === 0
+                  ? <p style={{ textAlign: 'center', color: '#667', padding: 30 }}>ยังไม่มีรายการ — ไปที่แท็บ “กรอกข้อมูล” แล้วแตะช่องเพื่อพิมพ์</p>
+                  : <Grid rows={posterRows} canEdit={canEdit} onCell={(l, f) => setEdit({ line: l, focus: f })} />}
+                {total > 0 && <div style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 800, color: NAVY, border: `1.5px solid ${LINE}`, borderTop: 0 }}>รวมงบประมาณ {total.toLocaleString('th-TH')} บาท</div>}
+              </div>
+            </FitBox>
+          </ScaledPage>
+        </div>)}
+      {edit && (
+        <RowSheet key={edit.line.id} line={edit.line} focus={edit.focus} onClose={() => setEdit(null)}
+          onSave={(p) => { if (save(edit.line, p)) setEdit(null) }}
+          onAdd={() => { if (addAfter(edit.line)) setEdit(null) }}
+          onDelete={() => { if (window.confirm(`ลบแถว ${edit.line.day} ${edit.line.dateTxt} ${MONTH_TH[edit.line.month]} ?`) && del(edit.line)) setEdit(null) }} />)}
+      {headEdit && <HeadSheet title={head?.text ?? ''} sub={head?.owner ?? ''} def={`นิมิตปี ${year}`} onClose={() => setHeadEdit(false)} onSave={(t, s) => { if (store.put([{ ...(head ?? { id: headId(year), year, date: '', seq: 0 }), text: t, owner: s, updated: 0 }])) setHeadEdit(false) }} />}
+    </section>
+  )
+}
+
+
+/** ตารางแผนงาน: fill = ยืดแถวเต็มหน้า (แผ่นกรอกข้อมูล) · ไม่ fill = แถวกระชับ (แผ่นติดบอร์ด) */
+function Grid({ rows, canEdit, onCell, fill }: { rows: PlanLine[]; canEdit: boolean; onCell: (l: PlanLine, f: Focus) => void; fill?: boolean }) {
+  const spans = monthSpans(rows)
+  return (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', flex: fill ? 1 : undefined, fontSize: fill ? 13.5 : 14.5 }}>
                     <colgroup><col style={{ width: '10%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '40%' }} /><col style={{ width: '18%' }} /><col style={{ width: '13%' }} /></colgroup>
                     <thead><tr>{['วัน', 'วันที่', 'เดือน', 'รายละเอียด', 'ผู้รับผิดชอบ', 'งบประมาณ'].map((h) => <th key={h} style={{ border: `1.5px solid ${LINE}`, background: '#dfe4f6', color: NAVY, padding: '4px 2px', fontSize: 14 }}>{h}</th>)}</tr></thead>
                     <tbody>
                       {rows.map((l, ri) => {
                         const td = (f: Focus, content: string, extra?: React.CSSProperties) => (
-                          <td onClick={() => canEdit && setEdit({ line: l, focus: f })} aria-label={`${f} ${l.dateTxt} ${MONTH_TH[l.month]}`} style={{ border: `1px solid ${LINE}`, padding: '3px 5px', verticalAlign: 'middle', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', lineHeight: 1.25, ...extra }}>
+                          <td onClick={() => canEdit && onCell(l, f)} aria-label={`${f} ${l.dateTxt} ${MONTH_TH[l.month]}`} style={{ border: `1px solid ${LINE}`, padding: '3px 5px', verticalAlign: 'middle', cursor: canEdit ? 'pointer' : undefined, whiteSpace: 'pre-line', lineHeight: 1.25, ...extra }}>
                             {content || (canEdit ? <span className="no-print" style={{ color: '#b3bbd6' }}>＋</span> : '')}
                           </td>)
                         const strike: React.CSSProperties = l.done ? { textDecoration: 'line-through', textDecorationColor: '#1f4fd8', textDecorationThickness: 2 } : {}
@@ -89,19 +137,6 @@ export default function YearPlan() {
                       })}
                     </tbody>
                   </table>
-                  {pi === pages.length - 1 && total > 0 && <div style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 800, color: NAVY, border: `1.5px solid ${LINE}`, borderTop: 0 }}>รวมงบประมาณ {total.toLocaleString('th-TH')} บาท</div>}
-                </div>
-              </FitBox>
-            </ScaledPage>
-          </div>)
-      })}
-      {edit && (
-        <RowSheet key={edit.line.id} line={edit.line} focus={edit.focus} onClose={() => setEdit(null)}
-          onSave={(p) => { if (save(edit.line, p)) setEdit(null) }}
-          onAdd={() => { if (addAfter(edit.line)) setEdit(null) }}
-          onDelete={() => { if (window.confirm(`ลบแถว ${edit.line.day} ${edit.line.dateTxt} ${MONTH_TH[edit.line.month]} ?`) && del(edit.line)) setEdit(null) }} />)}
-      {headEdit && <HeadSheet title={head?.text ?? ''} sub={head?.owner ?? ''} def={`นิมิตปี ${year}`} onClose={() => setHeadEdit(false)} onSave={(t, s) => { if (store.put([{ ...(head ?? { id: headId(year), year, date: '', seq: 0 }), text: t, owner: s, updated: 0 }])) setHeadEdit(false) }} />}
-    </section>
   )
 }
 
