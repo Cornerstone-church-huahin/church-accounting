@@ -30,7 +30,6 @@ export default function YearPlan() {
   const title = head?.text || `นิมิตปี ${year}`
   const sub = head?.owner ?? '“ก้าวต่อไปในนิมิต สู่ปีแห่งความบริบูรณ์”'
   const pages = paginate(lines, PER)
-  const [view, setView] = useState<'fill' | 'board'>('fill')
   const posterRows = useMemo(() => lines.filter((l) => l.text || l.owner || l.budget), [lines])
   const hidden = store.items.filter((x) => x.deleted && x.id.startsWith(`yp-${year}-`)).length
   const total = sumBudget(lines.map((l) => l.budget))
@@ -55,12 +54,8 @@ export default function YearPlan() {
         </span>
         {canEdit && <span className="row" style={{ gap: 6 }}><button type="button" className="mini" onClick={() => setHeadEdit(true)}>✎ แก้หัวตาราง</button>{hidden > 0 && <button type="button" className="mini" onClick={restore}>↺ คืนแถวที่ลบ ({hidden})</button>}</span>}
       </div>
-      <div className="row no-print" role="tablist" aria-label="มุมมอง" style={{ gap: 6, marginBottom: 8 }}>
-        {([['fill', '✏️ กรอกข้อมูล'], ['board', '📌 แผ่นติดบอร์ด (A4 แผ่นเดียว)']] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`btn grow${view === k ? ' btn--gold' : ''}`} onClick={() => setView(k)}>{l}</button>))}
-      </div>
-      <p className="muted small no-print" style={{ margin: '0 0 6px' }}>{canEdit ? 'แตะช่องไหนก็พิมพ์ได้เลย · แตะ “วัน/วันที่” เพื่อเปลี่ยนวัน ติ๊กทำแล้ว (ขีดฆ่า) เพิ่มแถว หรือลบแถว' : 'ดูได้อย่างเดียว'}</p>
-      {view === 'fill' && pages.map((rows, pi) => {
+      <p className="muted small no-print" style={{ margin: '0 0 6px' }}>{canEdit ? 'แตะช่องไหนก็พิมพ์ได้เลย (ผูกกับวัน-เดือน-ปีไว้ให้แล้ว) · แตะ “วัน/วันที่” เพื่อเปลี่ยนวัน ติ๊กทำแล้ว (ขีดฆ่า) เพิ่มแถว หรือลบแถว' : 'ดูได้อย่างเดียว'}</p>
+      {pages.map((rows, pi) => {
         return (
           <div key={pi} style={{ marginBottom: 10 }}>
             <PdfTools compact mode="full" els={() => (pagesRef.current[pi] ? [pagesRef.current[pi]] : [])} file={`แผนงานประจำปี-${year + 543}${pages.length > 1 ? `-หน้า${pi + 1}` : ''}.pdf`} title={`${title} หน้า ${pi + 1}`} label={`แผนงานประจำปี หน้า ${pi + 1}`} />
@@ -80,9 +75,12 @@ export default function YearPlan() {
             </ScaledPage>
           </div>)
       })}
-      {view === 'board' && (
+      <div className="no-print" style={{ margin: '14px 0 6px', padding: '10px 12px', borderRadius: 12, background: '#fff3cd', border: '2px solid #e0b100' }}>
+        <b>📌 แผ่นสำหรับติดบอร์ด (A4 แผ่นเดียว)</b>
+        <p className="muted small" style={{ margin: '2px 0 0' }}>สรุปรายการที่กรอกไว้ด้านบนทั้งปี ม.ค. – ธ.ค. ไว้ในแผ่นเดียว (แสดงเฉพาะแถวที่มีข้อมูล) · กรอก/แก้ที่ตารางด้านบน แผ่นนี้จะเปลี่ยนตามเอง · พิมพ์ หรือ PDF ไปติดบอร์ดได้เลย</p>
+      </div>
+      {(
         <div>
-          <p className="muted small no-print" style={{ margin: '0 0 6px' }}>รวมรายการที่กรอกแล้วทั้งปี ม.ค. – ธ.ค. ไว้ในกระดาษ A4 แผ่นเดียว (แสดงเฉพาะแถวที่มีข้อมูล) · พิมพ์/PDF ไปติดบอร์ดได้เลย</p>
           <PdfTools compact mode="full" els={() => (boardRef.current ? [boardRef.current] : [])} file={`แผนงานประจำปี-${year + 543}-ติดบอร์ด.pdf`} title={title} label="แผนงานประจำปี แผ่นติดบอร์ด" />
           <ScaledPage ref={boardRef} noCredit>
             <FitBox key={`${posterRows.length}|${posterRows.reduce((n, r) => n + r.text.length + r.owner.length, 0)}`}>
