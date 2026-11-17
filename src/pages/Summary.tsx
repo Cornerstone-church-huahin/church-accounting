@@ -12,7 +12,6 @@ import { useWeekWithdraw } from '../lib/useWeekWithdraw'
 import { buildPeriod, type PeriodKind } from '../lib/periodData'
 import PeriodPaper from '../components/PeriodPaper'
 import { expenseLines, weekNotice } from '../lib/notice'
-import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { periodReport } from '../lib/report'
 import { useBalances } from '../lib/useBalances'
 import { isFundZone } from '../lib/funds'
@@ -44,7 +43,6 @@ export default function Summary({ year }: { year: number }) {
   const [sunday, setSunday] = useState(latest)
   const [month, setMonth] = useState(() => Number(sheetSunday(latest).slice(5, 7)))
   const [notice, setNotice] = useState<PeriodKind | null>(null)
-  const [busy, setBusy] = useState(false)
   const [copy, setCopy] = useState<'evidence' | 'report' | 'public' | 'file'>(detail ? 'evidence' : 'public')
   const kind = detail ? copy : 'public'
   const periodic = notice === 'month' || notice === 'year'
@@ -67,34 +65,14 @@ export default function Summary({ year }: { year: number }) {
     const L = computeLedger({ range, ...a, withFunds: false })
     return weekNotice(L, expenseLines(range, { vouchers: a.vouchers, expenses: a.expenses, entries: a.entries }))
   }, [a, year, sunday])
-  const download = async () => {
-    if (paper.current.length === 0) return
-    setBusy(true)
-    try { await downloadSheetPdf(paper.current, `สรุปรับจ่าย-${tag}-${stamp}.pdf`, 'full') } catch (e) { console.error('pdf', e); alert('สร้างไฟล์ PDF ไม่สำเร็จ — ลองกด “พิมพ์” แล้วเลือกบันทึกเป็น PDF แทน') }
-    setBusy(false)
-  }
-  const share = async () => {
-    if (paper.current.length === 0) return
-    setBusy(true)
-    try {
-      const file = `สรุปรับจ่าย-${tag}-${stamp}.pdf`
-      const r = await sharePdf(paper.current, file, 'full', `สรุปรายรับ-รายจ่าย ${church}`)
-      if (r === 'unsupported') { await downloadSheetPdf(paper.current, file, 'full'); alert('เครื่องนี้ยังแชร์ไฟล์โดยตรงไม่ได้ — ดาวน์โหลดไฟล์ PDF ให้แทนแล้ว นำไปแชร์ต่อจากไฟล์ที่ดาวน์โหลดได้') }
-    } catch (e) { console.error('share', e); alert('แชร์ไม่สำเร็จ — ลองกด “ดาวน์โหลด PDF” แทน') }
-    setBusy(false)
-  }
   const canExport = can(role, 'detail')
+  const paperTools = { canExport, file: `สรุปรับจ่าย-${tag}-${stamp}`, title: `สรุปรายรับ-รายจ่าย ${church}` }
   if (notice) {
     return (
       <>
         <div className="row no-print" style={{ margin: '8px 0', gap: 8 }}>
           <button type="button" className="btn btn--ghost" onClick={() => setNotice(null)}>‹ สรุปและรายงาน</button>
           <span className="grow" />
-          {canExport && !fileMode && <>
-            <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void download()} aria-label="ดาวน์โหลดใบสรุปเป็น PDF">{busy ? 'กำลังสร้าง…' : '⬇️ ดาวน์โหลด PDF'}</button>
-            <button type="button" className="btn btn--gold" disabled={busy} onClick={() => void share()} aria-label="แชร์ใบสรุปเป็น PDF" title={canSharePdf() ? undefined : 'เครื่องนี้จะดาวน์โหลดไฟล์ให้แทน'}>📤 แชร์ PDF</button>
-            <button type="button" className="btn btn--ghost" onClick={() => window.print()} aria-label="พิมพ์ใบสรุป">🖨️ พิมพ์</button>
-          </>}
         </div>
         <div className="rtabs no-print" role="tablist" aria-label="ช่วงเวลาของใบสรุป">
           {([['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'รายปี']] as [PeriodKind, string][]).map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={notice === k} className={`rtab${notice === k ? ' on' : ''}`} onClick={() => setNotice(k)}>{t}</button>)}
@@ -109,7 +87,7 @@ export default function Summary({ year }: { year: number }) {
           </div>
         )}
         {detail && !fileMode && <p className="muted small no-print" style={{ margin: '4px 0' }}>{kind === 'report' ? 'รายงานเสนอที่ประชุม (ใช้ภายในคณะทำงาน): ข้อมูลครบ มีชื่อและเงินเดือนรายคน + เงินคริสตจักรสิ้นสัปดาห์ · ต้องเบิก · เรื่องต้องติดตาม · ช่องลงนาม — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : kind === 'evidence' ? 'ฉบับเก็บเป็นหลักฐานต้นฉบับ: ข้อมูลครบ มีชื่อผู้เบิก/ผู้สำรองจ่ายและเงินเดือนรายคน — ห้ามนำไปติดประกาศหรือแชร์สมาชิก' : 'ฉบับติดประกาศ/แชร์สมาชิก: ไม่มีชื่อบุคคล เงินเดือนและสวัสดิการผู้รับใช้รวมเป็นแถวเดียว'}</p>}
-        {periodic && pd ? <PeriodPaper key={`${notice}-${kind}`} church={church} d={pd} variant={kind === 'report' ? 'report' : kind === 'evidence' ? 'evidence' : 'public'} pagesRef={paper} /> : fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind === 'report' ? 'evidence' : (kind as 'evidence' | 'public')} meeting={kind === 'report' ? meeting : undefined} />}
+        {periodic && pd ? <PeriodPaper key={`${notice}-${kind}`} church={church} d={pd} variant={kind === 'report' ? 'report' : kind === 'evidence' ? 'evidence' : 'public'} pagesRef={paper} tools={paperTools} /> : fileMode ? <WeekFile year={year} a={a} sunday={sunday} church={church} /> : <NoticePaper key={kind} pagesRef={paper} church={church} sunday={sunday} n={n} variant={kind === 'report' ? 'evidence' : (kind as 'evidence' | 'public')} meeting={kind === 'report' ? meeting : undefined} tools={paperTools} />}
         <p className="muted small no-print" style={{ textAlign: 'center' }}>แตะที่หน้ากระดาษเพื่อขยาย (แตะอีกครั้งเพื่อย่อ){canExport ? '' : ' · ดูได้อย่างเดียว (ดาวน์โหลด/พิมพ์สำหรับผู้บันทึกบัญชีและผู้ตรวจสอบ)'}</p>
       </>
     )

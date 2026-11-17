@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { PaperHead, weekHeading } from './PaperSheets'
+import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
+import type { PaperTools } from './PeriodPaper'
 import { fmtBaht, fmtDate } from '../lib/money'
 import { isCompensation, maskNoticeOut } from '../lib/maskPay'
 import { can } from '../lib/access'
@@ -106,7 +108,7 @@ function OutTable({ p, noNames, catMode }: { p: Extract<Piece, { t: 'out' }>; no
 /** variant: 'evidence' = ฉบับเก็บเป็นหลักฐาน (ชื่อ/เงินเดือนรายคนครบ ทั้งตอนพิมพ์/PDF) · 'public' = ฉบับติดประกาศ/แชร์สมาชิก (ไม่มีชื่อบุคคล เงินเดือนรวมแถวเดียว) · ไม่ระบุ = ตามสิทธิ์ผู้ใช้ */
 /** รายงานเสนอที่ประชุม (ฉบับมีชื่อ): ใบสรุปเดียวกัน + เงินคริสตจักร ณ สิ้นสัปดาห์ + ต้องเบิก + เรื่องต้องติดตาม + ช่องลงนาม */
 export interface MeetingExtra { tiles: [string, string][]; withdraw: { totalC: number; totalF: number; total: number }; follow: string[] }
-export default function NoticePaper({ church, sunday, n: full, pagesRef, variant, meeting }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]>; variant?: 'evidence' | 'public' | 'category'; meeting?: MeetingExtra }) {
+export default function NoticePaper({ church, sunday, n: full, pagesRef, variant, meeting, tools }: { church: string; sunday: string; n: Notice; pagesRef: MutableRefObject<HTMLDivElement[]>; variant?: 'evidence' | 'public' | 'category'; meeting?: MeetingExtra; tools?: PaperTools }) {
   const detail = can(useRole(), 'detail')
   const cat = variant === 'category' // ฉบับติดบอร์ด: รายจ่ายเป็นหมวด (แถวใน n.out เป็นหมวดอยู่แล้ว)
   const evidence = variant === 'evidence'
@@ -118,7 +120,9 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
   return (
     <div>
       {[0].map((pi) => (
-        <ScaledPage key={pi} ref={(el) => { if (el) pagesRef.current[pi] = el }}>
+        <div key={pi}>
+        {tools?.canExport && <PdfTools compact mode="full" els={() => (pagesRef.current[pi] ? [pagesRef.current[pi]] : [])} file={`${tools.file}.pdf`} title={tools.title} label={tools.title} />}
+        <ScaledPage ref={(el) => { if (el) pagesRef.current[pi] = el }}>
           <div data-keep={evidence ? '1' : undefined} style={{ display: 'contents' }}>
             <PaperHead church={church} title={meeting ? 'รายงานการเงินประจำสัปดาห์ · เสนอที่ประชุม' : 'สรุปรายรับ - รายจ่ายประจำสัปดาห์'} sub={weekHeading(sunday)} />
             <FitBox sig={sig}>{meeting && <div aria-label="เงินคริสตจักรสิ้นสัปดาห์" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, margin: '4px 0' }}>{meeting.tiles.map(([k, v]) => <div key={k} style={{ border: '1.5px solid #1a2b4c', borderRadius: 6, padding: '3px 8px', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>{k}</span><b className="num">{v}</b></div>)}</div>}{zonesInOrder(groupZones(pcs)).map((g, gi) => g.zone === 'sum' ? (
@@ -141,6 +145,7 @@ export default function NoticePaper({ church, sunday, n: full, pagesRef, variant
             {meeting && <div style={{ display: 'flex', gap: 14, fontSize: 12, marginTop: 6 }}>{['เหรัญญิก (ผู้จัดทำ)', 'ผู้ตรวจสอบ', 'ประธาน'].map((r) => <div key={r} style={{ flex: 1, border: '1px solid #1a2b4c', padding: 5 }}><b>{r}</b><br />ลงชื่อ.......................................<br />วันที่........../........../..........</div>)}</div>}
           </div>
         </ScaledPage>
+        </div>
       ))}
     </div>
   )
