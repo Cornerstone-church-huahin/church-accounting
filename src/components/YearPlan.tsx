@@ -111,8 +111,8 @@ export default function YearPlan() {
 
 /** เครื่องหมายถูกสีแดงทับวันที่ (ทำแล้ว) — วันที่ยังอ่านได้ชัด */
 const Tick = () => (
-  <svg aria-label="ทำแล้ว" role="img" viewBox="0 0 24 24" style={{ position: 'absolute', left: '50%', top: '50%', width: 30, height: 30, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}>
-    <path d="M3 13.5 L9 19.5 L21.5 4" fill="none" stroke="#d11a2a" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+  <svg aria-label="ทำแล้ว" role="img" viewBox="0 0 24 24" style={{ position: 'absolute', left: '50%', top: '50%', width: 21, height: 21, transform: 'translate(-45%, -55%) rotate(-7deg)', pointerEvents: 'none', opacity: 0.92 }}>
+    <path d="M3.4 12.9 C5.1 12.2 7 13.6 9.5 17.6 C12.7 11 16.6 6.3 21.5 3.5 C17.3 8 13.7 13.6 10.5 20.5 C10 21.2 9.2 21.1 8.8 20.4 C7.4 17.9 5.5 14.9 3.4 12.9 Z" fill="#d11a2a" stroke="#d11a2a" strokeWidth="0.6" strokeLinejoin="round" />
   </svg>
 )
 
