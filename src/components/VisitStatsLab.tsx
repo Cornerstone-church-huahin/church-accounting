@@ -167,11 +167,12 @@ export default function VisitStatsLab() {
     }
     return { labels, series: [{ name: 'บันทึกการเยี่ยม', color: '#3b6fd8', values: v }, { name: 'กิจกรรมที่ทำแล้ว', color: '#e8710a', values: a }] }
   }, [visits.list, acts.list, trend, mode, y, m, today])
-  /** แผ่นรายชื่อครบทุกคน: ผู้ปฏิบัติงาน (หน้าละ 40) แล้วต่อด้วยผู้ที่ได้รับการเยี่ยม (หน้าละ 56) · เกินก็ต่อหน้าถัดไปเอง */
+  /** แผ่นรายชื่อครบทุกคน 3 ชุด: ผู้ออกเยี่ยม · ผู้รับการเยี่ยม · ผู้ร่วมกิจกรรม (แต่ละชุดหน้าละ 56 · เกินก็ต่อหน้าถัดไปเอง) */
   const pages = useMemo(() => [
-    ...paginate(st.workers, 40).map((rows, i) => ({ kind: 'workers' as const, n: i + 1, rows })),
+    ...paginate(st.visitors, 56).map((rows, i) => ({ kind: 'visitors' as const, n: i + 1, rows })),
     ...paginate(st.top.map((t) => ({ name: t.name, v: t.v })), 56).map((rows, i) => ({ kind: 'visited' as const, n: i + 1, rows })),
-  ], [st.workers, st.top])
+    ...paginate(st.doers, 56).map((rows, i) => ({ kind: 'doers' as const, n: i + 1, rows })),
+  ], [st.visitors, st.top, st.doers])
   const tile = (icon: string, label: string, val: number | string, color: string) => (
     <div style={{ ...keep, flex: '1 1 0', minWidth: 0, textAlign: 'center', background: color, color: '#1a2b4c', borderRadius: 12, padding: '8px 4px', border: '1px solid #cfd6e4' }}>
       <div style={{ fontSize: 24, lineHeight: 1 }} aria-hidden="true">{icon}</div>
@@ -233,11 +234,13 @@ export default function VisitStatsLab() {
           <div style={{ ...keep, display: 'flex', flexDirection: 'column', gap: 10, height: '100%', color: '#111' }}>
           <div style={{ ...keep, background: '#fff', color: NAVY, borderRadius: 14, padding: '12px 18px', border: `2px solid ${GOLD}`, borderBottom: `5px solid ${GOLD}`, textAlign: 'center' }}>
             <div style={{ fontSize: 15, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
-            <div style={{ fontSize: 30, fontWeight: 800 }}>📈 {pg.kind === 'workers' ? 'ผู้ปฏิบัติงาน — รายชื่อครบทุกคน' : 'ผู้ที่ได้รับการเยี่ยม — รายชื่อครบทุกคน'}</div>
+            <div style={{ fontSize: 30, fontWeight: 800 }}>📈 {pg.kind === 'visitors' ? 'ผู้ออกเยี่ยม — รายชื่อครบทุกคน' : pg.kind === 'doers' ? 'ผู้ร่วมกิจกรรม — รายชื่อครบทุกคน' : 'ผู้ที่ได้รับการเยี่ยม — รายชื่อครบทุกคน'}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#8a6a00' }}>{mode === 'year' ? 'สรุปรายปี' : 'สรุปรายเดือน'} · {title}</div>
           </div>
-            {pg.kind === 'workers'
-              ? <Box title={`🙌 ผู้ปฏิบัติงาน (เยี่ยม + กิจกรรม) · ${st.workers.length} คน${pages.filter((x) => x.kind === 'workers').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'workers').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#b9a3dc" /></TwoCol></Box>
+            {pg.kind === 'visitors'
+              ? <Box title={`🚗 ผู้ออกเยี่ยม · ${st.visitors.length} คน${pages.filter((x) => x.kind === 'visitors').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'visitors').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#9db8ec" /></TwoCol><div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ตัวเลข = จำนวนครั้งที่ออกเยี่ยม</div></Box>
+              : pg.kind === 'doers'
+              ? <Box title={`🙌 ผู้ร่วมกิจกรรม · ${st.doers.length} คน${pages.filter((x) => x.kind === 'doers').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'doers').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#f2b27a" /></TwoCol><div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ตัวเลข = จำนวนครั้งที่ไปทำกิจกรรม{st.noDoer > 0 ? ` · กิจกรรมที่ไม่ได้ระบุผู้ไปทำ ${st.noDoer} รายการ` : ''}</div></Box>
               : <Box title={`⭐ ผู้ที่ได้รับการเยี่ยม · ${st.top.length} ราย · เยี่ยมซ้ำ ${st.top.filter((t) => t.v > 1).length} ราย${pages.filter((x) => x.kind === 'visited').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'visited').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#8fcfa4" warnOver={1} /></TwoCol>
                 <div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>สีส้ม = เยี่ยมซ้ำมากกว่า 1 ครั้งในช่วงนี้ (ตรวจความซ้ำซ้อน)</div></Box>}
           <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: 12.5, color: '#666' }}>พิมพ์/สรุปเมื่อ {today.split('-').reverse().join('/')} · ข้อมูลจากบันทึกการเยี่ยมที่เช็คอินแล้ว</div>
