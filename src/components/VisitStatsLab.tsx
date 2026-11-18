@@ -14,6 +14,13 @@ import { paginate } from '../lib/paginate'
 const NAVY = '#14264a', GOLD = '#c99a14'
 /** โทนอ่อน ประหยัดหมึก: พื้นขาว/พาสเทล ตัวอักษรเข้ม */
 const SOFT = { navy: '#c9d3ea', green: '#bfe5cb', blue: '#cfe3f7', red: '#f3c9cb', teal: '#c5e6df', purple: '#ddd0ee', orange: '#fbdcae' }
+/** สีประจำรายงานทั้ง 3: ผู้ออกเยี่ยม = น้ำเงิน · ผู้รับการเยี่ยม = เขียว · ผู้ร่วมกิจกรรม = ส้ม (ใช้ตั้งแต่หัวแผ่น แถบหัวข้อ แถบกราฟ ไปจนถึงเส้นกราฟแนวโน้ม) */
+const TONE = {
+  visitors: { main: '#2557b8', soft: '#e6eefc', mid: '#7f9fe0', label: 'ผู้ออกเยี่ยม' },
+  visited: { main: '#23814a', soft: '#e3f4ea', mid: '#7cc496', label: 'ผู้รับการเยี่ยม' },
+  doers: { main: '#d9660a', soft: '#fdecd8', mid: '#f0a766', label: 'ผู้ร่วมกิจกรรม' },
+} as const
+type Tone = (typeof TONE)[keyof typeof TONE]
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 const SLOT_COL: Record<string, string> = { เช้า: '#fde9b8', บ่าย: '#d6e8f8', ค่ำ: '#e4d9f1' }
 
@@ -60,7 +67,7 @@ function Lines({ labels, series, height = 150 }: { labels: string[]; series: { n
 }
 
 /** แถบแนวนอน: รายชื่อ + จำนวน */
-function HBars({ rows, color = '#8fcfa4', empty = 'ยังไม่มีข้อมูล', warnOver }: { rows: { name: string; sub?: string; v: number }[]; color?: string; empty?: string; /** แถวที่จำนวนมากกว่าค่านี้ใช้สีส้มเตือน (เช่น เยี่ยมซ้ำ) */ warnOver?: number }) {
+function HBars({ rows, color = '#8fcfa4', track = '#eef0f5', empty = 'ยังไม่มีข้อมูล', warnOver }: { track?: string; rows: { name: string; sub?: string; v: number }[]; color?: string; empty?: string; /** แถวที่จำนวนมากกว่าค่านี้ใช้สีส้มเตือน (เช่น เยี่ยมซ้ำ) */ warnOver?: number }) {
   const max = Math.max(1, ...rows.map((r) => r.v))
   if (!rows.length) return <div style={{ color: '#777', fontSize: 15 }}>{empty}</div>
   return (
@@ -68,7 +75,7 @@ function HBars({ rows, color = '#8fcfa4', empty = 'ยังไม่มีข�
       {rows.map((r) => (
         <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '3px 0', fontSize: 15.5 }}>
           <span style={{ width: 190, flex: 'none', overflow: 'hidden', lineHeight: 1.15 }}><span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>{r.sub && <span style={{ display: 'block', fontSize: 12.5, color: '#555' }}>{r.sub}</span>}</span>
-          <span style={{ flex: 1, background: '#eef0f5', borderRadius: 6, height: 16, ...keep }}><span style={{ display: 'block', width: `${Math.max(4, (r.v / max) * 100)}%`, height: '100%', background: warnOver != null && r.v > warnOver ? '#f0a35a' : color, borderRadius: 6, ...keep }} /></span>
+          <span style={{ flex: 1, background: track, borderRadius: 6, height: 16, ...keep }}><span style={{ display: 'block', width: `${Math.max(4, (r.v / max) * 100)}%`, height: '100%', background: warnOver != null && r.v > warnOver ? '#f0a35a' : color, borderRadius: 6, ...keep }} /></span>
           <b style={{ width: 34, textAlign: 'right' }}>{r.v}</b>
         </div>
       ))}
@@ -83,7 +90,12 @@ function TwoCol({ children }: { children: React.ReactElement<{ rows: { name: str
   return <div style={{ display: 'flex', gap: 14 }}>{[rows.slice(0, half), rows.slice(half)].map((r, i) => <div key={i} style={{ flex: 1, minWidth: 0 }}>{r.length > 0 && cloneElement(children, { rows: r })}</div>)}</div>
 }
 
-const Box = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const Box = ({ title, children, tone }: { title: string; children: React.ReactNode; tone?: Tone }) => tone ? (
+  <div style={{ ...keep, border: `2.5px solid ${tone.main}`, borderRadius: 12, overflow: 'hidden', background: tone.soft, breakInside: 'avoid' }}>
+    <div style={{ ...keep, fontWeight: 800, color: '#fff', background: tone.main, fontSize: 18, padding: '6px 12px' }}>{title}</div>
+    <div style={{ padding: '8px 12px' }}>{children}</div>
+  </div>
+) : (
   <div style={{ ...keep, border: '1.5px solid #d6dbe8', borderRadius: 12, padding: '8px 12px', background: '#fff', breakInside: 'avoid' }}>
     <div style={{ fontWeight: 800, color: NAVY, fontSize: 17, marginBottom: 4 }}>{title}</div>{children}
   </div>
@@ -152,20 +164,22 @@ export default function VisitStatsLab() {
   const trendData = useMemo(() => {
     const endDay = mode === 'year' ? `${y}-12-31` : `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
     const end = endDay > today ? today : endDay
-    const vdates = visits.list.map((v) => v.date), adates = acts.list.map((a) => a.date)
+    const vdates = visits.list.flatMap((v) => splitVisitors(v.visitor ?? '').map(() => v.date)) // ผู้ออกเยี่ยม (นับต่อคน ตรงกับแผ่นที่ 1)
+    const rdates = visits.list.filter((v) => !v.memberId.startsWith('place:') && !v.absent).map((v) => v.date) // ผู้รับการเยี่ยม (พบตัว ตรงกับแผ่นที่ 2)
+    const adates = acts.list.flatMap((a) => (a.doers ?? []).map(() => a.date)) // ผู้ร่วมกิจกรรม (นับต่อคน ตรงกับแผ่นที่ 3)
     const cnt = (ds: string[], a: string, b: string) => ds.filter((d) => d >= a && d <= b).length
-    const labels: string[] = [], v: number[] = [], a: number[] = []
+    const labels: string[] = [], v: number[] = [], a: number[] = [], r: number[] = []
     if (trend === 'week') {
       const mon = addDays(sundayOf(addDays(end, -1)), 1) // วันจันทร์ของสัปดาห์ที่มีวันสิ้นสุด
-      for (let i = 11; i >= 0; i--) { const s0 = addDays(mon, -7 * i), e0 = addDays(s0, 6); labels.push(`${Number(s0.slice(8))}/${s0.slice(5, 7)}`); v.push(cnt(vdates, s0, e0)); a.push(cnt(adates, s0, e0)) }
+      for (let i = 11; i >= 0; i--) { const s0 = addDays(mon, -7 * i), e0 = addDays(s0, 6); labels.push(`${Number(s0.slice(8))}/${s0.slice(5, 7)}`); v.push(cnt(vdates, s0, e0)); r.push(cnt(rdates, s0, e0)); a.push(cnt(adates, s0, e0)) }
     } else if (trend === 'month') {
       const ey = Number(end.slice(0, 4)), em = Number(end.slice(5, 7))
-      for (let i = 11; i >= 0; i--) { const t = ey * 12 + (em - 1) - i, yy = Math.floor(t / 12), mm = (t % 12) + 1, pre = `${yy}-${String(mm).padStart(2, '0')}-`; labels.push(`${monthName(mm).slice(0, 3)}${i === 11 || mm === 1 ? ` ${String(be(yy)).slice(2)}` : ''}`); v.push(vdates.filter((d) => d.startsWith(pre)).length); a.push(adates.filter((d) => d.startsWith(pre)).length) }
+      for (let i = 11; i >= 0; i--) { const t = ey * 12 + (em - 1) - i, yy = Math.floor(t / 12), mm = (t % 12) + 1, pre = `${yy}-${String(mm).padStart(2, '0')}-`; labels.push(`${monthName(mm).slice(0, 3)}${i === 11 || mm === 1 ? ` ${String(be(yy)).slice(2)}` : ''}`); v.push(vdates.filter((d) => d.startsWith(pre)).length); r.push(rdates.filter((d) => d.startsWith(pre)).length); a.push(adates.filter((d) => d.startsWith(pre)).length) }
     } else {
       const ey = Number(end.slice(0, 4))
-      for (let i = 4; i >= 0; i--) { const yy = ey - i; labels.push(String(be(yy))); v.push(vdates.filter((d) => d.startsWith(`${yy}-`)).length); a.push(adates.filter((d) => d.startsWith(`${yy}-`)).length) }
+      for (let i = 4; i >= 0; i--) { const yy = ey - i; labels.push(String(be(yy))); v.push(vdates.filter((d) => d.startsWith(`${yy}-`)).length); r.push(rdates.filter((d) => d.startsWith(`${yy}-`)).length); a.push(adates.filter((d) => d.startsWith(`${yy}-`)).length) }
     }
-    return { labels, series: [{ name: 'บันทึกการเยี่ยม', color: '#3b6fd8', values: v }, { name: 'กิจกรรมที่ทำแล้ว', color: '#e8710a', values: a }] }
+    return { labels, series: [{ name: TONE.visitors.label, color: TONE.visitors.main, values: v }, { name: TONE.visited.label, color: TONE.visited.main, values: r }, { name: TONE.doers.label, color: TONE.doers.main, values: a }] }
   }, [visits.list, acts.list, trend, mode, y, m, today])
   /** แผ่นรายชื่อครบทุกคน 3 ชุด: ผู้ออกเยี่ยม · ผู้รับการเยี่ยม · ผู้ร่วมกิจกรรม (แต่ละชุดหน้าละ 56 · เกินก็ต่อหน้าถัดไปเอง) */
   const pages = useMemo(() => [
@@ -232,16 +246,16 @@ export default function VisitStatsLab() {
       {pages.map((pg, pi) => (
         <ScaledPage key={`${pg.kind}-${pi}`} ref={(el) => { extra.current[pi] = el }}>
           <div style={{ ...keep, display: 'flex', flexDirection: 'column', gap: 10, height: '100%', color: '#111' }}>
-          <div style={{ ...keep, background: '#fff', color: NAVY, borderRadius: 14, padding: '12px 18px', border: `2px solid ${GOLD}`, borderBottom: `5px solid ${GOLD}`, textAlign: 'center' }}>
-            <div style={{ fontSize: 15, opacity: 0.9 }}>{church} · ✝ งานอภิบาล</div>
+          <div style={{ ...keep, background: TONE[pg.kind].main, color: '#fff', borderRadius: 14, padding: '12px 18px', border: `2px solid ${TONE[pg.kind].main}`, borderBottom: `6px solid ${TONE[pg.kind].mid}`, textAlign: 'center' }}>
+            <div style={{ fontSize: 15, opacity: 0.95 }}>{church} · ✝ งานอภิบาล</div>
             <div style={{ fontSize: 30, fontWeight: 800 }}>📈 {pg.kind === 'visitors' ? 'ผู้ออกเยี่ยม — รายชื่อครบทุกคน' : pg.kind === 'doers' ? 'ผู้ร่วมกิจกรรม — รายชื่อครบทุกคน' : 'ผู้ที่ได้รับการเยี่ยม — รายชื่อครบทุกคน'}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#8a6a00' }}>{mode === 'year' ? 'สรุปรายปี' : 'สรุปรายเดือน'} · {title}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{mode === 'year' ? 'สรุปรายปี' : 'สรุปรายเดือน'} · {title}</div>
           </div>
             {pg.kind === 'visitors'
-              ? <Box title={`🚗 ผู้ออกเยี่ยม · ${st.visitors.length} คน${pages.filter((x) => x.kind === 'visitors').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'visitors').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#9db8ec" /></TwoCol><div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ตัวเลข = จำนวนครั้งที่ออกเยี่ยม</div></Box>
+              ? <Box tone={TONE.visitors} title={`🚗 ผู้ออกเยี่ยม · ${st.visitors.length} คน${pages.filter((x) => x.kind === 'visitors').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'visitors').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color={TONE.visitors.mid} track="#fff" /></TwoCol><div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ตัวเลข = จำนวนครั้งที่ออกเยี่ยม</div></Box>
               : pg.kind === 'doers'
-              ? <Box title={`🙌 ผู้ร่วมกิจกรรม · ${st.doers.length} คน${pages.filter((x) => x.kind === 'doers').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'doers').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#f2b27a" /></TwoCol><div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ตัวเลข = จำนวนครั้งที่ไปทำกิจกรรม{st.noDoer > 0 ? ` · กิจกรรมที่ไม่ได้ระบุผู้ไปทำ ${st.noDoer} รายการ` : ''}</div></Box>
-              : <Box title={`⭐ ผู้ที่ได้รับการเยี่ยม · ${st.top.length} ราย · เยี่ยมซ้ำ ${st.top.filter((t) => t.v > 1).length} ราย${pages.filter((x) => x.kind === 'visited').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'visited').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color="#8fcfa4" warnOver={1} /></TwoCol>
+              ? <Box tone={TONE.doers} title={`🙌 ผู้ร่วมกิจกรรม · ${st.doers.length} คน${pages.filter((x) => x.kind === 'doers').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'doers').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color={TONE.doers.mid} track="#fff" /></TwoCol><div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>ตัวเลข = จำนวนครั้งที่ไปทำกิจกรรม{st.noDoer > 0 ? ` · กิจกรรมที่ไม่ได้ระบุผู้ไปทำ ${st.noDoer} รายการ` : ''}</div></Box>
+              : <Box tone={TONE.visited} title={`⭐ ผู้ที่ได้รับการเยี่ยม · ${st.top.length} ราย · เยี่ยมซ้ำ ${st.top.filter((t) => t.v > 1).length} ราย${pages.filter((x) => x.kind === 'visited').length > 1 ? ` · หน้า ${pg.n}/${pages.filter((x) => x.kind === 'visited').length}` : ''}`}><TwoCol><HBars rows={pg.rows} color={TONE.visited.mid} track="#fff" warnOver={1} /></TwoCol>
                 <div style={{ fontSize: 12.5, color: '#666', marginTop: 4 }}>สีส้ม = เยี่ยมซ้ำมากกว่า 1 ครั้งในช่วงนี้ (ตรวจความซ้ำซ้อน)</div></Box>}
           <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: 12.5, color: '#666' }}>พิมพ์/สรุปเมื่อ {today.split('-').reverse().join('/')} · ข้อมูลจากบันทึกการเยี่ยมที่เช็คอินแล้ว</div>
           </div>
