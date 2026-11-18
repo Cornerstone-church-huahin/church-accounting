@@ -42,10 +42,10 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
                     {Array.from({ length: ROWS }, (_, i) => {
                       const d = sun[i], s = d && !blank ? slots.get(d) : undefined
                       return (
-                        <tr key={i} className={onRowClick && d ? 'sheetrow' : undefined} onClick={onRowClick && d ? (e) => { e.stopPropagation(); onRowClick(d) } : undefined}>
-                          <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 23 }}>{d ? shortThaiDate(d) : ''}</td>
-                          <td>{s?.donor ?? ''}</td>
-                          <td>{s?.occasion ?? ''}</td>
+                        <tr key={i} style={s?.donor ? { background: '#fff3c4' } : undefined} className={onRowClick && d ? 'sheetrow' : undefined} onClick={onRowClick && d ? (e) => { e.stopPropagation(); onRowClick(d) } : undefined}>
+                          <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 23, ...(s?.donor ? { borderLeft: '6px solid #c4332a', color: '#c4332a', background: '#fff3c4' } : {}) }}>{d ? shortThaiDate(d) : ''}</td>
+                          <td style={s?.donor ? { background: '#fff3c4', color: '#0b4a8f', fontWeight: 800, fontSize: 1.1 + 'em' } : undefined}>{s?.donor ? <>✓ {s.donor}</> : ''}</td>
+                          <td style={s?.donor ? { background: '#fff3c4', color: '#8a3b00', fontWeight: 800 } : undefined}>{s?.occasion ?? ''}</td>
                         </tr>
                       )
                     })}
