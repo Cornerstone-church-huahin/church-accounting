@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PersonField from './PersonField'
+import PayeeField from './PayeeField'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import StoredImage, { LocalImage } from './StoredImage'
@@ -181,7 +182,7 @@ export function ExpenseRowEditor({ entry, cats, defaultDate, onSave, onDelete, o
       <div className="field"><label htmlFor="ere-note">หมายเหตุ</label><input id="ere-note" className="input" value={note} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setNote(e.target.value)} /></div>
       {onUpload && <div className="field"><label htmlFor="ere-file">รูปบิล / สลิป / รูปสำรองจ่าย (แนบเป็นหลักฐาน){entry?.file && !pic ? ' — มีแล้ว เลือกใหม่เพื่อแทนที่' : ''}</label><input id="ere-file" className="input" type="file" accept="image/*" onChange={(e) => setPic(e.target.files?.[0] ?? null)} />{entry?.file && !pic && <StoredImage path={entry.file.path} alt="รูปที่แนบไว้" />}</div>}
       <PersonField id="ere-biller" value={biller} onChange={setBiller} />
-      <div className="field"><label htmlFor="ere-pay">ผู้รับเงิน</label><input id="ere-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
+      <PayeeField id="ere-pay" value={payee} onChange={setPayee} />
       {err && <p className="err" role="alert">{err}</p>}
       <div className="row"><button type="button" className="btn btn--gold grow" disabled={busy} onClick={() => void save()}>{busy ? 'กำลังอัปโหลด…' : entry ? 'บันทึกการแก้ไข' : 'เพิ่มลงใบ'}</button>{entry && onDelete && <button type="button" className="btn btn--ghost" onClick={() => { onDelete(entry); onClose() }}>🗑 ลบ</button>}</div>
     </Sheet>

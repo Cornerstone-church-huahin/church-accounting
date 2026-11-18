@@ -24,6 +24,7 @@ import { useRole } from '../lib/members'
 import { addDays, fmtBaht, fmtDate, fmtDateLong, newId, sheetSunday, sundaysOf, todayISO, yearOf } from '../lib/money'
 import { downloadPdf } from '../lib/pdf'
 import PersonField from '../components/PersonField'
+import PayeeField from '../components/PayeeField'
 import ImageViewer from '../components/ImageViewer'
 import { cacheImage } from '../lib/imageCache'
 import { loanExpenseRows, loanFlows, type FundScope } from '../lib/fundScope'
@@ -428,7 +429,7 @@ function ExpenseForm({ year, fundId, entry, channel, exp, onClose, init }: { yea
         </>
       )}
       <PersonField id="e-biller" value={biller} onChange={setBiller} label={channel === 'advance' ? 'ผู้สำรองจ่าย (เลือกจากรายชื่อ)' : channel === 'bill' ? 'ผู้วางบิล (เลือกจากรายชื่อ)' : 'ผู้วางบิล / ผู้สำรองจ่าย (ถ้ามี)'} />
-      <div className="field"><label htmlFor="e-who">{c.whoLabel}</label><input id="e-who" className="input" value={who} onChange={(e) => setWho(e.target.value)} /></div>
+      <PayeeField id="e-who" label={c.whoLabel} value={who} onChange={setWho} />
       {!init && <div className="field"><label htmlFor="e-file">รูป{channel === 'bill' ? 'บิล' : 'สลิป/ใบเสร็จ'} {entry?.file ? '(มีแล้ว — เลือกใหม่เพื่อแทนที่)' : '(ไม่บังคับ)'}</label><input id="e-file" className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>}
       {entry?.file && !file && <StoredImage path={entry.file.path} alt="รูปที่แนบไว้" />}
       <div className="field"><label htmlFor="e-ref">เลขที่บิล/เลขอ้างอิง (ไม่บังคับ)</label><input id="e-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></div>

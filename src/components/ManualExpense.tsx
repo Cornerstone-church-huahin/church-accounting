@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MoneyInput from './MoneyInput'
 import PersonField from './PersonField'
+import PayeeField from './PayeeField'
 import CatalogManager, { type CatalogOps } from './CatalogManager'
 import { fmtBaht, fmtDate, newId } from '../lib/money'
 import type { ExpenseCat, ExpenseEntry, FundActivity, FundSub } from '../lib/types'
@@ -52,7 +53,7 @@ export default function ManualExpense({ cats, onManage, entries, defaultDate, ca
           <div className="field"><label>จำนวนเงิน (บาท)</label><MoneyInput value={amount} onChange={setAmount} /></div>
           <div className="entryrow__pair">
             <div className="field"><label htmlFor="me-req">หมายเหตุ</label><input id="me-req" className="input" value={requester} placeholder="พิมพ์อะไรก็ได้ เช่น มน.เสาวคน สำรองจ่าย" onChange={(e) => setRequester(e.target.value)} /></div>
-            <div className="field"><label htmlFor="me-pay">ผู้รับเงิน</label><input id="me-pay" className="input" value={payee} onChange={(e) => setPayee(e.target.value)} /></div>
+            <PayeeField id="me-pay" value={payee} onChange={setPayee} />
           </div>
           <PersonField id="me-biller" value={biller} onChange={setBiller} />
           {err && <p className="err" role="alert">{err}</p>}
