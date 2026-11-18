@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import MemberAvatar from './MemberAvatar'
 
@@ -31,8 +31,10 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
   const add = () => { const n = name.trim(); if (!n) { if (pending?.length && onAddPending) onAddPending(pending); return } if (!onAdd) return; onAdd(n); setName('') }
   // รายการที่เลือกไว้แต่ไม่อยู่ในตัวเลือกแล้ว (เช่น บันทึกเก่า) ยังติ๊กให้เห็น
   const [q, setQ] = useState('')
-  const term = q.trim().toLowerCase()
+  const term = (q.trim() || (search ? name.trim() : '')).toLowerCase() // พิมพ์ในช่องเพิ่มชื่อก็ค้นจากทะเบียนให้เหมือนกัน
   const base: PickOption[] = [...options, ...value.filter((v) => !options.some((o) => o.value === v)).map((v): PickOption => ({ value: v, label: v }))]
+  const listRef = useRef<HTMLUListElement>(null)
+  useEffect(() => { if (term && listRef.current) listRef.current.scrollTop = 0 }, [term])
   const hits = search && term ? search.find(q) : []
   const rows = search && term ? [...hits, ...base.filter((o) => o.label.toLowerCase().includes(term) && !hits.some((h) => h.value === o.value))] : base
   return (
@@ -45,13 +47,13 @@ export default function MultiPick({ title, options, value, onChange, empty, id, 
           <div className="mpick__card">
             <div className="row row--between"><b>{title}{value.length ? ` · เลือกแล้ว ${value.length}` : ''}</b>{value.length > 0 && <button type="button" className="mini" onClick={() => onChange([])}>ล้าง</button>}</div>
             {search && <input aria-label="ค้นหา" className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={search.placeholder ?? 'พิมพ์ชื่อเพื่อค้นหา'} />}
-            <ul className="mpick__list">
+            <ul className="mpick__list" ref={listRef}>
               {allLabel && (
                 <li><label className="mpick__row mpick__row--all"><input type="checkbox" checked={value.length === 0} onChange={() => { if (value.length > 0) onChange([]) }} /><span><b>{allLabel}</b></span></label></li>
               )}
               {rows.map((o) => (
                 <li key={o.value}>
-                  <label className="mpick__row"><input type="checkbox" checked={value.includes(o.value)} onChange={() => toggle(o.value)} />{o.avatar && <MemberAvatar path={o.avatar.path} name={o.value} size={40} member={o.avatar.member} />}<span>{o.label}{o.sub && <><br /><small className="muted">{o.sub}</small></>}</span></label>
+                  <label className="mpick__row"><input type="checkbox" checked={value.includes(o.value)} onChange={() => { toggle(o.value); if (search && name.trim()) setName('') }} />{o.avatar && <MemberAvatar path={o.avatar.path} name={o.value} size={40} member={o.avatar.member} />}<span>{o.label}{o.sub && <><br /><small className="muted">{o.sub}</small></>}</span></label>
                   {ed && onRename && <button type="button" className="chip__x" aria-label={`แก้ชื่อ ${o.label}`} onClick={() => { const n = window.prompt(`แก้ชื่อ “${o.label}” เป็น`, o.label); if (n && n.trim() && n.trim() !== o.value) { onRename(o.value, n.trim()); onChange(value.map((x) => (x === o.value ? n.trim() : x))) } }}>✎</button>}
                   {del && onRemove && <button type="button" className="chip__x" aria-label={`ลบ ${o.label} ออกจากรายชื่อ`} onClick={() => { onRemove(o.value); onChange(value.filter((x) => x !== o.value)) }}>✕</button>}
                 </li>
