@@ -3,7 +3,7 @@ import { LIGHT } from '../lib/lightBox'
 import { PaperHead } from './PaperSheets'
 import ScaledPage from './ScaledPage'
 import Sheet from './Sheet'
-import MultiPick from './MultiPick'
+import VisitorPick from './VisitorPick'
 import AbsentList from './AbsentList'
 import VisitPlanBoard from './VisitPlanBoard'
 import VisitCamera, { type Shot } from './VisitCamera'
@@ -12,7 +12,7 @@ import { VEHICLES, inkOf } from '../lib/vehicles'
 import NoCarToggle from './NoCarToggle'
 import { distanceM, formatCoord, hasCoord, homeFromCheckin, mapsLink } from '../lib/geo'
 import { canRole, canWork } from '../lib/access'
-import { useActivityLog, useAttendance, useChurchMembers, useSettings, useVisitorNames, useVisits, useWorkTeams } from '../lib/data'
+import { useAttendance, useChurchMembers, useSettings, useVisits, useWorkTeams } from '../lib/data'
 import { useRole } from '../lib/members'
 import { visitStats } from '../lib/pastoral'
 import { addDays, fmtDate, newId, todayISO } from '../lib/money'
@@ -22,7 +22,7 @@ import { removeMemberPhotoFile } from '../lib/memberPhoto'
 import { canSharePdf, downloadSheetPdf, sharePdf } from '../lib/pdf'
 import { shareVisit, visitShareText } from '../lib/visitShare'
 import { toAttendance } from '../lib/registry'
-import { DAY_NAMES, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors, renameDoersIn, visitorRoster } from '../lib/visits'
+import { DAY_NAMES, dayKind, sundayOf, tripNumbers, visitsOfWeek, visitsOn, weekDays, weekStats, splitVisitors, joinVisitors } from '../lib/visits'
 import type { ChurchMember, Visit } from '../lib/types'
 
 const LeafletMap = lazy(() => import('./LeafletMap'))
@@ -145,45 +145,14 @@ export default function PastoralVisits({ plan = false, only, readOnly = false }:
 }
 
 /** จุดเยี่ยมที่ (stop) · preset = ค่าตั้งต้นจากการเตรียมเยี่ยม (ผู้ถูกเยี่ยมที่ล็อกไว้ · เช็คอิน/ผู้ออกเยี่ยมของจุดเดียวกัน) */
-export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, team, writeNames, members, stats, today, onClose, onSave, onDelete }: { /** เปิดตัวเลือกยานพาหนะ (แท็บทดลอง) */ vehicles?: boolean; date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; /** ชื่อสถานที่ตั้งต้น (ว่าง = จุดใหม่ที่ต้องกรอกเอง) */ place?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
+export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onSaveMany, photoShared, preset, writeNames, members, stats, today, onClose, onSave, onDelete }: { /** เปิดตัวเลือกยานพาหนะ (แท็บทดลอง) */ vehicles?: boolean; date: string; entry: Visit | null; stop?: number; startAbsent?: boolean; /** บันทึกทุกคนในจุดเดียวกันพร้อมกัน (เช็คอิน ผู้ออกเยี่ยม รูป หมายเหตุ ชุดเดียว · เลือกพบ/ไม่พบ/ไม่รวมรายคนได้) */ group?: { id: string; name: string }[]; onSaveMany?: (vs: Visit[]) => void; /** รูปนี้ถูกการเยี่ยมอื่นใช้อยู่ด้วย (ห้ามลบไฟล์) */ photoShared?: (path: string) => boolean; preset?: { member?: { id: string; name: string }; reason?: string; /** ชื่อสถานที่ตั้งต้น (ว่าง = จุดใหม่ที่ต้องกรอกเอง) */ place?: string; checkin?: Visit['checkin']; visitor?: string }; team: string[]; members: ChurchMember[]; stats: ReturnType<typeof visitStats>; writeNames: boolean; today: string; onClose: () => void; onSave: (v: Visit) => void; onDelete?: () => void }) {
   const [member, setMember] = useState<{ id: string; name: string } | null>(entry ? { id: entry.memberId, name: entry.memberName } : preset?.member ?? null)
   const [reason, setReason] = useState(entry?.reason ?? preset?.reason ?? '')
   const [place, setPlace] = useState(entry?.place ?? preset?.place ?? '')
   const [vehicle, setVehicle] = useState<string>(entry?.vehicle ?? '')
-  const names = useVisitorNames()
   const initBy = splitVisitors(entry?.visitor ?? preset?.visitor ?? '') // ผู้ออกเยี่ยมเริ่มต้นว่าง ต้องติ๊กเลือกเอง
-  const roster = visitorRoster(team, names.items)
   const [picked, setPicked] = useState<string[]>(initBy)
   // ชื่อที่เลือกไว้แต่ไม่อยู่ในรายชื่อแล้ว (เช่น บันทึกเก่า) MultiPick ยังแสดงให้เห็น เพื่อไม่ให้หายตอนแก้ไข
-  const addName = (raw: string) => {
-    const n = raw.trim().replace(/,/g, ' ')
-    if (!n) return
-    const hid = names.items.find((x) => x.hide && x.name === n)
-    if (hid) names.remove(hid.id)
-    if (!roster.includes(n) && !names.items.some((x) => !x.hide && x.name === n) && !(team.includes(n) && hid)) names.put([{ id: newId('vn'), name: n, updated: 0 }])
-    setPicked((xs) => (xs.includes(n) ? xs : [...xs, n]))
-  }
-  // แก้ชื่อผู้ออกเยี่ยม: ชื่อที่เพิ่มเอง = เปลี่ยนชื่อตรงๆ · ชื่อจากทีมงาน = ซ่อนชื่อเดิมแล้วเพิ่มชื่อใหม่ · และแก้ในบันทึกเยี่ยมเก่าทุกรายการให้ตรงกัน
-  const allVisits = useVisits(true)
-  const allActs = useActivityLog()
-  const renameName = (oldN: string, raw: string) => {
-    const n = raw.trim().replace(/,/g, ' ')
-    if (!n || n === oldN) return
-    const mine = names.items.filter((y) => !y.hide && y.name === oldN)
-    const ups = mine.map((x) => ({ ...x, name: n }))
-    if (team.includes(oldN)) { names.put([{ id: `hide-${oldN}`, name: oldN, hide: true, updated: 0 }]); if (!roster.includes(n) || n !== oldN) names.put([{ id: newId('vn'), name: n, updated: 0 }]) }
-    if (ups.length) names.put(ups)
-    const old = allVisits.list.filter((v) => splitVisitors(v.visitor ?? '').includes(oldN))
-    if (old.length) allVisits.put(old.map((v) => ({ ...v, visitor: joinVisitors(splitVisitors(v.visitor ?? '').map((x) => (x === oldN ? n : x))) })))
-    const oldActs = allActs.list.filter((a) => a.doers?.includes(oldN)) // ผู้ไปทำกิจกรรมก็เปลี่ยนตามด้วย
-    if (oldActs.length) allActs.put(oldActs.map((a) => ({ ...a, doers: renameDoersIn(a.doers ?? [], oldN, n), updated: 0 })))
-    setPicked((xs) => xs.map((x) => (x === oldN ? n : x)))
-  }
-  const dropName = (n: string) => {
-    for (const x of names.items.filter((y) => !y.hide && y.name === n)) names.remove(x.id)
-    if (team.includes(n)) names.put([{ id: `hide-${n}`, name: n, hide: true, updated: 0 }])
-    setPicked((xs) => xs.filter((x) => x !== n))
-  }
   const [err, setErr] = useState('')
   const [photos, setPhotos] = useState<string[]>(entry?.photos ?? [])
   /** ตัวอย่างรูปที่เพิ่งถ่าย (แสดงทันทีโดยไม่รอโหลดกลับจากเซิร์ฟเวอร์) */
@@ -315,8 +284,7 @@ export function VisitForm({ vehicles, date, entry, stop, startAbsent, group, onS
         </div>
         <NoCarToggle value={vehicle} onChange={setVehicle} /></div>}
       <div className="field"><label htmlFor="pv-by">👥 ผู้ออกเยี่ยมสายนี้ — ติ๊กชื่อ “หัวหน้าสาย” เป็นคนแรก แล้วตามด้วยทีม (ระบบแยกสายตามหัวหน้า)</label>
-        <MultiPick id="pv-by" title="ผู้ออกเยี่ยม" options={roster.map((n) => ({ value: n, label: n }))} value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —"
-          {...(writeNames ? { onAdd: addName, onRemove: dropName, onRename: renameName, addHint: 'พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)' } : {})} /></div>
+        <VisitorPick id="pv-by" title="ผู้ออกเยี่ยม" value={picked} onChange={setPicked} empty="— เลือกผู้ออกเยี่ยม —" canEdit={!!writeNames} /></div>
       <div className="field"><label htmlFor="pv-place">📌 ชื่อสถานที่ที่ไปเยี่ยมจุดนี้ <span className="muted small">(เช่น The Pine Plus · จุดใหม่ให้พิมพ์ใหม่)</span></label>
         <input id="pv-place" className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="ชื่อสถานที่ ถ้ามี" /></div>
       <div className="field"><label htmlFor="pv-reason">{group ? 'หมายเหตุ (ใช้กับทุกคนในจุดนี้)' : 'เหตุผล / หมายเหตุ (ทำไมต้องไปเยี่ยม)'}</label><textarea id="pv-reason" className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ขาดการนมัสการเกิน 3 เดือน · ป่วย" /></div>

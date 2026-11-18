@@ -10,7 +10,7 @@ import { renameDoersIn, renameVisitorIn, splitVisitors, visitorRoster } from '..
  * ตัวเลือก “ผู้ออกเยี่ยม / ผู้ไปทำกิจกรรม” แบบเดียวกันทุกหน้า: เปิดมาเห็นรายชื่อที่ตั้งค่าไว้ (ทีมงาน + ที่เพิ่มเอง) ติ๊กได้ทันที
  * พิมพ์ในช่องค้นหาเพื่อหาจากทะเบียนสมาชิกเพิ่ม (ชื่อจริง/นามสกุล/ชื่อเล่น/ญาติ) · เพิ่ม/ลบชื่อเก็บไว้ใช้ซ้ำได้
  */
-export default function VisitorPick({ id, title, value, onChange, empty }: { id: string; title: string; value: string[]; onChange: (v: string[]) => void; empty?: string }) {
+export default function VisitorPick({ id, title, value, onChange, empty, canEdit = true }: { id: string; title: string; value: string[]; onChange: (v: string[]) => void; empty?: string; /** false = เลือกได้อย่างเดียว เพิ่ม/แก้/ลบชื่อไม่ได้ */ canEdit?: boolean }) {
   const team = useWorkTeams().of(4).map((t) => t.name).filter(Boolean)
   const names = useVisitorNames()
   const members = useChurchMembers()
@@ -47,7 +47,7 @@ export default function VisitorPick({ id, title, value, onChange, empty }: { id:
   return (
     <MultiPick id={id} title={title} options={[...new Set([...roster, ...value])].map(people.optOf)} value={value} onChange={onChange} empty={empty ?? '— เลือก —'}
       search={{ find: people.find, placeholder: '🔎 ค้นจากทะเบียน: ชื่อจริง / นามสกุล / ชื่อเล่น / ญาติ' }}
-      pending={value.filter((v) => !roster.includes(v))} onAddPending={(ns) => { for (const n of ns) { const hid = names.items.find((x) => x.hide && x.name === n); if (hid) names.remove(hid.id); if (!names.items.some((x) => !x.hide && x.name === n)) names.put([{ id: newId('vn'), name: n, updated: 0 }]) } }}
-      onAdd={addName} onRemove={dropName} onRename={renameName} addHint="พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)" />
+      pending={canEdit ? value.filter((v) => !roster.includes(v)) : []} onAddPending={(ns) => { for (const n of ns) { const hid = names.items.find((x) => x.hide && x.name === n); if (hid) names.remove(hid.id); if (!names.items.some((x) => !x.hide && x.name === n)) names.put([{ id: newId('vn'), name: n, updated: 0 }]) } }}
+      {...(canEdit ? { onAdd: addName, onRemove: dropName, onRename: renameName } : {})} addHint="พิมพ์ชื่อใหม่ แล้วกด เพิ่ม (เก็บไว้เลือกได้ทุกครั้ง)" />
   )
 }
