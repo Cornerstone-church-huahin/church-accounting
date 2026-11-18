@@ -1993,3 +1993,7 @@ a.healthact { color: #b3261e; }
 
 /* ป้ายจำนวน "เยี่ยมแล้ว" ที่ขั้นรายงาน = สีเขียว (คู่กับป้ายแดงของขั้นบันทึก) */
 .tabicons__n.tabicons__n--ok { background: #1e9e4a; color: #fff; box-shadow: 0 0 0 1px #0b6b2c }
+/* ฝาก/เบิก: ตารางไม่ให้ปุ่มสถานะล้นไปทับช่องจำนวนเงิน */
+.prep__tbl { font-size: .85rem; } .prep__tbl td { overflow: hidden; } .prep__tbl td.num { font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 2px; padding-right: 4px; }
+.prep__tbl td:nth-child(3) { text-align: center; padding: 4px 3px; line-height: 1.25; } .prep__tbl td:nth-child(3) b { font-size: .8rem; white-space: nowrap; } .prep__tbl td:nth-child(3) .mini, .prep__tbl td:nth-child(3) .btn { font-size: .75rem; padding: 1px 6px; max-width: 100%; }
+.prep__tbl td:nth-child(2) { line-height: 1.25; word-break: break-word; }

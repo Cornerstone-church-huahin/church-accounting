@@ -66,7 +66,7 @@ export default function WithdrawPrep({ year }: { year: number }) {
       <section className="prep__zone prep__zone--circ" aria-label="ต้องเบิก เงินหมุนเวียน">
         <h3>■ เงินหมุนเวียน <span className="num">ยังไม่จ่าย {fmtBaht(w.totalC)}</span></h3>
         <table className="sheetpaper prep__tbl" style={{ tableLayout: 'fixed', width: '100%' }}>
-          <colgroup><col style={{ width: '8%' }} /><col style={{ width: '35%' }} /><col style={{ width: '21%' }} /><col style={{ width: '18%' }} /><col style={{ width: '18%' }} /></colgroup>
+          <colgroup><col style={{ width: '6%' }} /><col style={{ width: '30%' }} /><col style={{ width: '26%' }} /><col style={{ width: '19%' }} /><col style={{ width: '19%' }} /></colgroup>
           <thead><tr><th>ที่</th><th>รายการ</th><th>สถานะ</th><th>จำนวนเงิน</th><th>รวมต่อคน</th></tr></thead>
           <tbody>
             {rows.map((r, i) => {
@@ -81,7 +81,7 @@ export default function WithdrawPrep({ year }: { year: number }) {
                   <td style={{ textAlign: 'center' }}>
                     {it.kind === 'loan' ? <span className="muted">ให้ยืม</span> : it.done
                       ? <><b style={{ color: '#1b6b3a' }}>✅ จ่ายแล้ว</b>{it.paidDate && <><br /><small className="muted">{fmtDate(it.paidDate)}</small></>}{canMark && <><br /><button type="button" className="mini" style={{ whiteSpace: 'nowrap', minHeight: 0 }} aria-label={`ยกเลิกจ่ายแล้ว ${it.desc}`} onClick={() => setPaid(it, false)}>↩ ยกเลิก</button></>}</>
-                      : <><b style={{ color: '#b25e00' }}>⏳ รอจ่าย</b>{canMark && <><br /><button type="button" className="btn btn--gold" style={{ padding: '1px 8px', fontSize: 13, marginTop: 2, minHeight: 0, lineHeight: 1.3, whiteSpace: 'nowrap' }} aria-label={`จ่ายแล้ว ${it.desc}`} onClick={() => setPaid(it, true)}>✓ จ่ายแล้ว</button></>}</>}
+                      : <><b style={{ color: '#b25e00' }}>⏳ รอจ่าย</b>{canMark && <><br /><button type="button" className="btn btn--gold" style={{ padding: '1px 6px', fontSize: 12, marginTop: 2, maxWidth: '100%', minHeight: 0, lineHeight: 1.3, whiteSpace: 'nowrap' }} aria-label={`จ่ายแล้ว ${it.desc}`} onClick={() => setPaid(it, true)}>✓ จ่ายแล้ว</button></>}</>}
                   </td>
                   <td className="num" style={it.done ? { color: '#1b6b3a' } : undefined}><b>{fmtBaht(it.amount)}</b>{it.done && <> ✓</>}</td>
                   {r.span > 0 && <td className="num" rowSpan={r.span} style={{ verticalAlign: 'middle', textAlign: 'center', ...(r.multi ? { background: bg, borderLeft: `3px solid ${bar}`, fontWeight: 800 } : {}) }}>{it.person ? <>{r.multi && <small style={{ display: 'block', fontWeight: 400 }}>{r.span} รายการ</small>}{fmtBaht(r.total)}</> : <span className="muted">—</span>}</td>}
