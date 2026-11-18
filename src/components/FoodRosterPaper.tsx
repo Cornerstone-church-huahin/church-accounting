@@ -44,7 +44,7 @@ const FoodRosterPaper = forwardRef<HTMLDivElement, { church: string; months: YM[
                       return (
                         <tr key={i} style={s?.donor ? { background: '#fff3c4' } : undefined} className={onRowClick && d ? 'sheetrow' : undefined} onClick={onRowClick && d ? (e) => { e.stopPropagation(); onRowClick(d) } : undefined}>
                           <td style={{ textAlign: 'center', fontWeight: 800, fontSize: 23, ...(s?.donor ? { borderLeft: '6px solid #c4332a', color: '#c4332a', background: '#fff3c4' } : {}) }}>{d ? shortThaiDate(d) : ''}</td>
-                          <td style={s?.donor ? { background: '#fff3c4', color: '#0b4a8f', fontWeight: 800, fontSize: 1.1 + 'em' } : undefined}>{s?.donor ? <>✓ {s.donor}</> : ''}</td>
+                          <td style={s?.donor ? { background: '#fff3c4', color: '#0b4a8f', fontWeight: 800 } : undefined}>{s?.donor ? s.donor : ''}</td>
                           <td style={s?.donor ? { background: '#fff3c4', color: '#8a3b00', fontWeight: 800 } : undefined}>{s?.occasion ?? ''}</td>
                         </tr>
                       )
