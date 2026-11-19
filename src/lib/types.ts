@@ -594,7 +594,7 @@ export interface YearPlanRow extends SharedItem { year: number; date: string; se
 export interface FuelPaid extends SharedItem { paidDate: string }
 
 /** ประเภทของการโอนถวายรายบุคคล */
-export type GiftKind = 'weekly' | 'tithe' | 'thanks' | 'building' | 'loan' | 'other'
+export type GiftKind = 'weekly' | 'tithe' | 'thanks' | 'building' | 'welfare' | 'loan' | 'other'
 /** ประวัติการโอนถวายรายบุคคล (เห็นเฉพาะแอดมิน) — เก็บแยกจากบัญชีรายรับ ไม่เปลี่ยนยอดบัญชี · อ้างผู้ถวายด้วยรหัสสมาชิก */
 export interface DonorGift extends SharedItem {
   /** รหัสสมาชิก เช่น 1357 */
