@@ -46,6 +46,10 @@ function TableCard({ t, act, canEdit, onEdit, onSaveCell, onDup, onDelete }: { t
   const ref = useRef<HTMLDivElement>(null)
   const church = useSettings().settings.churchName.split(' ')[0]
   const [cell, setCell] = useState<{ ri: number; ci: number } | null>(null)
+  // ข้อความมาก = ลดขนาดตัวอักษรในช่อง และให้ย่อทั้งตารางได้มากขึ้น เพื่อให้เห็นครบทุกแถว (เช่น วันที่ 21–25) ตอนแชร์เป็นรูป/PDF
+  const chars = t.rows.reduce((n, r) => n + r.cells.join('').length, 0)
+  const fs = chars < 350 ? 17 : chars < 600 ? 15 : chars < 900 ? 13.5 : chars < 1300 ? 12 : 10.5
+  const pad = fs >= 15 ? '6px 8px' : '3px 5px'
   const w = t.cols.length > 1 ? `${(100 - (t.kind === 'stage' ? 14 : t.kind === 'daily' ? 12 : 0)) / (t.cols.length - (t.kind === 'free' ? 0 : 1))}%` : '100%'
   return (
     <div style={{ marginTop: 10 }}>
@@ -53,9 +57,9 @@ function TableCard({ t, act, canEdit, onEdit, onSaveCell, onDup, onDelete }: { t
         <b>{t.title}</b>
         {canEdit && <span className="row" style={{ gap: 6 }}><button type="button" className="mini" onClick={onEdit}>✎ แก้ตาราง</button><button type="button" className="mini" onClick={onDup}>⧉ ทำสำเนา</button><button type="button" className="mini" aria-label={`ลบตาราง ${t.title}`} onClick={onDelete}>🗑</button></span>}
       </div>
-      <PdfTools compact mode="full" els={() => (ref.current ? [ref.current] : [])} file={`${t.title}.pdf`} title={t.title} label={t.title} />
+      <PdfTools compact mode="landscape" els={() => (ref.current ? [ref.current] : [])} file={`${t.title}.pdf`} title={t.title} label={t.title} />
       <ScaledPage ref={ref} landscape>
-        <FitBox key={`${t.rows.length}|${t.cols.length}|${t.rows.reduce((n, r) => n + r.cells.join('').length, 0)}`}>
+        <FitBox min={0.35} key={`${t.rows.length}|${t.cols.length}|${t.rows.reduce((n, r) => n + r.cells.join('').length, 0)}`}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#111', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
             <div style={{ textAlign: 'center', border: `2px solid ${GOLD}`, borderBottom: `5px solid ${GOLD}`, borderRadius: 12, padding: '8px 12px', color: NAVY }}>
               <div style={{ fontSize: 14 }}>{church} · ✝ {act.name}</div>
@@ -63,12 +67,12 @@ function TableCard({ t, act, canEdit, onEdit, onSaveCell, onDup, onDelete }: { t
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', marginTop: 8, flex: 1 }}>
               <colgroup>{t.cols.map((_, i) => <col key={i} style={{ width: i === 0 && t.kind !== 'free' ? (t.kind === 'stage' ? '14%' : '12%') : w }} />)}</colgroup>
-              <thead><tr>{t.cols.map((c, i) => <th key={i} style={{ border: '1.5px solid #5a6a8c', background: '#e8edf7', color: NAVY, padding: '6px 4px', fontSize: 18 }}>{c}</th>)}</tr></thead>
+              <thead><tr>{t.cols.map((c, i) => <th key={i} style={{ border: '1.5px solid #5a6a8c', background: '#e8edf7', color: NAVY, padding: '5px 4px', fontSize: fs >= 15 ? 18 : 15 }}>{c}</th>)}</tr></thead>
               <tbody>
                 {t.rows.map((r, ri) => (
                   <tr key={r.id}>
                     {t.cols.map((_, ci) => (
-                      <td key={ci} onClick={() => canEdit && setCell({ ri, ci })} aria-label={`${t.cols[ci]} แถว ${ri + 1}`} style={{ border: '1.5px solid #5a6a8c', padding: '6px 8px', verticalAlign: 'top', whiteSpace: 'pre-line', fontSize: 17, lineHeight: 1.3, cursor: canEdit ? 'pointer' : undefined, fontWeight: ci === 0 && t.kind !== 'free' ? 800 : 500, textAlign: ci === 0 && t.kind !== 'free' ? 'center' : 'left', background: ci === 0 && t.kind !== 'free' ? '#f3f6fc' : '#fff', color: ci === 0 && t.kind === 'daily' ? '#a4262c' : undefined }}>
+                      <td key={ci} onClick={() => canEdit && setCell({ ri, ci })} aria-label={`${t.cols[ci]} แถว ${ri + 1}`} style={{ border: '1.5px solid #5a6a8c', padding: pad, verticalAlign: 'top', whiteSpace: 'pre-line', fontSize: fs, lineHeight: 1.25, cursor: canEdit ? 'pointer' : undefined, fontWeight: ci === 0 && t.kind !== 'free' ? 800 : 500, textAlign: ci === 0 && t.kind !== 'free' ? 'center' : 'left', background: ci === 0 && t.kind !== 'free' ? '#f3f6fc' : '#fff', color: ci === 0 && t.kind === 'daily' ? '#a4262c' : undefined }}>
                         {r.cells[ci] || (canEdit ? <span className="no-print" style={{ color: '#9aa5bd', fontSize: 20 }}>＋</span> : '')}
                       </td>))}
                   </tr>))}
