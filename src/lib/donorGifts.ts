@@ -51,3 +51,28 @@ export function missingWeeks(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>
 }
 
 export const giftId = (code: string, g: { ref?: string; date: string; time?: string; amount: number }) => `dg:${code}:${g.ref ?? `${g.date}${g.time ?? ''}-${g.amount}`}`
+
+const isRegular = (g: Pick<DonorGift, 'kind' | 'deleted'>) => !g.deleted && (g.kind === 'weekly' || g.kind === 'tithe')
+/** ผู้ถวายแบบรายเดือน: การถวายประจำ (ประจำสัปดาห์/สิบลด) มีไม่เกิน ~1 ครั้งต่อเดือนที่มีข้อมูล → ตรวจเป็นเดือน ไม่ใช่เป็นสัปดาห์ */
+export function isMonthlyGiver(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>[]): boolean {
+  const reg = gifts.filter(isRegular)
+  if (reg.length < 3) return false
+  const months = new Set(reg.map((g) => g.date.slice(0, 7)))
+  return reg.length <= months.size * 1.3
+}
+/** เดือนที่จบแล้ว (YYYY-MM) ตั้งแต่เดือนแรกที่มีการถวายประจำ ที่ไม่พบการถวายประจำ — ไม่นับเดือนปัจจุบันที่ยังไม่จบ */
+export function missingMonths(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>[], today = todayISO()): string[] {
+  const reg = gifts.filter(isRegular)
+  if (!reg.length) return []
+  const have = new Set(reg.map((g) => g.date.slice(0, 7)))
+  const first = reg.map((g) => g.date.slice(0, 7)).sort()[0], cur = today.slice(0, 7)
+  const out: string[] = []
+  let y = Number(first.slice(0, 4)), m = Number(first.slice(5, 7))
+  for (;;) {
+    const ym = `${y}-${String(m).padStart(2, '0')}`
+    if (ym >= cur) break
+    if (!have.has(ym)) out.push(ym)
+    m++; if (m > 12) { m = 1; y++ }
+  }
+  return out
+}
