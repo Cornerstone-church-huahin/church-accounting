@@ -3,11 +3,11 @@ import MemberAvatar from './MemberAvatar'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import { can } from '../lib/access'
-import { useChurchMembers, useDonorGifts, useIncome, useLoans } from '../lib/data'
+import { useChurchMembers, useDonorExts, useDonorGifts, useIncome, useLoans } from '../lib/data'
 import { GIFT_KINDS, giftId, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, monthName, todayISO, weekRange } from '../lib/money'
-import type { DonorGift, GiftKind } from '../lib/types'
+import type { DonorExt, DonorGift, GiftKind } from '../lib/types'
 
 const NAVY = '#14264a'
 /** เรียงใหม่ → เก่า */
@@ -19,6 +19,8 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const isAdmin = can(role, 'settings')
   const store = useDonorGifts()
   const members = useChurchMembers()
+  const exts = useDonorExts()
+  const [addExt, setAddExt] = useState(false)
   const income = useIncome(year)
   const loans = useLoans()
   const [code, setCode] = useState('')
@@ -31,9 +33,21 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const people = useMemo(() => {
     const m = new Map<string, { code: string; n: number; total: number }>()
     for (const g of all) { const e = m.get(g.code) ?? { code: g.code, n: 0, total: 0 }; e.n++; if (g.kind !== 'loan') e.total += g.amount; m.set(g.code, e) }
+    for (const x of exts.items) if (!x.deleted && !m.has(x.code)) m.set(x.code, { code: x.code, n: 0, total: 0 })
     return [...m.values()].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
-  }, [all])
-  const memberOf = (c: string) => members.items.find((x) => !x.deleted && x.code === c)
+  }, [all, exts.items])
+  const extOf = (c: string) => exts.items.find((x) => !x.deleted && x.code === c)
+  const nameOf = (c: string) => memberOf(c)?.name ?? extOf(c)?.name ?? `สมาชิก ${c}`
+  const newExtCode = () => { let n = 1; const used = new Set([...exts.items.map((x) => x.code), ...store.items.map((g) => g.code)]); while (used.has(`X${n}`)) n++; return `X${n}` }
+  const moveCode = (from: string) => {
+    const to = prompt(`ย้ายรายการทั้งหมดของ “${nameOf(from)}” ไปเป็นรหัสสมาชิก (เช่น 1357)`)?.trim()
+    if (!to || to === from) return
+    if (!confirm(`ย้ายประวัติทั้งหมดจากรหัส ${from} ไปรหัส ${to} ?`)) return
+    store.put(store.items.filter((g) => g.code === from && !g.deleted).map((g) => ({ ...g, code: to, updated: 0 })))
+    const x = extOf(from); if (x) exts.put([{ ...x, deleted: true, updated: 0 }])
+    setCode(to); setMsg(`ย้ายไปรหัส ${to} แล้ว`)
+  }
+  function memberOf(c: string) { return members.items.find((x) => !x.deleted && x.code === c) }
 
   if (!isAdmin) return <section className="card"><button type="button" className="mini" onClick={onBack}>‹ กลับ</button><p className="empty">หน้านี้สำหรับแอดมินเท่านั้น</p></section>
 
@@ -68,14 +82,15 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
             <input className="input" inputMode="numeric" aria-label="รหัสสมาชิก" placeholder="รหัสสมาชิก เช่น 1357" value={codeText} onChange={(e) => setCodeText(e.target.value.trim())} />
             <button type="button" className="btn btn--gold" disabled={!codeText} onClick={() => { setCode(codeText); setCodeText('') }}>เปิด</button>
           </div>
+          <button type="button" className="btn" style={{ marginTop: 8 }} onClick={() => setAddExt(true)}>＋ ผู้ถวายภายนอก (ไม่มีรหัส · บุคคล/กลุ่ม)</button>
           <h3 style={{ marginTop: 12 }}>ผู้ถวายที่มีประวัติแล้ว ({people.length})</h3>
           {people.length === 0 && <p className="empty">ยังไม่มีข้อมูล — ใส่รหัสสมาชิกแล้วเพิ่มรายการหรือวางข้อมูลได้เลย</p>}
           {people.map((p) => {
             const mm = memberOf(p.code)
             return (
               <button key={p.code} type="button" className="card" style={{ display: 'flex', gap: 10, alignItems: 'center', width: '100%', textAlign: 'left', margin: '6px 0' }} onClick={() => setCode(p.code)}>
-                <MemberAvatar path={mm?.photoPath} name={mm?.name ?? p.code} size={44} />
-                <span style={{ flex: 1 }}><b>{mm ? mm.name : `สมาชิก ${p.code}`}</b><br /><small className="muted">รหัส {p.code} · {p.n} รายการ</small></span>
+                <MemberAvatar path={mm?.photoPath} name={nameOf(p.code)} size={44} />
+                <span style={{ flex: 1 }}><b>{nameOf(p.code)}</b>{extOf(p.code) && <small className="muted"> · ผู้ถวายภายนอก{extOf(p.code)?.group ? ' (กลุ่ม)' : ''}</small>}<br /><small className="muted">รหัส {p.code} · {p.n} รายการ</small></span>
                 <b className="num">{fmtBaht(p.total)}</b>
               </button>
             )
@@ -86,8 +101,8 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
       {code && (
         <>
           <div className="row" style={{ gap: 10, alignItems: 'center', margin: '6px 0' }}>
-            <MemberAvatar path={m?.photoPath} name={m?.name ?? code} size={52} />
-            <div><b style={{ fontSize: '1.1rem' }}>{m ? m.name : `สมาชิก ${code}`}</b>{m?.nick ? ` (${m.nick})` : ''}<br /><small className="muted">รหัส {code}{m ? '' : ' · ไม่พบในทะเบียน'}</small></div>
+            <MemberAvatar path={m?.photoPath} name={nameOf(code)} size={52} />
+            <div><b style={{ fontSize: '1.1rem' }}>{nameOf(code)}</b>{m?.nick ? ` (${m.nick})` : ''}<br /><small className="muted">รหัส {code}{m ? '' : extOf(code) ? ` · ผู้ถวายภายนอก${extOf(code)?.group ? ' (กลุ่ม)' : ''}` : ' · ไม่พบในทะเบียน'}</small>{extOf(code) && <><br /><button type="button" className="mini no-print" onClick={() => moveCode(code)}>🔁 ย้ายเป็นรหัสสมาชิก…</button></>}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
             {[['🙏 ยอดถวายรวม', fmtBaht(sum(gifts)), '#e3f4ea'], ['🔢 จำนวนครั้ง', String(gifts.length), '#e6eefc'], ['🤝 ให้ยืม', fmtBaht(sum(lent)), '#efe6f9']].map(([l, v, c]) => (
@@ -125,6 +140,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
         </>
       )}
 
+      {addExt && <ExtForm code={newExtCode()} onClose={() => setAddExt(false)} onSave={(x) => { exts.put([x]); setAddExt(false); setCode(x.code) }} />}
       {edit && <GiftForm g={edit === 'new' ? null : edit} code={code} onClose={() => setEdit(null)} onSave={save} onDelete={del} />}
       {paste && <PasteSheet code={code} existing={store.items} onClose={() => setPaste(false)} onSave={(rows) => { const ok = store.put(rows); setPaste(false); setMsg(ok ? `เพิ่ม ${rows.length} รายการแล้ว` : 'บันทึกไม่ได้ (ไม่มีสิทธิ์)') }} />}
     </section>
@@ -184,8 +200,10 @@ const EXAMPLE = `2030-01-06 10:05 300 weekly 0123456789AB
 function PasteSheet({ code, existing, onClose, onSave }: { code: string; existing: DonorGift[]; onClose: () => void; onSave: (rows: DonorGift[]) => void }) {
   const [text, setText] = useState('')
   const { rows, errors } = useMemo(() => parseGiftLines(text, code), [text, code])
-  const known = new Set(existing.filter((g) => !g.deleted).map((g) => g.id))
-  const fresh = rows.map((r) => ({ ...r, id: giftId(code, r), updated: 0 }) as DonorGift).filter((r) => !known.has(r.id))
+  const live = existing.filter((g) => !g.deleted)
+  const known = new Set(live.map((g) => g.id))
+  const knownRef = new Set(live.filter((g) => g.ref).map((g) => g.ref as string))
+  const fresh = rows.map((r) => ({ ...r, id: giftId(code, r), updated: 0 }) as DonorGift).filter((r) => !known.has(r.id) && !(r.ref && knownRef.has(r.ref)))
   return (
     <Sheet title="วางข้อมูลหลายรายการ" onClose={onClose}>
       <p className="small muted">หนึ่งบรรทัดต่อหนึ่งรายการ: วันที่(ปี ค.ศ.) เวลา จำนวน ประเภท [เลขที่รายการ] [หมายเหตุ] · ประเภท = weekly / tithe / thanks / building / welfare / loan / other</p>
@@ -193,6 +211,19 @@ function PasteSheet({ code, existing, onClose, onSave }: { code: string; existin
       {text.trim() && <p className="small">อ่านได้ {rows.length} รายการ · ใหม่ {fresh.length}{rows.length - fresh.length > 0 ? ` · ซ้ำกับที่มีอยู่ ${rows.length - fresh.length} (ข้าม)` : ''}{errors.length ? ` · ผิดรูปแบบ ${errors.length}` : ''}</p>}
       {errors.map((e) => <p key={e} className="note small" role="alert">{e}</p>)}
       <button type="button" className="btn btn--gold" disabled={!fresh.length} onClick={() => onSave(fresh)}>เพิ่ม {fresh.length} รายการ</button>
+    </Sheet>
+  )
+}
+
+function ExtForm({ code, onClose, onSave }: { code: string; onClose: () => void; onSave: (x: DonorExt) => void }) {
+  const [name, setName] = useState('')
+  const [group, setGroup] = useState(false)
+  return (
+    <Sheet title="เพิ่มผู้ถวายภายนอก" onClose={onClose}>
+      <p className="small muted">สำหรับคนหรือกลุ่มที่ยังไม่มีรหัสสมาชิก ระบบให้รหัสภายใน <b>{code}</b> ไปก่อน ภายหลังกด “ย้ายเป็นรหัสสมาชิก” ได้ ประวัติย้ายตามทั้งหมด</p>
+      <div className="field"><label htmlFor="ex-name">ชื่อ (ตามสลิปหรือชื่อกลุ่ม)</label><input id="ex-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น นาง ลภัสดา ว. หรือ กลุ่มอนุชน" /></div>
+      <label className="small"><input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> เป็นกลุ่ม/โครงการ (ไม่ใช่บุคคล)</label>
+      <div style={{ marginTop: 8 }}><button type="button" className="btn btn--gold" disabled={!name.trim()} onClick={() => onSave({ id: `dx:${code}`, updated: 0, code, name: name.trim(), ...(group ? { group: true } : {}) })}>เพิ่ม</button></div>
     </Sheet>
   )
 }

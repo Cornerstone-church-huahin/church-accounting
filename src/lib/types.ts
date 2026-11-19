@@ -608,3 +608,6 @@ export interface DonorGift extends SharedItem {
   ref?: string
   note?: string
 }
+
+/** ผู้ถวายภายนอก (ยังไม่มีรหัสสมาชิก): รหัสภายในขึ้นต้น X · เป็นบุคคลหรือกลุ่ม (เช่น กลุ่มอนุชน) · ย้ายเป็นรหัสจริงภายหลังได้ */
+export interface DonorExt extends SharedItem { code: string; name: string; group?: boolean }
