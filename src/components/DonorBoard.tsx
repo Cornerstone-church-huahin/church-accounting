@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
+import MultiPick from './MultiPick'
 import { GIFT_KINDS, filterGifts, kindInfo, rankDonors, type RankKey } from '../lib/donorGifts'
 import { be, fmtBaht, fmtDate, todayISO } from '../lib/money'
 import type { ChurchMember, DonorGift, GiftKind } from '../lib/types'
@@ -32,7 +33,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
     if (age && (!m?.since || (age === 'new') !== (m.since >= yearAgo))) return false
     return true
   }
-  const fl = useMemo(() => filterGifts(all, { kinds, ...(year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {}) }).filter((g) => pass(g.code)), [all, kinds, year, group, status, age, byCode]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fl = useMemo(() => filterGifts(all, { ...(kinds.length ? { kinds } : {}), ...(year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {}) }).filter((g) => pass(g.code)), [all, kinds, year, group, status, age, byCode]) // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => rankDonors(fl, nameOf, sort, sort !== 'name'), [fl, nameOf, sort])
   const total = fl.reduce((s, g) => s + g.amount, 0)
   const maxTotal = Math.max(1, ...rows.map((r) => r.total))
@@ -42,26 +43,18 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
   return (
     <div className="stack">
       <div className="card" style={{ background: '#f6f8fc' }}>
-        <b className="small">🔎 เลือกดู</b>
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-          <select className="input" aria-label="ช่วงเวลา" value={year} onChange={(e) => setYear(e.target.value)} style={{ flex: '1 1 7rem' }}><option value="">ทุกช่วงเวลา</option>{years.map((y) => <option key={y} value={y}>ปี {be(Number(y))}</option>)}</select>
-          <select className="input" aria-label="กลุ่ม" value={group} onChange={(e) => setGroup(e.target.value)} style={{ flex: '1 1 7rem' }}><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g} value={g}>{g}</option>)}<option value="ผู้ถวายภายนอก">ผู้ถวายภายนอก</option></select>
-          <select className="input" aria-label="สถานะสมาชิก" value={status} onChange={(e) => setStatus(e.target.value)} style={{ flex: '1 1 7rem' }}><option value="">ทุกสถานะ</option>{statuses.map((g) => <option key={g} value={g}>{g}</option>)}</select>
-        </div>
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 6 }} role="group" aria-label="เก่า/ใหม่">
-          {([['', 'ทั้งหมด'], ['old', 'สมาชิกเก่า'], ['new', 'สมาชิกใหม่ (ไม่เกิน 1 ปี)']] as const).map(([k, l]) => <button key={k} type="button" className="mini" aria-pressed={age === k} style={age === k ? { background: NAVY, color: '#fff' } : undefined} onClick={() => setAge(k)}>{l}</button>)}
-        </div>
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 6 }} role="group" aria-label="ประเภท">
-          {GIFT_KINDS.map((k) => <button key={k.k} type="button" className="mini" aria-pressed={kinds.includes(k.k)} style={kinds.includes(k.k) ? { background: k.color, color: '#fff' } : { opacity: 0.55 }} onClick={() => setKinds((xs) => (xs.includes(k.k) ? xs.filter((x) => x !== k.k) : [...xs, k.k]))}>{k.short}</button>)}
-        </div>
-        <div className="row" style={{ gap: 6, marginTop: 6 }} role="group" aria-label="เรียงตาม">
-          <span className="small" style={{ alignSelf: 'center' }}>เรียง:</span>
-          {([['total', 'ยอดเงิน'], ['count', 'จำนวนครั้ง'], ['last', 'ล่าสุด']] as const).map(([k, l]) => <button key={k} type="button" className="mini" aria-pressed={sort === k} style={sort === k ? { background: NAVY, color: '#fff' } : undefined} onClick={() => setSort(k)}>{l}</button>)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 8 }}>
+          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-year">ช่วงเวลา</label><select id="bd-year" className="input" value={year} onChange={(e) => setYear(e.target.value)}><option value="">ทุกช่วงเวลา</option>{years.map((y) => <option key={y} value={y}>ปี {be(Number(y))}</option>)}</select></div>
+          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-group">กลุ่ม</label><select id="bd-group" className="input" value={group} onChange={(e) => setGroup(e.target.value)}><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g} value={g}>{g}</option>)}<option value="ผู้ถวายภายนอก">ผู้ถวายภายนอก</option></select></div>
+          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-status">สถานะสมาชิก</label><select id="bd-status" className="input" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">ทุกสถานะ</option>{statuses.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-age">เก่า / ใหม่</label><select id="bd-age" className="input" value={age} onChange={(e) => setAge(e.target.value as '' | 'new' | 'old')}><option value="">ทั้งหมด</option><option value="old">สมาชิกเก่า</option><option value="new">สมาชิกใหม่ (ไม่เกิน 1 ปี)</option></select></div>
+          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-kind">ประเภทการถวาย</label><MultiPick id="bd-kind" title="ประเภทการถวาย" options={GIFT_KINDS.map((k) => ({ value: k.k, label: k.label }))} value={kinds} onChange={(v) => setKinds(v as GiftKind[])} empty="— เลือกประเภท —" allLabel="ทุกประเภท (รวมให้ยืม)" /></div>
+          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-sort">เรียงตาม</label><select id="bd-sort" className="input" value={sort} onChange={(e) => setSort(e.target.value as RankKey)}><option value="total">ยอดเงิน (มาก → น้อย)</option><option value="count">จำนวนครั้ง (มาก → น้อย)</option><option value="last">ถวายล่าสุด (ใหม่ → เก่า)</option></select></div>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', fmtBaht(total, { dec: false }), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 30%', minWidth: 90, background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{v}</div></div>)}
+        {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', fmtBaht(total, { dec: false }), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{v}</div></div>)}
       </div>
 
       {shown.map((r, i) => {
