@@ -4,7 +4,7 @@ import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import { can } from '../lib/access'
 import { useChurchMembers, useDonorExts, useDonorGifts, useIncome, useLoans } from '../lib/data'
-import { GIFT_KINDS, giftId, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
+import { GIFT_KINDS, checkImport, giftId, projectTotals, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, monthName, todayISO, weekRange } from '../lib/money'
 import type { DonorExt, DonorGift, GiftKind } from '../lib/types'
@@ -40,6 +40,23 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const extOf = (c: string) => exts.items.find((x) => !x.deleted && x.code === c)
   const nameOf = (c: string) => memberOf(c)?.name ?? extOf(c)?.name ?? `สมาชิก ${c}`
   const newExtCode = () => { let n = 1; const used = new Set([...exts.items.map((x) => x.code), ...store.items.map((g) => g.code)]); const fmt = (i: number) => `X${String(i).padStart(3, '0')}`; while (used.has(fmt(n))) n++; return fmt(n) }
+  const importFile = async (f: File) => {
+    let j: unknown
+    try { j = JSON.parse(await f.text()) } catch { return setMsg('อ่านไฟล์ไม่ได้ (ไม่ใช่ JSON)') }
+    const r = checkImport(j)
+    if (!r.ok) return setMsg(r.error)
+    const have = new Set(store.items.filter((g) => !g.deleted).map((g) => g.id))
+    const fresh = r.data.gifts.filter((g) => !have.has(g.id))
+    const takenExt = new Set(exts.items.filter((x) => !x.deleted).map((x) => x.code))
+    const newExts = r.data.exts.filter((x) => !takenExt.has(x.code))
+    const clash = r.data.exts.filter((x) => takenExt.has(x.code) && exts.items.find((y) => y.code === x.code)?.name !== x.name)
+    const total = fresh.reduce((a, g) => a + g.amount, 0)
+    const warn = clash.length ? `\n\n⚠ รหัสต่อไปนี้มีชื่ออื่นอยู่แล้วในระบบ จะใช้ชื่อเดิม: ${clash.map((x) => `${x.code}=${x.name}`).join(', ')}` : ''
+    if (!fresh.length) return setMsg('ไม่มีรายการใหม่ (มีอยู่แล้วทั้งหมด)')
+    if (!confirm(`นำเข้า ${fresh.length} รายการ รวม ${fmtBaht(total)} บาท (ข้ามที่ซ้ำ ${r.data.gifts.length - fresh.length}) และผู้ถวายภายนอกใหม่ ${newExts.length} ราย\nเป็นประวัติ/รายงานเท่านั้น ไม่กระทบยอดเงินจริง${warn}\n\nยืนยัน?`)) return
+    const ok = store.put(fresh.map((g) => ({ ...g, updated: 0 }))) && (newExts.length === 0 || exts.put(newExts.map((x) => ({ ...x, updated: 0 }))))
+    setMsg(ok ? `นำเข้าแล้ว ${fresh.length} รายการ รวม ${fmtBaht(total)} บาท` : 'นำเข้าไม่ได้ (ไม่มีสิทธิ์)')
+  }
   const moveCode = (from: string) => {
     const to = prompt(`ย้ายรายการทั้งหมดของ “${nameOf(from)}” ไปเป็นรหัสสมาชิก (เช่น 1357)`)?.trim()
     if (!to || to === from) return
@@ -74,6 +91,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
     <section className="card" aria-label="รายงานการโอนถวายรายบุคคล">
       <div className="row row--between no-print"><button type="button" className="mini" onClick={code ? () => setCode('') : onBack}>‹ {code ? 'รายชื่อผู้ถวาย' : 'กลับ'}</button><span className="small muted">🔒 เห็นเฉพาะแอดมิน</span></div>
       <h2>🙏 รายงานการโอนถวายรายบุคคล</h2>
+      <p className="small" style={{ background: '#eef1f8', borderRadius: 8, padding: '4px 10px' }}>📊 รายงานเท่านั้น — ไม่กระทบยอดเงินหมุนเวียน กองทุน หรือเงินยืม</p>
       {msg && <p className="note" role="status" onClick={() => setMsg('')}>{msg}</p>}
 
       {!code && (
@@ -84,6 +102,10 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
             <button type="button" className="btn btn--gold" disabled={!codeText} onClick={() => { setCode(codeText); setCodeText('') }}>เปิด</button>
           </div>
           <button type="button" className="btn" style={{ marginTop: 8 }} onClick={() => setAddExt(true)}>＋ ผู้ถวายภายนอก (ไม่มีรหัส · บุคคล/กลุ่ม)</button>
+          <label className="btn" style={{ marginTop: 8, display: 'inline-flex' }}>📥 นำเข้าไฟล์ประวัติการถวาย (.json)
+            <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void importFile(f) }} />
+          </label>
+          <p className="small muted">นำเข้าเป็นประวัติ/รายงานเท่านั้น ไม่เปลี่ยนยอดเงินหมุนเวียน กองทุน หรือเงินยืม · รายการที่มีอยู่แล้วจะถูกข้าม</p>
           <h3 style={{ marginTop: 12 }}>ผู้ถวายที่มีประวัติแล้ว ({people.length})</h3>
           {people.length === 0 && <p className="empty">ยังไม่มีข้อมูล — ใส่รหัสสมาชิกแล้วเพิ่มรายการหรือวางข้อมูลได้เลย</p>}
           {people.map((p) => {
@@ -124,6 +146,13 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
           {lent.map((g) => <GiftRow key={g.id} g={g} ok={inLedger(g)} onClick={() => setEdit(g)} />)}
           {lent.length > 0 && <p className="small muted">“ยังไม่อยู่ในหนี้ภายนอก” = ยังไม่ได้บันทึกเป็นเงินยืมในหน้าหนี้สิน (รายงานนี้เป็นประวัติเท่านั้น)</p>}
 
+          {projectTotals(mine).length > 0 && (
+            <>
+              <h3 style={{ marginTop: 12, color: '#8a6a00' }}>🏗 ยอดถวายแยกตามโครงการ</h3>
+              {projectTotals(mine).map((p) => <div key={p.project} className="row row--between small" style={{ padding: '3px 0', borderBottom: '1px solid #e3e7ef' }}><span>{p.project} · {p.n} ครั้ง</span><b className="num">{fmtBaht(p.total)}</b></div>)}
+            </>
+          )}
+
           {months.length > 0 && (
             <>
               <h3 style={{ marginTop: 12 }}>📅 ยอดถวายรายเดือน</h3>
@@ -157,9 +186,9 @@ function GiftRow({ g, ok, onClick }: { g: DonorGift; ok: boolean; onClick: () =>
   return (
     <button type="button" onClick={onClick} style={{ display: 'flex', width: '100%', textAlign: 'left', gap: 8, alignItems: 'center', background: k.soft, borderLeft: `6px solid ${k.color}`, borderRadius: 10, padding: '6px 10px', margin: '4px 0', border: 0, borderLeftStyle: 'solid', borderLeftWidth: 6, borderLeftColor: k.color }}>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <b>{fmtDate(g.date)}{g.time ? ` · ${g.time}` : ''}</b> <span className="small" style={{ background: k.color, color: '#fff', borderRadius: 999, padding: '1px 8px' }}>{k.short}</span>
-        <br /><small className="muted">{g.ref ? `เลขที่ ${g.ref}` : 'ไม่มีเลขที่รายการ'}{g.note ? ` · ${g.note}` : ''}</small>
-        <br /><small style={{ color: ok ? '#1b6b3a' : '#8a6a00' }}>{ok ? (g.kind === 'loan' ? '✓ อยู่ในหนี้ภายนอกแล้ว' : '✓ อยู่ในบัญชีรายรับแล้ว') : (g.kind === 'loan' ? 'ยังไม่อยู่ในหนี้ภายนอก' : 'ยังไม่พบในบัญชีรายรับ')}</small>
+        <b>{fmtDate(g.date)}{g.time ? ` · ${g.time}` : ''}</b> <span className="small" style={{ background: k.color, color: '#fff', borderRadius: 999, padding: '1px 8px' }}>{g.kind === 'project' && g.project ? g.project : k.short}</span>{g.src === 'xlsx' && <span className="small muted"> · จากไฟล์เดิม</span>}
+        <br /><small className="muted">{g.ref ? `เลขที่ ${g.ref}` : g.src === 'xlsx' ? 'บันทึกเดิม (ไม่มีเลขที่รายการ)' : 'ไม่มีเลขที่รายการ'}{g.note ? ` · ${g.note}` : ''}</small>
+        {g.src !== 'xlsx' && <><br /><small style={{ color: ok ? '#1b6b3a' : '#8a6a00' }}>{ok ? (g.kind === 'loan' ? '✓ อยู่ในหนี้ภายนอกแล้ว' : '✓ อยู่ในบัญชีรายรับแล้ว') : (g.kind === 'loan' ? 'ยังไม่อยู่ในหนี้ภายนอก' : 'ยังไม่พบในบัญชีรายรับ')}</small></>}
       </span>
       <b className="num" style={{ fontSize: '1.05rem' }}>{fmtBaht(g.amount)}</b>
     </button>
@@ -173,11 +202,12 @@ function GiftForm({ g, code, onClose, onSave, onDelete }: { g: DonorGift | null;
   const [kind, setKind] = useState<GiftKind>(g?.kind ?? 'weekly')
   const [ref, setRef] = useState(g?.ref ?? '')
   const [note, setNote] = useState(g?.note ?? '')
+  const [project, setProject] = useState(g?.project ?? '')
   const [err, setErr] = useState('')
   const go = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr('ใส่วันที่')
     if (!amount || amount <= 0) return setErr('ใส่จำนวนเงิน')
-    const base = { code, date, ...(time ? { time } : {}), amount, kind, ...(ref.trim() ? { ref: ref.trim() } : {}), ...(note.trim() ? { note: note.trim() } : {}) }
+    const base = { code, date, ...(time ? { time } : {}), amount, kind, ...(ref.trim() ? { ref: ref.trim() } : {}), ...(note.trim() ? { note: note.trim() } : {}), ...(kind === 'project' && project.trim() ? { project: project.trim() } : {}), ...(g?.src ? { src: g.src } : {}) }
     onSave({ ...base, id: g?.id ?? giftId(code, base), updated: 0 })
   }
   return (
@@ -187,6 +217,7 @@ function GiftForm({ g, code, onClose, onSave, onDelete }: { g: DonorGift | null;
       <div className="field"><label htmlFor="dg-amt">จำนวนเงิน (บาท)</label><MoneyInput id="dg-amt" value={amount} onChange={(v) => { setAmount(v); if (!g && v) setKind(guessKind(v)) }} /></div>
       <div className="field"><label htmlFor="dg-kind">ประเภท</label>
         <select id="dg-kind" className="input" value={kind} onChange={(e) => setKind(e.target.value as GiftKind)}>{GIFT_KINDS.map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}</select></div>
+      {kind === 'project' && <div className="field"><label htmlFor="dg-proj">ชื่อโครงการ/งานพิเศษ</label><input id="dg-proj" className="input" list="dg-projs" value={project} onChange={(e) => setProject(e.target.value)} placeholder="เช่น งานขอบคุณพระเจ้า · คริสต์มาส · ค่าแอร์" /><datalist id="dg-projs">{['งานขอบคุณพระเจ้า', 'คริสต์มาส', 'ค่าแอร์', 'ตกแต่งสถานที่', 'ค่าอาหาร'].map((x) => <option key={x} value={x} />)}</datalist></div>}
       <div className="field"><label htmlFor="dg-ref">เลขที่รายการในสลิป</label><input id="dg-ref" className="input" value={ref} onChange={(e) => setRef(e.target.value)} /></div>
       <div className="field"><label htmlFor="dg-note">หมายเหตุ</label><input id="dg-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
       {err && <p className="note" role="alert">{err}</p>}

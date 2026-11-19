@@ -7,6 +7,7 @@ export const GIFT_KINDS: { k: GiftKind; label: string; short: string; color: str
   { k: 'thanks', label: 'ถวายขอบพระคุณ', short: 'ขอบพระคุณ', color: '#d9660a', soft: '#fdecd8' },
   { k: 'building', label: 'ถวายสร้างอาคาร', short: 'สร้างอาคาร', color: '#2557b8', soft: '#e6eefc' },
   { k: 'welfare', label: 'ถวายเพื่อสวัสดิการผู้รับใช้', short: 'สวัสดิการผู้รับใช้', color: '#b0366b', soft: '#fbe6f0' },
+  { k: 'project', label: 'ถวายโครงการ/งานพิเศษ', short: 'โครงการ', color: '#8a6a00', soft: '#fbf1cf' },
   { k: 'loan', label: 'ให้คริสตจักรยืม', short: 'ให้ยืม', color: '#7a3fb0', soft: '#efe6f9' },
   { k: 'other', label: 'อื่น ๆ', short: 'อื่น ๆ', color: '#5b6577', soft: '#eceff4' },
 ]
@@ -15,7 +16,7 @@ export const kindInfo = (k: GiftKind) => GIFT_KINDS.find((x) => x.k === k) ?? GI
 /** ยอด 300 = ประจำสัปดาห์ · ยอดอื่นที่ไม่ได้ระบุ = ขอบพระคุณ (ค่าเริ่มต้นตอนเพิ่มเอง) */
 export const guessKind = (satang: number): GiftKind => (satang === 30000 ? 'weekly' : 'thanks')
 
-const WORDS: [RegExp, GiftKind][] = [[/tithe|สิบลด/i, 'tithe'], [/weekly|ประจำ/i, 'weekly'], [/thanks|ขอบพระคุณ/i, 'thanks'], [/building|อาคาร/i, 'building'], [/welfare|สวัสดิการ|เงินเดือน/i, 'welfare'], [/loan|ยืม/i, 'loan'], [/other|อื่น/i, 'other']]
+const WORDS: [RegExp, GiftKind][] = [[/tithe|สิบลด/i, 'tithe'], [/weekly|ประจำ/i, 'weekly'], [/thanks|ขอบพระคุณ/i, 'thanks'], [/building|อาคาร/i, 'building'], [/welfare|สวัสดิการ|เงินเดือน/i, 'welfare'], [/project|โครงการ/i, 'project'], [/loan|ยืม/i, 'loan'], [/other|อื่น/i, 'other']]
 const kindOfWord = (w: string): GiftKind | null => { for (const [re, k] of WORDS) if (re.test(w)) return k; return null }
 
 /** แปลงข้อความวางหลายบรรทัด: "2026-05-24 16:55 300 weekly 0123456789ABC หมายเหตุ" (วันที่ เวลา จำนวน ประเภท [เลขที่รายการ] [หมายเหตุ]) */
@@ -32,8 +33,11 @@ export function parseGiftLines(text: string, code: string): { rows: Omit<DonorGi
     if (!m) { errors.push(`บรรทัด ${i + 1}: รูปแบบไม่ถูกต้อง`); return }
     const amount = parseBaht(m[3]), kind = kindOfWord(m[4])
     if (Number.isNaN(amount) || amount <= 0) { errors.push(`บรรทัด ${i + 1}: จำนวนเงินไม่ถูกต้อง`); return }
-    if (!kind) { errors.push(`บรรทัด ${i + 1}: ไม่รู้จักประเภท “${m[4]}” (weekly/tithe/thanks/building/welfare/loan/other)`); return }
-    rows.push({ code, date: m[1], ...(m[2] ? { time: m[2].padStart(5, '0') } : {}), amount, kind, ...(m[5] ? { ref: m[5] } : {}), ...(m[6] ? { note: m[6] } : {}) })
+    if (!kind) { errors.push(`บรรทัด ${i + 1}: ไม่รู้จักประเภท “${m[4]}” (weekly/tithe/thanks/building/welfare/project/loan/other)`); return }
+    // #ชื่อโครงการ ในหมายเหตุ = ชื่อโครงการ (ใช้กับประเภท project)
+    const tag = (m[6] ?? '').match(/#(\S+)/)
+    const note = (m[6] ?? '').replace(/#\S+/, '').trim()
+    rows.push({ code, date: m[1], ...(m[2] ? { time: m[2].padStart(5, '0') } : {}), amount, kind, ...(m[5] ? { ref: m[5] } : {}), ...(note ? { note } : {}), ...(tag ? { project: tag[1] } : {}) })
   })
   return { rows, errors }
 }
@@ -81,4 +85,19 @@ export function missingMonths(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'
     m++; if (m > 12) { m = 1; y++ }
   }
   return out
+}
+
+/** สรุปยอดตามโครงการ (ประเภท project) เรียงยอดมากไปน้อย */
+export function projectTotals(gifts: Pick<DonorGift, 'kind' | 'project' | 'amount' | 'deleted'>[]): { project: string; n: number; total: number }[] {
+  const m = new Map<string, { project: string; n: number; total: number }>()
+  for (const g of gifts) if (!g.deleted && g.kind === 'project') { const k = g.project || '(ไม่ระบุโครงการ)'; const e = m.get(k) ?? { project: k, n: 0, total: 0 }; e.n++; e.total += g.amount; m.set(k, e) }
+  return [...m.values()].sort((a, b) => b.total - a.total)
+}
+export interface GiftImport { gifts: DonorGift[]; exts: { id: string; code: string; name: string; group?: boolean; updated: number }[] }
+/** ตรวจไฟล์นำเข้า (JSON) ก่อนลงข้อมูล */
+export function checkImport(j: unknown): { ok: true; data: GiftImport } | { ok: false; error: string } {
+  const o = j as Partial<GiftImport> | null
+  if (!o || !Array.isArray(o.gifts)) return { ok: false, error: 'ไฟล์ไม่ใช่รูปแบบประวัติการถวาย' }
+  for (const g of o.gifts) if (!g || typeof g.id !== 'string' || typeof g.code !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(g.date) || !(g.amount > 0) || !GIFT_KINDS.some((k) => k.k === g.kind)) return { ok: false, error: `รายการผิดรูปแบบ: ${JSON.stringify(g).slice(0, 80)}` }
+  return { ok: true, data: { gifts: o.gifts, exts: Array.isArray(o.exts) ? o.exts : [] } }
 }

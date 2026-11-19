@@ -594,7 +594,7 @@ export interface YearPlanRow extends SharedItem { year: number; date: string; se
 export interface FuelPaid extends SharedItem { paidDate: string }
 
 /** ประเภทของการโอนถวายรายบุคคล */
-export type GiftKind = 'weekly' | 'tithe' | 'thanks' | 'building' | 'welfare' | 'loan' | 'other'
+export type GiftKind = 'weekly' | 'tithe' | 'thanks' | 'building' | 'welfare' | 'project' | 'loan' | 'other'
 /** ประวัติการโอนถวายรายบุคคล (เห็นเฉพาะแอดมิน) — เก็บแยกจากบัญชีรายรับ ไม่เปลี่ยนยอดบัญชี · อ้างผู้ถวายด้วยรหัสสมาชิก */
 export interface DonorGift extends SharedItem {
   /** รหัสสมาชิก เช่น 1357 */
@@ -607,6 +607,10 @@ export interface DonorGift extends SharedItem {
   /** เลขที่รายการในสลิป (ใช้กันบันทึกซ้ำ) */
   ref?: string
   note?: string
+  /** ชื่อโครงการ/งานพิเศษ (ใช้กับประเภท project เช่น งานขอบคุณพระเจ้า คริสต์มาส ค่าแอร์) */
+  project?: string
+  /** แหล่งที่มา: xlsx = นำเข้าจากไฟล์บันทึกเดิม (ไม่มีเลขที่รายการ) · ไม่มี = จากสลิป */
+  src?: 'xlsx'
 }
 
 /** ผู้ถวายภายนอก (ยังไม่มีรหัสสมาชิก): รหัสภายในขึ้นต้น X · เป็นบุคคลหรือกลุ่ม (เช่น กลุ่มอนุชน) · ย้ายเป็นรหัสจริงภายหลังได้ */

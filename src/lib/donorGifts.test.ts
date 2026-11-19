@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
+import { checkImport, projectTotals, guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
 
 // ข้อมูลทดสอบเป็นค่าสมมติทั้งหมด (ห้ามใส่ข้อมูลสลิป/ผู้ถวายจริงในรีโปสาธารณะ)
 describe('donorGifts', () => {
@@ -38,5 +38,15 @@ describe('donorGifts', () => {
   it('สวัสดิการผู้รับใช้', () => {
     expect(parseGiftLines('2030-01-06 10:00 10,000 welfare', '0000').rows[0].kind).toBe('welfare')
     expect(parseGiftLines('2030-01-06 10:00 10,000 สวัสดิการ', '0000').rows[0].kind).toBe('welfare')
+  })
+  it('โครงการ: parse #ชื่อ และสรุปยอด', () => {
+    const r = parseGiftLines('2030-01-06 10:00 1,000 project #ค่าแอร์ ร่วมซื้อ', '0000').rows[0]
+    expect(r).toMatchObject({ kind: 'project', project: 'ค่าแอร์', note: 'ร่วมซื้อ' })
+    expect(projectTotals([{ kind: 'project', project: 'ค่าแอร์', amount: 100 }, { kind: 'project', project: 'ค่าแอร์', amount: 50 }, { kind: 'tithe', amount: 9 }])).toEqual([{ project: 'ค่าแอร์', n: 2, total: 150 }])
+  })
+  it('ตรวจไฟล์นำเข้า', () => {
+    expect(checkImport({ gifts: [{ id: 'a', code: 'X1', date: '2030-01-06', amount: 100, kind: 'tithe' }] }).ok).toBe(true)
+    expect(checkImport({ gifts: [{ id: 'a', code: 'X1', date: '2030-1-6', amount: 100, kind: 'tithe' }] }).ok).toBe(false)
+    expect(checkImport({}).ok).toBe(false)
   })
 })
