@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import KindBar from './KindBar'
 import MemberAvatar from './MemberAvatar'
 import { GIFT_KINDS, filterGifts, rankDonors, type RankKey } from '../lib/donorGifts'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
@@ -14,7 +15,8 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
   const today = todayISO()
   const all = useMemo(() => gifts.filter((g) => !g.deleted), [gifts])
   const year = '' // ตัวกรองอื่น (ปี กลุ่ม สถานะ เก่า/ใหม่ ประเภท) ปิดไว้ก่อน รอกำหนดเพิ่ม
-  const kinds: GiftKind[] = GIFT_KINDS.filter((k) => k.k !== 'loan').map((k) => k.k)
+  const [kind, setKind] = useState<GiftKind | ''>('') // เลือกดูแยกประเภท · ว่าง = ทั้งหมด (ไม่รวมให้ยืม)
+  const kinds: GiftKind[] = kind ? [kind] : GIFT_KINDS.filter((k) => k.k !== 'loan').map((k) => k.k)
   const group = '', status = ''
   const age = '' as '' | 'new' | 'old'
   const [sort, setSort] = useState<RankKey>('total')
@@ -32,7 +34,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
     if (age && (!m?.since || (age === 'new') !== (m.since >= yearAgo))) return false
     return true
   }
-  const fl = useMemo(() => filterGifts(all, { ...(kinds.length ? { kinds } : {}), ...(year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {}) }).filter((g) => pass(g.code)), [all, kinds, year, group, status, age, byCode]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fl = useMemo(() => filterGifts(all, { ...(kinds.length ? { kinds } : {}), ...(year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {}) }).filter((g) => pass(g.code)), [all, kind, year, group, status, age, byCode]) // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => { const t = q.trim().toLowerCase(); const r = rankDonors(fl, nameOf, sort, desc); return t ? r.filter((x) => x.code.toLowerCase().includes(t) || x.name.toLowerCase().includes(t)) : r }, [fl, nameOf, sort, desc, q])
   const total = fl.reduce((s, g) => s + g.amount, 0)
   const maxTotal = Math.max(1, ...rows.map((r) => r.total))
@@ -41,6 +43,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
 
   return (
     <div className="stack">
+      <KindBar gifts={all} value={kind} onChange={setKind} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <input id="bd-q" className="input" aria-label="ค้นชื่อหรือรหัส" placeholder="🔎 ค้นชื่อ/รหัส" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 0 }} />
         <select id="bd-sort" className="input" aria-label="เรียงตาม" value={sort} onChange={(e) => { setSort(e.target.value as RankKey); setDesc(true) }} style={{ minWidth: 0 }}>
