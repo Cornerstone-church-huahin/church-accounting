@@ -35,4 +35,8 @@ describe('donorGifts', () => {
     const g = [{ date: '2030-01-06', kind: 'thanks' as const }, { date: '2030-01-20', kind: 'thanks' as const }]
     expect(missingWeeks(g, '2030-01-21')).toEqual(['2030-01-13'])
   })
+  it('สวัสดิการผู้รับใช้', () => {
+    expect(parseGiftLines('2030-01-06 10:00 10,000 welfare', '0000').rows[0].kind).toBe('welfare')
+    expect(parseGiftLines('2030-01-06 10:00 10,000 สวัสดิการ', '0000').rows[0].kind).toBe('welfare')
+  })
 })
