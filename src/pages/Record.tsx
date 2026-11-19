@@ -94,7 +94,7 @@ export default function Record({ year, onBack, readOnly, boardOnly }: { year: nu
       {onBack && <button type="button" className="mini no-print record__back" onClick={onBack} aria-label="กลับหน้างานเหรัญญิก">‹ กลับ</button>}
       <WeekBar sunday={sunday} sundays={sundays} onChange={setSunday} />
       {(!readOnly || !boardOnly) && <section className="record__sec record__sec--in" aria-label="บันทึกรายรับ" data-sheet="in" data-sel={sel('in')}>
-        <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small>{!readOnly && <SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" />}</h2>
+        <h2 className="record__h record__h--in">รายรับ <small>ใบบันทึกการถวาย</small>{!readOnly && <span id="rec-in-tools" className="rec-hdrtools no-print" />}{!readOnly && <SheetTick on={on('in')} onChange={(v) => tick('in', v)} label="รายรับ" />}</h2>
         <Receive key={`in-${year}`} year={year} weekCtl={week} hideWeekBar compact fourTools={!readOnly} view={readOnly} />
       </section>}
       {(!readOnly || !boardOnly) && <section className="record__sec record__sec--out" aria-label="บันทึกรายจ่าย" data-sheet="out" data-sel={sel('out')}>

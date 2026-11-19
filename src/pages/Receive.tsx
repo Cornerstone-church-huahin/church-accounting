@@ -18,6 +18,7 @@ import { UNKNOWN_INCOME_LABEL, UNSORTED, type IncomeEntry, type SheetFile } from
 import { IncomeForm, type SlipInit } from './Income'
 import SheetFlow from './SheetFlow'
 import CaptureBar from '../components/CaptureBar'
+import { createPortal } from 'react-dom'
 import SheetEntryList from '../components/SheetEntryList'
 import { IncomeRowEditor } from '../components/RowEditors'
 import AttachViewer from '../components/AttachViewer'
@@ -68,6 +69,8 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
   const [form, setForm] = useState<{ entry: IncomeEntry | null; preset: 'manual' | 'slip' } | null>(null)
   const [maskFor, setMaskFor] = useState<IncomeEntry | null>(null)
   const [slipList, setSlipList] = useState(false)
+  const [hdrSlot, setHdrSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => { setHdrSlot(document.getElementById('rec-in-tools')) }, [])
   const canWrite = can(role, 'income')
 
   const paperRef = useRef<HTMLDivElement>(null)
@@ -201,10 +204,19 @@ export default function Receive({ year, fund, view, weekCtl, hideWeekBar, compac
         {!fid && !compact && <SheetEntryList title="รายการในใบนี้ (เรียงตามวันที่)" canWrite={canWrite} items={weekSheet.map((x) => ({ id: x.id, date: x.date, updated: x.updated, title: typeName(x.typeId) + (fid && x.note ? ` · ${x.note}` : ''), sub: `${x.method === 'transfer' ? 'โอน' : 'เงินสด'}${x.count ? ` · ${x.count} ${x.method === 'transfer' ? 'ครั้ง' : 'ซอง'}` : ''}${x.photos?.length ? ` · 📎 ${x.photos.length} รูป` : ''}`, amount: x.amount }))}
           onEdit={(id) => { const x = weekSheet.find((e) => e.id === id); if (!x) return; if (kindOf(x) === 'slip') setForm({ entry: x, preset: 'slip' }); else setRowEdit({ entry: x }) }} onDelete={(id) => { const x = weekSheet.find((e) => e.id === id); if (x) delEntry(x) }} />}
       </div>
-      {compact && canWrite && !fid && (
-        <div className="no-print" style={{ margin: '8px 0' }}>
-          <CaptureBar noun="สลิป" onFile={setSlipFile} extra={<button type="button" className="act-btn" onClick={() => setSlipList(true)} aria-label="แชร์สลิปปิดชื่อ"><span className="act-btn__ico" aria-hidden="true">🔒</span><span>แชร์สลิป (ปิดชื่อ){slips.filter((x) => x.slip).length ? ` · ${slips.filter((x) => x.slip).length}` : ''}</span></button>} />
-        </div>)}
+      {compact && canWrite && !fid && (() => {
+        const nSlip = slips.filter((x) => x.slip).length
+        const pickSlip = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setSlipFile(f) }
+        // ไอคอนเล็ก 3 ปุ่มอยู่บนแถบหัว "รายรับ" (1 แนบสลิป · 2 ถ่ายรูปสลิป · 3 แชร์สลิปปิดชื่อ)
+        const tools = (
+          <>
+            <label className="rec-ico" title="แนบสลิป" aria-label="แนบสลิป"><span aria-hidden="true">📎</span><input type="file" accept="image/*" aria-label="แนบไฟล์สลิป" style={{ display: 'none' }} onChange={pickSlip} /></label>
+            <label className="rec-ico" title="ถ่ายรูปสลิป" aria-label="ถ่ายรูปสลิป"><span aria-hidden="true">📷</span><input type="file" accept="image/*" capture="environment" aria-label="ถ่ายรูปสลิป" style={{ display: 'none' }} onChange={pickSlip} /></label>
+            <button type="button" className="rec-ico" title="แชร์สลิป (ปิดชื่อ)" aria-label="แชร์สลิปปิดชื่อ" onClick={() => setSlipList(true)}><span aria-hidden="true">🔒</span>{nSlip > 0 && <b className="rec-ico__n">{nSlip}</b>}</button>
+          </>
+        )
+        return hdrSlot ? createPortal(tools, hdrSlot) : <div className="no-print rec-hdrtools" style={{ margin: '8px 0' }}>{tools}</div>
+      })()}
       {slipList && <SlipSharePicker entries={allEnt.filter((x) => kindOf(x) === 'slip' && !!x.slip)} sunday={sunday} typeName={typeName} donorOf={donorOf} onOpen={(x) => { setSlipList(false); setMaskFor(x) }} onClose={() => setSlipList(false)} />}
       {scanFiles && <IncomeScan files={scanFiles} from={addDays(sunday, -6)} to={sunday} sunday={sunday} year={year} types={scopeTypes} existing={inc.items} onClose={() => setScanFiles(null)} onSave={(es) => { const ok = putInc(es); if (ok) goWeek(es[0].date); return ok }} />}
       {viewAtt && <AttachViewer title={`${viewAtt.note || fmtDate(viewAtt.date)} · ${fmtBaht(viewAtt.amount)} บาท`} files={[...(viewAtt.slip ? [viewAtt.slip] : []), ...(viewAtt.photos ?? [])]} onClose={() => setViewAtt(null)} />}
