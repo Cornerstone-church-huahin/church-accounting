@@ -20,7 +20,13 @@ const kindOfWord = (w: string): GiftKind | null => { for (const [re, k] of WORDS
 /** แปลงข้อความวางหลายบรรทัด: "2026-05-24 16:55 300 weekly 0123456789ABC หมายเหตุ" (วันที่ เวลา จำนวน ประเภท [เลขที่รายการ] [หมายเหตุ]) */
 export function parseGiftLines(text: string, code: string): { rows: Omit<DonorGift, 'id' | 'updated'>[]; errors: string[] } {
   const rows: Omit<DonorGift, 'id' | 'updated'>[] = [], errors: string[] = []
-  text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).forEach((line, i) => {
+  // บรรทัดที่ไม่ได้ขึ้นต้นด้วยวันที่ = ส่วนที่ถูกตัดขึ้นบรรทัดใหม่ตอนคัดลอก (เช่น เลขที่รายการตกลงมาบรรทัดถัดไป) ให้ต่อกับบรรทัดก่อนหน้า
+  const lines: string[] = []
+  for (const l of text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)) {
+    if (/^\d{4}-\d{2}-\d{2}\b/.test(l) || lines.length === 0) lines.push(l)
+    else lines[lines.length - 1] += ` ${l}`
+  }
+  lines.forEach((line, i) => {
     const m = line.match(/^(\d{4}-\d{2}-\d{2})\s+(?:(\d{1,2}:\d{2})\s+)?([\d,]+(?:\.\d{1,2})?)\s+(\S+)(?:\s+([0-9A-Za-z]{10,}))?(?:\s+(.*))?$/)
     if (!m) { errors.push(`บรรทัด ${i + 1}: รูปแบบไม่ถูกต้อง`); return }
     const amount = parseBaht(m[3]), kind = kindOfWord(m[4])
