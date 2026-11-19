@@ -491,7 +491,7 @@ function ExpenseFlow({ year, fundId, channel, initialFile, exp, onClose }: { yea
   useEffect(() => { if (initialFile) void choose(initialFile) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (stage === 'form') return (
     <>
-      {msg && <p className="role-toast" role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 100 }}>{msg}</p>}
+      {msg && <p className="role-toast" role="alert" onClick={() => setMsg('')} style={{ position: 'fixed', top: 8, left: 8, right: 8, bottom: 'auto', transform: 'none', maxWidth: 'none', borderRadius: 16, zIndex: 100 }}>{msg}</p>}
       <ExpenseForm year={year} fundId={fundId} entry={null} channel={channel} exp={exp} onClose={onClose} init={init ?? undefined} />
     </>
   )

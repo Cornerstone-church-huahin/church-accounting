@@ -8,6 +8,9 @@ export interface MaskBoxes { crop: Box; name: Box | null; qr: Box | null }
  */
 export async function renderMaskedSlip(blob: Blob, b: MaskBoxes, label: string): Promise<Blob> {
   const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' })
+  // กรอบตัดที่ผิดปกติ (เล็ก/แคบ/ยาวมาก) ใช้ทั้งรูปแทน กันได้รูปตัดเศษ
+  const bad = b.crop.w < bmp.width * 0.3 || b.crop.h < bmp.height * 0.12 || b.crop.h / Math.max(1, b.crop.w) > 3
+  if (bad) b = { crop: { x: 0, y: 0, w: bmp.width, h: bmp.height }, name: b.name, qr: b.qr }
   const cx = Math.max(0, Math.round(b.crop.x)), cy = Math.max(0, Math.round(b.crop.y))
   const cw = Math.max(1, Math.min(bmp.width - cx, Math.round(b.crop.w))), ch = Math.max(1, Math.min(bmp.height - cy, Math.round(b.crop.h)))
   const c = document.createElement('canvas'); c.width = cw; c.height = ch
