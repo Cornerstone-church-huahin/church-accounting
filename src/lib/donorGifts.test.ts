@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkImport, projectTotals, guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
+import { parseImportText, checkImport, projectTotals, guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
 
 // ข้อมูลทดสอบเป็นค่าสมมติทั้งหมด (ห้ามใส่ข้อมูลสลิป/ผู้ถวายจริงในรีโปสาธารณะ)
 describe('donorGifts', () => {
@@ -48,5 +48,11 @@ describe('donorGifts', () => {
     expect(checkImport({ gifts: [{ id: 'a', code: 'X1', date: '2030-01-06', amount: 100, kind: 'tithe' }] }).ok).toBe(true)
     expect(checkImport({ gifts: [{ id: 'a', code: 'X1', date: '2030-1-6', amount: 100, kind: 'tithe' }] }).ok).toBe(false)
     expect(checkImport({}).ok).toBe(false)
+  })
+  it('นำเข้าแบบวางทีละบรรทัด', () => {
+    const r = parseImportText('EXT|X005|ไม่ระบุชื่อ\n0000|2030-01-06|1,000|tithe||\n0000|2030-01-06|1,000|tithe||\n0000|2030-02-06|500|project|ค่าแอร์|ร่วมซื้อ')
+    expect(r.ok).toBe(true)
+    if (r.ok) { expect(r.data.gifts.map((g) => g.id)).toEqual(['dg:0000:x:2030-01-06:100000:1', 'dg:0000:x:2030-01-06:100000:2', 'dg:0000:x:2030-02-06:50000:1']); expect(r.data.gifts[2]).toMatchObject({ kind: 'project', project: 'ค่าแอร์' }); expect(r.data.exts[0].code).toBe('X005') }
+    expect(parseImportText('0000|2030-01-0').ok).toBe(false)
   })
 })
