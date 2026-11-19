@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import KindBar from './KindBar'
 import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import { GIFT_KINDS, filterGifts, kindInfo, rankDonors, type RankKey } from '../lib/donorGifts'
@@ -20,7 +21,8 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
   const years = useMemo(() => [...new Set(all.map((g) => g.date.slice(0, 4)))].sort().reverse(), [all])
   // ตัวกรองช่วงเวลา/ประเภท/โครงการ ปิดไว้ก่อน (ทุกช่วง · ทุกประเภทยกเว้นให้ยืม) รอกำหนดเพิ่ม
   const period = 'all' as Period, year = years[0] ?? today.slice(0, 4), month = today.slice(0, 7), from = '', to = ''
-  const kinds: GiftKind[] = GIFT_KINDS.filter((k) => k.k !== 'loan').map((k) => k.k)
+  const [kind, setKind] = useState<GiftKind | ''>('') // เลือกดูแยกประเภท · ว่าง = ทั้งหมด (ไม่รวมให้ยืม)
+  const kinds: GiftKind[] = useMemo(() => (kind ? [kind] : GIFT_KINDS.filter((k) => k.k !== 'loan').map((k) => k.k)), [kind])
   const project = ''
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<RankKey>('total')
@@ -42,6 +44,7 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
 
   return (
     <div className="stack">
+      <KindBar gifts={all} value={kind} onChange={setKind} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <input id="rp-q" className="input" aria-label="ค้นชื่อหรือรหัส" placeholder="🔎 ค้นชื่อ/รหัส" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 0 }} />
         <select id="rp-sort" className="input" aria-label="เรียงตาม" value={sort} onChange={(e) => setSort(e.target.value as RankKey)} style={{ minWidth: 0 }}>
