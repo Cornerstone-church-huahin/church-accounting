@@ -18,6 +18,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
   const group = '', status = ''
   const age = '' as '' | 'new' | 'old'
   const [sort, setSort] = useState<RankKey>('total')
+  const [q, setQ] = useState('')
   const [desc, setDesc] = useState(true)
   const [top, setTop] = useState(30)
 
@@ -32,7 +33,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
     return true
   }
   const fl = useMemo(() => filterGifts(all, { ...(kinds.length ? { kinds } : {}), ...(year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {}) }).filter((g) => pass(g.code)), [all, kinds, year, group, status, age, byCode]) // eslint-disable-line react-hooks/exhaustive-deps
-  const rows = useMemo(() => rankDonors(fl, nameOf, sort, desc), [fl, nameOf, sort, desc])
+  const rows = useMemo(() => { const t = q.trim().toLowerCase(); const r = rankDonors(fl, nameOf, sort, desc); return t ? r.filter((x) => x.code.toLowerCase().includes(t) || x.name.toLowerCase().includes(t)) : r }, [fl, nameOf, sort, desc, q])
   const total = fl.reduce((s, g) => s + g.amount, 0)
   const maxTotal = Math.max(1, ...rows.map((r) => r.total))
   const maxN = Math.max(1, ...rows.map((r) => r.n))
@@ -40,11 +41,11 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
 
   return (
     <div className="stack">
-      <div className="field" style={{ margin: 0 }}>
-        <label htmlFor="bd-sort">เรียงตาม (มาก → น้อย)</label>
-        <select id="bd-sort" className="input" value={sort} onChange={(e) => { setSort(e.target.value as RankKey); setDesc(true) }}>
-          <option value="total">จำนวนเงิน</option>
-          <option value="count">จำนวนครั้ง</option>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <input id="bd-q" className="input" aria-label="ค้นชื่อหรือรหัส" placeholder="🔎 ค้นชื่อ/รหัส" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 0 }} />
+        <select id="bd-sort" className="input" aria-label="เรียงตาม" value={sort} onChange={(e) => { setSort(e.target.value as RankKey); setDesc(true) }} style={{ minWidth: 0 }}>
+          <option value="total">จำนวนเงิน (มาก → น้อย)</option>
+          <option value="count">จำนวนครั้ง (มาก → น้อย)</option>
         </select>
       </div>
 
