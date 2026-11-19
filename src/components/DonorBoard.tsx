@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
-import { GIFT_KINDS, filterGifts, kindInfo, rankDonors, type RankKey } from '../lib/donorGifts'
+import { GIFT_KINDS, filterGifts, rankDonors, type RankKey } from '../lib/donorGifts'
 import { fmtBaht, fmtDate, todayISO } from '../lib/money'
 import type { ChurchMember, DonorGift, GiftKind } from '../lib/types'
 
 const NAVY = '#14264a'
 const MEDAL = ['🥇', '🥈', '🥉']
+/** ยอดใหญ่ย่อเป็น ล้าน ให้พอดีช่อง */
+const short = (satang: number) => (satang >= 100_000_000 ? `${(satang / 100_000_000).toFixed(2)} ล้าน` : fmtBaht(satang, { dec: false }))
 
 /** กระดานผู้ถวาย: การ์ดสมาชิก (รูป ชื่อ จำนวนครั้ง ยอด แถบสัดส่วน %) เรียงมากสุดไว้บนสุด · เลือกดูตามกลุ่ม สถานะ เก่า/ใหม่ ช่วงเวลา ประเภท */
 export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: DonorGift[]; members: ChurchMember[]; nameOf: (c: string) => string; onOpen: (code: string) => void }) {
@@ -47,35 +49,33 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', fmtBaht(total, { dec: false }), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{v}</div></div>)}
+        {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', short(total), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{v}</div></div>)}
       </div>
 
       {shown.map((r, i) => {
         const m = byCode.get(r.code)
         const pct = total ? (r.total / total) * 100 : 0
-        const big = i < 3 && sort !== 'last'
         return (
-          <button key={r.code} type="button" onClick={() => onOpen(r.code)} className="card" style={{ display: 'block', width: '100%', textAlign: 'left', margin: 0, padding: big ? '10px 12px' : '8px 12px', borderLeft: `6px solid ${i === 0 ? '#c99a14' : i < 3 ? '#8fa6d6' : '#d6dbe8'}` }}>
-            <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ width: 28, textAlign: 'center', fontWeight: 800 }}>{MEDAL[i] ?? i + 1}</span>
-              <MemberAvatar path={m?.photoPath} name={r.name} size={big ? 60 : 44} />
+          <button key={r.code} type="button" onClick={() => onOpen(r.code)} className="card" style={{ display: 'block', width: '100%', textAlign: 'left', margin: 0, padding: '6px 10px', borderLeft: `5px solid ${i === 0 ? '#c99a14' : i < 3 ? '#8fa6d6' : '#d6dbe8'}` }}>
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ width: 24, textAlign: 'center', fontWeight: 800, fontSize: '0.85rem', flex: 'none' }}>{MEDAL[i] ?? i + 1}</span>
+              <MemberAvatar path={m?.photoPath} name={r.name} size={40} />
               <span style={{ flex: 1, minWidth: 0 }}>
-                <b style={{ fontSize: big ? '1.1rem' : '1rem' }}>{r.name}</b>
-                <br /><small className="muted">{m ? `${m.group ?? ''}${m.status ? ` · ${m.status}` : ''}` : 'ผู้ถวายภายนอก'} · ล่าสุด {fmtDate(r.last)}</small>
+                <b style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}{m?.nick ? ` (${m.nick})` : ''}</b>
+                <small className="muted" style={{ display: 'block', fontSize: '0.74rem', lineHeight: 1.2 }}>{r.n} ครั้ง · ล่าสุด {fmtDate(r.last)}</small>
               </span>
-              <span style={{ textAlign: 'right' }}><b className="num" style={{ fontSize: big ? '1.2rem' : '1.05rem' }}>{fmtBaht(r.total, { dec: false })}</b><br /><small>{r.n} ครั้ง</small></span>
+              <span style={{ textAlign: 'right', flex: 'none' }}><b className="num" style={{ fontSize: '0.98rem' }}>{fmtBaht(r.total, { dec: false })}</b><small style={{ display: 'block', fontSize: '0.72rem' }}>{pct.toFixed(1)}%</small></span>
             </span>
-            <span style={{ display: 'grid', gap: 3, marginTop: 6 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><small style={{ width: 62 }}>ยอด {pct.toFixed(1)}%</small><span style={{ flex: 1, background: '#eef0f5', borderRadius: 6, height: 10 }}><span style={{ display: 'block', width: `${Math.max(2, (r.total / maxTotal) * 100)}%`, height: '100%', background: '#2f8f5b', borderRadius: 6 }} /></span></span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><small style={{ width: 62 }}>ครั้ง</small><span style={{ flex: 1, background: '#eef0f5', borderRadius: 6, height: 10 }}><span style={{ display: 'block', width: `${Math.max(2, (r.n / maxN) * 100)}%`, height: '100%', background: '#3b6fd8', borderRadius: 6 }} /></span></span>
-              <span style={{ display: 'flex', height: 8, borderRadius: 6, overflow: 'hidden' }} aria-label="สัดส่วนประเภท">{Object.entries(r.byKind).map(([k, v]) => <span key={k} title={`${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`} style={{ width: `${((v ?? 0) / r.total) * 100}%`, background: kindInfo(k as GiftKind).color }} />)}</span>
+            <span style={{ display: 'grid', gap: 2, marginTop: 4 }}>
+              <span style={{ background: '#eef0f5', borderRadius: 4, height: 5, display: 'block' }} aria-label="ยอดเทียบอันดับ 1"><span style={{ display: 'block', width: `${Math.max(2, (r.total / maxTotal) * 100)}%`, height: '100%', background: '#2f8f5b', borderRadius: 4 }} /></span>
+              <span style={{ background: '#eef0f5', borderRadius: 4, height: 5, display: 'block' }} aria-label="จำนวนครั้งเทียบสูงสุด"><span style={{ display: 'block', width: `${Math.max(2, (r.n / maxN) * 100)}%`, height: '100%', background: '#3b6fd8', borderRadius: 4 }} /></span>
             </span>
           </button>
         )
       })}
       {rows.length === 0 && <p className="empty">ไม่มีข้อมูลตามที่เลือก</p>}
       {rows.length > top && <button type="button" className="btn" onClick={() => setTop(top + 30)}>แสดงเพิ่ม (อีก {rows.length - top} คน)</button>}
-      <p className="small muted">แถบเขียว = สัดส่วนยอดเทียบอันดับ 1 · แถบฟ้า = จำนวนครั้ง · แถบสีล่าง = สัดส่วนประเภทที่ถวาย · แตะการ์ดเพื่อเปิดประวัติรายคน</p>
+      <p className="small muted">แถบเขียว = ยอดเทียบอันดับ 1 · แถบฟ้า = จำนวนครั้งเทียบสูงสุด · % = สัดส่วนของยอดรวม · แตะการ์ดเพื่อเปิดประวัติรายคน</p>
     </div>
   )
 }
