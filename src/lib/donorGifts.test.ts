@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseImportText, checkImport, projectTotals, guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
+import { filterGifts, rankDonors, parseImportText, checkImport, projectTotals, guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
 
 // ข้อมูลทดสอบเป็นค่าสมมติทั้งหมด (ห้ามใส่ข้อมูลสลิป/ผู้ถวายจริงในรีโปสาธารณะ)
 describe('donorGifts', () => {
@@ -54,5 +54,18 @@ describe('donorGifts', () => {
     expect(r.ok).toBe(true)
     if (r.ok) { expect(r.data.gifts.map((g) => g.id)).toEqual(['dg:0000:x:2030-01-06:100000:1', 'dg:0000:x:2030-01-06:100000:2', 'dg:0000:x:2030-02-06:50000:1']); expect(r.data.gifts[2]).toMatchObject({ kind: 'project', project: 'ค่าแอร์' }); expect(r.data.exts[0].code).toBe('X005') }
     expect(parseImportText('0000|2030-01-0').ok).toBe(false)
+  })
+  it('กรองและจัดอันดับผู้ถวาย', () => {
+    const g = [
+      { code: 'A', date: '2030-01-06', amount: 100, kind: 'weekly' as const }, { code: 'A', date: '2030-02-06', amount: 100, kind: 'weekly' as const },
+      { code: 'B', date: '2030-01-10', amount: 900, kind: 'tithe' as const }, { code: 'C', date: '2030-03-01', amount: 50, kind: 'thanks' as const },
+    ]
+    const nm = (c: string) => `ชื่อ${c}`
+    expect(rankDonors(g, nm, 'total').map((r) => r.code)).toEqual(['B', 'A', 'C'])
+    expect(rankDonors(g, nm, 'count').map((r) => r.code)[0]).toBe('A')
+    expect(rankDonors(g, nm, 'last').map((r) => r.code)).toEqual(['C', 'A', 'B'])
+    expect(rankDonors(g, nm, 'total', false).map((r) => r.code)).toEqual(['C', 'A', 'B'])
+    expect(filterGifts(g, { from: '2030-01-07', to: '2030-02-28' }).map((x) => x.code).sort()).toEqual(['A', 'B'])
+    expect(filterGifts(g, { kinds: ['tithe'] })).toHaveLength(1)
   })
 })
