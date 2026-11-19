@@ -69,7 +69,7 @@ export function findCardBox(gray: Uint8ClampedArray, w: number, h: number): Box 
   for (let y = y0; y <= y1; y++) {
     const on = rowFrac(y) > 0.4
     if (on && cur < 0) cur = y
-    if ((!on || y === y1) && cur >= 0) { const end = on ? y : y - 1; if (!best || end - cur > best[1] - best[0]) best = [cur, end]; cur = -1 }
+    if ((!on || y === y1) && cur >= 0) { const end = on ? y : y - 1; if (end - cur >= h * 0.15) best = [cur, end]; cur = -1 } // เลือกการ์ดล่างสุด (สลิปใหม่สุดในแชต) ไม่ใช่อันที่สูงสุด
   }
   if (!best || best[1] - best[0] < h * 0.15) return null
   const colFrac = (x: number) => { let c = 0; for (let y = best![0]; y <= best![1]; y++) if (diff(y * w + x)) c++; return c / (best![1] - best![0] + 1) }
