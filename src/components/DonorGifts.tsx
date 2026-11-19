@@ -4,7 +4,7 @@ import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import { can } from '../lib/access'
 import { useChurchMembers, useDonorGifts, useIncome, useLoans } from '../lib/data'
-import { GIFT_KINDS, giftId, guessKind, kindInfo, missingWeeks, parseGiftLines } from '../lib/donorGifts'
+import { GIFT_KINDS, giftId, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, monthName, todayISO, weekRange } from '../lib/money'
 import type { DonorGift, GiftKind } from '../lib/types'
@@ -42,7 +42,8 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const lent = mine.filter((g) => g.kind === 'loan')
   const sum = (xs: DonorGift[]) => xs.reduce((s, x) => s + x.amount, 0)
   const m = code ? memberOf(code) : undefined
-  const miss = code ? missingWeeks(mine) : []
+  const monthly = code ? isMonthlyGiver(mine) : false
+  const miss = code ? (monthly ? missingMonths(mine) : missingWeeks(mine)) : []
   const refs = new Set(income.items.filter((x) => !x.deleted && x.ref).map((x) => x.ref as string))
   const inLedger = (g: DonorGift) => (g.kind === 'loan'
     ? loans.items.some((l) => !l.deleted && l.lender.kind === 'person' && l.principal === g.amount && l.date === g.date)
@@ -116,8 +117,8 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
 
           {miss.length > 0 && (
             <>
-              <h3 style={{ marginTop: 12, color: '#c4332a' }}>⚠ สัปดาห์ที่ไม่พบสลิปถวายประจำ (ประจำสัปดาห์/สิบลด) ({miss.length})</h3>
-              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{[...miss].reverse().map((d) => <span key={d} className="small" style={{ background: '#fdecea', color: '#a1281f', borderRadius: 999, padding: '2px 10px' }}>{weekRange(d)}</span>)}</div>
+              <h3 style={{ marginTop: 12, color: '#c4332a' }}>⚠ {monthly ? 'เดือน' : 'สัปดาห์'}ที่ไม่พบสลิปถวายประจำ (ประจำสัปดาห์/สิบลด) ({miss.length})</h3>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{[...miss].reverse().map((d) => <span key={d} className="small" style={{ background: '#fdecea', color: '#a1281f', borderRadius: 999, padding: '2px 10px' }}>{monthly ? `${monthName(Number(d.slice(5)))} ${be(Number(d.slice(0, 4)))}` : weekRange(d)}</span>)}</div>
               <p className="small muted">อาจถวายเงินสดหรือยังไม่ได้ส่งสลิปมา</p>
             </>
           )}

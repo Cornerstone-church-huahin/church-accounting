@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { guessKind, missingWeeks, parseGiftLines } from './donorGifts'
+import { guessKind, isMonthlyGiver, missingMonths, missingWeeks, parseGiftLines } from './donorGifts'
 
 // ข้อมูลทดสอบเป็นค่าสมมติทั้งหมด (ห้ามใส่ข้อมูลสลิป/ผู้ถวายจริงในรีโปสาธารณะ)
 describe('donorGifts', () => {
@@ -23,5 +23,12 @@ describe('donorGifts', () => {
   it('missingWeeks: อาทิตย์ที่ไม่มีประจำสัปดาห์', () => {
     const g = [{ date: '2030-01-06', kind: 'weekly' as const }, { date: '2030-01-20', kind: 'weekly' as const }, { date: '2030-01-27', kind: 'thanks' as const }]
     expect(missingWeeks(g, '2030-01-28')).toEqual(['2030-01-13', '2030-01-27'])
+  })
+  it('ผู้ถวายรายเดือน: ตรวจเป็นเดือน', () => {
+    const g = ['2030-01-31', '2030-02-28', '2030-04-30'].map((date) => ({ date, kind: 'tithe' as const }))
+    expect(isMonthlyGiver(g)).toBe(true)
+    expect(missingMonths(g, '2030-05-10')).toEqual(['2030-03'])
+    const w = ['2030-01-06', '2030-01-13', '2030-01-20', '2030-01-27'].map((date) => ({ date, kind: 'weekly' as const }))
+    expect(isMonthlyGiver(w)).toBe(false)
   })
 })
