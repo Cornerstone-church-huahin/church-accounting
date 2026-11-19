@@ -1997,3 +1997,7 @@ a.healthact { color: #b3261e; }
 .prep__tbl { font-size: .85rem; } .prep__tbl td { overflow: hidden; } .prep__tbl td.num { font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 2px; padding-right: 4px; }
 .prep__tbl td:nth-child(3) { text-align: center; padding: 4px 3px; line-height: 1.25; } .prep__tbl td:nth-child(3) b { font-size: .8rem; white-space: nowrap; } .prep__tbl td:nth-child(3) .mini, .prep__tbl td:nth-child(3) .btn { font-size: .75rem; padding: 1px 6px; max-width: 100%; }
 .prep__tbl td:nth-child(2) { line-height: 1.25; word-break: break-word; }
+/* ไอคอนเล็กบนแถบหัว รายรับ: แนบสลิป · ถ่ายรูปสลิป · แชร์สลิปปิดชื่อ */
+.rec-hdrtools { display: inline-flex; gap: 6px; align-items: center; margin-left: 6px; }
+.rec-ico { position: relative; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; border: 0; background: rgba(255,255,255,.92); color: #1a2b4c; font-size: 1.05rem; line-height: 1; cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.rec-ico__n { position: absolute; top: -5px; right: -5px; min-width: 1.05rem; height: 1.05rem; padding: 0 3px; border-radius: 999px; background: #c4332a; color: #fff; font-size: .68rem; display: grid; place-items: center; }
