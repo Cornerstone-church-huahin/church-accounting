@@ -14,7 +14,7 @@ type Period = 'all' | 'year' | 'month' | 'custom'
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 
 /** รายงานการถวายรายบุคคล: กรองตามช่วงเวลา/ประเภท/โครงการ/ชื่อ · เรียงตามยอด จำนวนครั้ง ชื่อ ล่าสุด · แชร์เป็น PDF/รูป/ข้อความ (แชร์ออกนอกแอปซ่อนชื่อเป็นรหัสโดยค่าเริ่มต้น) */
-export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift[]; nameOf: (c: string) => string; isExt: (c: string) => boolean }) {
+export default function DonorReport({ gifts, nameOf }: { gifts: DonorGift[]; nameOf: (c: string) => string }) {
   const church = useSettings().settings.churchName.split(' ')[0]
   const today = todayISO()
   const all = useMemo(() => gifts.filter((g) => !g.deleted), [gifts])
@@ -26,7 +26,7 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<RankKey>('total')
   const desc = true
-  const names = false // แชร์เป็นรหัสสมาชิกเสมอ (ไม่แสดงชื่อจริงออกนอกแอป)
+  const [codeOnly, setCodeOnly] = useState(false) // ติ๊ก = แสดงเฉพาะรหัส (ตัวใหญ่) ไม่แสดงชื่อ · มีผลทั้งหน้าจอและตอนแชร์
   const [msg, setMsg] = useState('')
   const refs = useRef<(HTMLDivElement | null)[]>([])
 
@@ -35,7 +35,7 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
   const fl = useMemo(() => filterGifts(all, { ...range, ...(kinds.length ? { kinds } : {}), ...(project ? { project } : {}), ...(codes ? { codes } : {}) }), [all, range.from, range.to, kinds, project, codes]) // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => rankDonors(fl, nameOf, sort, desc), [fl, nameOf, sort, desc])
   const total = fl.reduce((s, g) => s + g.amount, 0)
-  const label = (r: { code: string; name: string }) => (names ? r.name : isExt(r.code) ? `ผู้ถวายภายนอก ${r.code}` : `สมาชิก ${r.code}`)
+  const label = (r: { code: string; name: string }) => (codeOnly ? `รหัส ${r.code}` : `${r.name} (${r.code})`)
   const periodText = period === 'all' ? 'ทุกช่วงเวลา' : period === 'year' ? `ปี ${be(Number(year))}` : period === 'month' ? `${monthName(Number(month.slice(5)))} ${be(Number(month.slice(0, 4)))}` : `${from ? fmtDate(from) : 'เริ่มต้น'} – ${to ? fmtDate(to) : 'ปัจจุบัน'}`
   const kindText = !kinds.length || kinds.length === GIFT_KINDS.length ? 'ทุกประเภท' : kinds.map((k) => kindInfo(k).short).join(' · ')
   const filterText = `${periodText} · ${kindText}${project ? ` · โครงการ ${project}` : ''}${q.trim() ? ` · ค้น “${q.trim()}”` : ''}`
@@ -61,7 +61,10 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
         {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', fmtBaht(total, { dec: false }), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{v}</div></div>)}
       </div>
       {msg && <p className="note" role="status" onClick={() => setMsg('')}>{msg}</p>}
-      <div className="row no-print" style={{ gap: 6 }}><button type="button" className="mini" onClick={() => void copy()}>📤 แชร์/คัดลอกเป็นข้อความ</button></div>
+      <div className="row row--between no-print" style={{ gap: 6, alignItems: 'center' }}>
+        <button type="button" className="mini" onClick={() => void copy()}>📤 แชร์/คัดลอกเป็นข้อความ</button>
+        <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center', fontWeight: 700 }}><input type="checkbox" checked={codeOnly} onChange={(e) => setCodeOnly(e.target.checked)} style={{ width: '1.2rem', height: '1.2rem' }} /> แสดงเฉพาะรหัส (ซ่อนชื่อ)</label>
+      </div>
       <PdfTools compact mode="full" els={() => refs.current.slice(0, pages.length).filter((x): x is HTMLDivElement => !!x)} file="รายงานการถวายรายบุคคล.pdf" title="รายงานการถวายรายบุคคล" label="รายงานการถวายรายบุคคล" />
 
       {pages.map((pg, pi) => (
@@ -74,12 +77,12 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
               <div style={{ fontSize: 15, fontWeight: 700 }}>{rows.length} คน · {fl.length} ครั้ง · รวม {fmtBaht(total)} บาท{pages.length > 1 ? ` · หน้า ${pi + 1}/${pages.length}` : ''}</div>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, tableLayout: 'fixed' }}>
-              <thead><tr style={{ ...keep, background: NAVY, color: '#fff' }}><th style={{ padding: 4, width: '7%' }}>#</th><th style={{ padding: 4, textAlign: 'left', width: '40%' }}>{names ? 'ชื่อ' : 'ผู้ถวาย'}</th><th style={{ padding: 4, width: '13%' }}>ครั้ง</th><th style={{ padding: 4, width: '20%', textAlign: 'right' }}>ยอดรวม</th><th style={{ padding: 4, width: '20%' }}>ถวายล่าสุด</th></tr></thead>
+              <thead><tr style={{ ...keep, background: NAVY, color: '#fff' }}><th style={{ padding: 4, width: '7%' }}>#</th><th style={{ padding: 4, textAlign: 'left', width: '40%' }}>{codeOnly ? 'รหัสสมาชิก' : 'ผู้ถวาย'}</th><th style={{ padding: 4, width: '13%' }}>ครั้ง</th><th style={{ padding: 4, width: '20%', textAlign: 'right' }}>ยอดรวม</th><th style={{ padding: 4, width: '20%' }}>ถวายล่าสุด</th></tr></thead>
               <tbody>
                 {pg.map((r, i) => (
                   <tr key={r.code} style={{ ...keep, background: i % 2 ? '#f3f6fc' : '#fff', borderBottom: '1px solid #d6dbe8' }}>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{pi * PER + i + 1}</td>
-                    <td style={{ padding: '4px 6px', fontWeight: 700, maxWidth: 360 }}>{label(r)}<div style={{ fontWeight: 400, fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>{Object.entries(r.byKind).map(([k, v]) => `${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`).join(' · ')}</div></td>
+                    <td style={{ padding: '4px 6px', fontWeight: 700, maxWidth: 360 }}>{codeOnly ? <span style={{ fontSize: 22, letterSpacing: 1 }}>{r.code}</span> : <>{r.name} <span style={{ fontSize: 11, fontWeight: 400, color: '#555' }}>รหัส {r.code}</span></>}<div style={{ fontWeight: 400, fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>{Object.entries(r.byKind).map(([k, v]) => `${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`).join(' · ')}</div></td>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{r.n}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{fmtBaht(r.total)}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{r.last ? fmtDate(r.last) : ''}</td>
