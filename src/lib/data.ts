@@ -20,7 +20,7 @@ import { normCfg } from './schoolTimetable'
 import { planDoc, type PlanDoc } from './visitPlan'
 import { LETTER_KINDS, type LetterKindId } from './letterKinds'
 import { DEFAULT_EXPENSE_CATS, isLegacyCatId } from './expenseCats'
-import type { FuelPaid, YearPlanRow, ActTable, SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
+import type { DonorGift, FuelPaid, YearPlanRow, ActTable, SchoolCfg, SchoolDay, SchoolTeacher, TripLog, ActivityLog, CommitteeMember, AdminNote, VisitorName, VisitPlan, InviteSettings, InviteLetter, FlowTicks, ChatMsg, DocCategory, DocItem, PlanSettings, FoodPay, FoodSlot, Visit, Announcement, BankAccount, ExpenseCat, ExpenseEntry, BudgetAdj, BudgetEntry, BudgetLine, IncomeEntry, IncomeType, Round, Settings, SheetFile, StatementBatch, StatementLine, Voucher, PassbookLine, PassbookScan, CalEvent, Note, WorkTeam, WorkTerm, Meeting, Letterhead, FundDeposit, WeekClose, FundMove, Opening, Loan, Person, ChurchMember, Attendance, CheckIn, Recorder } from './types'
 
 const k = (n: string) => `acct.${n}.v1`
 
@@ -299,3 +299,6 @@ export function useAdminNotes() {
   const s = useSharedStore<AdminNote>({ localKey: k('adminnotes'), file: 'admin-notes.json', label: 'สมุดส่วนตัวแอดมิน', write: 'settings' })
   return { ...s, list: s.items }
 }
+
+/** ประวัติการโอนถวายรายบุคคล: เห็น/แก้ได้เฉพาะแอดมิน (สิทธิ์ settings) */
+export const useDonorGifts = () => useSharedStore<DonorGift>({ localKey: k('donor-gifts'), file: 'donor-gifts.json', label: 'ประวัติการโอนถวายรายบุคคล', write: 'settings' })

@@ -592,3 +592,19 @@ export interface YearPlanRow extends SharedItem { year: number; date: string; se
 
 /** บันทึกว่าจ่ายคืนค่าน้ำมันรายการอัตโนมัติ (id = รหัสรายการ fuel:...) แล้วเมื่อวันที่ */
 export interface FuelPaid extends SharedItem { paidDate: string }
+
+/** ประเภทของการโอนถวายรายบุคคล */
+export type GiftKind = 'weekly' | 'thanks' | 'building' | 'loan' | 'other'
+/** ประวัติการโอนถวายรายบุคคล (เห็นเฉพาะแอดมิน) — เก็บแยกจากบัญชีรายรับ ไม่เปลี่ยนยอดบัญชี · อ้างผู้ถวายด้วยรหัสสมาชิก */
+export interface DonorGift extends SharedItem {
+  /** รหัสสมาชิก เช่น 1357 */
+  code: string
+  date: string
+  time?: string
+  /** สตางค์ */
+  amount: number
+  kind: GiftKind
+  /** เลขที่รายการในสลิป (ใช้กันบันทึกซ้ำ) */
+  ref?: string
+  note?: string
+}
