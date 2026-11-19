@@ -120,3 +120,19 @@ export function parseImportText(text: string): { ok: true; data: GiftImport } | 
   if (!gifts.length) return { ok: false, error: 'ไม่พบรายการ' }
   return { ok: true, data: { gifts, exts } }
 }
+
+export interface GiftFilter { from?: string; to?: string; kinds?: GiftKind[]; project?: string; codes?: Set<string> }
+/** กรองรายการถวาย (วันที่ ประเภท โครงการ รายชื่อ) */
+export function filterGifts<T extends Pick<DonorGift, 'date' | 'kind' | 'project' | 'code' | 'deleted'>>(gifts: T[], f: GiftFilter): T[] {
+  return gifts.filter((g) => !g.deleted && (!f.from || g.date >= f.from) && (!f.to || g.date <= f.to) && (!f.kinds || f.kinds.includes(g.kind)) && (!f.project || g.project === f.project) && (!f.codes || f.codes.has(g.code)))
+}
+export type RankKey = 'total' | 'count' | 'name' | 'last'
+export interface RankRow { code: string; name: string; n: number; total: number; last: string; first: string; byKind: Partial<Record<GiftKind, number>> }
+/** จัดอันดับผู้ถวาย: รวมต่อคน แล้วเรียงตามยอด/จำนวนครั้ง/ชื่อ/ล่าสุด */
+export function rankDonors(gifts: Pick<DonorGift, 'code' | 'amount' | 'date' | 'kind'>[], nameOf: (c: string) => string, key: RankKey, desc = true): RankRow[] {
+  const m = new Map<string, RankRow>()
+  for (const g of gifts) { const r = m.get(g.code) ?? { code: g.code, name: nameOf(g.code), n: 0, total: 0, last: '', first: '9999', byKind: {} }; r.n++; r.total += g.amount; if (g.date > r.last) r.last = g.date; if (g.date < r.first) r.first = g.date; r.byKind[g.kind] = (r.byKind[g.kind] ?? 0) + g.amount; m.set(g.code, r) }
+  const cmp = (a: RankRow, b: RankRow) => key === 'name' ? a.name.localeCompare(b.name, 'th') : key === 'count' ? a.n - b.n || a.total - b.total : key === 'last' ? a.last.localeCompare(b.last) : a.total - b.total
+  const out = [...m.values()].sort(cmp)
+  return desc ? out.reverse() : out
+}
