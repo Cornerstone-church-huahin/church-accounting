@@ -3,6 +3,7 @@ import MemberAvatar from './MemberAvatar'
 import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import DonorReport from './DonorReport'
+import DonorBoard from './DonorBoard'
 import { can } from '../lib/access'
 import { useChurchMembers, useDonorExts, useDonorGifts, useIncome, useLoans } from '../lib/data'
 import { GIFT_KINDS, checkImport, parseImportText, giftId, projectTotals, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
@@ -23,7 +24,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const exts = useDonorExts()
   const [addExt, setAddExt] = useState(false)
   const [pasteImp, setPasteImp] = useState(false)
-  const [tab, setTab] = useState<'rec' | 'rep'>('rec')
+  const [tab, setTab] = useState<'rec' | 'mem' | 'rep'>('rec')
   const [editExt, setEditExt] = useState(false)
   const income = useIncome(year)
   const loans = useLoans()
@@ -100,11 +101,13 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
       {msg && <p className="note" role="status" onClick={() => setMsg('')}>{msg}</p>}
 
       {!code && (
-        <div className="seg seg--2 no-print" role="tablist" aria-label="หน้ารายงานโอนถวาย" style={{ marginBottom: 8 }}>
+        <div className="seg seg--3 no-print" role="tablist" aria-label="หน้ารายงานโอนถวาย" style={{ marginBottom: 8 }}>
           <button type="button" role="tab" aria-selected={tab === 'rec'} className={tab === 'rec' ? 'on' : ''} onClick={() => setTab('rec')}>✍️ บันทึก</button>
+          <button type="button" role="tab" aria-selected={tab === 'mem'} className={tab === 'mem' ? 'on' : ''} onClick={() => setTab('mem')}>👥 สมาชิก</button>
           <button type="button" role="tab" aria-selected={tab === 'rep'} className={tab === 'rep' ? 'on' : ''} onClick={() => setTab('rep')}>📊 รายงาน</button>
         </div>
       )}
+      {!code && tab === 'mem' && <DonorBoard gifts={all} members={members.items} nameOf={nameOf} onOpen={(c) => setCode(c)} />}
       {!code && tab === 'rep' && <DonorReport gifts={all} nameOf={nameOf} isExt={(c) => !memberOf(c)} />}
 
       {!code && tab === 'rec' && (
