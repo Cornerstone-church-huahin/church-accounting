@@ -62,7 +62,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
               <MemberAvatar path={m?.photoPath} name={r.name} size={40} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <b style={{ display: 'block', fontSize: '0.92rem', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}{m?.nick ? ` (${m.nick})` : ''}</b>
-                <small className="muted" style={{ display: 'block', fontSize: '0.74rem', lineHeight: 1.2 }}>{r.n} ครั้ง · ล่าสุด {fmtDate(r.last)}</small>
+                <small className="muted" style={{ display: 'block', fontSize: '0.74rem', lineHeight: 1.2 }}>รหัส {r.code} · {r.n} ครั้ง · ล่าสุด {fmtDate(r.last)}</small>
               </span>
               <span style={{ textAlign: 'right', flex: 'none' }}><b className="num" style={{ fontSize: '0.98rem' }}>{fmtBaht(r.total, { dec: false })}</b><small style={{ display: 'block', fontSize: '0.72rem' }}>{pct.toFixed(1)}%</small></span>
             </span>
