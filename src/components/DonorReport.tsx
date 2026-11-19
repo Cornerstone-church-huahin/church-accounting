@@ -9,7 +9,7 @@ import { paginate } from '../lib/paginate'
 import type { DonorGift, GiftKind } from '../lib/types'
 
 const NAVY = '#14264a'
-const PER = 30
+const PER = 16
 type Period = 'all' | 'year' | 'month' | 'custom'
 const SORTS: { k: RankKey; label: string }[] = [{ k: 'total', label: 'ยอดเงิน' }, { k: 'count', label: 'จำนวนครั้ง' }, { k: 'name', label: 'ชื่อ' }, { k: 'last', label: 'ล่าสุด' }]
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
@@ -92,13 +92,13 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
               <div style={{ fontSize: 14 }}>{filterText}</div>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{rows.length} คน · {fl.length} ครั้ง · รวม {fmtBaht(total)} บาท{pages.length > 1 ? ` · หน้า ${pi + 1}/${pages.length}` : ''}</div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
-              <thead><tr style={{ ...keep, background: NAVY, color: '#fff' }}><th style={{ padding: 4, width: '7%' }}>#</th><th style={{ padding: 4, textAlign: 'left' }}>{names ? 'ชื่อ' : 'ผู้ถวาย'}</th><th style={{ padding: 4, width: '13%' }}>ครั้ง</th><th style={{ padding: 4, width: '20%', textAlign: 'right' }}>ยอดรวม</th><th style={{ padding: 4, width: '20%' }}>ถวายล่าสุด</th></tr></thead>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, tableLayout: 'fixed' }}>
+              <thead><tr style={{ ...keep, background: NAVY, color: '#fff' }}><th style={{ padding: 4, width: '7%' }}>#</th><th style={{ padding: 4, textAlign: 'left', width: '40%' }}>{names ? 'ชื่อ' : 'ผู้ถวาย'}</th><th style={{ padding: 4, width: '13%' }}>ครั้ง</th><th style={{ padding: 4, width: '20%', textAlign: 'right' }}>ยอดรวม</th><th style={{ padding: 4, width: '20%' }}>ถวายล่าสุด</th></tr></thead>
               <tbody>
                 {pg.map((r, i) => (
                   <tr key={r.code} style={{ ...keep, background: i % 2 ? '#f3f6fc' : '#fff', borderBottom: '1px solid #d6dbe8' }}>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{pi * PER + i + 1}</td>
-                    <td style={{ padding: '4px 6px', fontWeight: 700 }}>{label(r)}<div style={{ fontWeight: 400, fontSize: 11, color: '#555' }}>{Object.entries(r.byKind).map(([k, v]) => `${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`).join(' · ')}</div></td>
+                    <td style={{ padding: '4px 6px', fontWeight: 700, maxWidth: 360 }}>{label(r)}<div style={{ fontWeight: 400, fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>{Object.entries(r.byKind).map(([k, v]) => `${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`).join(' · ')}</div></td>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{r.n}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{fmtBaht(r.total)}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{r.last ? fmtDate(r.last) : ''}</td>
