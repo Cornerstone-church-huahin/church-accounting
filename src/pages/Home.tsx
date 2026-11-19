@@ -16,6 +16,7 @@ import Adjust from './Adjust'
 import BalanceStrip from '../components/BalanceStrip'
 import WithdrawPrep from '../components/WithdrawPrep'
 import DepositPrep from '../components/DepositPrep'
+import DonorGifts from '../components/DonorGifts'
 
 export type HomeTab = 'in' | 'out' | 'adj' | 'sum' | 'wd' | 'dep' | 'rec' | 'dash' | 'tab3' | null
 type Tab = HomeTab
@@ -82,7 +83,9 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
             <button type="button" className="stepbtn exttab exttab--rec" onClick={() => setTab('rec')} aria-label="บันทึก รับและจ่ายในหน้าเดียว"><span className="stepbtn__top"><span>{REC.icon} {REC.name}</span></span><small>รับ + จ่าย + ติดบอร์ด</small></button>
             {(['wd', 'adj', 'sum', 'dep'] as const).map((k) => stepBtn(k))}
             <button type="button" className="stepbtn exttab exttab--dash" onClick={() => setTab('dash')} aria-label="แดชบอร์ด"><span className="stepbtn__top"><span>📈 แดชบอร์ด</span></span><small>ภาพรวมเงิน</small></button>
-            <button type="button" className="stepbtn exttab exttab--3" onClick={() => setTab('tab3')} aria-label="แท็บ 3"><span className="stepbtn__top"><span>📌 แท็บ 3</span></span><small>ว่างไว้ก่อน</small></button>
+            {can(role, 'settings')
+              ? <button type="button" className="stepbtn exttab exttab--3" onClick={() => setTab('tab3')} aria-label="โอนถวายรายบุคคล (แอดมิน)"><span className="stepbtn__top"><span>🙏 โอนถวาย</span></span><small>รายบุคคล · แอดมิน</small></button>
+              : <button type="button" className="stepbtn exttab exttab--3" onClick={() => setTab('tab3')} aria-label="แท็บ 3"><span className="stepbtn__top"><span>📌 แท็บ 3</span></span><small>ว่างไว้ก่อน</small></button>}
             {(['in', 'out'] as const).map((k) => stepBtn(k))}
           </div>
         </>
@@ -99,7 +102,7 @@ export default function Home({ tab: tabProp, onTab }: { tab?: HomeTab; onTab?: (
       <div className={full ? 'fullmode' : undefined}>
       {tab === 'rec' && <Record key={year} year={year} onBack={() => setTab(null)} />}
       {tab === 'dash' && <Dashboard key={year} year={year} onBack={() => setTab(null)} />}
-      {tab === 'tab3' && <section className="card" aria-label="แท็บ 3"><button type="button" className="mini no-print" onClick={() => setTab(null)} aria-label="กลับหน้างานเหรัญญิก">‹ กลับ</button><h2>📌 แท็บ 3</h2><p className="empty">ว่างไว้ก่อน — รอกำหนดหน้าที่</p></section>}
+      {tab === 'tab3' && (can(role, 'settings') ? <DonorGifts key={year} year={year} onBack={() => setTab(null)} /> : <section className="card" aria-label="แท็บ 3"><button type="button" className="mini no-print" onClick={() => setTab(null)} aria-label="กลับหน้างานเหรัญญิก">‹ กลับ</button><h2>📌 แท็บ 3</h2><p className="empty">ว่างไว้ก่อน — รอกำหนดหน้าที่</p></section>)}
       {tab === 'in' && <Receive key={year} year={year} />}
       {tab === 'adj' && <Adjust key={year} year={year} />}
       {tab === 'sum' && <Summary key={year} year={year} />}
