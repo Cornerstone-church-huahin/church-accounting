@@ -101,3 +101,22 @@ export function checkImport(j: unknown): { ok: true; data: GiftImport } | { ok: 
   for (const g of o.gifts) if (!g || typeof g.id !== 'string' || typeof g.code !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(g.date) || !(g.amount > 0) || !GIFT_KINDS.some((k) => k.k === g.kind)) return { ok: false, error: `รายการผิดรูปแบบ: ${JSON.stringify(g).slice(0, 80)}` }
   return { ok: true, data: { gifts: o.gifts, exts: Array.isArray(o.exts) ? o.exts : [] } }
 }
+
+/** ข้อความนำเข้าแบบวางทีละบรรทัด: "รหัส|วันที่|บาท|ประเภท|โครงการ|หมายเหตุ" · บรรทัดผู้ถวายภายนอก: "EXT|รหัส|ชื่อ|group(ถ้าเป็นกลุ่ม)" · หรือวาง JSON ทั้งไฟล์ก็ได้ */
+export function parseImportText(text: string): { ok: true; data: GiftImport } | { ok: false; error: string } {
+  const t = text.trim()
+  if (t.startsWith('{')) { try { return checkImport(JSON.parse(t)) } catch { return { ok: false, error: 'JSON ไม่ถูกต้อง (ข้อความอาจถูกตัด)' } } }
+  const gifts: DonorGift[] = [], exts: GiftImport['exts'] = [], seen = new Map<string, number>()
+  const lines = t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  for (let i = 0; i < lines.length; i++) {
+    const c = lines[i].split('|').map((x) => x.trim())
+    if (c[0] === 'EXT') { if (!/^X\d+$/.test(c[1] ?? '') || !c[2]) return { ok: false, error: `บรรทัด ${i + 1}: ผู้ถวายภายนอกผิดรูปแบบ` }; exts.push({ id: `dx:${c[1]}`, code: c[1], name: c[2], ...(c[3] === 'group' ? { group: true } : {}), updated: 0 }); continue }
+    const [code, date, baht, kindW, project, note] = c
+    const amount = parseBaht(baht ?? ''), kind = kindW ? kindOfWord(kindW) : null
+    if (!code || !/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || Number.isNaN(amount) || amount <= 0 || !kind) return { ok: false, error: `บรรทัด ${i + 1}: ผิดรูปแบบ (ขาดรหัส/วันที่/จำนวน/ประเภท) หรือข้อความถูกตัด` }
+    const k = `${code}:${date}:${amount}`, n = (seen.get(k) ?? 0) + 1; seen.set(k, n)
+    gifts.push({ id: `dg:${code}:x:${date}:${amount}:${n}`, updated: 0, code, date, amount, kind, src: 'xlsx', ...(project ? { project } : {}), ...(note ? { note } : {}) })
+  }
+  if (!gifts.length) return { ok: false, error: 'ไม่พบรายการ' }
+  return { ok: true, data: { gifts, exts } }
+}

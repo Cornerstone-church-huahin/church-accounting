@@ -4,7 +4,7 @@ import MoneyInput from './MoneyInput'
 import Sheet from './Sheet'
 import { can } from '../lib/access'
 import { useChurchMembers, useDonorExts, useDonorGifts, useIncome, useLoans } from '../lib/data'
-import { GIFT_KINDS, checkImport, giftId, projectTotals, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
+import { GIFT_KINDS, checkImport, parseImportText, giftId, projectTotals, guessKind, isMonthlyGiver, kindInfo, missingMonths, missingWeeks, parseGiftLines } from '../lib/donorGifts'
 import { useRole } from '../lib/members'
 import { be, fmtBaht, fmtDate, monthName, todayISO, weekRange } from '../lib/money'
 import type { DonorExt, DonorGift, GiftKind } from '../lib/types'
@@ -21,6 +21,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const members = useChurchMembers()
   const exts = useDonorExts()
   const [addExt, setAddExt] = useState(false)
+  const [pasteImp, setPasteImp] = useState(false)
   const [editExt, setEditExt] = useState(false)
   const income = useIncome(year)
   const loans = useLoans()
@@ -43,7 +44,9 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const importFile = async (f: File) => {
     let j: unknown
     try { j = JSON.parse(await f.text()) } catch { return setMsg('อ่านไฟล์ไม่ได้ (ไม่ใช่ JSON)') }
-    const r = checkImport(j)
+    runImport(checkImport(j))
+  }
+  const runImport = (r: ReturnType<typeof checkImport>) => {
     if (!r.ok) return setMsg(r.error)
     const have = new Set(store.items.filter((g) => !g.deleted).map((g) => g.id))
     const fresh = r.data.gifts.filter((g) => !have.has(g.id))
@@ -105,6 +108,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
           <label className="btn" style={{ marginTop: 8, display: 'inline-flex' }}>📥 นำเข้าไฟล์ประวัติการถวาย (.json)
             <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void importFile(f) }} />
           </label>
+          <button type="button" className="btn" style={{ marginTop: 6 }} onClick={() => setPasteImp(true)}>📋 วางข้อมูลนำเข้า (คัดลอกจากแชต)</button>
           <p className="small muted">นำเข้าเป็นประวัติ/รายงานเท่านั้น ไม่เปลี่ยนยอดเงินหมุนเวียน กองทุน หรือเงินยืม · รายการที่มีอยู่แล้วจะถูกข้าม</p>
           <h3 style={{ marginTop: 12 }}>ผู้ถวายที่มีประวัติแล้ว ({people.length})</h3>
           {people.length === 0 && <p className="empty">ยังไม่มีข้อมูล — ใส่รหัสสมาชิกแล้วเพิ่มรายการหรือวางข้อมูลได้เลย</p>}
@@ -170,6 +174,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
         </>
       )}
 
+      {pasteImp && <ImportPaste onClose={() => setPasteImp(false)} onRun={(r) => { setPasteImp(false); runImport(r) }} />}
       {addExt && <ExtForm code={newExtCode()} taken={new Set([...exts.items.filter((x) => !x.deleted).map((x) => x.code), ...store.items.filter((g) => !g.deleted).map((g) => g.code)])} onClose={() => setAddExt(false)} onSave={(x) => { exts.put([x]); setAddExt(false); setCode(x.code) }} />}
       {editExt && code && <ExtForm edit code={code} name={extOf(code)?.name ?? (code.startsWith('X') && !/^X\d+$/.test(code) ? code : '')} group={!!extOf(code)?.group} taken={new Set([...exts.items.filter((x) => !x.deleted).map((x) => x.code), ...store.items.filter((g) => !g.deleted).map((g) => g.code)])} onClose={() => setEditExt(false)} onSave={(x) => {
         if (x.code !== code) { store.put(store.items.filter((g) => g.code === code && !g.deleted).map((g) => ({ ...g, code: x.code, updated: 0 }))); const o = extOf(code); if (o) exts.put([{ ...o, deleted: true, updated: 0 }]) }
@@ -262,6 +267,19 @@ function ExtForm({ code: code0, name: name0 = '', group: group0 = false, edit, t
       <div className="field"><label htmlFor="ex-name">ชื่อ (ตามสลิปหรือชื่อกลุ่ม)</label><input id="ex-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น นาง ลภัสดา ว. หรือ กลุ่มอนุชน" /></div>
       <label className="small"><input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> เป็นกลุ่ม/โครงการ (ไม่ใช่บุคคล)</label>
       <div style={{ marginTop: 8 }}><button type="button" className="btn btn--gold" disabled={!name.trim() || !/^X\d+$/.test(code) || (code !== code0 && taken.has(code))} onClick={() => onSave({ id: `dx:${code}`, updated: 0, code, name: name.trim(), ...(group ? { group: true } : {}) })}>{edit ? 'บันทึก' : 'เพิ่ม'}</button></div>
+    </Sheet>
+  )
+}
+
+function ImportPaste({ onClose, onRun }: { onClose: () => void; onRun: (r: ReturnType<typeof checkImport>) => void }) {
+  const [text, setText] = useState('')
+  const r = useMemo(() => (text.trim() ? parseImportText(text) : null), [text])
+  return (
+    <Sheet title="วางข้อมูลนำเข้า" onClose={onClose}>
+      <p className="small muted">วางข้อความที่คัดลอกจากแชตได้ทีละชุด (วางต่อกันหลายครั้งได้ ระบบข้ามรายการที่ซ้ำ)</p>
+      <textarea className="input" rows={8} aria-label="ข้อมูลนำเข้า" value={text} onChange={(e) => setText(e.target.value)} />
+      {r && (r.ok ? <p className="small">อ่านได้ {r.data.gifts.length} รายการ รวม {fmtBaht(r.data.gifts.reduce((a, g) => a + g.amount, 0))} บาท · ผู้ถวายภายนอก {r.data.exts.length}</p> : <p className="note" role="alert">{r.error}</p>)}
+      <button type="button" className="btn btn--gold" disabled={!r || !r.ok} onClick={() => r && onRun(r)}>ตรวจและนำเข้า…</button>
     </Sheet>
   )
 }
