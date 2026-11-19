@@ -97,7 +97,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
     <section className="card" aria-label="รายงานการโอนถวายรายบุคคล">
       <div className="row row--between no-print"><button type="button" className="mini" onClick={code ? () => setCode('') : onBack}>‹ {code ? 'รายชื่อผู้ถวาย' : 'กลับ'}</button><span className="small muted">🔒 เห็นเฉพาะแอดมิน</span></div>
       <h2>🙏 รายงานการโอนถวายรายบุคคล</h2>
-      <p className="small" style={{ background: '#eef1f8', borderRadius: 8, padding: '4px 10px' }}>📊 รายงานเท่านั้น — ไม่กระทบยอดเงินหมุนเวียน กองทุน หรือเงินยืม</p>
+      <p className="small muted" style={{ margin: '2px 0' }}>📊 รายงานเท่านั้น ไม่กระทบยอดเงินจริง</p>
       {msg && <p className="note" role="status" onClick={() => setMsg('')}>{msg}</p>}
 
       {!code && (
