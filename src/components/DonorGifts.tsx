@@ -21,6 +21,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
   const members = useChurchMembers()
   const exts = useDonorExts()
   const [addExt, setAddExt] = useState(false)
+  const [editExt, setEditExt] = useState(false)
   const income = useIncome(year)
   const loans = useLoans()
   const [code, setCode] = useState('')
@@ -102,7 +103,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
         <>
           <div className="row" style={{ gap: 10, alignItems: 'center', margin: '6px 0' }}>
             <MemberAvatar path={m?.photoPath} name={nameOf(code)} size={52} />
-            <div><b style={{ fontSize: '1.1rem' }}>{nameOf(code)}</b>{m?.nick ? ` (${m.nick})` : ''}<br /><small className="muted">รหัส {code}{m ? '' : extOf(code) ? ` · ผู้ถวายภายนอก${extOf(code)?.group ? ' (กลุ่ม)' : ''}` : ' · ไม่พบในทะเบียน'}</small>{extOf(code) && <><br /><button type="button" className="mini no-print" onClick={() => moveCode(code)}>🔁 ย้ายเป็นรหัสสมาชิก…</button></>}</div>
+            <div><b style={{ fontSize: '1.1rem' }}>{nameOf(code)}</b>{m?.nick ? ` (${m.nick})` : ''}<br /><small className="muted">รหัส {code}{m ? '' : extOf(code) ? ` · ผู้ถวายภายนอก${extOf(code)?.group ? ' (กลุ่ม)' : ''}` : ' · ไม่พบในทะเบียน'}</small>{!m && <><br /><button type="button" className="mini no-print" onClick={() => setEditExt(true)}>✎ แก้ชื่อ/รหัส</button> <button type="button" className="mini no-print" onClick={() => moveCode(code)}>🔁 ย้ายเป็นรหัสสมาชิก…</button></>}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
             {[['🙏 ยอดถวายรวม', fmtBaht(sum(gifts)), '#e3f4ea'], ['🔢 จำนวนครั้ง', String(gifts.length), '#e6eefc'], ['🤝 ให้ยืม', fmtBaht(sum(lent)), '#efe6f9']].map(([l, v, c]) => (
@@ -141,6 +142,10 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
       )}
 
       {addExt && <ExtForm code={newExtCode()} taken={new Set([...exts.items.filter((x) => !x.deleted).map((x) => x.code), ...store.items.filter((g) => !g.deleted).map((g) => g.code)])} onClose={() => setAddExt(false)} onSave={(x) => { exts.put([x]); setAddExt(false); setCode(x.code) }} />}
+      {editExt && code && <ExtForm edit code={code} name={extOf(code)?.name ?? (code.startsWith('X') && !/^X\d+$/.test(code) ? code : '')} group={!!extOf(code)?.group} taken={new Set([...exts.items.filter((x) => !x.deleted).map((x) => x.code), ...store.items.filter((g) => !g.deleted).map((g) => g.code)])} onClose={() => setEditExt(false)} onSave={(x) => {
+        if (x.code !== code) { store.put(store.items.filter((g) => g.code === code && !g.deleted).map((g) => ({ ...g, code: x.code, updated: 0 }))); const o = extOf(code); if (o) exts.put([{ ...o, deleted: true, updated: 0 }]) }
+        exts.put([{ ...x, id: `dx:${x.code}` }]); setEditExt(false); setCode(x.code); setMsg('แก้ไขแล้ว')
+      }} />}
       {edit && <GiftForm g={edit === 'new' ? null : edit} code={code} onClose={() => setEdit(null)} onSave={save} onDelete={del} />}
       {paste && <PasteSheet code={code} existing={store.items} onClose={() => setPaste(false)} onSave={(rows) => { const ok = store.put(rows); setPaste(false); setMsg(ok ? `เพิ่ม ${rows.length} รายการแล้ว` : 'บันทึกไม่ได้ (ไม่มีสิทธิ์)') }} />}
     </section>
@@ -215,17 +220,17 @@ function PasteSheet({ code, existing, onClose, onSave }: { code: string; existin
   )
 }
 
-function ExtForm({ code: code0, taken, onClose, onSave }: { code: string; taken: Set<string>; onClose: () => void; onSave: (x: DonorExt) => void }) {
+function ExtForm({ code: code0, name: name0 = '', group: group0 = false, edit, taken, onClose, onSave }: { code: string; name?: string; group?: boolean; /** true = แก้ของเดิม */ edit?: boolean; taken: Set<string>; onClose: () => void; onSave: (x: DonorExt) => void }) {
   const [code, setCode] = useState(code0)
-  const [name, setName] = useState('')
-  const [group, setGroup] = useState(false)
+  const [name, setName] = useState(name0)
+  const [group, setGroup] = useState(group0)
   return (
-    <Sheet title="เพิ่มผู้ถวายภายนอก" onClose={onClose}>
+    <Sheet title={edit ? 'แก้ชื่อ/รหัสผู้ถวายภายนอก' : 'เพิ่มผู้ถวายภายนอก'} onClose={onClose}>
       <p className="small muted">สำหรับคนหรือกลุ่มที่ยังไม่มีรหัสสมาชิก ระบบให้รหัสภายในเรียงตามลำดับ X001, X002, … (แก้เองได้ด้านล่าง) ไปก่อน ภายหลังกด “ย้ายเป็นรหัสสมาชิก” ได้ ประวัติย้ายตามทั้งหมด</p>
-      <div className="field"><label htmlFor="ex-code">รหัสภายใน</label><input id="ex-code" className="input" value={code} onChange={(e) => setCode(e.target.value.trim().toUpperCase())} />{taken.has(code) && <small className="note">รหัสนี้ถูกใช้แล้ว</small>}</div>
+      <div className="field"><label htmlFor="ex-code">รหัสภายใน</label><input id="ex-code" className="input" value={code} onChange={(e) => setCode(e.target.value.trim().toUpperCase())} />{code !== code0 && taken.has(code) && <small className="note">รหัสนี้ถูกใช้แล้ว</small>}</div>
       <div className="field"><label htmlFor="ex-name">ชื่อ (ตามสลิปหรือชื่อกลุ่ม)</label><input id="ex-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น นาง ลภัสดา ว. หรือ กลุ่มอนุชน" /></div>
       <label className="small"><input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> เป็นกลุ่ม/โครงการ (ไม่ใช่บุคคล)</label>
-      <div style={{ marginTop: 8 }}><button type="button" className="btn btn--gold" disabled={!name.trim() || !/^X\d+$/.test(code) || taken.has(code)} onClick={() => onSave({ id: `dx:${code}`, updated: 0, code, name: name.trim(), ...(group ? { group: true } : {}) })}>เพิ่ม</button></div>
+      <div style={{ marginTop: 8 }}><button type="button" className="btn btn--gold" disabled={!name.trim() || !/^X\d+$/.test(code) || (code !== code0 && taken.has(code))} onClick={() => onSave({ id: `dx:${code}`, updated: 0, code, name: name.trim(), ...(group ? { group: true } : {}) })}>{edit ? 'บันทึก' : 'เพิ่ม'}</button></div>
     </Sheet>
   )
 }
