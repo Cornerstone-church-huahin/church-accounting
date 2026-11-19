@@ -31,4 +31,8 @@ describe('donorGifts', () => {
     const w = ['2030-01-06', '2030-01-13', '2030-01-20', '2030-01-27'].map((date) => ({ date, kind: 'weekly' as const }))
     expect(isMonthlyGiver(w)).toBe(false)
   })
+  it('ผู้ถวายขอบพระคุณทุกสัปดาห์: ใช้ขอบพระคุณตรวจสัปดาห์ที่ขาด', () => {
+    const g = [{ date: '2030-01-06', kind: 'thanks' as const }, { date: '2030-01-20', kind: 'thanks' as const }]
+    expect(missingWeeks(g, '2030-01-21')).toEqual(['2030-01-13'])
+  })
 })
