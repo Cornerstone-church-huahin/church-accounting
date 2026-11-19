@@ -108,7 +108,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
         </div>
       )}
       {!code && tab === 'mem' && <DonorBoard gifts={all} members={members.items} nameOf={nameOf} onOpen={(c) => setCode(c)} />}
-      {!code && tab === 'rep' && <DonorReport gifts={all} nameOf={nameOf} />}
+      {!code && tab === 'rep' && <DonorReport gifts={all} nameOf={nameOf} isExt={(c) => !memberOf(c)} />}
 
       {!code && tab === 'rec' && (
         <>
