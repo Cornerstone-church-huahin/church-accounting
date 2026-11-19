@@ -116,7 +116,7 @@ export default function DonorGifts({ year, onBack }: { year: number; onBack: () 
 
           {miss.length > 0 && (
             <>
-              <h3 style={{ marginTop: 12, color: '#c4332a' }}>⚠ สัปดาห์ที่ไม่พบสลิปประจำสัปดาห์ ({miss.length})</h3>
+              <h3 style={{ marginTop: 12, color: '#c4332a' }}>⚠ สัปดาห์ที่ไม่พบสลิปถวายประจำ (ประจำสัปดาห์/สิบลด) ({miss.length})</h3>
               <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{[...miss].reverse().map((d) => <span key={d} className="small" style={{ background: '#fdecea', color: '#a1281f', borderRadius: 999, padding: '2px 10px' }}>{weekRange(d)}</span>)}</div>
               <p className="small muted">อาจถวายเงินสดหรือยังไม่ได้ส่งสลิปมา</p>
             </>
@@ -187,7 +187,7 @@ function PasteSheet({ code, existing, onClose, onSave }: { code: string; existin
   const fresh = rows.map((r) => ({ ...r, id: giftId(code, r), updated: 0 }) as DonorGift).filter((r) => !known.has(r.id))
   return (
     <Sheet title="วางข้อมูลหลายรายการ" onClose={onClose}>
-      <p className="small muted">หนึ่งบรรทัดต่อหนึ่งรายการ: วันที่(ปี ค.ศ.) เวลา จำนวน ประเภท [เลขที่รายการ] [หมายเหตุ] · ประเภท = weekly / thanks / building / loan / other</p>
+      <p className="small muted">หนึ่งบรรทัดต่อหนึ่งรายการ: วันที่(ปี ค.ศ.) เวลา จำนวน ประเภท [เลขที่รายการ] [หมายเหตุ] · ประเภท = weekly / tithe / thanks / building / loan / other</p>
       <textarea className="input" rows={8} aria-label="ข้อมูลที่วาง" placeholder={EXAMPLE} value={text} onChange={(e) => setText(e.target.value)} />
       {text.trim() && <p className="small">อ่านได้ {rows.length} รายการ · ใหม่ {fresh.length}{rows.length - fresh.length > 0 ? ` · ซ้ำกับที่มีอยู่ ${rows.length - fresh.length} (ข้าม)` : ''}{errors.length ? ` · ผิดรูปแบบ ${errors.length}` : ''}</p>}
       {errors.map((e) => <p key={e} className="note small" role="alert">{e}</p>)}

@@ -10,6 +10,10 @@ describe('donorGifts', () => {
     expect(r.rows[1]).toMatchObject({ time: '09:30', amount: 500000, kind: 'building', note: 'หมายเหตุทดสอบ' })
     expect(r.errors).toHaveLength(1)
   })
+  it('สิบลดนับเป็นถวายประจำ', () => {
+    expect(parseGiftLines('2030-01-06 10:00 1,000 สิบลด', '0000').rows[0].kind).toBe('tithe')
+    expect(missingWeeks([{ date: '2030-01-06', kind: 'weekly' as const }, { date: '2030-01-13', kind: 'tithe' as const }], '2030-01-14')).toEqual([])
+  })
   it('guessKind', () => { expect(guessKind(30000)).toBe('weekly'); expect(guessKind(50000)).toBe('thanks') })
   it('missingWeeks: อาทิตย์ที่ไม่มีประจำสัปดาห์', () => {
     const g = [{ date: '2030-01-06', kind: 'weekly' as const }, { date: '2030-01-20', kind: 'weekly' as const }, { date: '2030-01-27', kind: 'thanks' as const }]
