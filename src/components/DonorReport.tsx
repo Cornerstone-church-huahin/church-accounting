@@ -3,7 +3,6 @@ import PdfTools from './PdfTools'
 import ScaledPage from './ScaledPage'
 import { GIFT_KINDS, filterGifts, kindInfo, rankDonors, type RankKey } from '../lib/donorGifts'
 import { useSettings } from '../lib/data'
-import { shareText } from '../lib/serviceReport'
 import { be, fmtBaht, fmtDate, monthName, todayISO } from '../lib/money'
 import { paginate } from '../lib/paginate'
 import type { DonorGift, GiftKind } from '../lib/types'
@@ -27,7 +26,6 @@ export default function DonorReport({ gifts, nameOf }: { gifts: DonorGift[]; nam
   const [sort, setSort] = useState<RankKey>('total')
   const desc = true
   const [codeOnly, setCodeOnly] = useState(false) // ติ๊ก = แสดงเฉพาะรหัส (ตัวใหญ่) ไม่แสดงชื่อ · มีผลทั้งหน้าจอและตอนแชร์
-  const [msg, setMsg] = useState('')
   const refs = useRef<(HTMLDivElement | null)[]>([])
 
   const range = period === 'year' ? { from: `${year}-01-01`, to: `${year}-12-31` } : period === 'month' ? { from: `${month}-01`, to: `${month}-31` } : period === 'custom' ? { from: from || undefined, to: to || undefined } : {}
@@ -35,17 +33,12 @@ export default function DonorReport({ gifts, nameOf }: { gifts: DonorGift[]; nam
   const fl = useMemo(() => filterGifts(all, { ...range, ...(kinds.length ? { kinds } : {}), ...(project ? { project } : {}), ...(codes ? { codes } : {}) }), [all, range.from, range.to, kinds, project, codes]) // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => rankDonors(fl, nameOf, sort, desc), [fl, nameOf, sort, desc])
   const total = fl.reduce((s, g) => s + g.amount, 0)
-  const label = (r: { code: string; name: string }) => (codeOnly ? `รหัส ${r.code}` : `${r.name} (${r.code})`)
   const periodText = period === 'all' ? 'ทุกช่วงเวลา' : period === 'year' ? `ปี ${be(Number(year))}` : period === 'month' ? `${monthName(Number(month.slice(5)))} ${be(Number(month.slice(0, 4)))}` : `${from ? fmtDate(from) : 'เริ่มต้น'} – ${to ? fmtDate(to) : 'ปัจจุบัน'}`
   const kindText = !kinds.length || kinds.length === GIFT_KINDS.length ? 'ทุกประเภท' : kinds.map((k) => kindInfo(k).short).join(' · ')
   const filterText = `${periodText} · ${kindText}${project ? ` · โครงการ ${project}` : ''}${q.trim() ? ` · ค้น “${q.trim()}”` : ''}`
   const pages = paginate(rows, PER)
 
-  const copy = async () => {
-    const lines = [`รายงานการถวายรายบุคคล · ${filterText}`, `${rows.length} คน · ${fl.length} ครั้ง · รวม ${fmtBaht(total)} บาท`, ...rows.map((r, i) => `${i + 1}. ${label(r)} — ${r.n} ครั้ง ${fmtBaht(r.total)}`)]
-    const r = await shareText('รายงานการถวายรายบุคคล', lines.join('\n'))
-    setMsg(r === 'copied' ? 'คัดลอกแล้ว วางในแชตได้เลย' : r === 'failed' ? 'แชร์/คัดลอกไม่สำเร็จ' : '')
-  }
+
 
   return (
     <div className="stack">
@@ -60,9 +53,7 @@ export default function DonorReport({ gifts, nameOf }: { gifts: DonorGift[]; nam
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', fmtBaht(total, { dec: false }), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{v}</div></div>)}
       </div>
-      {msg && <p className="note" role="status" onClick={() => setMsg('')}>{msg}</p>}
-      <div className="row row--between no-print" style={{ gap: 6, alignItems: 'center' }}>
-        <button type="button" className="mini" onClick={() => void copy()}>📤 แชร์/คัดลอกเป็นข้อความ</button>
+      <div className="no-print">
         <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center', fontWeight: 700 }}><input type="checkbox" checked={codeOnly} onChange={(e) => setCodeOnly(e.target.checked)} style={{ width: '1.2rem', height: '1.2rem' }} /> แสดงเฉพาะรหัส (ซ่อนชื่อ)</label>
       </div>
       <PdfTools compact mode="full" els={() => refs.current.slice(0, pages.length).filter((x): x is HTMLDivElement => !!x)} file="รายงานการถวายรายบุคคล.pdf" title="รายงานการถวายรายบุคคล" label="รายงานการถวายรายบุคคล" />
