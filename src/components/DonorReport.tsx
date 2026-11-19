@@ -13,7 +13,7 @@ type Period = 'all' | 'year' | 'month' | 'custom'
 const keep: React.CSSProperties = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties
 
 /** รายงานการถวายรายบุคคล: กรองตามช่วงเวลา/ประเภท/โครงการ/ชื่อ · เรียงตามยอด จำนวนครั้ง ชื่อ ล่าสุด · แชร์เป็น PDF/รูป/ข้อความ (แชร์ออกนอกแอปซ่อนชื่อเป็นรหัสโดยค่าเริ่มต้น) */
-export default function DonorReport({ gifts, nameOf }: { gifts: DonorGift[]; nameOf: (c: string) => string }) {
+export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift[]; nameOf: (c: string) => string; /** ไม่ใช่สมาชิกในทะเบียน (ผู้ถวายภายนอก) */ isExt: (c: string) => boolean }) {
   const church = useSettings().settings.churchName.split(' ')[0]
   const today = todayISO()
   const all = useMemo(() => gifts.filter((g) => !g.deleted), [gifts])
@@ -73,7 +73,7 @@ export default function DonorReport({ gifts, nameOf }: { gifts: DonorGift[]; nam
                 {pg.map((r, i) => (
                   <tr key={r.code} style={{ ...keep, background: i % 2 ? '#f3f6fc' : '#fff', borderBottom: '1px solid #d6dbe8' }}>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{pi * PER + i + 1}</td>
-                    <td style={{ padding: '4px 6px', fontWeight: 700, maxWidth: 360 }}>{codeOnly ? <span style={{ fontSize: 20 }}>สมาชิกเลขที่ <span style={{ fontSize: 24, letterSpacing: 1 }}>{r.code}</span></span> : <>{r.name} <span style={{ fontSize: 11, fontWeight: 400, color: '#555' }}>รหัส {r.code}</span></>}<div style={{ fontWeight: 400, fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>{Object.entries(r.byKind).map(([k, v]) => `${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`).join(' · ')}</div></td>
+                    <td style={{ padding: '4px 6px', fontWeight: 700, maxWidth: 360 }}>{codeOnly ? <span style={{ fontSize: 20 }}>{isExt(r.code) ? 'ผู้ถวายเลขที่' : 'สมาชิกเลขที่'} <span style={{ fontSize: 24, letterSpacing: 1 }}>{r.code}</span></span> : <>{r.name} <span style={{ fontSize: 11, fontWeight: 400, color: '#555' }}>รหัส {r.code}</span></>}<div style={{ fontWeight: 400, fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>{Object.entries(r.byKind).map(([k, v]) => `${kindInfo(k as GiftKind).short} ${fmtBaht(v ?? 0, { dec: false })}`).join(' · ')}</div></td>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{r.n}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{fmtBaht(r.total)}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'center' }}>{r.last ? fmtDate(r.last) : ''}</td>
