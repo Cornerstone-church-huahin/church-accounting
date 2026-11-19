@@ -44,7 +44,7 @@ export function missingWeeks(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>
   const first = sheetSunday(live.map((g) => g.date).sort()[0])
   const thisSun = sheetSunday(today)
   const last = thisSun > today ? addDays(thisSun, -7) : thisSun
-  const have = new Set(live.filter((g) => g.kind === 'weekly' || g.kind === 'tithe').map((g) => sheetSunday(g.date)))
+  const have = new Set(regularOf(live).map((g) => sheetSunday(g.date)))
   const out: string[] = []
   for (let d = first; d <= last; d = addDays(d, 7)) if (!have.has(d)) out.push(d)
   return out
@@ -53,16 +53,21 @@ export function missingWeeks(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>
 export const giftId = (code: string, g: { ref?: string; date: string; time?: string; amount: number }) => `dg:${code}:${g.ref ?? `${g.date}${g.time ?? ''}-${g.amount}`}`
 
 const isRegular = (g: Pick<DonorGift, 'kind' | 'deleted'>) => !g.deleted && (g.kind === 'weekly' || g.kind === 'tithe')
+/** การถวายที่ใช้ตรวจความสม่ำเสมอ: ประจำสัปดาห์/สิบลด · ถ้าผู้ถวายคนนั้นไม่มีสองประเภทนี้เลย (เช่น ถวายขอบพระคุณทุกสัปดาห์) ใช้ขอบพระคุณแทน */
+function regularOf<T extends Pick<DonorGift, 'kind' | 'deleted'>>(gifts: T[]): T[] {
+  const r = gifts.filter(isRegular)
+  return r.length ? r : gifts.filter((g) => !g.deleted && g.kind === 'thanks')
+}
 /** ผู้ถวายแบบรายเดือน: การถวายประจำ (ประจำสัปดาห์/สิบลด) มีไม่เกิน ~1 ครั้งต่อเดือนที่มีข้อมูล → ตรวจเป็นเดือน ไม่ใช่เป็นสัปดาห์ */
 export function isMonthlyGiver(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>[]): boolean {
-  const reg = gifts.filter(isRegular)
+  const reg = regularOf(gifts)
   if (reg.length < 3) return false
   const months = new Set(reg.map((g) => g.date.slice(0, 7)))
   return reg.length <= months.size * 1.3
 }
 /** เดือนที่จบแล้ว (YYYY-MM) ตั้งแต่เดือนแรกที่มีการถวายประจำ ที่ไม่พบการถวายประจำ — ไม่นับเดือนปัจจุบันที่ยังไม่จบ */
 export function missingMonths(gifts: Pick<DonorGift, 'date' | 'kind' | 'deleted'>[], today = todayISO()): string[] {
-  const reg = gifts.filter(isRegular)
+  const reg = regularOf(gifts)
   if (!reg.length) return []
   const have = new Set(reg.map((g) => g.date.slice(0, 7)))
   const first = reg.map((g) => g.date.slice(0, 7)).sort()[0], cur = today.slice(0, 7)
