@@ -151,7 +151,7 @@ export async function shareBlob(blob: Blob, filename: string, title: string): Pr
 /** แชร์หลายหน้าเป็นรูป PNG (เมนูแชร์ของเครื่อง · แชร์ไม่ได้ → ดาวน์โหลดรูปให้แทน) */
 export async function shareImages(els: HTMLElement[], base: string, title: string, strip = false): Promise<'shared' | 'cancelled' | 'downloaded'> {
   const files: File[] = []
-  for (let i = 0; i < els.length; i++) files.push(new File([await buildPageImage(els[i], els[i].classList.contains('a4page--sheet') ? 1123 : 794, strip)], `${base}${els.length > 1 ? `-${i + 1}` : ''}.png`, { type: 'image/png' }))
+  for (let i = 0; i < els.length; i++) files.push(new File([await buildPageImage(els[i], els[i].classList.contains('a4page--sheet') || els[i].classList.contains('a4page--land') ? 1123 : 794, strip)], `${base}${els.length > 1 ? `-${i + 1}` : ''}.png`, { type: 'image/png' }))
   if (!files.length) return 'cancelled'
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
     try { await navigator.share({ files, title }); return 'shared' } catch (e) { if ((e as Error).name === 'AbortError') return 'cancelled' }
