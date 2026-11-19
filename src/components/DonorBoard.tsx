@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import MemberAvatar from './MemberAvatar'
-import MultiPick from './MultiPick'
 import { GIFT_KINDS, filterGifts, kindInfo, rankDonors, type RankKey } from '../lib/donorGifts'
-import { be, fmtBaht, fmtDate, todayISO } from '../lib/money'
+import { fmtBaht, fmtDate, todayISO } from '../lib/money'
 import type { ChurchMember, DonorGift, GiftKind } from '../lib/types'
 
 const NAVY = '#14264a'
@@ -12,18 +11,15 @@ const MEDAL = ['🥇', '🥈', '🥉']
 export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: DonorGift[]; members: ChurchMember[]; nameOf: (c: string) => string; onOpen: (code: string) => void }) {
   const today = todayISO()
   const all = useMemo(() => gifts.filter((g) => !g.deleted), [gifts])
-  const years = useMemo(() => [...new Set(all.map((g) => g.date.slice(0, 4)))].sort().reverse(), [all])
-  const [year, setYear] = useState('')
-  const [kinds, setKinds] = useState<GiftKind[]>(GIFT_KINDS.filter((k) => k.k !== 'loan').map((k) => k.k))
-  const [group, setGroup] = useState('')
-  const [status, setStatus] = useState('')
-  const [age, setAge] = useState<'' | 'new' | 'old'>('')
+  const year = '' // ตัวกรองอื่น (ปี กลุ่ม สถานะ เก่า/ใหม่ ประเภท) ปิดไว้ก่อน รอกำหนดเพิ่ม
+  const kinds: GiftKind[] = GIFT_KINDS.filter((k) => k.k !== 'loan').map((k) => k.k)
+  const group = '', status = ''
+  const age = '' as '' | 'new' | 'old'
   const [sort, setSort] = useState<RankKey>('total')
+  const [desc, setDesc] = useState(true)
   const [top, setTop] = useState(30)
 
   const byCode = useMemo(() => new Map(members.filter((m) => !m.deleted && m.code).map((m) => [m.code as string, m])), [members])
-  const groups = useMemo(() => [...new Set(members.filter((m) => !m.deleted && m.group).map((m) => m.group as string))].sort(), [members])
-  const statuses = useMemo(() => [...new Set(members.filter((m) => !m.deleted && m.status).map((m) => m.status as string))].sort(), [members])
   /** ใหม่ = เข้าร่วมภายใน 12 เดือนล่าสุด */
   const yearAgo = `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`
   const pass = (code: string) => {
@@ -34,7 +30,7 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
     return true
   }
   const fl = useMemo(() => filterGifts(all, { ...(kinds.length ? { kinds } : {}), ...(year ? { from: `${year}-01-01`, to: `${year}-12-31` } : {}) }).filter((g) => pass(g.code)), [all, kinds, year, group, status, age, byCode]) // eslint-disable-line react-hooks/exhaustive-deps
-  const rows = useMemo(() => rankDonors(fl, nameOf, sort, sort !== 'name'), [fl, nameOf, sort])
+  const rows = useMemo(() => rankDonors(fl, nameOf, sort, desc), [fl, nameOf, sort, desc])
   const total = fl.reduce((s, g) => s + g.amount, 0)
   const maxTotal = Math.max(1, ...rows.map((r) => r.total))
   const maxN = Math.max(1, ...rows.map((r) => r.n))
@@ -42,15 +38,14 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
 
   return (
     <div className="stack">
-      <div className="card" style={{ background: '#f6f8fc' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 8 }}>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-year">ช่วงเวลา</label><select id="bd-year" className="input" value={year} onChange={(e) => setYear(e.target.value)}><option value="">ทุกช่วงเวลา</option>{years.map((y) => <option key={y} value={y}>ปี {be(Number(y))}</option>)}</select></div>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-group">กลุ่ม</label><select id="bd-group" className="input" value={group} onChange={(e) => setGroup(e.target.value)}><option value="">ทุกกลุ่ม</option>{groups.map((g) => <option key={g} value={g}>{g}</option>)}<option value="ผู้ถวายภายนอก">ผู้ถวายภายนอก</option></select></div>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-status">สถานะสมาชิก</label><select id="bd-status" className="input" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">ทุกสถานะ</option>{statuses.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-age">เก่า / ใหม่</label><select id="bd-age" className="input" value={age} onChange={(e) => setAge(e.target.value as '' | 'new' | 'old')}><option value="">ทั้งหมด</option><option value="old">สมาชิกเก่า</option><option value="new">สมาชิกใหม่ (ไม่เกิน 1 ปี)</option></select></div>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-kind">ประเภทการถวาย</label><MultiPick id="bd-kind" title="ประเภทการถวาย" options={GIFT_KINDS.map((k) => ({ value: k.k, label: k.label }))} value={kinds} onChange={(v) => setKinds(v as GiftKind[])} empty="— เลือกประเภท —" allLabel="ทุกประเภท (รวมให้ยืม)" /></div>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="bd-sort">เรียงตาม</label><select id="bd-sort" className="input" value={sort} onChange={(e) => setSort(e.target.value as RankKey)}><option value="total">ยอดเงิน (มาก → น้อย)</option><option value="count">จำนวนครั้ง (มาก → น้อย)</option><option value="last">ถวายล่าสุด (ใหม่ → เก่า)</option></select></div>
-        </div>
+      <div className="field" style={{ margin: 0 }}>
+        <label htmlFor="bd-sort">เรียงลำดับ</label>
+        <select id="bd-sort" className="input" value={`${sort}-${desc ? 'd' : 'a'}`} onChange={(e) => { const [k, d] = e.target.value.split('-'); setSort(k as RankKey); setDesc(d === 'd') }}>
+          <option value="total-d">จำนวนเงิน (มาก → น้อย)</option>
+          <option value="total-a">จำนวนเงิน (น้อย → มาก)</option>
+          <option value="count-d">จำนวนครั้ง (มาก → น้อย)</option>
+          <option value="count-a">จำนวนครั้ง (น้อย → มาก)</option>
+        </select>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
