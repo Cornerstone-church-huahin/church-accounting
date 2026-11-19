@@ -39,12 +39,10 @@ export default function DonorBoard({ gifts, members, nameOf, onOpen }: { gifts: 
   return (
     <div className="stack">
       <div className="field" style={{ margin: 0 }}>
-        <label htmlFor="bd-sort">เรียงลำดับ</label>
-        <select id="bd-sort" className="input" value={`${sort}-${desc ? 'd' : 'a'}`} onChange={(e) => { const [k, d] = e.target.value.split('-'); setSort(k as RankKey); setDesc(d === 'd') }}>
-          <option value="total-d">จำนวนเงิน (มาก → น้อย)</option>
-          <option value="total-a">จำนวนเงิน (น้อย → มาก)</option>
-          <option value="count-d">จำนวนครั้ง (มาก → น้อย)</option>
-          <option value="count-a">จำนวนครั้ง (น้อย → มาก)</option>
+        <label htmlFor="bd-sort">เรียงตาม (มาก → น้อย)</label>
+        <select id="bd-sort" className="input" value={sort} onChange={(e) => { setSort(e.target.value as RankKey); setDesc(true) }}>
+          <option value="total">จำนวนเงิน</option>
+          <option value="count">จำนวนครั้ง</option>
         </select>
       </div>
 
