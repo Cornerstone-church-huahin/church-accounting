@@ -53,8 +53,17 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
 
   return (
     <div className="stack">
-      <div className="card" style={{ background: '#f6f8fc' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 8 }}>
+      <div className="field" style={{ margin: 0 }}>
+        <label htmlFor="rp-sort">เรียงตาม</label>
+        <select id="rp-sort" className="input" value={sort} onChange={(e) => { const k = e.target.value as RankKey; setSort(k); setDesc(k !== 'name') }}>
+          <option value="total">จำนวนเงิน (มาก → น้อย)</option><option value="count">จำนวนครั้ง (มาก → น้อย)</option>
+          <option value="name">ชื่อ (ก → ฮ)</option><option value="last">ถวายล่าสุด (ใหม่ → เก่า)</option>
+        </select>
+      </div>
+      <input id="rp-q" className="input" aria-label="ค้นชื่อหรือรหัส" placeholder="🔎 ค้นชื่อ/รหัส" value={q} onChange={(e) => setQ(e.target.value)} />
+      <details className="card" style={{ background: '#f6f8fc', margin: 0 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>⚙ ตัวกรองเพิ่มเติม (ช่วงเวลา · ประเภท · โครงการ · การแสดงชื่อ)</summary>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 8, marginTop: 8 }}>
           <div className="field" style={{ margin: 0 }}><label htmlFor="rp-period">ช่วงเวลา</label>
             <select id="rp-period" className="input" value={period} onChange={(e) => setPeriod(e.target.value as Period)}><option value="all">ทั้งหมด</option><option value="year">รายปี</option><option value="month">รายเดือน</option><option value="custom">กำหนดเอง</option></select></div>
           {period === 'year' && <div className="field" style={{ margin: 0 }}><label htmlFor="rp-year">ปี</label><select id="rp-year" className="input" value={year} onChange={(e) => setYear(e.target.value)}>{years.map((y) => <option key={y} value={y}>{be(Number(y))}</option>)}</select></div>}
@@ -64,18 +73,10 @@ export default function DonorReport({ gifts, nameOf, isExt }: { gifts: DonorGift
             <MultiPick id="rp-kind" title="ประเภทการถวาย" options={GIFT_KINDS.map((k) => ({ value: k.k, label: k.label }))} value={kinds} onChange={(v) => setKinds(v as GiftKind[])} empty="— เลือกประเภท —" allLabel="ทุกประเภท (รวมให้ยืม)" /></div>
           {projects.length > 0 && <div className="field" style={{ margin: 0 }}><label htmlFor="rp-proj">โครงการ</label>
             <select id="rp-proj" className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">ทุกโครงการ</option>{projects.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>}
-          <div className="field" style={{ margin: 0 }}><label htmlFor="rp-sort">เรียงตาม</label>
-            <select id="rp-sort" className="input" value={`${sort}-${desc ? 'd' : 'a'}`} onChange={(e) => { const [k, d] = e.target.value.split('-'); setSort(k as RankKey); setDesc(d === 'd') }}>
-              <option value="total-d">ยอดเงิน (มาก → น้อย)</option><option value="total-a">ยอดเงิน (น้อย → มาก)</option>
-              <option value="count-d">จำนวนครั้ง (มาก → น้อย)</option><option value="count-a">จำนวนครั้ง (น้อย → มาก)</option>
-              <option value="name-a">ชื่อ (ก → ฮ)</option><option value="name-d">ชื่อ (ฮ → ก)</option>
-              <option value="last-d">ถวายล่าสุด (ใหม่ → เก่า)</option><option value="last-a">ถวายล่าสุด (เก่า → ใหม่)</option>
-            </select></div>
-          <div className="field" style={{ margin: 0 }}><label htmlFor="rp-q">ค้นชื่อ/รหัส</label><input id="rp-q" className="input" placeholder="พิมพ์ชื่อหรือรหัส" value={q} onChange={(e) => setQ(e.target.value)} /></div>
           <div className="field" style={{ margin: 0 }}><label htmlFor="rp-names">การแสดงชื่อ</label>
             <select id="rp-names" className="input" value={names ? 'name' : 'code'} onChange={(e) => setNames(e.target.value === 'name')}><option value="code">แสดงเป็นรหัสสมาชิก (ปลอดภัยตอนแชร์)</option><option value="name">แสดงชื่อจริง</option></select></div>
         </div>
-      </div>
+      </details>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {[['👥 ผู้ถวาย', `${rows.length} คน`, '#e6eefc'], ['🔢 ครั้ง', `${fl.length}`, '#e3f4ea'], ['💰 ยอดรวม', fmtBaht(total, { dec: false }), '#fdecd8']].map(([l, v, c]) => <div key={l} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', background: c, color: NAVY, borderRadius: 12, padding: '6px 8px', textAlign: 'center' }}><small>{l}</small><div style={{ fontWeight: 800, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{v}</div></div>)}
